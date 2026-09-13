@@ -164,6 +164,7 @@ class DepositMarkPaidTest extends TestCase
         $this->assertNull($deposit->user_marked_paid_at);
         $this->assertFalse($deposit->userHasMarkedPaid());
         $this->assertTrue($deposit->canUserMarkPaid());
+        $this->assertTrue($deposit->canUserCancel());
         $this->assertFalse(DepositRequest::query()->whereUserMarkedPaidAtIsRecorded()->whereKey($deposit->id)->exists());
 
         $this->actingAs($user)

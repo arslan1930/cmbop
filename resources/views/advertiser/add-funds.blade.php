@@ -131,6 +131,13 @@
                             @elseif($deposit->userHasMarkedPaid())
                                 <span class="small text-success align-self-center"><i class="fa fa-check-circle me-1"></i> Payment reported</span>
                             @endif
+                            @if($deposit->canUserCancel())
+                                <button type="button" class="btn btn-sm btn-outline-danger cancel-deposit-btn"
+                                        data-cancel-url="{{ route('advertiser.add-funds.cancel', $deposit) }}"
+                                        data-ref="{{ $pendingRef }}">
+                                    Cancel
+                                </button>
+                            @endif
                         </div>
                     </li>
                 @endforeach
@@ -347,6 +354,9 @@
                                 </a>
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="invoiceReadyMarkPaid">
                                     <i class="fa fa-check me-1"></i> I paid
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="invoiceReadyCancel">
+                                    Cancel invoice
                                 </button>
                                 <button type="button" class="btn btn-sm btn-cta-tertiary" id="invoiceChangeBtn">
                                     Change amount or method
@@ -1060,6 +1070,12 @@
                     <i class="fa fa-check me-1"></i> I paid</button>`;
             } else if (row.user_marked_paid) {
                 actions += `<span class="small text-success"><i class="fa fa-check-circle me-1"></i> Payment reported</span>`;
+            }
+            if (row.can_cancel && row.cancel_url) {
+                actions += `<button type="button" class="btn btn-sm btn-outline-danger cancel-deposit-btn"
+                    data-cancel-url="${escapeHtml(row.cancel_url)}"
+                    data-ref="REF${escapeHtml(row.reference || '')}">
+                    Cancel</button>`;
             }
 
             html += `<li class="af-activity-item ${pending ? 'is-pending' : ''} wallet-tx-row"

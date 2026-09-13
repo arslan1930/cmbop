@@ -188,6 +188,22 @@ class PaymentFlowLeftoverErrorTest extends TestCase
         }
     }
 
+    public function test_cancel_survives_dropped_deposit_requests_table(): void
+    {
+        $advertiser = $this->advertiser();
+
+        try {
+            Schema::dropIfExists('deposit_requests');
+            $this->actingAs($advertiser)
+                ->postJson(route('advertiser.add-funds.cancel', 1))
+                ->assertNotFound()
+                ->assertJsonMissingPath('exception')
+                ->assertDontSee('SQLSTATE');
+        } finally {
+            $this->restoreDepositRequestsTable();
+        }
+    }
+
     public function test_orders_ajax_survives_dropped_orders_table(): void
     {
         $advertiser = $this->advertiser();

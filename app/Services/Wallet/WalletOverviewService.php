@@ -295,9 +295,11 @@ class WalletOverviewService
                 'invoice_view_url' => null,
                 'invoice_download_url' => null,
                 'can_mark_paid' => false,
+                'can_cancel' => false,
                 'user_marked_paid' => false,
                 'user_marked_paid_at' => null,
                 'mark_paid_url' => null,
+                'cancel_url' => null,
                 'is_live_pending' => $tx->status === 'pending',
             ];
             if ($tx->related_type && $tx->related_id) {
@@ -320,9 +322,13 @@ class WalletOverviewService
                                 ? route('advertiser.billing.download', $invoice)
                                 : route('advertiser.invoice', ['referenceCode' => $deposit->reference_code, 'download' => 1]),
                             'can_mark_paid' => $deposit->canUserMarkPaid(),
+                            'can_cancel' => $deposit->canUserCancel(),
                             'user_marked_paid' => $deposit->userHasMarkedPaid(),
                             'user_marked_paid_at' => $deposit->user_marked_paid_at?->toIso8601String(),
                             'mark_paid_url' => route('advertiser.add-funds.mark-paid', $deposit),
+                            'cancel_url' => $deposit->canUserCancel()
+                                ? route('advertiser.add-funds.cancel', $deposit)
+                                : null,
                             'is_live_pending' => $deposit->status === 'pending',
                         ];
                     }
@@ -386,9 +392,11 @@ class WalletOverviewService
                 'invoice_view_url' => $depositMeta['invoice_view_url'],
                 'invoice_download_url' => $depositMeta['invoice_download_url'],
                 'can_mark_paid' => $depositMeta['can_mark_paid'],
+                'can_cancel' => $depositMeta['can_cancel'],
                 'user_marked_paid' => $depositMeta['user_marked_paid'],
                 'user_marked_paid_at' => $depositMeta['user_marked_paid_at'],
                 'mark_paid_url' => $depositMeta['mark_paid_url'],
+                'cancel_url' => $depositMeta['cancel_url'],
                 'is_live_pending' => $depositMeta['is_live_pending'],
                 'order_reference' => $tx->meta['order_reference'] ?? null,
                 'icon' => $this->iconForType($tx->type),
@@ -430,11 +438,13 @@ class WalletOverviewService
                 'type_label' => match ($status) {
                     'pending' => 'Pending invoice deposit',
                     'refunded' => 'Refunded deposit',
+                    'cancelled' => 'Cancelled invoice',
                     default => 'Deposit',
                 },
                 'description' => match ($status) {
                     'pending' => 'Invoice deposit via '.Invoice::paymentMethodLabel($d->payment_method).' — awaiting confirmation',
                     'refunded' => Invoice::paymentMethodLabel($d->payment_method).' deposit refunded and removed from wallet',
+                    'cancelled' => 'Invoice cancelled — no wallet credit',
                     default => 'Wallet deposit via '.Invoice::paymentMethodLabel($d->payment_method),
                 },
                 'reference' => $d->reference_code,
@@ -451,10 +461,14 @@ class WalletOverviewService
                 'invoice_view_url' => $invoicePageUrl,
                 'invoice_download_url' => $invoiceDownloadUrl,
                 'can_mark_paid' => $d->canUserMarkPaid(),
+                'can_cancel' => $d->canUserCancel(),
                 'user_marked_paid' => $d->userHasMarkedPaid(),
                 'user_marked_paid_at' => $d->user_marked_paid_at?->toIso8601String(),
                 'mark_paid_url' => $d->canUserMarkPaid() || $d->userHasMarkedPaid()
                     ? route('advertiser.add-funds.mark-paid', $d)
+                    : null,
+                'cancel_url' => $d->canUserCancel()
+                    ? route('advertiser.add-funds.cancel', $d)
                     : null,
                 'is_live_pending' => $status === 'pending',
                 'order_reference' => null,

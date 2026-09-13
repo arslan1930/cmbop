@@ -63,7 +63,7 @@ class StripePaymentService
      */
     public static function walletDepositCancelUrl(): string
     {
-        return route('advertiser.add-funds');
+        return route('advertiser.add-funds', ['cancelled' => 1]);
     }
 
     /**

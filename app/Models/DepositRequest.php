@@ -117,6 +117,22 @@ class DepositRequest extends Model
             && in_array($this->payment_method, ['wise', 'bank', 'crypto'], true);
     }
 
+    /**
+     * Advertiser can drop an unused Bank/Wise/crypto invoice.
+     * Mark-paid invoices stay pending for admin — they are not cancellable here.
+     */
+    public function canUserCancel(): bool
+    {
+        return $this->isPending()
+            && ! $this->userHasMarkedPaid()
+            && in_array($this->payment_method, ['wise', 'bank', 'crypto'], true);
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
+    }
+
     public function paymentMethodLabel(): string
     {
         return Invoice::paymentMethodLabel($this->payment_method);

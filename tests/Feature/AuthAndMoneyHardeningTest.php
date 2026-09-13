@@ -44,6 +44,7 @@ class AuthAndMoneyHardeningTest extends TestCase
     {
         return [
             ['advertiser.add-funds.store'],
+            ['advertiser.add-funds.cancel'],
             ['advertiser.create-checkout-session'],
             ['advertiser.add-funds.pay-saved-card'],
             ['advertiser.create-order-payment'],
