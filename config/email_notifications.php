@@ -462,7 +462,7 @@ return [
             'default_enabled' => true,
         ],
         'deposit_refunded' => [
-            'name' => 'PayPal Deposit Refunded',
+            'name' => 'Deposit Refunded',
             'audience' => 'advertiser',
             'preference' => 'payment_emails',
             'mailable' => DepositRefunded::class,

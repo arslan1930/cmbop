@@ -511,7 +511,7 @@ class AdminEmailCenterTest extends TestCase
             ->assertOk()
             ->assertSee('Password Changed', false)
             ->assertSee('Spend Budget Alert', false)
-            ->assertSee('PayPal Deposit Refunded', false)
+            ->assertSee('Deposit Refunded', false)
             ->assertSee('Email Verification', false)
             ->assertSee('Content Evaluation Result', false)
             ->assertSee('Site Discount Ended', false)
@@ -541,6 +541,7 @@ class AdminEmailCenterTest extends TestCase
             'Deposit Approved - €100.00' => 'deposit_approved',
             'Wallet topped up — €40.00' => 'deposit_approved',
             'PayPal deposit refunded — €25.00' => 'deposit_refunded',
+            'Card deposit refunded — €40.00' => 'deposit_refunded',
             'PayPal payment was not completed' => 'paypal_payment_not_completed',
             'PayPal payment is under review' => 'paypal_payment_not_completed',
             'New Deposit Request - €100.00' => 'deposit_submitted',

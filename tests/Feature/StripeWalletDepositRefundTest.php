@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\Billing\DepositReceiptService;
+use App\Services\InAppNotificationService;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -139,6 +140,44 @@ class StripeWalletDepositRefundTest extends TestCase
         $this->assertSame('refunded', $receipt->payment_status);
 
         Mail::assertQueued(DepositRefunded::class);
+
+        $html = (new DepositRefunded($deposit->fresh(['user'])))->render();
+        $this->assertStringContainsString('Card deposit refunded', $html);
+        $this->assertStringContainsString('from your Card Add Funds deposit', $html);
+        $this->assertStringNotContainsString('PayPal deposit refunded', $html);
+    }
+
+    public function test_card_deposit_refund_email_includes_stripe_wallet_debt(): void
+    {
+        $advertiser = $this->advertiser();
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-CARD-DEBT',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'refunded',
+            'stripe_response' => [
+                'refund' => [
+                    'id' => 're_debt',
+                    'amount' => 40,
+                    'debited' => 12,
+                    'debt_created' => 28,
+                ],
+            ],
+        ]);
+
+        $html = (new DepositRefunded($deposit->fresh(['user'])))->render();
+        $this->assertStringContainsString('Card deposit refunded', $html);
+        $this->assertStringContainsString('Outstanding wallet debt', $html);
+        $this->assertStringContainsString('€28.00', $html);
+        $this->assertStringNotContainsString('PayPal', $html);
+
+        app(InAppNotificationService::class)->notifyDepositRefunded($deposit->fresh());
+
+        $this->assertDatabaseHas('in_app_notifications', [
+            'user_id' => $advertiser->id,
+            'title' => 'Card deposit refunded — €40.00',
+        ]);
     }
 
     public function test_charge_refunded_for_unknown_intent_is_a_noop(): void

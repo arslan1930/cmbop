@@ -529,13 +529,10 @@ class InAppNotificationService
         }
 
         $amount = '€'.number_format((float) $deposit->amount, 2);
-        $debt = 0.0;
-        $response = is_array($deposit->paypal_response) ? $deposit->paypal_response : [];
-        if (isset($response['refund']['debt_created'])) {
-            $debt = round((float) $response['refund']['debt_created'], 2);
-        }
+        $debt = $deposit->refundDebtCreated();
+        $methodLabel = $deposit->paymentMethodLabel();
 
-        $message = "{$amount} from your PayPal Add Funds deposit was refunded and removed from your wallet.";
+        $message = "{$amount} from your {$methodLabel} Add Funds deposit was refunded and removed from your wallet.";
         if ($debt > 0.009) {
             $message .= ' €'.number_format($debt, 2).' remains as outstanding wallet debt.';
         }
@@ -543,7 +540,7 @@ class InAppNotificationService
         $this->notify(
             (int) $deposit->user_id,
             self::TYPE_PAYMENT_FAILED,
-            "PayPal deposit refunded — {$amount}",
+            "{$methodLabel} deposit refunded — {$amount}",
             $message,
             [
                 'category' => self::CATEGORY_PAYMENTS,
@@ -1933,20 +1930,17 @@ class InAppNotificationService
         $amount = number_format((float) $deposit->amount, 2);
         $ref = $deposit->reference_code ?: ('#'.$deposit->id);
         $who = $user?->name ?: ($user?->email ?: 'An advertiser');
-        $debt = 0.0;
-        $response = is_array($deposit->paypal_response) ? $deposit->paypal_response : [];
-        if (isset($response['refund']['debt_created'])) {
-            $debt = round((float) $response['refund']['debt_created'], 2);
-        }
+        $debt = $deposit->refundDebtCreated();
+        $methodLabel = $deposit->paymentMethodLabel();
 
-        $message = "{$who}'s €{$amount} PayPal Add Funds deposit (REF {$ref}) was refunded and removed from their wallet.";
+        $message = "{$who}'s €{$amount} {$methodLabel} Add Funds deposit (REF {$ref}) was refunded and removed from their wallet.";
         if ($debt > 0.009) {
             $message .= ' €'.number_format($debt, 2).' remains as advertiser wallet debt.';
         }
 
         $this->notifyAdmins(
             self::TYPE_PAYMENT_FAILED,
-            'PayPal deposit refunded',
+            $methodLabel.' deposit refunded',
             $message,
             [
                 'roles' => ['admin'],

@@ -92,7 +92,8 @@
 @php
     $company = $company ?? config('billing.company');
     $symbol = $currencySymbol ?? '€';
-    $statusClass = match ($invoice->status) {
+    $displayStatus = $invoice->displayPaymentStatus();
+    $statusClass = match ($displayStatus) {
         'paid' => 'badge-paid',
         'failed' => 'badge-failed',
         'pending' => 'badge-pending',
@@ -116,7 +117,7 @@
 
 @if($invoice->type === 'payment_failure')
     <div class="failed-banner">PAYMENT FAILED</div>
-@elseif($invoice->status === 'refunded')
+@elseif($displayStatus === 'refunded')
     <div class="refunded-banner">REFUNDED</div>
 @endif
 
@@ -154,7 +155,7 @@
         <td width="45%" style="text-align:right;">
             <p class="doc-title">{{ $docHeading }}</p>
             <div style="margin-top:8px;">
-                <span class="badge {{ $statusClass }}">{{ strtoupper($invoice->status) }}</span>
+                <span class="badge {{ $statusClass }}">{{ strtoupper($displayStatus) }}</span>
             </div>
             <div style="margin-top:12px;">
                 <div><strong>{{ $invoice->invoice_number }}</strong></div>

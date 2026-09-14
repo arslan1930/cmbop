@@ -17,10 +17,11 @@
     </div>
 
     @if($invoice->isClosedDocument())
-        <div class="alert alert-{{ $invoice->status === 'failed' ? 'danger' : ($invoice->status === 'cancelled' ? 'secondary' : 'info') }} border-0 shadow-sm">
-            @if($invoice->status === 'refunded')
+        @php $displayStatus = $invoice->displayPaymentStatus(); @endphp
+        <div class="alert alert-{{ $displayStatus === 'failed' ? 'danger' : ($displayStatus === 'cancelled' ? 'secondary' : 'info') }} border-0 shadow-sm">
+            @if($displayStatus === 'refunded')
                 This {{ strtolower($invoice->typeLabel()) }} was refunded. The amount is no longer collected.
-            @elseif($invoice->status === 'failed')
+            @elseif($displayStatus === 'failed')
                 This payment attempt failed. No charge was completed.
             @else
                 This document has been cancelled.

@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use App\Models\DepositRequest;
-use App\Models\Invoice;
 
 class DepositRefunded extends PlatformMailable
 {
@@ -24,14 +23,13 @@ class DepositRefunded extends PlatformMailable
     {
         $deposit = $this->deposit->loadMissing('user');
         $amount = number_format((float) $deposit->amount, 2);
-        $response = is_array($deposit->paypal_response) ? $deposit->paypal_response : [];
-        $debt = round((float) ($response['refund']['debt_created'] ?? 0), 2);
+        $methodLabel = $deposit->paymentMethodLabel();
 
-        return $this->subject('PayPal deposit refunded — €'.$amount)
+        return $this->subject($methodLabel.' deposit refunded — €'.$amount)
             ->markdown('emails.deposit-refunded', [
                 'deposit' => $deposit,
-                'debt' => $debt,
-                'methodLabel' => Invoice::paymentMethodLabel($deposit->payment_method),
+                'debt' => $deposit->refundDebtCreated(),
+                'methodLabel' => $methodLabel,
                 'balanceUrl' => route('advertiser.balance'),
             ]);
     }

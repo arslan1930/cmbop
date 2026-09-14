@@ -118,6 +118,79 @@ class BillingLeftoverHonestyTest extends TestCase
             ->get(route('advertiser.billing.index', ['status' => 'refunded']))
             ->assertOk()
             ->assertSee('INV-LEFT-PAID', false);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', ['status' => 'paid']))
+            ->assertOk()
+            ->assertDontSee('INV-LEFT-PAID', false);
+    }
+
+    public function test_leftover_refunded_show_does_not_say_cancelled(): void
+    {
+        $advertiser = $this->advertiser();
+        $invoice = Invoice::create([
+            'user_id' => $advertiser->id,
+            'invoice_number' => 'INV-LEFT-SHOW',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'refunded',
+            'invoice_date' => now(),
+            'customer_name' => $advertiser->name,
+            'customer_email' => $advertiser->email,
+            'currency' => 'EUR',
+            'subtotal' => 80,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'order_number' => 'ORD-LEFT-SHOW',
+            'line_items' => [['description' => 'Guest post', 'line_total' => 80]],
+            'billing_snapshot' => [],
+        ]);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.show', $invoice))
+            ->assertOk()
+            ->assertSee('INV-LEFT-SHOW', false)
+            ->assertSee('Refunded', false)
+            ->assertSee('was refunded', false)
+            ->assertDontSee('This document has been cancelled.', false);
+    }
+
+    public function test_leftover_refunded_pdf_badges_refunded_not_paid(): void
+    {
+        $advertiser = $this->advertiser();
+        $invoice = Invoice::create([
+            'user_id' => $advertiser->id,
+            'invoice_number' => 'INV-LEFT-PDF',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'refunded',
+            'invoice_date' => now(),
+            'customer_name' => $advertiser->name,
+            'customer_email' => $advertiser->email,
+            'currency' => 'EUR',
+            'subtotal' => 80,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'order_number' => 'ORD-LEFT-PDF',
+            'line_items' => [['description' => 'Guest post', 'line_total' => 80]],
+            'billing_snapshot' => [],
+        ]);
+
+        $html = view('billing.pdf.invoice', [
+            'invoice' => $invoice,
+            'company' => config('billing.company'),
+            'colors' => config('billing.colors'),
+            'currencySymbol' => '€',
+        ])->render();
+
+        $this->assertStringContainsString('REFUNDED', $html);
+        $this->assertStringContainsString('class="badge badge-refunded">REFUNDED</span>', $html);
+        $this->assertStringContainsString('Status: <strong>Refunded</strong>', $html);
+        $this->assertStringNotContainsString('class="badge badge-paid">PAID</span>', $html);
     }
 
     public function test_billing_show_prefers_refunded_over_frozen_paid_payment_status(): void

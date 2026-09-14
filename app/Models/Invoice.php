@@ -237,12 +237,26 @@ class Invoice extends Model
     }
 
     /**
+     * Terminal document states that win over a leftover payment_status snapshot.
+     *
+     * @return list<string>
+     */
+    public static function closedStatuses(): array
+    {
+        return [
+            self::STATUS_REFUNDED,
+            self::STATUS_FAILED,
+            self::STATUS_CANCELLED,
+        ];
+    }
+
+    /**
      * Document status wins over a frozen payment_status snapshot.
      * A refunded invoice still stored as payment_status=paid is leftover.
      */
     public function displayPaymentStatus(): string
     {
-        if (in_array($this->status, [self::STATUS_REFUNDED, self::STATUS_FAILED, self::STATUS_CANCELLED], true)) {
+        if (in_array($this->status, self::closedStatuses(), true)) {
             return $this->status;
         }
 
@@ -253,11 +267,7 @@ class Invoice extends Model
 
     public function isClosedDocument(): bool
     {
-        return in_array($this->displayPaymentStatus(), [
-            self::STATUS_REFUNDED,
-            self::STATUS_FAILED,
-            self::STATUS_CANCELLED,
-        ], true);
+        return in_array($this->displayPaymentStatus(), self::closedStatuses(), true);
     }
 
     /**
@@ -266,27 +276,35 @@ class Invoice extends Model
      */
     public function storedPdfMayBeStale(): bool
     {
-        return in_array($this->displayPaymentStatus(), [
-            self::STATUS_REFUNDED,
-            self::STATUS_FAILED,
-            self::STATUS_CANCELLED,
-        ], true);
+        return in_array($this->displayPaymentStatus(), self::closedStatuses(), true);
     }
 
     /**
+     * Filter by what the advertiser/admin badge shows, not the leftover
+     * status column. Paid + payment_status=refunded is Refunded, not Paid.
+     *
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
     public function scopeWhereDisplayStatus($query, string $status)
     {
-        return $query->where(function ($inner) use ($status) {
-            $inner->where('status', $status);
-            if ($status === self::STATUS_REFUNDED) {
-                $inner->orWhere('payment_status', 'refunded');
-            }
-            if ($status === self::STATUS_FAILED) {
-                $inner->orWhere('payment_status', 'failed');
-            }
+        $closed = self::closedStatuses();
+
+        return $query->where(function ($inner) use ($status, $closed) {
+            $inner->where(function ($closedMatch) use ($status, $closed) {
+                $closedMatch->whereIn('status', $closed)
+                    ->where('status', $status);
+            })->orWhere(function ($paymentMatch) use ($status, $closed) {
+                $paymentMatch->whereNotIn('status', $closed)
+                    ->where('payment_status', $status);
+            })->orWhere(function ($statusOnly) use ($status, $closed) {
+                $statusOnly->whereNotIn('status', $closed)
+                    ->where(function ($emptyPayment) {
+                        $emptyPayment->whereNull('payment_status')
+                            ->orWhere('payment_status', '');
+                    })
+                    ->where('status', $status);
+            });
         });
     }
 

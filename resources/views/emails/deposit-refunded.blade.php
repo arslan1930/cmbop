@@ -1,9 +1,9 @@
 @component('mail::message')
-# PayPal deposit refunded
+# {{ $methodLabel }} deposit refunded
 
 Dear {{ $deposit->user?->name ?? 'Advertiser' }},
 
-**€{{ number_format((float) $deposit->amount, 2) }}** from your PayPal Add Funds deposit was refunded and removed from your wallet.
+**€{{ number_format((float) $deposit->amount, 2) }}** from your {{ $methodLabel }} Add Funds deposit was refunded and removed from your wallet.
 
 ## Deposit details
 
