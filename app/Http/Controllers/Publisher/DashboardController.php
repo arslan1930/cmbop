@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\Site;
+use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Support\PublisherNeedsAction;
 use App\Support\PublisherSiteHealth;
@@ -31,7 +32,12 @@ class DashboardController extends Controller
                 UserFacingError::message($e, 'We could not load your dashboard. Please refresh and try again.')
             );
 
-            return view('publisher.dashboard', $this->emptyDashboardPayload());
+            $payload = $this->emptyDashboardPayload();
+            $payload['dashboardFailed'] = true;
+            $payload['welcomeSituation'] = 'we could not refresh your numbers';
+            $payload = array_merge($payload, $this->publisherWalletView());
+
+            return view('publisher.dashboard', $payload);
         }
     }
 
@@ -50,11 +56,10 @@ class DashboardController extends Controller
         $needsYou = PublisherNeedsAction::needsYouCount((int) $userId);
         $waitingOnAdvertiser = PublisherNeedsAction::waitingOnAdvertiserCount((int) $userId);
 
-        $wallet = $user->activeWallet();
-        $availableBalance = $wallet ? (float) $wallet->balance : 0.0;
-        $withdrawableBalance = $wallet ? $wallet->withdrawableBalance() : 0.0;
+        $walletView = $this->publisherWalletView();
 
         $metrics = $this->buildPerformanceMetrics($stats);
+        $hasPaidOrders = (int) ($stats['total_orders'] ?? 0) > 0;
 
         return view('publisher.dashboard', [
             'siteCount' => $siteCount,
@@ -65,12 +70,18 @@ class DashboardController extends Controller
             'primaryAction' => $this->resolvePrimaryAction($needsYou, $listingWorkCount, $siteCount),
             'stats' => $stats,
             'metrics' => $metrics,
-            'availableBalance' => $availableBalance,
-            'withdrawableBalance' => $withdrawableBalance,
+            'availableBalance' => $walletView['availableBalance'],
+            'withdrawableBalance' => $walletView['withdrawableBalance'],
+            'canWithdraw' => $walletView['canWithdraw'],
+            'minWithdrawalAmount' => $walletView['minWithdrawalAmount'],
             'recentTasks' => $this->buildRecentTasks($siteIds),
             'weeklyEarnings' => $this->buildWeeklyEarnings($siteIds),
             'monthlyEarnings' => $this->buildMonthlyEarnings($siteIds),
             'orderStatus' => $this->buildOrderStatusDistribution($siteIds),
+            'hasPaidOrders' => $hasPaidOrders,
+            'dashboardFailed' => false,
+            'publisherName' => (string) ($user->name ?: 'there'),
+            'welcomeSituation' => $this->welcomeSituation($needsYou, $listingWorkCount, $siteCount),
         ]);
     }
 
@@ -92,10 +103,16 @@ class DashboardController extends Controller
             'metrics' => $this->buildPerformanceMetrics($stats),
             'availableBalance' => 0.0,
             'withdrawableBalance' => 0.0,
+            'canWithdraw' => false,
+            'minWithdrawalAmount' => $this->minWithdrawalAmount(),
             'recentTasks' => $this->buildRecentTasks([]),
             'weeklyEarnings' => $this->buildWeeklyEarnings([]),
             'monthlyEarnings' => $this->buildMonthlyEarnings([]),
             'orderStatus' => $this->buildOrderStatusDistribution([]),
+            'hasPaidOrders' => false,
+            'dashboardFailed' => false,
+            'publisherName' => (string) (auth()->user()?->name ?: 'there'),
+            'welcomeSituation' => $this->welcomeSituation(0, 0, 0),
         ];
     }
 
@@ -245,6 +262,73 @@ class DashboardController extends Controller
         }
 
         return 'grow';
+    }
+
+    private function minWithdrawalAmount(): float
+    {
+        return max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
+    }
+
+    /**
+     * Same withdrawable / payout-minimum rules as Balance.
+     *
+     * @return array{availableBalance: float, withdrawableBalance: float, canWithdraw: bool, minWithdrawalAmount: float}
+     */
+    private function publisherWalletView(): array
+    {
+        $min = $this->minWithdrawalAmount();
+        $empty = [
+            'availableBalance' => 0.0,
+            'withdrawableBalance' => 0.0,
+            'canWithdraw' => false,
+            'minWithdrawalAmount' => $min,
+        ];
+
+        try {
+            $user = auth()->user();
+            if (! $user) {
+                return $empty;
+            }
+
+            $wallet = Wallet::forPublisher((int) $user->id) ?: $user->activeWallet();
+            if (! $wallet) {
+                return $empty;
+            }
+
+            $snapshot = $wallet->roleSnapshot();
+
+            return [
+                'availableBalance' => (float) $snapshot['spendable'],
+                'withdrawableBalance' => (float) $snapshot['withdrawable'],
+                'canWithdraw' => $snapshot['debt'] <= 0 && $snapshot['withdrawable'] >= $min,
+                'minWithdrawalAmount' => $min,
+            ];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $empty;
+        }
+    }
+
+    private function welcomeSituation(int $needsYou, int $listingWorkCount, int $siteCount): string
+    {
+        if ($needsYou > 0) {
+            return $needsYou === 1
+                ? '1 task needs you'
+                : $needsYou.' tasks need you';
+        }
+
+        if ($listingWorkCount > 0) {
+            return $listingWorkCount === 1
+                ? '1 listing still pending'
+                : $listingWorkCount.' listings still pending';
+        }
+
+        if ($siteCount === 0) {
+            return 'add your first site';
+        }
+
+        return 'you are caught up';
     }
 
     /**

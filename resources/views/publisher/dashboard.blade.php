@@ -30,11 +30,20 @@
     ];
     $availableBalance = $availableBalance ?? 0;
     $withdrawableBalance = $withdrawableBalance ?? 0;
+    $canWithdraw = (bool) ($canWithdraw ?? false);
+    $minWithdrawalAmount = (float) ($minWithdrawalAmount ?? 20);
     $recentTasks = $recentTasks ?? [];
     $weeklyEarnings = $weeklyEarnings ?? ['labels' => [], 'values' => []];
     $monthlyEarnings = $monthlyEarnings ?? ['labels' => [], 'values' => []];
     $orderStatus = $orderStatus ?? ['labels' => [], 'values' => []];
     $statusHasOrders = collect($orderStatus['values'] ?? [])->sum() > 0;
+    $hasPaidOrders = (bool) ($hasPaidOrders ?? ((int) ($stats['total_orders'] ?? 0) > 0));
+    $dashboardFailed = (bool) ($dashboardFailed ?? false);
+    $publisherName = $publisherName ?? (auth()->user()?->name ?: 'there');
+    $welcomeSituation = $welcomeSituation ?? 'you are caught up';
+    $needsYouHint = $needsYou === 0
+        ? 'None need you'
+        : ($needsYou === 1 ? '1 needs you' : $needsYou.' need you');
 @endphp
 
 <div class="container-fluid dash-page-end publisher-dashboard">
@@ -42,22 +51,23 @@
     <!-- HEADER -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <h2 class="mb-1 fw-semibold">Publisher Dashboard</h2>
+            <h2 class="mb-1 fw-semibold">Dashboard</h2>
             <p class="text-muted mb-0">
-                Welcome back! Here's your performance summary and recent activity.
+                Welcome back, {{ $publisherName }} — {{ $welcomeSituation }}.
             </p>
         </div>
     </div>
 
     <!-- Quick Actions -->
+    @unless($dashboardFailed)
     <div class="row g-3 mb-3">
         @if($primaryAction === 'tasks')
             <div class="col-lg-7">
                 <div class="card border-0 shadow-sm h-100 publisher-primary-cta">
                     <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-4">
                         <div>
-                            <div class="text-uppercase small fw-semibold mb-1" style="color:#0b6266;letter-spacing:.04em;">Do this next</div>
-                            <h4 class="mb-1">You have {{ $needsYou }} task{{ $needsYou === 1 ? '' : 's' }} that need you</h4>
+                            <div class="text-uppercase small fw-semibold mb-1 publisher-cta-eyebrow">Do this next</div>
+                            <h4 class="mb-1">You have {{ $needsYou }} {{ $needsYou === 1 ? 'task that needs you' : 'tasks that need you' }}</h4>
                             <p class="text-muted mb-0">Accept, publish a live URL, or reply to a change request.</p>
                             @if($waitingOnAdvertiser > 0)
                                 <p class="small text-muted mb-0 mt-1">{{ $waitingOnAdvertiser }} more in review, waiting on advertisers.</p>
@@ -94,7 +104,7 @@
                 <div class="card border-0 shadow-sm h-100 publisher-primary-cta">
                     <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-4">
                         <div>
-                            <div class="text-uppercase small fw-semibold mb-1" style="color:#0b6266;letter-spacing:.04em;">Do this next</div>
+                            <div class="text-uppercase small fw-semibold mb-1 publisher-cta-eyebrow">Do this next</div>
                             <h4 class="mb-1">Finish your listings</h4>
                             <p class="text-muted mb-0">
                                 {{ $listingWorkCount }} listing{{ $listingWorkCount === 1 ? '' : 's' }} {{ $listingWorkCount === 1 ? 'is' : 'are' }} not in the catalog yet.
@@ -115,7 +125,7 @@
                         <span class="secondary-icon"><i class="fa fa-tasks"></i></span>
                         <h6 class="mb-0">Tasks</h6>
                     </div>
-                    <p class="small text-muted mb-3">{{ $needsYou }} need you</p>
+                    <p class="small text-muted mb-3">{{ $needsYouHint }}</p>
                     <a href="{{ route('publisher.tasks') }}" class="btn btn-sm btn-outline-secondary w-100">View tasks</a>
                 </div>
             </div>
@@ -134,7 +144,7 @@
                 <div class="card border-0 shadow-sm h-100 publisher-primary-cta">
                     <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-4">
                         <div>
-                            <div class="text-uppercase small fw-semibold mb-1" style="color:#0b6266;letter-spacing:.04em;">Do this next</div>
+                            <div class="text-uppercase small fw-semibold mb-1 publisher-cta-eyebrow">Do this next</div>
                             <h4 class="mb-1">{{ $primaryAction === 'add_site' ? 'Add your first website' : 'Grow your catalog' }}</h4>
                             <p class="text-muted mb-0">
                                 {{ $primaryAction === 'add_site'
@@ -157,7 +167,7 @@
                         <span class="secondary-icon"><i class="fa fa-tasks"></i></span>
                         <h6 class="mb-0">Tasks</h6>
                     </div>
-                    <p class="small text-muted mb-3">{{ $needsYou }} need you</p>
+                    <p class="small text-muted mb-3">{{ $needsYouHint }}</p>
                     <a href="{{ route('publisher.tasks') }}" class="btn btn-sm btn-outline-secondary w-100">View tasks</a>
                 </div>
             </div>
@@ -173,22 +183,28 @@
             </div>
         @endif
     </div>
+    @endunless
 
     <!-- KPI strip (always visible) -->
     <div class="row g-3 mb-4 row-cols-2 row-cols-lg-3 row-cols-xl-5">
         <div class="col">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#0b6266;"><i class="fa fa-euro-sign"></i></div>
+                <div class="kpi-icon kpi-icon-earnings"><i class="fa fa-euro-sign"></i></div>
                 <div>
                     <span class="kpi-label">Total earnings</span>
-                    <div class="kpi-value" id="totalEarnings">€{{ number_format((float) $stats['total_earnings'], 2) }}</div>
-                    <div class="kpi-sub">Completed & paid</div>
+                    @if($dashboardFailed)
+                        <div class="kpi-value" id="totalEarnings">—</div>
+                        <div class="kpi-sub">Unavailable</div>
+                    @else
+                        <div class="kpi-value" id="totalEarnings">€{{ number_format((float) $stats['total_earnings'], 2) }}</div>
+                        <div class="kpi-sub">Completed & paid</div>
+                    @endif
                 </div>
             </div>
         </div>
         <div class="col">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#3aaeb2;"><i class="fa fa-hourglass-half"></i></div>
+                <div class="kpi-icon kpi-icon-pending"><i class="fa fa-hourglass-half"></i></div>
                 <div>
                     @php
                         $pendingReview = (float) ($stats['pending_earnings'] ?? 0);
@@ -196,22 +212,31 @@
                         $pendingPayout = $pendingReview + $pendingInProgress;
                     @endphp
                     <span class="kpi-label">Pending payout</span>
-                    <div class="kpi-value" id="pendingEarnings">€{{ number_format($pendingPayout, 2) }}</div>
-                    <div class="kpi-sub">€{{ number_format($pendingReview, 2) }} in review · €{{ number_format($pendingInProgress, 2) }} still to publish</div>
+                    @if($dashboardFailed)
+                        <div class="kpi-value" id="pendingEarnings">—</div>
+                        <div class="kpi-sub">Unavailable</div>
+                    @else
+                        <div class="kpi-value" id="pendingEarnings">€{{ number_format($pendingPayout, 2) }}</div>
+                        <div class="kpi-sub">€{{ number_format($pendingReview, 2) }} in review · €{{ number_format($pendingInProgress, 2) }} still to publish</div>
+                    @endif
                 </div>
             </div>
         </div>
         <div class="col">
             <a href="{{ route('publisher.withdraw') }}" class="kpi-tile">
-                <div class="kpi-icon" style="background:#c45c26;"><i class="fa fa-wallet"></i></div>
+                <div class="kpi-icon kpi-icon-wallet"><i class="fa fa-wallet"></i></div>
                 <div>
                     <span class="kpi-label">Withdrawable</span>
                     <div class="kpi-value" id="availableBalance">€{{ number_format((float) $withdrawableBalance, 2) }}</div>
                     <div class="kpi-sub">
                         @if(round((float) $availableBalance - (float) $withdrawableBalance, 2) > 0.009)
                             €{{ number_format((float) $availableBalance, 2) }} on balance includes promo/hold — not withdrawable
-                        @else
+                        @elseif($canWithdraw)
                             Ready to withdraw
+                        @elseif((float) $withdrawableBalance > 0.009)
+                            Below €{{ number_format((float) $minWithdrawalAmount, 0) }} payout minimum
+                        @else
+                            Nothing to withdraw
                         @endif
                     </div>
                 </div>
@@ -219,39 +244,60 @@
         </div>
         <div class="col">
             <a href="{{ $needsYou > 0 ? route('publisher.tasks', ['needs_action' => 1]) : route('publisher.tasks') }}" class="kpi-tile">
-                <div class="kpi-icon" style="background:#64748b;"><i class="fa fa-tasks"></i></div>
+                <div class="kpi-icon kpi-icon-tasks"><i class="fa fa-tasks"></i></div>
                 <div>
                     <span class="kpi-label">Needs you</span>
-                    <div class="kpi-value" id="openTasks">{{ $needsYou }}</div>
-                    <div class="kpi-sub">
-                        @if($waitingOnAdvertiser > 0)
-                            {{ $waitingOnAdvertiser }} in review with advertisers
-                        @else
-                            {{ (int) $stats['total_orders'] }} order{{ (int) $stats['total_orders'] === 1 ? '' : 's' }} total
-                        @endif
-                    </div>
+                    @if($dashboardFailed)
+                        <div class="kpi-value" id="openTasks">—</div>
+                        <div class="kpi-sub">Unavailable</div>
+                    @else
+                        <div class="kpi-value" id="openTasks">{{ $needsYou }}</div>
+                        <div class="kpi-sub">
+                            @if($waitingOnAdvertiser > 0)
+                                {{ $waitingOnAdvertiser }} in review with advertisers
+                            @else
+                                {{ (int) $stats['total_orders'] }} order{{ (int) $stats['total_orders'] === 1 ? '' : 's' }} total
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </a>
         </div>
         <div class="col">
             <a href="{{ $listingWorkCount > 0 ? route('publisher.websites', ['status' => 'pending']) : route('publisher.websites') }}" class="kpi-tile">
-                <div class="kpi-icon" style="background:{{ $listingWorkCount > 0 ? '#b45309' : '#0f766e' }};"><i class="fa fa-{{ $listingWorkCount > 0 ? 'exclamation' : 'check' }}"></i></div>
+                <div class="kpi-icon {{ $listingWorkCount > 0 ? 'kpi-icon-sites-work' : 'kpi-icon-sites-ok' }}"><i class="fa fa-{{ $listingWorkCount > 0 ? 'exclamation' : 'check' }}"></i></div>
                 <div>
-                    <span class="kpi-label">{{ $listingWorkCount > 0 ? 'Needs listing work' : 'Catalog-ready' }}</span>
-                    <div class="kpi-value" id="unverifiedSites">{{ $listingWorkCount > 0 ? $listingWorkCount : $sellableSiteCount }}</div>
-                    <div class="kpi-sub">
-                        @if($listingWorkCount > 0)
-                            Not in the catalog yet
-                        @else
-                            {{ $siteCount }} listed · {{ $sellableSiteCount }} catalog-ready
-                        @endif
-                    </div>
+                    <span class="kpi-label">{{ $dashboardFailed ? 'Sites' : ($listingWorkCount > 0 ? 'Needs listing work' : 'Catalog-ready') }}</span>
+                    @if($dashboardFailed)
+                        <div class="kpi-value" id="unverifiedSites">—</div>
+                        <div class="kpi-sub">Unavailable</div>
+                    @else
+                        <div class="kpi-value" id="unverifiedSites">{{ $listingWorkCount > 0 ? $listingWorkCount : $sellableSiteCount }}</div>
+                        <div class="kpi-sub">
+                            @if($listingWorkCount > 0)
+                                Not in the catalog yet
+                            @else
+                                {{ $siteCount }} listed · {{ $sellableSiteCount }} catalog-ready
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </a>
         </div>
     </div>
 
-    @if($siteCount === 0)
+    @if($dashboardFailed)
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="dash-panel publisher-dashboard-failed">
+                    <h5 class="mb-1">We could not refresh every number</h5>
+                    <p class="text-muted mb-0">
+                        Your dashboard is still here — refresh to try loading the full summary again.
+                    </p>
+                </div>
+            </div>
+        </div>
+    @elseif($siteCount === 0)
         <div class="row mb-4">
             <div class="col-12">
                 <div class="dash-panel publisher-empty-metrics">
@@ -271,6 +317,17 @@
                         <li>Wait for verification so advertisers can find you</li>
                         <li>Accept tasks and earn from completed placements</li>
                     </ol>
+                </div>
+            </div>
+        </div>
+    @elseif(! $hasPaidOrders)
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="dash-panel publisher-empty-metrics">
+                    <h5 class="mb-1">No paid orders yet</h5>
+                    <p class="text-muted mb-0">
+                        Earnings charts appear after the first paid placement. Keep your listings complete so advertisers can find you.
+                    </p>
                 </div>
             </div>
         </div>
@@ -295,9 +352,10 @@
                         <i class="fa fa-chart-area me-2 text-info"></i> Monthly Earnings
                         <span class="float-end text-muted small">Last 6 months</span>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body pb-2">
                         <canvas id="monthlyEarningsChart" height="200"></canvas>
                     </div>
+                    <p class="small text-muted px-3 pb-3 mb-0">Recognized on completion day; clawbacks appear on the reversal day.</p>
                 </div>
             </div>
             <div class="col-md-4 mb-3">
@@ -329,7 +387,7 @@
                             <div class="col-6 mb-3">
                                 <div class="small text-muted">Success Rate</div>
                                 <h4 class="mb-0" id="successRate">{{ number_format((float) $metrics['success_rate'], 1) }}%</h4>
-                                <div class="progress mt-2" style="height: 4px;">
+                                <div class="progress progress-slim mt-2">
                                     <div id="successProgress" class="progress-bar bg-primary" style="width: {{ min(100, (float) $metrics['success_rate']) }}%"></div>
                                 </div>
                                 <div class="small text-muted mt-1">Of completed + cancelled</div>
@@ -339,21 +397,10 @@
                                 <h4 class="mb-0" id="avgOrderValue">€{{ number_format((float) $metrics['avg_order_value'], 2) }}</h4>
                                 <div class="small text-muted mt-1">Per completed order</div>
                             </div>
-                            <div class="col-6">
-                                <div class="small text-muted">Completion Rate</div>
-                                <h4 class="mb-0" id="completionRate">{{ number_format((float) $metrics['completion_rate'], 1) }}%</h4>
-                                <div class="progress mt-2" style="height: 4px;">
-                                    <div id="completionProgress" class="progress-bar bg-info" style="width: {{ min(100, (float) $metrics['completion_rate']) }}%"></div>
-                                </div>
-                                <div class="small text-muted mt-1">Completed / all orders</div>
-                            </div>
-                            <div class="col-6">
-                                <div class="small text-muted">Open Rate</div>
-                                <h4 class="mb-0" id="openRate">{{ number_format((float) $metrics['open_rate'], 1) }}%</h4>
-                                <div class="progress mt-2" style="height: 4px;">
-                                    <div id="openProgress" class="progress-bar bg-warning" style="width: {{ min(100, (float) $metrics['open_rate']) }}%"></div>
-                                </div>
-                                <div class="small text-muted mt-1">Pending / processing / review / scheduled</div>
+                            <div class="col-12 publisher-metric-muted">
+                                <div class="small text-muted">Completion rate</div>
+                                <div class="fw-semibold" id="completionRate">{{ number_format((float) $metrics['completion_rate'], 1) }}%</div>
+                                <div class="small text-muted mt-1">Completed / all orders — see Reports for history</div>
                             </div>
                         </div>
                     </div>
@@ -363,7 +410,7 @@
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
                         <span><i class="fa fa-list me-2 text-primary"></i> Recent tasks</span>
-                        <a href="{{ route('publisher.tasks') }}" class="small text-decoration-none" style="color:#0b6266;">View all</a>
+                        <a href="{{ route('publisher.tasks') }}" class="small text-decoration-none publisher-view-all">View all</a>
                     </div>
                     <div class="card-body p-0">
                         @if(count($recentTasks) === 0)
@@ -404,7 +451,7 @@
                                                 <td>
                                                     <div>{{ $task['site_name'] }}</div>
                                                     @if(!empty($task['site_url']))
-                                                        <div class="small text-muted text-truncate" style="max-width:180px;">{{ $task['site_url'] }}</div>
+                                                        <div class="small text-muted text-truncate site-url-clip">{{ $task['site_url'] }}</div>
                                                     @endif
                                                 </td>
                                                 <td><span class="status-badge {{ $badgeClass }}">{{ $nextAction }}</span></td>
@@ -425,7 +472,7 @@
     @endif
 </div>
 
-@if($siteCount > 0)
+@if($hasPaidOrders)
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 <script>
 (function () {

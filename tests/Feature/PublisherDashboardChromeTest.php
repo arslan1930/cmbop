@@ -34,11 +34,24 @@ class PublisherDashboardChromeTest extends TestCase
         $this->assertStringContainsString('chart.js@4.4.6', $blade);
         $this->assertStringNotContainsString('cdn.jsdelivr.net/npm/chart.js"', $blade);
         $this->assertStringContainsString('No orders yet', $blade);
+        $this->assertStringContainsString('No paid orders yet', $blade);
+        $this->assertStringContainsString('We could not refresh every number', $blade);
         $this->assertStringContainsString('clawbacks appear on the reversal day', $blade);
         $this->assertStringContainsString('listed — add another niche or market.', $blade);
+        $this->assertStringContainsString('<h2 class="mb-1 fw-semibold">Dashboard</h2>', $blade);
+        $this->assertStringContainsString('Welcome back, {{ $publisherName }}', $blade);
+        $this->assertStringContainsString('None need you', $blade);
+        $this->assertStringNotContainsString('{{ $needsYou }} need you', $blade);
+        $this->assertStringContainsString('Nothing to withdraw', $blade);
+        $this->assertStringContainsString('Unavailable', $blade);
+        $this->assertStringContainsString('Below €', $blade);
         $this->assertStringNotContainsString('sites live', $blade);
+        $this->assertStringNotContainsString('Open Rate', $blade);
+        $this->assertStringNotContainsString('style="color:#0b6266', $blade);
         $this->assertStringContainsString('.publisher-primary-cta', $css);
         $this->assertStringContainsString('.publisher-chart-empty', $css);
+        $this->assertStringContainsString('.publisher-cta-eyebrow', $css);
+        $this->assertStringContainsString('.publisher-dashboard-failed', $css);
     }
 
     public function test_tasks_and_dashboard_use_distinct_document_titles(): void
