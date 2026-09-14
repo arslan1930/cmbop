@@ -414,6 +414,8 @@ class WalletOverviewService
                 ->where('reference_code', $d->reference_code)
                 ->first();
             $status = $d->status === 'approved' ? 'completed' : $d->status;
+            $isRejected = in_array($status, ['rejected', 'failed', 'cancelled'], true);
+            $isRefunded = $status === 'refunded';
             $invoicePageUrl = $invoice
                 ? route('advertiser.billing.view', $invoice)
                 : route('advertiser.invoice', $d->reference_code);
@@ -427,20 +429,24 @@ class WalletOverviewService
                 'date' => ($d->paid_at ?? $d->created_at)?->toIso8601String(),
                 'timestamp' => ($d->paid_at ?? $d->created_at)?->timestamp ?? 0,
                 'type' => WalletTransaction::TYPE_DEPOSIT,
-                'type_label' => match ($status) {
-                    'pending' => 'Pending invoice deposit',
-                    'refunded' => 'Refunded deposit',
+                'type_label' => match (true) {
+                    $status === 'pending' => 'Pending invoice deposit',
+                    $isRefunded => 'Refunded deposit',
+                    $isRejected => 'Rejected deposit',
                     default => 'Deposit',
                 },
-                'description' => match ($status) {
-                    'pending' => 'Invoice deposit via '.Invoice::paymentMethodLabel($d->payment_method).' — awaiting confirmation',
-                    'refunded' => Invoice::paymentMethodLabel($d->payment_method).' deposit refunded and removed from wallet',
+                'description' => match (true) {
+                    $status === 'pending' => 'Invoice deposit via '.Invoice::paymentMethodLabel($d->payment_method).' — awaiting confirmation',
+                    $isRefunded => Invoice::paymentMethodLabel($d->payment_method).' deposit refunded and removed from wallet',
+                    $isRejected => 'Wallet deposit via '.Invoice::paymentMethodLabel($d->payment_method).' was rejected — not credited',
                     default => 'Wallet deposit via '.Invoice::paymentMethodLabel($d->payment_method),
                 },
                 'reference' => $d->reference_code,
                 'amount' => (float) $d->amount,
-                'direction' => 'credit',
-                'signed_amount' => (float) $d->amount,
+                'direction' => $isRefunded ? 'debit' : ($isRejected ? 'none' : 'credit'),
+                'signed_amount' => $isRefunded
+                    ? -(float) $d->amount
+                    : ($isRejected ? 0.0 : (float) $d->amount),
                 'status' => $status,
                 'balance_after' => null,
                 'bonus_amount' => 0,
@@ -450,7 +456,7 @@ class WalletOverviewService
                 'invoice_number' => $invoice?->invoice_number ?? ('REF'.$d->reference_code),
                 'invoice_view_url' => $invoicePageUrl,
                 'invoice_download_url' => $invoiceDownloadUrl,
-                'can_mark_paid' => $d->canUserMarkPaid(),
+                'can_mark_paid' => ! $isRejected && ! $isRefunded && $d->canUserMarkPaid(),
                 'user_marked_paid' => $d->userHasMarkedPaid(),
                 'user_marked_paid_at' => $d->user_marked_paid_at?->toIso8601String(),
                 'mark_paid_url' => $d->canUserMarkPaid() || $d->userHasMarkedPaid()

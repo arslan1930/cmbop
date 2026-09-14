@@ -210,6 +210,23 @@ class BillingInvoiceSystemTest extends TestCase
 
         $this->assertNotNull($refund);
         $this->assertSame(Invoice::TYPE_REFUND_RECEIPT, $refund->type);
+
+        $tax = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('type', Invoice::TYPE_TAX_INVOICE)
+            ->first();
+        $receipt = Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('type', Invoice::TYPE_PAYMENT_RECEIPT)
+            ->first();
+
+        $this->assertNotNull($tax);
+        $this->assertNotNull($receipt);
+        $this->assertSame(Invoice::STATUS_REFUNDED, $tax->status);
+        $this->assertSame('refunded', $tax->payment_status);
+        $this->assertSame(Invoice::STATUS_REFUNDED, $receipt->status);
+        $this->assertSame('refunded', $receipt->payment_status);
+
         Mail::assertQueued(RefundReceiptMail::class);
     }
 

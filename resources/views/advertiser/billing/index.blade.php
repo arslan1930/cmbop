@@ -37,6 +37,7 @@
                         <option value="">All</option>
                         <option value="tax_invoice" @selected(request('type')==='tax_invoice')>Invoice</option>
                         <option value="payment_receipt" @selected(request('type')==='payment_receipt')>Receipt</option>
+                        <option value="deposit_receipt" @selected(request('type')==='deposit_receipt')>Deposit receipt</option>
                         <option value="refund_receipt" @selected(request('type')==='refund_receipt')>Refund</option>
                         <option value="payment_failure" @selected(request('type')==='payment_failure')>Failed attempt</option>
                     </select>
@@ -81,7 +82,15 @@
                                         <div class="small text-muted text-truncate" style="max-width:180px;">{{ $invoice->transaction_id }}</div>
                                     @endif
                                 </td>
-                                <td class="small">#{{ $invoice->order_number }}</td>
+                                <td class="small">
+                                    @if($invoice->advertiserOrderUrl())
+                                        <a href="{{ $invoice->advertiserOrderUrl() }}">#{{ $invoice->order_number }}</a>
+                                    @elseif($invoice->reference_code)
+                                        {{ $invoice->reference_code }}
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td class="small">{{ optional($invoice->invoice_date)->format('M j, Y') }}</td>
                                 <td class="fw-semibold">€{{ number_format((float) $invoice->total_amount, 2) }}</td>
                                 <td>

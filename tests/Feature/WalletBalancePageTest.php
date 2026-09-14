@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
@@ -442,6 +443,47 @@ class WalletBalancePageTest extends TestCase
         $this->assertNotEmpty($paid);
         $this->assertSame('Purchase', $paid['type_label']);
         $this->assertSame('Marketplace order purchase', $paid['description']);
+    }
+
+    public function test_transactions_endpoint_does_not_credit_rejected_or_refunded_legacy_deposits(): void
+    {
+        DepositRequest::create([
+            'user_id' => $this->user->id,
+            'reference_code' => 'DEP-REJECTED',
+            'amount' => 40,
+            'payment_method' => 'bank',
+            'status' => 'rejected',
+        ]);
+        DepositRequest::create([
+            'user_id' => $this->user->id,
+            'reference_code' => 'DEP-REFUNDED',
+            'amount' => 25,
+            'payment_method' => 'paypal',
+            'status' => 'refunded',
+        ]);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $rejected = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'DEP-REJECTED');
+        $this->assertNotEmpty($rejected);
+        $this->assertSame('Rejected deposit', $rejected['type_label']);
+        $this->assertSame('rejected', $rejected['status']);
+        $this->assertSame('none', $rejected['direction']);
+        $this->assertSame(0, (int) $rejected['signed_amount']);
+        $this->assertFalse($rejected['can_mark_paid']);
+        $this->assertStringContainsString('not credited', $rejected['description']);
+
+        $refunded = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'DEP-REFUNDED');
+        $this->assertNotEmpty($refunded);
+        $this->assertSame('Refunded deposit', $refunded['type_label']);
+        $this->assertSame('refunded', $refunded['status']);
+        $this->assertSame('debit', $refunded['direction']);
+        $this->assertSame(-25.0, (float) $refunded['signed_amount']);
+        $this->assertFalse($refunded['can_mark_paid']);
     }
 
     public function test_transactions_endpoint_returns_bonus_activity(): void

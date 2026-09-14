@@ -16,17 +16,46 @@
         </div>
     </div>
 
+    @if($invoice->isClosedDocument())
+        <div class="alert alert-{{ $invoice->status === 'failed' ? 'danger' : ($invoice->status === 'cancelled' ? 'secondary' : 'info') }} border-0 shadow-sm">
+            @if($invoice->status === 'refunded')
+                This {{ strtolower($invoice->typeLabel()) }} was refunded. The amount is no longer collected.
+            @elseif($invoice->status === 'failed')
+                This payment attempt failed. No charge was completed.
+            @else
+                This document has been cancelled.
+            @endif
+            @php
+                $refundDoc = $invoice->childInvoices->firstWhere('type', \App\Models\Invoice::TYPE_REFUND_RECEIPT);
+            @endphp
+            @if($refundDoc)
+                <div class="mt-2">
+                    <a href="{{ route('advertiser.billing.show', $refundDoc) }}" class="alert-link">
+                        View refund receipt {{ $refundDoc->invoice_number }}
+                    </a>
+                </div>
+            @endif
+        </div>
+    @endif
+
     <div class="row g-3">
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="text-muted text-uppercase small fw-semibold mb-3">Order details</h6>
                     <div class="row g-3 small">
-                        <div class="col-md-4"><span class="text-muted d-block">Order</span><strong>#{{ $invoice->order_number }}</strong></div>
+                        <div class="col-md-4">
+                            <span class="text-muted d-block">{{ $invoice->order_id ? 'Order' : 'Reference' }}</span>
+                            @if($invoice->advertiserOrderUrl())
+                                <a href="{{ $invoice->advertiserOrderUrl() }}" class="fw-semibold">#{{ $invoice->order_number }}</a>
+                            @else
+                                <strong>{{ $invoice->order_number ? '#'.$invoice->order_number : ($invoice->reference_code ?: '—') }}</strong>
+                            @endif
+                        </div>
                         <div class="col-md-4"><span class="text-muted d-block">Date</span><strong>{{ optional($invoice->invoice_date)->format('M j, Y g:i A') }}</strong></div>
                         <div class="col-md-4"><span class="text-muted d-block">Amount</span><strong>€{{ number_format((float) $invoice->total_amount, 2) }}</strong></div>
                         <div class="col-md-4"><span class="text-muted d-block">Payment method</span><strong>{{ \App\Models\Invoice::paymentMethodLabel($invoice->payment_method) }}</strong></div>
-                        <div class="col-md-4"><span class="text-muted d-block">Payment status</span><strong>{{ ucfirst((string) $invoice->payment_status) }}</strong></div>
+                        <div class="col-md-4"><span class="text-muted d-block">Payment status</span><strong>{{ ucfirst($invoice->displayPaymentStatus()) }}</strong></div>
                         <div class="col-md-4"><span class="text-muted d-block">Transaction</span><strong class="text-break">{{ $invoice->transaction_id ?: '—' }}</strong></div>
                     </div>
                 </div>

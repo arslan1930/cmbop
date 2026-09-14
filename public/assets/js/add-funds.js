@@ -19,6 +19,12 @@ document.addEventListener('DOMContentLoaded', function() {
         return Math.floor(100000 + Math.random() * 900000).toString();
     }
     
+    function escapeHtml(str) {
+        return String(str ?? '').replace(/[&<>"']/g, function (m) {
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
+        });
+    }
+
     function updateReferenceCode() {
         referenceCode = generateReferenceCode();
         const refCodeDisplay = document.getElementById('referenceCode');
@@ -372,7 +378,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 const invoiceLink = data.invoice_url
-                    ? `<a href="${data.invoice_url}" target="_blank" class="btn btn-primary mt-2 me-2">
+                    ? `<a href="${escapeHtml(data.invoice_url)}" target="_blank" class="btn btn-primary mt-2 me-2">
                            <i class="fa fa-file-invoice"></i> View / download invoice
                        </a>`
                     : '';
@@ -384,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 Swal.fire({
                     title: 'Invoice ready',
                     html: `Transfer <strong>€${selectedAmount.toFixed(2)}</strong> and include<br>
-                           <strong class="font-monospace">REF${data.reference_code}</strong> in the payment note.<br><br>
+                           <strong class="font-monospace">REF${escapeHtml(data.reference_code)}</strong> in the payment note.<br><br>
                            After you send the transfer, click <strong>OK, I have made the payment</strong>.<br>
                            Status stays <strong>Pending</strong> until we confirm and credit your wallet.<br>
                            <div class="mt-2">${invoiceLink}${markPaidBtn}</div>`,

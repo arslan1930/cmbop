@@ -211,8 +211,15 @@ class BillingDocumentService
             $this->events->log('refund_receipt_generated', $refund, $order);
 
             if ($original && $original->status !== Invoice::STATUS_CANCELLED) {
-                $original->update(['status' => Invoice::STATUS_REFUNDED]);
+                $this->markDocumentRefunded($original, $reason);
             }
+
+            Invoice::query()
+                ->where('order_id', $order->id)
+                ->where('type', Invoice::TYPE_PAYMENT_RECEIPT)
+                ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                ->get()
+                ->each(fn (Invoice $receipt) => $this->markDocumentRefunded($receipt, $reason));
 
             $this->emailRefund($refund->fresh(['user', 'order', 'parentInvoice']));
 
@@ -464,6 +471,37 @@ class BillingDocumentService
         }
 
         return compact('regenerated', 'failed');
+    }
+
+    /**
+     * Refunded money must not keep a Paid receipt or a Paid payment_status
+     * on the original tax invoice. Regenerate the stored PDF so the badge
+     * matches — a leftover PAID file is what advertisers still download.
+     */
+    protected function markDocumentRefunded(Invoice $invoice, ?string $reason = null): Invoice
+    {
+        $meta = is_array($invoice->meta) ? $invoice->meta : [];
+        $meta['refunded_at'] = now()->toIso8601String();
+        if (filled($reason)) {
+            $meta['refund_reason'] = $reason;
+        }
+
+        $invoice->update([
+            'status' => Invoice::STATUS_REFUNDED,
+            'payment_status' => 'refunded',
+            'meta' => $meta,
+        ]);
+
+        try {
+            $this->pdfs->generateAndStore($invoice->fresh());
+        } catch (\Throwable $e) {
+            Log::warning('Failed to regenerate refunded billing PDF', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $invoice->fresh();
     }
 
     protected function createDocument(Order $order, string $type, string $status, array $extra = []): Invoice

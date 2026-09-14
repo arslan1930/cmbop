@@ -75,7 +75,7 @@ class BillingController extends Controller
     {
         $this->authorizeOwner($invoice);
         try {
-            $invoice->load(['order.items', 'parentInvoice']);
+            $invoice->load(['order.items', 'parentInvoice', 'childInvoices']);
         } catch (\Throwable $e) {
             report($e);
 

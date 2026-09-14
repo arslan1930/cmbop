@@ -3,7 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice #{{ $referenceCode }}</title>
+    @php
+        $docStatus = $documentStatus ?? $status ?? '';
+        $payStatus = $paymentStatus ?? '';
+        $isClosed = $isClosed ?? (
+            in_array($docStatus, ['rejected', 'refunded', 'cancelled', 'failed'], true)
+            || in_array($payStatus, ['failed', 'refunded'], true)
+        );
+        $invoiceHeading = match (true) {
+            $isClosed && in_array($docStatus, ['rejected', 'cancelled'], true) => 'CANCELLED',
+            $isClosed && ($docStatus === 'refunded' || $payStatus === 'refunded') => 'REFUNDED',
+            $isClosed && ($docStatus === 'failed' || $payStatus === 'failed') => 'PAYMENT FAILED',
+            default => 'INVOICE',
+        };
+    @endphp
+    <title>{{ $invoiceHeading }} #{{ $referenceCode }}</title>
     <style>
         * {
             margin: 0;
@@ -217,7 +231,7 @@
     
     <div class="invoice-container">
         <div class="invoice-header">
-            <h1>INVOICE #{{ $referenceCode }}</h1>
+            <h1>{{ $invoiceHeading }} #{{ $referenceCode }}</h1>
             <!-- Date -->
             <div style="margin-top: 10px; color: #4b5563;">
                 <span><strong>Date:</strong> {{ \Carbon\Carbon::now()->format('F j, Y') }}</span>
@@ -228,6 +242,11 @@
         </div>
         
         <div class="invoice-body">
+            @if($isClosed)
+                <div style="margin-bottom: 20px; padding: 12px 14px; border-radius: 8px; background: #eef2ff; color: #3730a3; font-weight: 600;">
+                    This {{ ($invoiceType ?? '') === 'deposit' ? 'wallet deposit' : 'invoice' }} is {{ $docStatus ?: $payStatus }} and is not payable.
+                </div>
+            @endif
             <div class="two-columns">
                 <div class="column">
                     <div class="company-section">
@@ -239,7 +258,10 @@
                         @endphp
                         <img src="{{ $invoiceLogo }}" alt="{{ $company['name'] ?? 'SEOLinkBuildings' }}" class="company-logo">
                         <div class="company-details">
-                            @if($isDepositInvoice)
+                            @if($isDepositInvoice && $isClosed)
+                                <p><strong>Seller / Service Provider:</strong> {{ $depositPayment['seller_name'] ?? 'SEOLinkBuildings Partner' }}</p>
+                                <p>This wallet deposit is {{ $docStatus }} and is not payable.</p>
+                            @elseif($isDepositInvoice)
                                 <p><strong>Seller / Service Provider:</strong> {{ $depositPayment['seller_name'] ?? 'SEOLinkBuildings Partner' }}</p>
                                 <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary'] ?? 'Topurlz Ltd' }}</p>
                                 @if(!empty($depositPayment['bic']))
@@ -389,11 +411,15 @@
             
             
             <div class="footer">
-                <p>Thank you for your business!</p>
+                @if($isClosed)
+                    <p>This document is not payable.</p>
+                @else
+                    <p>Thank you for your business!</p>
+                @endif
                 <p>For any questions regarding this invoice, please contact support@seolinkbuildings.com</p>
             </div>
 
-            @if(($invoiceType ?? '') === 'deposit' && in_array(($paymentMethod ?? ''), ['wise', 'bank', 'crypto'], true))
+            @if(! $isClosed && ($invoiceType ?? '') === 'deposit' && in_array(($paymentMethod ?? ''), ['wise', 'bank', 'crypto'], true))
                 <div class="no-print" style="margin-top: 28px; padding: 18px; border: 1px solid #c8ebe9; border-radius: 12px; background: #f0fbfb;">
                     <div style="font-weight: 700; color: #1a585e; margin-bottom: 8px;">After you send the transfer</div>
                     <p style="margin: 0 0 12px; color: var(--brand-ink-muted, #75787B); font-size: 14px;">
@@ -421,7 +447,7 @@
             @endif
         </div>
     </div>
-    @if(($invoiceType ?? '') === 'deposit' && !empty($canMarkPaid) && !empty($markPaidUrl))
+    @if(! $isClosed && ($invoiceType ?? '') === 'deposit' && !empty($canMarkPaid) && !empty($markPaidUrl))
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
     document.getElementById('invoiceMarkPaidBtn')?.addEventListener('click', function () {

@@ -85,6 +85,53 @@ class DepositReceiptService
     }
 
     /**
+     * PayPal (or admin) clawed the top-up back — the RCT- must not stay Paid.
+     */
+    public function markRefunded(DepositRequest $deposit, ?string $reason = null): ?Invoice
+    {
+        $receipt = $this->find($deposit);
+        if (! $receipt) {
+            return null;
+        }
+
+        if ($receipt->status === Invoice::STATUS_REFUNDED
+            && $receipt->payment_status === 'refunded') {
+            return $receipt;
+        }
+
+        try {
+            $meta = is_array($receipt->meta) ? $receipt->meta : [];
+            $meta['refunded_at'] = now()->toIso8601String();
+            if (filled($reason)) {
+                $meta['refund_reason'] = $reason;
+            }
+
+            $receipt->update([
+                'status' => Invoice::STATUS_REFUNDED,
+                'payment_status' => 'refunded',
+                'notes' => $reason ?: 'Wallet deposit refunded and removed from the account.',
+                'meta' => $meta,
+            ]);
+
+            $fresh = $receipt->fresh();
+            $this->pdfs->generateAndStore($fresh);
+            $this->events->log('deposit_receipt_refunded', $fresh, null, $deposit->user_id, [
+                'deposit_request_id' => $deposit->id,
+            ]);
+
+            return $fresh->fresh();
+        } catch (\Throwable $e) {
+            Log::warning('Failed to mark deposit receipt refunded', [
+                'deposit_request_id' => $deposit->id,
+                'invoice_id' => $receipt->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $receipt->fresh();
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function payload(DepositRequest $deposit): array

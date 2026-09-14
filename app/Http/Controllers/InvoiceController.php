@@ -27,9 +27,11 @@ class InvoiceController extends Controller
                 ->first();
 
             if ($deposit) {
-                // Once a top-up has settled the customer wants the receipt, not
-                // the page of bank details telling them how to pay it.
-                if ($receipts->isSettled($deposit) && ($receipt = $receipts->issue($deposit))) {
+                // Settled top-ups, and clawed-back receipts, belong on the PDF
+                // — not the page of bank details telling them how to pay.
+                $receipt = $receipts->find($deposit)
+                    ?: ($receipts->isSettled($deposit) ? $receipts->issue($deposit) : null);
+                if ($receipt) {
                     return redirect()->route(
                         $request->boolean('download') ? 'advertiser.billing.download' : 'advertiser.billing.view',
                         $receipt
@@ -54,23 +56,14 @@ class InvoiceController extends Controller
                 ->first();
 
             if ($order) {
-                // Prefer the PDF tax invoice when one already exists for this order/ref.
-                $taxInvoice = Invoice::query()
-                    ->where('user_id', $userId)
-                    ->where('type', Invoice::TYPE_TAX_INVOICE)
-                    ->where('status', '!=', Invoice::STATUS_CANCELLED)
-                    ->where(function ($q) use ($order) {
-                        $q->where('order_id', $order->id)
-                            ->orWhere('reference_code', $order->reference_code)
-                            ->orWhere('order_number', $order->order_number);
-                    })
-                    ->latest('id')
-                    ->first();
+                // Prefer the PDF when one already exists — including refund /
+                // failure docs so leftover HTML does not look payable.
+                $document = $this->preferredOrderDocument($order, $userId);
 
-                if ($taxInvoice) {
+                if ($document) {
                     return redirect()->route(
                         $request->boolean('download') ? 'advertiser.billing.download' : 'advertiser.billing.view',
-                        $taxInvoice
+                        $document
                     );
                 }
 
@@ -96,8 +89,35 @@ class InvoiceController extends Controller
         }
     }
 
+    private function preferredOrderDocument(Order $order, int $userId): ?Invoice
+    {
+        $rank = [
+            Invoice::TYPE_TAX_INVOICE => 0,
+            Invoice::TYPE_REFUND_RECEIPT => 1,
+            Invoice::TYPE_PAYMENT_FAILURE => 2,
+            Invoice::TYPE_PAYMENT_RECEIPT => 3,
+        ];
+
+        return Invoice::query()
+            ->where('user_id', $userId)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->where(function ($q) use ($order) {
+                $q->where('order_id', $order->id)
+                    ->orWhere('reference_code', $order->reference_code)
+                    ->orWhere('order_number', $order->order_number);
+            })
+            ->get()
+            ->sortBy(function (Invoice $invoice) use ($rank) {
+                return ($rank[$invoice->type] ?? 9) * 1_000_000_000 - (int) $invoice->id;
+            })
+            ->first();
+    }
+
     private function depositInvoiceData($deposit, $user): array
     {
+        $status = (string) $deposit->status;
+        $isClosed = in_array($status, ['rejected', 'refunded', 'cancelled', 'failed'], true);
+
         return [
             'invoiceType' => 'deposit',
             'referenceCode' => $deposit->reference_code,
@@ -113,14 +133,16 @@ class InvoiceController extends Controller
             'userName' => $user->name,
             'userEmail' => $user->email,
             'userId' => $user->id,
-            'status' => $deposit->status,
+            'status' => $status,
+            'documentStatus' => $status,
+            'isClosed' => $isClosed,
             'paymentMethod' => $deposit->payment_method,
             'orderDate' => $deposit->created_at,
             'orderItems' => [],
             'totalBaseAmount' => 0,
             'totalSensitiveAmount' => 0,
             'deposit' => $deposit,
-            'canMarkPaid' => $deposit->canUserMarkPaid(),
+            'canMarkPaid' => $isClosed ? false : $deposit->canUserMarkPaid(),
             'userMarkedPaid' => $deposit->userHasMarkedPaid(),
             'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit),
         ];
@@ -172,6 +194,12 @@ class InvoiceController extends Controller
             'userEmail' => $user->email,
             'userId' => $user->id,
             'status' => $order->status,
+            'paymentStatus' => $order->payment_status,
+            'documentStatus' => $order->payment_status === 'failed' || $order->payment_status === 'refunded'
+                ? $order->payment_status
+                : $order->status,
+            'isClosed' => in_array((string) $order->payment_status, ['failed', 'refunded'], true)
+                || $order->status === 'cancelled',
             'paymentMethod' => $order->payment_method,
             'orderDate' => $order->created_at,
             'orderItems' => $orderItems,

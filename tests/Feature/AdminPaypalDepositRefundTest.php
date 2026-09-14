@@ -4,12 +4,15 @@ namespace Tests\Feature;
 
 use App\Mail\DepositRefunded;
 use App\Models\DepositRequest;
+use App\Models\Invoice;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\Billing\DepositReceiptService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminPaypalDepositRefundTest extends TestCase
@@ -107,6 +110,7 @@ class AdminPaypalDepositRefundTest extends TestCase
     public function test_admin_can_refund_paypal_deposit_and_debit_wallet(): void
     {
         Mail::fake();
+        Storage::fake('local');
         $this->enablePaypal();
         $this->fakePaypalRefund('CAP-ADMIN-RF');
 
@@ -114,6 +118,7 @@ class AdminPaypalDepositRefundTest extends TestCase
         $advertiser = $this->userWithRole('advertiser');
         $wallet = $this->advertiserWallet($advertiser, 40);
         $deposit = $this->completedPaypalDeposit($advertiser);
+        $this->assertNotNull(app(DepositReceiptService::class)->issue($deposit));
 
         $this->actingAs($admin)
             ->postJson(route('admin.deposits.paypal-refund', $deposit->id), [
@@ -126,6 +131,13 @@ class AdminPaypalDepositRefundTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->url(), '/v2/payments/captures/CAP-ADMIN-RF/refund'));
 
         $this->assertSame('refunded', $deposit->fresh()->status);
+        $receipt = Invoice::query()
+            ->where('type', Invoice::TYPE_DEPOSIT_RECEIPT)
+            ->where('reference_code', $deposit->reference_code)
+            ->first();
+        $this->assertNotNull($receipt);
+        $this->assertSame(Invoice::STATUS_REFUNDED, $receipt->status);
+        $this->assertSame('refunded', $receipt->payment_status);
         $this->assertEqualsWithDelta(15.0, (float) $wallet->fresh()->balance, 0.01);
         $this->assertEqualsWithDelta(0.0, (float) $wallet->fresh()->debt_balance, 0.01);
         $this->assertStringContainsString('Buyer asked for the Add Funds refund.', (string) $deposit->fresh()->admin_notes);

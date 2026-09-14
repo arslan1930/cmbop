@@ -236,6 +236,42 @@ class Invoice extends Model
         return $this->status === self::STATUS_CANCELLED;
     }
 
+    /**
+     * Document status wins over a frozen payment_status snapshot.
+     * A refunded invoice still stored as payment_status=paid is leftover.
+     */
+    public function displayPaymentStatus(): string
+    {
+        if (in_array($this->status, [self::STATUS_REFUNDED, self::STATUS_FAILED, self::STATUS_CANCELLED], true)) {
+            return $this->status;
+        }
+
+        $payment = trim((string) $this->payment_status);
+
+        return $payment !== '' ? $payment : (string) $this->status;
+    }
+
+    public function isClosedDocument(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_REFUNDED,
+            self::STATUS_FAILED,
+            self::STATUS_CANCELLED,
+        ], true);
+    }
+
+    public function advertiserOrderUrl(): ?string
+    {
+        if (! $this->order_id) {
+            return null;
+        }
+
+        return route('advertiser.orders', [
+            'focus' => 'order',
+            'order' => $this->order_id,
+        ]);
+    }
+
     public function isTaxInvoice(): bool
     {
         return $this->type === self::TYPE_TAX_INVOICE;
