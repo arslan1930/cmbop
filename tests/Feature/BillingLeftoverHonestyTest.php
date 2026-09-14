@@ -439,6 +439,23 @@ class BillingLeftoverHonestyTest extends TestCase
             ->assertOk()
             ->assertSee('was refunded', false)
             ->assertDontSee('This document has been cancelled.', false);
+
+        $partial = $invoice->fresh();
+        $partial->load(['order:id,order_number,reference_code']);
+        $this->assertSame(Invoice::STATUS_REFUNDED, $partial->displayPaymentStatus());
+
+        $list = $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', ['status' => 'refunded']))
+            ->assertOk()
+            ->getContent();
+        $this->assertMatchesRegularExpression(
+            '/INV-ORDER-LEFT[\s\S]{0,1200}text-bg-info">Refunded/',
+            $list
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/INV-ORDER-LEFT[\s\S]{0,1200}text-bg-success">Paid/',
+            $list
+        );
     }
 
     public function test_leftover_order_invoice_follows_failed_order(): void

@@ -25,7 +25,7 @@ class BillingController extends Controller
                     Invoice::TYPE_PAYMENT_FAILURE,
                     Invoice::TYPE_DEPOSIT_RECEIPT,
                 ])
-                ->with('order:id,order_number,reference_code');
+                ->with('order:id,order_number,reference_code,payment_status');
 
             $search = search_text($request->input('search'));
             if ($search !== '') {

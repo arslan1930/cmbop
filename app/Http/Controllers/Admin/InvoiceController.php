@@ -33,7 +33,7 @@ class InvoiceController extends Controller
 
         if (Invoice::tableAvailable()) {
             try {
-                $query = Invoice::query()->with(['user:id,name,email', 'order:id,order_number']);
+                $query = Invoice::query()->with(['user:id,name,email', 'order:id,order_number,payment_status']);
 
                 if ($search !== '') {
                     $query->where(function ($q) use ($search) {

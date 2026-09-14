@@ -335,12 +335,19 @@ class Invoice extends Model
     protected function relatedOrderForDisplay(): ?Order
     {
         if ($this->relationLoaded('order')) {
-            return $this->getRelation('order');
+            $loaded = $this->getRelation('order');
+            // Billing lists eager-load order without payment_status, which
+            // would leave leftover refunded orders looking Paid.
+            if ($loaded && array_key_exists('payment_status', $loaded->getAttributes())) {
+                return $loaded;
+            }
         }
 
         $order = null;
         try {
-            $order = $this->order()->first();
+            $order = Order::query()
+                ->select(['id', 'payment_status'])
+                ->find($this->order_id);
         } catch (\Throwable) {
             $order = null;
         }
