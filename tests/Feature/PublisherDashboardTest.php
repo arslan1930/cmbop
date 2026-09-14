@@ -263,6 +263,7 @@ class PublisherDashboardTest extends TestCase
 
         $this->assertEqualsWithDelta(100.0, (float) $stats['total_earnings'], 0.01);
         $this->assertEqualsWithDelta(200.0, (float) $stats['pending_earnings'], 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $stats['in_progress_earnings'], 0.01);
         $this->assertEqualsWithDelta(100.0, (float) $stats['avg_order_value'], 0.01);
 
         $recent = $this->actingAs($publisher)
@@ -387,7 +388,7 @@ class PublisherDashboardTest extends TestCase
 
         $response->assertOk()
             ->assertSee('€42.00')
-            ->assertSee('Pending earnings')
+            ->assertSee('Pending payout')
             ->assertSee('€100.00')
             ->assertSee('Needs you')
             ->assertSee('id="openTasks"', false)
@@ -583,5 +584,47 @@ class PublisherDashboardTest extends TestCase
             $html->getContent()
         );
         $html->assertSee('Accept', false);
+    }
+
+    public function test_withdrawable_leads_and_processing_counts_as_in_progress_payout(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $publisher->activeWallet()->forceFill(['bonus_balance' => 20])->save();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+            'total_amount' => 115,
+        ], [
+            'price' => 115,
+            'additional_price' => 0,
+        ]);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+            'total_amount' => 115,
+        ], [
+            'price' => 115,
+            'additional_price' => 0,
+        ]);
+
+        $stats = $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->json('data');
+
+        $this->assertEqualsWithDelta(100.0, (float) $stats['pending_earnings'], 0.01);
+        $this->assertEqualsWithDelta(100.0, (float) $stats['in_progress_earnings'], 0.01);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Withdrawable')
+            ->assertSee('€30.00')
+            ->assertSee('€50.00 on balance includes promo/hold')
+            ->assertSee('€200.00')
+            ->assertSee('still to publish');
     }
 }

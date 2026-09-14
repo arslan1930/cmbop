@@ -281,6 +281,7 @@ class DashboardController extends Controller
             'cancelled_orders' => 0,
             'total_earnings' => 0.0,
             'pending_earnings' => 0.0,
+            'in_progress_earnings' => 0.0,
             'total_sites' => 0,
             'success_rate' => 0.0,
         ];
@@ -323,6 +324,14 @@ class DashboardController extends Controller
                 ->whereHas('order', function ($q) {
                     $q->where('status', 'review')
                         ->where('payment_status', 'paid');
+                })
+                ->sum(OrderItem::publisherPayoutSqlExpression()), 2),
+            'in_progress_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
+                ->recognizedForFinance()
+                ->whereHas('order', function ($q) {
+                    $q->where('status', 'processing')
+                        ->where('payment_status', 'paid')
+                        ->notAwaitingScheduledRelease();
                 })
                 ->sum(OrderItem::publisherPayoutSqlExpression()), 2),
         ];
