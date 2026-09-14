@@ -684,6 +684,20 @@ class PublisherDashboardTest extends TestCase
             ->assertSee('We could not refresh every number')
             ->assertSee('we could not refresh your numbers')
             ->assertDontSee('No performance data yet')
-            ->assertDontSee('Add a website with niche, language, and pricing');
+            ->assertDontSee('Add a website with niche, language, and pricing')
+            ->assertDontSee('Add your first website')
+            ->assertDontSee('Do this next');
+    }
+
+    public function test_wallet_tile_uses_publisher_wallet_when_active_role_is_missing(): void
+    {
+        $publisher = $this->publisherWithWallet(42);
+        $publisher->forceFill(['active_role_id' => null])->save();
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Withdrawable')
+            ->assertSee('€42.00');
     }
 }

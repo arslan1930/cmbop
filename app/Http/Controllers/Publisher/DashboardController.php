@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\Site;
+use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Support\PublisherNeedsAction;
 use App\Support\PublisherSiteHealth;
@@ -54,7 +55,7 @@ class DashboardController extends Controller
         $needsYou = PublisherNeedsAction::needsYouCount((int) $userId);
         $waitingOnAdvertiser = PublisherNeedsAction::waitingOnAdvertiserCount((int) $userId);
 
-        $wallet = $user->activeWallet();
+        $wallet = Wallet::forPublisher((int) $userId) ?: $user->activeWallet();
         $availableBalance = $wallet ? (float) $wallet->balance : 0.0;
         $withdrawableBalance = $wallet ? $wallet->withdrawableBalance() : 0.0;
 

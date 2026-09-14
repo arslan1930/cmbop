@@ -54,6 +54,7 @@
     </div>
 
     <!-- Quick Actions -->
+    @unless($dashboardFailed)
     <div class="row g-3 mb-3">
         @if($primaryAction === 'tasks')
             <div class="col-lg-7">
@@ -61,7 +62,7 @@
                     <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-4">
                         <div>
                             <div class="text-uppercase small fw-semibold mb-1 publisher-cta-eyebrow">Do this next</div>
-                            <h4 class="mb-1">You have {{ $needsYou }} task{{ $needsYou === 1 ? '' : 's' }} that need you</h4>
+                            <h4 class="mb-1">You have {{ $needsYou }} {{ $needsYou === 1 ? 'task that needs you' : 'tasks that need you' }}</h4>
                             <p class="text-muted mb-0">Accept, publish a live URL, or reply to a change request.</p>
                             @if($waitingOnAdvertiser > 0)
                                 <p class="small text-muted mb-0 mt-1">{{ $waitingOnAdvertiser }} more in review, waiting on advertisers.</p>
@@ -177,6 +178,7 @@
             </div>
         @endif
     </div>
+    @endunless
 
     <!-- KPI strip (always visible) -->
     <div class="row g-3 mb-4 row-cols-2 row-cols-lg-3 row-cols-xl-5">
