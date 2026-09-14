@@ -254,7 +254,8 @@ class Invoice extends Model
      * Document status wins over a frozen payment_status snapshot.
      * A refunded invoice still stored as payment_status=paid is leftover.
      * A deposit receipt whose wallet top-up was clawed back is leftover
-     * even if markRefunded() never flipped the RCT- row.
+     * even if markRefunded() never flipped the RCT- row. A tax/payment
+     * receipt whose order is refunded or failed is leftover the same way.
      */
     public function displayPaymentStatus(): string
     {
@@ -264,6 +265,11 @@ class Invoice extends Model
 
         if ($this->linkedDepositIsRefunded()) {
             return self::STATUS_REFUNDED;
+        }
+
+        $orderPayment = $this->linkedOrderClosedPaymentStatus();
+        if ($orderPayment !== null) {
+            return $orderPayment;
         }
 
         $payment = trim((string) $this->payment_status);
@@ -306,6 +312,42 @@ class Invoice extends Model
     public function linkedDepositIsRefunded(): bool
     {
         return $this->linkedDepositRequest()?->status === 'refunded';
+    }
+
+    /**
+     * Tax/payment receipts that stayed Paid after the order was refunded
+     * or failed (handlePaymentRefunded threw, or a leftover pre-fix row).
+     */
+    public function linkedOrderClosedPaymentStatus(): ?string
+    {
+        if (! $this->order_id) {
+            return null;
+        }
+
+        $order = $this->relatedOrderForDisplay();
+        $payment = trim((string) ($order?->payment_status ?? ''));
+
+        return in_array($payment, [self::STATUS_REFUNDED, self::STATUS_FAILED], true)
+            ? $payment
+            : null;
+    }
+
+    protected function relatedOrderForDisplay(): ?Order
+    {
+        if ($this->relationLoaded('order')) {
+            return $this->getRelation('order');
+        }
+
+        $order = null;
+        try {
+            $order = $this->order()->first();
+        } catch (\Throwable) {
+            $order = null;
+        }
+
+        $this->setRelation('order', $order);
+
+        return $order;
     }
 
     public function isClosedDocument(): bool
@@ -351,22 +393,41 @@ class Invoice extends Model
                 });
             });
 
-            if (! self::depositRequestsQueryable()) {
-                return;
+            if (self::depositRequestsQueryable()) {
+                if ($status === self::STATUS_REFUNDED) {
+                    $inner->orWhere(function ($depositRefunded) {
+                        $depositRefunded->where('type', self::TYPE_DEPOSIT_RECEIPT)
+                            ->whereNotIn('status', self::closedStatuses())
+                            ->whereIn('reference_code', self::refundedDepositReferenceCodes());
+                    });
+                } elseif (! in_array($status, $closed, true)) {
+                    $inner->where(function ($keep) {
+                        $keep->where('type', '!=', self::TYPE_DEPOSIT_RECEIPT)
+                            ->orWhereNull('reference_code')
+                            ->orWhereNotIn('reference_code', self::refundedDepositReferenceCodes());
+                    });
+                }
             }
 
-            if ($status === self::STATUS_REFUNDED) {
-                $inner->orWhere(function ($depositRefunded) {
-                    $depositRefunded->where('type', self::TYPE_DEPOSIT_RECEIPT)
-                        ->whereNotIn('status', self::closedStatuses())
-                        ->whereIn('reference_code', self::refundedDepositReferenceCodes());
-                });
-            } elseif (! in_array($status, $closed, true)) {
-                $inner->where(function ($keep) {
-                    $keep->where('type', '!=', self::TYPE_DEPOSIT_RECEIPT)
-                        ->orWhereNull('reference_code')
-                        ->orWhereNotIn('reference_code', self::refundedDepositReferenceCodes());
-                });
+            if (self::ordersQueryable()) {
+                if ($status === self::STATUS_REFUNDED) {
+                    $inner->orWhere(function ($orderRefunded) {
+                        $orderRefunded->whereNotNull('order_id')
+                            ->whereNotIn('status', self::closedStatuses())
+                            ->whereIn('order_id', self::orderIdsWithPaymentStatus(self::STATUS_REFUNDED));
+                    });
+                } elseif ($status === self::STATUS_FAILED) {
+                    $inner->orWhere(function ($orderFailed) {
+                        $orderFailed->whereNotNull('order_id')
+                            ->whereNotIn('status', self::closedStatuses())
+                            ->whereIn('order_id', self::orderIdsWithPaymentStatus(self::STATUS_FAILED));
+                    });
+                } elseif (! in_array($status, $closed, true)) {
+                    $inner->where(function ($keep) {
+                        $keep->whereNull('order_id')
+                            ->orWhereNotIn('order_id', self::orderIdsWithClosedPayment());
+                    });
+                }
             }
         });
     }
@@ -389,6 +450,35 @@ class Invoice extends Model
             ->select('reference_code')
             ->where('status', 'refunded')
             ->whereNotNull('reference_code');
+    }
+
+    protected static function ordersQueryable(): bool
+    {
+        try {
+            return Schema::hasTable((new Order)->getTable());
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return Builder<Order>
+     */
+    protected static function orderIdsWithPaymentStatus(string $paymentStatus)
+    {
+        return Order::query()
+            ->select('id')
+            ->where('payment_status', $paymentStatus);
+    }
+
+    /**
+     * @return Builder<Order>
+     */
+    protected static function orderIdsWithClosedPayment()
+    {
+        return Order::query()
+            ->select('id')
+            ->whereIn('payment_status', [self::STATUS_REFUNDED, self::STATUS_FAILED]);
     }
 
     /**

@@ -493,7 +493,20 @@ abstract class PlatformMailable extends Mailable implements ShouldQueue
             return;
         }
 
-        $path = app(InvoicePdfGenerator::class)->absolutePath($invoice);
+        $generator = app(InvoicePdfGenerator::class);
+        if ($invoice->storedPdfMayBeStale()) {
+            try {
+                $generator->generateAndStore($invoice);
+                $invoice->refresh();
+            } catch (\Throwable $e) {
+                Log::warning('Could not regenerate leftover invoice PDF before attach', [
+                    'invoice_id' => $invoice->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $path = $generator->absolutePath($invoice);
         if ($path && is_readable($path)) {
             $mail->attach($path, [
                 'as' => $as,

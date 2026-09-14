@@ -392,6 +392,103 @@ class BillingLeftoverHonestyTest extends TestCase
             ->assertDontSee('This document has been cancelled.', false);
     }
 
+    public function test_leftover_order_invoice_follows_refunded_order(): void
+    {
+        $advertiser = $this->advertiser();
+        $order = $this->paidOrder($advertiser);
+        Invoice::query()->where('order_id', $order->id)->delete();
+        $order->payment_status = 'refunded';
+        $order->saveQuietly();
+
+        $invoice = Invoice::create([
+            'user_id' => $advertiser->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-ORDER-LEFT',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'invoice_date' => now(),
+            'customer_name' => $advertiser->name,
+            'customer_email' => $advertiser->email,
+            'currency' => 'EUR',
+            'subtotal' => 80,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'order_number' => $order->order_number,
+            'line_items' => [['description' => 'Guest post', 'line_total' => 80]],
+            'billing_snapshot' => [],
+        ]);
+
+        $this->assertSame(Invoice::STATUS_REFUNDED, $invoice->fresh()->displayPaymentStatus());
+        $this->assertFalse($invoice->fresh()->canResendCustomerEmail());
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', ['status' => 'refunded']))
+            ->assertOk()
+            ->assertSee('INV-ORDER-LEFT', false);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', ['status' => 'paid']))
+            ->assertOk()
+            ->assertDontSee('INV-ORDER-LEFT', false);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.show', $invoice))
+            ->assertOk()
+            ->assertSee('was refunded', false)
+            ->assertDontSee('This document has been cancelled.', false);
+    }
+
+    public function test_leftover_order_invoice_follows_failed_order(): void
+    {
+        $advertiser = $this->advertiser();
+        $order = $this->paidOrder($advertiser);
+        Invoice::query()->where('order_id', $order->id)->delete();
+        $order->payment_status = 'failed';
+        $order->saveQuietly();
+
+        $invoice = Invoice::create([
+            'user_id' => $advertiser->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-ORDER-FAIL',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'invoice_date' => now(),
+            'customer_name' => $advertiser->name,
+            'customer_email' => $advertiser->email,
+            'currency' => 'EUR',
+            'subtotal' => 80,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'order_number' => $order->order_number,
+            'line_items' => [['description' => 'Guest post', 'line_total' => 80]],
+            'billing_snapshot' => [],
+        ]);
+
+        $this->assertSame(Invoice::STATUS_FAILED, $invoice->fresh()->displayPaymentStatus());
+        $this->assertFalse($invoice->fresh()->canResendCustomerEmail());
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', ['status' => 'failed']))
+            ->assertOk()
+            ->assertSee('INV-ORDER-FAIL', false);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', ['status' => 'paid']))
+            ->assertOk()
+            ->assertDontSee('INV-ORDER-FAIL', false);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.show', $invoice))
+            ->assertOk()
+            ->assertSee('This payment attempt failed', false);
+    }
+
     public function test_add_funds_activity_uses_receipt_label_when_refunded(): void
     {
         $blade = file_get_contents(resource_path('views/advertiser/add-funds.blade.php'));
