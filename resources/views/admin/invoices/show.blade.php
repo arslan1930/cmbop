@@ -44,6 +44,19 @@
         </div>
     </div>
 
+    @if($invoice->isClosedDocument())
+        @php $displayStatus = $invoice->displayPaymentStatus(); @endphp
+        <div class="alert alert-{{ $displayStatus === 'failed' ? 'danger' : ($displayStatus === 'cancelled' ? 'secondary' : 'info') }} border-0 shadow-sm">
+            @if($displayStatus === 'refunded')
+                This {{ strtolower($invoice->typeLabel()) }} was refunded. The amount is no longer collected.
+            @elseif($displayStatus === 'failed')
+                This payment attempt failed. No charge was completed.
+            @else
+                This document has been cancelled.
+            @endif
+        </div>
+    @endif
+
     <div class="row g-3">
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm mb-3">

@@ -253,6 +253,8 @@ class Invoice extends Model
     /**
      * Document status wins over a frozen payment_status snapshot.
      * A refunded invoice still stored as payment_status=paid is leftover.
+     * A deposit receipt whose wallet top-up was clawed back is leftover
+     * even if markRefunded() never flipped the RCT- row.
      */
     public function displayPaymentStatus(): string
     {
@@ -260,9 +262,50 @@ class Invoice extends Model
             return $this->status;
         }
 
+        if ($this->linkedDepositIsRefunded()) {
+            return self::STATUS_REFUNDED;
+        }
+
         $payment = trim((string) $this->payment_status);
 
         return $payment !== '' ? $payment : (string) $this->status;
+    }
+
+    public function linkedDepositRequest(): ?DepositRequest
+    {
+        if (! $this->isDepositReceipt()) {
+            return null;
+        }
+
+        if ($this->relationLoaded('linkedDepositRequestCache')) {
+            return $this->getRelation('linkedDepositRequestCache');
+        }
+
+        $deposit = null;
+        try {
+            $id = $this->depositRequestId();
+            if ($id) {
+                $deposit = DepositRequest::query()->find($id);
+            }
+            if (! $deposit && filled($this->reference_code)) {
+                $query = DepositRequest::query()->where('reference_code', $this->reference_code);
+                if ($this->user_id) {
+                    $query->where('user_id', $this->user_id);
+                }
+                $deposit = $query->first();
+            }
+        } catch (\Throwable) {
+            $deposit = null;
+        }
+
+        $this->setRelation('linkedDepositRequestCache', $deposit);
+
+        return $deposit;
+    }
+
+    public function linkedDepositIsRefunded(): bool
+    {
+        return $this->linkedDepositRequest()?->status === 'refunded';
     }
 
     public function isClosedDocument(): bool
@@ -291,21 +334,61 @@ class Invoice extends Model
         $closed = self::closedStatuses();
 
         return $query->where(function ($inner) use ($status, $closed) {
-            $inner->where(function ($closedMatch) use ($status, $closed) {
-                $closedMatch->whereIn('status', $closed)
-                    ->where('status', $status);
-            })->orWhere(function ($paymentMatch) use ($status, $closed) {
-                $paymentMatch->whereNotIn('status', $closed)
-                    ->where('payment_status', $status);
-            })->orWhere(function ($statusOnly) use ($status, $closed) {
-                $statusOnly->whereNotIn('status', $closed)
-                    ->where(function ($emptyPayment) {
-                        $emptyPayment->whereNull('payment_status')
-                            ->orWhere('payment_status', '');
-                    })
-                    ->where('status', $status);
+            $inner->where(function ($display) use ($status, $closed) {
+                $display->where(function ($closedMatch) use ($status, $closed) {
+                    $closedMatch->whereIn('status', $closed)
+                        ->where('status', $status);
+                })->orWhere(function ($paymentMatch) use ($status, $closed) {
+                    $paymentMatch->whereNotIn('status', $closed)
+                        ->where('payment_status', $status);
+                })->orWhere(function ($statusOnly) use ($status, $closed) {
+                    $statusOnly->whereNotIn('status', $closed)
+                        ->where(function ($emptyPayment) {
+                            $emptyPayment->whereNull('payment_status')
+                                ->orWhere('payment_status', '');
+                        })
+                        ->where('status', $status);
+                });
             });
+
+            if (! self::depositRequestsQueryable()) {
+                return;
+            }
+
+            if ($status === self::STATUS_REFUNDED) {
+                $inner->orWhere(function ($depositRefunded) {
+                    $depositRefunded->where('type', self::TYPE_DEPOSIT_RECEIPT)
+                        ->whereNotIn('status', self::closedStatuses())
+                        ->whereIn('reference_code', self::refundedDepositReferenceCodes());
+                });
+            } elseif (! in_array($status, $closed, true)) {
+                $inner->where(function ($keep) {
+                    $keep->where('type', '!=', self::TYPE_DEPOSIT_RECEIPT)
+                        ->orWhereNull('reference_code')
+                        ->orWhereNotIn('reference_code', self::refundedDepositReferenceCodes());
+                });
+            }
         });
+    }
+
+    protected static function depositRequestsQueryable(): bool
+    {
+        try {
+            return Schema::hasTable((new DepositRequest)->getTable());
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return Builder<DepositRequest>
+     */
+    protected static function refundedDepositReferenceCodes()
+    {
+        return DepositRequest::query()
+            ->select('reference_code')
+            ->where('status', 'refunded')
+            ->whereNotNull('reference_code');
     }
 
     /**

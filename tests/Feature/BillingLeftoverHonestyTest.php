@@ -334,4 +334,71 @@ class BillingLeftoverHonestyTest extends TestCase
         $this->assertStringContainsString('escapeHtml(data.invoice_url)', $js);
         $this->assertStringNotContainsString('href="${data.invoice_url}"', $js);
     }
+
+    public function test_leftover_deposit_receipt_follows_refunded_deposit(): void
+    {
+        $advertiser = $this->advertiser();
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-LEFT-RCT',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'refunded',
+        ]);
+        $receipt = Invoice::create([
+            'user_id' => $advertiser->id,
+            'invoice_number' => 'RCT-LEFT-PAID',
+            'type' => Invoice::TYPE_DEPOSIT_RECEIPT,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'invoice_date' => now(),
+            'customer_name' => $advertiser->name,
+            'customer_email' => $advertiser->email,
+            'currency' => 'EUR',
+            'subtotal' => 40,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'card',
+            'reference_code' => $deposit->reference_code,
+            'line_items' => [['description' => 'Wallet deposit', 'line_total' => 40]],
+            'billing_snapshot' => [],
+            'meta' => ['deposit_request_id' => $deposit->id],
+        ]);
+
+        $this->assertSame(Invoice::STATUS_REFUNDED, $receipt->displayPaymentStatus());
+        $this->assertFalse($receipt->canResendCustomerEmail());
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index'))
+            ->assertOk()
+            ->assertSee('RCT-LEFT-PAID', false)
+            ->assertSee('Refunded', false);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', ['status' => 'refunded']))
+            ->assertOk()
+            ->assertSee('RCT-LEFT-PAID', false);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', ['status' => 'paid']))
+            ->assertOk()
+            ->assertDontSee('RCT-LEFT-PAID', false);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.show', $receipt))
+            ->assertOk()
+            ->assertSee('was refunded', false)
+            ->assertDontSee('This document has been cancelled.', false);
+    }
+
+    public function test_add_funds_activity_uses_receipt_label_when_refunded(): void
+    {
+        $blade = file_get_contents(resource_path('views/advertiser/add-funds.blade.php'));
+
+        $this->assertStringContainsString("status === 'refunded' ? 'Download receipt' : 'Download invoice'", $blade);
+        $this->assertStringContainsString("status === 'refunded' ? 'View receipt' : 'Invoice'", $blade);
+        $this->assertStringContainsString("status === 'refunded' ? 'Download receipt' : 'Download Invoice'", $blade);
+        $this->assertStringContainsString("status === 'refunded' ? 'View receipt' : 'View Invoice'", $blade);
+    }
 }

@@ -1014,11 +1014,13 @@
             // handlers bound on document — which is what killed "I paid".
             let actions = '';
             if (row.invoice_download_url) {
+                const downloadLabel = status === 'refunded' ? 'Download receipt' : 'Download invoice';
                 actions += `<a class="btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}" download>
-                    <i class="fa fa-download me-1"></i> Download invoice</a>`;
+                    <i class="fa fa-download me-1"></i> ${downloadLabel}</a>`;
             } else if (row.invoice_view_url) {
+                const viewLabel = status === 'refunded' ? 'View receipt' : 'Invoice';
                 actions += `<a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(row.invoice_view_url)}" target="_blank" rel="noopener">
-                    <i class="fa fa-file-invoice me-1"></i> Invoice</a>`;
+                    <i class="fa fa-file-invoice me-1"></i> ${viewLabel}</a>`;
             }
             if (row.can_mark_paid && row.mark_paid_url) {
                 actions += `<button type="button" class="btn btn-sm btn-outline-primary mark-deposit-paid-btn"
@@ -1330,9 +1332,11 @@
                     || (status === 'refunded' && t.direction !== 'debit');
                 let invoiceBtn = '';
                 if (t.invoice_download_url) {
-                    invoiceBtn = `<a class="btn btn-sm btn-primary w-100 mt-3" href="${escapeHtml(t.invoice_download_url)}"><i class="fa fa-download me-1"></i> Download Invoice</a>`;
+                    const downloadLabel = status === 'refunded' ? 'Download receipt' : 'Download Invoice';
+                    invoiceBtn = `<a class="btn btn-sm btn-primary w-100 mt-3" href="${escapeHtml(t.invoice_download_url)}"><i class="fa fa-download me-1"></i> ${downloadLabel}</a>`;
                 } else if (t.invoice_view_url) {
-                    invoiceBtn = `<a class="btn btn-sm btn-outline-secondary w-100 mt-3" href="${escapeHtml(t.invoice_view_url)}">View Invoice</a>`;
+                    const viewLabel = status === 'refunded' ? 'View receipt' : 'View Invoice';
+                    invoiceBtn = `<a class="btn btn-sm btn-outline-secondary w-100 mt-3" href="${escapeHtml(t.invoice_view_url)}">${viewLabel}</a>`;
                 }
                 body.html(`
                     <div class="wallet-detail-row"><span>Transaction ID</span><strong>${escapeHtml(t.reference || t.id)}</strong></div>

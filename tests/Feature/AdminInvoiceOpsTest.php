@@ -6,6 +6,7 @@ use App\Mail\DepositApproved;
 use App\Mail\PaymentSuccessfulInvoiceMail;
 use App\Mail\WithdrawalStatusUpdated;
 use App\Models\ActivityLog;
+use App\Models\DepositRequest;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -272,8 +273,50 @@ class AdminInvoiceOpsTest extends TestCase
             ->assertOk()
             ->assertSee('Payment status', false)
             ->assertSee('Refunded', false)
+            ->assertSee('was refunded', false)
+            ->assertDontSee('This document has been cancelled.', false)
             ->assertDontSee('>Paid<', false)
             ->assertDontSee('Resend email', false);
+    }
+
+    public function test_leftover_deposit_receipt_hides_resend_and_says_refunded(): void
+    {
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $admin = $this->admin();
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-ADMIN-LEFT',
+            'amount' => 25,
+            'payment_method' => 'card',
+            'status' => 'refunded',
+        ]);
+        $receipt = $this->stubInvoice($advertiser, [
+            'invoice_number' => 'RCT-ADMIN-LEFT',
+            'type' => Invoice::TYPE_DEPOSIT_RECEIPT,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'reference_code' => $deposit->reference_code,
+            'meta' => ['deposit_request_id' => $deposit->id],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.invoices.show', $receipt))
+            ->assertOk()
+            ->assertSee('Refunded', false)
+            ->assertSee('was refunded', false)
+            ->assertDontSee('This document has been cancelled.', false)
+            ->assertDontSee('Resend email', false);
+
+        $this->actingAs($admin)
+            ->from(route('admin.invoices.show', $receipt))
+            ->post(route('admin.invoices.resend', $receipt))
+            ->assertRedirect(route('admin.invoices.show', $receipt))
+            ->assertSessionHas('error');
+
+        Mail::assertNothingQueued();
+        Mail::assertNotQueued(DepositApproved::class);
     }
 
     public function test_resend_payout_statement_queues_mail_when_withdrawal_exists(): void
