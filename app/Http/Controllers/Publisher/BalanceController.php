@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Publisher;
 use App\Http\Controllers\Controller;
 use App\Models\BalanceTransfer;
 use App\Models\Wallet;
+use App\Services\Billing\BillingRuleService;
 use App\Services\Wallet\WalletRoleMoveException;
 use App\Services\Wallet\WalletRoleMoveService;
 use App\Support\UserFacingError;
@@ -15,6 +16,7 @@ class BalanceController extends Controller
 {
     public function __construct(
         private WalletRoleMoveService $roleMoves,
+        private BillingRuleService $billingRules,
     ) {}
 
     /**
@@ -33,7 +35,7 @@ class BalanceController extends Controller
 
             $publisher = $publisherWallet?->roleSnapshot() ?? Wallet::emptyRoleSnapshot();
             $advertiser = $advertiserWallet?->roleSnapshot() ?? Wallet::emptyRoleSnapshot();
-            $minWithdrawalAmount = max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
+            $minWithdrawalAmount = $this->billingRules->minWithdrawalAmount();
             $roleMoveMinAmount = max(0.01, round((float) config('billing.role_move.min_amount', 0.01), 2));
             $canWithdraw = $publisher['debt'] <= 0 && $publisher['withdrawable'] >= $minWithdrawalAmount;
             $showAdvertiserWallet = $user->hasRole('advertiser');
@@ -68,7 +70,7 @@ class BalanceController extends Controller
                 'publisherBalance' => 0.0,
                 'advertiserBalance' => 0.0,
                 'publisherDebt' => 0.0,
-                'minWithdrawalAmount' => max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2)),
+                'minWithdrawalAmount' => $this->billingRules->minWithdrawalAmount(),
                 'roleMoveMinAmount' => max(0.01, round((float) config('billing.role_move.min_amount', 0.01), 2)),
                 'canWithdraw' => false,
                 'canMove' => false,

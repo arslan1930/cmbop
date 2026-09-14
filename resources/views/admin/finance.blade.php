@@ -102,6 +102,8 @@
         </div>
     </form>
 
+    @include('admin.finance.partials.payout-rules')
+
     @if($userQuery !== '')
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body py-3">
@@ -350,7 +352,7 @@
                 <div class="col-6 col-lg">
                     <div class="text-muted small">Withdrawal fees</div>
                     <div class="fs-5 fw-bold">{{ $euro($d['platform']['withdrawal_fees']) }}</div>
-                    <div class="small text-muted">Config {{ rtrim(rtrim(number_format($d['platform']['withdrawal_fee_percent'], 2), '0'), '.') }}%</div>
+                    <div class="small text-muted">{{ rtrim(rtrim(number_format($d['platform']['withdrawal_fee_percent'], 2), '0'), '.') }}% on new requests · <a href="#payout-rules" class="link-secondary">Edit</a></div>
                 </div>
                 <div class="col-6 col-lg">
                     <div class="text-muted small">Refunds (order totals)</div>

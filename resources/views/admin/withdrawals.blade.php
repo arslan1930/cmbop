@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-    $platformChargePercent = (float) config('billing.withdrawal_fee_percent', 0);
+    $platformChargePercent = (float) ($platformChargePercent ?? 0);
 @endphp
 <div class="container-fluid py-3">
 
@@ -14,6 +14,9 @@
         <div class="d-flex flex-wrap gap-2">
             <a href="{{ route('admin.finance') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-chart-pie me-1"></i> Finance overview
+            </a>
+            <a href="{{ route('admin.finance') }}#payout-rules" class="btn btn-sm btn-outline-secondary">
+                <i class="fa fa-sliders-h me-1"></i> Payout rules
             </a>
             <button type="button" id="exportCsvBtn" class="btn btn-sm btn-outline-primary">
                 <i class="fa fa-file-csv me-1"></i> Export CSV

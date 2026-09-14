@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\BillingRuleSetting;
 use App\Models\WelcomeBonusClaim;
 use App\Models\WelcomeBonusSetting;
 use Database\Seeders\RolesTableSeeder;
@@ -65,6 +66,7 @@ class ProductionRepair
         }
 
         $this->ensureWelcomeBonusMigrations($notes);
+        $this->ensureBillingRuleSettings($notes);
     }
 
     /**
@@ -337,6 +339,61 @@ class ProductionRepair
             '2026_08_15_103800_keep_welcome_bonus_claims_after_user_delete.php',
             '2026_08_15_110800_unique_welcome_bonus_claim_place.php',
             '2026_08_15_112000_unique_welcome_bonus_settings_key.php',
+        ];
+    }
+
+    /**
+     * Finance payout rules overlay. `--path` can still create the table when
+     * a later unrelated migrate aborted the batch.
+     *
+     * @param  list<string>  $notes
+     */
+    public function ensureBillingRuleSettings(array &$notes): void
+    {
+        if (static::billingRuleStorageReady()) {
+            return;
+        }
+
+        foreach ($this->billingRuleMigrationFiles() as $file) {
+            try {
+                Artisan::call('migrate', [
+                    '--force' => true,
+                    '--path' => 'database/migrations/'.$file,
+                ]);
+            } catch (\Throwable $e) {
+                $notes[] = 'billing rules migrate '.$file.' failed: '.$e->getMessage();
+                Log::error('Billing rule settings migrate failed', [
+                    'file' => $file,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (! Schema::hasTable('billing_rule_settings')) {
+            BillingRuleSetting::ensureTable();
+        }
+
+        if (static::billingRuleStorageReady()) {
+            $notes[] = 'billing rule settings table ready';
+        }
+    }
+
+    public static function billingRuleStorageReady(): bool
+    {
+        try {
+            return Schema::hasTable('billing_rule_settings');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function billingRuleMigrationFiles(): array
+    {
+        return [
+            '2026_09_14_213000_create_billing_rule_settings_table.php',
         ];
     }
 

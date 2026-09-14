@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AdBannerController as AdminAdBannerController;
 use App\Http\Controllers\Admin\AdminWithdrawalController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AudienceController as AdminAudienceController;
+use App\Http\Controllers\Admin\BillingRuleSettingController as AdminBillingRuleSettingController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
 use App\Http\Controllers\Admin\BulkSiteRequestController as AdminBulkSiteRequestController;
 use App\Http\Controllers\Admin\CampaignController as AdminCampaignController;
@@ -703,6 +704,10 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/invoices/{invoice}/regenerate-pdf', [AdminInvoiceController::class, 'regeneratePdf'])->name('invoices.regenerate-pdf');
 
         Route::get('/finance', [AdminFinanceController::class, 'index'])->name('finance');
+        Route::post('/finance/payout-rules/min', [AdminBillingRuleSettingController::class, 'updateMin'])
+            ->name('finance.payout-rules.min');
+        Route::post('/finance/payout-rules/fee', [AdminBillingRuleSettingController::class, 'updateFee'])
+            ->name('finance.payout-rules.fee');
         Route::get('/finance/export', [AdminFinanceController::class, 'export'])->name('finance.export');
         Route::get('/finance/ledger', [AdminFinanceController::class, 'ledger'])->name('finance.ledger');
         Route::get('/finance/ledger/export', [AdminFinanceController::class, 'ledgerExport'])->name('finance.ledger.export');

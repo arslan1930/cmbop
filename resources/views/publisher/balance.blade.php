@@ -6,7 +6,7 @@
 @php
     $publisher = $publisher ?? \App\Models\Wallet::emptyRoleSnapshot();
     $advertiser = $advertiser ?? \App\Models\Wallet::emptyRoleSnapshot();
-    $minWithdrawalAmount = (float) ($minWithdrawalAmount ?? config('billing.withdrawal_min_amount', 20));
+    $minWithdrawalAmount = (float) ($minWithdrawalAmount ?? 20);
     $canWithdraw = (bool) ($canWithdraw ?? false);
     $showAdvertiserWallet = (bool) ($showAdvertiserWallet ?? false);
     $canMove = (bool) ($canMove ?? false);
