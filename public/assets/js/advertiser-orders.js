@@ -2154,12 +2154,12 @@ function bootAdvertiserOrdersPage() {
                 </button>` : ''}
                 ${itemsCount <= 1 && order.dispute_status ? `<span class="badge text-bg-${order.dispute_status === 'upheld' ? 'danger' : (order.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(order.dispute_status)}</span>` : ''}
             `;
-        } else if (!['completed', 'cancelled'].includes(order.status) || order.payment_status === 'refunded') {
+        } else {
             actionButtons = `
                 <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
                     <i class="fa fa-comments"></i> Chat
                 </button>
-                ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
+                ${orderIsLiveWork(order) ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>` : ''}
             `;

@@ -238,6 +238,8 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringContainsString('} else if (orderCanApprove(order)) {', $js);
         $this->assertStringContainsString('orderNeedsContentRevision(order)', $js);
         $this->assertStringContainsString("order?.payment_status !== 'paid' && order?.status !== 'completed'", $js);
+        $this->assertStringContainsString('${orderIsLiveWork(order) ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue', $js);
+        $this->assertStringNotContainsString("!['completed', 'cancelled'].includes(order.status) || order.payment_status === 'refunded'", $js);
         $this->assertStringNotContainsString('} else if (isUnderReview && hasAnyLiveUrl) {', $js);
         preg_match('/function renderOrderRowActions\(order\) \{(.*?)\n    \}/s', $js, $rowActionsFn);
         $this->assertNotEmpty($rowActionsFn[1] ?? null, 'renderOrderRowActions function should be present');
