@@ -120,5 +120,11 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringContainsString('af-activity-heading', $blade);
         $this->assertStringContainsString('af-activity-doc', $blade);
         $this->assertStringNotContainsString('btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}"', $blade);
+        $this->assertStringNotContainsString("debit ? 'is-debit'", $blade);
+        $this->assertStringContainsString('function activityIconClass', $blade);
+        $this->assertStringContainsString('.wallet-type-icon.is-purchase', $css);
+        $this->assertStringContainsString('.wallet-type-icon.is-refund', $css);
+        $this->assertStringContainsString('.wallet-type-icon.is-closed', $css);
+        $this->assertStringNotContainsString('.wallet-type-icon.is-debit', $css);
     }
 }

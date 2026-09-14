@@ -868,6 +868,17 @@
         return 'wallet-status wallet-status--' + String(status || 'pending').toLowerCase();
     }
 
+    function activityIconClass(row, status, dead) {
+        const type = String(row.type || '');
+        if (type === 'bonus_credit') return 'is-bonus';
+        if (dead || ['failed', 'rejected', 'cancelled'].includes(status)) return 'is-closed';
+        if (status === 'refunded' || type === 'refund') return 'is-refund';
+        if (type === 'deposit') return 'is-deposit';
+        if (type === 'purchase') return 'is-purchase';
+        if (type === 'withdrawal') return 'is-withdrawal';
+        return '';
+    }
+
     function lockedHint() {
         return '<small class="text-muted">Locked — contact support to change.</small>';
     }
@@ -1005,7 +1016,7 @@
             const dead = ['rejected', 'failed', 'cancelled'].includes(status)
                 || row.direction === 'none'
                 || (status === 'refunded' && row.direction !== 'debit');
-            const iconClass = row.type === 'bonus_credit' ? 'is-bonus' : (debit ? 'is-debit' : '');
+            const iconClass = activityIconClass(row, status, dead);
             const amountClass = dead ? 'wallet-amount-flat' : (debit ? 'wallet-amount-debit' : 'wallet-amount-credit');
             const sign = dead ? '' : (debit ? '−' : '+');
             const pending = !!row.is_live_pending;

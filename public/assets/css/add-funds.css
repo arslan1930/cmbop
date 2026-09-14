@@ -53,8 +53,12 @@
     display: inline-flex; align-items: center; justify-content: center;
     background: #e6f5f5; color: var(--brand-primary, #1a585e); font-size: 13px;
 }
-.wallet-type-icon.is-debit { background: #fee2e2; color: #dc2626; }
+.wallet-type-icon.is-deposit { background: #d1fae5; color: #0f766e; }
+.wallet-type-icon.is-purchase { background: #e6f5f5; color: var(--brand-primary, #1a585e); }
+.wallet-type-icon.is-refund { background: #e0e7ff; color: #3730a3; }
+.wallet-type-icon.is-closed { background: #f1f5f9; color: #64748b; }
 .wallet-type-icon.is-bonus { background: #fef3c7; color: #d97706; }
+.wallet-type-icon.is-withdrawal { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
 
 .wallet-amount-credit { color: #059669; font-weight: 700; }
 .wallet-amount-debit { color: #dc2626; font-weight: 700; }
