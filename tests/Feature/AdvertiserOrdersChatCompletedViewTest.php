@@ -295,6 +295,7 @@ class AdvertiserOrdersChatCompletedViewTest extends TestCase
         $this->assertNotEmpty($payload['messages']);
         $this->assertSame('Live URL is up.', $payload['messages'][0]['message']);
         $this->assertTrue($payload['can_send']);
+        $this->assertIsArray($payload['receipts'] ?? null);
     }
 
     public function test_chat_send_survives_dropped_notifications_table(): void

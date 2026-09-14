@@ -29,6 +29,61 @@
     return text;
   }
 
+  function formatChatMessageText(raw) {
+    var text = String(raw == null ? '' : raw);
+    var slots = [];
+    text = text.replace(/\b(?:https?:\/\/|mailto:)[^\s<]+/gi, function (match) {
+      slots.push(match);
+      return '\u0000URL' + (slots.length - 1) + '\u0000';
+    });
+    text = text.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, function (match) {
+      slots.push(match);
+      return '\u0000URL' + (slots.length - 1) + '\u0000';
+    });
+    text = escapeHtml(text);
+    var pairs = [
+      [':-)', '😊'],
+      [':)', '😊'],
+      [':-(', '😞'],
+      [':(', '😞'],
+      [':-D', '😃'],
+      [':D', '😃'],
+      [';-)', '😉'],
+      [';)', '😉'],
+      [':-P', '😛'],
+      [':P', '😛'],
+      [':p', '😛'],
+      ['&lt;3', '❤️'],
+      [':|', '😐'],
+    ];
+    pairs.forEach(function (pair) {
+      var token = pair[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var re = new RegExp('(^|[\\s])(' + token + ')(?=[\\s]|$)', 'g');
+      text = text.replace(re, function (all, lead) {
+        return lead + pair[1];
+      });
+    });
+    text = text.replace(/\u0000URL(\d+)\u0000/g, function (_, index) {
+      return escapeHtml(slots[Number(index)]);
+    });
+    return text.replace(/\r\n|\r|\n/g, '<br>');
+  }
+
+  function chatModalIsOpen() {
+    var modal = document.getElementById('chatModal');
+    return !!(modal && modal.classList.contains('show'));
+  }
+
+  function focusChatComposer() {
+    var input = document.getElementById('chatMessageInput');
+    if (!input || input.disabled || !chatModalIsOpen()) return;
+    setTimeout(function () {
+      if (!input.disabled && chatModalIsOpen()) {
+        input.focus();
+      }
+    }, 150);
+  }
+
   function OrderChat(config) {
     this.config = config || {};
     this.baseUrl = (config.baseUrl || window.location.origin || '').replace(/\/$/, '');
@@ -54,14 +109,31 @@
 
     if (input) {
       input.addEventListener('keydown', function (e) {
-        if (e.ctrlKey && e.key === 'Enter') {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
           self.send();
+          return;
         }
+        // Enter / Shift+Enter stay as a new line in the textarea.
       });
     }
 
     if (modal) {
+      modal.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        if (!chatModalIsOpen()) return;
+        if (document.querySelector('.swal2-container')) return;
+        e.preventDefault();
+        self.hideModal();
+      });
+      var onShown = function () {
+        focusChatComposer();
+      };
+      if (window.jQuery) {
+        window.jQuery(modal).off('shown.bs.modal.orderChat').on('shown.bs.modal.orderChat', onShown);
+      } else {
+        modal.addEventListener('shown.bs.modal', onShown);
+      }
       var onHidden = function () {
         self.stopPoll();
         self.currentOrderId = null;
@@ -97,6 +169,7 @@
     this.load(false);
     this.showModal();
     this.startPoll();
+    focusChatComposer();
   };
 
   OrderChat.prototype.showModal = function () {
@@ -183,6 +256,9 @@
 
         self.currentUserId = data.current_user_id;
         self.applyComposerState(data.can_send !== false, data.composer_note || (data.order_details && data.order_details.composer_note));
+        if (!incremental && self.currentOrderId) {
+          focusChatComposer();
+        }
 
         if (typeof self.config.renderOrderDetails === 'function') {
           self.config.renderOrderDetails(data.order_details || null);
@@ -204,6 +280,7 @@
             self.lastMessageId = msg.id;
           }
         });
+        self.applyReceipts(data.receipts || []);
       })
       .catch(function () {
         if (!incremental) {
@@ -281,6 +358,41 @@
     }
   };
 
+  function chatTickHtml(isOwn, isBlocked, isRead) {
+    if (!isOwn || isBlocked) return '';
+    var read = !!isRead;
+    var label = read ? 'Read' : 'Delivered';
+    var icons = read
+      ? '<i class="fa fa-check"></i><i class="fa fa-check"></i>'
+      : '<i class="fa fa-check"></i>';
+    return (
+      '<span class="chat-bubble__ticks" data-chat-ticks data-read="' +
+      (read ? '1' : '0') +
+      '" aria-label="' +
+      label +
+      '" title="' +
+      label +
+      '">' +
+      icons +
+      '</span>'
+    );
+  }
+
+  OrderChat.prototype.applyReceipts = function (receipts) {
+    if (!receipts || !receipts.length) return;
+    receipts.forEach(function (receipt) {
+      if (!receipt || !receipt.id || !receipt.is_read) return;
+      var row = document.querySelector('#chatMessages [data-message-id="' + String(receipt.id) + '"]');
+      if (!row) return;
+      var ticks = row.querySelector('[data-chat-ticks]');
+      if (!ticks || ticks.getAttribute('data-read') === '1') return;
+      ticks.setAttribute('data-read', '1');
+      ticks.setAttribute('aria-label', 'Read');
+      ticks.setAttribute('title', 'Read');
+      ticks.innerHTML = '<i class="fa fa-check"></i><i class="fa fa-check"></i>';
+    });
+  };
+
   OrderChat.messageHtml = function (msg, currentUserId) {
     var isOwn = Number(msg.user_id) === Number(currentUserId);
     var isBlocked = !!(msg.is_blocked);
@@ -291,10 +403,11 @@
     var alignClass = isOwn ? 'justify-content-end' : 'justify-content-start';
     var senderName = isOwn ? 'You' : escapeHtml((msg.user && msg.user.name) || 'User');
     var time = msg.created_at ? new Date(msg.created_at).toLocaleString() : '';
-    var messageText = escapeHtml(msg.message || '');
+    var messageText = formatChatMessageText(msg.message || '');
     var blockedNote = isBlocked
       ? '<div class="chat-bubble__blocked-note">Not delivered — personal contact details aren’t allowed.</div>'
       : '';
+    var ticks = chatTickHtml(isOwn, isBlocked, !!(msg.is_read));
     return (
       '<div class="d-flex ' +
       alignClass +
@@ -308,6 +421,7 @@
       senderName +
       ' · ' +
       time +
+      ticks +
       '</div>' +
       '<div>' +
       messageText +

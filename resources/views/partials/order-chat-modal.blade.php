@@ -32,7 +32,7 @@
                                 <i class="fa fa-paper-plane me-1" aria-hidden="true"></i> Send
                             </button>
                         </div>
-                        <small class="text-muted mt-1 d-block">Ctrl+Enter to send</small>
+                        <small class="text-muted mt-1 d-block">Enter for a new line · Ctrl+Enter or ⌘Enter to send · Esc to close</small>
                     </form>
                 </div>
             </div>
