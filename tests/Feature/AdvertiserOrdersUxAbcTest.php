@@ -137,6 +137,7 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringContainsString('.orders-total--refunded', $css);
         $this->assertStringContainsString('.orders-more-sites', $css);
         $this->assertStringContainsString('.orders-sort-select', $css);
+        $this->assertStringContainsString('.orders-project-chip', $css);
         $this->assertStringContainsString('type="search"', $html);
         $this->assertStringContainsString('id="ordersSearchStatus"', $html);
         $this->assertStringContainsString('id="ordersSearchClear"', $html);
@@ -147,6 +148,10 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringContainsString('orders-filter-bar', $html);
         $this->assertStringContainsString('orders-filter-bar__row', $html);
         $this->assertStringContainsString('orders-filter-bar__actions', $html);
+        $this->assertStringContainsString('id="projectFilter"', $html);
+        $this->assertStringContainsString('id="projectStageFilter"', $html);
+        $this->assertStringContainsString('id="ordersProjectChip"', $html);
+        $this->assertStringContainsString('id="ordersProjectChipClear"', $html);
         $this->assertStringNotContainsString('row g-2 g-md-3 align-items-end', $html);
         $this->assertStringNotContainsString('col-xl-2', $html);
         $this->assertStringNotContainsString('col-xl-3', $html);
@@ -179,6 +184,11 @@ class AdvertiserOrdersUxAbcTest extends TestCase
 
         $js = file_get_contents(public_path('assets/js/advertiser-orders.js'));
         $this->assertIsString($js);
+        $this->assertStringContainsString('ordersProjectFilterValues', $js);
+        $this->assertStringContainsString('projectFilters.project', $js);
+        $this->assertStringContainsString('clearOrdersProjectStageFilter', $js);
+        $this->assertStringContainsString('syncOrdersKpiActive', $js);
+        $this->assertStringContainsString('project_stage', $js);
         $this->assertStringContainsString('Please provide at least 10 characters', $js);
         $this->assertStringContainsString('No matching orders', $js);
         $this->assertStringContainsString('payment-refunded', $js);
@@ -225,12 +235,20 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringContainsString('replaceState', $js);
         // Row primary action follows leftover flags; Approve/Request changes/revise sit on the list.
         $this->assertStringContainsString('onclick="approveOrder(${order.id})"', $js);
+        $this->assertStringContainsString('} else if (orderCanApprove(order)) {', $js);
+        $this->assertStringContainsString('orderNeedsContentRevision(order)', $js);
+        $this->assertStringContainsString("order?.payment_status !== 'paid' && order?.status !== 'completed'", $js);
+        $this->assertStringContainsString('${orderIsLiveWork(order) ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue', $js);
+        $this->assertStringContainsString('modRequested && orderIsLiveWork(order) && it.completion_notes', $js);
+        $this->assertStringNotContainsString("!['completed', 'cancelled'].includes(order.status) || order.payment_status === 'refunded'", $js);
+        $this->assertStringNotContainsString('} else if (isUnderReview && hasAnyLiveUrl) {', $js);
         preg_match('/function renderOrderRowActions\(order\) \{(.*?)\n    \}/s', $js, $rowActionsFn);
         $this->assertNotEmpty($rowActionsFn[1] ?? null, 'renderOrderRowActions function should be present');
         $this->assertStringContainsString('action-buttons', $rowActionsFn[1]);
         $this->assertStringContainsString('Pay again', $rowActionsFn[1]);
         $this->assertStringContainsString('viewOrder', $rowActionsFn[1]);
         $this->assertStringContainsString('openChat', $rowActionsFn[1]);
+        $this->assertStringContainsString('!chatReadonly && order.unread_chat > 0', $js);
         $this->assertStringContainsString('approveOrder', $rowActionsFn[1]);
         $this->assertStringContainsString('requestModification', $rowActionsFn[1]);
         $this->assertStringContainsString('fulfillContentRevision', $rowActionsFn[1]);
@@ -239,9 +257,11 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         preg_match('/function renderOrders\(orders, pagination\) \{(.*?)\n    \}/s', $js, $renderOrdersFn);
         $this->assertNotEmpty($renderOrdersFn[1] ?? null, 'renderOrders function should be present');
         $this->assertStringContainsString('orders-order-number', $renderOrdersFn[1]);
-        $this->assertStringContainsString('orders-total--refunded', $renderOrdersFn[1]);
+        $this->assertStringContainsString('orderTotalDisplayHtml(order, totalLabel, true)', $renderOrdersFn[1]);
         $this->assertStringContainsString('formatEuro(order.total_amount)', $renderOrdersFn[1]);
         $this->assertStringContainsString('renderOrderRowActions(order)', $renderOrdersFn[1]);
+        $this->assertStringContainsString('function orderTotalDisplayHtml', $js);
+        $this->assertStringContainsString('orderPaymentFailed(order)', $js);
         $this->assertStringContainsString('orders-total--refunded', $js);
         $this->assertStringContainsString('formatEuro(order.total_amount)', $js);
         $this->assertStringNotContainsString('reportLinkRemoved', $renderOrdersFn[1]);

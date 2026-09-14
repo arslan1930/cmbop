@@ -11,6 +11,7 @@ use App\Models\StripeWebhookLog;
 use App\Models\User;
 use App\Services\OrderPaymentService;
 use App\Services\SitePromotionService;
+use App\Services\StripePaymentService;
 use App\Services\WalletStripeDepositService;
 use App\Support\UserMessages;
 use App\Support\WebhookPayloadRedactor;
@@ -69,6 +70,10 @@ class StripeWebhookController extends Controller
 
             if ($eventType === 'payment_intent.succeeded') {
                 $this->routePaymentIntentSucceeded($event->data->object);
+            }
+
+            if ($eventType === 'charge.refunded') {
+                $this->routeChargeRefunded($event->data->object);
             }
 
             $this->markWebhookLogProcessed($eventId);
@@ -178,6 +183,47 @@ class StripeWebhookController extends Controller
     private function handleWalletDepositSession(object $session): void
     {
         app(WalletStripeDepositService::class)->creditFromCheckoutSession($session);
+    }
+
+    /**
+     * Card Add Funds clawback. Order refunds are ignored here — they have
+     * their own billing path. Only a matching wallet deposit is reversed.
+     */
+    private function routeChargeRefunded(object $charge): void
+    {
+        $metadata = $this->metaArray($charge->metadata ?? null);
+        $paymentIntentId = is_string($charge->payment_intent ?? null)
+            ? $charge->payment_intent
+            : (string) ($charge->payment_intent->id ?? '');
+        $sessionId = (string) ($metadata['checkout_session'] ?? '');
+        $refunds = $charge->refunds->data ?? $charge->refunds['data'] ?? [];
+        $refundId = (string) (is_array($refunds)
+            ? ($refunds[0]['id'] ?? $refunds[0]->id ?? '')
+            : ($refunds[0]->id ?? ''));
+        $amountRefunded = isset($charge->amount_refunded)
+            ? StripePaymentService::fromCents((int) $charge->amount_refunded)
+            : 0.0;
+
+        if ($paymentIntentId === '' && $sessionId === '') {
+            Log::info('Ignoring charge.refunded without payment_intent', [
+                'charge_id' => $charge->id ?? null,
+            ]);
+
+            return;
+        }
+
+        $debited = app(WalletStripeDepositService::class)->reverseFromRefund(
+            $paymentIntentId,
+            $refundId,
+            $amountRefunded,
+            $sessionId
+        );
+
+        Log::info('Routed charge.refunded', [
+            'charge_id' => $charge->id ?? null,
+            'payment_intent_id' => $paymentIntentId,
+            'wallet_debited' => $debited,
+        ]);
     }
 
     private function handleOrderCheckoutFailed(object $session, string $reason): void

@@ -18,6 +18,7 @@ use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Services\Orders\AdminOrderStatusOverride;
 use App\Services\Orders\OrderRefundService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -528,13 +529,10 @@ class InAppNotificationService
         }
 
         $amount = '€'.number_format((float) $deposit->amount, 2);
-        $debt = 0.0;
-        $response = is_array($deposit->paypal_response) ? $deposit->paypal_response : [];
-        if (isset($response['refund']['debt_created'])) {
-            $debt = round((float) $response['refund']['debt_created'], 2);
-        }
+        $debt = $deposit->refundDebtCreated();
+        $methodLabel = $deposit->paymentMethodLabel();
 
-        $message = "{$amount} from your PayPal Add Funds deposit was refunded and removed from your wallet.";
+        $message = "{$amount} from your {$methodLabel} Add Funds deposit was refunded and removed from your wallet.";
         if ($debt > 0.009) {
             $message .= ' €'.number_format($debt, 2).' remains as outstanding wallet debt.';
         }
@@ -542,7 +540,7 @@ class InAppNotificationService
         $this->notify(
             (int) $deposit->user_id,
             self::TYPE_PAYMENT_FAILED,
-            "PayPal deposit refunded — {$amount}",
+            "{$methodLabel} deposit refunded — {$amount}",
             $message,
             [
                 'category' => self::CATEGORY_PAYMENTS,
@@ -1932,20 +1930,17 @@ class InAppNotificationService
         $amount = number_format((float) $deposit->amount, 2);
         $ref = $deposit->reference_code ?: ('#'.$deposit->id);
         $who = $user?->name ?: ($user?->email ?: 'An advertiser');
-        $debt = 0.0;
-        $response = is_array($deposit->paypal_response) ? $deposit->paypal_response : [];
-        if (isset($response['refund']['debt_created'])) {
-            $debt = round((float) $response['refund']['debt_created'], 2);
-        }
+        $debt = $deposit->refundDebtCreated();
+        $methodLabel = $deposit->paymentMethodLabel();
 
-        $message = "{$who}'s €{$amount} PayPal Add Funds deposit (REF {$ref}) was refunded and removed from their wallet.";
+        $message = "{$who}'s €{$amount} {$methodLabel} Add Funds deposit (REF {$ref}) was refunded and removed from their wallet.";
         if ($debt > 0.009) {
             $message .= ' €'.number_format($debt, 2).' remains as advertiser wallet debt.';
         }
 
         $this->notifyAdmins(
             self::TYPE_PAYMENT_FAILED,
-            'PayPal deposit refunded',
+            $methodLabel.' deposit refunded',
             $message,
             [
                 'roles' => ['admin'],
@@ -2575,6 +2570,121 @@ class InAppNotificationService
             ->get();
     }
 
+    /**
+     * Advertiser work CTAs that must not stay unread after a failed charge
+     * or leftover (non-completed) refund. Informational “View order” bells
+     * (accepted, rejected, support updates) are not in this set.
+     *
+     * @var list<string>
+     */
+    public const STALE_ADVERTISER_WORK_LABELS = [
+        'Review order',
+        'Send revised article',
+        'Open chat',
+    ];
+
+    public const STALE_ADVERTISER_CHASE_TITLE_PREFIX = 'We are chasing order';
+
+    /**
+     * Work bells stay in history, but they are not unread after the charge
+     * failed or a leftover (non-completed) refund.
+     *
+     * @param  Builder<InAppNotification>  $query
+     */
+    public function constrainOutStaleAdvertiserReviewBells(Builder $query): void
+    {
+        if (! Schema::hasTable('orders')) {
+            return;
+        }
+
+        $query->where(function ($keep) {
+            $keep->where(function ($notAdvertiserWork) {
+                $notAdvertiserWork->whereNotIn('audience', [
+                    InAppNotification::AUDIENCE_ADVERTISER,
+                    InAppNotification::AUDIENCE_ALL,
+                ])->orWhere(function ($notWorkShape) {
+                    $notWorkShape->where(function ($label) {
+                        $label->whereNull('action_label')
+                            ->orWhereNotIn('action_label', self::STALE_ADVERTISER_WORK_LABELS);
+                    })->where(function ($title) {
+                        $title->whereNull('title')
+                            ->orWhere('title', 'not like', self::STALE_ADVERTISER_CHASE_TITLE_PREFIX.'%');
+                    });
+                });
+            })->orWhere(function ($liveOrUnrelated) {
+                $liveOrUnrelated->whereNull('related_id')
+                    ->orWhere('related_type', '!=', Order::class)
+                    ->orWhereNotIn('related_id', function ($sub) {
+                        $sub->select('id')
+                            ->from('orders')
+                            ->where(function ($dead) {
+                                $dead->where('payment_status', 'failed')
+                                    ->orWhere(function ($refunded) {
+                                        $refunded->where('payment_status', 'refunded')
+                                            ->where('status', '!=', 'completed');
+                                    });
+                            });
+                    });
+            });
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function presentNotification(InAppNotification $notification): array
+    {
+        $payload = $notification->toApiArray();
+        if (! $this->isStaleAdvertiserReviewBell($notification)) {
+            return $payload;
+        }
+
+        $payload['action_label'] = 'View order';
+        $payload['is_unread'] = false;
+        if (str_starts_with((string) $notification->title, self::STALE_ADVERTISER_CHASE_TITLE_PREFIX)) {
+            $payload['message'] = 'This order is no longer in progress. Open it for the current status.';
+        }
+
+        return $payload;
+    }
+
+    public function isStaleAdvertiserReviewBell(InAppNotification $notification): bool
+    {
+        if (! $this->isAdvertiserOrderWorkBellShape($notification)) {
+            return false;
+        }
+
+        $audience = $notification->audience ?: InAppNotification::AUDIENCE_ALL;
+        if (! in_array($audience, [InAppNotification::AUDIENCE_ADVERTISER, InAppNotification::AUDIENCE_ALL], true)) {
+            return false;
+        }
+
+        if ($notification->related_type !== Order::class || ! $notification->related_id) {
+            return false;
+        }
+
+        $order = Order::query()->find($notification->related_id);
+        if (! $order) {
+            return false;
+        }
+
+        $payment = (string) $order->payment_status;
+        $status = (string) $order->status;
+
+        return $payment === 'failed'
+            || ($payment === 'refunded' && $status !== 'completed');
+    }
+
+    public function isAdvertiserOrderWorkBellShape(InAppNotification $notification): bool
+    {
+        $label = (string) ($notification->action_label ?: '');
+        if (in_array($label, self::STALE_ADVERTISER_WORK_LABELS, true)) {
+            return true;
+        }
+
+        return str_starts_with((string) $notification->title, self::STALE_ADVERTISER_CHASE_TITLE_PREFIX);
+    }
+
     public function unreadCount(int $userId, ?string $audience = null): int
     {
         InAppNotification::ensureTable();
@@ -2582,11 +2692,13 @@ class InAppNotificationService
             return 0;
         }
 
-        return InAppNotification::forUser($userId)
+        $query = InAppNotification::forUser($userId)
             ->forAudience($audience)
             ->unread()
-            ->notArchivedClock()
-            ->count();
+            ->notArchivedClock();
+        $this->constrainOutStaleAdvertiserReviewBells($query);
+
+        return $query->count();
     }
 
     public function listForUser(int $userId, array $filters = [], int $perPage = 20): LengthAwarePaginator
@@ -2601,6 +2713,9 @@ class InAppNotificationService
             ->latest();
 
         $status = $filters['status'] ?? 'active';
+        if (in_array($status, ['unread', 'active'], true)) {
+            $this->constrainOutStaleAdvertiserReviewBells($query);
+        }
         if ($status === 'unread') {
             $query->unread()->notArchivedClock();
         } elseif ($status === 'archived') {

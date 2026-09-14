@@ -33,7 +33,7 @@ class InvoiceController extends Controller
 
         if (Invoice::tableAvailable()) {
             try {
-                $query = Invoice::query()->with(['user:id,name,email', 'order:id,order_number']);
+                $query = Invoice::query()->with(['user:id,name,email', 'order:id,order_number,payment_status']);
 
                 if ($search !== '') {
                     $query->where(function ($q) use ($search) {
@@ -57,7 +57,7 @@ class InvoiceController extends Controller
                 ];
                 $status = is_string($request->input('status')) ? $request->input('status') : '';
                 if ($status !== '' && in_array($status, $allowedStatuses, true)) {
-                    $query->where('status', $status);
+                    $query->whereDisplayStatus($status);
                 }
 
                 $allowedTypes = [
@@ -105,7 +105,7 @@ class InvoiceController extends Controller
     {
         $with = [
             'user:id,name,email',
-            'order:id,order_number',
+            'order:id,order_number,payment_status',
             'parentInvoice',
             'childInvoices',
             'cancelledBy:id,name,email',
@@ -137,7 +137,7 @@ class InvoiceController extends Controller
     public function viewPdf(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
     {
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+            if (! $invoice->hasPdf() || ! $invoice->pdfExists() || $invoice->storedPdfMayBeStale()) {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();
             }
@@ -157,7 +157,7 @@ class InvoiceController extends Controller
     public function download(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
     {
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+            if (! $invoice->hasPdf() || ! $invoice->pdfExists() || $invoice->storedPdfMayBeStale()) {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();
             }

@@ -85,7 +85,9 @@ class NotificationController extends Controller
                 'audience' => $role,
             ], (int) $request->get('per_page', 20));
 
-            $items = collect($paginator->items())->map(fn (InAppNotification $n) => $n->toApiArray())->values();
+            $items = collect($paginator->items())->map(
+                fn (InAppNotification $n) => $this->notifications->presentNotification($n)
+            )->values();
 
             return response()->json([
                 'success' => true,
@@ -279,7 +281,7 @@ class NotificationController extends Controller
         }
 
         if ($isPublisher && ! $isAdvertiser && ! $isStaff
-            && ($order->payment_status !== 'paid' || $order->status === 'cancelled')) {
+            && ! AdvertiserOrderDetails::canSendOrderChat($order)) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 

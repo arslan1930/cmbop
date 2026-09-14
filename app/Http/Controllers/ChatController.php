@@ -42,7 +42,9 @@ class ChatController extends Controller
             $latestUnreadOrder = null;
 
             if ($activeRole === 'advertiser') {
-                $orderIds = Order::where('user_id', $user->id)->pluck('id');
+                $orderIds = AdvertiserOrderDetails::constrainChatSendable(
+                    Order::where('user_id', $user->id)
+                )->pluck('id');
                 $unreadQuery = OrderChatMessage::whereIn('order_id', $orderIds)
                     ->where('sender_type', 'publisher')
                     ->where('is_read', false)
@@ -207,12 +209,10 @@ class ChatController extends Controller
                 ], 403);
             }
 
-            if ($order->status === 'cancelled' || $order->payment_status !== 'paid') {
+            if (! AdvertiserOrderDetails::canSendOrderChat($order)) {
                 return response()->json([
                     'success' => false,
-                    'message' => $order->status === 'cancelled'
-                        ? 'This order is cancelled. Chat is closed.'
-                        : 'Chat is available after the order is paid.',
+                    'message' => AdvertiserOrderDetails::orderChatSendBlockedMessage($order),
                     'can_send' => false,
                 ], 422);
             }
@@ -308,7 +308,8 @@ class ChatController extends Controller
 
         // Tasks already hide unpaid checkouts. Chat used to leak item ids
         // and content links to the publisher before payment landed.
-        return $order->payment_status === 'paid' && $order->status !== 'cancelled';
+        // Completed clawbacks stay open (same as advertiser chat).
+        return AdvertiserOrderDetails::canSendOrderChat($order);
     }
 
     /**
@@ -418,23 +419,16 @@ class ChatController extends Controller
         $liveUrl = safe_href_url($item?->live_url);
         $contentLink = safe_href_url($item?->publisherContentLink());
         $canReview = $isAdvertiser
+            && AdvertiserOrderStatus::isLiveAdvertiserWork($order)
             && $order->status === 'review'
             && filled($liveUrl)
             && ! $openContentRevision;
-        $canSend = $order->status !== 'cancelled' && $order->payment_status === 'paid';
-        $composerNote = null;
-        if ($order->status === 'cancelled') {
-            $composerNote = 'This order is cancelled. Chat is read-only.';
-        } elseif ($order->payment_status !== 'paid') {
-            $composerNote = 'Chat is available after the order is paid.';
-        } elseif ($order->status === 'completed') {
-            $composerNote = AdvertiserOrderDetails::placementsMissing($order)
-                ? 'This order is completed. You can still message support about it.'
-                : 'This order is completed. You can still message about this placement.';
-        }
+        $canSend = AdvertiserOrderDetails::canSendOrderChat($order);
+        $composerNote = AdvertiserOrderDetails::orderChatComposerNote($order);
 
         $modificationRequested = $item?->modification_requested === 'yes';
         $canResubmit = ! $isAdvertiser
+            && AdvertiserOrderStatus::isLiveAdvertiserWork($order)
             && $modificationRequested
             && in_array($order->status, ['processing', 'review'], true)
             && filled($item?->id)

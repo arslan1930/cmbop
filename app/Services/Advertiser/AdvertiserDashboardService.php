@@ -151,33 +151,14 @@ class AdvertiserDashboardService
         $base = Order::query()->where('user_id', $userId);
 
         $needsReview = AdvertiserOrderStatus::constrainReviewReady(clone $base)->count();
-        $reviewWaitingUrl = (clone $base)
-            ->where('status', 'review')
-            ->whereDoesntHave('items', function ($items) {
-                $items->whereNotNull('live_url')->where('live_url', '!=', '');
-            })
-            ->count();
+        $reviewWaitingUrl = AdvertiserOrderStatus::constrainReviewWaitingUrl(clone $base)->count();
         $needsAction = AdvertiserOrderStatus::needsActionCountForUser($userId);
 
-        $inProgress = (clone $base)
-            ->where(function ($q) {
-                $q->where(function ($pendingPaid) {
-                    $pendingPaid->where('status', 'pending')
-                        ->where('payment_status', 'paid')
-                        ->notAwaitingScheduledRelease();
-                })->orWhere('status', 'processing');
-            })
-            ->count();
+        $inProgress = AdvertiserOrderStatus::constrainInProgress(clone $base)->count();
 
         $completed = (clone $base)->where('status', 'completed')->count();
         $cancelled = (clone $base)->where('status', 'cancelled')->count();
-        $awaitingPayment = (clone $base)
-            ->where('status', 'pending')
-            ->where(function ($q) {
-                $q->whereNull('payment_status')
-                    ->orWhere('payment_status', '!=', 'paid');
-            })
-            ->count();
+        $awaitingPayment = AdvertiserOrderStatus::constrainAwaitingPayment(clone $base)->count();
         $upcomingScheduled = (clone $base)
             ->awaitingScheduledRelease()
             ->where('payment_status', 'paid')

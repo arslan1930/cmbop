@@ -291,6 +291,7 @@ class WalletOverviewService
                 continue;
             }
             $invoice = null;
+            $depositOverlay = null;
             $depositMeta = [
                 'invoice_view_url' => null,
                 'invoice_download_url' => null,
@@ -311,7 +312,12 @@ class WalletOverviewService
                                 $q->where('reference_code', $deposit->reference_code)
                                     ->orWhere('transaction_id', $deposit->stripe_payment_intent_id);
                             })
+                            ->get()
+                            ->sortBy(fn (Invoice $doc) => $doc->type === Invoice::TYPE_DEPOSIT_RECEIPT ? 0 : 1)
                             ->first();
+                        $depStatus = $deposit->status === 'approved' ? 'completed' : $deposit->status;
+                        $isRejected = in_array($depStatus, ['rejected', 'failed', 'cancelled'], true);
+                        $isRefunded = $depStatus === 'refunded';
                         $depositMeta = [
                             'invoice_view_url' => $invoice
                                 ? route('advertiser.billing.view', $invoice)
@@ -319,12 +325,24 @@ class WalletOverviewService
                             'invoice_download_url' => $invoice
                                 ? route('advertiser.billing.download', $invoice)
                                 : route('advertiser.invoice', ['referenceCode' => $deposit->reference_code, 'download' => 1]),
-                            'can_mark_paid' => $deposit->canUserMarkPaid(),
+                            'can_mark_paid' => ! $isRejected && ! $isRefunded && $deposit->canUserMarkPaid(),
                             'user_marked_paid' => $deposit->userHasMarkedPaid(),
                             'user_marked_paid_at' => $deposit->user_marked_paid_at?->toIso8601String(),
-                            'mark_paid_url' => route('advertiser.add-funds.mark-paid', $deposit),
-                            'is_live_pending' => $deposit->status === 'pending',
+                            'mark_paid_url' => ! $isRejected && ! $isRefunded
+                                && ($deposit->canUserMarkPaid() || $deposit->userHasMarkedPaid())
+                                ? route('advertiser.add-funds.mark-paid', $deposit)
+                                : null,
+                            'is_live_pending' => $depStatus === 'pending',
                         ];
+                        if ($isRefunded || $isRejected) {
+                            $depositOverlay = [
+                                'type_label' => $isRefunded ? 'Refunded deposit' : 'Rejected deposit',
+                                'description' => $isRefunded
+                                    ? Invoice::paymentMethodLabel($deposit->payment_method).' deposit refunded and removed from wallet'
+                                    : 'Wallet deposit via '.Invoice::paymentMethodLabel($deposit->payment_method).' was rejected — not credited',
+                                'status' => $isRefunded ? 'refunded' : $depStatus,
+                            ];
+                        }
                     }
                 } elseif (
                     $tx->type === WalletTransaction::TYPE_PURCHASE
@@ -359,9 +377,60 @@ class WalletOverviewService
                     ->first();
             }
 
+            $purchaseOrderId = (int) ($invoice?->order_id
+                ?: (
+                    $tx->type === WalletTransaction::TYPE_PURCHASE
+                    && $tx->related_id
+                    && (str_contains((string) $tx->related_type, 'Order') || $tx->related_type === Order::class)
+                        ? $tx->related_id
+                        : 0
+                ));
+            $closedPayment = null;
+            if ($invoice && $invoice->type === Invoice::TYPE_TAX_INVOICE) {
+                $display = $invoice->displayPaymentStatus();
+                if (in_array($invoice->status, [Invoice::STATUS_REFUNDED, Invoice::STATUS_FAILED], true)) {
+                    $closedPayment = $invoice->status;
+                } elseif (in_array($display, [Invoice::STATUS_REFUNDED, Invoice::STATUS_FAILED], true)) {
+                    $closedPayment = $display;
+                }
+            }
+            if ($closedPayment === null && $purchaseOrderId > 0) {
+                $orderPayment = Order::query()->whereKey($purchaseOrderId)->value('payment_status');
+                if (in_array($orderPayment, [Invoice::STATUS_REFUNDED, Invoice::STATUS_FAILED], true)) {
+                    $closedPayment = $orderPayment;
+                }
+            }
+            if ($closedPayment !== null && $purchaseOrderId > 0) {
+                $preferredType = $closedPayment === Invoice::STATUS_REFUNDED
+                    ? Invoice::TYPE_REFUND_RECEIPT
+                    : Invoice::TYPE_PAYMENT_FAILURE;
+                $preferred = Invoice::query()
+                    ->where('user_id', $userId)
+                    ->where('type', $preferredType)
+                    ->where('order_id', $purchaseOrderId)
+                    ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                    ->latest('id')
+                    ->first();
+                if ($preferred) {
+                    $invoice = $preferred;
+                }
+            }
+
             if ($invoice && empty($depositMeta['invoice_download_url'])) {
                 $depositMeta['invoice_download_url'] = route('advertiser.billing.download', $invoice);
                 $depositMeta['invoice_view_url'] = route('advertiser.billing.show', $invoice);
+            }
+
+            $purchaseOverlay = [];
+            if ($closedPayment !== null && $tx->type === WalletTransaction::TYPE_PURCHASE) {
+                $purchaseOverlay = [
+                    'type_label' => $closedPayment === Invoice::STATUS_REFUNDED
+                        ? 'Refunded purchase'
+                        : 'Failed purchase',
+                    'description' => $closedPayment === Invoice::STATUS_REFUNDED
+                        ? 'Marketplace purchase refunded and removed from live spend'
+                        : 'Marketplace purchase failed — not live spend',
+                ];
             }
 
             $rows->push([
@@ -370,13 +439,14 @@ class WalletOverviewService
                 'date' => $tx->created_at?->toIso8601String(),
                 'timestamp' => $tx->created_at?->timestamp ?? 0,
                 'type' => $tx->type,
-                'type_label' => $tx->typeLabel(),
-                'description' => $tx->description,
+                'type_label' => $depositOverlay['type_label'] ?? $purchaseOverlay['type_label'] ?? $tx->typeLabel(),
+                'description' => $depositOverlay['description'] ?? $purchaseOverlay['description'] ?? $tx->description,
                 'reference' => $tx->reference,
                 'amount' => (float) $tx->amount,
                 'direction' => $tx->direction,
                 'signed_amount' => $tx->direction === 'credit' ? (float) $tx->amount : -(float) $tx->amount,
-                'status' => $tx->status,
+                'status' => $depositOverlay['status']
+                    ?? ($closedPayment ?? $tx->status),
                 'balance_after' => $tx->balance_after !== null ? (float) $tx->balance_after : null,
                 'bonus_amount' => (float) $tx->bonus_amount,
                 'payment_method' => $tx->payment_method,
@@ -414,6 +484,8 @@ class WalletOverviewService
                 ->where('reference_code', $d->reference_code)
                 ->first();
             $status = $d->status === 'approved' ? 'completed' : $d->status;
+            $isRejected = in_array($status, ['rejected', 'failed', 'cancelled'], true);
+            $isRefunded = $status === 'refunded';
             $invoicePageUrl = $invoice
                 ? route('advertiser.billing.view', $invoice)
                 : route('advertiser.invoice', $d->reference_code);
@@ -427,20 +499,24 @@ class WalletOverviewService
                 'date' => ($d->paid_at ?? $d->created_at)?->toIso8601String(),
                 'timestamp' => ($d->paid_at ?? $d->created_at)?->timestamp ?? 0,
                 'type' => WalletTransaction::TYPE_DEPOSIT,
-                'type_label' => match ($status) {
-                    'pending' => 'Pending invoice deposit',
-                    'refunded' => 'Refunded deposit',
+                'type_label' => match (true) {
+                    $status === 'pending' => 'Pending invoice deposit',
+                    $isRefunded => 'Refunded deposit',
+                    $isRejected => 'Rejected deposit',
                     default => 'Deposit',
                 },
-                'description' => match ($status) {
-                    'pending' => 'Invoice deposit via '.Invoice::paymentMethodLabel($d->payment_method).' — awaiting confirmation',
-                    'refunded' => Invoice::paymentMethodLabel($d->payment_method).' deposit refunded and removed from wallet',
+                'description' => match (true) {
+                    $status === 'pending' => 'Invoice deposit via '.Invoice::paymentMethodLabel($d->payment_method).' — awaiting confirmation',
+                    $isRefunded => Invoice::paymentMethodLabel($d->payment_method).' deposit refunded and removed from wallet',
+                    $isRejected => 'Wallet deposit via '.Invoice::paymentMethodLabel($d->payment_method).' was rejected — not credited',
                     default => 'Wallet deposit via '.Invoice::paymentMethodLabel($d->payment_method),
                 },
                 'reference' => $d->reference_code,
                 'amount' => (float) $d->amount,
-                'direction' => 'credit',
-                'signed_amount' => (float) $d->amount,
+                'direction' => $isRefunded ? 'debit' : ($isRejected ? 'none' : 'credit'),
+                'signed_amount' => $isRefunded
+                    ? -(float) $d->amount
+                    : ($isRejected ? 0.0 : (float) $d->amount),
                 'status' => $status,
                 'balance_after' => null,
                 'bonus_amount' => 0,
@@ -450,10 +526,11 @@ class WalletOverviewService
                 'invoice_number' => $invoice?->invoice_number ?? ('REF'.$d->reference_code),
                 'invoice_view_url' => $invoicePageUrl,
                 'invoice_download_url' => $invoiceDownloadUrl,
-                'can_mark_paid' => $d->canUserMarkPaid(),
+                'can_mark_paid' => ! $isRejected && ! $isRefunded && $d->canUserMarkPaid(),
                 'user_marked_paid' => $d->userHasMarkedPaid(),
                 'user_marked_paid_at' => $d->user_marked_paid_at?->toIso8601String(),
-                'mark_paid_url' => $d->canUserMarkPaid() || $d->userHasMarkedPaid()
+                'mark_paid_url' => ! $isRejected && ! $isRefunded
+                    && ($d->canUserMarkPaid() || $d->userHasMarkedPaid())
                     ? route('advertiser.add-funds.mark-paid', $d)
                     : null,
                 'is_live_pending' => $status === 'pending',
@@ -568,19 +645,27 @@ class WalletOverviewService
                 if ($ledger->where('reference', $ref)->isNotEmpty()) {
                     return;
                 }
-                $isRefundish = in_array($o->status, ['cancelled', 'rejected', 'refunded'], true);
+                $payment = (string) $o->payment_status;
+                $status = (string) $o->status;
+                // No ledger row means the wallet never moved. Do not invent a
+                // purchase or a +refund for a failed charge, leftover refund,
+                // completed clawback, or cancelled/rejected leftover.
+                if (in_array($payment, ['failed', 'refunded'], true)
+                    || in_array($status, ['cancelled', 'rejected', 'refunded'], true)) {
+                    return;
+                }
                 $rows->push([
                     'id' => $o->id,
                     'source' => 'order',
                     'date' => $o->created_at?->toIso8601String(),
                     'timestamp' => $o->created_at?->timestamp ?? 0,
-                    'type' => $isRefundish ? WalletTransaction::TYPE_REFUND : WalletTransaction::TYPE_PURCHASE,
-                    'type_label' => $isRefundish ? 'Refund' : 'Purchase',
-                    'description' => $isRefundish ? 'Order cancelled / refunded' : 'Marketplace order purchase',
+                    'type' => WalletTransaction::TYPE_PURCHASE,
+                    'type_label' => 'Purchase',
+                    'description' => 'Marketplace order purchase',
                     'reference' => $ref,
                     'amount' => (float) $o->total_amount,
-                    'direction' => $isRefundish ? 'credit' : 'debit',
-                    'signed_amount' => $isRefundish ? (float) $o->total_amount : -(float) $o->total_amount,
+                    'direction' => 'debit',
+                    'signed_amount' => -(float) $o->total_amount,
                     'status' => $o->payment_status ?: $o->status,
                     'balance_after' => null,
                     'bonus_amount' => 0,
@@ -588,7 +673,7 @@ class WalletOverviewService
                     'invoice_id' => null,
                     'invoice_number' => null,
                     'order_reference' => $ref,
-                    'icon' => $this->iconForType($isRefundish ? WalletTransaction::TYPE_REFUND : WalletTransaction::TYPE_PURCHASE),
+                    'icon' => $this->iconForType(WalletTransaction::TYPE_PURCHASE),
                 ]);
             });
 

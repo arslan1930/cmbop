@@ -22,7 +22,7 @@ class AdvertiserOrderStatus
     {
         app(CheckoutSchemaService::class)->ensureCheckoutTables();
 
-        return Order::query()
+        $query = Order::query()
             ->where('user_id', $userId)
             ->where(function ($q) {
                 $q->where(function ($reviewReady) {
@@ -38,6 +38,9 @@ class AdvertiserOrderStatus
                     });
                 }
             });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
     }
 
     public static function needsActionCountForUser(int $userId): int
@@ -73,6 +76,7 @@ class AdvertiserOrderStatus
 
         $query->orderByRaw(
             "CASE
+                WHEN orders.payment_status IN ('failed', 'refunded') THEN 2
                 WHEN orders.status IN ('completed', 'cancelled') THEN 2
                 WHEN ((orders.status = 'review' AND {$reviewReadySql}){$revisionClause}) THEN 0
                 ELSE 1
@@ -88,10 +92,106 @@ class AdvertiserOrderStatus
      */
     public static function constrainReviewReady(Builder $query): Builder
     {
-        return $query->where('status', 'review')
+        $query->where('status', 'review')
             ->whereHas('items', function ($items) {
                 $items->whereNotNull('live_url')->where('live_url', '!=', '');
             });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
+    }
+
+    /**
+     * Awaiting payment: pending, not paid, and not a failed or refunded charge.
+     *
+     * Failed / refunded charges are rejected (same as meta() / Project cards).
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public static function constrainAwaitingPayment(Builder $query): Builder
+    {
+        $query->where('status', 'pending')
+            ->where(function ($q) {
+                $q->whereNull('payment_status')
+                    ->orWhere('payment_status', '!=', 'paid');
+            });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
+    }
+
+    /**
+     * Paid and waiting on the publisher, or the publisher is already working.
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public static function constrainInProgress(Builder $query): Builder
+    {
+        $query->where(function ($q) {
+            $q->where(function ($pendingPaid) {
+                $pendingPaid->where('status', 'pending')
+                    ->where('payment_status', 'paid')
+                    ->notAwaitingScheduledRelease();
+            })->orWhere('status', 'processing');
+        });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
+    }
+
+    /**
+     * Review without a live URL yet. Failed charges are rejected, not “in review”.
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public static function constrainReviewWaitingUrl(Builder $query): Builder
+    {
+        $query->where('status', 'review')
+            ->whereDoesntHave('items', function ($items) {
+                $items->whereNotNull('live_url')->where('live_url', '!=', '');
+            });
+        static::constrainWithoutFailedPayment($query);
+
+        return $query;
+    }
+
+    /**
+     * Approve / revision actions and live KPIs: not cancelled, failed, or refunded.
+     */
+    public static function isLiveAdvertiserWork(Order $order): bool
+    {
+        $status = (string) $order->status;
+        $payment = (string) $order->payment_status;
+
+        if ($status === 'cancelled') {
+            return false;
+        }
+
+        return ! in_array($payment, ['failed', 'refunded'], true);
+    }
+
+    /**
+     * Failed and refunded charges are not live work (same as meta()).
+     *
+     * Completed clawbacks stay `payment_status=refunded` with `status=completed`
+     * — pass `$alsoRefunded = false` so those rows remain in the Completed filter.
+     *
+     * @param  Builder<Order>  $query
+     */
+    public static function constrainWithoutFailedPayment(Builder $query, bool $alsoRefunded = true): void
+    {
+        $query->where(function ($q) use ($alsoRefunded) {
+            $q->whereNull('payment_status')
+                ->orWhere(function ($live) use ($alsoRefunded) {
+                    $live->where('payment_status', '!=', 'failed');
+                    if ($alsoRefunded) {
+                        $live->where('payment_status', '!=', 'refunded');
+                    }
+                });
+        });
     }
 
     public static function liveUrlExistsSql(string $orderIdColumn = 'orders.id'): string
@@ -105,9 +205,12 @@ class AdvertiserOrderStatus
     }
 
     /**
+     * Order-level by default so chat/list still see a sibling content-revision.
+     * Pass `$itemScoped = true` for per-line Project counts.
+     *
      * @return array{label: string, next: string, cls: string, stage: string, auto_approve_hint: ?string}
      */
-    public static function meta(Order $order, ?OrderItem $item = null): array
+    public static function meta(Order $order, ?OrderItem $item = null, bool $itemScoped = false): array
     {
         $focused = func_num_args() >= 2 && $item !== null;
         $item = $item ?? $order->items->first();
@@ -122,16 +225,18 @@ class AdvertiserOrderStatus
         $modRequested = $item && method_exists($item, 'isModificationRequested')
             ? $item->isModificationRequested()
             : (($item->modification_requested ?? 'no') === 'yes');
-        $contentRevisionRequested = $order->items->contains(
-            fn ($line) => method_exists($line, 'isContentRevisionRequested')
+        $lineNeedsContentRevision = function ($line): bool {
+            if (! $line) {
+                return false;
+            }
+
+            return method_exists($line, 'isContentRevisionRequested')
                 ? $line->isContentRevisionRequested()
-                : (($line->content_revision_requested ?? 'no') === 'yes')
-        );
-        if (! $contentRevisionRequested && $item) {
-            $contentRevisionRequested = method_exists($item, 'isContentRevisionRequested')
-                ? $item->isContentRevisionRequested()
-                : (($item->content_revision_requested ?? 'no') === 'yes');
-        }
+                : (($line->content_revision_requested ?? 'no') === 'yes');
+        };
+        $contentRevisionRequested = ($focused && $itemScoped)
+            ? $lineNeedsContentRevision($item)
+            : ($order->items->contains($lineNeedsContentRevision) || $lineNeedsContentRevision($item));
         $payment = (string) $order->payment_status;
         $status = (string) $order->status;
 
@@ -173,6 +278,16 @@ class AdvertiserOrderStatus
                 'next' => 'Pay again from Orders, or choose another payment method.',
                 'cls' => 'status-cancelled',
                 'stage' => 'payment_failed',
+                'auto_approve_hint' => null,
+            ];
+        }
+
+        if ($payment === 'refunded' && $status !== 'completed') {
+            return [
+                'label' => 'Refunded',
+                'next' => 'Refunded to your wallet. No further action needed.',
+                'cls' => 'status-cancelled',
+                'stage' => 'refunded',
                 'auto_approve_hint' => null,
             ];
         }
@@ -257,6 +372,16 @@ class AdvertiserOrderStatus
         }
 
         if ($status === 'completed') {
+            if ($payment === 'refunded') {
+                return [
+                    'label' => 'Completed · refunded',
+                    'next' => 'Refunded to your wallet. The publisher payout for this placement was reversed.',
+                    'cls' => 'status-completed',
+                    'stage' => 'completed',
+                    'auto_approve_hint' => null,
+                ];
+            }
+
             $itemsCount = $order->items->count();
             $anyLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
             if ($itemsCount < 1) {
@@ -316,6 +441,30 @@ class AdvertiserOrderStatus
             return $steps;
         }
 
+        $payment = (string) $order->payment_status;
+        if ($payment === 'failed') {
+            $steps[0]['label'] = 'Payment failed';
+            $steps[0]['done'] = false;
+            $steps[0]['current'] = true;
+            for ($i = 1; $i < count($steps); $i++) {
+                $steps[$i]['done'] = false;
+                $steps[$i]['current'] = false;
+            }
+
+            return $steps;
+        }
+        if ($payment === 'refunded' && $status !== 'completed') {
+            $steps[0]['label'] = 'Refunded';
+            $steps[0]['done'] = true;
+            $steps[0]['current'] = true;
+            for ($i = 1; $i < count($steps); $i++) {
+                $steps[$i]['done'] = false;
+                $steps[$i]['current'] = false;
+            }
+
+            return $steps;
+        }
+
         if ($status === 'pending' && ! $paid) {
             $steps[0]['current'] = true;
             $steps[0]['done'] = false;
@@ -340,6 +489,9 @@ class AdvertiserOrderStatus
         } elseif ($status === 'completed') {
             $steps[4]['current'] = true;
             $steps[4]['done'] = $hasItems;
+            if ($payment === 'refunded') {
+                $steps[4]['label'] = 'Completed · refunded';
+            }
         }
 
         return $steps;

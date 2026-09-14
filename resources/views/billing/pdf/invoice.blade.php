@@ -81,13 +81,19 @@
             padding: 10px 12px; border-radius: 6px; margin-bottom: 16px;
             font-weight: 700; text-align: center; letter-spacing: .04em;
         }
+        .refunded-banner {
+            background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe;
+            padding: 10px 12px; border-radius: 6px; margin-bottom: 16px;
+            font-weight: 700; text-align: center; letter-spacing: .04em;
+        }
     </style>
 </head>
 <body>
 @php
     $company = $company ?? config('billing.company');
     $symbol = $currencySymbol ?? '€';
-    $statusClass = match ($invoice->status) {
+    $displayStatus = $invoice->displayPaymentStatus();
+    $statusClass = match ($displayStatus) {
         'paid' => 'badge-paid',
         'failed' => 'badge-failed',
         'pending' => 'badge-pending',
@@ -111,6 +117,8 @@
 
 @if($invoice->type === 'payment_failure')
     <div class="failed-banner">PAYMENT FAILED</div>
+@elseif($displayStatus === 'refunded')
+    <div class="refunded-banner">REFUNDED</div>
 @endif
 
 <table class="header">
@@ -147,7 +155,7 @@
         <td width="45%" style="text-align:right;">
             <p class="doc-title">{{ $docHeading }}</p>
             <div style="margin-top:8px;">
-                <span class="badge {{ $statusClass }}">{{ strtoupper($invoice->status) }}</span>
+                <span class="badge {{ $statusClass }}">{{ strtoupper($displayStatus) }}</span>
             </div>
             <div style="margin-top:12px;">
                 <div><strong>{{ $invoice->invoice_number }}</strong></div>
@@ -209,7 +217,7 @@
                     <div class="muted">Ref: {{ $invoice->reference_code }}</div>
                 @endif
                 <div style="margin-top:6px;">Method: <strong>{{ \App\Models\Invoice::paymentMethodLabel($invoice->payment_method) }}</strong></div>
-                <div>Status: <strong>{{ ucfirst((string) $invoice->payment_status) }}</strong></div>
+                <div>Status: <strong>{{ ucfirst($invoice->displayPaymentStatus()) }}</strong></div>
                 @if($invoice->transaction_id)
                     <div class="muted" style="margin-top:6px;">Txn: {{ $invoice->transaction_id }}</div>
                 @endif
@@ -355,7 +363,7 @@
     </div>
 @endif
 
-@if($invoice->type === 'tax_invoice' || $invoice->type === 'payment_receipt')
+@if(($invoice->type === 'tax_invoice' || $invoice->type === 'payment_receipt') && ! $invoice->isClosedDocument())
     <div class="thankyou">
         Thank you for your business. This document was generated automatically for your records.
     </div>

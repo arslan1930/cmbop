@@ -187,6 +187,37 @@ class DepositReceiptPdfTest extends TestCase
             ->assertSee($receipt->invoice_number);
     }
 
+    public function test_refunded_deposit_marks_the_receipt_refunded(): void
+    {
+        $user = $this->advertiser();
+        $deposit = $this->deposit($user);
+        $receipt = Invoice::where('type', Invoice::TYPE_DEPOSIT_RECEIPT)->firstOrFail();
+
+        $this->assertSame(Invoice::STATUS_PAID, $receipt->status);
+        $this->assertSame('paid', $receipt->payment_status);
+
+        $deposit->update(['status' => 'refunded']);
+        $updated = app(DepositReceiptService::class)->markRefunded(
+            $deposit->fresh(),
+            'PayPal capture refunded; wallet credit reversed.'
+        );
+
+        $this->assertNotNull($updated);
+        $this->assertSame($receipt->id, $updated->id);
+        $this->assertSame(Invoice::STATUS_REFUNDED, $updated->status);
+        $this->assertSame('refunded', $updated->payment_status);
+
+        $html = view('billing.pdf.invoice', [
+            'invoice' => $updated,
+            'company' => config('billing.company'),
+            'colors' => config('billing.colors'),
+            'currencySymbol' => '€',
+        ])->render();
+
+        $this->assertStringContainsString('REFUNDED', $html);
+        $this->assertStringContainsString('Status: <strong>Refunded</strong>', $html);
+    }
+
     public function test_another_advertiser_cannot_download_the_receipt(): void
     {
         $user = $this->advertiser();

@@ -14,6 +14,7 @@ use App\Services\CheckoutSchemaService;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\InAppNotificationService;
 use App\Services\OrderChatContactGuard;
+use App\Support\AdvertiserOrderDetails;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -177,7 +178,7 @@ class ContentRevisionService
 
             if ($lockedOrder->payment_status !== 'paid') {
                 throw ValidationException::withMessages([
-                    'order' => 'This order cannot be updated because payment is not complete.',
+                    'order' => AdvertiserOrderDetails::unpaidActionMessage($lockedOrder, 'updated'),
                 ]);
             }
 

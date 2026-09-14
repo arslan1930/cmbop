@@ -248,6 +248,12 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString("typeof order.policy_note === 'string'", $js);
         $this->assertStringNotContainsString("order.policy_note || 'If a published link is later removed", $js);
         $this->assertStringContainsString('Reconstructed from order dates', $js);
+        $this->assertStringContainsString("push(order.updated_at, 'Payment failed')", $js);
+        $this->assertStringContainsString("push(order.updated_at, 'Refunded')", $js);
+        $this->assertStringContainsString('${orderIsLiveWork(order) ? `<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="recheckLiveUrlBtn-', $js);
+        $this->assertStringContainsString('modRequested && orderIsLiveWork(order) && it.completion_notes', $js);
+        $this->assertStringContainsString('orderTotalDisplayHtml(order, formatEuro(order.total_amount), false)', $js);
+        $this->assertStringNotContainsString('const revisionHtml = modRequested && it.completion_notes', $js);
         $this->assertMatchesRegularExpression(
             '/function loadOrderActivityTimeline[\\s\\S]{0,1800}reconstructOrderActivities/',
             $js,
@@ -346,6 +352,31 @@ class AdvertiserOrderDetailsModalTest extends TestCase
             'Reconstructed from order dates.',
             $response->json('activities.0.description')
         );
+    }
+
+    public function test_leftover_refunded_review_timeline_ends_on_refunded(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'refunded',
+        ], [
+            'live_url' => 'https://live.example/refunded-review',
+            'live_url_submitted_at' => now()->subHours(2),
+        ]);
+
+        $response = $this->actingAs($advertiser)
+            ->getJson(route('notifications.order-timeline', $order->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('reconstructed', true);
+
+        $titles = collect($response->json('activities'))->pluck('title')->all();
+        $this->assertContains('Refunded', $titles);
+        $this->assertSame('Refunded', end($titles));
+        $this->assertNotContains('Completed', $titles);
     }
 
     public function test_get_order_survives_leftover_unparseable_item_dates(): void
@@ -497,6 +528,55 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $urlStep = collect($detail['timeline_steps'])->firstWhere('label', 'URL delivered');
         $this->assertTrue($urlStep['current']);
         $this->assertFalse($urlStep['done']);
+    }
+
+    public function test_reconstructed_activity_names_failed_and_leftover_refunds(): void
+    {
+        $advertiser = $this->advertiser();
+        $site = $this->siteFor($this->publisher(), 'Timeline Site');
+
+        $failed = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'failed',
+            'paid_at' => now()->subDay(),
+        ], [
+            'live_url' => 'https://live.example/failed',
+            'live_url_submitted_at' => now()->subHours(6),
+        ]);
+        $failedTitles = collect(AdvertiserOrderDetails::reconstructedActivities($failed))->pluck('title');
+        $this->assertFalse($failedTitles->contains('Paid'));
+        $this->assertTrue($failedTitles->contains('Payment failed'));
+
+        $refunded = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'refunded',
+            'paid_at' => now()->subDay(),
+        ], [
+            'live_url' => 'https://live.example/refunded',
+            'live_url_submitted_at' => now()->subHours(6),
+        ]);
+        $refundedTitles = collect(AdvertiserOrderDetails::reconstructedActivities($refunded))->pluck('title');
+        $this->assertTrue($refundedTitles->contains('Refunded'));
+        $this->assertFalse($refundedTitles->contains('Completed · refunded'));
+    }
+
+    public function test_recheck_live_url_is_blocked_on_leftover_refunded_review(): void
+    {
+        $advertiser = $this->advertiser();
+        $site = $this->siteFor($this->publisher(), 'Recheck Site');
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'refunded',
+        ], [
+            'live_url' => 'https://live.example/refunded-post',
+            'live_url_submitted_at' => now()->subHours(6),
+        ]);
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.orders.recheck-live-url', $order->id))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'This order is no longer live work, so the live URL is not rechecked.');
     }
 
     /**

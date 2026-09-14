@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\DepositRequest;
+use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
@@ -94,6 +97,8 @@ class WalletBalancePageTest extends TestCase
         $this->assertStringContainsString('paypal.svg', $html);
         $this->assertStringContainsString('ref-code', $html);
         $this->assertStringContainsString('Recent activity', $html);
+        $this->assertStringContainsString('value="refunded"', $html);
+        $this->assertStringContainsString('value="rejected"', $html);
         $this->assertStringContainsString('id="publisherRoleStrip"', $html);
         $this->assertStringContainsString(route('publisher.balance'), $html);
         $this->assertStringContainsString(route('publisher.withdraw'), $html);
@@ -390,6 +395,318 @@ class WalletBalancePageTest extends TestCase
         $response->assertJsonPath('code', 'transfers_disabled');
         $this->wallet->refresh();
         $this->assertEquals(70.0, (float) $this->wallet->balance);
+    }
+
+    public function test_transactions_endpoint_does_not_invent_a_purchase_for_failed_wallet_orders(): void
+    {
+        Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-FAIL-WALLET',
+            'reference_code' => 'REF-FAIL-WALLET',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'wallet',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-LEFTOVER-REFUND',
+            'reference_code' => 'REF-LEFTOVER-REFUND',
+            'subtotal' => 25,
+            'tax' => 0,
+            'total_amount' => 25,
+            'payment_method' => 'wallet',
+            'payment_status' => 'refunded',
+            'status' => 'review',
+        ]);
+        Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-CLAWBACK-NO-LEDGER',
+            'reference_code' => 'REF-CLAWBACK-NO-LEDGER',
+            'subtotal' => 55,
+            'tax' => 0,
+            'total_amount' => 55,
+            'payment_method' => 'wallet',
+            'payment_status' => 'refunded',
+            'status' => 'completed',
+            'paid_at' => now(),
+        ]);
+        Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-CANCEL-NO-LEDGER',
+            'reference_code' => 'REF-CANCEL-NO-LEDGER',
+            'subtotal' => 18,
+            'tax' => 0,
+            'total_amount' => 18,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'cancelled',
+            'paid_at' => now(),
+        ]);
+        Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-PAID-WALLET',
+            'reference_code' => 'REF-PAID-WALLET',
+            'subtotal' => 30,
+            'tax' => 0,
+            'total_amount' => 30,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'processing',
+            'paid_at' => now(),
+        ]);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-FAIL-WALLET'));
+        $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-LEFTOVER-REFUND'));
+        $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-CLAWBACK-NO-LEDGER'));
+        $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-CANCEL-NO-LEDGER'));
+        $paid = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'REF-PAID-WALLET');
+        $this->assertNotEmpty($paid);
+        $this->assertSame('Purchase', $paid['type_label']);
+        $this->assertSame('Marketplace order purchase', $paid['description']);
+    }
+
+    public function test_transactions_endpoint_does_not_credit_rejected_or_refunded_legacy_deposits(): void
+    {
+        DepositRequest::create([
+            'user_id' => $this->user->id,
+            'reference_code' => 'DEP-REJECTED',
+            'amount' => 40,
+            'payment_method' => 'bank',
+            'status' => 'rejected',
+            'user_marked_paid_at' => now(),
+        ]);
+        DepositRequest::create([
+            'user_id' => $this->user->id,
+            'reference_code' => 'DEP-REFUNDED',
+            'amount' => 25,
+            'payment_method' => 'paypal',
+            'status' => 'refunded',
+        ]);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $rejected = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'DEP-REJECTED');
+        $this->assertNotEmpty($rejected);
+        $this->assertSame('Rejected deposit', $rejected['type_label']);
+        $this->assertSame('rejected', $rejected['status']);
+        $this->assertSame('none', $rejected['direction']);
+        $this->assertSame(0, (int) $rejected['signed_amount']);
+        $this->assertFalse($rejected['can_mark_paid']);
+        $this->assertNull($rejected['mark_paid_url']);
+        $this->assertStringContainsString('not credited', $rejected['description']);
+
+        $refunded = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'DEP-REFUNDED');
+        $this->assertNotEmpty($refunded);
+        $this->assertSame('Refunded deposit', $refunded['type_label']);
+        $this->assertSame('refunded', $refunded['status']);
+        $this->assertSame('debit', $refunded['direction']);
+        $this->assertSame(-25.0, (float) $refunded['signed_amount']);
+        $this->assertFalse($refunded['can_mark_paid']);
+        $this->assertNull($refunded['mark_paid_url']);
+    }
+
+    public function test_transactions_endpoint_relabels_ledger_deposit_after_clawback(): void
+    {
+        $deposit = DepositRequest::create([
+            'user_id' => $this->user->id,
+            'reference_code' => 'DEP-LEDGER-RF',
+            'amount' => 25,
+            'payment_method' => 'paypal',
+            'status' => 'completed',
+            'approved_at' => now(),
+            'paid_at' => now(),
+        ]);
+        app(WalletLedgerService::class)->recordDeposit(
+            $this->wallet,
+            25,
+            $deposit,
+            'paypal',
+            $deposit->reference_code
+        );
+        app(WalletLedgerService::class)->recordAdjustment(
+            $this->wallet,
+            25,
+            'debit',
+            $deposit,
+            $deposit->reference_code,
+            'PayPal deposit refunded'
+        );
+        $deposit->update(['status' => 'refunded']);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $credit = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'DEP-LEDGER-RF'
+            && ($row['type'] ?? '') === 'deposit');
+        $this->assertNotEmpty($credit);
+        $this->assertSame('Refunded deposit', $credit['type_label']);
+        $this->assertSame('refunded', $credit['status']);
+        $this->assertSame('credit', $credit['direction']);
+        $this->assertSame(25.0, (float) $credit['signed_amount']);
+        $this->assertFalse($credit['can_mark_paid']);
+        $this->assertStringContainsString('refunded and removed', $credit['description']);
+
+        $debit = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'DEP-LEDGER-RF'
+            && ($row['type'] ?? '') === 'adjustment');
+        $this->assertNotEmpty($debit);
+        $this->assertSame('debit', $debit['direction']);
+        $this->assertSame(-25.0, (float) $debit['signed_amount']);
+    }
+
+    public function test_transactions_endpoint_marks_leftover_refunded_purchase_refunded(): void
+    {
+        $order = Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-LEDGER-LEFT',
+            'reference_code' => 'REF-LEDGER-LEFT',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'refunded',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+        app(WalletLedgerService::class)->recordPurchase(
+            $this->wallet,
+            80,
+            0,
+            $order,
+            $order->reference_code
+        );
+        Invoice::create([
+            'user_id' => $this->user->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-LEDGER-LEFT',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'invoice_date' => now(),
+            'customer_name' => $this->user->name,
+            'customer_email' => $this->user->email,
+            'currency' => 'EUR',
+            'subtotal' => 80,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'order_number' => $order->order_number,
+            'reference_code' => $order->reference_code,
+            'line_items' => [['description' => 'Leftover purchase', 'line_total' => 80]],
+            'billing_snapshot' => [],
+        ]);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $purchase = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'REF-LEDGER-LEFT'
+            && ($row['type'] ?? '') === 'purchase');
+        $this->assertNotEmpty($purchase);
+        $this->assertSame('refunded', $purchase['status']);
+        $this->assertSame('Refunded purchase', $purchase['type_label']);
+        $this->assertStringContainsString('refunded', $purchase['description']);
+        $this->assertSame('debit', $purchase['direction']);
+        $this->assertSame(-80.0, (float) $purchase['signed_amount']);
+    }
+
+    public function test_transactions_endpoint_marks_leftover_failed_purchase_failed(): void
+    {
+        $order = Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-LEDGER-FAIL',
+            'reference_code' => 'REF-LEDGER-FAIL',
+            'subtotal' => 60,
+            'tax' => 0,
+            'total_amount' => 60,
+            'payment_method' => 'wallet',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+        app(WalletLedgerService::class)->recordPurchase(
+            $this->wallet,
+            60,
+            0,
+            $order,
+            $order->reference_code
+        );
+        Invoice::create([
+            'user_id' => $this->user->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-LEDGER-FAIL',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'invoice_date' => now(),
+            'customer_name' => $this->user->name,
+            'customer_email' => $this->user->email,
+            'currency' => 'EUR',
+            'subtotal' => 60,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 60,
+            'payment_method' => 'wallet',
+            'order_number' => $order->order_number,
+            'reference_code' => $order->reference_code,
+            'line_items' => [['description' => 'Leftover failed purchase', 'line_total' => 60]],
+            'billing_snapshot' => [],
+        ]);
+        Invoice::create([
+            'user_id' => $this->user->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'FAIL-LEDGER-FAIL',
+            'type' => Invoice::TYPE_PAYMENT_FAILURE,
+            'status' => Invoice::STATUS_FAILED,
+            'payment_status' => 'failed',
+            'invoice_date' => now(),
+            'customer_name' => $this->user->name,
+            'customer_email' => $this->user->email,
+            'currency' => 'EUR',
+            'subtotal' => 60,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 60,
+            'payment_method' => 'wallet',
+            'order_number' => $order->order_number,
+            'reference_code' => $order->reference_code,
+            'line_items' => [['description' => 'Payment failed', 'line_total' => 60]],
+            'billing_snapshot' => [],
+        ]);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $purchase = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'REF-LEDGER-FAIL'
+            && ($row['type'] ?? '') === 'purchase');
+        $this->assertNotEmpty($purchase);
+        $this->assertSame('failed', $purchase['status']);
+        $this->assertSame('Failed purchase', $purchase['type_label']);
+        $this->assertStringContainsString('not live spend', $purchase['description']);
+        $this->assertSame('debit', $purchase['direction']);
+        $this->assertSame(-60.0, (float) $purchase['signed_amount']);
+        $this->assertSame('FAIL-LEDGER-FAIL', $purchase['invoice_number']);
     }
 
     public function test_transactions_endpoint_returns_bonus_activity(): void

@@ -499,6 +499,39 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     font-weight: 500;
 }
 
+.orders-project-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.65rem;
+    padding: 0.25rem 0.55rem 0.25rem 0.7rem;
+    border: 1px solid var(--border-subtle, #e2e8f0);
+    border-radius: 999px;
+    background: var(--brand-neutral-bg, #f1f5f9);
+    color: var(--brand-ink, #334155);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.orders-project-chip__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--brand-ink-muted, #64748b);
+    line-height: 1;
+}
+
+.orders-project-chip__clear:hover {
+    background: #fff;
+    color: var(--brand-ink, #334155);
+}
+
 /* Dark mode styles */
 
 

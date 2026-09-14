@@ -25,7 +25,7 @@ class BillingController extends Controller
                     Invoice::TYPE_PAYMENT_FAILURE,
                     Invoice::TYPE_DEPOSIT_RECEIPT,
                 ])
-                ->with('order:id,order_number,reference_code');
+                ->with('order:id,order_number,reference_code,payment_status');
 
             $search = search_text($request->input('search'));
             if ($search !== '') {
@@ -38,7 +38,7 @@ class BillingController extends Controller
             }
 
             if ($request->filled('status')) {
-                $query->where('status', $request->status);
+                $query->whereDisplayStatus((string) $request->status);
             }
 
             if ($request->filled('type')) {
@@ -75,7 +75,7 @@ class BillingController extends Controller
     {
         $this->authorizeOwner($invoice);
         try {
-            $invoice->load(['order.items', 'parentInvoice']);
+            $invoice->load(['order.items', 'parentInvoice', 'childInvoices']);
         } catch (\Throwable $e) {
             report($e);
 
@@ -96,7 +96,7 @@ class BillingController extends Controller
         }
 
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+            if (! $invoice->hasPdf() || ! $invoice->pdfExists() || $invoice->storedPdfMayBeStale()) {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();
             }
@@ -124,7 +124,7 @@ class BillingController extends Controller
         }
 
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+            if (! $invoice->hasPdf() || ! $invoice->pdfExists() || $invoice->storedPdfMayBeStale()) {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();
             }

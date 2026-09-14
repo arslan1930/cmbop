@@ -20,6 +20,52 @@ function ordersUrl(pathSuffix) {
     return base + pathSuffix;
 }
 
+function ordersProjectFilterValues() {
+    return {
+        project: String(document.getElementById('projectFilter')?.value || '').trim(),
+        project_stage: String(document.getElementById('projectStageFilter')?.value || '').trim(),
+    };
+}
+
+function ordersProjectStageLabel(stage) {
+    const labels = (OrdersCfg && OrdersCfg.projectStageLabels) || {};
+    return labels[stage] || '';
+}
+
+function updateOrdersProjectChip() {
+    const chip = document.getElementById('ordersProjectChip');
+    const labelEl = document.getElementById('ordersProjectChipLabel');
+    if (!chip) return;
+    const { project, project_stage } = ordersProjectFilterValues();
+    if (!project) {
+        chip.classList.add('d-none');
+        return;
+    }
+    const namedId = String(chip.getAttribute('data-project-id') || '');
+    const name = (namedId && namedId === project)
+        ? (chip.getAttribute('data-project-name') || OrdersCfg.projectName || 'Project')
+        : 'Project';
+    const stageLabel = ordersProjectStageLabel(project_stage);
+    if (labelEl) {
+        labelEl.textContent = stageLabel ? `Project: ${name} · ${stageLabel}` : `Project: ${name}`;
+    }
+    chip.classList.remove('d-none');
+}
+
+function clearOrdersProjectStageFilter() {
+    const stageEl = document.getElementById('projectStageFilter');
+    if (stageEl) stageEl.value = '';
+    updateOrdersProjectChip();
+}
+
+function clearOrdersProjectFilter() {
+    const projectEl = document.getElementById('projectFilter');
+    const stageEl = document.getElementById('projectStageFilter');
+    if (projectEl) projectEl.value = '';
+    if (stageEl) stageEl.value = '';
+    updateOrdersProjectChip();
+}
+
 let currentPage = 1;
 let currentChatOrderId = null;
 
@@ -52,26 +98,33 @@ function loadOrdStatistics() {
             setText('ordInProgress', data.in_progress);
             setText('ordCompleted', data.completed);
             setText('ordAwaitingPayment', data.awaiting_payment);
-            if (typeof window.updateNeedsActionBanner === 'function') {
-                window.updateNeedsActionBanner(data.needs_action || 0);
-            }
         })
         .catch(function (error) {
             console.error('Error loading order statistics:', error);
         });
 }
 
+function syncOrdersKpiActive(status) {
+    const current = status !== undefined
+        ? String(status || '')
+        : String(document.getElementById('statusFilter')?.value || '');
+    document.querySelectorAll('[data-orders-kpi]').forEach(function (btn) {
+        btn.classList.toggle('is-active', (btn.getAttribute('data-orders-kpi') || '') === current);
+    });
+}
+
 function applyOrdersStatusFilter(status) {
     const sel = document.getElementById('statusFilter');
     if (!sel) return;
     sel.value = status || '';
+    if (status) {
+        clearOrdersProjectStageFilter();
+    }
     currentPage = 1;
+    syncOrdersKpiActive(status);
     if (typeof window.fetchOrders === 'function') {
         window.fetchOrders(1, { historyMode: 'push' });
     }
-    document.querySelectorAll('[data-orders-kpi]').forEach(function (btn) {
-        btn.classList.toggle('is-active', (btn.getAttribute('data-orders-kpi') || '') === (status || ''));
-    });
 }
 window.applyOrdersStatusFilter = applyOrdersStatusFilter;
 
@@ -257,12 +310,19 @@ function bootAdvertiserOrdersPage() {
         document.getElementById('dateTo').value = '';
         const sortEl = document.getElementById('ordersSort');
         if (sortEl) sortEl.value = 'attention';
+        clearOrdersProjectFilter();
         updateOrdersSearchClearVisibility();
         currentPage = 1;
         if (ordersSearchTimer) {
             clearTimeout(ordersSearchTimer);
             ordersSearchTimer = null;
         }
+        fetchOrders(1, { historyMode: 'push' });
+    });
+
+    document.getElementById('ordersProjectChipClear')?.addEventListener('click', function () {
+        clearOrdersProjectFilter();
+        currentPage = 1;
         fetchOrders(1, { historyMode: 'push' });
     });
 
@@ -283,6 +343,9 @@ function bootAdvertiserOrdersPage() {
     // Dropdown / date filters live-refresh the table (catalog-style), not only on Filter click.
     ['statusFilter', 'paymentStatusFilter', 'paymentMethodFilter', 'dateFrom', 'dateTo', 'ordersSort'].forEach(function (id) {
         document.getElementById(id)?.addEventListener('change', function () {
+            if (id === 'statusFilter' && (document.getElementById('statusFilter')?.value || '')) {
+                clearOrdersProjectStageFilter();
+            }
             currentPage = 1;
             fetchOrders(1, { historyMode: 'replace', intent: 'search' });
         });
@@ -301,8 +364,10 @@ function bootAdvertiserOrdersPage() {
         setVal('dateFrom', 'date_from');
         setVal('dateTo', 'date_to');
         setVal('ordersSort', 'sort');
+        setVal('projectFilter', 'project');
+        setVal('projectStageFilter', 'project_stage');
         // Clear fields that are no longer in the URL (browser back/forward)
-        ['searchInput', 'statusFilter', 'paymentStatusFilter', 'paymentMethodFilter', 'dateFrom', 'dateTo', 'ordersSort'].forEach((id) => {
+        ['searchInput', 'statusFilter', 'paymentStatusFilter', 'paymentMethodFilter', 'dateFrom', 'dateTo', 'ordersSort', 'projectFilter', 'projectStageFilter'].forEach((id) => {
             const el = document.getElementById(id);
             if (!el) return;
             const key = id === 'searchInput' ? 'search'
@@ -311,6 +376,8 @@ function bootAdvertiserOrdersPage() {
                 : id === 'paymentMethodFilter' ? 'payment_method'
                 : id === 'dateFrom' ? 'date_from'
                 : id === 'dateTo' ? 'date_to'
+                : id === 'projectFilter' ? 'project'
+                : id === 'projectStageFilter' ? 'project_stage'
                 : 'sort';
             if (!params.has(key)) el.value = id === 'ordersSort' ? 'attention' : '';
         });
@@ -324,6 +391,8 @@ function bootAdvertiserOrdersPage() {
         if (typeof updateOrdersAttentionChip === 'function') {
             updateOrdersAttentionChip();
         }
+        updateOrdersProjectChip();
+        syncOrdersKpiActive();
     }
     window.hydrateOrdersFiltersFromUrl = hydrateOrdersFiltersFromUrl;
 
@@ -337,6 +406,8 @@ function bootAdvertiserOrdersPage() {
             date_from: document.getElementById('dateFrom')?.value || '',
             date_to: document.getElementById('dateTo')?.value || '',
             sort: ordersListSort() === 'attention' ? '' : ordersListSort(),
+            project: ordersProjectFilterValues().project,
+            project_stage: ordersProjectFilterValues().project_stage,
         };
         Object.keys(map).forEach((key) => {
             if (map[key]) url.searchParams.set(key, map[key]);
@@ -750,6 +821,7 @@ function bootAdvertiserOrdersPage() {
     };
 
     function ordersHaveActiveFilters() {
+        const projectFilters = ordersProjectFilterValues();
         return !!(
             (document.getElementById('searchInput')?.value || '').trim()
             || document.getElementById('statusFilter')?.value
@@ -757,6 +829,8 @@ function bootAdvertiserOrdersPage() {
             || document.getElementById('paymentMethodFilter')?.value
             || document.getElementById('dateFrom')?.value
             || document.getElementById('dateTo')?.value
+            || projectFilters.project
+            || projectFilters.project_stage
             || ordersListSort() !== 'attention'
         );
     }
@@ -790,6 +864,8 @@ function bootAdvertiserOrdersPage() {
         const dateFrom = document.getElementById('dateFrom')?.value || '';
         const dateTo = document.getElementById('dateTo')?.value || '';
         const sort = ordersListSort();
+        const projectFilters = ordersProjectFilterValues();
+        syncOrdersKpiActive(status);
 
         const listUrl = ordersRoute('list');
         if (!listUrl) {
@@ -805,7 +881,10 @@ function bootAdvertiserOrdersPage() {
         if (dateFrom) url += `&date_from=${encodeURIComponent(dateFrom)}`;
         if (dateTo) url += `&date_to=${encodeURIComponent(dateTo)}`;
         if (sort && sort !== 'attention') url += `&sort=${encodeURIComponent(sort)}`;
+        if (projectFilters.project) url += `&project=${encodeURIComponent(projectFilters.project)}`;
+        if (projectFilters.project_stage) url += `&project_stage=${encodeURIComponent(projectFilters.project_stage)}`;
         updateOrdersAttentionChip();
+        updateOrdersProjectChip();
 
         if (syncUrl && typeof window.syncOrdersFiltersToUrl === 'function') {
             window.syncOrdersFiltersToUrl(page, { historyMode: historyMode === 'none' ? 'push' : historyMode });
@@ -959,6 +1038,9 @@ function bootAdvertiserOrdersPage() {
         if (payment === 'failed') {
             return { label: 'Payment failed', next: 'Pay again from Orders, or choose another payment method.', cls: 'status-cancelled', autoHint: null };
         }
+        if (payment === 'refunded' && status !== 'completed') {
+            return { label: 'Refunded', next: 'Refunded to your wallet. No further action needed.', cls: 'status-cancelled', autoHint: null };
+        }
         if (status === 'pending' && payment !== 'paid') {
             return { label: 'Awaiting payment', next: 'Complete payment so the publisher can start.', cls: 'status-pending', autoHint: null };
         }
@@ -995,6 +1077,9 @@ function bootAdvertiserOrdersPage() {
             };
         }
         if (status === 'completed') {
+            if (payment === 'refunded') {
+                return { label: 'Completed · refunded', next: 'Refunded to your wallet. The publisher payout for this placement was reversed.', cls: 'status-completed', autoHint: null };
+            }
             const count = Array.isArray(order.items) ? order.items.length : (Number(order.items_count) || 0);
             const anyLive = count > 0 && Array.isArray(order.items) && order.items.some((it) => it && it.live_url);
             if (count < 1) {
@@ -1029,6 +1114,30 @@ function bootAdvertiserOrdersPage() {
             { label: 'Completed', done: completed && hasItems, current: false },
         ];
 
+        if (status === 'cancelled') {
+            return steps;
+        }
+        if (order.payment_status === 'failed') {
+            steps[0].label = 'Payment failed';
+            steps[0].done = false;
+            steps[0].current = true;
+            steps.slice(1).forEach(function (step) {
+                step.done = false;
+                step.current = false;
+            });
+            return steps;
+        }
+        if (order.payment_status === 'refunded' && status !== 'completed') {
+            steps[0].label = 'Refunded';
+            steps[0].done = true;
+            steps[0].current = true;
+            steps.slice(1).forEach(function (step) {
+                step.done = false;
+                step.current = false;
+            });
+            return steps;
+        }
+
         if (status === 'pending' && !paid) {
             steps[0].current = true;
             steps[0].done = false;
@@ -1052,6 +1161,9 @@ function bootAdvertiserOrdersPage() {
         } else if (status === 'completed') {
             steps[4].current = true;
             steps[4].done = hasItems;
+            if (order.payment_status === 'refunded') {
+                steps[4].label = 'Completed · refunded';
+            }
         }
 
         return steps;
@@ -1063,10 +1175,10 @@ function bootAdvertiserOrdersPage() {
         const items = Array.isArray(order.items) ? order.items : [];
         const item = items[0] || {};
         let raw = null;
-        if (current.label === 'Completed') raw = order.completed_at;
+        if (current.label === 'Completed' || current.label === 'Completed · refunded') raw = order.completed_at;
         else if (current.label === 'URL delivered') {
             raw = items.map((it) => it && it.live_url_submitted_at).filter(Boolean).sort()[0] || null;
-        } else if (current.label === 'Paid') raw = order.paid_at;
+        } else if (current.label === 'Paid' || current.label === 'Payment failed' || current.label === 'Refunded') raw = order.paid_at;
         else if (current.label === 'Accepted' || current.label === 'Scheduled') raw = item.accepted_at || order.paid_at;
         else if (current.label === 'Processing' || current.label === 'Revision') raw = item.accepted_at || order.updated_at;
         if (!raw) return '';
@@ -1133,11 +1245,16 @@ function bootAdvertiserOrdersPage() {
                 meta: { reconstructed: true },
             });
         };
-        push(order.paid_at, 'Paid');
+        if (order.payment_status !== 'failed') push(order.paid_at, 'Paid');
         const items = Array.isArray(order.items) ? order.items : [];
         const liveAt = items.map((it) => it && it.live_url_submitted_at).filter(Boolean).sort()[0];
         push(liveAt, 'Live URL submitted');
-        push(order.completed_at, 'Completed');
+        if (order.payment_status === 'failed') {
+            push(order.updated_at, 'Payment failed');
+        } else if (order.payment_status === 'refunded' && order.status !== 'completed') {
+            push(order.updated_at, 'Refunded');
+        }
+        push(order.completed_at, order.payment_status === 'refunded' ? 'Completed · refunded' : 'Completed');
         if (!events.length) push(order.updated_at, 'Last updated');
         return events;
     }
@@ -1202,7 +1319,14 @@ function bootAdvertiserOrdersPage() {
         });
     }
 
+    function orderIsLiveWork(order) {
+        if (!order) return false;
+        if (order.status === 'cancelled') return false;
+        return order.payment_status !== 'failed' && order.payment_status !== 'refunded';
+    }
+
     function orderNeedsContentRevision(order) {
+        if (!orderIsLiveWork(order)) return false;
         if (order && order.needs_content_revision === true) return true;
         if (order && order.needs_content_revision === false) return false;
         const items = Array.isArray(order?.items) ? order.items : [];
@@ -1210,6 +1334,7 @@ function bootAdvertiserOrdersPage() {
     }
 
     function orderCanApprove(order) {
+        if (!orderIsLiveWork(order)) return false;
         if (order && order.can_approve === true) return true;
         if (order && order.can_approve === false) return false;
         const items = Array.isArray(order?.items) ? order.items : [];
@@ -1227,11 +1352,33 @@ function bootAdvertiserOrdersPage() {
     function orderChatReadonly(order) {
         if (order && order.chat_readonly === true) return true;
         if (order && order.chat_readonly === false) return false;
-        return order?.status === 'cancelled' || order?.payment_status !== 'paid';
+        return order?.status === 'cancelled'
+            || (order?.payment_status !== 'paid' && order?.status !== 'completed');
     }
 
     function orderPaymentRefunded(order) {
         return order?.payment_status === 'refunded';
+    }
+
+    function orderPaymentFailed(order) {
+        return order?.payment_status === 'failed';
+    }
+
+    function orderTotalDisplayHtml(order, totalLabel, asCell) {
+        let body = totalLabel;
+        let cls = 'text-primary';
+        if (orderPaymentRefunded(order)) {
+            body = `<s>${totalLabel}</s> <span class="small${asCell ? '' : ' fw-normal'}">Refunded</span>`;
+            cls = 'orders-total--refunded';
+        } else if (orderPaymentFailed(order)) {
+            body = `${totalLabel} <span class="small${asCell ? '' : ' fw-normal'}">Failed</span>`;
+            cls = 'orders-total--refunded';
+        }
+        if (asCell) {
+            return `<td class="fw-semibold ${cls}">${body}</td>`;
+        }
+
+        return `<span class="fw-bold ${cls}">${body}</span>`;
     }
 
     function firstRevisionItem(order) {
@@ -1240,10 +1387,10 @@ function bootAdvertiserOrdersPage() {
     }
 
     function renderOrderRowActions(order) {
-        const unreadBadge = order.unread_chat > 0
+        const chatReadonly = orderChatReadonly(order);
+        const unreadBadge = !chatReadonly && order.unread_chat > 0
             ? `<span class="chat-unread-dot">${order.unread_chat}</span>`
             : '';
-        const chatReadonly = orderChatReadonly(order);
         const chatClass = chatReadonly
             ? 'btn btn-sm btn-link text-muted action-btn d-flex align-items-center'
             : 'btn btn-sm btn-outline-success action-btn d-flex align-items-center';
@@ -1393,9 +1540,7 @@ function bootAdvertiserOrdersPage() {
             const disputeHtml = order.dispute_status
                 ? `<div class="mt-1"><span class="badge text-bg-${order.dispute_status === 'upheld' ? 'danger' : (order.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(order.dispute_status)}</span></div>`
                 : '';
-            const totalHtml = orderPaymentRefunded(order)
-                ? `<td class="fw-semibold orders-total--refunded"><s>${totalLabel}</s> <span class="small">Refunded</span></td>`
-                : `<td class="fw-semibold text-primary">${totalLabel}</td>`;
+            const totalHtml = orderTotalDisplayHtml(order, totalLabel, true);
             
             html += `
                 <tr>
@@ -1802,7 +1947,7 @@ function bootAdvertiserOrdersPage() {
             }
             return `<div class="order-view-refund">${escapeHtml(note)} ${link}</div>`;
         }
-        if (order.status === 'cancelled' || order.payment_status === 'refunded') {
+        if (order.status === 'cancelled' || order.payment_status === 'refunded' || order.payment_status === 'failed') {
             return `<div class="order-view-refund">${link}</div>`;
         }
         const note = typeof order.policy_note === 'string'
@@ -1829,9 +1974,9 @@ function bootAdvertiserOrdersPage() {
                 <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
                     ${liveUrlHealthBadge(it)}
                     <span class="small text-muted">Public reachability check${http}${checked}</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
+                    ${orderIsLiveWork(order) ? `<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
                         <i class="fa fa-refresh me-1"></i>Recheck
-                    </button>
+                    </button>` : ''}
                 </div>`;
         }
         const liveUrlHtml = liveUrl
@@ -1875,7 +2020,7 @@ function bootAdvertiserOrdersPage() {
                     </ul>
                </div>`
             : '';
-        const revisionHtml = modRequested && it.completion_notes
+        const revisionHtml = modRequested && orderIsLiveWork(order) && it.completion_notes
             ? `<div class="ui-callout ui-callout--attention ui-callout--sm ui-callout--flush mb-2"><span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span><div class="ui-callout__body"><strong>Change request:</strong> ${escapeHtml(it.completion_notes)}</div></div>`
             : '';
         const heading = itemsCount > 1
@@ -1889,7 +2034,7 @@ function bootAdvertiserOrdersPage() {
         const documentHtml = it.content_link
             ? `<a href="${safeUrl(it.content_link)}" class="text-primary" target="_blank" rel="noopener noreferrer"><i class="fa fa-download me-1"></i>${escapeHtml(it.content_original_name || 'Download article')}</a>`
             : (hideEmpty ? '' : '—');
-        const revisionAlert = it.content_revision_requested === 'yes' ? (() => {
+        const revisionAlert = it.content_revision_requested === 'yes' && orderNeedsContentRevision(order) ? (() => {
             const isLibrary = !!(it.content_submission_id);
             const currentLabel = it.content_original_name
                 || it.article_title
@@ -1951,8 +2096,6 @@ function bootAdvertiserOrdersPage() {
 
     function renderOrderDetails(order) {
         const items = Array.isArray(order.items) ? order.items : [];
-        const isUnderReview = order.status === 'review';
-        const hasAnyLiveUrl = items.some((it) => it && it.live_url && it.live_url !== '');
         const statusMeta = getAdvertiserStatusMeta(order);
         const timelineHtml = buildAdvertiserTimeline(order);
         const itemsCount = Number(order.items_count) || items.length || 0;
@@ -1982,14 +2125,13 @@ function bootAdvertiserOrdersPage() {
 
         let actionButtons = '';
         const revisionItems = items.filter((it) => it && it.content_revision_requested === 'yes');
-        const needsContentRevision = revisionItems.length > 0;
         if (order.can_retry_payment) {
             actionButtons = `
                 <button class="btn btn-sm btn-primary" onclick="retryOrderPayment(${order.id})">
                     <i class="fa fa-credit-card"></i> Pay again
                 </button>
             `;
-        } else if (needsContentRevision && (order.status === 'processing' || order.status === 'review')) {
+        } else if (orderNeedsContentRevision(order) && (order.status === 'processing' || order.status === 'review')) {
             const fulfillButtons = revisionItems.map((revisionItem, idx) => {
                 const isLibrary = !!(revisionItem.content_submission_id);
                 const currentLabel = revisionItem.content_original_name
@@ -2008,14 +2150,14 @@ function bootAdvertiserOrdersPage() {
                     <i class="fa fa-comments"></i> Chat
                 </button>
             `;
-        } else if (isUnderReview && hasAnyLiveUrl) {
+        } else if (orderCanApprove(order)) {
             actionButtons = `
                 <button class="btn btn-sm btn-success" onclick="approveOrder(${order.id})">
                     <i class="fa fa-check-circle"></i> Approve
                 </button>
-                <button class="btn btn-sm btn-warning" onclick="requestModification(${order.id})">
+                ${orderCanRequestChanges(order) ? `<button class="btn btn-sm btn-warning" onclick="requestModification(${order.id})">
                     <i class="fa fa-edit"></i> Request changes
-                </button>
+                </button>` : ''}
                 <button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>
@@ -2036,12 +2178,12 @@ function bootAdvertiserOrdersPage() {
                 </button>` : ''}
                 ${itemsCount <= 1 && order.dispute_status ? `<span class="badge text-bg-${order.dispute_status === 'upheld' ? 'danger' : (order.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(order.dispute_status)}</span>` : ''}
             `;
-        } else if (!['completed', 'cancelled'].includes(order.status) || order.payment_status === 'refunded') {
+        } else {
             actionButtons = `
                 <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
                     <i class="fa fa-comments"></i> Chat
                 </button>
-                ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
+                ${orderIsLiveWork(order) ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>` : ''}
             `;
@@ -2065,9 +2207,7 @@ function bootAdvertiserOrdersPage() {
                     ${statusMeta.autoHint ? `<p class="small text-muted mb-1"><i class="fa fa-clock-o me-1"></i>${escapeHtml(statusMeta.autoHint)}</p>` : ''}
                     <hr class="my-2">
                     ${pricingRows}
-                    <div class="ov-row"><strong>Total</strong>${orderPaymentRefunded(order)
-                        ? `<span class="fw-bold orders-total--refunded"><s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span></span>`
-                        : `<span class="fw-bold text-primary">${formatEuro(order.total_amount)}</span>`}</div>
+                    <div class="ov-row"><strong>Total</strong>${orderTotalDisplayHtml(order, formatEuro(order.total_amount), false)}</div>
                     ${policyNoteHtml(order)}
                 </div>
 
@@ -2122,6 +2262,8 @@ function bootAdvertiserOrdersPage() {
             date_from: document.getElementById('dateFrom')?.value || '',
             date_to: document.getElementById('dateTo')?.value || '',
             sort: ordersListSort() === 'attention' ? '' : ordersListSort(),
+            project: ordersProjectFilterValues().project,
+            project_stage: ordersProjectFilterValues().project_stage,
         };
         Object.keys(map).forEach((key) => {
             if (map[key]) url.searchParams.set(key, map[key]);

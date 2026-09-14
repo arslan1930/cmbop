@@ -8,7 +8,7 @@
 @php
     $item = is_array($notification)
         ? $notification
-        : $notification->toApiArray();
+        : app(\App\Services\InAppNotificationService::class)->presentNotification($notification);
 
     $isUnread = !empty($item['is_unread']);
     $url = $item['action_url'] ?? null;

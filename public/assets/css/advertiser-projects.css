@@ -1,0 +1,197 @@
+/* Advertiser → Projects */
+
+.project-page-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+}
+
+.project-page-head h2 {
+    font-weight: 600;
+}
+
+.project-page-head__copy {
+    max-width: 40rem;
+}
+
+.project-attention .ui-callout__body strong {
+    display: block;
+}
+
+.project-attention .ui-callout__detail {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--brand-ink-muted, #75787B);
+    font-size: 0.875rem;
+}
+
+.project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.project-card {
+    border: 1px solid var(--border-subtle, #e5eef0);
+    background: #fff;
+}
+
+.project-card .card-body {
+    padding: 1.1rem 1.15rem 1.15rem;
+}
+
+.project-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.95rem;
+}
+
+.project-card__identity {
+    min-width: 0;
+}
+
+.project-card__name {
+    color: inherit;
+}
+
+.project-card__name h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+a.project-card__name:hover {
+    color: var(--brand-primary, #1a585e);
+}
+
+.project-card__host {
+    margin-top: 0.2rem;
+    font-size: 0.8125rem;
+    color: var(--brand-ink-muted, #75787B);
+    word-break: break-all;
+}
+
+.project-card__actions {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+.project-card__links {
+    margin-top: 0.45rem;
+}
+
+.project-card__links a {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--brand-primary, #1a585e);
+}
+
+.project-stages {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.project-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.55rem 0.4rem;
+    border: 1px solid var(--border-subtle, #e2e8f0);
+    border-radius: 0.6rem;
+    background: var(--surface-3, #f1f5f9);
+    color: var(--brand-ink-muted, #697078);
+    text-align: center;
+    line-height: 1.2;
+}
+
+.project-stage.is-zero {
+    background: var(--brand-neutral-bg, #f1f5f9);
+    color: var(--brand-ink-muted, #697078);
+    border-color: var(--border-subtle, #e2e8f0);
+}
+
+a.project-stage,
+a.project-stage:visited,
+a.project-stage:hover,
+a.project-stage:focus {
+    text-decoration: none;
+}
+
+a.project-stage:hover,
+a.project-stage:focus {
+    filter: brightness(0.97);
+}
+
+.project-stage--not_started:not(.is-zero),
+.project-stage--in_review:not(.is-zero) {
+    background: var(--brand-neutral-bg, #f1f5f9);
+    color: var(--brand-ink-muted, #697078);
+    border-color: var(--border-subtle, #e2e8f0);
+}
+
+.project-stage__label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.project-stage__count {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.project-stage--in_progress:not(.is-zero) {
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #1a585e);
+    border-color: var(--brand-primary-border, #b8e4e4);
+}
+
+.project-stage--waiting_approval:not(.is-zero),
+.project-stage--needs_improvements:not(.is-zero) {
+    background: var(--brand-warning-bg, #fff7ed);
+    color: var(--brand-warning-ink, #9a3412);
+    border-color: var(--brand-warning-border, #fdba74);
+}
+
+.project-stage--completed:not(.is-zero) {
+    background: var(--brand-success-bg, #d1fae5);
+    color: var(--brand-success, #0f766e);
+    border-color: rgba(15, 118, 110, 0.22);
+}
+
+.project-stage--rejected:not(.is-zero) {
+    background: #fff;
+    color: var(--brand-danger, #dc2626);
+    border-color: #fecaca;
+}
+
+.project-empty {
+    align-items: center;
+}
+
+@media (min-width: 576px) {
+    .project-stages {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 992px) {
+    .project-stages {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    .project-stage__label {
+        white-space: nowrap;
+    }
+}

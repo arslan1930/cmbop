@@ -123,6 +123,32 @@ class DepositRequest extends Model
     }
 
     /**
+     * Clawback snapshot from PayPal or Stripe. Stripe writes debt here;
+     * leftover PayPal-only readers miss card refunds.
+     *
+     * @return array<string, mixed>
+     */
+    public function refundMeta(): array
+    {
+        $paypal = is_array($this->paypal_response) ? $this->paypal_response : [];
+        if (isset($paypal['refund']) && is_array($paypal['refund'])) {
+            return $paypal['refund'];
+        }
+
+        $stripe = is_array($this->stripe_response) ? $this->stripe_response : [];
+        if (isset($stripe['refund']) && is_array($stripe['refund'])) {
+            return $stripe['refund'];
+        }
+
+        return [];
+    }
+
+    public function refundDebtCreated(): float
+    {
+        return round((float) ($this->refundMeta()['debt_created'] ?? 0), 2);
+    }
+
+    /**
      * Latest completed/approved wallet top-up rail for this advertiser, or null.
      *
      * @return 'card'|'paypal'|'bank'|'wise'|'crypto'|null

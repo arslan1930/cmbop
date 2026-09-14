@@ -311,10 +311,17 @@ function renderRepFundsTable(activities) {
         var activity = activities[i];
         var isCompleted = activity.status === 'completed';
         var isDeposit = activity.type === 'deposit';
+        var isDead = activity.status === 'refunded'
+            || activity.status === 'failed'
+            || activity.status === 'cancelled'
+            || activity.status === 'rejected';
         var amountClass = '';
         var amountPrefix = '';
         
-        if (isCompleted && isDeposit) {
+        if (isDead) {
+            amountClass = 'text-muted';
+            amountPrefix = '';
+        } else if (isCompleted && isDeposit) {
             amountClass = 'text-success';
             amountPrefix = '+';
         } else if (isCompleted && !isDeposit) {
@@ -329,10 +336,14 @@ function renderRepFundsTable(activities) {
         if (activity.status === 'pending') statusBadge = '<span class="badge bg-warning text-dark">Pending</span>';
         else if (activity.status === 'approved') statusBadge = '<span class="badge bg-info text-dark">Approved</span>';
         else if (activity.status === 'completed') statusBadge = '<span class="badge bg-success">Completed</span>';
+        else if (activity.status === 'refunded') statusBadge = '<span class="badge bg-danger">Refunded</span>';
+        else if (activity.status === 'failed') statusBadge = '<span class="badge bg-danger">Failed</span>';
+        else if (activity.status === 'cancelled') statusBadge = '<span class="badge bg-secondary">Cancelled</span>';
         else if (activity.status === 'rejected') statusBadge = '<span class="badge bg-danger">Rejected</span>';
         
         var paymentMethod = paymentMethodLabel(activity.payment_method);
         var type = activity.type ? activity.type.charAt(0).toUpperCase() + activity.type.slice(1) : 'Deposit';
+        var docLabel = isDead ? 'Receipt' : 'Invoice';
         
         html += '<tr class="rep-report-row">' +
             '<td class="text-muted">' + formatRepDate(activity.created_at) + '</td>' +
@@ -342,7 +353,7 @@ function renderRepFundsTable(activities) {
             '<td>' + statusBadge + '</td>' +
             '<td><span class="badge bg-primary">' + escapeRepHtml(type) + '</span></td>' +
             '<td>' + (activity.type === 'deposit' ? 
-                '<a href="/advertiser/invoice/' + escapeRepHtml(activity.reference_code) + '" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fa fa-file-invoice"></i> Invoice</a>' : 
+                '<a href="/advertiser/invoice/' + escapeRepHtml(activity.reference_code) + '" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fa fa-file-invoice"></i> ' + docLabel + '</a>' : 
                 '<span class="text-muted">—</span>') + 
             '</td>' +
             '</tr>';
@@ -405,7 +416,10 @@ function repOrderStatusBadge(order) {
     }
     if (!label) label = '—';
     var cls = 'bg-secondary';
-    if (order.status === 'completed') cls = 'bg-success';
+    var payment = order.payment_status;
+    if (payment === 'failed' || (payment === 'refunded' && order.status !== 'completed')) {
+        cls = 'bg-secondary';
+    } else if (order.status === 'completed') cls = 'bg-success';
     else if (order.status === 'cancelled') cls = 'bg-danger';
     else if (order.status === 'review') cls = 'bg-warning text-dark';
     else if (order.status === 'processing') cls = 'bg-info text-dark';
@@ -427,6 +441,21 @@ function renderRepOrderRow(order, item) {
     else if (order.payment_status === 'refunded') paymentStatusBadge = '<span class="badge bg-info text-dark">Refunded</span>';
     else paymentStatusBadge = '<span class="badge bg-secondary">' + escapeRepHtml(order.payment_status || '—') + '</span>';
 
+    var baseAmount = Number.isFinite(basePrice) ? ('€' + basePrice.toFixed(2)) : '—';
+    var lineAmount = Number.isFinite(linePrice) ? ('€' + linePrice.toFixed(2)) : ('€' + parseFloat(order.total_amount || 0).toFixed(2));
+    var baseCell = '<td class="text-primary">' + baseAmount + '</td>';
+    var lineCell = '<td class="fw-semibold">' + lineAmount + '</td>';
+    var invoiceLabel = 'Invoice';
+    if (order.payment_status === 'refunded') {
+        baseCell = '<td class="fw-semibold text-muted"><s>' + baseAmount + '</s> <span class="small">Refunded</span></td>';
+        lineCell = '<td class="fw-semibold text-muted"><s>' + lineAmount + '</s> <span class="small">Refunded</span></td>';
+        invoiceLabel = 'Receipt';
+    } else if (order.payment_status === 'failed') {
+        baseCell = '<td class="fw-semibold text-muted">' + baseAmount + ' <span class="small">Failed</span></td>';
+        lineCell = '<td class="fw-semibold text-muted">' + lineAmount + ' <span class="small">Failed</span></td>';
+        invoiceLabel = 'Receipt';
+    }
+
     return '<tr class="rep-report-row">' +
         '<td><code class="fw-semibold bg-light px-2 py-1 rounded">#' + escapeRepHtml(order.order_number) + '</code></td>' +
         '<td class="text-muted">' + formatRepDate(order.created_at) + '</td>' +
@@ -434,18 +463,18 @@ function renderRepOrderRow(order, item) {
             '<div class="fw-semibold">' + escapeRepHtml(siteName) + '</div>' +
             (siteUrl ? '<small class="text-muted">' + truncateRep(siteUrl, 30) + '</small>' : '') +
         '</td>' +
-        '<td class="text-primary">' + (Number.isFinite(basePrice) ? ('€' + basePrice.toFixed(2)) : '—') + '</td>' +
+        baseCell +
         '<td>' + (Number.isFinite(additionalPrice) && additionalPrice > 0 ?
             '<span class="rep-sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeRepHtml(sensitiveType || 'Sensitive') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' :
             '<span class="text-muted">—</span>') +
         '</td>' +
-        '<td class="fw-semibold">' + (Number.isFinite(linePrice) ? ('€' + linePrice.toFixed(2)) : ('€' + parseFloat(order.total_amount || 0).toFixed(2))) + '</td>' +
+        lineCell +
         '<td><code class="small bg-light px-2 py-1 rounded">' + escapeRepHtml(order.reference_code) + '</code></td>' +
         '<td><span class="badge bg-secondary">' + escapeRepHtml(paymentMethodLabel(order.payment_method)) + '</span></td>' +
         '<td>' + repOrderStatusBadge(order) + '</td>' +
         '<td>' + paymentStatusBadge + '</td>' +
         '<td>' +
-            '<a href="/advertiser/invoice/' + escapeRepHtml(order.reference_code) + '" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fa fa-file-invoice"></i> Invoice</a>' +
+            '<a href="/advertiser/invoice/' + escapeRepHtml(order.reference_code) + '" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fa fa-file-invoice"></i> ' + invoiceLabel + '</a>' +
         '</td>' +
         '</tr>';
 }

@@ -11,6 +11,7 @@ use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\Reminders\OrderDeadline;
 use App\Services\Reminders\ReminderFatigueGuard;
+use App\Support\AdvertiserOrderStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -78,7 +79,7 @@ class NudgeAdvertisers extends Command
             $after = max(1, $laterReminderAt - 1);
         }
 
-        $items = OrderItem::query()
+        $query = OrderItem::query()
             ->whereNotNull('live_url')
             ->where('live_url', '!=', '')
             ->whereLiveUrlSubmittedAtIsRecorded()
@@ -86,7 +87,19 @@ class NudgeAdvertisers extends Command
             ->where('live_url_submitted_at', '>', now()->subHours($window))
             ->whereNull('review_nudge_sent_at')
             ->where(fn ($q) => $q->where('modification_requested', 'no')->orWhereNull('modification_requested'))
-            ->whereHas('order', fn ($q) => $q->where('status', 'review'))
+            ->whereHas('order', function ($q) {
+                $q->where('status', 'review')
+                    ->where('payment_status', 'paid');
+            });
+
+        if (Schema::hasColumn('order_items', 'content_revision_requested')) {
+            $query->where(function ($q) {
+                $q->where('content_revision_requested', 'no')
+                    ->orWhereNull('content_revision_requested');
+            });
+        }
+
+        $items = $query
             ->with('order')
             ->limit(300)
             ->get();
@@ -99,6 +112,10 @@ class NudgeAdvertisers extends Command
                 $advertiser = $order ? User::find($order->user_id) : null;
 
                 if (! $order || ! $advertiser?->email || ! $item->live_url_submitted_at) {
+                    continue;
+                }
+
+                if (! AdvertiserOrderStatus::isLiveAdvertiserWork($order)) {
                     continue;
                 }
 
@@ -167,13 +184,22 @@ class NudgeAdvertisers extends Command
     ): int {
         $after = max(1, (int) config('reminders.advertiser_stalled.hours_after_deadline', 72));
 
-        $items = OrderItem::query()
+        $query = OrderItem::query()
             ->whereAcceptedAtIsRecorded()
             ->where(fn ($q) => $q->whereNull('live_url')->orWhere('live_url', ''))
             ->whereNull('stalled_notice_sent_at')
             ->whereHas('order', function ($q) {
                 $q->where('payment_status', 'paid')->whereIn('status', ['processing', 'pending']);
-            })
+            });
+
+        if (Schema::hasColumn('order_items', 'content_revision_requested')) {
+            $query->where(function ($q) {
+                $q->where('content_revision_requested', 'no')
+                    ->orWhereNull('content_revision_requested');
+            });
+        }
+
+        $items = $query
             ->with(['order', 'site'])
             ->limit(300)
             ->get();

@@ -678,6 +678,8 @@
                         <option value="processing">Processing</option>
                         <option value="cancelled">Cancelled</option>
                         <option value="failed">Failed</option>
+                        <option value="refunded">Refunded</option>
+                        <option value="rejected">Rejected</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -999,9 +1001,13 @@
         let html = '<ul class="af-activity-feed mb-0">';
         rows.forEach(function (row) {
             const debit = row.direction === 'debit';
+            const status = String(row.status || '').toLowerCase();
+            const dead = ['rejected', 'failed', 'cancelled'].includes(status)
+                || row.direction === 'none'
+                || (status === 'refunded' && row.direction !== 'debit');
             const iconClass = row.type === 'bonus_credit' ? 'is-bonus' : (debit ? 'is-debit' : '');
-            const amountClass = debit ? 'wallet-amount-debit' : 'wallet-amount-credit';
-            const sign = debit ? '−' : '+';
+            const amountClass = dead ? 'wallet-amount-flat' : (debit ? 'wallet-amount-debit' : 'wallet-amount-credit');
+            const sign = dead ? '' : (debit ? '−' : '+');
             const pending = !!row.is_live_pending;
             const bal = row.balance_after != null ? ('Balance after ' + money(row.balance_after)) : '';
 
@@ -1010,11 +1016,13 @@
             // handlers bound on document — which is what killed "I paid".
             let actions = '';
             if (row.invoice_download_url) {
+                const downloadLabel = (status === 'refunded' || status === 'failed') ? 'Download receipt' : 'Download invoice';
                 actions += `<a class="btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}" download>
-                    <i class="fa fa-download me-1"></i> Download invoice</a>`;
+                    <i class="fa fa-download me-1"></i> ${downloadLabel}</a>`;
             } else if (row.invoice_view_url) {
+                const viewLabel = (status === 'refunded' || status === 'failed') ? 'View receipt' : 'Invoice';
                 actions += `<a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(row.invoice_view_url)}" target="_blank" rel="noopener">
-                    <i class="fa fa-file-invoice me-1"></i> Invoice</a>`;
+                    <i class="fa fa-file-invoice me-1"></i> ${viewLabel}</a>`;
             }
             if (row.can_mark_paid && row.mark_paid_url) {
                 actions += `<button type="button" class="btn btn-sm btn-outline-primary mark-deposit-paid-btn"
@@ -1320,17 +1328,23 @@
                     return;
                 }
                 const t = res.transaction;
+                const status = String(t.status || '').toLowerCase();
+                const dead = ['rejected', 'failed', 'cancelled'].includes(status)
+                    || t.direction === 'none'
+                    || (status === 'refunded' && t.direction !== 'debit');
                 let invoiceBtn = '';
                 if (t.invoice_download_url) {
-                    invoiceBtn = `<a class="btn btn-sm btn-primary w-100 mt-3" href="${escapeHtml(t.invoice_download_url)}"><i class="fa fa-download me-1"></i> Download Invoice</a>`;
+                    const downloadLabel = (status === 'refunded' || status === 'failed') ? 'Download receipt' : 'Download Invoice';
+                    invoiceBtn = `<a class="btn btn-sm btn-primary w-100 mt-3" href="${escapeHtml(t.invoice_download_url)}"><i class="fa fa-download me-1"></i> ${downloadLabel}</a>`;
                 } else if (t.invoice_view_url) {
-                    invoiceBtn = `<a class="btn btn-sm btn-outline-secondary w-100 mt-3" href="${escapeHtml(t.invoice_view_url)}">View Invoice</a>`;
+                    const viewLabel = (status === 'refunded' || status === 'failed') ? 'View receipt' : 'View Invoice';
+                    invoiceBtn = `<a class="btn btn-sm btn-outline-secondary w-100 mt-3" href="${escapeHtml(t.invoice_view_url)}">${viewLabel}</a>`;
                 }
                 body.html(`
                     <div class="wallet-detail-row"><span>Transaction ID</span><strong>${escapeHtml(t.reference || t.id)}</strong></div>
                     <div class="wallet-detail-row"><span>Date</span><strong>${t.date ? new Date(t.date).toLocaleString() : '—'}</strong></div>
                     <div class="wallet-detail-row"><span>Type</span><strong>${escapeHtml(t.type_label || '')}</strong></div>
-                    <div class="wallet-detail-row"><span>Amount</span><strong>${money(t.signed_amount ?? t.amount)}</strong></div>
+                    <div class="wallet-detail-row"><span>Amount</span><strong>${dead ? money(t.amount) : money(t.signed_amount ?? t.amount)}</strong></div>
                     <div class="wallet-detail-row"><span>Payment Method</span><strong>${escapeHtml(t.payment_method_label || t.payment_method || '—')}</strong></div>
                     <div class="wallet-detail-row"><span>Order Reference</span><strong>${escapeHtml(t.order_reference || '—')}</strong></div>
                     <div class="wallet-detail-row"><span>Invoice</span><strong>${escapeHtml(t.invoice_number || '—')}</strong></div>

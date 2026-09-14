@@ -274,8 +274,8 @@ class EmailCatalog
                 'status' => 'active',
             ],
             'deposit_refunded' => [
-                'name' => 'PayPal Deposit Refunded',
-                'description' => 'Advertiser notified when a PayPal Add Funds capture is refunded and the wallet credit is reversed.',
+                'name' => 'Deposit Refunded',
+                'description' => 'Advertiser notified when an Add Funds capture (PayPal or card) is refunded and the wallet credit is reversed.',
                 'category' => 'Billing',
                 'mailable' => DepositRefunded::class,
                 'status' => 'active',
@@ -622,6 +622,7 @@ class EmailCatalog
             'deposit approved' => 'deposit_approved',
             'wallet topped up' => 'deposit_approved',
             'paypal deposit refunded' => 'deposit_refunded',
+            'deposit refunded' => 'deposit_refunded',
             'paypal payment was not completed' => 'paypal_payment_not_completed',
             'paypal payment is under review' => 'paypal_payment_not_completed',
             'deposit request update' => 'deposit_rejected',

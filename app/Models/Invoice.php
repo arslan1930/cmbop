@@ -157,7 +157,7 @@ class Invoice extends Model
 
     public function statusBadgeClass(): string
     {
-        return match ($this->status) {
+        return match ($this->displayPaymentStatus()) {
             self::STATUS_PAID => 'success',
             self::STATUS_FAILED => 'danger',
             self::STATUS_PENDING => 'warning',
@@ -234,6 +234,292 @@ class Invoice extends Model
     public function isCancelled(): bool
     {
         return $this->status === self::STATUS_CANCELLED;
+    }
+
+    /**
+     * Terminal document states that win over a leftover payment_status snapshot.
+     *
+     * @return list<string>
+     */
+    public static function closedStatuses(): array
+    {
+        return [
+            self::STATUS_REFUNDED,
+            self::STATUS_FAILED,
+            self::STATUS_CANCELLED,
+        ];
+    }
+
+    /**
+     * Document status wins over a frozen payment_status snapshot.
+     * A refunded invoice still stored as payment_status=paid is leftover.
+     * A deposit receipt whose wallet top-up was clawed back is leftover
+     * even if markRefunded() never flipped the RCT- row. A tax/payment
+     * receipt whose order is refunded or failed is leftover the same way.
+     */
+    public function displayPaymentStatus(): string
+    {
+        if (in_array($this->status, self::closedStatuses(), true)) {
+            return $this->status;
+        }
+
+        if ($this->linkedDepositIsRefunded()) {
+            return self::STATUS_REFUNDED;
+        }
+
+        $orderPayment = $this->linkedOrderClosedPaymentStatus();
+        if ($orderPayment !== null) {
+            return $orderPayment;
+        }
+
+        $payment = trim((string) $this->payment_status);
+
+        return $payment !== '' ? $payment : (string) $this->status;
+    }
+
+    public function linkedDepositRequest(): ?DepositRequest
+    {
+        if (! $this->isDepositReceipt()) {
+            return null;
+        }
+
+        if ($this->relationLoaded('linkedDepositRequestCache')) {
+            return $this->getRelation('linkedDepositRequestCache');
+        }
+
+        $deposit = null;
+        try {
+            $id = $this->depositRequestId();
+            if ($id) {
+                $deposit = DepositRequest::query()->find($id);
+            }
+            if (! $deposit && filled($this->reference_code)) {
+                $query = DepositRequest::query()->where('reference_code', $this->reference_code);
+                if ($this->user_id) {
+                    $query->where('user_id', $this->user_id);
+                }
+                $deposit = $query->first();
+            }
+        } catch (\Throwable) {
+            $deposit = null;
+        }
+
+        $this->setRelation('linkedDepositRequestCache', $deposit);
+
+        return $deposit;
+    }
+
+    public function linkedDepositIsRefunded(): bool
+    {
+        return $this->linkedDepositRequest()?->status === 'refunded';
+    }
+
+    /**
+     * Tax/payment receipts that stayed Paid after the order was refunded
+     * or failed (handlePaymentRefunded threw, or a leftover pre-fix row).
+     */
+    public function linkedOrderClosedPaymentStatus(): ?string
+    {
+        if (! $this->order_id) {
+            return null;
+        }
+
+        $order = $this->relatedOrderForDisplay();
+        $payment = trim((string) ($order?->payment_status ?? ''));
+
+        return in_array($payment, [self::STATUS_REFUNDED, self::STATUS_FAILED], true)
+            ? $payment
+            : null;
+    }
+
+    protected function relatedOrderForDisplay(): ?Order
+    {
+        if ($this->relationLoaded('order')) {
+            $loaded = $this->getRelation('order');
+            // Billing lists eager-load order without payment_status, which
+            // would leave leftover refunded orders looking Paid.
+            if ($loaded && array_key_exists('payment_status', $loaded->getAttributes())) {
+                return $loaded;
+            }
+        }
+
+        $order = null;
+        try {
+            $order = Order::query()
+                ->select(['id', 'payment_status'])
+                ->find($this->order_id);
+        } catch (\Throwable) {
+            $order = null;
+        }
+
+        $this->setRelation('order', $order);
+
+        return $order;
+    }
+
+    public function isClosedDocument(): bool
+    {
+        return in_array($this->displayPaymentStatus(), self::closedStatuses(), true);
+    }
+
+    /**
+     * Stored PDFs are generated once. After a leftover refund/fail the file
+     * can still say Paid until we regenerate on view/download.
+     */
+    public function storedPdfMayBeStale(): bool
+    {
+        return in_array($this->displayPaymentStatus(), self::closedStatuses(), true);
+    }
+
+    /**
+     * Filter by what the advertiser/admin badge shows, not the leftover
+     * status column. Paid + payment_status=refunded is Refunded, not Paid.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeWhereDisplayStatus($query, string $status)
+    {
+        $closed = self::closedStatuses();
+
+        return $query->where(function ($inner) use ($status, $closed) {
+            $inner->where(function ($display) use ($status, $closed) {
+                $display->where(function ($closedMatch) use ($status, $closed) {
+                    $closedMatch->whereIn('status', $closed)
+                        ->where('status', $status);
+                })->orWhere(function ($paymentMatch) use ($status, $closed) {
+                    $paymentMatch->whereNotIn('status', $closed)
+                        ->where('payment_status', $status);
+                })->orWhere(function ($statusOnly) use ($status, $closed) {
+                    $statusOnly->whereNotIn('status', $closed)
+                        ->where(function ($emptyPayment) {
+                            $emptyPayment->whereNull('payment_status')
+                                ->orWhere('payment_status', '');
+                        })
+                        ->where('status', $status);
+                });
+            });
+
+            if (self::depositRequestsQueryable()) {
+                if ($status === self::STATUS_REFUNDED) {
+                    $inner->orWhere(function ($depositRefunded) {
+                        $depositRefunded->where('type', self::TYPE_DEPOSIT_RECEIPT)
+                            ->whereNotIn('status', self::closedStatuses())
+                            ->whereIn('reference_code', self::refundedDepositReferenceCodes());
+                    });
+                } elseif (! in_array($status, $closed, true)) {
+                    $inner->where(function ($keep) {
+                        $keep->where('type', '!=', self::TYPE_DEPOSIT_RECEIPT)
+                            ->orWhereNull('reference_code')
+                            ->orWhereNotIn('reference_code', self::refundedDepositReferenceCodes());
+                    });
+                }
+            }
+
+            if (self::ordersQueryable()) {
+                if ($status === self::STATUS_REFUNDED) {
+                    $inner->orWhere(function ($orderRefunded) {
+                        $orderRefunded->whereNotNull('order_id')
+                            ->whereNotIn('status', self::closedStatuses())
+                            ->whereIn('order_id', self::orderIdsWithPaymentStatus(self::STATUS_REFUNDED));
+                    });
+                } elseif ($status === self::STATUS_FAILED) {
+                    $inner->orWhere(function ($orderFailed) {
+                        $orderFailed->whereNotNull('order_id')
+                            ->whereNotIn('status', self::closedStatuses())
+                            ->whereIn('order_id', self::orderIdsWithPaymentStatus(self::STATUS_FAILED));
+                    });
+                } elseif (! in_array($status, $closed, true)) {
+                    $inner->where(function ($keep) {
+                        $keep->whereNull('order_id')
+                            ->orWhereNotIn('order_id', self::orderIdsWithClosedPayment());
+                    });
+                }
+            }
+        });
+    }
+
+    protected static function depositRequestsQueryable(): bool
+    {
+        try {
+            return Schema::hasTable((new DepositRequest)->getTable());
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return Builder<DepositRequest>
+     */
+    protected static function refundedDepositReferenceCodes()
+    {
+        return DepositRequest::query()
+            ->select('reference_code')
+            ->where('status', 'refunded')
+            ->whereNotNull('reference_code');
+    }
+
+    protected static function ordersQueryable(): bool
+    {
+        try {
+            return Schema::hasTable((new Order)->getTable());
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return Builder<Order>
+     */
+    protected static function orderIdsWithPaymentStatus(string $paymentStatus)
+    {
+        return Order::query()
+            ->select('id')
+            ->where('payment_status', $paymentStatus);
+    }
+
+    /**
+     * @return Builder<Order>
+     */
+    protected static function orderIdsWithClosedPayment()
+    {
+        return Order::query()
+            ->select('id')
+            ->whereIn('payment_status', [self::STATUS_REFUNDED, self::STATUS_FAILED]);
+    }
+
+    /**
+     * Refund receipts and failure reports may be resent. Paid confirmations
+     * (tax invoice / payment receipt / deposit receipt) must not go out again
+     * after the money was refunded or the charge failed.
+     */
+    public function canResendCustomerEmail(): bool
+    {
+        if ($this->isCancelled()) {
+            return false;
+        }
+
+        if (! $this->isClosedDocument()) {
+            return true;
+        }
+
+        return ! in_array($this->type, [
+            self::TYPE_TAX_INVOICE,
+            self::TYPE_PAYMENT_RECEIPT,
+            self::TYPE_DEPOSIT_RECEIPT,
+        ], true);
+    }
+
+    public function advertiserOrderUrl(): ?string
+    {
+        if (! $this->order_id) {
+            return null;
+        }
+
+        return route('advertiser.orders', [
+            'focus' => 'order',
+            'order' => $this->order_id,
+        ]);
     }
 
     public function isTaxInvoice(): bool

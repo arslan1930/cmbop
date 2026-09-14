@@ -188,6 +188,8 @@ class BillingDocumentService
             ->first();
 
         if ($existing) {
+            $this->markPaidDocumentsRefunded($order, $reason);
+
             return $existing;
         }
 
@@ -210,9 +212,7 @@ class BillingDocumentService
             $this->pdfs->generateAndStore($refund);
             $this->events->log('refund_receipt_generated', $refund, $order);
 
-            if ($original && $original->status !== Invoice::STATUS_CANCELLED) {
-                $original->update(['status' => Invoice::STATUS_REFUNDED]);
-            }
+            $this->markPaidDocumentsRefunded($order, $reason, $original);
 
             $this->emailRefund($refund->fresh(['user', 'order', 'parentInvoice']));
 
@@ -286,10 +286,12 @@ class BillingDocumentService
     {
         $invoice->loadMissing(['user', 'order.items', 'parentInvoice']);
 
-        if ($invoice->isCancelled()) {
+        if (! $invoice->canResendCustomerEmail()) {
             return [
                 'ok' => false,
-                'message' => 'Cancelled documents cannot be resent.',
+                'message' => $invoice->isCancelled()
+                    ? 'Cancelled documents cannot be resent.'
+                    : 'Refunded or failed payment documents cannot be resent as a payment confirmation.',
             ];
         }
 
@@ -464,6 +466,65 @@ class BillingDocumentService
         }
 
         return compact('regenerated', 'failed');
+    }
+
+    /**
+     * Idempotent: a leftover refund receipt must still flip sibling Paid docs.
+     */
+    protected function markPaidDocumentsRefunded(Order $order, ?string $reason = null, ?Invoice $original = null): void
+    {
+        $original ??= Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('type', Invoice::TYPE_TAX_INVOICE)
+            ->latest('id')
+            ->first();
+
+        if ($original && $original->status !== Invoice::STATUS_CANCELLED) {
+            $this->markDocumentRefunded($original, $reason);
+        }
+
+        Invoice::query()
+            ->where('order_id', $order->id)
+            ->where('type', Invoice::TYPE_PAYMENT_RECEIPT)
+            ->where('status', '!=', Invoice::STATUS_CANCELLED)
+            ->get()
+            ->each(fn (Invoice $receipt) => $this->markDocumentRefunded($receipt, $reason));
+    }
+
+    /**
+     * Refunded money must not keep a Paid receipt or a Paid payment_status
+     * on the original tax invoice. Regenerate the stored PDF so the badge
+     * matches — a leftover PAID file is what advertisers still download.
+     */
+    protected function markDocumentRefunded(Invoice $invoice, ?string $reason = null): Invoice
+    {
+        if ($invoice->status === Invoice::STATUS_REFUNDED
+            && $invoice->payment_status === 'refunded') {
+            return $invoice;
+        }
+
+        $meta = is_array($invoice->meta) ? $invoice->meta : [];
+        $meta['refunded_at'] = now()->toIso8601String();
+        if (filled($reason)) {
+            $meta['refund_reason'] = $reason;
+        }
+
+        $invoice->update([
+            'status' => Invoice::STATUS_REFUNDED,
+            'payment_status' => 'refunded',
+            'meta' => $meta,
+        ]);
+
+        try {
+            $this->pdfs->generateAndStore($invoice->fresh());
+        } catch (\Throwable $e) {
+            Log::warning('Failed to regenerate refunded billing PDF', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $invoice->fresh();
     }
 
     protected function createDocument(Order $order, string $type, string $status, array $extra = []): Invoice
@@ -688,6 +749,10 @@ class BillingDocumentService
             ]);
 
             return 'Cannot resend this deposit receipt — the deposit request was not found.';
+        }
+
+        if (! in_array($deposit->status, ['approved', 'completed'], true)) {
+            return 'This deposit was '.$deposit->status.' — it cannot be resent as a payment confirmation.';
         }
 
         $mail = new DepositApproved($deposit);

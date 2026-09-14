@@ -166,6 +166,30 @@
                         </button>
                     </div>
                 </div>
+                @php
+                    $filterProject = $filterProject ?? null;
+                    $filterProjectStage = (string) ($filterProjectStage ?? '');
+                    $projectFilterValue = $filterProject?->id ?? search_text(request('project'));
+                    $projectStageLabel = \App\Models\Project::stageLabel($filterProjectStage);
+                    $showProjectChip = $filterProject !== null;
+                @endphp
+                <input type="hidden" name="project" id="projectFilter" value="{{ $projectFilterValue }}">
+                <input type="hidden" name="project_stage" id="projectStageFilter" value="{{ $filterProjectStage }}">
+                <div id="ordersProjectChip"
+                     class="orders-project-chip{{ $showProjectChip ? '' : ' d-none' }}"
+                     data-project-id="{{ $filterProject?->id }}"
+                     data-project-name="{{ $filterProject?->project_name }}">
+                    <span id="ordersProjectChipLabel">
+                        @if($filterProject)
+                            Project: {{ $filterProject->project_name }}@if($projectStageLabel !== '' && $filterProjectStage !== '') · {{ $projectStageLabel }}@endif
+                        @else
+                            Project
+                        @endif
+                    </span>
+                    <button type="button" id="ordersProjectChipClear" class="orders-project-chip__clear" aria-label="Clear project filter">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </div>
                 <div id="ordersSearchHint" class="form-text orders-search-hint">Results update as you type.</div>
                 <div id="ordersSearchStatus" class="form-text orders-search-status" role="status" aria-live="polite"></div>
             </form>
@@ -277,6 +301,8 @@
 <script>
 window.AdvertiserOrdersConfig = {
     csrfToken: @json(csrf_token()),
+    projectName: @json($filterProject?->project_name),
+    projectStageLabels: @json(\App\Models\Project::STAGE_LABELS),
     routes: {
         // Relative paths avoid APP_URL host mismatches (Hostinger) breaking live search fetch.
         list: @json(route('advertiser.orders.list', absolute: false)),

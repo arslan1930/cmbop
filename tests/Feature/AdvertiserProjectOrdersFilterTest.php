@@ -1,0 +1,706 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Project;
+use App\Models\Role;
+use App\Models\Site;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\CreatesContentSubmissions;
+use Tests\TestCase;
+
+class AdvertiserProjectOrdersFilterTest extends TestCase
+{
+    use CreatesContentSubmissions;
+    use RefreshDatabase;
+
+    private function advertiser(): User
+    {
+        $role = Role::firstOrCreate(['name' => 'advertiser']);
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        return $user->fresh();
+    }
+
+    private function publisher(): User
+    {
+        $role = Role::firstOrCreate(['name' => 'publisher']);
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        return $user->fresh();
+    }
+
+    private function siteFor(User $publisher, string $url = 'https://publisher-host.example'): Site
+    {
+        $host = parse_url($url, PHP_URL_HOST) ?: 'publisher-host.example';
+
+        return Site::create([
+            'publisher_id' => $publisher->id,
+            'site_name' => 'Project Filter Site',
+            'site_url' => $url,
+            'domain' => $host,
+            'da' => 30,
+            'dr' => 30,
+            'traffic' => 1000,
+            'country' => 'us',
+            'language' => 'en',
+            'countries' => ['us'],
+            'languages' => ['en'],
+            'category' => 'marketing',
+            'price' => 40,
+            'publication_time' => '7 days',
+            'link_type' => 'dofollow',
+            'description' => 'Test site',
+            'verified' => true,
+            'active' => true,
+        ]);
+    }
+
+    private function makeOrder(User $advertiser, Site $site, array $orderAttrs = [], array $itemAttrs = []): Order
+    {
+        $order = Order::create(array_merge([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-PF-'.uniqid(),
+            'reference_code' => 'REF-PF-'.uniqid(),
+            'subtotal' => 50,
+            'tax' => 0,
+            'total_amount' => 50,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ], $orderAttrs));
+
+        OrderItem::create(array_merge([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 50,
+            'content_link' => 'https://example.com/article.docx',
+        ], $itemAttrs));
+
+        return $order->fresh('items');
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function listIds(User $advertiser, array $query): array
+    {
+        $orders = $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.list', $query))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('orders');
+
+        return collect($orders)->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    public function test_orders_page_shows_clearable_project_chip(): void
+    {
+        $user = $this->advertiser();
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.orders', [
+                'project' => $project->id,
+                'project_stage' => 'waiting_approval',
+            ]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Project: Acme Client', $html);
+        $this->assertStringContainsString('Needs review', $html);
+        $this->assertStringContainsString('id="ordersProjectChipClear"', $html);
+        $this->assertStringContainsString('value="'.$project->id.'"', $html);
+        $this->assertStringContainsString('value="waiting_approval"', $html);
+
+        $attention = $this->actingAs($user)
+            ->get(route('advertiser.orders', [
+                'project' => $project->id,
+                'project_stage' => 'needs_you',
+            ]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Project: Acme Client · Needs attention', $attention);
+        $this->assertStringNotContainsString('Project: Acme Client · Needs you', $attention);
+    }
+
+    public function test_list_filters_by_brief_target_host_not_publisher_site(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher(), 'https://acme.example');
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $match = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://www.acme.example/landing',
+        ]);
+        $publisherOnly = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://other-client.example/page',
+        ]);
+
+        $ids = $this->listIds($user, ['project' => $project->id]);
+
+        $this->assertSame([$match->id], $ids);
+        $this->assertNotContains($publisherOnly->id, $ids);
+    }
+
+    public function test_waiting_approval_stage_requires_a_live_url(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $ready = $this->makeOrder($user, $site, [
+            'status' => 'review',
+        ], [
+            'target_url' => 'https://acme.example/live',
+            'live_url' => 'https://publisher.example/posted',
+        ]);
+        $waitingUrl = $this->makeOrder($user, $site, [
+            'status' => 'review',
+        ], [
+            'target_url' => 'https://acme.example/waiting',
+        ]);
+
+        $readyIds = $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'waiting_approval',
+        ]);
+        $reviewIds = $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'in_review',
+        ]);
+        $needsYouIds = $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_you',
+        ]);
+
+        $this->assertSame([$ready->id], $readyIds);
+        $this->assertSame([$waitingUrl->id], $reviewIds);
+        $this->assertSame([$ready->id], $needsYouIds);
+    }
+
+    public function test_foreign_project_id_returns_an_empty_list(): void
+    {
+        $owner = $this->advertiser();
+        $other = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $foreign = Project::create([
+            'user_id' => $owner->id,
+            'project_name' => 'Owned Client',
+            'project_url' => 'https://owned.example',
+        ]);
+
+        $this->makeOrder($other, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://owned.example/page',
+        ]);
+
+        $ids = $this->listIds($other, ['project' => $foreign->id]);
+
+        $this->assertSame([], $ids);
+
+        $html = $this->actingAs($other)
+            ->get(route('advertiser.orders', ['project' => $foreign->id]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('Project: Owned Client', $html);
+        $this->assertMatchesRegularExpression(
+            '/id="ordersProjectChip"\s+class="[^"]*d-none/',
+            $html
+        );
+    }
+
+    public function test_list_matches_brief_target_when_item_url_is_empty(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+        $submission = $this->createApprovedSubmission(
+            $user,
+            $site->id,
+            target: 'https://www.acme.example/from-brief',
+        );
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $match = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => '',
+            'content_submission_id' => $submission->id,
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://unrelated.example/page',
+        ]);
+
+        $ids = $this->listIds($user, ['project' => $project->id]);
+
+        $this->assertSame([$match->id], $ids);
+    }
+
+    public function test_failed_payment_is_rejected_not_needs_review_or_not_started(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $failedPending = $this->makeOrder($user, $site, [
+            'status' => 'pending',
+            'payment_status' => 'failed',
+            'paid_at' => null,
+        ], [
+            'target_url' => 'https://acme.example/pay',
+        ]);
+        $failedReview = $this->makeOrder($user, $site, [
+            'status' => 'review',
+            'payment_status' => 'failed',
+        ], [
+            'target_url' => 'https://acme.example/live',
+            'live_url' => 'https://publisher.example/posted',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<span class="project-stage__label">Rejected<\/span>\s*<span class="project-stage__count[^"]*">\s*2\s*</',
+            $html
+        );
+
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'not_started',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'waiting_approval',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_you',
+        ]));
+
+        $rejected = $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'rejected',
+        ]);
+        $this->assertEqualsCanonicalizing([$failedPending->id, $failedReview->id], $rejected);
+
+        $this->assertSame([], $this->listIds($user, ['status' => 'needs_action']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'review']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'awaiting_payment']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'in_progress']));
+        $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list', ['project' => $project->id]))
+            ->assertOk()
+            ->assertJsonPath('needs_action', 0);
+        $this->actingAs($user)
+            ->getJson(route('advertiser.orders.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.needs_review', 0)
+            ->assertJsonPath('data.needs_action', 0)
+            ->assertJsonPath('data.awaiting_payment', 0)
+            ->assertJsonPath('data.in_progress', 0);
+        $this->assertStringNotContainsString('data-projects-attention', $html);
+
+        $failedReviewRow = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.get', $failedReview->id))
+            ->assertOk()
+            ->json('order');
+        $this->assertFalse($failedReviewRow['can_approve']);
+        $this->assertFalse($failedReviewRow['can_request_changes']);
+        $this->assertFalse($failedReviewRow['needs_content_revision']);
+        $this->assertSame('', $failedReviewRow['policy_note']);
+        $this->assertSame(
+            'Payment failed',
+            collect($failedReviewRow['timeline_steps'])->firstWhere('current', true)['label'] ?? null
+        );
+    }
+
+    public function test_refunded_pending_is_rejected_and_completed_clawback_stays_completed(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $pendingRefunded = $this->makeOrder($user, $site, [
+            'status' => 'pending',
+            'payment_status' => 'refunded',
+            'paid_at' => null,
+        ], [
+            'target_url' => 'https://acme.example/pay',
+        ]);
+        $reviewRefunded = $this->makeOrder($user, $site, [
+            'status' => 'review',
+            'payment_status' => 'refunded',
+        ], [
+            'target_url' => 'https://acme.example/live',
+            'live_url' => 'https://publisher.example/posted',
+        ]);
+        $completedRefunded = $this->makeOrder($user, $site, [
+            'status' => 'completed',
+            'payment_status' => 'refunded',
+        ], [
+            'target_url' => 'https://acme.example/done',
+            'live_url' => 'https://publisher.example/done',
+        ]);
+        $revisionRefunded = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'refunded',
+        ], [
+            'target_url' => 'https://acme.example/rev',
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<span class="project-stage__label">Rejected<\/span>\s*<span class="project-stage__count[^"]*">\s*3\s*</',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/<span class="project-stage__label">Completed<\/span>\s*<span class="project-stage__count[^"]*">\s*1\s*</',
+            $html
+        );
+        $this->assertStringNotContainsString('data-projects-attention', $html);
+
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'not_started',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'waiting_approval',
+        ]));
+        $this->assertSame([], $this->listIds($user, ['status' => 'awaiting_payment']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'needs_action']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'review']));
+        $this->assertSame([], $this->listIds($user, ['status' => 'processing']));
+
+        $rejected = $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'rejected',
+        ]);
+        $this->assertEqualsCanonicalizing(
+            [$pendingRefunded->id, $reviewRefunded->id, $revisionRefunded->id],
+            $rejected
+        );
+
+        $reviewRow = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.get', $reviewRefunded->id))
+            ->assertOk()
+            ->json('order');
+        $this->assertFalse($reviewRow['can_approve']);
+        $this->assertFalse($reviewRow['can_request_changes']);
+        $this->assertTrue($reviewRow['chat_readonly']);
+        $this->assertSame('', $reviewRow['policy_note']);
+        $this->assertNull($reviewRow['auto_approve_hint']);
+        $this->assertArrayNotHasKey('auto_approve_hours_remaining', $reviewRow['items'][0] ?? []);
+        $this->assertSame(
+            'Refunded',
+            collect($reviewRow['timeline_steps'])->firstWhere('current', true)['label'] ?? null
+        );
+
+        $this->actingAs($user)
+            ->postJson(route('advertiser.orders.approve', $reviewRefunded->id))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'This order was refunded and cannot be approved.');
+
+        $revisionRow = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.get', $revisionRefunded->id))
+            ->assertOk()
+            ->json('order');
+        $this->assertFalse($revisionRow['needs_content_revision']);
+        $this->assertFalse($revisionRow['can_approve']);
+
+        $completed = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list', [
+                'project' => $project->id,
+                'project_stage' => 'completed',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('orders');
+        $this->assertCount(1, $completed);
+        $this->assertSame($completedRefunded->id, (int) $completed[0]['id']);
+        $this->assertSame('Completed · refunded', $completed[0]['status_label']);
+        $this->assertFalse($completed[0]['chat_readonly']);
+        $this->assertStringNotContainsString('publisher has been paid', (string) ($completed[0]['next_action'] ?? ''));
+        $this->assertSame(
+            'Completed · refunded',
+            collect($completed[0]['timeline_steps'] ?? [])->firstWhere('current', true)['label'] ?? null
+        );
+
+        $this->actingAs($user)
+            ->getJson(route('advertiser.orders.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.needs_review', 0)
+            ->assertJsonPath('data.needs_action', 0)
+            ->assertJsonPath('data.awaiting_payment', 0)
+            ->assertJsonPath('data.in_progress', 0)
+            ->assertJsonPath('data.completed', 1);
+    }
+
+    public function test_list_matches_target_urls_with_a_port_or_userinfo(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $withPort = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example:443/landing',
+        ]);
+        $withUserinfo = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://user:pass@acme.example/secure',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example.evil:443/nope',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://other-client.example/?email=foo@acme.example',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://evil.com/foo:bar@acme.example',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://evil.com?x:y@acme.example',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://other-client.example/page?redirect=https://acme.example/x',
+        ]);
+
+        $ids = $this->listIds($user, ['project' => $project->id]);
+
+        $this->assertEqualsCanonicalizing([$withPort->id, $withUserinfo->id], $ids);
+    }
+
+    public function test_content_revision_on_another_host_does_not_match_this_project(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $order = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example/ok',
+            'content_revision_requested' => 'no',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 50,
+            'content_link' => 'https://example.com/article-2.docx',
+            'target_url' => 'https://beta.example/rev',
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_improvements',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_you',
+        ]));
+        $this->assertSame([$order->id], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'in_progress',
+        ]));
+    }
+
+    public function test_revision_requested_is_needs_improvements_not_in_progress(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $revision = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example/rev',
+            'modification_requested' => 'yes',
+        ]);
+        $working = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example/ok',
+            'modification_requested' => 'no',
+        ]);
+
+        $this->assertSame([$revision->id], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_improvements',
+        ]));
+        $this->assertSame([$working->id], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'in_progress',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_you',
+        ]));
+    }
+
+    public function test_content_revision_is_needs_you_and_scopes_the_attention_count(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $acme = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Beta Client',
+            'project_url' => 'https://beta.example',
+        ]);
+
+        $revision = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+        ], [
+            'target_url' => 'https://acme.example/rev',
+            'content_revision_requested' => 'yes',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://beta.example/live',
+            'live_url' => 'https://publisher.example/beta',
+        ]);
+
+        $this->assertSame([$revision->id], $this->listIds($user, [
+            'project' => $acme->id,
+            'project_stage' => 'needs_you',
+        ]));
+        $this->assertSame([$revision->id], $this->listIds($user, [
+            'project' => $acme->id,
+            'project_stage' => 'needs_improvements',
+        ]));
+
+        $scoped = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list', ['project' => $acme->id]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('needs_action');
+        $this->assertSame(1, (int) $scoped);
+
+        $account = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('needs_action');
+        $this->assertSame(2, (int) $account);
+    }
+
+    public function test_array_project_params_do_not_500(): void
+    {
+        $user = $this->advertiser();
+
+        $this->actingAs($user)
+            ->get(route('advertiser.orders', [
+                'project' => ['1'],
+                'project_stage' => ['waiting_approval'],
+            ]))
+            ->assertOk();
+
+        $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list', [
+                'project' => ['1'],
+                'project_stage' => ['waiting_approval'],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+}

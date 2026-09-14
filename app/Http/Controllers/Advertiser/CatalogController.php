@@ -15,6 +15,7 @@ use App\Models\Order;
 use App\Models\OrderChatMessage;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
+use App\Models\Project;
 use App\Models\Site;
 use App\Models\SiteUrlReveal;
 use App\Models\User;
@@ -60,6 +61,7 @@ use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -4300,7 +4302,7 @@ class CatalogController extends Controller
             if ($order->payment_status !== 'paid') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This order cannot be changed because payment is not complete.',
+                    'message' => AdvertiserOrderDetails::unpaidActionMessage($order, 'changed'),
                 ], 422);
             }
 
@@ -4562,6 +4564,12 @@ class CatalogController extends Controller
 
         try {
             $order = Order::with('items')->where('user_id', auth()->id())->findOrFail($id);
+            if (! AdvertiserOrderStatus::isLiveAdvertiserWork($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This order is no longer live work, so the live URL is not rechecked.',
+                ], 422);
+            }
             $requestedItemId = isset($data['order_item_id']) ? (int) $data['order_item_id'] : null;
             if ($requestedItemId) {
                 $item = $order->items->firstWhere('id', $requestedItemId);
@@ -4850,14 +4858,14 @@ class CatalogController extends Controller
             && $items->contains(function ($line) {
                 return $line instanceof OrderItem && $line->isContentRevisionRequested();
             });
-        $canReview = $order->status === 'review' && $hasLiveUrl && ! $needsRevision;
+        $liveWork = AdvertiserOrderStatus::isLiveAdvertiserWork($order);
+        $canReview = $liveWork && $order->status === 'review' && $hasLiveUrl && ! $needsRevision;
 
         $order->can_retry_payment = $this->orderCanRetryPayment($order);
-        $order->needs_content_revision = (bool) $needsRevision;
+        $order->needs_content_revision = $liveWork && $needsRevision;
         $order->can_approve = $canReview;
         $order->can_request_changes = $canReview;
-        $order->chat_readonly = $order->status === 'cancelled'
-            || $order->payment_status !== 'paid';
+        $order->chat_readonly = ! AdvertiserOrderDetails::canSendOrderChat($order);
     }
 
     /**
@@ -4877,6 +4885,70 @@ class CatalogController extends Controller
                 }
                 $line->{$key} = safe_href_url($line->{$key});
             }
+        }
+    }
+
+    /**
+     * Restrict the advertiser order list to a project destination host
+     * (and optional Projects stage). Unknown or foreign project ids yield
+     * an empty list — they must not leak another advertiser's placements.
+     *
+     * @param  Builder<Order>  $query
+     */
+    private function advertiserOwnedProject(Request $request, int $userId): ?Project
+    {
+        $projectId = (int) (filter_number($request->input('project')) ?? 0);
+        if ($projectId <= 0) {
+            return null;
+        }
+
+        return Project::query()
+            ->where('user_id', $userId)
+            ->whereKey($projectId)
+            ->first();
+    }
+
+    /**
+     * When a project filter is on, the attention banner must match that
+     * destination — not the account-wide My Orders count.
+     */
+    private function advertiserNeedsActionCount(Request $request, int $userId): int
+    {
+        $query = AdvertiserOrderStatus::needsActionQuery($userId);
+        $projectId = (int) (filter_number($request->input('project')) ?? 0);
+        if ($projectId <= 0) {
+            return $query->count();
+        }
+
+        $project = $this->advertiserOwnedProject($request, $userId);
+        if (! $project) {
+            return 0;
+        }
+
+        Project::constrainOrdersByHost($query, (string) $project->project_url);
+
+        return $query->count();
+    }
+
+    private function applyAdvertiserProjectOrderFilters($query, Request $request, int $userId): void
+    {
+        $projectId = (int) (filter_number($request->input('project')) ?? 0);
+        if ($projectId <= 0) {
+            return;
+        }
+
+        $project = $this->advertiserOwnedProject($request, $userId);
+
+        if (! $project) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $stage = strtolower(search_text($request->input('project_stage')));
+        Project::constrainOrdersByHost($query, (string) $project->project_url);
+        if (Project::isKnownStageFilter($stage)) {
+            Project::constrainOrdersByStage($query, $stage, (string) $project->project_url);
         }
     }
 
@@ -5008,7 +5080,21 @@ class CatalogController extends Controller
             }
         }
 
-        return view('advertiser.orders');
+        $filterProject = null;
+        $projectId = (int) (filter_number($request->query('project')) ?? 0);
+        if ($projectId > 0) {
+            $filterProject = Project::query()
+                ->where('user_id', auth()->id())
+                ->whereKey($projectId)
+                ->first();
+        }
+
+        $filterProjectStage = strtolower(search_text($request->query('project_stage')));
+        if (! Project::isKnownStageFilter($filterProjectStage)) {
+            $filterProjectStage = '';
+        }
+
+        return view('advertiser.orders', compact('filterProject', 'filterProjectStage'));
     }
 
     /**
@@ -5023,23 +5109,9 @@ class CatalogController extends Controller
 
             $needsReview = AdvertiserOrderStatus::constrainReviewReady(clone $base)->count();
             $needsAction = AdvertiserOrderStatus::needsActionCountForUser((int) $userId);
-            $inProgress = (clone $base)
-                ->where(function ($q) {
-                    $q->where(function ($pendingPaid) {
-                        $pendingPaid->where('status', 'pending')
-                            ->where('payment_status', 'paid')
-                            ->notAwaitingScheduledRelease();
-                    })->orWhere('status', 'processing');
-                })
-                ->count();
+            $inProgress = AdvertiserOrderStatus::constrainInProgress(clone $base)->count();
             $completed = (clone $base)->where('status', 'completed')->count();
-            $awaitingPayment = (clone $base)
-                ->where('status', 'pending')
-                ->where(function ($q) {
-                    $q->whereNull('payment_status')
-                        ->orWhere('payment_status', '!=', 'paid');
-                })
-                ->count();
+            $awaitingPayment = AdvertiserOrderStatus::constrainAwaitingPayment(clone $base)->count();
 
             return response()->json([
                 'success' => true,
@@ -5087,24 +5159,14 @@ class CatalogController extends Controller
             if ($statusFilter !== '') {
                 $status = $statusFilter;
                 if ($status === 'awaiting_payment') {
-                    $query->where('status', 'pending')
-                        ->where(function ($q) {
-                            $q->whereNull('payment_status')
-                                ->orWhere('payment_status', '!=', 'paid');
-                        });
+                    AdvertiserOrderStatus::constrainAwaitingPayment($query);
                 } elseif ($status === 'awaiting_publisher') {
                     $query->where('status', 'pending')
                         ->where('payment_status', 'paid')
                         ->notAwaitingScheduledRelease();
                 } elseif ($status === 'in_progress') {
                     // Matches funnel KPI: paid·waiting publisher + publisher working.
-                    $query->where(function ($q) {
-                        $q->where(function ($pendingPaid) {
-                            $pendingPaid->where('status', 'pending')
-                                ->where('payment_status', 'paid')
-                                ->notAwaitingScheduledRelease();
-                        })->orWhere('status', 'processing');
-                    });
+                    AdvertiserOrderStatus::constrainInProgress($query);
                 } elseif ($status === 'needs_action') {
                     $query->whereIn(
                         'id',
@@ -5113,6 +5175,9 @@ class CatalogController extends Controller
                 } elseif ($status === 'review') {
                     // Matches the Needs review KPI: live URL ready, not “in review” without a URL.
                     AdvertiserOrderStatus::constrainReviewReady($query);
+                } elseif ($status === 'processing') {
+                    $query->where('status', 'processing');
+                    AdvertiserOrderStatus::constrainWithoutFailedPayment($query);
                 } else {
                     $query->where('status', $status);
                 }
@@ -5141,6 +5206,8 @@ class CatalogController extends Controller
                 $query->whereDate('created_at', '<=', $dateTo);
             }
 
+            $this->applyAdvertiserProjectOrderFilters($query, $request, (int) $userId);
+
             $sort = $this->advertiserOrdersListSort($request);
             if ($sort === 'attention') {
                 AdvertiserOrderStatus::applyQueueOrder($query, $statusFilter);
@@ -5162,22 +5229,29 @@ class CatalogController extends Controller
             $orders = $query->paginate(20);
 
             $orderIds = collect($orders->items())->pluck('id');
-            $unreadByOrder = OrderChatMessage::whereIn('order_id', $orderIds)
-                ->where('sender_type', 'publisher')
-                ->where('is_read', false)
-                ->notBlocked()
-                ->selectRaw('order_id, COUNT(*) as unread_count')
-                ->groupBy('order_id')
-                ->pluck('unread_count', 'order_id');
+            $sendableIds = AdvertiserOrderDetails::constrainChatSendable(
+                Order::query()->whereIn('id', $orderIds)
+            )->pluck('id');
+            $unreadByOrder = $sendableIds->isEmpty()
+                ? collect()
+                : OrderChatMessage::whereIn('order_id', $sendableIds)
+                    ->where('sender_type', 'publisher')
+                    ->where('is_read', false)
+                    ->notBlocked()
+                    ->selectRaw('order_id, COUNT(*) as unread_count')
+                    ->groupBy('order_id')
+                    ->pluck('unread_count', 'order_id');
 
             $ordersPayload = collect($orders->items())->map(function ($order) use ($unreadByOrder) {
-                $order->unread_chat = (int) ($unreadByOrder[$order->id] ?? 0);
+                $order->unread_chat = AdvertiserOrderDetails::canSendOrderChat($order)
+                    ? (int) ($unreadByOrder[$order->id] ?? 0)
+                    : 0;
                 $this->hydrateAdvertiserOrderDetail($order);
 
                 return $this->advertiserOrderDetailPayload($order);
             });
 
-            $needsAction = AdvertiserOrderStatus::needsActionCountForUser((int) $userId);
+            $needsAction = $this->advertiserNeedsActionCount($request, (int) $userId);
 
             return response()->json([
                 'success' => true,
@@ -5332,7 +5406,7 @@ class CatalogController extends Controller
             if ($order->payment_status !== 'paid') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This order cannot be approved because payment is not complete.',
+                    'message' => AdvertiserOrderDetails::unpaidActionMessage($order, 'approved'),
                 ], 422);
             }
 
@@ -5365,7 +5439,7 @@ class CatalogController extends Controller
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'This order cannot be approved because payment is not complete.',
+                    'message' => AdvertiserOrderDetails::unpaidActionMessage($order, 'approved'),
                 ], 422);
             }
 
@@ -5694,9 +5768,11 @@ class CatalogController extends Controller
         $order->auto_approve_hint = $meta['auto_approve_hint'];
         $this->sanitizeAdvertiserOrderItemUrls($order);
         $this->attachAdvertiserOrderActionFlags($order);
-        foreach ($order->items as $line) {
-            if (method_exists($line, 'getAutoApproveHoursRemaining')) {
-                $line->auto_approve_hours_remaining = (int) $line->getAutoApproveHoursRemaining();
+        if (AdvertiserOrderStatus::isLiveAdvertiserWork($order)) {
+            foreach ($order->items as $line) {
+                if (method_exists($line, 'getAutoApproveHoursRemaining')) {
+                    $line->auto_approve_hours_remaining = (int) $line->getAutoApproveHoursRemaining();
+                }
             }
         }
         $this->attachDisputeMeta($order, $order->items->first(), app(OrderClawbackService::class));

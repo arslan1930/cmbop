@@ -124,6 +124,8 @@ class SearchQueryHardeningTest extends TestCase
                 'status' => ['pending'],
                 'payment_status' => ['paid'],
                 'date_from' => ['2026-01-01'],
+                'project' => ['1'],
+                'project_stage' => ['waiting_approval'],
             ]))
             ->assertOk()
             ->assertJsonPath('success', true);

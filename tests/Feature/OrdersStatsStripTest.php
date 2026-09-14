@@ -226,6 +226,13 @@ class OrdersStatsStripTest extends TestCase
             'status' => 'review',
             'payment_status' => 'paid',
         ]);
+        $this->makeOrder($advertiser, $site, [
+            'order_number' => 'ORD-REP-REFUND',
+            'status' => 'review',
+            'payment_status' => 'refunded',
+        ], [
+            'live_url' => 'https://funnel-kpi.example/refunded',
+        ]);
         Order::create([
             'user_id' => $advertiser->id,
             'order_number' => '797026',
@@ -249,6 +256,8 @@ class OrdersStatsStripTest extends TestCase
 
         $this->assertSame('URL delivered · your review', $rows['ORD-REP-READY']['status_label']);
         $this->assertSame('In review', $rows['ORD-REP-WAIT']['status_label']);
+        $this->assertSame('Refunded', $rows['ORD-REP-REFUND']['status_label']);
+        $this->assertSame('status-cancelled', $rows['ORD-REP-REFUND']['status_cls']);
         $this->assertTrue($rows['797026']['placements_missing']);
         $this->assertSame('Completed', $rows['797026']['status_label']);
         $this->assertSame([], $rows['797026']['items']);
@@ -258,6 +267,11 @@ class OrdersStatsStripTest extends TestCase
         $this->assertStringContainsString('function repOrderStatusBadge', $js);
         $this->assertStringContainsString('order.status_label', $js);
         $this->assertStringContainsString('order.placements_missing', $js);
+        $this->assertStringContainsString("payment === 'failed' || (payment === 'refunded' && order.status !== 'completed')", $js);
+        $this->assertStringContainsString("order.payment_status === 'refunded'", $js);
+        $this->assertStringContainsString('<span class="small">Refunded</span>', $js);
+        $this->assertStringContainsString('<span class="small">Failed</span>', $js);
+        $this->assertStringContainsString("invoiceLabel = 'Receipt'", $js);
         $this->assertStringNotContainsString("else if (order.status === 'completed') statusBadge = '<span class=\"badge bg-success\">Completed</span>';", $js);
     }
 
@@ -274,6 +288,10 @@ class OrdersStatsStripTest extends TestCase
         $this->assertStringContainsString('Funds Activity', $html);
         $this->assertStringContainsString('id="repFundsTab"', $html);
         $this->assertStringContainsString('id="repOrdersTab"', $html);
+        $this->assertStringContainsString("activity.status === 'refunded'", $html);
+        $this->assertStringContainsString('<span class="badge bg-danger">Refunded</span>', $html);
+        $this->assertStringContainsString('var isDead = activity.status === \'refunded\'', $html);
+        $this->assertStringContainsString("var docLabel = isDead ? 'Receipt' : 'Invoice'", $html);
     }
 
     public function test_reports_statistics_endpoint_still_works(): void

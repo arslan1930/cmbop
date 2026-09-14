@@ -6,6 +6,7 @@ use App\Mail\DepositApproved;
 use App\Mail\PaymentSuccessfulInvoiceMail;
 use App\Mail\WithdrawalStatusUpdated;
 use App\Models\ActivityLog;
+use App\Models\DepositRequest;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -226,6 +227,96 @@ class AdminInvoiceOpsTest extends TestCase
             'invoice_id' => $invoice->id,
             'event_type' => 'invoice_resent',
         ]);
+    }
+
+    public function test_resend_refunded_tax_invoice_fails_without_mail(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+
+        $advertiser = $this->advertiser();
+        $admin = $this->admin();
+        $order = $this->paidOrder($advertiser);
+        $invoice = app(BillingDocumentService::class)->handlePaymentPaid($order);
+        $order->payment_status = 'refunded';
+        $order->saveQuietly();
+        app(BillingDocumentService::class)->handlePaymentRefunded($order->fresh(['user', 'items']), 'Test refund');
+        Mail::fake();
+
+        $emailCount = (int) $invoice->fresh()->email_count;
+
+        $this->actingAs($admin)
+            ->from(route('admin.invoices.show', $invoice))
+            ->post(route('admin.invoices.resend', $invoice->fresh()))
+            ->assertRedirect(route('admin.invoices.show', $invoice))
+            ->assertSessionHas('error', 'Refunded or failed payment documents cannot be resent as a payment confirmation.');
+
+        $this->assertSame($emailCount, (int) $invoice->fresh()->email_count);
+        Mail::assertNothingQueued();
+        Mail::assertNotQueued(PaymentSuccessfulInvoiceMail::class);
+    }
+
+    public function test_admin_invoice_show_prefers_document_status_over_frozen_paid(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+
+        $advertiser = $this->advertiser();
+        $admin = $this->admin();
+        $invoice = $this->stubInvoice($advertiser, [
+            'status' => Invoice::STATUS_REFUNDED,
+            'payment_status' => 'paid',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.invoices.show', $invoice))
+            ->assertOk()
+            ->assertSee('Payment status', false)
+            ->assertSee('Refunded', false)
+            ->assertSee('was refunded', false)
+            ->assertDontSee('This document has been cancelled.', false)
+            ->assertDontSee('>Paid<', false)
+            ->assertDontSee('Resend email', false);
+    }
+
+    public function test_leftover_deposit_receipt_hides_resend_and_says_refunded(): void
+    {
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+        $admin = $this->admin();
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-ADMIN-LEFT',
+            'amount' => 25,
+            'payment_method' => 'card',
+            'status' => 'refunded',
+        ]);
+        $receipt = $this->stubInvoice($advertiser, [
+            'invoice_number' => 'RCT-ADMIN-LEFT',
+            'type' => Invoice::TYPE_DEPOSIT_RECEIPT,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'reference_code' => $deposit->reference_code,
+            'meta' => ['deposit_request_id' => $deposit->id],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.invoices.show', $receipt))
+            ->assertOk()
+            ->assertSee('Refunded', false)
+            ->assertSee('was refunded', false)
+            ->assertDontSee('This document has been cancelled.', false)
+            ->assertDontSee('Resend email', false);
+
+        $this->actingAs($admin)
+            ->from(route('admin.invoices.show', $receipt))
+            ->post(route('admin.invoices.resend', $receipt))
+            ->assertRedirect(route('admin.invoices.show', $receipt))
+            ->assertSessionHas('error');
+
+        Mail::assertNothingQueued();
+        Mail::assertNotQueued(DepositApproved::class);
     }
 
     public function test_resend_payout_statement_queues_mail_when_withdrawal_exists(): void

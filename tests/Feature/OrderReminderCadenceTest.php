@@ -465,6 +465,21 @@ class OrderReminderCadenceTest extends TestCase
         Mail::assertNotQueued(AdvertiserReviewNudge::class);
     }
 
+    public function test_an_advertiser_who_owes_a_revised_article_is_not_nudged_to_review(): void
+    {
+        $publisher = $this->userWithRole('publisher');
+        $this->order($this->userWithRole('advertiser'), $this->site($publisher), 'review', [
+            'live_url' => 'https://example.com/the-post',
+            'live_url_submitted_at' => now()->subHours(30),
+            'modification_requested' => 'no',
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $this->artisan('orders:nudge-advertisers')->assertSuccessful();
+
+        Mail::assertNotQueued(AdvertiserReviewNudge::class);
+    }
+
     // —— Advertiser: stalled notice ————————————————————————————————
 
     public function test_advertiser_is_told_when_their_publisher_runs_late(): void
@@ -501,6 +516,19 @@ class OrderReminderCadenceTest extends TestCase
         Mail::assertNotQueued(AdvertiserOrderStalledNotice::class);
     }
 
+    public function test_a_content_revision_is_not_reported_as_a_late_publisher(): void
+    {
+        $publisher = $this->userWithRole('publisher');
+        $this->order($this->userWithRole('advertiser'), $this->site($publisher, '24h'), 'processing', [
+            'accepted_at' => now()->subDays(5),
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $this->artisan('orders:nudge-advertisers')->assertSuccessful();
+
+        Mail::assertNotQueued(AdvertiserOrderStalledNotice::class);
+    }
+
     public function test_the_stalled_notice_is_sent_once_per_order(): void
     {
         $publisher = $this->userWithRole('publisher');
@@ -525,5 +553,26 @@ class OrderReminderCadenceTest extends TestCase
         $this->artisan('orders:nudge-advertisers')->assertSuccessful();
 
         $this->assertRemindersQueued(0);
+    }
+
+    public function test_failed_or_refunded_review_is_not_nudged_as_live_review(): void
+    {
+        $publisher = $this->userWithRole('publisher');
+        $reviewItem = [
+            'live_url' => 'https://example.com/the-post',
+            'live_url_submitted_at' => now()->subHours(30),
+            'modification_requested' => 'no',
+        ];
+
+        $this->order($this->userWithRole('advertiser'), $this->site($publisher), 'review', $reviewItem, [
+            'payment_status' => 'failed',
+        ]);
+        $this->order($this->userWithRole('advertiser'), $this->site($publisher), 'review', $reviewItem, [
+            'payment_status' => 'refunded',
+        ]);
+
+        $this->artisan('orders:nudge-advertisers')->assertSuccessful();
+
+        Mail::assertNotQueued(AdvertiserReviewNudge::class);
     }
 }

@@ -237,6 +237,15 @@
 }
 .recent-order-row { cursor: pointer; text-decoration: none; color: inherit; }
 .recent-order-row:hover { background: rgba(255,255,255,0.45); }
+.recent-order-total--refunded {
+    color: #64748b;
+    font-weight: 600;
+}
+.recent-order-total--refunded s { text-decoration-thickness: 1px; }
+.recent-order-total--refunded .recent-order-total-note {
+    font-size: 12px;
+    font-weight: 500;
+}
 .kpi-tile .kpi-icon.is-muted { background: #e2e8f0 !important; color: #64748b !important; }
 </style>
 
@@ -603,9 +612,13 @@
                                             $numericOrder = preg_replace('/\D+/', '', (string) ($order->order_number ?? '')) ?: (string) $order->id;
                                             $statusMeta = \App\Support\AdvertiserOrderStatus::meta($order);
                                             $statusLabel = $statusMeta['label'];
-                                            $statusDotClass = ($statusMeta['stage'] ?? '') === 'url_delivered'
-                                                ? 'review'
-                                                : (($statusMeta['stage'] ?? '') === 'review' ? 'pending' : (string) $order->status);
+                                            $statusStage = (string) ($statusMeta['stage'] ?? '');
+                                            $statusDotClass = match ($statusStage) {
+                                                'url_delivered' => 'review',
+                                                'review' => 'pending',
+                                                'refunded', 'payment_failed', 'cancelled' => 'cancelled',
+                                                default => (string) $order->status,
+                                            };
                                             $orderFocusUrl = route('advertiser.orders', ['focus' => 'order', 'order' => $order->id]);
                                             $siteModel = $firstItem?->relationLoaded('site') ? $firstItem->site : null;
                                             $canSeeRecentUrl = $siteModel
@@ -640,9 +653,21 @@
                                                     {{ $statusLabel }}
                                                 </span>
                                             </td>
-                                            <td class="text-end py-3 fw-semibold" style="color:#1a585e;">
-                                                €{{ number_format((float) $order->total_amount, 2) }}
-                                            </td>
+                                            @if((string) $order->payment_status === 'refunded')
+                                                <td class="text-end py-3 recent-order-total--refunded">
+                                                    <s>€{{ number_format((float) $order->total_amount, 2) }}</s>
+                                                    <span class="recent-order-total-note">Refunded</span>
+                                                </td>
+                                            @elseif((string) $order->payment_status === 'failed')
+                                                <td class="text-end py-3 recent-order-total--refunded">
+                                                    €{{ number_format((float) $order->total_amount, 2) }}
+                                                    <span class="recent-order-total-note">Failed</span>
+                                                </td>
+                                            @else
+                                                <td class="text-end py-3 fw-semibold" style="color:#1a585e;">
+                                                    €{{ number_format((float) $order->total_amount, 2) }}
+                                                </td>
+                                            @endif
                                         </tr>
                                     @endforeach
                                 </tbody>

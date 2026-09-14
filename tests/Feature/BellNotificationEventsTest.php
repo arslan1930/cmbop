@@ -730,4 +730,225 @@ class BellNotificationEventsTest extends TestCase
         $this->assertNotNull($note);
         $this->assertStringContainsString('deposit', strtolower($note->title));
     }
+
+    public function test_leftover_refund_drops_review_order_bells_from_unread(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ]);
+        $item = $order->items->first();
+        $item->update(['live_url' => 'https://bell-blog.example/live-post']);
+
+        $service = app(InAppNotificationService::class);
+        $service->notifyLiveUrlSubmitted($order, $item->fresh(), $site, (string) $item->live_url);
+
+        $this->assertSame(1, $service->unreadCount($advertiser->id, 'advertiser'));
+
+        $this->actingAs($advertiser)
+            ->getJson(route('notifications.index', ['status' => 'unread']))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonPath('notifications.0.action_label', 'Review order')
+            ->assertJsonPath('notifications.0.is_unread', true);
+
+        $order->update(['payment_status' => 'refunded']);
+
+        $this->assertSame(0, $service->unreadCount($advertiser->id, 'advertiser'));
+
+        $this->actingAs($advertiser)
+            ->getJson(route('notifications.index', ['status' => 'unread']))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0)
+            ->assertJsonCount(0, 'notifications');
+
+        $this->actingAs($advertiser)
+            ->getJson(route('notifications.index', ['status' => 'active']))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0)
+            ->assertJsonCount(0, 'notifications');
+
+        $inbox = $service->listForUser($advertiser->id, [
+            'audience' => 'advertiser',
+            'status' => 'inbox',
+        ]);
+        $this->assertCount(1, $inbox->items());
+        $presented = $service->presentNotification($inbox->first());
+        $this->assertSame('View order', $presented['action_label']);
+        $this->assertFalse($presented['is_unread']);
+
+        $this->actingAs($advertiser)
+            ->get(route('notifications.all'))
+            ->assertOk()
+            ->assertSee('View order', false)
+            ->assertDontSee('Review order', false);
+    }
+
+    public function test_failed_charge_drops_review_order_bells_from_unread(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ]);
+        $item = $order->items->first();
+        $item->update(['live_url' => 'https://bell-blog.example/failed-live']);
+
+        $service = app(InAppNotificationService::class);
+        $service->notifyLiveUrlSubmitted($order, $item->fresh(), $site, (string) $item->live_url);
+        $this->assertSame(1, $service->unreadCount($advertiser->id, 'advertiser'));
+
+        $order->update(['payment_status' => 'failed']);
+
+        $this->assertSame(0, $service->unreadCount($advertiser->id, 'advertiser'));
+        $this->actingAs($advertiser)
+            ->getJson(route('notifications.index', ['status' => 'unread']))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0)
+            ->assertJsonCount(0, 'notifications');
+    }
+
+    public function test_completed_clawback_keeps_review_order_bell_unread(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ]);
+        $item = $order->items->first();
+        $item->update(['live_url' => 'https://bell-blog.example/completed-live']);
+
+        $service = app(InAppNotificationService::class);
+        $service->notifyLiveUrlSubmitted($order, $item->fresh(), $site, (string) $item->live_url);
+
+        $order->update([
+            'status' => 'completed',
+            'payment_status' => 'refunded',
+        ]);
+
+        $this->assertSame(1, $service->unreadCount($advertiser->id, 'advertiser'));
+        $this->actingAs($advertiser)
+            ->getJson(route('notifications.index', ['status' => 'unread']))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonPath('notifications.0.action_label', 'Review order')
+            ->assertJsonPath('notifications.0.is_unread', true);
+    }
+
+    public function test_admin_review_order_bell_stays_unread_on_leftover_refund(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'refunded',
+        ]);
+
+        $service = app(InAppNotificationService::class);
+        $service->notify(
+            $admin->id,
+            InAppNotificationService::TYPE_ORDER_UPDATED,
+            "Dispute opened on order #{$order->order_number}",
+            'Advertiser reported a removed live link.',
+            [
+                'category' => InAppNotificationService::CATEGORY_ORDERS,
+                'related' => $order,
+                'audience' => InAppNotification::AUDIENCE_ADMIN,
+                'action_label' => 'Review order',
+                'action_url' => route('admin.orders.show', $order->id, false),
+            ]
+        );
+
+        $this->assertSame(1, $service->unreadCount($admin->id, 'admin'));
+        $this->actingAs($admin)
+            ->getJson(route('notifications.index', ['status' => 'unread']))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonPath('notifications.0.action_label', 'Review order')
+            ->assertJsonPath('notifications.0.is_unread', true);
+    }
+
+    public function test_leftover_refund_drops_revise_chat_and_chase_bells_from_unread(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ]);
+        $item = $order->items->first();
+
+        $service = app(InAppNotificationService::class);
+        $service->notifyContentRevisionRequested($order, $item, $site, 'Please rewrite the intro.');
+        $service->notifyNewChatMessage($order, $publisher, $advertiser, 'Can you send the new draft?');
+        $service->notifyAdvertiserOrderStalled($order, $item, 72);
+
+        $this->assertSame(3, $service->unreadCount($advertiser->id, 'advertiser'));
+
+        $this->actingAs($advertiser)
+            ->getJson(route('notifications.index', ['status' => 'unread']))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 3);
+
+        $order->update(['payment_status' => 'refunded']);
+
+        $this->assertSame(0, $service->unreadCount($advertiser->id, 'advertiser'));
+        $this->actingAs($advertiser)
+            ->getJson(route('notifications.index', ['status' => 'unread']))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0)
+            ->assertJsonCount(0, 'notifications');
+
+        $inbox = $service->listForUser($advertiser->id, [
+            'audience' => 'advertiser',
+            'status' => 'inbox',
+        ]);
+        $this->assertCount(3, $inbox->items());
+        foreach ($inbox->items() as $note) {
+            $presented = $service->presentNotification($note);
+            $this->assertSame('View order', $presented['action_label']);
+            $this->assertFalse($presented['is_unread']);
+            $this->assertStringNotContainsString('still held', (string) $presented['message']);
+        }
+    }
+
+    public function test_leftover_refund_keeps_accepted_view_order_bell_unread(): void
+    {
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+        $site = $this->makeSite($publisher);
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ]);
+        $item = $order->items->first();
+
+        $service = app(InAppNotificationService::class);
+        $service->notifyOrderAccepted($order, $item, $site);
+
+        $this->assertSame(1, $service->unreadCount($advertiser->id, 'advertiser'));
+
+        $order->update([
+            'status' => 'review',
+            'payment_status' => 'refunded',
+        ]);
+
+        $this->assertSame(1, $service->unreadCount($advertiser->id, 'advertiser'));
+        $this->actingAs($advertiser)
+            ->getJson(route('notifications.index', ['status' => 'unread']))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonPath('notifications.0.action_label', 'View order')
+            ->assertJsonPath('notifications.0.is_unread', true);
+    }
 }

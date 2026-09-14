@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\DepositRequest;
 use App\Models\Wallet;
+use App\Services\Billing\DepositReceiptService;
 use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
@@ -15,7 +16,10 @@ use Illuminate\Support\Facades\Log;
  */
 class WalletPaypalDepositService
 {
-    public function __construct(private WalletLedgerService $ledger) {}
+    public function __construct(
+        private WalletLedgerService $ledger,
+        private DepositReceiptService $depositReceipts,
+    ) {}
 
     /**
      * Credit from a completed PayPal capture (return URL or webhook).
@@ -351,6 +355,7 @@ class WalletPaypalDepositService
             ]);
         });
 
+        $this->markDepositReceiptRefunded($notifyDepositId);
         $this->notifyDepositRefunded($notifyDepositId);
 
         return $debited;
@@ -364,6 +369,30 @@ class WalletPaypalDepositService
         }
 
         return Wallet::lockOrCreateForRole($userId, $advertiserRoleId);
+    }
+
+    private function markDepositReceiptRefunded(?int $depositId): void
+    {
+        if (! $depositId) {
+            return;
+        }
+
+        $deposit = DepositRequest::query()->find($depositId);
+        if (! $deposit) {
+            return;
+        }
+
+        try {
+            $this->depositReceipts->markRefunded(
+                $deposit,
+                'PayPal capture refunded; wallet credit reversed.'
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Failed to mark deposit receipt refunded after PayPal clawback', [
+                'deposit_id' => $depositId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function notifyDepositRefunded(?int $depositId): void

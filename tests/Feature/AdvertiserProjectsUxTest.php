@@ -8,11 +8,14 @@ use App\Models\Project;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Support\AdvertiserOrderStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
 
 class AdvertiserProjectsUxTest extends TestCase
 {
+    use CreatesContentSubmissions;
     use RefreshDatabase;
 
     private function advertiser(): User
@@ -96,7 +99,7 @@ class AdvertiserProjectsUxTest extends TestCase
         $pos = strpos($html, $needle);
         $this->assertNotFalse($pos, 'Expected project "'.$projectName.'" in HTML');
 
-        $nextCard = strpos($html, 'col-md-4', $pos + 1);
+        $nextCard = strpos($html, 'project-card-col', $pos + 1);
         $length = $nextCard !== false ? $nextCard - $pos : 12000;
 
         return substr($html, $pos, max($length, 1));
@@ -104,14 +107,31 @@ class AdvertiserProjectsUxTest extends TestCase
 
     private function badgeCount(string $cardHtml, string $title): int
     {
-        $this->assertMatchesRegularExpression(
-            '/title="'.preg_quote($title, '/').'">\s*(\d+)\s*</',
-            $cardHtml,
-            'Missing "'.$title.'" badge'
-        );
-        preg_match('/title="'.preg_quote($title, '/').'">\s*(\d+)\s*</', $cardHtml, $match);
+        $pattern = '/<span class="project-stage__label">'.preg_quote($title, '/').'<\/span>\s*<span class="project-stage__count[^"]*">\s*(\d+)\s*</';
+        $this->assertMatchesRegularExpression($pattern, $cardHtml, 'Missing "'.$title.'" badge');
+        preg_match($pattern, $cardHtml, $match);
 
         return (int) $match[1];
+    }
+
+    /**
+     * @param  array<string, int>  $expected
+     */
+    private function assertStageCounts(string $cardHtml, array $expected = []): void
+    {
+        $defaults = [
+            'Not started' => 0,
+            'In progress' => 0,
+            'In review' => 0,
+            'Needs review' => 0,
+            'Needs you' => 0,
+            'Completed' => 0,
+            'Rejected' => 0,
+        ];
+
+        foreach (array_merge($defaults, $expected) as $label => $count) {
+            $this->assertSame($count, $this->badgeCount($cardHtml, $label), $label);
+        }
     }
 
     public function test_campaigns_blade_does_not_use_rand_for_badges(): void
@@ -121,7 +141,9 @@ class AdvertiserProjectsUxTest extends TestCase
         $this->assertIsString($blade);
         $this->assertStringNotContainsString('rand(', $blade);
         $this->assertStringContainsString('data-slb-confirm="This project will be removed', $blade);
+        $this->assertStringContainsString("@section('title', 'Projects')", $blade);
         $this->assertStringContainsString('type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>', $blade);
+        $this->assertSame(2, substr_count($blade, 'data-bs-dismiss="modal">Cancel</button>'));
     }
 
     public function test_update_keeps_the_same_project_name(): void
@@ -167,7 +189,9 @@ class AdvertiserProjectsUxTest extends TestCase
                 'project_url' => 'https://second.example',
             ])
             ->assertRedirect(route('advertiser.projects.index'))
-            ->assertSessionHasErrors('project_name');
+            ->assertSessionHasErrors([
+                'project_name' => 'You already have a project with this name.',
+            ]);
 
         $this->assertSame('Second Client', $second->fresh()->project_name);
     }
@@ -219,12 +243,9 @@ class AdvertiserProjectsUxTest extends TestCase
             ->getContent();
 
         $card = $this->projectCardHtml($html, 'Empty Client');
-        $this->assertSame(0, $this->badgeCount($card, 'Not started'));
-        $this->assertSame(0, $this->badgeCount($card, 'In progress'));
-        $this->assertSame(0, $this->badgeCount($card, 'Waiting approval'));
-        $this->assertSame(0, $this->badgeCount($card, 'Needs improvements'));
-        $this->assertSame(0, $this->badgeCount($card, 'Completed'));
-        $this->assertSame(0, $this->badgeCount($card, 'Rejected'));
+        $this->assertStageCounts($card);
+        $this->assertStringContainsString('empty.example', $card);
+        $this->assertStringNotContainsString('data-projects-attention', $html);
     }
 
     public function test_projects_page_counts_placements_by_target_url_host(): void
@@ -275,20 +296,45 @@ class AdvertiserProjectsUxTest extends TestCase
             ->getContent();
 
         $acme = $this->projectCardHtml($html, 'Acme Client');
-        $this->assertSame(0, $this->badgeCount($acme, 'Not started'));
-        $this->assertSame(0, $this->badgeCount($acme, 'In progress'));
-        $this->assertSame(0, $this->badgeCount($acme, 'Waiting approval'));
-        $this->assertSame(0, $this->badgeCount($acme, 'Needs improvements'));
-        $this->assertSame(1, $this->badgeCount($acme, 'Completed'));
-        $this->assertSame(0, $this->badgeCount($acme, 'Rejected'));
+        $this->assertStageCounts($acme, ['Completed' => 1]);
 
         $beta = $this->projectCardHtml($html, 'Beta Client');
-        $this->assertSame(0, $this->badgeCount($beta, 'Not started'));
-        $this->assertSame(1, $this->badgeCount($beta, 'In progress'));
-        $this->assertSame(0, $this->badgeCount($beta, 'Waiting approval'));
-        $this->assertSame(0, $this->badgeCount($beta, 'Needs improvements'));
-        $this->assertSame(0, $this->badgeCount($beta, 'Completed'));
-        $this->assertSame(0, $this->badgeCount($beta, 'Rejected'));
+        $this->assertStageCounts($beta, ['In progress' => 1]);
+    }
+
+    public function test_leftover_javascript_project_url_is_not_an_href(): void
+    {
+        $user = $this->advertiser();
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Legacy Client',
+            'project_url' => 'javascript:alert(1)',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->assertSee('Legacy Client', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('href="javascript:', $html);
+        $this->assertStringNotContainsString("href='javascript:", $html);
+    }
+
+    public function test_store_rejects_non_http_project_urls(): void
+    {
+        $user = $this->advertiser();
+
+        $this->actingAs($user)
+            ->from(route('advertiser.projects.index'))
+            ->post(route('advertiser.projects.store'), [
+                'project_name' => 'Bad Client',
+                'project_url' => 'javascript:alert(1)',
+            ])
+            ->assertRedirect(route('advertiser.projects.index'))
+            ->assertSessionHasErrors('project_url');
+
+        $this->assertSame(0, Project::where('user_id', $user->id)->count());
     }
 
     public function test_store_rejects_names_that_would_fail_on_update(): void
@@ -302,7 +348,9 @@ class AdvertiserProjectsUxTest extends TestCase
                 'project_url' => 'https://acme-gmbh.example',
             ])
             ->assertRedirect(route('advertiser.projects.index'))
-            ->assertSessionHasErrors('project_name');
+            ->assertSessionHasErrors([
+                'project_name' => 'Use letters, numbers, spaces, and hyphens only.',
+            ]);
 
         $this->assertSame(0, Project::where('user_id', $user->id)->count());
     }
@@ -364,5 +412,384 @@ class AdvertiserProjectsUxTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString(route('advertiser.projects.index', [], false), $html);
+        $this->assertStringContainsString('<title>Projects</title>', $html);
+        $this->assertStringContainsString('>Projects</h2>', $html);
+        $this->assertStringContainsString('destination host matches this project', $html);
+    }
+
+    public function test_review_without_live_url_counts_as_in_review(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://acme.example/waiting',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStageCounts($this->projectCardHtml($html, 'Acme Client'), [
+            'In review' => 1,
+        ]);
+        $this->assertStringNotContainsString('data-projects-attention', $html);
+    }
+
+    public function test_publisher_wait_revision_is_not_projects_attention(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://acme.example/rev',
+            'modification_requested' => 'yes',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStageCounts($this->projectCardHtml($html, 'Acme Client'), [
+            'Needs you' => 1,
+        ]);
+        $this->assertStringNotContainsString('data-projects-attention', $html);
+    }
+
+    public function test_content_revision_counts_as_projects_attention(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://acme.example/article',
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStageCounts($this->projectCardHtml($html, 'Acme Client'), [
+            'Needs you' => 1,
+        ]);
+        $this->assertStringContainsString('data-projects-attention', $html);
+        $this->assertStringContainsString('1 placement needs you across 1 project', $html);
+    }
+
+    public function test_sibling_content_revision_does_not_count_on_another_host(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Beta Client',
+            'project_url' => 'https://beta.example',
+        ]);
+
+        $order = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://acme.example/ok',
+            'content_revision_requested' => 'no',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 50,
+            'content_link' => 'https://example.com/article-2.docx',
+            'target_url' => 'https://beta.example/rev',
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStageCounts($this->projectCardHtml($html, 'Acme Client'), [
+            'In progress' => 1,
+        ]);
+        $this->assertStageCounts($this->projectCardHtml($html, 'Beta Client'), [
+            'Needs you' => 1,
+        ]);
+        $this->assertStringContainsString('1 placement needs you across 1 project', $html);
+
+        $order = $order->fresh('items');
+        $acmeItem = $order->items->first();
+        $betaItem = $order->items->last();
+        $this->assertSame('content_revision', AdvertiserOrderStatus::meta($order, $acmeItem)['stage']);
+        $this->assertSame('processing', AdvertiserOrderStatus::meta($order, $acmeItem, true)['stage']);
+        $this->assertSame('content_revision', AdvertiserOrderStatus::meta($order, $betaItem, true)['stage']);
+    }
+
+    public function test_review_with_live_url_counts_as_needs_review_and_attention(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://acme.example/live',
+            'live_url' => 'https://publisher.example/posted',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStageCounts($this->projectCardHtml($html, 'Acme Client'), [
+            'Needs review' => 1,
+        ]);
+        $this->assertStringContainsString('data-projects-attention', $html);
+        $this->assertStringContainsString('1 placement needs you across 1 project', $html);
+        $this->assertStringNotContainsString('is-hot', $html);
+        $this->assertStringNotContainsString('is-attention', $html);
+        $this->assertStringNotContainsString('Guest posting', $html);
+        $this->assertStringNotContainsString('project-stage__count pulse-badge', $html);
+        $this->assertStringContainsString('Show placements needing you', $html);
+        $this->assertStringContainsString('View orders', $html);
+        $project = Project::where('user_id', $user->id)->where('project_name', 'Acme Client')->first();
+        $this->assertNotNull($project);
+        $this->assertStringContainsString(
+            e(route('advertiser.orders', ['project' => $project->id], false)),
+            $html
+        );
+        $this->assertStringContainsString(
+            e(route('advertiser.orders', ['project' => $project->id, 'project_stage' => 'waiting_approval'], false)),
+            $html
+        );
+        $this->assertStringContainsString(
+            e(route('advertiser.orders', ['project' => $project->id, 'project_stage' => 'needs_you'], false)),
+            $html
+        );
+    }
+
+    public function test_brief_target_url_matches_project_when_item_url_is_empty(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+        $submission = $this->createApprovedSubmission(
+            $user,
+            $site->id,
+            target: 'https://www.acme.example/from-brief',
+        );
+
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => '',
+            'content_submission_id' => $submission->id,
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStageCounts($this->projectCardHtml($html, 'Acme Client'), [
+            'In progress' => 1,
+        ]);
+    }
+
+    public function test_attention_projects_sort_ahead_of_newer_quiet_cards(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $urgent = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Urgent Client',
+            'project_url' => 'https://urgent.example',
+        ]);
+        $urgent->forceFill([
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ])->save();
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Quiet Client',
+            'project_url' => 'https://quiet.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://urgent.example/page',
+            'live_url' => 'https://publisher.example/urgent',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'completed',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://quiet.example/page',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $urgentPos = strpos($html, 'Urgent Client');
+        $quietPos = strpos($html, 'Quiet Client');
+        $this->assertNotFalse($urgentPos);
+        $this->assertNotFalse($quietPos);
+        $this->assertLessThan($quietPos, $urgentPos);
+        $this->assertTrue($urgent->created_at->lt(Project::where('project_name', 'Quiet Client')->value('created_at')));
+    }
+
+    public function test_publisher_wait_revision_cards_still_sort_ahead(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $waiting = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Waiting Client',
+            'project_url' => 'https://waiting.example',
+        ]);
+        $waiting->forceFill([
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ])->save();
+        Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Quiet Client',
+            'project_url' => 'https://quiet-wait.example',
+        ]);
+
+        $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://waiting.example/rev',
+            'modification_requested' => 'yes',
+        ]);
+        $this->makeOrder($user, $site, [
+            'status' => 'completed',
+            'payment_status' => 'paid',
+        ], [
+            'target_url' => 'https://quiet-wait.example/page',
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->getContent();
+
+        $waitingPos = strpos($html, 'Waiting Client');
+        $quietPos = strpos($html, 'Quiet Client');
+        $this->assertNotFalse($waitingPos);
+        $this->assertNotFalse($quietPos);
+        $this->assertLessThan($quietPos, $waitingPos);
+        $this->assertStringNotContainsString('data-projects-attention', $html);
+    }
+
+    public function test_empty_state_offers_create_project(): void
+    {
+        $user = $this->advertiser();
+
+        $this->actingAs($user)
+            ->get(route('advertiser.projects.index'))
+            ->assertOk()
+            ->assertSee('No projects yet', false)
+            ->assertSee('Create project', false)
+            ->assertDontSee('Perfect For Agencies', false);
+    }
+
+    public function test_advertiser_cannot_change_another_users_project(): void
+    {
+        $owner = $this->advertiser();
+        $project = Project::create([
+            'user_id' => $owner->id,
+            'project_name' => 'Owned Client',
+            'project_url' => 'https://owned.example',
+        ]);
+        $other = $this->advertiser();
+
+        $this->actingAs($other)
+            ->put(route('advertiser.projects.update', $project), [
+                'project_name' => 'Stolen Client',
+                'project_url' => 'https://stolen.example',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($other)
+            ->delete(route('advertiser.projects.destroy', $project))
+            ->assertForbidden();
+
+        $this->assertSame('Owned Client', $project->fresh()->project_name);
+    }
+
+    public function test_publisher_cannot_open_projects(): void
+    {
+        $this->actingAs($this->publisher())
+            ->get(route('advertiser.projects.index'))
+            ->assertForbidden();
+    }
+
+    public function test_create_form_explains_name_and_host_rules(): void
+    {
+        $blade = file_get_contents(resource_path('views/advertiser/partials/project-fields.blade.php'));
+
+        $this->assertIsString($blade);
+        $this->assertStringContainsString('Letters, numbers, spaces, and hyphens only', $blade);
+        $this->assertStringContainsString('www and the bare host count as the same site', $blade);
     }
 }

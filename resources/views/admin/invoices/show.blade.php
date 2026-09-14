@@ -18,7 +18,7 @@
             <h2 class="mb-1 fw-semibold">{{ $invoice->invoice_number }}</h2>
             <p class="text-muted mb-0">
                 {{ $invoice->typeLabel() }}
-                · <span class="badge text-bg-{{ $invoice->statusBadgeClass() }}">{{ ucfirst($invoice->status) }}</span>
+                · <span class="badge text-bg-{{ $invoice->statusBadgeClass() }}">{{ ucfirst($invoice->displayPaymentStatus()) }}</span>
                 · {{ $invoice->customer_email }}
                 @if(! $invoice->pdfExists())
                     · <span class="badge text-bg-warning">PDF missing</span>
@@ -32,7 +32,7 @@
                 @csrf
                 <button class="btn btn-sm btn-outline-secondary">Regenerate PDF</button>
             </form>
-            @if(! $invoice->isCancelled())
+            @if($invoice->canResendCustomerEmail())
                 <form method="POST" action="{{ route('admin.invoices.resend', $invoice) }}"
                       data-slb-confirm="Resend this document email to {{ $invoice->customer_email }}?"
                       data-slb-confirm-title="Resend email?"
@@ -43,6 +43,19 @@
             @endif
         </div>
     </div>
+
+    @if($invoice->isClosedDocument())
+        @php $displayStatus = $invoice->displayPaymentStatus(); @endphp
+        <div class="alert alert-{{ $displayStatus === 'failed' ? 'danger' : ($displayStatus === 'cancelled' ? 'secondary' : 'info') }} border-0 shadow-sm">
+            @if($displayStatus === 'refunded')
+                This {{ strtolower($invoice->typeLabel()) }} was refunded. The amount is no longer collected.
+            @elseif($displayStatus === 'failed')
+                This payment attempt failed. No charge was completed.
+            @else
+                This document has been cancelled.
+            @endif
+        </div>
+    @endif
 
     <div class="row g-3">
         <div class="col-lg-8">
@@ -83,7 +96,7 @@
                         </div>
                         <div class="col-md-4">
                             <span class="text-muted d-block">Payment status</span>
-                            <strong>{{ $invoice->payment_status ? ucfirst((string) $invoice->payment_status) : '—' }}</strong>
+                            <strong>{{ ucfirst($invoice->displayPaymentStatus()) }}</strong>
                         </div>
                         <div class="col-md-4">
                             <span class="text-muted d-block">Method</span>
