@@ -24,12 +24,14 @@ use App\Http\Controllers\Admin\OrderDisputeController as AdminOrderDisputeContro
 use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\SiteController as AdminSiteController;
+use App\Http\Controllers\Admin\SiteDuplicateController as AdminSiteDuplicateController;
 use App\Http\Controllers\Admin\SiteEnrichmentController;
 use App\Http\Controllers\Admin\SiteRatingController;
 use App\Http\Controllers\Admin\StalledOrderController as AdminStalledOrderController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WelcomeBonusSettingController as AdminWelcomeBonusSettingController;
 use App\Http\Controllers\Admin\WithdrawalMarkPaidConfirmController;
+use App\Http\Controllers\Admin\WorkInboxController as AdminWorkInboxController;
 use App\Http\Controllers\Advertiser\AddFundsController;
 use App\Http\Controllers\Advertiser\AnalyticsController;
 use App\Http\Controllers\Advertiser\BillingController as AdvertiserBillingController;
@@ -589,6 +591,14 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('sites.records');
         Route::get('/sites/records/export', [AdminSiteController::class, 'exportRecords'])
             ->name('sites.records.export');
+        Route::post('/sites/records/bulk-verify', [AdminSiteController::class, 'bulkVerify'])
+            ->middleware('throttle:10,1')
+            ->name('sites.records.bulk-verify');
+        Route::post('/sites/records/bulk-activate', [AdminSiteController::class, 'bulkActivate'])
+            ->middleware('throttle:10,1')
+            ->name('sites.records.bulk-activate');
+        Route::get('/sites/duplicates', [AdminSiteDuplicateController::class, 'index'])
+            ->name('sites.duplicates');
 
         Route::post('/sites/{id}/verify', [AdminSiteController::class, 'verify'])
             ->name('sites.verify');
@@ -646,6 +656,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('dashboard.finance');
         Route::get('/dashboard/queue-counts', [AdminDashboardController::class, 'getQueueCounts'])
             ->name('dashboard.queue-counts');
+        Route::get('/inbox', [AdminWorkInboxController::class, 'index'])
+            ->name('inbox.index');
 
         Route::get('/dashboard/stalled-orders', [AdminStalledOrderController::class, 'index'])
             ->name('dashboard.stalled-orders');

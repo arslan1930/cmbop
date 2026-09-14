@@ -10,6 +10,7 @@ use App\Models\OrderItemDispute;
 use App\Models\User;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Orders\AdminOrderStatusOverride;
+use App\Services\Orders\AdminPaymentStatusPolicy;
 use App\Services\Orders\OrderClawbackService;
 use App\Support\ArticleDownload;
 use App\Support\UserFacingError;
@@ -216,6 +217,10 @@ class OrderController extends Controller
         $canOpenDispute = $disputableItems->isNotEmpty();
 
         $override = app(AdminOrderStatusOverride::class);
+        $paymentPolicy = app(AdminPaymentStatusPolicy::class);
+        $paymentMethod = (string) ($order->payment_method ?? '');
+        $canRefundInFlight = $paymentPolicy->canRefundInFlight($order);
+        $canFailInFlight = $paymentPolicy->canFailInFlight($order);
 
         return view('admin.orders.show', [
             'order' => $order,
@@ -227,6 +232,16 @@ class OrderController extends Controller
             'canOpenDispute' => $canOpenDispute,
             'statusTargets' => $override->availableFor($order),
             'canOverrideStatus' => $override->isOverridable($order),
+            'canRefundInFlight' => $canRefundInFlight,
+            'canFailInFlight' => $canFailInFlight,
+            'needsDisputeClawback' => $paymentPolicy->needsDisputeClawback($order),
+            'refundHint' => $canRefundInFlight
+                ? $paymentPolicy->moneyHint('refunded', $paymentMethod, (string) $order->payment_status)
+                : '',
+            'failHint' => $canFailInFlight
+                ? $paymentPolicy->moneyHint('failed', $paymentMethod, (string) $order->payment_status)
+                : '',
+            'paymentUpdateUrl' => route('admin.payments.updateStatus', $order->id),
         ]);
     }
 

@@ -161,6 +161,7 @@ class SiteController extends Controller
         $countryFilter = $filter['country'];
         $healthFilter = $filter['health'];
         $missingMarket = $filter['missing_market'];
+        $searchQ = $filter['q'];
 
         $wantsPartial = $request->boolean('partial')
             || $request->expectsJson()
@@ -230,7 +231,8 @@ class SiteController extends Controller
                 'missingMarket',
                 'missingMarketCount',
                 'healthFilter',
-                'healthCounts'
+                'healthCounts',
+                'searchQ'
             ));
         }
 
@@ -250,6 +252,7 @@ class SiteController extends Controller
                     'missing_market_count' => $missingMarketCount,
                     'health' => $healthFilter,
                     'health_counts' => $healthCounts,
+                    'q' => $searchQ,
                     'total' => $sites->total(),
                     'export_url' => $exportUrl,
                     'table_html' => $tableHtml,
@@ -273,7 +276,8 @@ class SiteController extends Controller
             'missingMarket',
             'missingMarketCount',
             'healthFilter',
-            'healthCounts'
+            'healthCounts',
+            'searchQ'
         ));
     }
 
@@ -290,6 +294,9 @@ class SiteController extends Controller
         $suffix = $healthFilter !== null
             ? '-'.$healthFilter
             : ($countryFilter !== '' ? '-'.$countryFilter : '');
+        if (($filter['q'] ?? '') !== '') {
+            $suffix .= '-search';
+        }
         $filename = 'websites-records'.$suffix.'-'.now()->format('Y-m-d').'.csv';
 
         try {
@@ -312,6 +319,7 @@ class SiteController extends Controller
                 'country' => $countryFilter,
                 'health' => $healthFilter,
                 'missing_market' => $missingMarket,
+                'q' => $filter['q'] ?? '',
                 'rows_exported' => $matchCount,
             ]
         );
@@ -342,6 +350,7 @@ class SiteController extends Controller
      *     country: string,
      *     health: ?string,
      *     missing_market: bool,
+     *     q: string,
      *     query_params: array<string, int|string>
      * }
      */
@@ -357,33 +366,55 @@ class SiteController extends Controller
             $countryFilter = '';
         }
 
+        $q = search_text($request->query('q'));
+
         return [
             'country' => $countryFilter,
             'health' => $health,
             'missing_market' => $health === CatalogHealthQueue::MISSING_MARKET,
+            'q' => $q,
             'query_params' => array_filter([
                 'country' => $countryFilter !== '' ? $countryFilter : null,
                 'health' => ($health !== null && $health !== CatalogHealthQueue::MISSING_MARKET)
                     ? $health
                     : null,
                 'missing_market' => $health === CatalogHealthQueue::MISSING_MARKET ? 1 : null,
+                'q' => $q !== '' ? $q : null,
             ]),
         ];
     }
 
     /**
      * @param  Builder<Site>  $query
-     * @param  array{country: string, health: ?string}  $filter
+     * @param  array{country: string, health: ?string, q?: string}  $filter
      */
     private function applyRecordsFilters($query, array $filter): void
     {
         if (is_string($filter['health'] ?? null) && $filter['health'] !== '') {
             CatalogHealthQueue::apply($query, $filter['health']);
+        } else {
+            $this->applyRecordsCountryFilter($query, (string) ($filter['country'] ?? ''));
+        }
 
+        $this->applyRecordsSearch($query, (string) ($filter['q'] ?? ''));
+    }
+
+    /**
+     * @param  Builder<Site>  $query
+     */
+    private function applyRecordsSearch($query, string $q): void
+    {
+        $q = trim($q);
+        if ($q === '') {
             return;
         }
 
-        $this->applyRecordsCountryFilter($query, (string) ($filter['country'] ?? ''));
+        $like = like_contains($q);
+        $query->where(function ($inner) use ($like) {
+            $inner->whereRaw('site_url LIKE ? ESCAPE ?', [$like, '\\'])
+                ->orWhereRaw('domain LIKE ? ESCAPE ?', [$like, '\\'])
+                ->orWhereRaw('site_name LIKE ? ESCAPE ?', [$like, '\\']);
+        });
     }
 
     /**
@@ -630,7 +661,17 @@ class SiteController extends Controller
     }
 
     /**
-     * @return array{url: string, countries: string, categories: string}
+     * @return array{
+     *     id: int,
+     *     url: string,
+     *     site_name: string,
+     *     countries: string,
+     *     categories: string,
+     *     verified: bool,
+     *     active: bool,
+     *     can_activate: bool,
+     *     edit_url: string
+     * }
      */
     private function siteRecordRow(Site $site): array
     {
@@ -658,11 +699,16 @@ class SiteController extends Controller
         $healthFlags = CatalogHealthQueue::flags($site);
 
         return [
+            'id' => (int) $site->id,
             'url' => $url,
+            'site_name' => (string) ($site->site_name ?: '—'),
             'countries' => $countries,
             'categories' => $categories,
             'missing_market' => ! $site->hasMarketplaceCountry(),
+            'verified' => (bool) $site->verified,
             'active' => (bool) $site->active,
+            'can_activate' => $this->staffCanActivateSite($site),
+            'edit_url' => route('admin.sites.edit', $site->id),
             'health_flags' => $healthFlags,
             'health' => implode('|', $healthFlags),
         ];
@@ -3050,6 +3096,90 @@ class SiteController extends Controller
         }
 
         return (int) round((float) $raw);
+    }
+
+    public const RECORDS_BULK_LIMIT = 50;
+
+    public function bulkVerify(Request $request): JsonResponse
+    {
+        if (! auth()->user()?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can verify or unverify sites.',
+            ], 403);
+        }
+
+        return $this->runRecordsBulk($request, 'verify', ['verified' => 1], 'Verified');
+    }
+
+    public function bulkActivate(Request $request): JsonResponse
+    {
+        $actor = auth()->user();
+        if (! $actor?->canActivateSites()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not allowed to activate or deactivate sites.',
+            ], 403);
+        }
+
+        return $this->runRecordsBulk($request, 'toggleActive', ['active' => 1], 'Activated');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function runRecordsBulk(Request $request, string $method, array $payload, string $doneLabel): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => 'required|array|min:1|max:'.self::RECORDS_BULK_LIMIT,
+            'ids.*' => 'integer',
+        ]);
+        $ids = array_values(array_unique(array_map('intval', $data['ids'])));
+        $updated = 0;
+        $failed = [];
+
+        foreach ($ids as $id) {
+            $sub = Request::create('/', 'POST', $payload);
+            $sub->setUserResolver(fn () => $request->user());
+            $sub->headers->set('Accept', 'application/json');
+            $response = $this->{$method}($sub, $id);
+            $body = json_decode($response->getContent(), true);
+            $ok = $response->getStatusCode() < 400 && is_array($body) && ($body['success'] ?? false);
+            if ($ok) {
+                $updated++;
+            } else {
+                $failed[] = [
+                    'id' => $id,
+                    'message' => is_array($body) ? (string) ($body['message'] ?? 'Failed') : 'Failed',
+                ];
+            }
+        }
+
+        $message = $doneLabel.' '.$updated.' site'.($updated === 1 ? '' : 's').'.';
+        if ($failed !== []) {
+            $message .= ' '.$this->recordsBulkFailureSummary($failed);
+        }
+
+        return response()->json([
+            'success' => $updated > 0 || $failed === [],
+            'message' => $message,
+            'updated' => $updated,
+            'failed' => $failed,
+        ], $updated > 0 || $failed === [] ? 200 : 422);
+    }
+
+    /**
+     * @param  list<array{id: int, message: string}>  $failed
+     */
+    private function recordsBulkFailureSummary(array $failed): string
+    {
+        $first = $failed[0]['message'] ?? 'Failed';
+        $extra = count($failed) - 1;
+        if ($extra < 1) {
+            return $first;
+        }
+
+        return $first.' (+'.$extra.' more)';
     }
 
     // VERIFY / UNVERIFY (approve / reject) — admin only

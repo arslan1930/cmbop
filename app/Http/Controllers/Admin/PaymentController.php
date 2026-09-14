@@ -18,6 +18,7 @@ use App\Services\CheckoutIntentService;
 use App\Services\CheckoutSchemaService;
 use App\Services\InAppNotificationService;
 use App\Services\OrderPaymentService;
+use App\Services\Orders\AdminPaymentStatusPolicy;
 use App\Services\Orders\OrderRefundService;
 use App\Support\BillingCustomerMailSuppressor;
 use App\Support\OrderLifecycleMailSuppressor;
@@ -36,6 +37,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class PaymentController extends Controller
 {
     public const EXPORT_LIMIT = 5000;
+
+    public function __construct(private AdminPaymentStatusPolicy $paymentStatuses) {}
 
     /**
      * Display payments list page
@@ -292,11 +295,11 @@ class PaymentController extends Controller
             $oldStatus = $order->payment_status;
             $newStatus = (string) $request->payment_status;
 
-            if (! in_array($newStatus, $this->allowedPaymentStatuses($order), true)) {
+            if (! in_array($newStatus, $this->paymentStatuses->allowedStatuses($order), true)) {
                 return $this->abortPaymentUpdate(
                     (int) $id,
                     $sendNotification,
-                    $this->disallowedStatusMessage($order, $newStatus)
+                    $this->paymentStatuses->disallowedMessage($order, $newStatus)
                 );
             }
 
@@ -936,69 +939,10 @@ class PaymentController extends Controller
                 'name' => $order->user->name,
                 'email' => $order->user->email,
             ] : null,
-            'allowed_statuses' => $this->allowedPaymentStatuses($order),
+            'allowed_statuses' => $this->paymentStatuses->allowedStatuses($order),
             'invoice_url' => $order->invoice_url ?? null,
             'invoice_documents' => $order->invoice_documents ?? [],
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function allowedPaymentStatuses(Order $order): array
-    {
-        $current = (string) $order->payment_status;
-
-        if ($current === 'refunded') {
-            return [];
-        }
-
-        if ($current === 'paid') {
-            if (in_array((string) $order->status, ['completed'], true)) {
-                return [];
-            }
-
-            // Keep `paid` so staff can save notes / transfer reference
-            // without a money move.
-            return ['paid', 'failed', 'refunded'];
-        }
-
-        // Paid→failed already credits captured methods. Allow Refunded as a
-        // bookkeeping correction (no second credit) and Failed for notes.
-        if ($current === 'failed' && (string) $order->status === 'cancelled') {
-            return ['failed', 'refunded'];
-        }
-
-        $allowed = ['pending', 'paid', 'failed'];
-        if (in_array((string) $order->status, ['cancelled', 'completed'], true)) {
-            $allowed = array_values(array_diff($allowed, ['paid']));
-        }
-
-        return $allowed;
-    }
-
-    private function disallowedStatusMessage(Order $order, string $newStatus): string
-    {
-        if ($order->payment_status === 'paid' && $order->status === 'completed') {
-            if ($newStatus === 'refunded') {
-                return 'Completed orders cannot be refunded here. Use a dispute clawback so the publisher payout is reversed first.';
-            }
-            if ($newStatus === 'failed') {
-                return 'Completed orders cannot be marked failed here. Use a dispute clawback so the publisher payout is reversed first.';
-            }
-
-            return 'Completed orders cannot be changed here. Use a dispute clawback so the publisher payout is reversed first.';
-        }
-
-        if ($order->payment_status === 'paid' && $newStatus === 'pending') {
-            return 'A paid payment cannot be moved back to pending. Mark it failed or refunded instead.';
-        }
-
-        if ($newStatus === 'paid') {
-            return 'This order cannot be marked paid. Cancelled, completed, or refunded payments have to stay settled.';
-        }
-
-        return 'That payment status change is not allowed for this order.';
     }
 
     private function emptyPaymentsPayload(Request $request)
