@@ -216,6 +216,42 @@ class AdvertiserDashboardPr1Test extends TestCase
         $this->assertStringContainsString('order-status pending', $html);
     }
 
+    public function test_recent_orders_queue_needs_action_first_with_next_copy(): void
+    {
+        $user = $this->advertiser();
+        $olderReview = $this->makeOrder($user, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+            'live_url' => 'https://live.example/ready',
+            'created_at' => now()->subDays(3),
+            'updated_at' => now()->subDays(3),
+        ]);
+        $olderReview->items->first()->update([
+            'live_url_submitted_at' => now()->subHours(24),
+        ]);
+        $newerProcessing = $this->makeOrder($user, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+            'created_at' => now(),
+        ]);
+
+        $recent = app(AdvertiserDashboardService::class)->build($user)['recentOrders'];
+        $this->assertSame([$olderReview->id, $newerProcessing->id], $recent->pluck('id')->all());
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.dashboard'))
+            ->assertOk()
+            ->assertSee('Check the live URL', false)
+            ->assertSee('Publisher is preparing', false)
+            ->assertSee('Auto-approves', false)
+            ->assertSee('focus=order', false)
+            ->assertSee('order='.$olderReview->id, false)
+            ->assertSee('stretched-link', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('onclick="window.location', $html);
+    }
+
     public function test_dashboard_uses_controller_not_closure(): void
     {
         $user = $this->advertiser();

@@ -267,7 +267,7 @@ class AdvertiserDashboardService
 
     protected function recentOrders(int $userId): Collection
     {
-        return Order::query()
+        $query = Order::query()
             ->where('user_id', $userId)
             ->with(['items' => function ($q) {
                 $cols = [
@@ -283,11 +283,19 @@ class AdvertiserDashboardService
                 if (Schema::hasColumn('order_items', 'content_revision_requested')) {
                     $cols[] = 'content_revision_requested';
                 }
+                if (Schema::hasColumn('order_items', 'live_url_submitted_at')) {
+                    $cols[] = 'live_url_submitted_at';
+                }
+                if (Schema::hasColumn('order_items', 'auto_approve_triggered')) {
+                    $cols[] = 'auto_approve_triggered';
+                }
                 $q->select($cols);
-            }, 'items.site'])
-            ->latest()
-            ->take(5)
-            ->get();
+            }, 'items.site']);
+
+        AdvertiserOrderStatus::applyQueueOrder($query);
+        $query->latest();
+
+        return $query->take(20)->get()->take(5)->values();
     }
 
     protected function recommendedSites(?User $user = null): Collection

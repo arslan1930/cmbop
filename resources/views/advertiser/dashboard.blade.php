@@ -238,8 +238,11 @@
     color: #6b7280;
     margin-top: 8px;
 }
-.recent-order-row { cursor: pointer; text-decoration: none; color: inherit; }
-.recent-order-row:hover { background: rgba(255,255,255,0.45); }
+.recent-order-row { position: relative; }
+.recent-order-row .recent-order-num.stretched-link::after { z-index: 1; }
+.recent-order-url { position: relative; z-index: 2; }
+.recent-order-next { font-size: 12px; color: #4b5563; max-width: 220px; }
+.recent-order-hint { font-size: 11px; color: #92400e; margin: 4px 0 0; }
 .kpi-tile .kpi-icon.is-muted { background: #e2e8f0 !important; color: #64748b !important; }
 </style>
 
@@ -596,6 +599,7 @@
                                     <tr>
                                         <th>Order</th>
                                         <th>Status</th>
+                                        <th>Next</th>
                                         <th class="text-end">Total</th>
                                     </tr>
                                 </thead>
@@ -618,14 +622,13 @@
                                                 ? $urlVisibility->hostFor(auth()->user(), $siteModel)
                                                 : null;
                                         @endphp
-                                        <tr class="recent-order-row" onclick="window.location='{{ $orderFocusUrl }}'">
+                                        <tr class="recent-order-row">
                                             <td class="py-3">
-                                                <a href="{{ $orderFocusUrl }}" class="recent-order-num text-decoration-none">#{{ $numericOrder }}</a>
+                                                <a href="{{ $orderFocusUrl }}" class="recent-order-num text-decoration-none stretched-link">#{{ $numericOrder }}</a>
                                                 <div class="recent-order-site">{{ $firstItem->site_name ?? '—' }}</div>
                                                 @if($canSeeRecentUrl && $recentDisplayHost && $firstItem?->site_id)
                                                     <a href="{{ route('advertiser.catalog.visit', $firstItem->site_id) }}"
-                                                       target="_blank" rel="noopener" class="recent-order-url"
-                                                       onclick="event.stopPropagation()">
+                                                       target="_blank" rel="noopener" class="recent-order-url">
                                                         {{ \Illuminate\Support\Str::limit($recentDisplayHost, 48) }}
                                                         <i class="fa fa-external-link fa-xs"></i>
                                                     </a>
@@ -642,6 +645,12 @@
                                                     <span class="order-status-dot" aria-hidden="true"></span>
                                                     {{ $statusLabel }}
                                                 </span>
+                                            </td>
+                                            <td class="py-3">
+                                                <div class="recent-order-next">{{ $statusMeta['next'] }}</div>
+                                                @if(!empty($statusMeta['auto_approve_hint']))
+                                                    <p class="recent-order-hint mb-0">{{ $statusMeta['auto_approve_hint'] }}</p>
+                                                @endif
                                             </td>
                                             <td class="text-end py-3 fw-semibold" style="color:#1a585e;">
                                                 €{{ number_format((float) $order->total_amount, 2) }}
