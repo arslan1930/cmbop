@@ -35,6 +35,15 @@
         @else
             <span class="badge text-bg-warning text-dark">Unverified</span>
         @endif
+        @php
+            $staffTwoFactor = app(\App\Services\Auth\StaffTwoFactorService::class);
+            $targetHasStaffTwoFactor = $staffTwoFactor->holdsStaffRole($user) && $staffTwoFactor->isConfirmed($user);
+        @endphp
+        @if($staffTwoFactor->holdsStaffRole($user))
+            <span class="badge {{ $targetHasStaffTwoFactor ? 'text-bg-success' : 'text-bg-secondary' }}">
+                2FA {{ $targetHasStaffTwoFactor ? 'on' : 'off' }}
+            </span>
+        @endif
         @if($user->isOnline())
             <span class="badge text-bg-success">Online</span>
         @endif
@@ -120,6 +129,18 @@
                                 @csrf
                                 <button type="submit" class="btn btn-sm btn-outline-success w-100">
                                     <i class="fa fa-unlock me-1"></i> Reactivate account
+                                </button>
+                            </form>
+                        @endif
+                        @if(auth()->user()?->isAdmin() && $targetHasStaffTwoFactor && (int) $user->id !== (int) auth()->id())
+                            <form method="POST" action="{{ route('admin.users.two-factor.clear', $user) }}"
+                                  data-slb-confirm="Clear two-factor authentication for this staff account? They can sign in with password only until they set it up again."
+                                  data-slb-confirm-title="Clear two-factor?"
+                                  data-slb-confirm-text="Clear 2FA"
+                                  data-slb-confirm-danger="1">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-warning w-100">
+                                    <i class="fa fa-shield-alt me-1"></i> Clear two-factor
                                 </button>
                             </form>
                         @endif

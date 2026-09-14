@@ -5,6 +5,8 @@
 @section('content')
 <div class="container-fluid">
 
+    @include('partials.staff-two-factor-prompt')
+
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
             <h1 class="h3 mb-1">Marketing workspace</h1>

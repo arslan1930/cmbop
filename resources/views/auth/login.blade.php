@@ -263,14 +263,14 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         return toastEl;
     }
 
-    if(data.status === 'success'){
+    if(data.status === 'success' || data.status === 'two_factor'){
         const toastEl = buildAuthToast(data.message, 'success');
         toastContainer.appendChild(toastEl);
         new bootstrap.Toast(toastEl).show();
 
         setTimeout(() => {
             window.location.href = data.redirect;
-        }, 1500);
+        }, data.status === 'two_factor' ? 400 : 1500);
 
     } else if(data.status === 'validation'){
         showFieldErrors(data.errors);

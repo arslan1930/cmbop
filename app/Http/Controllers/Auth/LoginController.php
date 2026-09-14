@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\Auth\StaffTwoFactorService;
 use App\Support\UserMessages;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -92,12 +93,31 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
+        RateLimiter::clear($key);
+        RateLimiter::clear($ipKey);
+
+        $twoFactor = app(StaffTwoFactorService::class);
+        if ($twoFactor->mustChallenge($user)) {
+            $remember = $request->boolean('remember');
+            Auth::logout();
+            $twoFactor->beginPending($request, $user, $remember);
+
+            return response()->json([
+                'status' => 'two_factor',
+                'message' => UserMessages::get('login.two_factor'),
+                'redirect' => route('login.two-factor', absolute: false),
+            ]);
+        }
+
+        if ($request->boolean('remember')) {
+            Auth::login($user, true);
+        }
+
+        $twoFactor->markSessionPassed($request, $user);
+
         // Relative dashboard path — survives APP_URL=localhost misconfig
         $user->load('activeRoleRelation', 'roles');
         $redirect = $user->getDashboardRoute();
-
-        RateLimiter::clear($key);
-        RateLimiter::clear($ipKey);
 
         return response()->json([
             'status' => 'success',

@@ -59,6 +59,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\SocialiteController;
+use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\ChatController;
@@ -71,8 +72,8 @@ use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ProfileController;
-// BlogController for public blog pages
 use App\Http\Controllers\PromotionTrackController;
+// BlogController for public blog pages
 use App\Http\Controllers\PublicMediaController;
 use App\Http\Controllers\Publisher\BalanceController;
 use App\Http\Controllers\Publisher\BillingController as PublisherBillingController;
@@ -87,12 +88,14 @@ use App\Http\Controllers\Publisher\SiteVerificationController;
 use App\Http\Controllers\Publisher\WithdrawalController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\StaffTwoFactorController;
 use App\Http\Middleware\RedirectMarketingFromAdmin;
 use App\Http\Middleware\RoleMiddleware;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Support\CountryLander;
+use App\Support\HttpCron;
 use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
@@ -371,6 +374,8 @@ Route::get('/cron/run/{key}', function (Request $request, $key) use ($runHttpSch
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisterController::class, 'show'])->name('register');
     Route::get('/login', [LoginController::class, 'show'])->name('login');
+    Route::get('/login/two-factor', [TwoFactorChallengeController::class, 'show'])
+        ->name('login.two-factor');
 });
 
 // Google OAuth must stay outside `guest`: the callback authenticates the user in-request.
@@ -386,6 +391,9 @@ Route::post('/register', [RegisterController::class, 'register'])
 Route::post('/login', [LoginController::class, 'login'])
     ->middleware('throttle:login')
     ->name('login.post');
+Route::post('/login/two-factor', [TwoFactorChallengeController::class, 'store'])
+    ->middleware(['guest', 'throttle:10,1'])
+    ->name('login.two-factor.store');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // Forgot Password
@@ -677,6 +685,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('users.notes.store');
         Route::post('/users/{user}/verify-email', [UserController::class, 'verifyEmail'])
             ->name('users.verify-email');
+        Route::post('/users/{user}/two-factor/clear', [UserController::class, 'clearTwoFactor'])
+            ->name('users.two-factor.clear');
         Route::post('/users/{user}/resend-verification', [UserController::class, 'resendVerification'])
             ->name('users.resend-verification');
         Route::post('/users/{id}/update-company', [UserController::class, 'updateCompany'])
@@ -847,6 +857,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/profile/password', [ProfileController::class, 'password'])
         ->name('profile.password');
+
+    Route::post('/profile/two-factor/start', [StaffTwoFactorController::class, 'start'])
+        ->name('profile.two-factor.start');
+    Route::post('/profile/two-factor/confirm', [StaffTwoFactorController::class, 'confirm'])
+        ->name('profile.two-factor.confirm');
+    Route::post('/profile/two-factor/disable', [StaffTwoFactorController::class, 'disable'])
+        ->name('profile.two-factor.disable');
+    Route::post('/profile/two-factor/recovery', [StaffTwoFactorController::class, 'regenerate'])
+        ->name('profile.two-factor.recovery');
 
     // ✅ ADD THESE TWO
     Route::post('/profile/social', [ProfileController::class, 'social'])
