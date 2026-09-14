@@ -94,14 +94,7 @@
                                 <td class="small">{{ optional($invoice->invoice_date)->format('M j, Y') }}</td>
                                 <td class="fw-semibold">€{{ number_format((float) $invoice->total_amount, 2) }}</td>
                                 <td>
-                                    <span class="badge text-bg-{{ match($invoice->status) {
-                                        'paid' => 'success',
-                                        'failed' => 'danger',
-                                        'pending' => 'warning',
-                                        'refunded' => 'info',
-                                        'cancelled' => 'secondary',
-                                        default => 'primary',
-                                    } }}">{{ ucfirst($invoice->status) }}</span>
+                                    <span class="badge text-bg-{{ $invoice->statusBadgeClass() }}">{{ ucfirst($invoice->displayPaymentStatus()) }}</span>
                                 </td>
                                 <td class="small">{{ $invoice->typeLabel() }}</td>
                                 <td class="text-end">

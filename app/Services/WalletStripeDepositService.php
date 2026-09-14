@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\DepositRequest;
 use App\Models\Wallet;
+use App\Services\Billing\DepositReceiptService;
 use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
@@ -15,7 +16,10 @@ use Illuminate\Support\Facades\Log;
  */
 class WalletStripeDepositService
 {
-    public function __construct(private WalletLedgerService $ledger) {}
+    public function __construct(
+        private WalletLedgerService $ledger,
+        private DepositReceiptService $depositReceipts,
+    ) {}
 
     /**
      * Credit wallet from a succeeded PaymentIntent (saved-card or 3DS return).
@@ -311,6 +315,180 @@ class WalletStripeDepositService
             $referenceCode,
             $completeDepositId
         );
+    }
+
+    /**
+     * Reverse a completed card Add Funds credit after Stripe refunds the charge.
+     * Debits available cash; leftover becomes advertiser wallet debt.
+     */
+    public function reverseFromRefund(string $paymentIntentId, string $refundId = '', float $amount = 0.0, string $sessionId = ''): float
+    {
+        $paymentIntentId = trim($paymentIntentId);
+        $sessionId = trim($sessionId);
+        if ($paymentIntentId === '' && $sessionId === '') {
+            return 0.0;
+        }
+
+        $lockKey = $paymentIntentId !== '' ? $paymentIntentId : $sessionId;
+
+        return $this->withStripeDepositLock(
+            $paymentIntentId !== '' ? $paymentIntentId : '',
+            $sessionId !== '' ? $sessionId : 'rf:'.$lockKey,
+            fn () => $this->reverseFromRefundLocked(
+                $paymentIntentId,
+                trim($refundId),
+                $sessionId,
+                round($amount, 2)
+            )
+        );
+    }
+
+    private function reverseFromRefundLocked(
+        string $paymentIntentId,
+        string $refundId,
+        string $sessionId,
+        float $amount
+    ): float {
+        $debited = 0.0;
+        $notifyDepositId = null;
+
+        DB::transaction(function () use ($paymentIntentId, $refundId, $sessionId, $amount, &$debited, &$notifyDepositId) {
+            $deposit = DepositRequest::query()
+                ->where(function ($query) use ($paymentIntentId, $sessionId) {
+                    if ($paymentIntentId !== '') {
+                        $query->orWhere('stripe_payment_intent_id', $paymentIntentId);
+                    }
+                    if ($sessionId !== '') {
+                        $query->orWhere('stripe_session_id', $sessionId);
+                    }
+                })
+                ->lockForUpdate()
+                ->first();
+            if (! $deposit) {
+                return;
+            }
+
+            if ($deposit->status === 'refunded') {
+                return;
+            }
+
+            if (! in_array($deposit->status, ['completed', 'approved'], true)) {
+                Log::info('Stripe deposit refund ignored for non-credited row', [
+                    'deposit_id' => $deposit->id,
+                    'status' => $deposit->status,
+                ]);
+
+                return;
+            }
+
+            $target = $amount >= 0.01 ? min($amount, round((float) $deposit->amount, 2)) : round((float) $deposit->amount, 2);
+            if ($target < 0.01) {
+                return;
+            }
+
+            $wallet = $this->lockAdvertiserWallet((int) $deposit->user_id);
+            $available = round((float) $wallet->balance, 2);
+            $take = round(min($available, $target), 2);
+            $shortfall = round(max(0, $target - $take), 2);
+
+            if ($take > 0) {
+                $wallet->debit($take);
+                $this->ledger->recordAdjustment(
+                    $wallet,
+                    $take,
+                    'debit',
+                    $deposit,
+                    $deposit->reference_code,
+                    'Card deposit refunded'
+                );
+                $debited = $take;
+            }
+
+            if ($shortfall > 0) {
+                $wallet->increaseDebt($shortfall);
+            }
+
+            $response = is_array($deposit->stripe_response) ? $deposit->stripe_response : [];
+            $response['refund'] = [
+                'id' => $refundId,
+                'amount' => $target,
+                'debited' => $take,
+                'debt_created' => $shortfall,
+                'reversed_at' => now()->toIso8601String(),
+            ];
+
+            $deposit->update(DepositRequest::attributesThatExist([
+                'status' => 'refunded',
+                'stripe_response' => $response,
+                'admin_notes' => trim((string) ($deposit->admin_notes ?? '')) !== ''
+                    ? $deposit->admin_notes
+                    : 'Stripe charge refunded; wallet credit reversed.',
+                'rejected_at' => now(),
+            ]));
+
+            $notifyDepositId = $deposit->id;
+
+            Log::info('Stripe wallet deposit reversed after charge refund', [
+                'deposit_id' => $deposit->id,
+                'stripe_payment_intent_id' => $paymentIntentId !== '' ? $paymentIntentId : $deposit->stripe_payment_intent_id,
+                'stripe_refund_id' => $refundId,
+                'debited' => $take,
+                'debt_created' => $shortfall,
+            ]);
+        });
+
+        $this->markDepositReceiptRefunded($notifyDepositId);
+        $this->notifyDepositRefunded($notifyDepositId);
+
+        return $debited;
+    }
+
+    private function lockAdvertiserWallet(int $userId): Wallet
+    {
+        $advertiserRoleId = Wallet::advertiserRoleId();
+        if (! $advertiserRoleId) {
+            throw new \RuntimeException('Advertiser role not configured');
+        }
+
+        return Wallet::lockOrCreateForRole($userId, $advertiserRoleId);
+    }
+
+    private function markDepositReceiptRefunded(?int $depositId): void
+    {
+        if (! $depositId) {
+            return;
+        }
+
+        $deposit = DepositRequest::query()->find($depositId);
+        if (! $deposit) {
+            return;
+        }
+
+        try {
+            $this->depositReceipts->markRefunded(
+                $deposit,
+                'Stripe charge refunded; wallet credit reversed.'
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Failed to mark deposit receipt refunded after Stripe clawback', [
+                'deposit_id' => $depositId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function notifyDepositRefunded(?int $depositId): void
+    {
+        if (! $depositId) {
+            return;
+        }
+
+        $deposit = DepositRequest::with('user')->find($depositId);
+        if (! $deposit) {
+            return;
+        }
+
+        app(DepositSettlementNotifier::class)->notifyRefunded($deposit);
     }
 
     protected function completeExistingDeposit(

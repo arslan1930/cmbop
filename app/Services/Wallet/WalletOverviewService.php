@@ -377,16 +377,28 @@ class WalletOverviewService
                     ->first();
             }
 
-            if (
-                $invoice
+            $purchaseOrderId = (int) ($invoice?->order_id
+                ?: (
+                    $tx->type === WalletTransaction::TYPE_PURCHASE
+                    && $tx->related_id
+                    && (str_contains((string) $tx->related_type, 'Order') || $tx->related_type === Order::class)
+                        ? $tx->related_id
+                        : 0
+                ));
+            $orderLooksRefunded = $invoice
                 && $invoice->type === Invoice::TYPE_TAX_INVOICE
-                && $invoice->status === Invoice::STATUS_REFUNDED
-                && $invoice->order_id
-            ) {
+                && ($invoice->status === Invoice::STATUS_REFUNDED || $invoice->displayPaymentStatus() === 'refunded');
+            if (! $orderLooksRefunded && $purchaseOrderId > 0) {
+                $orderLooksRefunded = Order::query()
+                    ->whereKey($purchaseOrderId)
+                    ->where('payment_status', 'refunded')
+                    ->exists();
+            }
+            if ($orderLooksRefunded && $purchaseOrderId > 0) {
                 $refundDoc = Invoice::query()
                     ->where('user_id', $userId)
                     ->where('type', Invoice::TYPE_REFUND_RECEIPT)
-                    ->where('order_id', $invoice->order_id)
+                    ->where('order_id', $purchaseOrderId)
                     ->where('status', '!=', Invoice::STATUS_CANCELLED)
                     ->latest('id')
                     ->first();

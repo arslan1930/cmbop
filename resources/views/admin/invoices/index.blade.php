@@ -149,7 +149,7 @@
                             </td>
                             <td>{{ $symbol }}{{ number_format((float) $invoice->total_amount, 2) }}</td>
                             <td>
-                                <span class="badge text-bg-{{ $invoice->statusBadgeClass() }}">{{ ucfirst($invoice->status) }}</span>
+                                <span class="badge text-bg-{{ $invoice->statusBadgeClass() }}">{{ ucfirst($invoice->displayPaymentStatus()) }}</span>
                             </td>
                             <td class="small">{{ $invoice->typeLabel() }}</td>
                             <td class="small">{{ optional($invoice->invoice_date)->format('Y-m-d') }}</td>

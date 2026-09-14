@@ -157,7 +157,7 @@ class Invoice extends Model
 
     public function statusBadgeClass(): string
     {
-        return match ($this->status) {
+        return match ($this->displayPaymentStatus()) {
             self::STATUS_PAID => 'success',
             self::STATUS_FAILED => 'danger',
             self::STATUS_PENDING => 'warning',
@@ -253,11 +253,41 @@ class Invoice extends Model
 
     public function isClosedDocument(): bool
     {
-        return in_array($this->status, [
+        return in_array($this->displayPaymentStatus(), [
             self::STATUS_REFUNDED,
             self::STATUS_FAILED,
             self::STATUS_CANCELLED,
         ], true);
+    }
+
+    /**
+     * Stored PDFs are generated once. After a leftover refund/fail the file
+     * can still say Paid until we regenerate on view/download.
+     */
+    public function storedPdfMayBeStale(): bool
+    {
+        return in_array($this->displayPaymentStatus(), [
+            self::STATUS_REFUNDED,
+            self::STATUS_FAILED,
+            self::STATUS_CANCELLED,
+        ], true);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeWhereDisplayStatus($query, string $status)
+    {
+        return $query->where(function ($inner) use ($status) {
+            $inner->where('status', $status);
+            if ($status === self::STATUS_REFUNDED) {
+                $inner->orWhere('payment_status', 'refunded');
+            }
+            if ($status === self::STATUS_FAILED) {
+                $inner->orWhere('payment_status', 'failed');
+            }
+        });
     }
 
     /**

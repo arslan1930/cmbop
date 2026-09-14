@@ -18,7 +18,7 @@
             <h2 class="mb-1 fw-semibold">{{ $invoice->invoice_number }}</h2>
             <p class="text-muted mb-0">
                 {{ $invoice->typeLabel() }}
-                · <span class="badge text-bg-{{ $invoice->statusBadgeClass() }}">{{ ucfirst($invoice->status) }}</span>
+                · <span class="badge text-bg-{{ $invoice->statusBadgeClass() }}">{{ ucfirst($invoice->displayPaymentStatus()) }}</span>
                 · {{ $invoice->customer_email }}
                 @if(! $invoice->pdfExists())
                     · <span class="badge text-bg-warning">PDF missing</span>

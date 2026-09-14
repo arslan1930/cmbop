@@ -38,7 +38,7 @@ class BillingController extends Controller
             }
 
             if ($request->filled('status')) {
-                $query->where('status', $request->status);
+                $query->whereDisplayStatus((string) $request->status);
             }
 
             if ($request->filled('type')) {
@@ -96,7 +96,7 @@ class BillingController extends Controller
         }
 
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+            if (! $invoice->hasPdf() || ! $invoice->pdfExists() || $invoice->storedPdfMayBeStale()) {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();
             }
@@ -124,7 +124,7 @@ class BillingController extends Controller
         }
 
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+            if (! $invoice->hasPdf() || ! $invoice->pdfExists() || $invoice->storedPdfMayBeStale()) {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();
             }

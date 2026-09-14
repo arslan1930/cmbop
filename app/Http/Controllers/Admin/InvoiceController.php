@@ -57,7 +57,7 @@ class InvoiceController extends Controller
                 ];
                 $status = is_string($request->input('status')) ? $request->input('status') : '';
                 if ($status !== '' && in_array($status, $allowedStatuses, true)) {
-                    $query->where('status', $status);
+                    $query->whereDisplayStatus($status);
                 }
 
                 $allowedTypes = [
@@ -137,7 +137,7 @@ class InvoiceController extends Controller
     public function viewPdf(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
     {
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+            if (! $invoice->hasPdf() || ! $invoice->pdfExists() || $invoice->storedPdfMayBeStale()) {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();
             }
@@ -157,7 +157,7 @@ class InvoiceController extends Controller
     public function download(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
     {
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
+            if (! $invoice->hasPdf() || ! $invoice->pdfExists() || $invoice->storedPdfMayBeStale()) {
                 $pdfs->generateAndStore($invoice);
                 $invoice->refresh();
             }

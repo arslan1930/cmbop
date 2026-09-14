@@ -82,6 +82,44 @@ class BillingLeftoverHonestyTest extends TestCase
         });
     }
 
+    public function test_billing_index_shows_refunded_for_frozen_paid_status(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+
+        $advertiser = $this->advertiser();
+        $invoice = Invoice::create([
+            'user_id' => $advertiser->id,
+            'invoice_number' => 'INV-LEFT-PAID',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'refunded',
+            'invoice_date' => now(),
+            'customer_name' => $advertiser->name,
+            'customer_email' => $advertiser->email,
+            'currency' => 'EUR',
+            'subtotal' => 80,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'order_number' => 'ORD-LEFT-PAID',
+            'line_items' => [['description' => 'Guest post', 'line_total' => 80]],
+            'billing_snapshot' => [],
+        ]);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index'))
+            ->assertOk()
+            ->assertSee('INV-LEFT-PAID', false)
+            ->assertSee('Refunded', false);
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.billing.index', ['status' => 'refunded']))
+            ->assertOk()
+            ->assertSee('INV-LEFT-PAID', false);
+    }
+
     public function test_billing_show_prefers_refunded_over_frozen_paid_payment_status(): void
     {
         Mail::fake();
