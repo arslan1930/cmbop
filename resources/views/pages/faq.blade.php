@@ -5,8 +5,11 @@
 @section('canonical', localized_url('faq'))
 
 @php
+    $welcomeBonusCanGrant = welcome_bonus_can_grant();
+    // FAQ #4 advertises a new-advertiser grant — hide it when grants will not happen.
+    $faqIndexes = $welcomeBonusCanGrant ? range(1, 6) : [1, 2, 3, 5, 6];
     $faqEntities = [];
-    foreach (range(1, 6) as $i) {
+    foreach ($faqIndexes as $i) {
         $faqEntities[] = [
             '@type' => 'Question',
             'name' => __('messages.faq_q_'.$i),
@@ -43,17 +46,17 @@
         ],
     ])
     <div class="accordion" id="faqAccordion">
-        @foreach(range(1, 6) as $i)
+        @foreach($faqIndexes as $loopIndex => $i)
             <div class="accordion-item border-0 mb-3 shadow-sm rounded-3 overflow-hidden">
                 <h2 class="accordion-header" id="faqHeading{{ $i }}">
-                    <button class="accordion-button {{ $i > 1 ? 'collapsed' : '' }}" type="button"
+                    <button class="accordion-button {{ $loopIndex > 0 ? 'collapsed' : '' }}" type="button"
                             data-bs-toggle="collapse" data-bs-target="#faqCollapse{{ $i }}"
-                            aria-expanded="{{ $i === 1 ? 'true' : 'false' }}"
+                            aria-expanded="{{ $loopIndex === 0 ? 'true' : 'false' }}"
                             aria-controls="faqCollapse{{ $i }}">
                         {{ __('messages.faq_q_'.$i) }}
                     </button>
                 </h2>
-                <div id="faqCollapse{{ $i }}" class="accordion-collapse collapse {{ $i === 1 ? 'show' : '' }}"
+                <div id="faqCollapse{{ $i }}" class="accordion-collapse collapse {{ $loopIndex === 0 ? 'show' : '' }}"
                      aria-labelledby="faqHeading{{ $i }}" data-bs-parent="#faqAccordion">
                     <div class="accordion-body text-muted">
                         {{ __('messages.faq_a_'.$i) }}

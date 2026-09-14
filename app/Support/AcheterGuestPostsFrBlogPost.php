@@ -67,7 +67,7 @@ class AcheterGuestPostsFrBlogPost
             ],
             [
                 'question' => 'Comment fonctionne le portefeuille en euros ?',
-                'answer' => 'Vous créditez un solde dépensable (carte, virement ou autre méthode proposée). Les nouveaux annonceurs reçoivent aussi un crédit de bienvenue utilisable sous les règles de la plateforme. Au paiement, le total de la commande est prélevé sur ce portefeuille.',
+                'answer' => 'Vous créditez un solde dépensable (carte, virement ou autre méthode proposée). Lorsqu’une offre de bienvenue est active, un crédit dépensable uniquement peut s’appliquer sous les règles de la plateforme. Au paiement, le total de la commande est prélevé sur ce portefeuille.',
             ],
             [
                 'question' => 'Que faire si l’URL live ne correspond pas au brief ?',
@@ -97,7 +97,7 @@ class AcheterGuestPostsFrBlogPost
 
 <h2>1. Créer un compte annonceur et vérifier l’e-mail</h2>
 <p>Inscrivez-vous sur <a href="{$register}">/register</a> en choisissant le rôle annonceur. Confirmez l’e-mail avant d’attendre un accès complet : sans vérification, la session normale ne s’ouvre pas.</p>
-<p>Après validation, vous arrivez dans l’espace annonceur. Les nouveaux comptes reçoivent un crédit de bienvenue selon les règles en vigueur. Ce n’est pas un retrait cash : c’est du pouvoir d’achat pour des placements.</p>
+<p>Après validation, vous arrivez dans l’espace annonceur. Lorsqu’une offre de bienvenue est active, tout crédit accordé reste du pouvoir d’achat pour des placements — pas un retrait cash.</p>
 <p>La navigation reste stable : Catalogue, Bibliothèque de contenus, Commandes, Ajouter des fonds, Facturation. Gardez ce schéma en tête — presque tout le reste s’y rattache.</p>
 
 <h2>2. Créditer le portefeuille EUR</h2>
@@ -161,7 +161,7 @@ class AcheterGuestPostsFrBlogPost
 <h3>Faut-il uploader le contenu avant d’acheter une place ?</h3>
 <p>Vous pouvez parcourir le catalogue et remplir le panier sans article. Au checkout, chaque site attend un article approuvé. Mieux vaut uploader tôt dans la bibliothèque de contenus pour ne pas bloquer le paiement.</p>
 <h3>Comment fonctionne le portefeuille en euros ?</h3>
-<p>Vous créditez un solde dépensable (carte, virement ou autre méthode proposée). Les nouveaux annonceurs reçoivent aussi un crédit de bienvenue utilisable sous les règles de la plateforme. Au paiement, le total de la commande est prélevé sur ce portefeuille.</p>
+<p>Vous créditez un solde dépensable (carte, virement ou autre méthode proposée). Lorsqu’une offre de bienvenue est active, un crédit dépensable uniquement peut s’appliquer sous les règles de la plateforme. Au paiement, le total de la commande est prélevé sur ce portefeuille.</p>
 <h3>Que faire si l’URL live ne correspond pas au brief ?</h3>
 <p>Ouvrez le fil de la commande, notez l’URL et les écarts (ancre, attributs, page). Demandez la correction à l’éditeur. Gardez une courte trace : elle sert si vous devez escalader ou demander un remboursement selon les règles d’escrow.</p>
 <h3>Puis-je cibler uniquement la France et la Belgique ?</h3>

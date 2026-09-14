@@ -72,6 +72,31 @@ class WelcomeBonusCopy
     }
 
     /**
+     * Strip leftover “new advertisers receive welcome credit” promises from
+     * curated blog HTML still sitting in the DB after Disable.
+     */
+    public static function scrubGrantAdvertisingHtml(string $html): string
+    {
+        if ($html === '' || self::canGrant()) {
+            return $html;
+        }
+
+        $replacements = [
+            'New advertisers receive a welcome credit that can be used toward placements under the platform rules.' => 'When a welcome promotion is active, new advertisers may receive spend-only credit toward placements under the platform rules.',
+            'New advertisers receive a welcome wallet credit under the current signup rules; treat it as purchasing power for placements, not a cash withdrawal.' => 'When a welcome promotion is active, treat any credited amount as purchasing power for placements, not a cash withdrawal.',
+            'New advertisers often see a welcome credit. Treat it as purchasing power for placements under the current rules. It is not a cash gift you can withdraw.' => 'When a welcome promotion is active, treat any credited amount as purchasing power for placements under the current rules. It is not a cash gift you can withdraw.',
+            'Neue Advertiser erhalten ein Willkommensguthaben, das unter den Plattformregeln für Platzierungen nutzbar ist.' => 'Wenn eine Willkommensaktion aktiv ist, können neue Advertiser ein nur ausgebbares Guthaben für Platzierungen unter den Plattformregeln erhalten.',
+            'Neue Advertiser erhalten ein Willkommensguthaben nach den aktuellen Signup-Regeln; behandeln Sie es als Kaufkraft für Platzierungen, nicht als auszahlbares Bargeld.' => 'Wenn eine Willkommensaktion aktiv ist, behandeln Sie gutgeschriebenes Guthaben als Kaufkraft für Platzierungen, nicht als auszahlbares Bargeld.',
+            'Les nouveaux annonceurs reçoivent aussi un crédit de bienvenue utilisable sous les règles de la plateforme.' => 'Lorsqu’une offre de bienvenue est active, un crédit dépensable uniquement peut s’appliquer sous les règles de la plateforme.',
+            'Les nouveaux comptes reçoivent un crédit de bienvenue selon les règles en vigueur. Ce n’est pas un retrait cash : c’est du pouvoir d’achat pour des placements.' => 'Lorsqu’une offre de bienvenue est active, tout crédit accordé reste du pouvoir d’achat pour des placements — pas un retrait cash.',
+            'Nieuwe adverteerders krijgen ook welkomstkrediet onder de platformregels.' => 'Als een welkomstactie actief is, kan besteedbaar welkomstkrediet gelden onder de platformregels.',
+            'Nieuwe adverteerders krijgen welkomstkrediet volgens de actuele signup-regels. Dat is koopkracht voor plaatsingen, geen cash-opname.' => 'Als een welkomstactie actief is, is eventueel welkomstkrediet koopkracht voor plaatsingen, geen cash-opname.',
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $html);
+    }
+
+    /**
      * Rewrite the grant line in the llms.txt template so crawlers
      * do not see €20 after Disable or an amount change.
      */

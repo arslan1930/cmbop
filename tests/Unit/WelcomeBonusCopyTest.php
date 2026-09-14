@@ -54,4 +54,16 @@ class WelcomeBonusCopyTest extends TestCase
             WelcomeBonusCopy::applyToLlmsTxt($snapshot)
         );
     }
+
+    public function test_scrub_removes_grant_promises_when_disabled(): void
+    {
+        $html = '<p>New advertisers receive a welcome wallet credit under the current signup rules; treat it as purchasing power for placements, not a cash withdrawal.</p>';
+
+        $this->assertStringContainsString('New advertisers receive a welcome wallet credit', WelcomeBonusCopy::scrubGrantAdvertisingHtml($html));
+
+        app(WelcomeBonusService::class)->setEnabled(false);
+        $scrubbed = WelcomeBonusCopy::scrubGrantAdvertisingHtml($html);
+        $this->assertStringNotContainsString('New advertisers receive a welcome wallet credit', $scrubbed);
+        $this->assertStringContainsString('When a welcome promotion is active', $scrubbed);
+    }
 }

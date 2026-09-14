@@ -72,7 +72,7 @@ class AdvertiserGuideDeBlogPost
             ],
             [
                 'question' => 'Was ist der Unterschied zwischen ausgabefähigem Guthaben und dem Willkommensbonus?',
-                'answer' => 'Neue Advertiser erhalten ein Willkommensguthaben, das unter den Plattformregeln für Platzierungen nutzbar ist. Ausgabefähiges Guthaben ist eingezahltes Geld (Karte, Bank oder andere angebotene Methoden). Beim Checkout deckt das Wallet den Bestellbetrag gemäß diesen Regeln.',
+                'answer' => 'Wenn eine Willkommensaktion aktiv ist, können neue Advertiser ein nur ausgebbares Guthaben für Platzierungen unter den Plattformregeln erhalten. Ausgabefähiges Guthaben ist eingezahltes Geld (Karte, Bank oder andere angebotene Methoden). Beim Checkout deckt das Wallet den Bestellbetrag gemäß diesen Regeln.',
             ],
             [
                 'question' => 'Kann ich mit demselben Login zum Publisher-Konto wechseln?',
@@ -105,7 +105,7 @@ class AdvertiserGuideDeBlogPost
 
 <h2>1. Advertiser-Konto anlegen und E-Mail verifizieren</h2>
 <p>Registrieren Sie sich unter <a href="{$register}">/register</a> und wählen Sie die Advertiser-Rolle. Bestätigen Sie die Verifizierungsmail, bevor Sie vollen Zugang erwarten — unverifizierte Konten kommen durch den normalen Login nicht durch.</p>
-<p>Nach der Verifizierung landen Sie in der Advertiser-Oberfläche. Neue Advertiser erhalten ein Willkommensguthaben nach den aktuellen Signup-Regeln; behandeln Sie es als Kaufkraft für Platzierungen, nicht als auszahlbares Bargeld.</p>
+<p>Nach der Verifizierung landen Sie in der Advertiser-Oberfläche. Wenn eine Willkommensaktion aktiv ist, behandeln Sie gutgeschriebenes Guthaben als Kaufkraft für Platzierungen, nicht als auszahlbares Bargeld.</p>
 
 <figure>
 <img src="{$imgDash}" alt="Advertiser-Dashboard auf SEOLinkBuildings nach dem Login" loading="lazy" width="1200" height="675">
@@ -168,7 +168,7 @@ class AdvertiserGuideDeBlogPost
 <h3>Muss ich Content hochladen, bevor ich eine Platzierung kaufen kann?</h3>
 <p>Sie können Sites zuerst browsen und in den Warenkorb legen. Beim Checkout braucht jede Site einen freigegebenen Artikel. Laden Sie früh in der Content Library hoch, damit die Freigabe nicht zum Engpass bei der Zahlung wird.</p>
 <h3>Was ist der Unterschied zwischen ausgabefähigem Guthaben und dem Willkommensbonus?</h3>
-<p>Neue Advertiser erhalten ein Willkommensguthaben, das unter den Plattformregeln für Platzierungen nutzbar ist. Ausgabefähiges Guthaben ist eingezahltes Geld (Karte, Bank oder andere angebotene Methoden). Beim Checkout deckt das Wallet den Bestellbetrag gemäß diesen Regeln.</p>
+<p>Wenn eine Willkommensaktion aktiv ist, können neue Advertiser ein nur ausgebbares Guthaben für Platzierungen unter den Plattformregeln erhalten. Ausgabefähiges Guthaben ist eingezahltes Geld (Karte, Bank oder andere angebotene Methoden). Beim Checkout deckt das Wallet den Bestellbetrag gemäß diesen Regeln.</p>
 <h3>Kann ich mit demselben Login zum Publisher-Konto wechseln?</h3>
 <p>Ja. Viele Nutzer haben beide Rollen. Nutzen Sie „Switch to Publisher“ in der oberen Leiste, wenn Sie eigene Sites oder Tasks verwalten, und wechseln Sie zurück zu Advertiser zum Einkaufen.</p>
 <h3>Wohin, wenn die Live-URL falsch aussieht?</h3>

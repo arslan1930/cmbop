@@ -67,7 +67,7 @@ class GastpostsKopenNlBlogPost
             ],
             [
                 'question' => 'Hoe werkt de wallet in euro’s?',
-                'answer' => 'Je stort besteedbaar saldo (kaart, bankoverschrijving of een andere aangeboden methode). Nieuwe adverteerders krijgen ook welkomstkrediet onder de platformregels. Bij betaling dekt de wallet het ordertotaal volgens die regels.',
+                'answer' => 'Je stort besteedbaar saldo (kaart, bankoverschrijving of een andere aangeboden methode). Als een welkomstactie actief is, kan besteedbaar welkomstkrediet gelden onder de platformregels. Bij betaling dekt de wallet het ordertotaal volgens die regels.',
             ],
             [
                 'question' => 'Wat als de live URL niet klopt?',
@@ -96,7 +96,7 @@ class GastpostsKopenNlBlogPost
 
 <h2>1. Adverteerdersaccount aanmaken en e-mail verifiëren</h2>
 <p>Registreer op <a href="{$register}">/register</a> en kies de adverteerdersrol. Bevestig de verificatiemail voordat je volledige toegang verwacht — zonder verificatie komt er geen normale login-sessie.</p>
-<p>Na verificatie land je in de adverteerdersshell. Nieuwe adverteerders krijgen welkomstkrediet volgens de actuele signup-regels. Dat is koopkracht voor plaatsingen, geen cash-opname.</p>
+<p>Na verificatie land je in de adverteerdersshell. Als een welkomstactie actief is, is eventueel welkomstkrediet koopkracht voor plaatsingen, geen cash-opname.</p>
 <p>De navigatie blijft consistent: Catalogus, Contentbibliotheek, Orders, Saldo toevoegen, Facturatie. Onthoud dat schema — bijna alles hangt eraan.</p>
 
 <h2>2. Wallet in EUR aanvullen</h2>
@@ -160,7 +160,7 @@ class GastpostsKopenNlBlogPost
 <h3>Moet ik content uploaden voordat ik een plaatsing koop?</h3>
 <p>Je mag eerst browsen en sites in de winkelwagen zetten. Bij checkout verwacht elk site een goedgekeurd artikel. Upload vroeg in de contentbibliotheek, zodat goedkeuring niet de bottleneck wordt bij betalen.</p>
 <h3>Hoe werkt de wallet in euro’s?</h3>
-<p>Je stort besteedbaar saldo (kaart, bankoverschrijving of een andere aangeboden methode). Nieuwe adverteerders krijgen ook welkomstkrediet onder de platformregels. Bij betaling dekt de wallet het ordertotaal volgens die regels.</p>
+<p>Je stort besteedbaar saldo (kaart, bankoverschrijving of een andere aangeboden methode). Als een welkomstactie actief is, kan besteedbaar welkomstkrediet gelden onder de platformregels. Bij betaling dekt de wallet het ordertotaal volgens die regels.</p>
 <h3>Wat als de live URL niet klopt?</h3>
 <p>Open de orderchat, noteer de URL en wat er mis is (anker, attributen, pagina). Vraag de uitgever om correctie. Bewaar een korte log — die telt mee bij escalatie of escrow-regels.</p>
 <h3>Kan ik alleen op NL en BE filteren?</h3>

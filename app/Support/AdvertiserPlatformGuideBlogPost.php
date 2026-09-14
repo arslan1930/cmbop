@@ -72,7 +72,7 @@ class AdvertiserPlatformGuideBlogPost
             ],
             [
                 'question' => 'What is the difference between spendable balance and the welcome bonus?',
-                'answer' => 'New advertisers receive a welcome credit that can be used toward placements under the platform rules. Spendable balance is funded money you add (card, bank, or other offered methods). At checkout, the wallet covers the order total according to those rules.',
+                'answer' => 'When a welcome promotion is active, new advertisers may receive spend-only credit toward placements under the platform rules. Spendable balance is funded money you add (card, bank, or other offered methods). At checkout, the wallet covers the order total according to those rules.',
             ],
             [
                 'question' => 'Can I switch to a publisher account from the same login?',
@@ -106,7 +106,7 @@ class AdvertiserPlatformGuideBlogPost
 
 <h2>1. Create an advertiser account and verify your email</h2>
 <p>Register at <a href="{$register}">/register</a> and choose the advertiser role. Confirm the verification email before you expect full access — unverified accounts cannot complete a normal login session.</p>
-<p>After verification you land in the advertiser shell. New advertisers receive a welcome wallet credit under the current signup rules; treat it as purchasing power for placements, not a cash withdrawal.</p>
+<p>After verification you land in the advertiser shell. When a welcome promotion is active, treat any credited amount as purchasing power for placements, not a cash withdrawal.</p>
 
 <figure>
 <img src="{$imgDash}" alt="Advertiser dashboard on SEOLinkBuildings after login" loading="lazy" width="1200" height="675">
@@ -170,7 +170,7 @@ class AdvertiserPlatformGuideBlogPost
 <h3>Do I need to upload content before I can buy a placement?</h3>
 <p>You can browse and add sites to the cart first, but checkout expects an approved article for each site. Upload early in Content Library so approval is not the bottleneck at payment.</p>
 <h3>What is the difference between spendable balance and the welcome bonus?</h3>
-<p>New advertisers receive a welcome credit that can be used toward placements under the platform rules. Spendable balance is funded money you add (card, bank, or other offered methods). At checkout, the wallet covers the order total according to those rules.</p>
+<p>When a welcome promotion is active, new advertisers may receive spend-only credit toward placements under the platform rules. Spendable balance is funded money you add (card, bank, or other offered methods). At checkout, the wallet covers the order total according to those rules.</p>
 <h3>Can I switch to a publisher account from the same login?</h3>
 <p>Yes. Many users hold both roles. Use Switch to Publisher in the top bar when you need to manage your own sites or tasks, then switch back to Advertiser for buying.</p>
 <h3>Where do I go if a live URL looks wrong?</h3>

@@ -5,8 +5,10 @@
     $resolvedTitle = $activeTranslation?->title ?: $blog->title;
     $resolvedSlug = $activeTranslation?->slug ?: $blog->slug;
     $resolvedExcerpt = $activeTranslation?->excerpt ?: $blog->excerpt;
-    $resolvedContent = \App\Support\CuratedBlogCatalog::rewriteCatalogLinks(
-        $activeTranslation?->content ?: $blog->content
+    $resolvedContent = \App\Support\WelcomeBonusCopy::scrubGrantAdvertisingHtml(
+        \App\Support\CuratedBlogCatalog::rewriteCatalogLinks(
+            $activeTranslation?->content ?: $blog->content
+        )
     );
     $blogCanonical = $canonicalUrl ?? $blog->canonicalUrl($activeTranslation?->locale ?: app()->getLocale(), 'en');
     $blogDescription = $activeTranslation?->meta_description ?: ($resolvedExcerpt ?: \Illuminate\Support\Str::limit(strip_tags($resolvedContent ?? ''), 160));

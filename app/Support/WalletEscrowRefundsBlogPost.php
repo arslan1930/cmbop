@@ -101,7 +101,7 @@ class WalletEscrowRefundsBlogPost
 <li><strong>Card via Stripe</strong> — fast when available for your account</li>
 <li><strong>Bank transfer</strong> — credited after we confirm receipt</li>
 </ul>
-<p>New advertisers often see a welcome credit. Treat it as purchasing power for placements under the current rules. It is not a cash gift you can withdraw.</p>
+<p>When a welcome promotion is active, treat any credited amount as purchasing power for placements under the current rules. It is not a cash gift you can withdraw.</p>
 
 <figure>
 <img src="{$imgFunds}" alt="Add Funds page for topping up the SEOLinkBuildings wallet" loading="lazy" width="1200" height="675">

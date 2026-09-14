@@ -83,8 +83,24 @@ class CuratedBlogCatalog
                 }
 
                 $items = $class::faqItems();
+                if (! is_array($items)) {
+                    return [];
+                }
 
-                return is_array($items) ? $items : [];
+                // Live FAQ schema still comes from PHP; scrub grant promises when Disable is on.
+                return array_map(static function ($item) {
+                    if (! is_array($item)) {
+                        return $item;
+                    }
+                    if (isset($item['answer']) && is_string($item['answer'])) {
+                        $item['answer'] = WelcomeBonusCopy::scrubGrantAdvertisingHtml($item['answer']);
+                    }
+                    if (isset($item['text']) && is_string($item['text'])) {
+                        $item['text'] = WelcomeBonusCopy::scrubGrantAdvertisingHtml($item['text']);
+                    }
+
+                    return $item;
+                }, $items);
             } catch (\Throwable) {
                 continue;
             }

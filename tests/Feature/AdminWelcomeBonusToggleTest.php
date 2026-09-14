@@ -366,6 +366,11 @@ class AdminWelcomeBonusToggleTest extends TestCase
             ->assertDontSee('What happens to the €20 welcome bonus if an order is refunded?', false)
             ->assertSee('Promotional welcome credit is spend-only', false)
             ->assertSee('What happens to welcome credit if an order is refunded?', false);
+
+        $this->get('/faq')
+            ->assertOk()
+            ->assertDontSee('Do new advertisers get bonus credit?', false)
+            ->assertDontSee('New advertisers receive promotional bonus credit for first orders', false);
     }
 
     public function test_marketing_pages_use_live_grant_amount(): void
