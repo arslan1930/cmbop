@@ -648,27 +648,24 @@ class WalletOverviewService
                 $payment = (string) $o->payment_status;
                 $status = (string) $o->status;
                 // No ledger row means the wallet never moved. Do not invent a
-                // purchase for a failed charge or a leftover (non-completed) refund.
-                if ($payment === 'failed') {
+                // purchase or a +refund for a failed charge, leftover refund,
+                // completed clawback, or cancelled/rejected leftover.
+                if (in_array($payment, ['failed', 'refunded'], true)
+                    || in_array($status, ['cancelled', 'rejected', 'refunded'], true)) {
                     return;
                 }
-                if ($payment === 'refunded' && $status !== 'completed') {
-                    return;
-                }
-                $isRefundish = in_array($status, ['cancelled', 'rejected', 'refunded'], true)
-                    || $payment === 'refunded';
                 $rows->push([
                     'id' => $o->id,
                     'source' => 'order',
                     'date' => $o->created_at?->toIso8601String(),
                     'timestamp' => $o->created_at?->timestamp ?? 0,
-                    'type' => $isRefundish ? WalletTransaction::TYPE_REFUND : WalletTransaction::TYPE_PURCHASE,
-                    'type_label' => $isRefundish ? 'Refund' : 'Purchase',
-                    'description' => $isRefundish ? 'Order cancelled / refunded' : 'Marketplace order purchase',
+                    'type' => WalletTransaction::TYPE_PURCHASE,
+                    'type_label' => 'Purchase',
+                    'description' => 'Marketplace order purchase',
                     'reference' => $ref,
                     'amount' => (float) $o->total_amount,
-                    'direction' => $isRefundish ? 'credit' : 'debit',
-                    'signed_amount' => $isRefundish ? (float) $o->total_amount : -(float) $o->total_amount,
+                    'direction' => 'debit',
+                    'signed_amount' => -(float) $o->total_amount,
                     'status' => $o->payment_status ?: $o->status,
                     'balance_after' => null,
                     'bonus_amount' => 0,
@@ -676,7 +673,7 @@ class WalletOverviewService
                     'invoice_id' => null,
                     'invoice_number' => null,
                     'order_reference' => $ref,
-                    'icon' => $this->iconForType($isRefundish ? WalletTransaction::TYPE_REFUND : WalletTransaction::TYPE_PURCHASE),
+                    'icon' => $this->iconForType(WalletTransaction::TYPE_PURCHASE),
                 ]);
             });
 

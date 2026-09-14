@@ -423,6 +423,30 @@ class WalletBalancePageTest extends TestCase
         ]);
         Order::create([
             'user_id' => $this->user->id,
+            'order_number' => 'ORD-CLAWBACK-NO-LEDGER',
+            'reference_code' => 'REF-CLAWBACK-NO-LEDGER',
+            'subtotal' => 55,
+            'tax' => 0,
+            'total_amount' => 55,
+            'payment_method' => 'wallet',
+            'payment_status' => 'refunded',
+            'status' => 'completed',
+            'paid_at' => now(),
+        ]);
+        Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-CANCEL-NO-LEDGER',
+            'reference_code' => 'REF-CANCEL-NO-LEDGER',
+            'subtotal' => 18,
+            'tax' => 0,
+            'total_amount' => 18,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'cancelled',
+            'paid_at' => now(),
+        ]);
+        Order::create([
+            'user_id' => $this->user->id,
             'order_number' => 'ORD-PAID-WALLET',
             'reference_code' => 'REF-PAID-WALLET',
             'subtotal' => 30,
@@ -442,6 +466,8 @@ class WalletBalancePageTest extends TestCase
 
         $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-FAIL-WALLET'));
         $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-LEFTOVER-REFUND'));
+        $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-CLAWBACK-NO-LEDGER'));
+        $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-CANCEL-NO-LEDGER'));
         $paid = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'REF-PAID-WALLET');
         $this->assertNotEmpty($paid);
         $this->assertSame('Purchase', $paid['type_label']);
