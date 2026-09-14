@@ -7,6 +7,7 @@ use App\Models\OrderItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Services\Advertiser\AdvertiserDashboardService;
 use App\Support\AdvertiserOrderStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -260,5 +261,60 @@ class AdvertiserDashboardPr1Test extends TestCase
             ->get(route('advertiser.dashboard'))
             ->assertOk()
             ->assertSee('Welcome back', false);
+    }
+
+    private function advertiserWallet(User $user, float $balance, float $bonus = 0): Wallet
+    {
+        $role = Role::firstOrCreate(['name' => 'advertiser']);
+
+        return Wallet::create([
+            'user_id' => $user->id,
+            'role_id' => $role->id,
+            'balance' => $balance,
+            'reserved_balance' => 0,
+            'bonus_balance' => $bonus,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+    }
+
+    public function test_new_advertiser_sees_spendable_welcome_bonus(): void
+    {
+        $user = $this->advertiser();
+        $this->advertiserWallet($user, 20, 20);
+
+        $payload = app(AdvertiserDashboardService::class)->build($user);
+        $this->assertTrue($payload['isNewAdvertiser']);
+        $this->assertEqualsWithDelta(20.0, $payload['wallet']['spendable'], 0.009);
+        $this->assertEqualsWithDelta(20.0, $payload['wallet']['bonus'], 0.009);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.dashboard'))
+            ->assertOk()
+            ->assertSee('Get started', false)
+            ->assertSee('Spendable', false)
+            ->assertSee('€20.00', false)
+            ->assertSee('welcome bonus included in Spendable', false)
+            ->assertDontSee('dw-label">Available', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('>Available</span>', $html);
+    }
+
+    public function test_returning_advertiser_bonus_is_explained_on_spendable(): void
+    {
+        $user = $this->advertiser();
+        $this->advertiserWallet($user, 45, 20);
+        $this->makeOrder($user, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('advertiser.dashboard'))
+            ->assertOk()
+            ->assertSee('Spendable', false)
+            ->assertSee('€20.00 welcome bonus included in Spendable', false)
+            ->assertDontSee('dw-label">Available', false);
     }
 }

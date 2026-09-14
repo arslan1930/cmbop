@@ -333,21 +333,7 @@ class AdvertiserDashboardService
      */
     protected function walletStrip(User $user): array
     {
-        $roleId = Wallet::advertiserRoleId();
-        if (! $roleId) {
-            return [
-                'spendable' => 0.0,
-                'available' => 0.0,
-                'bonus' => 0.0,
-                'currency' => 'EUR',
-            ];
-        }
-
-        $wallet = Wallet::query()
-            ->where('user_id', $user->id)
-            ->where('role_id', $roleId)
-            ->first();
-
+        $wallet = Wallet::forAdvertiser((int) $user->id);
         if (! $wallet) {
             return [
                 'spendable' => 0.0,

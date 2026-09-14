@@ -221,6 +221,10 @@
     flex: 1 1 100%; font-size: 12px; color: #92400e; margin: 0;
     padding: 8px 10px; border-radius: 8px; background: #fffbeb; border: 1px solid #fde68a;
 }
+.dash-wallet-strip .dw-bonus-note {
+    flex: 1 1 100%; font-size: 12px; color: #1a585e; margin: 0;
+    padding: 8px 10px; border-radius: 8px; background: #f0fbfb; border: 1px solid #b8e4e4;
+}
 .dash-spend-chart-wrap {
     position: relative;
     width: 100%;
@@ -279,6 +283,7 @@
 </div>
 
 @if($isNewAdvertiser)
+    @include('advertiser.partials.dashboard-wallet-strip')
     <div class="row g-4 dash-page-end">
         <div class="col-lg-7">
             <div class="dash-panel h-100">
@@ -344,40 +349,7 @@
 }
 </style>
 <div class="dash-command-surface mb-4 dash-page-end">
-    <div class="dash-wallet-strip">
-        <div class="dw-item">
-            <span class="dw-label">Spendable</span>
-            <div class="dw-value">€{{ number_format((float) ($wallet['spendable'] ?? 0), 2) }}</div>
-        </div>
-        <div class="dw-item">
-            <span class="dw-label">Available</span>
-            <div class="dw-value">€{{ number_format((float) ($wallet['available'] ?? 0), 2) }}</div>
-        </div>
-        <div class="dw-item">
-            <span class="dw-label">Bonus</span>
-            <div class="dw-value">€{{ number_format((float) ($wallet['bonus'] ?? 0), 2) }}</div>
-        </div>
-        <div class="dw-item d-flex align-items-center">
-            <a href="{{ route('advertiser.add-funds') }}" class="btn btn-sm btn-primary">
-                @if(!empty($budgetStatus['low_balance']))
-                    Top up — low balance
-                @else
-                    Add funds
-                @endif
-            </a>
-        </div>
-        @if(!empty($budgetStatus['low_balance']))
-            <p class="dw-warn">
-                Spendable is below your €{{ number_format((float) ($budgetStatus['low_balance_threshold'] ?? 0), 2) }} alert threshold.
-            </p>
-        @elseif(!empty($budgetStatus['monthly_limit']))
-            <p class="dw-warn" style="background:#f0fbfb;border-color:#b8e4e4;color:#1a585e;">
-                This month committed €{{ number_format((float) ($budgetStatus['committed'] ?? 0), 2) }}
-                / €{{ number_format((float) $budgetStatus['monthly_limit'], 2) }}
-                ({{ number_format((float) ($budgetStatus['percent'] ?? 0), 1) }}%)
-            </p>
-        @endif
-    </div>
+    @include('advertiser.partials.dashboard-wallet-strip')
 
     <!-- KPIs -->
     <div class="row g-3 mb-4 px-1 pt-1">
