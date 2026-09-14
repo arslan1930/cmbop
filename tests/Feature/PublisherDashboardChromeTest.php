@@ -40,6 +40,8 @@ class PublisherDashboardChromeTest extends TestCase
         $this->assertStringContainsString('listed — add another niche or market.', $blade);
         $this->assertStringContainsString('<h2 class="mb-1 fw-semibold">Dashboard</h2>', $blade);
         $this->assertStringContainsString('Welcome back, {{ $publisherName }}', $blade);
+        $this->assertStringContainsString('None need you', $blade);
+        $this->assertStringNotContainsString('{{ $needsYou }} need you', $blade);
         $this->assertStringNotContainsString('sites live', $blade);
         $this->assertStringNotContainsString('Open Rate', $blade);
         $this->assertStringNotContainsString('style="color:#0b6266', $blade);

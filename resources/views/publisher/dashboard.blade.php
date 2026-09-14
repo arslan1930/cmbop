@@ -39,6 +39,9 @@
     $dashboardFailed = (bool) ($dashboardFailed ?? false);
     $publisherName = $publisherName ?? (auth()->user()?->name ?: 'there');
     $welcomeSituation = $welcomeSituation ?? 'you are caught up';
+    $needsYouHint = $needsYou === 0
+        ? 'None need you'
+        : ($needsYou === 1 ? '1 needs you' : $needsYou.' need you');
 @endphp
 
 <div class="container-fluid dash-page-end publisher-dashboard">
@@ -120,7 +123,7 @@
                         <span class="secondary-icon"><i class="fa fa-tasks"></i></span>
                         <h6 class="mb-0">Tasks</h6>
                     </div>
-                    <p class="small text-muted mb-3">{{ $needsYou }} need you</p>
+                    <p class="small text-muted mb-3">{{ $needsYouHint }}</p>
                     <a href="{{ route('publisher.tasks') }}" class="btn btn-sm btn-outline-secondary w-100">View tasks</a>
                 </div>
             </div>
@@ -162,7 +165,7 @@
                         <span class="secondary-icon"><i class="fa fa-tasks"></i></span>
                         <h6 class="mb-0">Tasks</h6>
                     </div>
-                    <p class="small text-muted mb-3">{{ $needsYou }} need you</p>
+                    <p class="small text-muted mb-3">{{ $needsYouHint }}</p>
                     <a href="{{ route('publisher.tasks') }}" class="btn btn-sm btn-outline-secondary w-100">View tasks</a>
                 </div>
             </div>

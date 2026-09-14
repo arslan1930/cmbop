@@ -35,6 +35,7 @@ class DashboardController extends Controller
             $payload = $this->emptyDashboardPayload();
             $payload['dashboardFailed'] = true;
             $payload['welcomeSituation'] = 'we could not refresh your numbers';
+            [$payload['availableBalance'], $payload['withdrawableBalance']] = $this->publisherWalletBalances();
 
             return view('publisher.dashboard', $payload);
         }
@@ -55,9 +56,7 @@ class DashboardController extends Controller
         $needsYou = PublisherNeedsAction::needsYouCount((int) $userId);
         $waitingOnAdvertiser = PublisherNeedsAction::waitingOnAdvertiserCount((int) $userId);
 
-        $wallet = Wallet::forPublisher((int) $userId) ?: $user->activeWallet();
-        $availableBalance = $wallet ? (float) $wallet->balance : 0.0;
-        $withdrawableBalance = $wallet ? $wallet->withdrawableBalance() : 0.0;
+        [$availableBalance, $withdrawableBalance] = $this->publisherWalletBalances();
 
         $metrics = $this->buildPerformanceMetrics($stats);
         $hasPaidOrders = (int) ($stats['total_orders'] ?? 0) > 0;
@@ -259,6 +258,30 @@ class DashboardController extends Controller
         }
 
         return 'grow';
+    }
+
+    /**
+     * @return array{0: float, 1: float}
+     */
+    private function publisherWalletBalances(): array
+    {
+        try {
+            $user = auth()->user();
+            if (! $user) {
+                return [0.0, 0.0];
+            }
+
+            $wallet = Wallet::forPublisher((int) $user->id) ?: $user->activeWallet();
+            if (! $wallet) {
+                return [0.0, 0.0];
+            }
+
+            return [(float) $wallet->balance, $wallet->withdrawableBalance()];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [0.0, 0.0];
+        }
     }
 
     private function welcomeSituation(int $needsYou, int $listingWorkCount, int $siteCount): string
