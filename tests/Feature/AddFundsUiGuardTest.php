@@ -115,6 +115,7 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringContainsString('.af-activity-heading', $css);
         $this->assertStringContainsString('.af-activity-doc', $css);
         $this->assertStringContainsString('grid-template-columns: 44px minmax(0, 1fr) minmax(7.5rem, auto)', $css);
+        $this->assertStringContainsString('#walletHistory .card-footer', $css);
         $this->assertStringNotContainsString('font-weight: 650', $css);
         $this->assertStringContainsString('af-activity-heading', $blade);
         $this->assertStringContainsString('af-activity-doc', $blade);
