@@ -381,6 +381,7 @@
                                                     'cancelled' => 'status-cancelled',
                                                     default => 'status-pending',
                                                 };
+                                                $nextAction = $task['next_action'] ?? ($status === 'review' ? 'In review' : ucfirst($status));
                                             @endphp
                                             <tr>
                                                 <td>
@@ -393,10 +394,10 @@
                                                         <div class="small text-muted text-truncate" style="max-width:180px;">{{ $task['site_url'] }}</div>
                                                     @endif
                                                 </td>
-                                                <td><span class="status-badge {{ $badgeClass }}">{{ ucfirst($status === 'review' ? 'In review' : $status) }}</span></td>
+                                                <td><span class="status-badge {{ $badgeClass }}">{{ $nextAction }}</span></td>
                                                 <td class="text-end fw-semibold">€{{ number_format((float) ($task['payout'] ?? 0), 2) }}</td>
                                                 <td class="text-end">
-                                                    <a href="{{ route('publisher.tasks') }}" class="btn btn-sm btn-outline-secondary">Open</a>
+                                                    <a href="{{ route('publisher.tasks', ['focus' => 'order', 'order' => $task['order_id']]) }}" class="btn btn-sm btn-outline-secondary">Open</a>
                                                 </td>
                                             </tr>
                                         @endforeach

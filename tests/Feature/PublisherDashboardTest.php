@@ -543,4 +543,45 @@ class PublisherDashboardTest extends TestCase
 
         $html->assertSee(route('publisher.tasks', ['needs_action' => 1], false), false);
     }
+
+    public function test_recent_tasks_put_needs_you_first_and_deep_link_open(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+
+        $review = $this->createOrderItem($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ]);
+        $review->forceFill(['created_at' => now()])->save();
+
+        $pending = $this->createOrderItem($advertiser, $site, [
+            'status' => 'pending',
+            'payment_status' => 'paid',
+        ]);
+        $pending->forceFill(['created_at' => now()->subMinute()])->save();
+
+        $recent = $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.recent'))
+            ->assertOk()
+            ->json('orders');
+
+        $this->assertSame($pending->order_id, $recent[0]['order_id']);
+        $this->assertTrue($recent[0]['needs_you']);
+        $this->assertSame('Accept', $recent[0]['next_action']);
+        $this->assertSame($review->order_id, $recent[1]['order_id']);
+        $this->assertFalse($recent[1]['needs_you']);
+        $this->assertSame('In review', $recent[1]['next_action']);
+
+        $html = $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk();
+
+        $this->assertStringContainsString(
+            e(route('publisher.tasks', ['focus' => 'order', 'order' => $pending->order_id], false)),
+            $html->getContent()
+        );
+        $html->assertSee('Accept', false);
+    }
 }

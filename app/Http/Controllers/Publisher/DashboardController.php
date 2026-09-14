@@ -366,27 +366,43 @@ class DashboardController extends Controller
             return [];
         }
 
+        $needsYouIds = [];
+        $userId = (int) auth()->id();
+        if ($userId > 0) {
+            $needsYouIds = array_fill_keys(
+                PublisherNeedsAction::needsYouQuery($userId)
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all(),
+                true
+            );
+        }
+
         $items = OrderItem::whereIn('site_id', $siteIds)
             ->whereHas('order', function ($q) {
                 $q->where('payment_status', 'paid');
             })
             ->with(['order', 'site'])
             ->orderByDesc('created_at')
-            ->take(5)
+            ->take(20)
             ->get();
 
-        $orders = [];
+        $rows = [];
         foreach ($items as $item) {
             if (! $item->order) {
                 continue;
             }
 
-            $orders[] = [
+            $needsYou = isset($needsYouIds[(int) $item->id]);
+            $rows[] = [
                 'order_id' => $item->order->id,
+                'order_item_id' => $item->id,
                 'order_number' => $item->order->order_number,
                 'status' => $item->order->isAwaitingScheduledRelease()
                     ? 'scheduled'
                     : $item->order->status,
+                'needs_you' => $needsYou,
+                'next_action' => $this->recentTaskNextAction($item, $needsYou),
                 'payout' => $item->publisherPayoutAmount(),
                 'created_at' => optional($item->created_at)?->toIso8601String(),
                 'created_at_human' => optional($item->created_at)?->diffForHumans(),
@@ -395,7 +411,44 @@ class DashboardController extends Controller
             ];
         }
 
-        return $orders;
+        usort($rows, function (array $a, array $b): int {
+            if ($a['needs_you'] !== $b['needs_you']) {
+                return $a['needs_you'] ? -1 : 1;
+            }
+
+            return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+        });
+
+        return array_values(array_slice($rows, 0, 5));
+    }
+
+    private function recentTaskNextAction(OrderItem $item, bool $needsYou): string
+    {
+        $order = $item->order;
+        if ($order && $order->isAwaitingScheduledRelease()) {
+            return 'Scheduled';
+        }
+        if ($needsYou) {
+            if (($item->modification_requested ?? '') === 'yes') {
+                return 'Modification requested';
+            }
+            if ($order && $order->status === 'pending') {
+                return 'Accept';
+            }
+            if ($order && $order->status === 'processing' && ! filled($item->live_url)) {
+                return 'Publish live URL';
+            }
+
+            return 'Needs you';
+        }
+
+        return match ($order?->status) {
+            'review' => 'In review',
+            'processing' => 'In progress',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+            default => ucfirst((string) ($order?->status ?: 'pending')),
+        };
     }
 
     /**
