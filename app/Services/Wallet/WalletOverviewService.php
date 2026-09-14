@@ -424,7 +424,8 @@ class WalletOverviewService
                 'amount' => (float) $tx->amount,
                 'direction' => $tx->direction,
                 'signed_amount' => $tx->direction === 'credit' ? (float) $tx->amount : -(float) $tx->amount,
-                'status' => $depositOverlay['status'] ?? $tx->status,
+                'status' => $depositOverlay['status']
+                    ?? ($orderLooksRefunded ? 'refunded' : $tx->status),
                 'balance_after' => $tx->balance_after !== null ? (float) $tx->balance_after : null,
                 'bonus_amount' => (float) $tx->bonus_amount,
                 'payment_method' => $tx->payment_method,

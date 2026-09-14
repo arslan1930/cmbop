@@ -105,7 +105,7 @@ class InvoiceController extends Controller
     {
         $with = [
             'user:id,name,email',
-            'order:id,order_number',
+            'order:id,order_number,payment_status',
             'parentInvoice',
             'childInvoices',
             'cancelledBy:id,name,email',

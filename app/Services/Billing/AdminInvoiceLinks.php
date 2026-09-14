@@ -24,7 +24,7 @@ class AdminInvoiceLinks
             'invoice_number' => (string) $invoice->invoice_number,
             'type' => (string) $invoice->type,
             'type_label' => $invoice->typeLabel(),
-            'status' => (string) $invoice->status,
+            'status' => $invoice->displayPaymentStatus(),
             'url' => route('admin.invoices.show', $invoice),
         ];
     }

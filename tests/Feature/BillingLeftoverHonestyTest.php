@@ -9,6 +9,7 @@ use App\Models\OrderItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Billing\BillingDocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -504,6 +505,42 @@ class BillingLeftoverHonestyTest extends TestCase
             ->get(route('advertiser.billing.show', $invoice))
             ->assertOk()
             ->assertSee('This payment attempt failed', false);
+    }
+
+    public function test_admin_invoice_links_use_display_status_for_leftover_docs(): void
+    {
+        $advertiser = $this->advertiser();
+        $deposit = DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-ADMIN-JSON',
+            'amount' => 40,
+            'payment_method' => 'card',
+            'status' => 'refunded',
+        ]);
+        $receipt = Invoice::create([
+            'user_id' => $advertiser->id,
+            'invoice_number' => 'RCT-ADMIN-JSON',
+            'type' => Invoice::TYPE_DEPOSIT_RECEIPT,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'invoice_date' => now(),
+            'customer_name' => $advertiser->name,
+            'customer_email' => $advertiser->email,
+            'currency' => 'EUR',
+            'subtotal' => 40,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'card',
+            'reference_code' => $deposit->reference_code,
+            'line_items' => [['description' => 'Wallet deposit', 'line_total' => 40]],
+            'billing_snapshot' => [],
+            'meta' => ['deposit_request_id' => $deposit->id],
+        ]);
+
+        $summary = app(AdminInvoiceLinks::class)->summarize($receipt);
+        $this->assertSame(Invoice::STATUS_REFUNDED, $summary['status']);
+        $this->assertSame('RCT-ADMIN-JSON', $summary['invoice_number']);
     }
 
     public function test_add_funds_activity_uses_receipt_label_when_refunded(): void

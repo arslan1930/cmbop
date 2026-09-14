@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\DepositRequest;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
@@ -535,6 +536,63 @@ class WalletBalancePageTest extends TestCase
         $this->assertNotEmpty($debit);
         $this->assertSame('debit', $debit['direction']);
         $this->assertSame(-25.0, (float) $debit['signed_amount']);
+    }
+
+    public function test_transactions_endpoint_marks_leftover_refunded_purchase_refunded(): void
+    {
+        $order = Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-LEDGER-LEFT',
+            'reference_code' => 'REF-LEDGER-LEFT',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'refunded',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+        app(WalletLedgerService::class)->recordPurchase(
+            $this->wallet,
+            80,
+            0,
+            $order,
+            $order->reference_code
+        );
+        Invoice::create([
+            'user_id' => $this->user->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-LEDGER-LEFT',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'invoice_date' => now(),
+            'customer_name' => $this->user->name,
+            'customer_email' => $this->user->email,
+            'currency' => 'EUR',
+            'subtotal' => 80,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'order_number' => $order->order_number,
+            'reference_code' => $order->reference_code,
+            'line_items' => [['description' => 'Leftover purchase', 'line_total' => 80]],
+            'billing_snapshot' => [],
+        ]);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $purchase = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'REF-LEDGER-LEFT'
+            && ($row['type'] ?? '') === 'purchase');
+        $this->assertNotEmpty($purchase);
+        $this->assertSame('refunded', $purchase['status']);
+        $this->assertSame('debit', $purchase['direction']);
+        $this->assertSame(-80.0, (float) $purchase['signed_amount']);
     }
 
     public function test_transactions_endpoint_returns_bonus_activity(): void
