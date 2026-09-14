@@ -122,6 +122,8 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringNotContainsString('btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}"', $blade);
         $this->assertStringNotContainsString("debit ? 'is-debit'", $blade);
         $this->assertStringContainsString('function activityIconClass', $blade);
+        $this->assertStringContainsString('function statusLabel', $blade);
+        $this->assertStringContainsString('statusLabel(row.status)', $blade);
         $this->assertStringContainsString("const closed = dead || status === 'refunded'", $blade);
         $this->assertStringContainsString('${closed ? \'is-closed\' : \'\'}', $blade);
         $this->assertStringContainsString('const detailSign = dead ? \'\' : (t.direction === \'debit\' ? \'− \' : (t.direction === \'credit\' ? \'+ \' : \'\'))', $blade);
@@ -129,6 +131,14 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringContainsString('.wallet-type-icon.is-refund', $css);
         $this->assertStringContainsString('.wallet-type-icon.is-closed', $css);
         $this->assertStringContainsString('.af-activity-item.is-closed .af-activity-amount', $css);
+        $this->assertStringContainsString('.wallet-status--paid', $css);
+        $this->assertStringContainsString('.wallet-status--refunded', $css);
+        $this->assertStringContainsString('.wallet-status--failed', $css);
+        $this->assertStringContainsString('pointer-events: none', $css);
+        $this->assertDoesNotMatchRegularExpression(
+            '/\.wallet-status\s*\{[^}]*border-radius:\s*999px/',
+            $css
+        );
         $this->assertStringNotContainsString('.wallet-type-icon.is-debit', $css);
     }
 }

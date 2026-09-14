@@ -868,6 +868,11 @@
         return 'wallet-status wallet-status--' + String(status || 'pending').toLowerCase();
     }
 
+    function statusLabel(status) {
+        const s = String(status || '').replace(/_/g, ' ').toLowerCase();
+        return s ? s.replace(/\b\w/g, function (c) { return c.toUpperCase(); }) : '';
+    }
+
     function activityIconClass(row, status, dead) {
         const type = String(row.type || '');
         if (type === 'bonus_credit') return 'is-bonus';
@@ -1057,7 +1062,7 @@
                 <div class="af-activity-main">
                     <div class="af-activity-heading">
                         <p class="af-activity-title">${escapeHtml(row.type_label || '')}</p>
-                        <span class="${statusClass(row.status)}">${escapeHtml(row.status || '')}</span>
+                        <span class="${statusClass(row.status)}">${escapeHtml(statusLabel(row.status))}</span>
                         ${pending ? '<span class="af-live-badge"><span class="af-live-dot"></span> Live</span>' : ''}
                     </div>
                     <p class="af-activity-desc">${escapeHtml(row.description || '')}</p>
@@ -1365,7 +1370,7 @@
                     <div class="wallet-detail-row"><span>Payment Method</span><strong>${escapeHtml(t.payment_method_label || t.payment_method || '—')}</strong></div>
                     <div class="wallet-detail-row"><span>Order Reference</span><strong>${escapeHtml(t.order_reference || '—')}</strong></div>
                     <div class="wallet-detail-row"><span>Invoice</span><strong>${escapeHtml(t.invoice_number || '—')}</strong></div>
-                    <div class="wallet-detail-row"><span>Status</span><strong><span class="${statusClass(t.status)}">${escapeHtml(t.status || '')}</span></strong></div>
+                    <div class="wallet-detail-row"><span>Status</span><strong><span class="${statusClass(t.status)}">${escapeHtml(statusLabel(t.status))}</span></strong></div>
                     <div class="wallet-detail-row"><span>Balance After</span><strong>${t.balance_after != null ? money(t.balance_after) : '—'}</strong></div>
                     <p class="small text-muted mt-3 mb-0">${escapeHtml(t.description || '')}</p>
                     ${invoiceBtn}
