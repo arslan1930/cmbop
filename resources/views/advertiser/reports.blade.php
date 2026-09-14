@@ -430,6 +430,18 @@ function renderRepOrderRow(order, item) {
     else if (order.payment_status === 'refunded') paymentStatusBadge = '<span class="badge bg-info text-dark">Refunded</span>';
     else paymentStatusBadge = '<span class="badge bg-secondary">' + escapeRepHtml(order.payment_status || '—') + '</span>';
 
+    var baseAmount = Number.isFinite(basePrice) ? ('€' + basePrice.toFixed(2)) : '—';
+    var lineAmount = Number.isFinite(linePrice) ? ('€' + linePrice.toFixed(2)) : ('€' + parseFloat(order.total_amount || 0).toFixed(2));
+    var baseCell = '<td class="text-primary">' + baseAmount + '</td>';
+    var lineCell = '<td class="fw-semibold">' + lineAmount + '</td>';
+    if (order.payment_status === 'refunded') {
+        baseCell = '<td class="fw-semibold text-muted"><s>' + baseAmount + '</s> <span class="small">Refunded</span></td>';
+        lineCell = '<td class="fw-semibold text-muted"><s>' + lineAmount + '</s> <span class="small">Refunded</span></td>';
+    } else if (order.payment_status === 'failed') {
+        baseCell = '<td class="fw-semibold text-muted">' + baseAmount + ' <span class="small">Failed</span></td>';
+        lineCell = '<td class="fw-semibold text-muted">' + lineAmount + ' <span class="small">Failed</span></td>';
+    }
+
     return '<tr class="rep-report-row">' +
         '<td><code class="fw-semibold bg-light px-2 py-1 rounded">#' + escapeRepHtml(order.order_number) + '</code></td>' +
         '<td class="text-muted">' + formatRepDate(order.created_at) + '</td>' +
@@ -437,12 +449,12 @@ function renderRepOrderRow(order, item) {
             '<div class="fw-semibold">' + escapeRepHtml(siteName) + '</div>' +
             (siteUrl ? '<small class="text-muted">' + truncateRep(siteUrl, 30) + '</small>' : '') +
         '</td>' +
-        '<td class="text-primary">' + (Number.isFinite(basePrice) ? ('€' + basePrice.toFixed(2)) : '—') + '</td>' +
+        baseCell +
         '<td>' + (Number.isFinite(additionalPrice) && additionalPrice > 0 ?
             '<span class="rep-sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeRepHtml(sensitiveType || 'Sensitive') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' :
             '<span class="text-muted">—</span>') +
         '</td>' +
-        '<td class="fw-semibold">' + (Number.isFinite(linePrice) ? ('€' + linePrice.toFixed(2)) : ('€' + parseFloat(order.total_amount || 0).toFixed(2))) + '</td>' +
+        lineCell +
         '<td><code class="small bg-light px-2 py-1 rounded">' + escapeRepHtml(order.reference_code) + '</code></td>' +
         '<td><span class="badge bg-secondary">' + escapeRepHtml(paymentMethodLabel(order.payment_method)) + '</span></td>' +
         '<td>' + repOrderStatusBadge(order) + '</td>' +

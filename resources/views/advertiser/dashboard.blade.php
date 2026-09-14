@@ -658,6 +658,11 @@
                                                     <s>€{{ number_format((float) $order->total_amount, 2) }}</s>
                                                     <span class="recent-order-total-note">Refunded</span>
                                                 </td>
+                                            @elseif((string) $order->payment_status === 'failed')
+                                                <td class="text-end py-3 recent-order-total--refunded">
+                                                    €{{ number_format((float) $order->total_amount, 2) }}
+                                                    <span class="recent-order-total-note">Failed</span>
+                                                </td>
                                             @else
                                                 <td class="text-end py-3 fw-semibold" style="color:#1a585e;">
                                                     €{{ number_format((float) $order->total_amount, 2) }}

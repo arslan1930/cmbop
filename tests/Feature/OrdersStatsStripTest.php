@@ -268,6 +268,9 @@ class OrdersStatsStripTest extends TestCase
         $this->assertStringContainsString('order.status_label', $js);
         $this->assertStringContainsString('order.placements_missing', $js);
         $this->assertStringContainsString("payment === 'failed' || (payment === 'refunded' && order.status !== 'completed')", $js);
+        $this->assertStringContainsString("order.payment_status === 'refunded'", $js);
+        $this->assertStringContainsString('<span class="small">Refunded</span>', $js);
+        $this->assertStringContainsString('<span class="small">Failed</span>', $js);
         $this->assertStringNotContainsString("else if (order.status === 'completed') statusBadge = '<span class=\"badge bg-success\">Completed</span>';", $js);
     }
 

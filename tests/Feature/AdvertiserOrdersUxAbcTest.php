@@ -256,9 +256,11 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         preg_match('/function renderOrders\(orders, pagination\) \{(.*?)\n    \}/s', $js, $renderOrdersFn);
         $this->assertNotEmpty($renderOrdersFn[1] ?? null, 'renderOrders function should be present');
         $this->assertStringContainsString('orders-order-number', $renderOrdersFn[1]);
-        $this->assertStringContainsString('orders-total--refunded', $renderOrdersFn[1]);
+        $this->assertStringContainsString('orderTotalDisplayHtml(order, totalLabel, true)', $renderOrdersFn[1]);
         $this->assertStringContainsString('formatEuro(order.total_amount)', $renderOrdersFn[1]);
         $this->assertStringContainsString('renderOrderRowActions(order)', $renderOrdersFn[1]);
+        $this->assertStringContainsString('function orderTotalDisplayHtml', $js);
+        $this->assertStringContainsString('orderPaymentFailed(order)', $js);
         $this->assertStringContainsString('orders-total--refunded', $js);
         $this->assertStringContainsString('formatEuro(order.total_amount)', $js);
         $this->assertStringNotContainsString('reportLinkRemoved', $renderOrdersFn[1]);

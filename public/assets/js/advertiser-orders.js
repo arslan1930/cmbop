@@ -1360,6 +1360,27 @@ function bootAdvertiserOrdersPage() {
         return order?.payment_status === 'refunded';
     }
 
+    function orderPaymentFailed(order) {
+        return order?.payment_status === 'failed';
+    }
+
+    function orderTotalDisplayHtml(order, totalLabel, asCell) {
+        let body = totalLabel;
+        let cls = 'text-primary';
+        if (orderPaymentRefunded(order)) {
+            body = `<s>${totalLabel}</s> <span class="small${asCell ? '' : ' fw-normal'}">Refunded</span>`;
+            cls = 'orders-total--refunded';
+        } else if (orderPaymentFailed(order)) {
+            body = `${totalLabel} <span class="small${asCell ? '' : ' fw-normal'}">Failed</span>`;
+            cls = 'orders-total--refunded';
+        }
+        if (asCell) {
+            return `<td class="fw-semibold ${cls}">${body}</td>`;
+        }
+
+        return `<span class="fw-bold ${cls}">${body}</span>`;
+    }
+
     function firstRevisionItem(order) {
         const items = Array.isArray(order?.items) ? order.items : [];
         return items.find((it) => it && it.content_revision_requested === 'yes') || items[0] || null;
@@ -1519,9 +1540,7 @@ function bootAdvertiserOrdersPage() {
             const disputeHtml = order.dispute_status
                 ? `<div class="mt-1"><span class="badge text-bg-${order.dispute_status === 'upheld' ? 'danger' : (order.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(order.dispute_status)}</span></div>`
                 : '';
-            const totalHtml = orderPaymentRefunded(order)
-                ? `<td class="fw-semibold orders-total--refunded"><s>${totalLabel}</s> <span class="small">Refunded</span></td>`
-                : `<td class="fw-semibold text-primary">${totalLabel}</td>`;
+            const totalHtml = orderTotalDisplayHtml(order, totalLabel, true);
             
             html += `
                 <tr>
@@ -2188,9 +2207,7 @@ function bootAdvertiserOrdersPage() {
                     ${statusMeta.autoHint ? `<p class="small text-muted mb-1"><i class="fa fa-clock-o me-1"></i>${escapeHtml(statusMeta.autoHint)}</p>` : ''}
                     <hr class="my-2">
                     ${pricingRows}
-                    <div class="ov-row"><strong>Total</strong>${orderPaymentRefunded(order)
-                        ? `<span class="fw-bold orders-total--refunded"><s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span></span>`
-                        : `<span class="fw-bold text-primary">${formatEuro(order.total_amount)}</span>`}</div>
+                    <div class="ov-row"><strong>Total</strong>${orderTotalDisplayHtml(order, formatEuro(order.total_amount), false)}</div>
                     ${policyNoteHtml(order)}
                 </div>
 
