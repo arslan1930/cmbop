@@ -14,7 +14,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let invoiceLocked = false;
     let invoiceMarkPaidUrl = null;
     let invoiceViewUrl = null;
+    let invoiceCancelUrl = null;
     const prefillAmount = boot.prefillAmount || null;
+    const checkoutNeeded = Number(boot.checkoutNeeded || 0);
     const prefillMethod = boot.prefillMethod || null;
 
     function isManualMethod(method) {
@@ -86,6 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
         invoiceLocked = false;
         invoiceMarkPaidUrl = null;
         invoiceViewUrl = null;
+        invoiceCancelUrl = null;
         stampServerReference(null);
         hideManualPayDetails();
         const bar = document.getElementById('invoiceReadyBar');
@@ -110,6 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
         invoiceLocked = true;
         invoiceMarkPaidUrl = data.mark_paid_url || null;
         invoiceViewUrl = data.invoice_url || null;
+        invoiceCancelUrl = data.cancel_url || null;
         stampServerReference(code);
         const details = document.getElementById('paymentDetailsSection');
         if (details) {
@@ -133,6 +137,10 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 view.classList.add('d-none');
             }
+        }
+        const cancelReady = document.getElementById('invoiceReadyCancel');
+        if (cancelReady) {
+            cancelReady.classList.toggle('d-none', !invoiceCancelUrl);
         }
         setInvoiceLockUi(true);
         if (proceedBtn) {
@@ -174,6 +182,32 @@ document.addEventListener('DOMContentLoaded', function() {
             opt.click();
         }
     }
+
+    function applyCoverCheckoutAmount(needed) {
+        const amount = Number(needed);
+        if (!(amount >= 10) || invoiceLocked) {
+            return;
+        }
+        setSelectedAmount(amount);
+        const matchBtn = Array.from(document.querySelectorAll('.amount-btn')).find(
+            btn => Number(btn.dataset.amount) === amount
+        );
+        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        if (matchBtn) {
+            matchBtn.classList.add('active');
+            if (customAmountInput) customAmountInput.value = '';
+        } else if (customAmountInput) {
+            customAmountInput.value = String(amount);
+        }
+    }
+
+    const coverCheckoutBtn = document.getElementById('coverCheckoutBtn');
+    if (coverCheckoutBtn) {
+        coverCheckoutBtn.addEventListener('click', function () {
+            applyCoverCheckoutAmount(this.dataset.needed || checkoutNeeded);
+        });
+    }
+
     const selectedAmountDisplay = document.getElementById('selectedAmountDisplay');
     const selectedAmountValue = document.getElementById('selectedAmountValue');
     const paymentOptions = document.querySelectorAll('.payment-option');
@@ -925,6 +959,73 @@ document.addEventListener('DOMContentLoaded', function() {
                 ref: 'REF' + referenceCode,
                 amount: Number(selectedAmount || 0).toFixed(2),
                 reloadOnSuccess: true,
+            });
+        });
+    }
+
+    window.cancelDepositInvoice = function cancelDepositInvoice(url, opts = {}) {
+        const ref = opts.ref || 'this invoice';
+
+        return Swal.fire({
+            icon: 'question',
+            title: 'Cancel this invoice?',
+            html: `This cancels <strong>${ref}</strong>. Your wallet is not changed.`,
+            showCancelButton: true,
+            confirmButtonText: 'Cancel invoice',
+            cancelButtonText: 'Keep invoice',
+            confirmButtonColor: '#dc2626',
+        }).then((result) => {
+            if (!result.isConfirmed || !url) {
+                return null;
+            }
+
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': boot.csrfToken,
+                },
+                body: JSON.stringify({}),
+            })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (!data.success) {
+                        Swal.fire('Error', data.message || 'Could not cancel this invoice.', 'error');
+                        return data;
+                    }
+
+                    return Swal.fire({
+                        icon: 'success',
+                        title: 'Invoice cancelled',
+                        text: data.message,
+                        confirmButtonText: 'OK',
+                    }).then(() => {
+                        window.location.reload();
+                        return data;
+                    });
+                })
+                .catch(() => {
+                    Swal.fire('Error', 'Could not cancel this invoice. Please try again.', 'error');
+                    return null;
+                });
+        });
+    };
+
+    $(document).on('click', '.cancel-deposit-btn', function () {
+        cancelDepositInvoice(this.dataset.cancelUrl, {
+            ref: this.dataset.ref,
+        });
+    });
+
+    const invoiceReadyCancel = document.getElementById('invoiceReadyCancel');
+    if (invoiceReadyCancel) {
+        invoiceReadyCancel.addEventListener('click', function () {
+            if (!invoiceCancelUrl || !referenceCode) {
+                return;
+            }
+            cancelDepositInvoice(invoiceCancelUrl, {
+                ref: 'REF' + referenceCode,
             });
         });
     }

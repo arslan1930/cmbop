@@ -72,5 +72,6 @@ class StripePaymentServiceTest extends TestCase
         $this->assertStringContainsString('ref='.urlencode($ref), $walletSuccess);
 
         $this->assertStringContainsString('/advertiser/add-funds', $walletCancel);
+        $this->assertStringContainsString('cancelled=1', $walletCancel);
     }
 }

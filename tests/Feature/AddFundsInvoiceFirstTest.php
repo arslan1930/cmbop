@@ -48,6 +48,7 @@ class AddFundsInvoiceFirstTest extends TestCase
         $this->assertNotSame('111111', $serverRef);
         $this->assertNotEmpty($response->json('invoice_url'));
         $this->assertNotEmpty($response->json('mark_paid_url'));
+        $this->assertNotEmpty($response->json('cancel_url'));
         $this->assertNotEmpty($response->json('deposit_id'));
 
         $this->assertDatabaseHas('deposit_requests', [

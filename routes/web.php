@@ -1112,6 +1112,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::post('/add-funds/{deposit}/mark-paid', [AddFundsController::class, 'markPaid'])
             ->middleware('throttle:10,1')
             ->name('add-funds.mark-paid');
+        Route::post('/add-funds/{deposit}/cancel', [AddFundsController::class, 'cancel'])
+            ->middleware('throttle:10,1')
+            ->name('add-funds.cancel');
 
         // Saved cards (Stripe Customer + PaymentMethods)
         Route::get('/payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods.index');

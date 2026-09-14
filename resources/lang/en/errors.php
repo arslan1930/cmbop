@@ -74,6 +74,7 @@ return [
         'stripe_verify_failed' => 'Unable to verify payment. Please contact support.',
         'stripe_verify_card_failed' => 'Unable to verify card payment. Please contact support.',
         'stripe_not_completed' => 'Card payment was not completed.',
+        'stripe_cancelled' => 'Card payment was cancelled. Your wallet was not charged.',
         'stripe_session_unpaid' => 'Payment not completed.',
         'verification_failed' => 'Payment verification failed. Please try again.',
         'verification_failed_support' => 'Payment verification failed. Please contact support.',

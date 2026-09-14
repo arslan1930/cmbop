@@ -131,6 +131,13 @@
                             @elseif($deposit->userHasMarkedPaid())
                                 <span class="small text-success align-self-center"><i class="fa fa-check-circle me-1"></i> Payment reported</span>
                             @endif
+                            @if($deposit->canUserCancel())
+                                <button type="button" class="btn btn-sm btn-outline-danger cancel-deposit-btn"
+                                        data-cancel-url="{{ route('advertiser.add-funds.cancel', $deposit) }}"
+                                        data-ref="{{ $pendingRef }}">
+                                    Cancel
+                                </button>
+                            @endif
                         </div>
                     </li>
                 @endforeach
@@ -138,6 +145,26 @@
             @if($pendingInvoiceCount > 3)
                 <p class="small text-muted mt-2 mb-0">+ {{ $pendingInvoiceCount - 3 }} more in recent activity below.</p>
             @endif
+        </div>
+    @endif
+
+    @if(($checkoutNeeded ?? 0) >= 10)
+        <div id="checkoutShortfallBanner" class="alert alert-info border mb-3" role="status">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                <div>
+                    <div class="fw-semibold mb-1">Add at least €{{ number_format($checkoutNeeded, 2) }} to finish checkout</div>
+                    <p class="small mb-0">
+                        After we credit your wallet, return and pay this order from your balance.
+                        <a href="{{ route('advertiser.checkout') }}" class="fw-semibold">Back to checkout</a>
+                    </p>
+                </div>
+                <button type="button"
+                        class="btn btn-sm btn-outline-primary flex-shrink-0"
+                        id="coverCheckoutBtn"
+                        data-needed="{{ number_format($checkoutNeeded, 2, '.', '') }}">
+                    Cover checkout €{{ number_format($checkoutNeeded, 2) }}
+                </button>
+            </div>
         </div>
     @endif
 
@@ -327,6 +354,9 @@
                                 </a>
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="invoiceReadyMarkPaid">
                                     <i class="fa fa-check me-1"></i> I paid
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="invoiceReadyCancel">
+                                    Cancel invoice
                                 </button>
                                 <button type="button" class="btn btn-sm btn-cta-tertiary" id="invoiceChangeBtn">
                                     Change amount or method
@@ -1041,6 +1071,12 @@
             } else if (row.user_marked_paid) {
                 actions += `<span class="small text-success"><i class="fa fa-check-circle me-1"></i> Payment reported</span>`;
             }
+            if (row.can_cancel && row.cancel_url) {
+                actions += `<button type="button" class="btn btn-sm btn-outline-danger cancel-deposit-btn"
+                    data-cancel-url="${escapeHtml(row.cancel_url)}"
+                    data-ref="REF${escapeHtml(row.reference || '')}">
+                    Cancel</button>`;
+            }
 
             html += `<li class="af-activity-item ${pending ? 'is-pending' : ''} wallet-tx-row"
                 data-source="${escapeHtml(row.source)}" data-id="${escapeHtml(row.id)}">
@@ -1568,6 +1604,7 @@ window.AddFundsBoot = {
     cryptoEnabled: @json((bool) ($cryptoEnabled ?? false)),
     wisePayUrl: @json($wisePayUrl ?? config('billing.deposit_payment.wise_pay_url')),
     prefillAmount: @json($prefillAmount ?? null),
+    checkoutNeeded: @json($checkoutNeeded ?? null),
     prefillMethod: @json($prefillMethod ?? null),
     lastUsedMethod: @json($lastUsedMethod ?? null),
     openCardsTab: @json((bool) ($openCardsTab ?? false)),

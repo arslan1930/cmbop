@@ -416,7 +416,7 @@
                                             Get an invoice on Add Funds, transfer with your REF, then we credit your wallet after funds arrive. Come back and pay this order from your wallet.
                                         </p>
                                     </div>
-                                    <a href="{{ route('advertiser.add-funds', ['amount' => max(10, (int) ceil((float) $total))]) }}"
+                                    <a href="{{ route('advertiser.add-funds', \App\Support\AddFundsCheckout::query((float) $total)) }}"
                                        class="btn btn-sm btn-outline-primary flex-shrink-0"
                                        id="fundWalletFromCheckout">
                                         <i class="fa fa-file-invoice me-1"></i> Add funds &amp; get invoice
@@ -496,7 +496,7 @@
                                                 <p style="font-size: 12px; color: #991b1b; margin: 0;" id="walletBalanceLowMsg">
                                                     Insufficient balance. Add funds (invoice) or apply your bonus credit.
                                                 </p>
-                                                <a href="{{ route('advertiser.add-funds', ['amount' => max(10, (int) ceil((float) $total))]) }}"
+                                                <a href="{{ route('advertiser.add-funds', \App\Support\AddFundsCheckout::query((float) $total)) }}"
                                                    class="btn btn-sm btn-outline-danger mt-2">
                                                     <i class="fa fa-file-invoice me-1"></i> Add funds &amp; get invoice
                                                 </a>
@@ -1725,7 +1725,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmButtonText: 'Add funds & get invoice'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    window.location.href = '{{ route("advertiser.add-funds", ["amount" => max(10, (int) ceil((float) $total))]) }}';
+                    window.location.href = '{{ route("advertiser.add-funds", \App\Support\AddFundsCheckout::query((float) $total)) }}';
                 }
             });
             return;

@@ -86,7 +86,11 @@ class ManualWalletFundingFlowTest extends TestCase
             $response->assertStatus(422)
                 ->assertJsonPath('success', false)
                 ->assertJsonPath('code', 'fund_wallet_first');
-            $this->assertStringContainsString('add-funds', (string) $response->json('redirect_url'));
+            $redirect = (string) $response->json('redirect_url');
+            $this->assertStringContainsString('add-funds', $redirect);
+            $this->assertStringContainsString('from=checkout', $redirect);
+            $this->assertStringContainsString('needed=', $redirect);
+            $this->assertStringContainsString('method='.$method, $redirect);
             $this->assertSame(0, Order::where('reference_code', 'FW'.strtoupper(substr($method, 0, 3)))->count());
         }
     }
@@ -126,6 +130,8 @@ class ManualWalletFundingFlowTest extends TestCase
             ->assertOk()
             ->assertSee('Paying by Bank, Wise, or crypto?', false)
             ->assertSee('Add funds &amp; get invoice', false)
+            ->assertSee('from=checkout', false)
+            ->assertSee('needed=', false)
             ->assertSee('data-method="paypal"', false)
             ->assertDontSee('data-method="wise"', false)
             ->assertDontSee('data-method="bank"', false);
@@ -146,15 +152,21 @@ class ManualWalletFundingFlowTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('reference_code', 'DEP123');
-        $this->assertStringContainsString('/advertiser/invoice/DEP123', (string) $response->json('invoice_url'));
+            ->assertJsonMissing(['reference_code' => 'DEP123']);
+        $serverRef = (string) $response->json('reference_code');
+        $this->assertMatchesRegularExpression('/^\d{6}$/', $serverRef);
+        $this->assertStringContainsString('/advertiser/invoice/'.$serverRef, (string) $response->json('invoice_url'));
+        $this->assertNotEmpty($response->json('cancel_url'));
 
         $this->assertDatabaseHas('deposit_requests', [
             'user_id' => $advertiser->id,
-            'reference_code' => 'DEP123',
+            'reference_code' => $serverRef,
             'payment_method' => 'wise',
             'status' => 'pending',
             'amount' => 100,
+        ]);
+        $this->assertDatabaseMissing('deposit_requests', [
+            'reference_code' => 'DEP123',
         ]);
 
         $this->assertDatabaseHas('in_app_notifications', [
@@ -168,9 +180,9 @@ class ManualWalletFundingFlowTest extends TestCase
         ]);
 
         $this->actingAs($advertiser)
-            ->get(route('advertiser.invoice', 'DEP123'))
+            ->get(route('advertiser.invoice', $serverRef))
             ->assertOk()
-            ->assertSee('DEP123', false)
+            ->assertSee($serverRef, false)
             ->assertSee('100', false);
 
         $this->actingAs($advertiser)

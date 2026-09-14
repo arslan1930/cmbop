@@ -51,6 +51,7 @@ use App\Services\PlatformFeeService;
 use App\Services\StripeCustomerService;
 use App\Services\StripePaymentService;
 use App\Services\Wallet\WalletLedgerService;
+use App\Support\AddFundsCheckout;
 use App\Support\AdvertiserOrderStatus;
 use App\Support\CatalogVisitUrl;
 use App\Support\PaypalPaymentError;
@@ -2368,10 +2369,7 @@ class CatalogController extends Controller
                     'success' => false,
                     'code' => 'fund_wallet_first',
                     'message' => 'Bank, Wise, and crypto payments go to your wallet first. Add funds with an invoice, then pay this order from your wallet.',
-                    'redirect_url' => route('advertiser.add-funds', [
-                        'amount' => max(10, (int) ceil($cartTotal)),
-                        'method' => $paymentMethod,
-                    ]),
+                    'redirect_url' => route('advertiser.add-funds', AddFundsCheckout::query($cartTotal, $paymentMethod)),
                     'suggested_amount' => $cartTotal,
                 ], 422);
             }

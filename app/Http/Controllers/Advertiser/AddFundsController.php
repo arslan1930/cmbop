@@ -77,6 +77,10 @@ class AddFundsController extends Controller
             $wallet = null;
         }
 
+        if ($request->query('cancelled') === '1' || $request->query('canceled') === '1') {
+            session()->flash('error', UserMessages::get('payment.stripe_cancelled'));
+        }
+
         $pendingRequests = collect();
         if (DepositRequest::tableAvailable()) {
             try {
@@ -107,6 +111,16 @@ class AddFundsController extends Controller
         }
 
         $prefillAmount = max(0, (float) $request->query('amount', 0));
+        $checkoutNeeded = null;
+        if ($request->query('from') === 'checkout') {
+            $rawNeeded = $request->query('needed');
+            if (is_numeric($rawNeeded)) {
+                $needed = round((float) $rawNeeded, 2);
+                if ($needed >= 10 && $needed <= 100000) {
+                    $checkoutNeeded = $needed;
+                }
+            }
+        }
         $stripeConfigured = app(StripeCustomerService::class)->configured();
         $paypalConfigured = app(PaypalCheckoutService::class)->configured();
         $cryptoEnabled = DepositPaymentConfig::cryptoEnabled();
@@ -177,6 +191,7 @@ class AddFundsController extends Controller
             'payoutLocked' => $user->payoutProfileLocked(),
             'availableMethods' => $availableMethods,
             'prefillAmount' => $prefillAmount >= 10 ? $prefillAmount : null,
+            'checkoutNeeded' => $checkoutNeeded,
             'prefillMethod' => $prefillMethod,
             'lastUsedMethod' => $lastUsedMethod,
             'depositMethodOrder' => $depositMethodOrder,
@@ -296,7 +311,7 @@ class AddFundsController extends Controller
                 ]],
                 'mode' => 'payment',
                 'success_url' => route('advertiser.checkout.success').'?session_id={CHECKOUT_SESSION_ID}&amount='.$amountEuros.'&ref='.$referenceCode,
-                'cancel_url' => route('advertiser.add-funds'),
+                'cancel_url' => StripePaymentService::walletDepositCancelUrl(),
                 'metadata' => [
                     'type' => 'wallet_deposit',
                     'user_id' => (string) $user->id,
@@ -755,6 +770,7 @@ class AddFundsController extends Controller
                 'deposit_id' => $depositRequest->id,
                 'invoice_url' => route('advertiser.invoice', $referenceCode),
                 'mark_paid_url' => route('advertiser.add-funds.mark-paid', $depositRequest),
+                'cancel_url' => route('advertiser.add-funds.cancel', $depositRequest),
             ]);
 
         } catch (ValidationException $e) {
@@ -844,6 +860,59 @@ class AddFundsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'We could not record that payment. Please try again shortly.'),
+            ], $e instanceof QueryException ? 503 : 500);
+        }
+    }
+
+    /**
+     * Advertiser drops an unused Bank/Wise/crypto invoice.
+     * Does not credit or debit the wallet. Mark-paid invoices stay pending.
+     */
+    public function cancel(Request $request, DepositRequest $deposit)
+    {
+        if ((int) $deposit->user_id !== (int) auth()->id()) {
+            abort(403);
+        }
+
+        if (! $deposit->canUserCancel()) {
+            return response()->json([
+                'success' => false,
+                'message' => $deposit->userHasMarkedPaid()
+                    ? 'This invoice was already marked as paid and cannot be cancelled.'
+                    : 'This invoice cannot be cancelled.',
+                'status' => $deposit->status,
+            ], 422);
+        }
+
+        try {
+            if (! DepositRequest::tableAvailable()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Deposits are temporarily unavailable. Please try again shortly.',
+                ], 503);
+            }
+
+            $deposit->update(['status' => 'cancelled']);
+            $deposit->refresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Invoice cancelled. Your wallet was not changed.',
+                'status' => $deposit->status,
+                'deposit' => [
+                    'id' => $deposit->id,
+                    'reference_code' => $deposit->reference_code,
+                    'amount' => (float) $deposit->amount,
+                    'payment_method' => $deposit->payment_method,
+                    'status' => $deposit->status,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'We could not cancel that invoice. Please try again shortly.'),
             ], $e instanceof QueryException ? 503 : 500);
         }
     }
@@ -1052,8 +1121,12 @@ class AddFundsController extends Controller
                     'totalSensitiveAmount' => 0,
                     'deposit' => $deposit,
                     'canMarkPaid' => $deposit->canUserMarkPaid(),
+                    'canCancel' => $deposit->canUserCancel(),
                     'userMarkedPaid' => $deposit->userHasMarkedPaid(),
                     'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit),
+                    'cancelUrl' => $deposit->canUserCancel()
+                        ? route('advertiser.add-funds.cancel', $deposit)
+                        : null,
                 ]);
             }
 
