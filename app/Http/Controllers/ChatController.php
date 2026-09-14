@@ -42,7 +42,9 @@ class ChatController extends Controller
             $latestUnreadOrder = null;
 
             if ($activeRole === 'advertiser') {
-                $orderIds = Order::where('user_id', $user->id)->pluck('id');
+                $orderIds = AdvertiserOrderDetails::constrainChatSendable(
+                    Order::where('user_id', $user->id)
+                )->pluck('id');
                 $unreadQuery = OrderChatMessage::whereIn('order_id', $orderIds)
                     ->where('sender_type', 'publisher')
                     ->where('is_read', false)

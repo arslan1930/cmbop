@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
@@ -390,6 +391,57 @@ class WalletBalancePageTest extends TestCase
         $response->assertJsonPath('code', 'transfers_disabled');
         $this->wallet->refresh();
         $this->assertEquals(70.0, (float) $this->wallet->balance);
+    }
+
+    public function test_transactions_endpoint_does_not_invent_a_purchase_for_failed_wallet_orders(): void
+    {
+        Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-FAIL-WALLET',
+            'reference_code' => 'REF-FAIL-WALLET',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'wallet',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+        ]);
+        Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-LEFTOVER-REFUND',
+            'reference_code' => 'REF-LEFTOVER-REFUND',
+            'subtotal' => 25,
+            'tax' => 0,
+            'total_amount' => 25,
+            'payment_method' => 'wallet',
+            'payment_status' => 'refunded',
+            'status' => 'review',
+        ]);
+        Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-PAID-WALLET',
+            'reference_code' => 'REF-PAID-WALLET',
+            'subtotal' => 30,
+            'tax' => 0,
+            'total_amount' => 30,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'processing',
+            'paid_at' => now(),
+        ]);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-FAIL-WALLET'));
+        $this->assertFalse($rows->contains(fn ($row) => ($row['reference'] ?? '') === 'REF-LEFTOVER-REFUND'));
+        $paid = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'REF-PAID-WALLET');
+        $this->assertNotEmpty($paid);
+        $this->assertSame('Purchase', $paid['type_label']);
+        $this->assertSame('Marketplace order purchase', $paid['description']);
     }
 
     public function test_transactions_endpoint_returns_bonus_activity(): void

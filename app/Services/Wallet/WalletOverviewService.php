@@ -568,7 +568,18 @@ class WalletOverviewService
                 if ($ledger->where('reference', $ref)->isNotEmpty()) {
                     return;
                 }
-                $isRefundish = in_array($o->status, ['cancelled', 'rejected', 'refunded'], true);
+                $payment = (string) $o->payment_status;
+                $status = (string) $o->status;
+                // No ledger row means the wallet never moved. Do not invent a
+                // purchase for a failed charge or a leftover (non-completed) refund.
+                if ($payment === 'failed') {
+                    return;
+                }
+                if ($payment === 'refunded' && $status !== 'completed') {
+                    return;
+                }
+                $isRefundish = in_array($status, ['cancelled', 'rejected', 'refunded'], true)
+                    || $payment === 'refunded';
                 $rows->push([
                     'id' => $o->id,
                     'source' => 'order',

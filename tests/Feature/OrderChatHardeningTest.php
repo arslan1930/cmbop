@@ -261,6 +261,46 @@ class OrderChatHardeningTest extends TestCase
         $this->actingAs($publisher)
             ->getJson(route('notifications.order-timeline', $order->id))
             ->assertForbidden();
+
+        OrderChatMessage::create([
+            'order_id' => $order->id,
+            'user_id' => $publisher->id,
+            'sender_type' => 'publisher',
+            'message' => 'Unread on a leftover refund should not badge',
+            'is_read' => false,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->getJson(route('chat.unread-summary'))
+            ->assertOk()
+            ->assertJsonPath('unread_chat', 0)
+            ->assertJsonPath('needs_action', 0);
+    }
+
+    public function test_failed_payment_unread_chat_does_not_inflate_header_badge(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher);
+        $failed = $this->orderFor($advertiser, $site, 'review');
+        $failed->update(['payment_status' => 'failed']);
+        $failed->items->first()?->update([
+            'live_url' => 'https://publisher.example/failed-review',
+        ]);
+
+        OrderChatMessage::create([
+            'order_id' => $failed->id,
+            'user_id' => $publisher->id,
+            'sender_type' => 'publisher',
+            'message' => 'Unread on a failed charge should not badge',
+            'is_read' => false,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->getJson(route('chat.unread-summary'))
+            ->assertOk()
+            ->assertJsonPath('unread_chat', 0)
+            ->assertJsonPath('needs_action', 0);
     }
 
     public function test_completed_clawback_still_allows_chat(): void
@@ -293,6 +333,19 @@ class OrderChatHardeningTest extends TestCase
             ->getJson(route('notifications.order-timeline', $order->id))
             ->assertOk()
             ->assertJsonPath('success', true);
+
+        OrderChatMessage::create([
+            'order_id' => $order->id,
+            'user_id' => $publisher->id,
+            'sender_type' => 'publisher',
+            'message' => 'Unread on a completed clawback should still badge',
+            'is_read' => false,
+        ]);
+
+        $this->actingAs($advertiser)
+            ->getJson(route('chat.unread-summary'))
+            ->assertOk()
+            ->assertJsonPath('unread_chat', 1);
     }
 
     public function test_publisher_unread_ignores_unpaid_and_cancelled_orders(): void

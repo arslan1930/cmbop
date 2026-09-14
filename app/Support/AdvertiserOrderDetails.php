@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Advertiser Order Details modal: payload flags, honest empty copy, and
@@ -75,6 +76,24 @@ final class AdvertiserOrderDetails
         }
 
         return (string) $order->payment_status === 'paid';
+    }
+
+    /**
+     * Same set as canSendOrderChat(): completed (including clawbacks) or paid
+     * and not cancelled. Leftover refunds and failed charges are excluded.
+     *
+     * @param  Builder<Order>  $query
+     * @return Builder<Order>
+     */
+    public static function constrainChatSendable(Builder $query): Builder
+    {
+        return $query->where(function ($q) {
+            $q->where('status', 'completed')
+                ->orWhere(function ($live) {
+                    $live->where('status', '!=', 'cancelled')
+                        ->where('payment_status', 'paid');
+                });
+        });
     }
 
     public static function orderChatComposerNote(Order $order): ?string
