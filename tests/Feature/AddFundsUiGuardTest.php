@@ -106,4 +106,38 @@ class AddFundsUiGuardTest extends TestCase
             $css
         );
     }
+
+    public function test_recent_activity_rows_keep_title_status_and_amount_apart(): void
+    {
+        $css = $this->addFundsCss();
+        $blade = $this->addFundsView();
+
+        $this->assertStringContainsString('.af-activity-heading', $css);
+        $this->assertStringContainsString('.af-activity-doc', $css);
+        $this->assertStringContainsString('grid-template-columns: 44px minmax(0, 1fr) minmax(7.5rem, auto)', $css);
+        $this->assertStringContainsString('#walletHistory .card-footer', $css);
+        $this->assertStringNotContainsString('font-weight: 650', $css);
+        $this->assertStringContainsString('af-activity-heading', $blade);
+        $this->assertStringContainsString('af-activity-doc', $blade);
+        $this->assertStringNotContainsString('btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}"', $blade);
+        $this->assertStringNotContainsString("debit ? 'is-debit'", $blade);
+        $this->assertStringContainsString('function activityIconClass', $blade);
+        $this->assertStringContainsString('function statusLabel', $blade);
+        $this->assertStringContainsString('statusLabel(row.status)', $blade);
+        $this->assertStringContainsString("const closed = dead || status === 'refunded'", $blade);
+        $this->assertStringContainsString('${closed ? \'is-closed\' : \'\'}', $blade);
+        $this->assertStringContainsString('const detailSign = dead ? \'\' : (t.direction === \'debit\' ? \'− \' : (t.direction === \'credit\' ? \'+ \' : \'\'))', $blade);
+        $this->assertStringContainsString('.wallet-type-icon.is-purchase', $css);
+        $this->assertStringContainsString('.wallet-type-icon.is-refund', $css);
+        $this->assertStringContainsString('.wallet-type-icon.is-closed', $css);
+        $this->assertStringContainsString('.af-activity-item.is-closed .af-activity-amount', $css);
+        $this->assertStringContainsString("paid: 'success'", $blade);
+        $this->assertStringContainsString("refunded: 'info'", $blade);
+        $this->assertStringContainsString("failed: 'danger'", $blade);
+        $this->assertStringContainsString("'badge text-bg-' + tone + ' wallet-status'", $blade);
+        $this->assertStringContainsString('pointer-events: none', $css);
+        $this->assertStringNotContainsString('.wallet-status::before', $css);
+        $this->assertStringNotContainsString('.wallet-status--paid', $css);
+        $this->assertStringNotContainsString('.wallet-type-icon.is-debit', $css);
+    }
 }
