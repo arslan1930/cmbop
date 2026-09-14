@@ -271,6 +271,7 @@ class OrdersStatsStripTest extends TestCase
         $this->assertStringContainsString("order.payment_status === 'refunded'", $js);
         $this->assertStringContainsString('<span class="small">Refunded</span>', $js);
         $this->assertStringContainsString('<span class="small">Failed</span>', $js);
+        $this->assertStringContainsString("invoiceLabel = 'Receipt'", $js);
         $this->assertStringNotContainsString("else if (order.status === 'completed') statusBadge = '<span class=\"badge bg-success\">Completed</span>';", $js);
     }
 
@@ -287,6 +288,10 @@ class OrdersStatsStripTest extends TestCase
         $this->assertStringContainsString('Funds Activity', $html);
         $this->assertStringContainsString('id="repFundsTab"', $html);
         $this->assertStringContainsString('id="repOrdersTab"', $html);
+        $this->assertStringContainsString("activity.status === 'refunded'", $html);
+        $this->assertStringContainsString('<span class="badge bg-danger">Refunded</span>', $html);
+        $this->assertStringContainsString('var isDead = activity.status === \'refunded\'', $html);
+        $this->assertStringContainsString("var docLabel = isDead ? 'Receipt' : 'Invoice'", $html);
     }
 
     public function test_reports_statistics_endpoint_still_works(): void

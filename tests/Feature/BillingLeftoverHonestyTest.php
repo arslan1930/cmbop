@@ -547,9 +547,9 @@ class BillingLeftoverHonestyTest extends TestCase
     {
         $blade = file_get_contents(resource_path('views/advertiser/add-funds.blade.php'));
 
-        $this->assertStringContainsString("status === 'refunded' ? 'Download receipt' : 'Download invoice'", $blade);
-        $this->assertStringContainsString("status === 'refunded' ? 'View receipt' : 'Invoice'", $blade);
-        $this->assertStringContainsString("status === 'refunded' ? 'Download receipt' : 'Download Invoice'", $blade);
-        $this->assertStringContainsString("status === 'refunded' ? 'View receipt' : 'View Invoice'", $blade);
+        $this->assertStringContainsString("(status === 'refunded' || status === 'failed') ? 'Download receipt' : 'Download invoice'", $blade);
+        $this->assertStringContainsString("(status === 'refunded' || status === 'failed') ? 'View receipt' : 'Invoice'", $blade);
+        $this->assertStringContainsString("(status === 'refunded' || status === 'failed') ? 'Download receipt' : 'Download Invoice'", $blade);
+        $this->assertStringContainsString("(status === 'refunded' || status === 'failed') ? 'View receipt' : 'View Invoice'", $blade);
     }
 }

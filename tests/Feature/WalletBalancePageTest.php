@@ -595,6 +595,85 @@ class WalletBalancePageTest extends TestCase
         $this->assertSame(-80.0, (float) $purchase['signed_amount']);
     }
 
+    public function test_transactions_endpoint_marks_leftover_failed_purchase_failed(): void
+    {
+        $order = Order::create([
+            'user_id' => $this->user->id,
+            'order_number' => 'ORD-LEDGER-FAIL',
+            'reference_code' => 'REF-LEDGER-FAIL',
+            'subtotal' => 60,
+            'tax' => 0,
+            'total_amount' => 60,
+            'payment_method' => 'wallet',
+            'payment_status' => 'failed',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+        app(WalletLedgerService::class)->recordPurchase(
+            $this->wallet,
+            60,
+            0,
+            $order,
+            $order->reference_code
+        );
+        Invoice::create([
+            'user_id' => $this->user->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-LEDGER-FAIL',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'payment_status' => 'paid',
+            'invoice_date' => now(),
+            'customer_name' => $this->user->name,
+            'customer_email' => $this->user->email,
+            'currency' => 'EUR',
+            'subtotal' => 60,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 60,
+            'payment_method' => 'wallet',
+            'order_number' => $order->order_number,
+            'reference_code' => $order->reference_code,
+            'line_items' => [['description' => 'Leftover failed purchase', 'line_total' => 60]],
+            'billing_snapshot' => [],
+        ]);
+        Invoice::create([
+            'user_id' => $this->user->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'FAIL-LEDGER-FAIL',
+            'type' => Invoice::TYPE_PAYMENT_FAILURE,
+            'status' => Invoice::STATUS_FAILED,
+            'payment_status' => 'failed',
+            'invoice_date' => now(),
+            'customer_name' => $this->user->name,
+            'customer_email' => $this->user->email,
+            'currency' => 'EUR',
+            'subtotal' => 60,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 60,
+            'payment_method' => 'wallet',
+            'order_number' => $order->order_number,
+            'reference_code' => $order->reference_code,
+            'line_items' => [['description' => 'Payment failed', 'line_total' => 60]],
+            'billing_snapshot' => [],
+        ]);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $purchase = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'REF-LEDGER-FAIL'
+            && ($row['type'] ?? '') === 'purchase');
+        $this->assertNotEmpty($purchase);
+        $this->assertSame('failed', $purchase['status']);
+        $this->assertSame('debit', $purchase['direction']);
+        $this->assertSame(-60.0, (float) $purchase['signed_amount']);
+        $this->assertSame('FAIL-LEDGER-FAIL', $purchase['invoice_number']);
+    }
+
     public function test_transactions_endpoint_returns_bonus_activity(): void
     {
         app(WalletLedgerService::class)->recordBonusCredit(

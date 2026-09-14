@@ -385,25 +385,34 @@ class WalletOverviewService
                         ? $tx->related_id
                         : 0
                 ));
-            $orderLooksRefunded = $invoice
-                && $invoice->type === Invoice::TYPE_TAX_INVOICE
-                && ($invoice->status === Invoice::STATUS_REFUNDED || $invoice->displayPaymentStatus() === 'refunded');
-            if (! $orderLooksRefunded && $purchaseOrderId > 0) {
-                $orderLooksRefunded = Order::query()
-                    ->whereKey($purchaseOrderId)
-                    ->where('payment_status', 'refunded')
-                    ->exists();
+            $closedPayment = null;
+            if ($invoice && $invoice->type === Invoice::TYPE_TAX_INVOICE) {
+                $display = $invoice->displayPaymentStatus();
+                if (in_array($invoice->status, [Invoice::STATUS_REFUNDED, Invoice::STATUS_FAILED], true)) {
+                    $closedPayment = $invoice->status;
+                } elseif (in_array($display, [Invoice::STATUS_REFUNDED, Invoice::STATUS_FAILED], true)) {
+                    $closedPayment = $display;
+                }
             }
-            if ($orderLooksRefunded && $purchaseOrderId > 0) {
-                $refundDoc = Invoice::query()
+            if ($closedPayment === null && $purchaseOrderId > 0) {
+                $orderPayment = Order::query()->whereKey($purchaseOrderId)->value('payment_status');
+                if (in_array($orderPayment, [Invoice::STATUS_REFUNDED, Invoice::STATUS_FAILED], true)) {
+                    $closedPayment = $orderPayment;
+                }
+            }
+            if ($closedPayment !== null && $purchaseOrderId > 0) {
+                $preferredType = $closedPayment === Invoice::STATUS_REFUNDED
+                    ? Invoice::TYPE_REFUND_RECEIPT
+                    : Invoice::TYPE_PAYMENT_FAILURE;
+                $preferred = Invoice::query()
                     ->where('user_id', $userId)
-                    ->where('type', Invoice::TYPE_REFUND_RECEIPT)
+                    ->where('type', $preferredType)
                     ->where('order_id', $purchaseOrderId)
                     ->where('status', '!=', Invoice::STATUS_CANCELLED)
                     ->latest('id')
                     ->first();
-                if ($refundDoc) {
-                    $invoice = $refundDoc;
+                if ($preferred) {
+                    $invoice = $preferred;
                 }
             }
 
@@ -425,7 +434,7 @@ class WalletOverviewService
                 'direction' => $tx->direction,
                 'signed_amount' => $tx->direction === 'credit' ? (float) $tx->amount : -(float) $tx->amount,
                 'status' => $depositOverlay['status']
-                    ?? ($orderLooksRefunded ? 'refunded' : $tx->status),
+                    ?? ($closedPayment ?? $tx->status),
                 'balance_after' => $tx->balance_after !== null ? (float) $tx->balance_after : null,
                 'bonus_amount' => (float) $tx->bonus_amount,
                 'payment_method' => $tx->payment_method,

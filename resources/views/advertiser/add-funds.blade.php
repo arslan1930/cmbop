@@ -1014,11 +1014,11 @@
             // handlers bound on document — which is what killed "I paid".
             let actions = '';
             if (row.invoice_download_url) {
-                const downloadLabel = status === 'refunded' ? 'Download receipt' : 'Download invoice';
+                const downloadLabel = (status === 'refunded' || status === 'failed') ? 'Download receipt' : 'Download invoice';
                 actions += `<a class="btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}" download>
                     <i class="fa fa-download me-1"></i> ${downloadLabel}</a>`;
             } else if (row.invoice_view_url) {
-                const viewLabel = status === 'refunded' ? 'View receipt' : 'Invoice';
+                const viewLabel = (status === 'refunded' || status === 'failed') ? 'View receipt' : 'Invoice';
                 actions += `<a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(row.invoice_view_url)}" target="_blank" rel="noopener">
                     <i class="fa fa-file-invoice me-1"></i> ${viewLabel}</a>`;
             }
@@ -1332,10 +1332,10 @@
                     || (status === 'refunded' && t.direction !== 'debit');
                 let invoiceBtn = '';
                 if (t.invoice_download_url) {
-                    const downloadLabel = status === 'refunded' ? 'Download receipt' : 'Download Invoice';
+                    const downloadLabel = (status === 'refunded' || status === 'failed') ? 'Download receipt' : 'Download Invoice';
                     invoiceBtn = `<a class="btn btn-sm btn-primary w-100 mt-3" href="${escapeHtml(t.invoice_download_url)}"><i class="fa fa-download me-1"></i> ${downloadLabel}</a>`;
                 } else if (t.invoice_view_url) {
-                    const viewLabel = status === 'refunded' ? 'View receipt' : 'View Invoice';
+                    const viewLabel = (status === 'refunded' || status === 'failed') ? 'View receipt' : 'View Invoice';
                     invoiceBtn = `<a class="btn btn-sm btn-outline-secondary w-100 mt-3" href="${escapeHtml(t.invoice_view_url)}">${viewLabel}</a>`;
                 }
                 body.html(`
