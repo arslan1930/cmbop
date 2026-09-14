@@ -105,16 +105,21 @@
 .af-activity-feed { list-style: none; margin: 0; padding: 0; }
 .af-activity-item {
     display: grid;
-    grid-template-columns: 44px 1fr auto;
-    gap: 12px;
+    grid-template-columns: 44px minmax(0, 1fr) minmax(7.5rem, auto);
+    column-gap: 16px;
+    row-gap: 4px;
     align-items: start;
-    padding: 14px 16px;
+    padding: 16px 20px;
     border-bottom: 1px solid #eef2f5;
     position: relative;
     transition: background .2s ease, transform .2s ease;
 }
 .af-activity-item:last-child { border-bottom: 0; }
 .af-activity-item:hover { background: #f8fafb; }
+.af-activity-item.is-closed .af-activity-amount {
+    color: #64748b;
+    font-weight: 600;
+}
 .af-activity-item.is-pending {
     background: linear-gradient(90deg, rgba(230,245,245,0.85), #fff 48%);
 }
@@ -140,11 +145,56 @@
 }
 .af-activity-item:last-child .af-activity-rail::after { display: none; }
 .af-activity-main { min-width: 0; }
-.af-activity-title { font-weight: 650; font-size: 13.5px; color: var(--brand-primary, #1a585e); margin: 0 0 2px; }
-.af-activity-desc { font-size: 12.5px; color: var(--brand-ink-muted, #75787B); margin: 0; }
-.af-activity-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
-.af-activity-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; min-width: 9.5rem; }
-.af-activity-amount { font-size: 15px; white-space: nowrap; }
+.af-activity-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    margin: 0 0 6px;
+}
+.af-activity-title {
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.35;
+    color: var(--brand-primary, #1a585e);
+    margin: 0;
+}
+.af-activity-heading .wallet-status { flex: 0 0 auto; }
+.af-activity-desc {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--brand-ink-muted, #75787B);
+    margin: 0 0 8px;
+}
+.af-activity-meta { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 0; }
+.af-activity-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+    min-width: 7.5rem;
+    padding-top: 2px;
+}
+.af-activity-amount { font-size: 15px; line-height: 1.2; white-space: nowrap; }
+.af-activity-doc {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--brand-primary, #1a585e);
+    text-decoration: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+}
+.af-activity-doc:hover,
+.af-activity-doc:focus-visible {
+    color: var(--brand-primary-deep, #123f42);
+    text-decoration: underline;
+    outline: none;
+}
 .af-activity-time { font-size: 11px; color: #94a3b8; }
 .af-live-badge {
     display: inline-flex; align-items: center; gap: 6px;

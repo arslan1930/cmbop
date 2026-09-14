@@ -1016,13 +1016,13 @@
             // handlers bound on document — which is what killed "I paid".
             let actions = '';
             if (row.invoice_download_url) {
-                const downloadLabel = (status === 'refunded' || status === 'failed') ? 'Download receipt' : 'Download invoice';
-                actions += `<a class="btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}" download>
-                    <i class="fa fa-download me-1"></i> ${downloadLabel}</a>`;
+                const downloadLabel = (status === 'refunded' || status === 'failed') ? 'Receipt' : 'Invoice';
+                actions += `<a class="af-activity-doc" href="${escapeHtml(row.invoice_download_url)}" download>
+                    <i class="fa fa-download" aria-hidden="true"></i> ${downloadLabel}</a>`;
             } else if (row.invoice_view_url) {
-                const viewLabel = (status === 'refunded' || status === 'failed') ? 'View receipt' : 'Invoice';
-                actions += `<a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(row.invoice_view_url)}" target="_blank" rel="noopener">
-                    <i class="fa fa-file-invoice me-1"></i> ${viewLabel}</a>`;
+                const viewLabel = (status === 'refunded' || status === 'failed') ? 'Receipt' : 'Invoice';
+                actions += `<a class="af-activity-doc" href="${escapeHtml(row.invoice_view_url)}" target="_blank" rel="noopener">
+                    <i class="fa fa-file-invoice" aria-hidden="true"></i> ${viewLabel}</a>`;
             }
             if (row.can_mark_paid && row.mark_paid_url) {
                 actions += `<button type="button" class="btn btn-sm btn-outline-primary mark-deposit-paid-btn"
@@ -1034,14 +1034,14 @@
                 actions += `<span class="small text-success"><i class="fa fa-check-circle me-1"></i> Payment reported</span>`;
             }
 
-            html += `<li class="af-activity-item ${pending ? 'is-pending' : ''} wallet-tx-row"
+            html += `<li class="af-activity-item ${pending ? 'is-pending' : ''} ${dead ? 'is-closed' : ''} wallet-tx-row"
                 data-source="${escapeHtml(row.source)}" data-id="${escapeHtml(row.id)}">
                 <div class="af-activity-rail">
                     <span class="wallet-type-icon ${iconClass}"><i class="fa ${escapeHtml(row.icon || 'fa-circle')}"></i></span>
                 </div>
                 <div class="af-activity-main">
-                    <div class="d-flex flex-wrap align-items-center gap-2">
-                        <p class="af-activity-title mb-0">${escapeHtml(row.type_label || '')}</p>
+                    <div class="af-activity-heading">
+                        <p class="af-activity-title">${escapeHtml(row.type_label || '')}</p>
                         <span class="${statusClass(row.status)}">${escapeHtml(row.status || '')}</span>
                         ${pending ? '<span class="af-live-badge"><span class="af-live-dot"></span> Live</span>' : ''}
                     </div>

@@ -106,4 +106,18 @@ class AddFundsUiGuardTest extends TestCase
             $css
         );
     }
+
+    public function test_recent_activity_rows_keep_title_status_and_amount_apart(): void
+    {
+        $css = $this->addFundsCss();
+        $blade = $this->addFundsView();
+
+        $this->assertStringContainsString('.af-activity-heading', $css);
+        $this->assertStringContainsString('.af-activity-doc', $css);
+        $this->assertStringContainsString('grid-template-columns: 44px minmax(0, 1fr) minmax(7.5rem, auto)', $css);
+        $this->assertStringNotContainsString('font-weight: 650', $css);
+        $this->assertStringContainsString('af-activity-heading', $blade);
+        $this->assertStringContainsString('af-activity-doc', $blade);
+        $this->assertStringNotContainsString('btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}"', $blade);
+    }
 }
