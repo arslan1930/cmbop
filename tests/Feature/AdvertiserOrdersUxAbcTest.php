@@ -248,6 +248,7 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringContainsString('Pay again', $rowActionsFn[1]);
         $this->assertStringContainsString('viewOrder', $rowActionsFn[1]);
         $this->assertStringContainsString('openChat', $rowActionsFn[1]);
+        $this->assertStringContainsString('!chatReadonly && order.unread_chat > 0', $js);
         $this->assertStringContainsString('approveOrder', $rowActionsFn[1]);
         $this->assertStringContainsString('requestModification', $rowActionsFn[1]);
         $this->assertStringContainsString('fulfillContentRevision', $rowActionsFn[1]);

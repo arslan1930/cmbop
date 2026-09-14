@@ -5229,16 +5229,23 @@ class CatalogController extends Controller
             $orders = $query->paginate(20);
 
             $orderIds = collect($orders->items())->pluck('id');
-            $unreadByOrder = OrderChatMessage::whereIn('order_id', $orderIds)
-                ->where('sender_type', 'publisher')
-                ->where('is_read', false)
-                ->notBlocked()
-                ->selectRaw('order_id, COUNT(*) as unread_count')
-                ->groupBy('order_id')
-                ->pluck('unread_count', 'order_id');
+            $sendableIds = AdvertiserOrderDetails::constrainChatSendable(
+                Order::query()->whereIn('id', $orderIds)
+            )->pluck('id');
+            $unreadByOrder = $sendableIds->isEmpty()
+                ? collect()
+                : OrderChatMessage::whereIn('order_id', $sendableIds)
+                    ->where('sender_type', 'publisher')
+                    ->where('is_read', false)
+                    ->notBlocked()
+                    ->selectRaw('order_id, COUNT(*) as unread_count')
+                    ->groupBy('order_id')
+                    ->pluck('unread_count', 'order_id');
 
             $ordersPayload = collect($orders->items())->map(function ($order) use ($unreadByOrder) {
-                $order->unread_chat = (int) ($unreadByOrder[$order->id] ?? 0);
+                $order->unread_chat = AdvertiserOrderDetails::canSendOrderChat($order)
+                    ? (int) ($unreadByOrder[$order->id] ?? 0)
+                    : 0;
                 $this->hydrateAdvertiserOrderDetail($order);
 
                 return $this->advertiserOrderDetailPayload($order);

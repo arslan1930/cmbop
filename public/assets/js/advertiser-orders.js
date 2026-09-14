@@ -1387,10 +1387,10 @@ function bootAdvertiserOrdersPage() {
     }
 
     function renderOrderRowActions(order) {
-        const unreadBadge = order.unread_chat > 0
+        const chatReadonly = orderChatReadonly(order);
+        const unreadBadge = !chatReadonly && order.unread_chat > 0
             ? `<span class="chat-unread-dot">${order.unread_chat}</span>`
             : '';
-        const chatReadonly = orderChatReadonly(order);
         const chatClass = chatReadonly
             ? 'btn btn-sm btn-link text-muted action-btn d-flex align-items-center'
             : 'btn btn-sm btn-outline-success action-btn d-flex align-items-center';

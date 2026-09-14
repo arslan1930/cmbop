@@ -275,6 +275,12 @@ class OrderChatHardeningTest extends TestCase
             ->assertOk()
             ->assertJsonPath('unread_chat', 0)
             ->assertJsonPath('needs_action', 0);
+
+        $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.list'))
+            ->assertOk()
+            ->assertJsonPath('orders.0.unread_chat', 0)
+            ->assertJsonPath('orders.0.chat_readonly', true);
     }
 
     public function test_failed_payment_unread_chat_does_not_inflate_header_badge(): void
@@ -301,6 +307,12 @@ class OrderChatHardeningTest extends TestCase
             ->assertOk()
             ->assertJsonPath('unread_chat', 0)
             ->assertJsonPath('needs_action', 0);
+
+        $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.list'))
+            ->assertOk()
+            ->assertJsonPath('orders.0.unread_chat', 0)
+            ->assertJsonPath('orders.0.chat_readonly', true);
     }
 
     public function test_completed_clawback_still_allows_chat(): void
@@ -346,6 +358,12 @@ class OrderChatHardeningTest extends TestCase
             ->getJson(route('chat.unread-summary'))
             ->assertOk()
             ->assertJsonPath('unread_chat', 1);
+
+        $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.list'))
+            ->assertOk()
+            ->assertJsonPath('orders.0.unread_chat', 1)
+            ->assertJsonPath('orders.0.chat_readonly', false);
     }
 
     public function test_publisher_unread_ignores_unpaid_and_cancelled_orders(): void
