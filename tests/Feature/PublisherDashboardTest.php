@@ -392,9 +392,10 @@ class PublisherDashboardTest extends TestCase
             ->assertSee('€100.00')
             ->assertSee('Needs you')
             ->assertSee('id="openTasks"', false)
-            ->assertSee('Finish your listings')
+            ->assertSee('Grow your catalog')
             ->assertDontSee('tasks that need you', false)
-            ->assertSee('Awaiting verification')
+            ->assertDontSee('Finish your listings')
+            ->assertSee('Catalog-ready')
             ->assertSee('id="unverifiedSites"', false)
             ->assertSee('Unverified Blog')
             ->assertSee('Your payout')
@@ -626,5 +627,26 @@ class PublisherDashboardTest extends TestCase
             ->assertSee('€50.00 on balance includes promo/hold')
             ->assertSee('€200.00')
             ->assertSee('still to publish');
+    }
+
+    public function test_inactive_unverified_site_is_listing_work_not_all_verified(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher, [
+            'verified' => false,
+            'active' => false,
+            'site_name' => 'Draft Listing',
+            'site_url' => 'https://draft.example',
+            'domain' => 'draft.example',
+        ]);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Finish your listings')
+            ->assertSee('Needs listing work')
+            ->assertSee('Not in the catalog yet')
+            ->assertSee('id="unverifiedSites">1', false)
+            ->assertDontSee('All listed sites verified');
     }
 }

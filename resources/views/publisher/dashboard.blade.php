@@ -7,7 +7,8 @@
     $needsYou = (int) ($needsYou ?? 0);
     $waitingOnAdvertiser = (int) ($waitingOnAdvertiser ?? 0);
     $siteCount = $siteCount ?? 0;
-    $unverifiedSiteCount = $unverifiedSiteCount ?? 0;
+    $listingWorkCount = (int) ($listingWorkCount ?? 0);
+    $sellableSiteCount = (int) ($sellableSiteCount ?? 0);
     $primaryAction = $primaryAction ?? 'add_site';
     $stats = $stats ?? [
         'total_orders' => 0,
@@ -96,7 +97,7 @@
                             <div class="text-uppercase small fw-semibold mb-1" style="color:#0b6266;letter-spacing:.04em;">Do this next</div>
                             <h4 class="mb-1">Finish your listings</h4>
                             <p class="text-muted mb-0">
-                                {{ $unverifiedSiteCount }} site{{ $unverifiedSiteCount === 1 ? '' : 's' }} {{ $unverifiedSiteCount === 1 ? 'is' : 'are' }} not verified yet — advertisers cannot rely on {{ $unverifiedSiteCount === 1 ? 'it' : 'them' }} until {{ $unverifiedSiteCount === 1 ? 'it is' : 'they are' }}.
+                                {{ $listingWorkCount }} listing{{ $listingWorkCount === 1 ? '' : 's' }} {{ $listingWorkCount === 1 ? 'is' : 'are' }} not in the catalog yet.
                             </p>
                             @if($waitingOnAdvertiser > 0)
                                 <p class="small text-muted mb-0 mt-1">{{ $waitingOnAdvertiser }} placement{{ $waitingOnAdvertiser === 1 ? '' : 's' }} in review, waiting on advertisers.</p>
@@ -233,16 +234,16 @@
             </a>
         </div>
         <div class="col">
-            <a href="{{ route('publisher.websites') }}" class="kpi-tile">
-                <div class="kpi-icon" style="background:{{ $unverifiedSiteCount > 0 ? '#b45309' : '#0f766e' }};"><i class="fa fa-{{ $unverifiedSiteCount > 0 ? 'exclamation' : 'check' }}"></i></div>
+            <a href="{{ $listingWorkCount > 0 ? route('publisher.websites', ['status' => 'pending']) : route('publisher.websites') }}" class="kpi-tile">
+                <div class="kpi-icon" style="background:{{ $listingWorkCount > 0 ? '#b45309' : '#0f766e' }};"><i class="fa fa-{{ $listingWorkCount > 0 ? 'exclamation' : 'check' }}"></i></div>
                 <div>
-                    <span class="kpi-label">Awaiting verification</span>
-                    <div class="kpi-value" id="unverifiedSites">{{ $unverifiedSiteCount }}</div>
+                    <span class="kpi-label">{{ $listingWorkCount > 0 ? 'Needs listing work' : 'Catalog-ready' }}</span>
+                    <div class="kpi-value" id="unverifiedSites">{{ $listingWorkCount > 0 ? $listingWorkCount : $sellableSiteCount }}</div>
                     <div class="kpi-sub">
-                        @if($unverifiedSiteCount > 0)
-                            {{ $siteCount }} total site{{ $siteCount === 1 ? '' : 's' }}
+                        @if($listingWorkCount > 0)
+                            Not in the catalog yet
                         @else
-                            All listed sites verified
+                            {{ $siteCount }} listed · {{ $sellableSiteCount }} catalog-ready
                         @endif
                     </div>
                 </div>

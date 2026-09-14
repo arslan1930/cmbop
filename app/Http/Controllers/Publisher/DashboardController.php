@@ -9,6 +9,7 @@ use App\Models\OrderItemDispute;
 use App\Models\Site;
 use App\Models\WalletTransaction;
 use App\Support\PublisherNeedsAction;
+use App\Support\PublisherSiteHealth;
 use App\Support\UserFacingError;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -39,10 +40,11 @@ class DashboardController extends Controller
         $user = auth()->user();
         $userId = $user->id;
 
-        $sites = Site::where('publisher_id', $userId)->get(['id', 'verified']);
-        $siteIds = $sites->pluck('id')->all();
-        $siteCount = count($siteIds);
-        $unverifiedSiteCount = $sites->where('verified', false)->count();
+        $siteIds = Site::where('publisher_id', $userId)->pluck('id')->all();
+        $health = PublisherSiteHealth::snapshot((int) $userId);
+        $siteCount = $health['listed'];
+        $listingWorkCount = $health['listing_work'];
+        $sellableSiteCount = $health['sellable'];
 
         $stats = $this->buildStatistics($siteIds);
         $needsYou = PublisherNeedsAction::needsYouCount((int) $userId);
@@ -56,10 +58,11 @@ class DashboardController extends Controller
 
         return view('publisher.dashboard', [
             'siteCount' => $siteCount,
-            'unverifiedSiteCount' => $unverifiedSiteCount,
+            'listingWorkCount' => $listingWorkCount,
+            'sellableSiteCount' => $sellableSiteCount,
             'needsYou' => $needsYou,
             'waitingOnAdvertiser' => $waitingOnAdvertiser,
-            'primaryAction' => $this->resolvePrimaryAction($needsYou, $unverifiedSiteCount, $siteCount),
+            'primaryAction' => $this->resolvePrimaryAction($needsYou, $listingWorkCount, $siteCount),
             'stats' => $stats,
             'metrics' => $metrics,
             'availableBalance' => $availableBalance,
@@ -80,7 +83,8 @@ class DashboardController extends Controller
 
         return [
             'siteCount' => 0,
-            'unverifiedSiteCount' => 0,
+            'listingWorkCount' => 0,
+            'sellableSiteCount' => 0,
             'needsYou' => 0,
             'waitingOnAdvertiser' => 0,
             'primaryAction' => 'add_site',
@@ -228,12 +232,12 @@ class DashboardController extends Controller
     /**
      * Hero CTA: work that needs the publisher first, then listing gaps, then grow.
      */
-    private function resolvePrimaryAction(int $needsYou, int $unverifiedSiteCount, int $siteCount): string
+    private function resolvePrimaryAction(int $needsYou, int $listingWorkCount, int $siteCount): string
     {
         if ($needsYou > 0) {
             return 'tasks';
         }
-        if ($unverifiedSiteCount > 0) {
+        if ($listingWorkCount > 0) {
             return 'verify_sites';
         }
         if ($siteCount === 0) {
