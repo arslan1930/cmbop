@@ -421,14 +421,26 @@ class WalletOverviewService
                 $depositMeta['invoice_view_url'] = route('advertiser.billing.show', $invoice);
             }
 
+            $purchaseOverlay = [];
+            if ($closedPayment !== null && $tx->type === WalletTransaction::TYPE_PURCHASE) {
+                $purchaseOverlay = [
+                    'type_label' => $closedPayment === Invoice::STATUS_REFUNDED
+                        ? 'Refunded purchase'
+                        : 'Failed purchase',
+                    'description' => $closedPayment === Invoice::STATUS_REFUNDED
+                        ? 'Marketplace purchase refunded and removed from live spend'
+                        : 'Marketplace purchase failed — not live spend',
+                ];
+            }
+
             $rows->push([
                 'id' => $tx->id,
                 'source' => 'ledger',
                 'date' => $tx->created_at?->toIso8601String(),
                 'timestamp' => $tx->created_at?->timestamp ?? 0,
                 'type' => $tx->type,
-                'type_label' => $depositOverlay['type_label'] ?? $tx->typeLabel(),
-                'description' => $depositOverlay['description'] ?? $tx->description,
+                'type_label' => $depositOverlay['type_label'] ?? $purchaseOverlay['type_label'] ?? $tx->typeLabel(),
+                'description' => $depositOverlay['description'] ?? $purchaseOverlay['description'] ?? $tx->description,
                 'reference' => $tx->reference,
                 'amount' => (float) $tx->amount,
                 'direction' => $tx->direction,
@@ -517,7 +529,8 @@ class WalletOverviewService
                 'can_mark_paid' => ! $isRejected && ! $isRefunded && $d->canUserMarkPaid(),
                 'user_marked_paid' => $d->userHasMarkedPaid(),
                 'user_marked_paid_at' => $d->user_marked_paid_at?->toIso8601String(),
-                'mark_paid_url' => $d->canUserMarkPaid() || $d->userHasMarkedPaid()
+                'mark_paid_url' => ! $isRejected && ! $isRefunded
+                    && ($d->canUserMarkPaid() || $d->userHasMarkedPaid())
                     ? route('advertiser.add-funds.mark-paid', $d)
                     : null,
                 'is_live_pending' => $status === 'pending',

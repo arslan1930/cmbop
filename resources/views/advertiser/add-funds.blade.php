@@ -678,6 +678,8 @@
                         <option value="processing">Processing</option>
                         <option value="cancelled">Cancelled</option>
                         <option value="failed">Failed</option>
+                        <option value="refunded">Refunded</option>
+                        <option value="rejected">Rejected</option>
                     </select>
                 </div>
                 <div class="col-md-2">

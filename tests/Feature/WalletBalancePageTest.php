@@ -97,6 +97,8 @@ class WalletBalancePageTest extends TestCase
         $this->assertStringContainsString('paypal.svg', $html);
         $this->assertStringContainsString('ref-code', $html);
         $this->assertStringContainsString('Recent activity', $html);
+        $this->assertStringContainsString('value="refunded"', $html);
+        $this->assertStringContainsString('value="rejected"', $html);
         $this->assertStringContainsString('id="publisherRoleStrip"', $html);
         $this->assertStringContainsString(route('publisher.balance'), $html);
         $this->assertStringContainsString(route('publisher.withdraw'), $html);
@@ -454,6 +456,7 @@ class WalletBalancePageTest extends TestCase
             'amount' => 40,
             'payment_method' => 'bank',
             'status' => 'rejected',
+            'user_marked_paid_at' => now(),
         ]);
         DepositRequest::create([
             'user_id' => $this->user->id,
@@ -476,6 +479,7 @@ class WalletBalancePageTest extends TestCase
         $this->assertSame('none', $rejected['direction']);
         $this->assertSame(0, (int) $rejected['signed_amount']);
         $this->assertFalse($rejected['can_mark_paid']);
+        $this->assertNull($rejected['mark_paid_url']);
         $this->assertStringContainsString('not credited', $rejected['description']);
 
         $refunded = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'DEP-REFUNDED');
@@ -485,6 +489,7 @@ class WalletBalancePageTest extends TestCase
         $this->assertSame('debit', $refunded['direction']);
         $this->assertSame(-25.0, (float) $refunded['signed_amount']);
         $this->assertFalse($refunded['can_mark_paid']);
+        $this->assertNull($refunded['mark_paid_url']);
     }
 
     public function test_transactions_endpoint_relabels_ledger_deposit_after_clawback(): void
@@ -591,6 +596,8 @@ class WalletBalancePageTest extends TestCase
             && ($row['type'] ?? '') === 'purchase');
         $this->assertNotEmpty($purchase);
         $this->assertSame('refunded', $purchase['status']);
+        $this->assertSame('Refunded purchase', $purchase['type_label']);
+        $this->assertStringContainsString('refunded', $purchase['description']);
         $this->assertSame('debit', $purchase['direction']);
         $this->assertSame(-80.0, (float) $purchase['signed_amount']);
     }
@@ -669,6 +676,8 @@ class WalletBalancePageTest extends TestCase
             && ($row['type'] ?? '') === 'purchase');
         $this->assertNotEmpty($purchase);
         $this->assertSame('failed', $purchase['status']);
+        $this->assertSame('Failed purchase', $purchase['type_label']);
+        $this->assertStringContainsString('not live spend', $purchase['description']);
         $this->assertSame('debit', $purchase['direction']);
         $this->assertSame(-60.0, (float) $purchase['signed_amount']);
         $this->assertSame('FAIL-LEDGER-FAIL', $purchase['invoice_number']);
