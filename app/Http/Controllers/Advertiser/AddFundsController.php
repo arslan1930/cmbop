@@ -30,6 +30,7 @@ use Endroid\QrCode\Writer\PngWriter;
 use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -97,11 +98,9 @@ class AddFundsController extends Controller
         }
 
         $summary = [];
-        $analytics = ['labels' => [], 'deposits' => [], 'orders' => []];
         if ($wallet) {
             try {
                 $summary = $this->overview->summary($user->id, $wallet);
-                $analytics = $this->overview->analytics($user->id, 'month');
             } catch (\Throwable $e) {
                 Log::warning('Add Funds wallet overview failed', [
                     'user_id' => $user->id,
@@ -177,7 +176,6 @@ class AddFundsController extends Controller
             'pendingRequests' => $pendingRequests,
             'wallet' => $wallet,
             'summary' => $summary,
-            'analytics' => $analytics,
             'advertiserBalance' => (float) ($wallet?->balance ?? 0),
             'advertiserBonusBalance' => $wallet ? $wallet->lockedBonusBalance() : 0.0,
             'advertiserWithdrawableBalance' => $wallet ? $wallet->withdrawableBalance() : 0.0,
@@ -979,7 +977,7 @@ class AddFundsController extends Controller
                 'deposit' => $depositRequest,
             ]);
         } catch (ModelNotFoundException $e) {
-            throw $e;
+            return self::missingInvoiceJson();
         } catch (\Throwable $e) {
             report($e);
 
@@ -988,6 +986,17 @@ class AddFundsController extends Controller
                 'message' => UserFacingError::message($e, 'We could not load that deposit. Please refresh and try again.'),
             ], 500);
         }
+    }
+
+    /**
+     * Implicit {deposit} binding and firstOrFail() 404s must not leak the model class.
+     */
+    public static function missingInvoiceJson(): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invoice not found.',
+        ], 404);
     }
 
     /**

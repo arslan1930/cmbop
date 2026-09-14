@@ -31,7 +31,7 @@ class AddFundsUiGuardTest extends TestCase
         // The old handler fired Swal + cleared the field on every keystroke when
         // parseFloat(value) < 10, so typing "100" died on the first "1".
         $this->assertStringContainsString("addEventListener('blur'", $js);
-        $this->assertStringContainsString('// Partial / below-minimum while typing', $js);
+        $this->assertStringContainsString('// Partial / below-minimum', $js);
 
         preg_match(
             "/customAmountInput\.addEventListener\('input',\s*function\s*\(\)\s*\{(.*?)\n\s*\}\);/s",
@@ -44,6 +44,7 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringNotContainsString('Swal.fire', $body);
         $this->assertStringNotContainsString("this.value = ''", $body);
         $this->assertStringContainsString('amount >= 10', $body);
+        $this->assertStringContainsString('amount <= maxDeposit', $body);
     }
 
     public function test_billing_modal_client_validation_requires_company_name(): void
@@ -110,6 +111,33 @@ class AddFundsUiGuardTest extends TestCase
             '/payment option click[\s\S]{0,400}syncWiseQr/i',
             $js
         );
+        $this->assertStringContainsString('payments/usdt.svg', $view);
+        $this->assertStringNotContainsString('fa-bitcoin', $view);
+        $this->assertStringContainsString('function copyPayText', $js);
+        $this->assertStringContainsString('document.execCommand(\'copy\')', $js);
+        $this->assertStringContainsString('afCopyStatus', $view);
+        $this->assertStringContainsString('data-copy=', $view);
+        $this->assertStringContainsString('aria-labelledby="billingInfoModalLabel"', $view);
+        $this->assertStringContainsString('for="company_name"', $view);
+        $this->assertStringContainsString('autocomplete="organization"', $view);
+        $this->assertStringNotContainsString('State/Province <span class="text-danger">*</span>', $view);
+        $this->assertStringContainsString('€10–€100,000', $view);
+        $this->assertStringContainsString('max="100000"', $view);
+        $this->assertStringContainsString('aria-pressed="false"', $view);
+        $this->assertStringContainsString("e.key !== 'Enter' && e.key !== ' '", $js);
+        $this->assertStringContainsString('function selectPaymentOption', $js);
+        $this->assertStringContainsString('Maximum amount is €100,000.', $js);
+        $this->assertStringNotContainsString('new Chart(', $view);
+        $this->assertStringNotContainsString('walletChart', $view);
+        $this->assertStringNotContainsString('crosshairPlugin', $view);
+        $this->assertStringNotContainsString('continueAddFundsBtn', $view);
+        $this->assertStringContainsString('data.message || \'Could not cancel this invoice.\'', $js);
+        $this->assertStringContainsString('data.message || \'Could not mark payment as sent.\'', $js);
+        $bootstrap = (string) file_get_contents(base_path('bootstrap/app.php'));
+        $this->assertStringContainsString('NotFoundHttpException', $bootstrap);
+        $this->assertStringContainsString('add-funds', $bootstrap);
+        $this->assertStringContainsString('missingInvoiceJson', $bootstrap);
+        $this->assertStringContainsString('Invoice not found.', $bootstrap);
     }
 
     public function test_recently_used_is_quiet_corner_text_not_a_brand_pill(): void

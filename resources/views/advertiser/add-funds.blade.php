@@ -28,7 +28,7 @@
     <div class="row mb-3 align-items-end g-3">
         <div class="col-lg-8">
             <h2 class="mb-1 fw-semibold">Add funds</h2>
-            <p class="text-muted mb-0">Top up your wallet. Minimum €10.</p>
+            <p class="text-muted mb-0">Top up your wallet. €10–€100,000 per deposit.</p>
         </div>
         <div class="col-lg-4 text-lg-end">
             <button type="button" class="btn btn-sm btn-cta-tertiary" id="withdrawOpenBtn"
@@ -212,21 +212,21 @@
                     
                     <!-- Amount Selection -->
                     <div class="mb-4">
-                        <label class="form-label fw-semibold">Select Amount</label>
-                        <div class="row g-2 mb-3">
+                        <label class="form-label fw-semibold" id="selectAmountLabel" for="customAmount">Select amount</label>
+                        <div class="row g-2 mb-3" role="group" aria-labelledby="selectAmountLabel">
                             @foreach([50, 100, 250, 500, 1000] as $amount)
                                 <div class="col-4 col-md-3 col-lg-2">
-                                    <button type="button" class="amount-btn w-100 btn btn-outline-secondary py-2" data-amount="{{ $amount }}">
+                                    <button type="button" class="amount-btn w-100 btn btn-outline-secondary py-2" data-amount="{{ $amount }}" aria-pressed="false">
                                         €{{ $amount }}
                                     </button>
                                 </div>
                             @endforeach
                         </div>
                         <div class="input-group" style="max-width: 250px;">
-                            <span class="input-group-text bg-white">€</span>
-                            <input type="number" id="customAmount" class="form-control" placeholder="Custom amount" min="10" step="1">
+                            <span class="input-group-text bg-white" id="customAmountPrefix">€</span>
+                            <input type="number" id="customAmount" class="form-control" placeholder="Custom amount" min="10" max="100000" step="1" inputmode="decimal" aria-describedby="customAmountHint">
                         </div>
-                        <small class="form-text text-muted mt-1">Minimum amount: €10</small>
+                        <small class="form-text text-muted mt-1" id="customAmountHint">€10–€100,000 per deposit.</small>
                     </div>
 
                     <!-- Selected Amount Display -->
@@ -302,7 +302,7 @@
                                 <div class="col-12 col-sm-6 col-xl-4">
                                     <div class="payment-option"
                                          data-method="{{ $methodKey }}"
-                                         @if($methodReady) style="cursor: pointer;" role="button" tabindex="0" @else aria-disabled="true" style="cursor: not-allowed; opacity: 0.6;" @endif
+                                         @if($methodReady) style="cursor: pointer;" role="button" tabindex="0" aria-pressed="false" @else aria-disabled="true" style="cursor: not-allowed; opacity: 0.6;" @endif
                                          aria-label="{{ $meta['aria'] }}">
                                         <div class="payment-option-card">
                                             @if($methodReady && ! empty($meta['new_key']))
@@ -316,9 +316,9 @@
                                                 @elseif($methodKey === 'paypal')
                                                     <img src="{{ asset('assets/img/payments/paypal.svg') }}" alt="" width="40" height="11" style="width:40px;height:auto;" decoding="async">
                                                 @elseif($methodKey === 'wise')
-                                                    <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="Wise Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                                                    <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="" width="32" height="32" style="width: 32px; height: 32px; object-fit: contain;" decoding="async">
                                                 @else
-                                                    <i class="fab fa-bitcoin" style="font-size: 28px; color: #eab308;"></i>
+                                                    <img src="{{ asset('assets/img/payments/usdt.svg') }}" alt="" width="32" height="32" style="width: 32px; height: 32px; object-fit: contain;" decoding="async">
                                                 @endif
                                             </div>
                                             <span class="payment-option-name">{{ $meta['label'] }}</span>
@@ -389,8 +389,8 @@
                                         <div id="wisePaymentLink" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; word-break: break-all; font-family: monospace;">
                                             {{ rtrim($wisePayUrl ?? config('billing.deposit_payment.wise_pay_url', 'https://wise.com/pay/business/topurlzltd'), '?&') }}?amount=<span class="amount-link">0</span>&currency=EUR
                                         </div>
-                                        <button type="button" class="copy-btn mt-2" data-target="wisePaymentLink">
-                                            <i class="fas fa-copy"></i> Copy Payment Link
+                                        <button type="button" class="copy-btn mt-2" data-target="wisePaymentLink" aria-label="Copy Wise payment link">
+                                            <i class="fas fa-copy" aria-hidden="true"></i> Copy payment link
                                         </button>
                                     </div>
                                     
@@ -423,7 +423,7 @@
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
                                     <div style="width: 40px; height: 40px; background: #fef3c7; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                                        <i class="fab fa-bitcoin" style="font-size: 24px; color: #eab308;"></i>
+                                        <img src="{{ asset('assets/img/payments/usdt.svg') }}" alt="" width="24" height="24" decoding="async">
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Cryptocurrency Payment</h3>
@@ -447,9 +447,11 @@
                                     </div>
                                     @foreach(($cryptoNetworks ?? []) as $network)
                                         <div style="margin-bottom: 12px;">
-                                            <p style="font-size: 12px; font-weight: 500; margin-bottom: 4px;">{{ $network['label'] }}</p>
-                                            <div id="crypto-{{ $network['key'] }}" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; word-break: break-all; font-family: monospace;">{{ $network['address'] }}</div>
-                                            <button type="button" class="copy-btn mt-1" data-target="crypto-{{ $network['key'] }}">Copy Address</button>
+                                            <p class="mb-1" style="font-size: 12px; font-weight: 500;">{{ $network['label'] }}</p>
+                                            <code id="crypto-{{ $network['key'] }}" class="d-block crypto-address" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; word-break: break-all;">{{ $network['address'] }}</code>
+                                            <button type="button" class="copy-btn mt-1" data-target="crypto-{{ $network['key'] }}" data-copy="{{ $network['address'] }}" aria-label="Copy {{ $network['label'] }} address">
+                                                <i class="fas fa-copy" aria-hidden="true"></i> Copy address
+                                            </button>
                                         </div>
                                     @endforeach
                                 </div>
@@ -490,12 +492,12 @@
                                     <div style="margin-bottom: 12px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">IBAN:</p>
                                         <div id="bankIban" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['iban'] ?? 'BE04905543949331' }}</div>
-                                        <button type="button" class="copy-btn mt-1" data-target="bankIban">Copy IBAN</button>
+                                        <button type="button" class="copy-btn mt-1" data-target="bankIban" aria-label="Copy IBAN">Copy IBAN</button>
                                     </div>
                                     <div style="margin-bottom: 12px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">BIC/SWIFT:</p>
                                         <div id="bankBic" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['bic'] ?? 'TRWIBEB1XXX' }}</div>
-                                        <button type="button" class="copy-btn mt-1" data-target="bankBic">Copy BIC</button>
+                                        <button type="button" class="copy-btn mt-1" data-target="bankBic" aria-label="Copy BIC">Copy BIC</button>
                                     </div>
                                     @if(!empty($depositPayment['phone']))
                                         <div style="margin-bottom: 12px;">
@@ -599,8 +601,8 @@
                             <span class="small">Reference Code:</span>
                             <div>
                                 <strong id="referenceCode" class="ref-code font-monospace" data-placeholder="true">—</strong>
-                                <button type="button" class="btn btn-sm btn-link p-0 ms-2 copy-ref-btn" data-target="referenceCode" id="copyRefBtn" disabled>
-                                    <i class="fas fa-copy"></i>
+                                <button type="button" class="btn btn-sm btn-link p-0 ms-2 copy-ref-btn" data-target="referenceCode" id="copyRefBtn" disabled aria-label="Copy transfer reference">
+                                    <i class="fas fa-copy" aria-hidden="true"></i>
                                 </button>
                             </div>
                         </div>
@@ -613,6 +615,7 @@
                     <button type="button" id="proceedBtn" class="btn btn-primary w-100 mt-2 py-2">
                         <i class="fa fa-arrow-right me-2"></i> Get invoice &amp; pay
                     </button>
+                    <div id="afCopyStatus" class="visually-hidden" aria-live="polite"></div>
                     <div class="mt-3">
                         @include('partials.payment-trust', ['compact' => true])
                     </div>
@@ -877,7 +880,6 @@
     const routes = {
         transactions: @json(route('advertiser.balance.transactions')),
         transactionShow: @json(url('/advertiser/balance/transactions')),
-        analytics: @json(route('advertiser.balance.analytics')),
         export: @json(route('advertiser.balance.export')),
         withdraw: @json(route('advertiser.balance.withdraw')),
         addFunds: @json(route('advertiser.add-funds')),
@@ -891,12 +893,7 @@
     let bonusBalance = {{ json_encode($bonus) }};
     let advertiserBalance = {{ json_encode($spendable) }};
     let publisherBalance = {{ json_encode((float) ($publisherBalance ?? 0)) }};
-    let selectedAddAmount = null;
     let currentPage = 1;
-    let walletChart = null;
-    let chartData = @json($analytics);
-    let activeChartRange = '30d';
-    let chartOrderIndex = {};
 
     function money(n) {
         return '€' + (parseFloat(n || 0)).toFixed(2);
@@ -1123,242 +1120,6 @@
         $('#historyPagination').html(html);
     }
 
-    const crosshairPlugin = {
-        id: 'spendCrosshair',
-        afterDraw(chart) {
-            if (chart.tooltip && chart.tooltip._active && chart.tooltip._active.length) {
-                const ctx = chart.ctx;
-                const x = chart.tooltip._active[0].element.x;
-                const topY = chart.chartArea.top;
-                const bottomY = chart.chartArea.bottom;
-                ctx.save();
-                ctx.beginPath();
-                ctx.moveTo(x, topY);
-                ctx.lineTo(x, bottomY);
-                ctx.lineWidth = 1;
-                ctx.strokeStyle = 'rgba(26, 88, 94, 0.35)';
-                ctx.setLineDash([4, 4]);
-                ctx.stroke();
-                ctx.restore();
-            }
-        }
-    };
-
-    function buildOrderIndex(data) {
-        chartOrderIndex = {};
-        (data.order_details || []).forEach(function (o) {
-            if (!chartOrderIndex[o.bucket]) chartOrderIndex[o.bucket] = [];
-            chartOrderIndex[o.bucket].push(o);
-        });
-    }
-
-    function openSpendDetails(point) {
-        const body = $('#spendDetailBody');
-        const key = point.key;
-        const orders = chartOrderIndex[key] || [];
-        const canvasEl = document.getElementById('spendDetailOffcanvas');
-        const canvas = bootstrap.Offcanvas.getOrCreateInstance(canvasEl);
-        canvas.show();
-
-        if (!orders.length) {
-            body.html(`
-                <div class="mb-3">
-                    <div class="wallet-detail-row"><span>Period</span><strong>${escapeHtml(point.label)}</strong></div>
-                    <div class="wallet-detail-row"><span>Total Spend</span><strong>${money(point.total_spend)}</strong></div>
-                    <div class="wallet-detail-row"><span>Orders</span><strong>${point.order_count || 0}</strong></div>
-                </div>
-                <p class="text-muted small mb-0">No order details for this period.</p>
-            `);
-            return;
-        }
-
-        let html = `
-            <div class="mb-3 pb-2 border-bottom">
-                <div class="small text-muted">${escapeHtml(point.label)}</div>
-                <div class="fw-semibold">${money(point.total_spend)} · ${point.order_count} order${point.order_count === 1 ? '' : 's'}</div>
-            </div>
-        `;
-        orders.forEach(function (o) {
-            html += `
-                <div class="mb-3 p-3 rounded" style="border:1px solid #e5eef0;background:#fbfdfe;">
-                    <div class="wallet-detail-row"><span>Order ID</span><strong>${escapeHtml(o.order_number || o.id)}</strong></div>
-                    <div class="wallet-detail-row"><span>Order Name</span><strong>${escapeHtml(o.site_name || 'Marketplace order')}</strong></div>
-                    <div class="wallet-detail-row"><span>Publisher Website</span><strong>${escapeHtml(o.site_url || '—')}</strong></div>
-                    <div class="wallet-detail-row"><span>Amount Paid</span><strong>${money(o.amount)}</strong></div>
-                    <div class="wallet-detail-row"><span>Order Status</span><strong><span class="${statusClass(o.status)}">${escapeHtml(o.status || '')}</span></strong></div>
-                    <div class="wallet-detail-row"><span>Payment Status</span><strong><span class="${statusClass(o.payment_status)}">${escapeHtml(o.payment_status || '')}</span></strong></div>
-                    <div class="wallet-detail-row"><span>Order Date</span><strong>${o.date ? new Date(o.date).toLocaleString() : '—'}</strong></div>
-                    <div class="wallet-detail-row"><span>Completion Date</span><strong>${o.completed_at ? new Date(o.completed_at).toLocaleString() : '—'}</strong></div>
-                    <div class="wallet-detail-row"><span>Invoice Number</span><strong>${escapeHtml(o.invoice_number || '—')}</strong></div>
-                    <a class="btn btn-sm btn-primary w-100 mt-2" href="${escapeHtml(o.order_url)}">View Order</a>
-                </div>
-            `;
-        });
-        body.html(html);
-    }
-
-    function externalTooltipHandler(context) {
-        let tip = document.getElementById('walletChartTooltip');
-        if (!tip) {
-            tip = document.createElement('div');
-            tip.id = 'walletChartTooltip';
-            tip.className = 'wallet-chart-tooltip';
-            document.body.appendChild(tip);
-        }
-        const { chart, tooltip } = context;
-        if (tooltip.opacity === 0) {
-            tip.style.opacity = '0';
-            tip.style.pointerEvents = 'none';
-            return;
-        }
-        const idx = tooltip.dataPoints?.[0]?.dataIndex;
-        const points = chart.$spendPoints || [];
-        const point = points[idx];
-        if (!point) return;
-
-        tip.innerHTML = `
-            <div class="wallet-chart-tooltip__title">${escapeHtml(point.label)}</div>
-            <div class="wallet-chart-tooltip__row"><span>Total Spend</span><strong>${money(point.total_spend)}</strong></div>
-            <div class="wallet-chart-tooltip__row"><span>Orders</span><strong>${point.order_count}</strong></div>
-            <div class="wallet-chart-tooltip__row"><span>Avg Order Value</span><strong>${money(point.avg_order)}</strong></div>
-            <div class="wallet-chart-tooltip__row"><span>Largest Order</span><strong>${money(point.largest_order)}</strong></div>
-            <button type="button" class="btn btn-sm btn-primary w-100 mt-2 wallet-chart-tooltip__btn" data-idx="${idx}">Quick View</button>
-        `;
-        const rect = chart.canvas.getBoundingClientRect();
-        const left = rect.left + window.pageXOffset + tooltip.caretX + 14;
-        const top = rect.top + window.pageYOffset + tooltip.caretY - 20;
-        tip.style.opacity = '1';
-        tip.style.pointerEvents = 'auto';
-        tip.style.left = left + 'px';
-        tip.style.top = top + 'px';
-        tip.querySelector('.wallet-chart-tooltip__btn')?.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            openSpendDetails(point);
-        });
-    }
-
-    function renderChart(data) {
-        const canvas = document.getElementById('walletChart');
-        if (!canvas) return;
-        if (!canvas) return;
-        chartData = data || {};
-        buildOrderIndex(chartData);
-        const points = chartData.points || [];
-        const hasSpend = !!chartData.has_spend;
-
-        if (!hasSpend) {
-            $('#walletChartEmpty').show();
-            $('#walletChartWrap').hide();
-            if (walletChart) {
-                walletChart.destroy();
-                walletChart = null;
-            }
-            return;
-        }
-
-        $('#walletChartEmpty').hide();
-        $('#walletChartWrap').show();
-
-        if (walletChart) walletChart.destroy();
-
-        const values = points.map(p => p.total_spend);
-        walletChart = new Chart(canvas, {
-            type: 'line',
-            data: {
-                labels: chartData.labels || points.map(p => p.label),
-                datasets: [{
-                    label: 'Spending',
-                    data: values,
-                    borderColor: '#1a585e',
-                    backgroundColor: (ctx) => {
-                        const chart = ctx.chart;
-                        const {ctx: c, chartArea} = chart;
-                        if (!chartArea) return 'rgba(26, 88, 94,.10)';
-                        const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                        g.addColorStop(0, 'rgba(14,165,233,.22)');
-                        g.addColorStop(1, 'rgba(26, 88, 94,.02)');
-                        return g;
-                    },
-                    borderWidth: 2.5,
-                    tension: 0.35,
-                    fill: true,
-                    pointRadius: 4,
-                    pointHoverRadius: 7,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: '#0ea5e9',
-                    pointBorderWidth: 2,
-                    pointHoverBorderWidth: 3,
-                    pointHitRadius: 14,
-                    cursor: 'pointer',
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: { duration: 650, easing: 'easeOutQuart' },
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        enabled: false,
-                        external: externalTooltipHandler,
-                    },
-                    zoom: {
-                        pan: { enabled: true, mode: 'x', modifierKey: null },
-                        zoom: {
-                            wheel: { enabled: true, speed: 0.08 },
-                            pinch: { enabled: true },
-                            drag: { enabled: true, backgroundColor: 'rgba(14,165,233,.08)', borderColor: 'rgba(26, 88, 94,.35)', borderWidth: 1 },
-                            mode: 'x',
-                        },
-                        limits: { x: { min: 'original', max: 'original' } },
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(148,163,184,.18)' },
-                        ticks: { callback: (v) => '€' + v, color: '#75787B', font: { size: 11 } },
-                        border: { display: false },
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#75787B', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
-                        border: { display: false },
-                    }
-                },
-                onHover: (evt, elements) => {
-                    evt.native.target.style.cursor = elements.length ? 'pointer' : 'grab';
-                },
-                onClick: (evt, elements) => {
-                    if (!elements.length) return;
-                    const idx = elements[0].index;
-                    const point = points[idx];
-                    if (point) openSpendDetails(point);
-                }
-            },
-            plugins: [crosshairPlugin],
-        });
-        walletChart.$spendPoints = points;
-
-        canvas.ondblclick = function () {
-            if (walletChart && walletChart.resetZoom) walletChart.resetZoom();
-        };
-    }
-
-    function fetchAnalytics(range, from, to) {
-        const params = { range: range };
-        if (range === 'custom') {
-            params.from = from || $('#chartFrom').val();
-            params.to = to || $('#chartTo').val();
-            if (!params.from || !params.to) return;
-        }
-        $.get(routes.analytics, params).done(function (res) {
-            if (res.success) renderChart(res.analytics);
-        });
-    }
-
     function openTxDetail(source, id) {
         const body = $('#txDetailBody');
         body.html('<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>');
@@ -1433,48 +1194,6 @@
             openTxDetail($(this).data('source'), $(this).data('id'));
         });
 
-        $('.chart-range-btn').on('click', function () {
-            $('.chart-range-btn').removeClass('active');
-            $(this).addClass('active');
-            activeChartRange = $(this).data('range');
-            if (activeChartRange === 'custom') {
-                $('#chartCustomRange').show();
-                return;
-            }
-            $('#chartCustomRange').hide();
-            fetchAnalytics(activeChartRange);
-        });
-
-        $('#chartCustomApply').on('click', function () {
-            fetchAnalytics('custom');
-        });
-
-        $('.add-fund-amt').on('click', function () {
-            $('.add-fund-amt').removeClass('is-active');
-            $(this).addClass('is-active');
-            const amt = $(this).data('amount');
-            if (amt === 'custom') {
-                $('#customAmountWrap').show();
-                selectedAddAmount = null;
-                $('#continueAddFundsBtn').prop('disabled', true);
-            } else {
-                $('#customAmountWrap').hide();
-                selectedAddAmount = parseFloat(amt);
-                $('#continueAddFundsBtn').prop('disabled', false);
-            }
-        });
-
-        $('#modalCustomAmount').on('input', function () {
-            const v = parseFloat($(this).val());
-            selectedAddAmount = (!isNaN(v) && v >= 10) ? v : null;
-            $('#continueAddFundsBtn').prop('disabled', !selectedAddAmount);
-        });
-
-        $('#continueAddFundsBtn').on('click', function () {
-            if (!selectedAddAmount) return;
-            window.location.href = routes.addFunds + '?amount=' + encodeURIComponent(selectedAddAmount);
-        });
-
         $('#withdrawMethod').on('change', function () {
             renderWithdrawFields($(this).val());
         });
@@ -1536,52 +1255,52 @@
 })();
 </script>
 <!-- Billing Information Modal -->
-<div class="modal fade" id="billingInfoModal" tabindex="-1" data-bs-backdrop="static">
+<div class="modal fade" id="billingInfoModal" tabindex="-1" data-bs-backdrop="static" aria-labelledby="billingInfoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
-                    <i class="fa fa-user-edit me-2"></i> Billing Information
+                <h5 class="modal-title" id="billingInfoModalLabel">
+                    <i class="fa fa-user-edit me-2" aria-hidden="true"></i> Billing information
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted mb-3">Please provide your billing information for the invoice.</p>
-                
-                <form id="billingForm">
+                <p class="text-muted mb-3" id="billingFormHint">Needed on the invoice. Company name is required.</p>
+
+                <form id="billingForm" novalidate>
                     @csrf
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Billing Name <span class="text-danger">*</span></label>
-                            <input type="text" name="billing_name" id="billing_name" class="form-control" required>
+                            <label class="form-label" for="billing_name">Billing name <span class="text-danger">*</span></label>
+                            <input type="text" name="billing_name" id="billing_name" class="form-control" required autocomplete="name" aria-required="true">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Company Name <span class="text-danger">*</span></label>
-                            <input type="text" name="company_name" id="company_name" class="form-control" required>
+                            <label class="form-label" for="company_name">Company name <span class="text-danger">*</span></label>
+                            <input type="text" name="company_name" id="company_name" class="form-control" required autocomplete="organization" aria-required="true">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Country <span class="text-danger">*</span></label>
-                            <input type="text" name="country" id="country" class="form-control" required>
+                            <label class="form-label" for="country">Country <span class="text-danger">*</span></label>
+                            <input type="text" name="country" id="country" class="form-control" required autocomplete="country-name" aria-required="true">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">State/Province <span class="text-danger">*</span></label>
-                            <input type="text" name="state" id="state" class="form-control" required>
+                            <label class="form-label" for="state">State / province</label>
+                            <input type="text" name="state" id="state" class="form-control" autocomplete="address-level1">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">City <span class="text-danger">*</span></label>
-                            <input type="text" name="city" id="city" class="form-control" required>
+                            <label class="form-label" for="city">City <span class="text-danger">*</span></label>
+                            <input type="text" name="city" id="city" class="form-control" required autocomplete="address-level2" aria-required="true">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Postal Code <span class="text-danger">*</span></label>
-                            <input type="text" name="postal_code" id="postal_code" class="form-control" required>
+                            <label class="form-label" for="postal_code">Postal code</label>
+                            <input type="text" name="postal_code" id="postal_code" class="form-control" autocomplete="postal-code">
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Address <span class="text-danger">*</span></label>
-                            <textarea name="address" id="address" class="form-control" rows="2" required></textarea>
+                            <label class="form-label" for="address">Address <span class="text-danger">*</span></label>
+                            <textarea name="address" id="address" class="form-control" rows="2" required autocomplete="street-address" aria-required="true"></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">VAT Number</label>
-                            <input type="text" name="vat_number" id="vat_number" class="form-control">
+                            <label class="form-label" for="vat_number">VAT number</label>
+                            <input type="text" name="vat_number" id="vat_number" class="form-control" autocomplete="off">
                         </div>
                     </div>
                 </form>
@@ -1589,11 +1308,12 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="saveBillingInfo">
-                    <i class="fa fa-save"></i> Save & Continue
+                    <i class="fa fa-save" aria-hidden="true"></i> Save &amp; continue
                 </button>
             </div>
         </div>
     </div>
+</div>
 
 
 <script>

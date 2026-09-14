@@ -161,6 +161,69 @@ class AdvertiserAddFundsErrorTest extends TestCase
         }
     }
 
+    public function test_missing_invoice_json_does_not_leak_model_class(): void
+    {
+        $advertiser = $this->advertiser();
+
+        foreach ([
+            ['POST', route('advertiser.add-funds.cancel', 999999)],
+            ['POST', route('advertiser.add-funds.mark-paid', 999999)],
+            ['GET', route('advertiser.add-funds.status', 999999)],
+        ] as [$method, $url]) {
+            $this->actingAs($advertiser)
+                ->json($method, $url)
+                ->assertNotFound()
+                ->assertJsonPath('success', false)
+                ->assertJsonPath('message', 'Invoice not found.')
+                ->assertJsonMissingPath('exception')
+                ->assertDontSee('SQLSTATE')
+                ->assertDontSee('App\\Models')
+                ->assertDontSee('DepositRequest')
+                ->assertDontSee('No query results');
+        }
+    }
+
+    public function test_missing_invoice_html_does_not_leak_model_class(): void
+    {
+        $advertiser = $this->advertiser();
+
+        foreach ([
+            route('advertiser.add-funds.cancel', 999999),
+            route('advertiser.add-funds.mark-paid', 999999),
+        ] as $url) {
+            $this->actingAs($advertiser)
+                ->post($url)
+                ->assertNotFound()
+                ->assertDontSee('SQLSTATE', false)
+                ->assertDontSee('App\\Models', false)
+                ->assertDontSee('DepositRequest', false)
+                ->assertDontSee('No query results', false);
+        }
+    }
+
+    public function test_status_of_another_users_invoice_is_leftover_safe_404(): void
+    {
+        $owner = $this->advertiser();
+        $other = $this->advertiser();
+        $deposit = DepositRequest::create([
+            'user_id' => $owner->id,
+            'reference_code' => 'OTH404',
+            'amount' => 40,
+            'payment_method' => 'wise',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($other)
+            ->getJson(route('advertiser.add-funds.status', $deposit->id))
+            ->assertNotFound()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Invoice not found.')
+            ->assertJsonMissingPath('exception')
+            ->assertDontSee('SQLSTATE')
+            ->assertDontSee('App\\Models')
+            ->assertDontSee('DepositRequest');
+    }
+
     private function restoreDepositRequestsTable(): void
     {
         foreach ([

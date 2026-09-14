@@ -181,8 +181,12 @@ class PaymentFlowLeftoverErrorTest extends TestCase
             $this->actingAs($advertiser)
                 ->postJson(route('advertiser.add-funds.mark-paid', 1))
                 ->assertNotFound()
+                ->assertJsonPath('success', false)
+                ->assertJsonPath('message', 'Invoice not found.')
                 ->assertJsonMissingPath('exception')
-                ->assertDontSee('SQLSTATE');
+                ->assertDontSee('SQLSTATE')
+                ->assertDontSee('App\\Models')
+                ->assertDontSee('DepositRequest');
         } finally {
             $this->restoreDepositRequestsTable();
         }
@@ -197,8 +201,12 @@ class PaymentFlowLeftoverErrorTest extends TestCase
             $this->actingAs($advertiser)
                 ->postJson(route('advertiser.add-funds.cancel', 1))
                 ->assertNotFound()
+                ->assertJsonPath('success', false)
+                ->assertJsonPath('message', 'Invoice not found.')
                 ->assertJsonMissingPath('exception')
-                ->assertDontSee('SQLSTATE');
+                ->assertDontSee('SQLSTATE')
+                ->assertDontSee('App\\Models')
+                ->assertDontSee('DepositRequest');
         } finally {
             $this->restoreDepositRequestsTable();
         }

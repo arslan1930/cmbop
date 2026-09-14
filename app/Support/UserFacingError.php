@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -24,6 +25,7 @@ class UserFacingError
      */
     private const INTERNAL_TYPES = [
         QueryException::class,
+        ModelNotFoundException::class,
         \PDOException::class,
         \ErrorException::class,
         \Error::class, // TypeError, ValueError, ArgumentCountError, ...
@@ -52,6 +54,8 @@ class UserFacingError
         '.php',
         '::__',
         'stack trace',
+        'No query results',
+        'App\\Models',
     ];
 
     /**
