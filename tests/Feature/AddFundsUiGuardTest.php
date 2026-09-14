@@ -135,10 +135,8 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringContainsString('.wallet-status--refunded', $css);
         $this->assertStringContainsString('.wallet-status--failed', $css);
         $this->assertStringContainsString('pointer-events: none', $css);
-        $this->assertDoesNotMatchRegularExpression(
-            '/\.wallet-status\s*\{[^}]*border-radius:\s*999px/',
-            $css
-        );
+        $this->assertStringContainsString('.wallet-status::before', $css);
+        $this->assertStringContainsString('text-transform: uppercase', $css);
         $this->assertStringNotContainsString('.wallet-type-icon.is-debit', $css);
     }
 }
