@@ -2577,8 +2577,23 @@ class InAppNotificationService
     }
 
     /**
-     * “Review order” bells stay in history, but they are not unread work
-     * after the charge failed or a leftover (non-completed) refund.
+     * Advertiser work CTAs that must not stay unread after a failed charge
+     * or leftover (non-completed) refund. Informational “View order” bells
+     * (accepted, rejected, support updates) are not in this set.
+     *
+     * @var list<string>
+     */
+    public const STALE_ADVERTISER_WORK_LABELS = [
+        'Review order',
+        'Send revised article',
+        'Open chat',
+    ];
+
+    public const STALE_ADVERTISER_CHASE_TITLE_PREFIX = 'We are chasing order';
+
+    /**
+     * Work bells stay in history, but they are not unread after the charge
+     * failed or a leftover (non-completed) refund.
      *
      * @param  Builder<InAppNotification>  $query
      */
@@ -2589,12 +2604,19 @@ class InAppNotificationService
         }
 
         $query->where(function ($keep) {
-            $keep->where(function ($notAdvertiserReview) {
-                $notAdvertiserReview->whereNotIn('audience', [
+            $keep->where(function ($notAdvertiserWork) {
+                $notAdvertiserWork->whereNotIn('audience', [
                     InAppNotification::AUDIENCE_ADVERTISER,
                     InAppNotification::AUDIENCE_ALL,
-                ])->orWhereNull('action_label')
-                    ->orWhere('action_label', '!=', 'Review order');
+                ])->orWhere(function ($notWorkShape) {
+                    $notWorkShape->where(function ($label) {
+                        $label->whereNull('action_label')
+                            ->orWhereNotIn('action_label', self::STALE_ADVERTISER_WORK_LABELS);
+                    })->where(function ($title) {
+                        $title->whereNull('title')
+                            ->orWhere('title', 'not like', self::STALE_ADVERTISER_CHASE_TITLE_PREFIX.'%');
+                    });
+                });
             })->orWhere(function ($liveOrUnrelated) {
                 $liveOrUnrelated->whereNull('related_id')
                     ->orWhere('related_type', '!=', Order::class)
@@ -2625,13 +2647,16 @@ class InAppNotificationService
 
         $payload['action_label'] = 'View order';
         $payload['is_unread'] = false;
+        if (str_starts_with((string) $notification->title, self::STALE_ADVERTISER_CHASE_TITLE_PREFIX)) {
+            $payload['message'] = 'This order is no longer in progress. Open it for the current status.';
+        }
 
         return $payload;
     }
 
     public function isStaleAdvertiserReviewBell(InAppNotification $notification): bool
     {
-        if (($notification->action_label ?: '') !== 'Review order') {
+        if (! $this->isAdvertiserOrderWorkBellShape($notification)) {
             return false;
         }
 
@@ -2654,6 +2679,16 @@ class InAppNotificationService
 
         return $payment === 'failed'
             || ($payment === 'refunded' && $status !== 'completed');
+    }
+
+    public function isAdvertiserOrderWorkBellShape(InAppNotification $notification): bool
+    {
+        $label = (string) ($notification->action_label ?: '');
+        if (in_array($label, self::STALE_ADVERTISER_WORK_LABELS, true)) {
+            return true;
+        }
+
+        return str_starts_with((string) $notification->title, self::STALE_ADVERTISER_CHASE_TITLE_PREFIX);
     }
 
     public function unreadCount(int $userId, ?string $audience = null): int
