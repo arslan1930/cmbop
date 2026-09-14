@@ -1016,6 +1016,10 @@
             const dead = ['rejected', 'failed', 'cancelled'].includes(status)
                 || row.direction === 'none'
                 || (status === 'refunded' && row.direction !== 'debit');
+            // Leftover refunded debits keep the historical minus, but they are
+            // closed money — mute the amount so they do not look like a live
+            // charge. `dead` stays false so we do not drop the minus.
+            const closed = dead || status === 'refunded';
             const iconClass = activityIconClass(row, status, dead);
             const amountClass = dead ? 'wallet-amount-flat' : (debit ? 'wallet-amount-debit' : 'wallet-amount-credit');
             const sign = dead ? '' : (debit ? '−' : '+');
@@ -1045,7 +1049,7 @@
                 actions += `<span class="small text-success"><i class="fa fa-check-circle me-1"></i> Payment reported</span>`;
             }
 
-            html += `<li class="af-activity-item ${pending ? 'is-pending' : ''} ${dead ? 'is-closed' : ''} wallet-tx-row"
+            html += `<li class="af-activity-item ${pending ? 'is-pending' : ''} ${closed ? 'is-closed' : ''} wallet-tx-row"
                 data-source="${escapeHtml(row.source)}" data-id="${escapeHtml(row.id)}">
                 <div class="af-activity-rail">
                     <span class="wallet-type-icon ${iconClass}"><i class="fa ${escapeHtml(row.icon || 'fa-circle')}"></i></span>
@@ -1343,6 +1347,8 @@
                 const dead = ['rejected', 'failed', 'cancelled'].includes(status)
                     || t.direction === 'none'
                     || (status === 'refunded' && t.direction !== 'debit');
+                const detailSign = dead ? '' : (t.direction === 'debit' ? '− ' : (t.direction === 'credit' ? '+ ' : ''));
+                const detailAmount = detailSign + money(t.amount);
                 let invoiceBtn = '';
                 if (t.invoice_download_url) {
                     const downloadLabel = (status === 'refunded' || status === 'failed') ? 'Download receipt' : 'Download Invoice';
@@ -1355,7 +1361,7 @@
                     <div class="wallet-detail-row"><span>Transaction ID</span><strong>${escapeHtml(t.reference || t.id)}</strong></div>
                     <div class="wallet-detail-row"><span>Date</span><strong>${t.date ? new Date(t.date).toLocaleString() : '—'}</strong></div>
                     <div class="wallet-detail-row"><span>Type</span><strong>${escapeHtml(t.type_label || '')}</strong></div>
-                    <div class="wallet-detail-row"><span>Amount</span><strong>${dead ? money(t.amount) : money(t.signed_amount ?? t.amount)}</strong></div>
+                    <div class="wallet-detail-row"><span>Amount</span><strong>${detailAmount}</strong></div>
                     <div class="wallet-detail-row"><span>Payment Method</span><strong>${escapeHtml(t.payment_method_label || t.payment_method || '—')}</strong></div>
                     <div class="wallet-detail-row"><span>Order Reference</span><strong>${escapeHtml(t.order_reference || '—')}</strong></div>
                     <div class="wallet-detail-row"><span>Invoice</span><strong>${escapeHtml(t.invoice_number || '—')}</strong></div>

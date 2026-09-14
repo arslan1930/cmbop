@@ -122,9 +122,13 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringNotContainsString('btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}"', $blade);
         $this->assertStringNotContainsString("debit ? 'is-debit'", $blade);
         $this->assertStringContainsString('function activityIconClass', $blade);
+        $this->assertStringContainsString("const closed = dead || status === 'refunded'", $blade);
+        $this->assertStringContainsString('${closed ? \'is-closed\' : \'\'}', $blade);
+        $this->assertStringContainsString('const detailSign = dead ? \'\' : (t.direction === \'debit\' ? \'− \' : (t.direction === \'credit\' ? \'+ \' : \'\'))', $blade);
         $this->assertStringContainsString('.wallet-type-icon.is-purchase', $css);
         $this->assertStringContainsString('.wallet-type-icon.is-refund', $css);
         $this->assertStringContainsString('.wallet-type-icon.is-closed', $css);
+        $this->assertStringContainsString('.af-activity-item.is-closed .af-activity-amount', $css);
         $this->assertStringNotContainsString('.wallet-type-icon.is-debit', $css);
     }
 }
