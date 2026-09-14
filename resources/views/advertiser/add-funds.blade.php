@@ -865,7 +865,19 @@
     }
 
     function statusClass(status) {
-        return 'wallet-status wallet-status--' + String(status || 'pending').toLowerCase();
+        const s = String(status || 'pending').toLowerCase();
+        const tone = ({
+            paid: 'success',
+            completed: 'success',
+            approved: 'success',
+            failed: 'danger',
+            rejected: 'danger',
+            cancelled: 'secondary',
+            refunded: 'info',
+            pending: 'warning',
+            processing: 'warning',
+        })[s] || 'secondary';
+        return 'badge text-bg-' + tone + ' wallet-status';
     }
 
     function statusLabel(status) {

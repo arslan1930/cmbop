@@ -64,52 +64,9 @@
 .wallet-amount-debit { color: #dc2626; font-weight: 700; }
 .wallet-amount-flat { color: var(--brand-ink, #1e293b); font-weight: 700; }
 .wallet-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 9px 3px 8px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    border: 1px solid transparent;
     pointer-events: none;
     user-select: none;
-}
-.wallet-status::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    flex: 0 0 auto;
-}
-.wallet-status--completed,
-.wallet-status--paid,
-.wallet-status--approved {
-    color: #0f766e;
-    background: #ecfdf5;
-    border-color: #a7f3d0;
-}
-.wallet-status--pending,
-.wallet-status--processing {
-    color: #57534e;
-    background: #f8fafc;
-    border-color: #e2e8f0;
-}
-.wallet-status--cancelled,
-.wallet-status--rejected,
-.wallet-status--failed {
-    color: #991b1b;
-    background: #fef2f2;
-    border-color: #fecaca;
-}
-.wallet-status--refunded {
-    color: #3730a3;
-    background: #eef2ff;
-    border-color: #c7d2fe;
+    vertical-align: middle;
 }
 
 .wallet-quick-amt {

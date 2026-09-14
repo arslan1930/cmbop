@@ -131,12 +131,13 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringContainsString('.wallet-type-icon.is-refund', $css);
         $this->assertStringContainsString('.wallet-type-icon.is-closed', $css);
         $this->assertStringContainsString('.af-activity-item.is-closed .af-activity-amount', $css);
-        $this->assertStringContainsString('.wallet-status--paid', $css);
-        $this->assertStringContainsString('.wallet-status--refunded', $css);
-        $this->assertStringContainsString('.wallet-status--failed', $css);
+        $this->assertStringContainsString("paid: 'success'", $blade);
+        $this->assertStringContainsString("refunded: 'info'", $blade);
+        $this->assertStringContainsString("failed: 'danger'", $blade);
+        $this->assertStringContainsString("'badge text-bg-' + tone + ' wallet-status'", $blade);
         $this->assertStringContainsString('pointer-events: none', $css);
-        $this->assertStringContainsString('.wallet-status::before', $css);
-        $this->assertStringContainsString('text-transform: uppercase', $css);
+        $this->assertStringNotContainsString('.wallet-status::before', $css);
+        $this->assertStringNotContainsString('.wallet-status--paid', $css);
         $this->assertStringNotContainsString('.wallet-type-icon.is-debit', $css);
     }
 }
