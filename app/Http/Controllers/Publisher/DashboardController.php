@@ -35,7 +35,7 @@ class DashboardController extends Controller
             $payload = $this->emptyDashboardPayload();
             $payload['dashboardFailed'] = true;
             $payload['welcomeSituation'] = 'we could not refresh your numbers';
-            [$payload['availableBalance'], $payload['withdrawableBalance']] = $this->publisherWalletBalances();
+            $payload = array_merge($payload, $this->publisherWalletView());
 
             return view('publisher.dashboard', $payload);
         }
@@ -56,7 +56,7 @@ class DashboardController extends Controller
         $needsYou = PublisherNeedsAction::needsYouCount((int) $userId);
         $waitingOnAdvertiser = PublisherNeedsAction::waitingOnAdvertiserCount((int) $userId);
 
-        [$availableBalance, $withdrawableBalance] = $this->publisherWalletBalances();
+        $walletView = $this->publisherWalletView();
 
         $metrics = $this->buildPerformanceMetrics($stats);
         $hasPaidOrders = (int) ($stats['total_orders'] ?? 0) > 0;
@@ -70,8 +70,10 @@ class DashboardController extends Controller
             'primaryAction' => $this->resolvePrimaryAction($needsYou, $listingWorkCount, $siteCount),
             'stats' => $stats,
             'metrics' => $metrics,
-            'availableBalance' => $availableBalance,
-            'withdrawableBalance' => $withdrawableBalance,
+            'availableBalance' => $walletView['availableBalance'],
+            'withdrawableBalance' => $walletView['withdrawableBalance'],
+            'canWithdraw' => $walletView['canWithdraw'],
+            'minWithdrawalAmount' => $walletView['minWithdrawalAmount'],
             'recentTasks' => $this->buildRecentTasks($siteIds),
             'weeklyEarnings' => $this->buildWeeklyEarnings($siteIds),
             'monthlyEarnings' => $this->buildMonthlyEarnings($siteIds),
@@ -101,6 +103,8 @@ class DashboardController extends Controller
             'metrics' => $this->buildPerformanceMetrics($stats),
             'availableBalance' => 0.0,
             'withdrawableBalance' => 0.0,
+            'canWithdraw' => false,
+            'minWithdrawalAmount' => $this->minWithdrawalAmount(),
             'recentTasks' => $this->buildRecentTasks([]),
             'weeklyEarnings' => $this->buildWeeklyEarnings([]),
             'monthlyEarnings' => $this->buildMonthlyEarnings([]),
@@ -260,27 +264,49 @@ class DashboardController extends Controller
         return 'grow';
     }
 
-    /**
-     * @return array{0: float, 1: float}
-     */
-    private function publisherWalletBalances(): array
+    private function minWithdrawalAmount(): float
     {
+        return max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
+    }
+
+    /**
+     * Same withdrawable / payout-minimum rules as Balance.
+     *
+     * @return array{availableBalance: float, withdrawableBalance: float, canWithdraw: bool, minWithdrawalAmount: float}
+     */
+    private function publisherWalletView(): array
+    {
+        $min = $this->minWithdrawalAmount();
+        $empty = [
+            'availableBalance' => 0.0,
+            'withdrawableBalance' => 0.0,
+            'canWithdraw' => false,
+            'minWithdrawalAmount' => $min,
+        ];
+
         try {
             $user = auth()->user();
             if (! $user) {
-                return [0.0, 0.0];
+                return $empty;
             }
 
             $wallet = Wallet::forPublisher((int) $user->id) ?: $user->activeWallet();
             if (! $wallet) {
-                return [0.0, 0.0];
+                return $empty;
             }
 
-            return [(float) $wallet->balance, $wallet->withdrawableBalance()];
+            $snapshot = $wallet->roleSnapshot();
+
+            return [
+                'availableBalance' => (float) $snapshot['spendable'],
+                'withdrawableBalance' => (float) $snapshot['withdrawable'],
+                'canWithdraw' => $snapshot['debt'] <= 0 && $snapshot['withdrawable'] >= $min,
+                'minWithdrawalAmount' => $min,
+            ];
         } catch (\Throwable $e) {
             report($e);
 
-            return [0.0, 0.0];
+            return $empty;
         }
     }
 

@@ -30,6 +30,8 @@
     ];
     $availableBalance = $availableBalance ?? 0;
     $withdrawableBalance = $withdrawableBalance ?? 0;
+    $canWithdraw = (bool) ($canWithdraw ?? false);
+    $minWithdrawalAmount = (float) ($minWithdrawalAmount ?? 20);
     $recentTasks = $recentTasks ?? [];
     $weeklyEarnings = $weeklyEarnings ?? ['labels' => [], 'values' => []];
     $monthlyEarnings = $monthlyEarnings ?? ['labels' => [], 'values' => []];
@@ -190,8 +192,13 @@
                 <div class="kpi-icon kpi-icon-earnings"><i class="fa fa-euro-sign"></i></div>
                 <div>
                     <span class="kpi-label">Total earnings</span>
-                    <div class="kpi-value" id="totalEarnings">€{{ number_format((float) $stats['total_earnings'], 2) }}</div>
-                    <div class="kpi-sub">Completed & paid</div>
+                    @if($dashboardFailed)
+                        <div class="kpi-value" id="totalEarnings">—</div>
+                        <div class="kpi-sub">Unavailable</div>
+                    @else
+                        <div class="kpi-value" id="totalEarnings">€{{ number_format((float) $stats['total_earnings'], 2) }}</div>
+                        <div class="kpi-sub">Completed & paid</div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -205,8 +212,13 @@
                         $pendingPayout = $pendingReview + $pendingInProgress;
                     @endphp
                     <span class="kpi-label">Pending payout</span>
-                    <div class="kpi-value" id="pendingEarnings">€{{ number_format($pendingPayout, 2) }}</div>
-                    <div class="kpi-sub">€{{ number_format($pendingReview, 2) }} in review · €{{ number_format($pendingInProgress, 2) }} still to publish</div>
+                    @if($dashboardFailed)
+                        <div class="kpi-value" id="pendingEarnings">—</div>
+                        <div class="kpi-sub">Unavailable</div>
+                    @else
+                        <div class="kpi-value" id="pendingEarnings">€{{ number_format($pendingPayout, 2) }}</div>
+                        <div class="kpi-sub">€{{ number_format($pendingReview, 2) }} in review · €{{ number_format($pendingInProgress, 2) }} still to publish</div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -219,8 +231,12 @@
                     <div class="kpi-sub">
                         @if(round((float) $availableBalance - (float) $withdrawableBalance, 2) > 0.009)
                             €{{ number_format((float) $availableBalance, 2) }} on balance includes promo/hold — not withdrawable
-                        @else
+                        @elseif($canWithdraw)
                             Ready to withdraw
+                        @elseif((float) $withdrawableBalance > 0.009)
+                            Below €{{ number_format((float) $minWithdrawalAmount, 0) }} payout minimum
+                        @else
+                            Nothing to withdraw
                         @endif
                     </div>
                 </div>
@@ -231,14 +247,19 @@
                 <div class="kpi-icon kpi-icon-tasks"><i class="fa fa-tasks"></i></div>
                 <div>
                     <span class="kpi-label">Needs you</span>
-                    <div class="kpi-value" id="openTasks">{{ $needsYou }}</div>
-                    <div class="kpi-sub">
-                        @if($waitingOnAdvertiser > 0)
-                            {{ $waitingOnAdvertiser }} in review with advertisers
-                        @else
-                            {{ (int) $stats['total_orders'] }} order{{ (int) $stats['total_orders'] === 1 ? '' : 's' }} total
-                        @endif
-                    </div>
+                    @if($dashboardFailed)
+                        <div class="kpi-value" id="openTasks">—</div>
+                        <div class="kpi-sub">Unavailable</div>
+                    @else
+                        <div class="kpi-value" id="openTasks">{{ $needsYou }}</div>
+                        <div class="kpi-sub">
+                            @if($waitingOnAdvertiser > 0)
+                                {{ $waitingOnAdvertiser }} in review with advertisers
+                            @else
+                                {{ (int) $stats['total_orders'] }} order{{ (int) $stats['total_orders'] === 1 ? '' : 's' }} total
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </a>
         </div>
@@ -246,15 +267,20 @@
             <a href="{{ $listingWorkCount > 0 ? route('publisher.websites', ['status' => 'pending']) : route('publisher.websites') }}" class="kpi-tile">
                 <div class="kpi-icon {{ $listingWorkCount > 0 ? 'kpi-icon-sites-work' : 'kpi-icon-sites-ok' }}"><i class="fa fa-{{ $listingWorkCount > 0 ? 'exclamation' : 'check' }}"></i></div>
                 <div>
-                    <span class="kpi-label">{{ $listingWorkCount > 0 ? 'Needs listing work' : 'Catalog-ready' }}</span>
-                    <div class="kpi-value" id="unverifiedSites">{{ $listingWorkCount > 0 ? $listingWorkCount : $sellableSiteCount }}</div>
-                    <div class="kpi-sub">
-                        @if($listingWorkCount > 0)
-                            Not in the catalog yet
-                        @else
-                            {{ $siteCount }} listed · {{ $sellableSiteCount }} catalog-ready
-                        @endif
-                    </div>
+                    <span class="kpi-label">{{ $dashboardFailed ? 'Sites' : ($listingWorkCount > 0 ? 'Needs listing work' : 'Catalog-ready') }}</span>
+                    @if($dashboardFailed)
+                        <div class="kpi-value" id="unverifiedSites">—</div>
+                        <div class="kpi-sub">Unavailable</div>
+                    @else
+                        <div class="kpi-value" id="unverifiedSites">{{ $listingWorkCount > 0 ? $listingWorkCount : $sellableSiteCount }}</div>
+                        <div class="kpi-sub">
+                            @if($listingWorkCount > 0)
+                                Not in the catalog yet
+                            @else
+                                {{ $siteCount }} listed · {{ $sellableSiteCount }} catalog-ready
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </a>
         </div>

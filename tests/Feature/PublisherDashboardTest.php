@@ -120,6 +120,8 @@ class PublisherDashboardTest extends TestCase
             ->assertDontSee('No paid orders yet')
             ->assertSee('€12.50')
             ->assertSee('€0.00')
+            ->assertSee('Below €20 payout minimum')
+            ->assertDontSee('Ready to withdraw')
             ->assertSee('dash-page-end', false);
 
         $this->actingAs($publisher)
@@ -687,6 +689,8 @@ class PublisherDashboardTest extends TestCase
             ->assertSee('We could not refresh every number')
             ->assertSee('we could not refresh your numbers')
             ->assertSee('€25.00')
+            ->assertSee('Unavailable')
+            ->assertDontSee('Catalog-ready')
             ->assertDontSee('No performance data yet')
             ->assertDontSee('Add a website with niche, language, and pricing')
             ->assertDontSee('Add your first website')

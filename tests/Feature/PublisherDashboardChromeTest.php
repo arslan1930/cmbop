@@ -42,6 +42,9 @@ class PublisherDashboardChromeTest extends TestCase
         $this->assertStringContainsString('Welcome back, {{ $publisherName }}', $blade);
         $this->assertStringContainsString('None need you', $blade);
         $this->assertStringNotContainsString('{{ $needsYou }} need you', $blade);
+        $this->assertStringContainsString('Nothing to withdraw', $blade);
+        $this->assertStringContainsString('Unavailable', $blade);
+        $this->assertStringContainsString('Below €', $blade);
         $this->assertStringNotContainsString('sites live', $blade);
         $this->assertStringNotContainsString('Open Rate', $blade);
         $this->assertStringNotContainsString('style="color:#0b6266', $blade);
