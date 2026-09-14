@@ -18,6 +18,7 @@
         'cancelled_orders' => 0,
         'total_earnings' => 0,
         'pending_earnings' => 0,
+        'in_progress_earnings' => 0,
         'success_rate' => 0,
     ];
     $metrics = $metrics ?? [
@@ -188,9 +189,14 @@
             <div class="kpi-tile">
                 <div class="kpi-icon" style="background:#3aaeb2;"><i class="fa fa-hourglass-half"></i></div>
                 <div>
-                    <span class="kpi-label">Pending earnings</span>
-                    <div class="kpi-value" id="pendingEarnings">€{{ number_format((float) $stats['pending_earnings'], 2) }}</div>
-                    <div class="kpi-sub">In advertiser review</div>
+                    @php
+                        $pendingReview = (float) ($stats['pending_earnings'] ?? 0);
+                        $pendingInProgress = (float) ($stats['in_progress_earnings'] ?? 0);
+                        $pendingPayout = $pendingReview + $pendingInProgress;
+                    @endphp
+                    <span class="kpi-label">Pending payout</span>
+                    <div class="kpi-value" id="pendingEarnings">€{{ number_format($pendingPayout, 2) }}</div>
+                    <div class="kpi-sub">€{{ number_format($pendingReview, 2) }} in review · €{{ number_format($pendingInProgress, 2) }} still to publish</div>
                 </div>
             </div>
         </div>
@@ -198,9 +204,15 @@
             <a href="{{ route('publisher.withdraw') }}" class="kpi-tile">
                 <div class="kpi-icon" style="background:#c45c26;"><i class="fa fa-wallet"></i></div>
                 <div>
-                    <span class="kpi-label">Available balance</span>
-                    <div class="kpi-value" id="availableBalance">€{{ number_format((float) $availableBalance, 2) }}</div>
-                    <div class="kpi-sub">Withdrawable €{{ number_format((float) $withdrawableBalance, 2) }}</div>
+                    <span class="kpi-label">Withdrawable</span>
+                    <div class="kpi-value" id="availableBalance">€{{ number_format((float) $withdrawableBalance, 2) }}</div>
+                    <div class="kpi-sub">
+                        @if(round((float) $availableBalance - (float) $withdrawableBalance, 2) > 0.009)
+                            €{{ number_format((float) $availableBalance, 2) }} on balance includes promo/hold — not withdrawable
+                        @else
+                            Ready to withdraw
+                        @endif
+                    </div>
                 </div>
             </a>
         </div>
