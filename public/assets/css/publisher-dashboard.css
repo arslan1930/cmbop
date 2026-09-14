@@ -8,6 +8,56 @@
   border-left: 4px solid #4ecdcb !important;
 }
 
+.publisher-cta-eyebrow {
+  color: #0b6266;
+  letter-spacing: 0.04em;
+}
+
+.publisher-view-all {
+  color: #0b6266;
+}
+
+.publisher-dashboard-failed {
+  padding: 1.5rem 1.75rem;
+  border-left: 4px solid #b45309;
+}
+
+.publisher-metric-muted {
+  opacity: 0.72;
+}
+
+.kpi-icon-earnings {
+  background: #0b6266;
+}
+
+.kpi-icon-pending {
+  background: #3aaeb2;
+}
+
+.kpi-icon-wallet {
+  background: #c45c26;
+}
+
+.kpi-icon-tasks {
+  background: #64748b;
+}
+
+.kpi-icon-sites-ok {
+  background: #0f766e;
+}
+
+.kpi-icon-sites-work {
+  background: #b45309;
+}
+
+.publisher-dashboard .progress-slim {
+  height: 4px;
+}
+
+.recent-tasks-table .site-url-clip {
+  max-width: 180px;
+}
+
 .publisher-secondary-cta .secondary-icon {
   width: 32px;
   height: 32px;

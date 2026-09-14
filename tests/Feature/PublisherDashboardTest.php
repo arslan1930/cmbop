@@ -10,6 +10,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class PublisherDashboardTest extends TestCase
@@ -112,6 +113,9 @@ class PublisherDashboardTest extends TestCase
 
         $response->assertOk()
             ->assertSee('No performance data yet')
+            ->assertSee('Welcome back, '.$publisher->name.' — add your first site.')
+            ->assertSee('<h2 class="mb-1 fw-semibold">Dashboard</h2>', false)
+            ->assertDontSee('No paid orders yet')
             ->assertSee('€12.50')
             ->assertSee('€0.00')
             ->assertSee('dash-page-end', false);
@@ -540,6 +544,7 @@ class PublisherDashboardTest extends TestCase
             ->get(route('publisher.dashboard'))
             ->assertOk()
             ->assertSee('You have 3 tasks that need you')
+            ->assertSee('Welcome back, '.$publisher->name.' — 3 tasks need you.')
             ->assertSee('1 more in review, waiting on advertisers.')
             ->assertSee('id="openTasks">3', false);
 
@@ -644,9 +649,41 @@ class PublisherDashboardTest extends TestCase
             ->get(route('publisher.dashboard'))
             ->assertOk()
             ->assertSee('Finish your listings')
+            ->assertSee('Welcome back, '.$publisher->name.' — 1 listing still pending.')
             ->assertSee('Needs listing work')
             ->assertSee('Not in the catalog yet')
             ->assertSee('id="unverifiedSites">1', false)
             ->assertDontSee('All listed sites verified');
+    }
+
+    public function test_listed_sites_without_paid_orders_keep_kpis_and_hide_charts(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('No paid orders yet')
+            ->assertSee('Welcome back, '.$publisher->name.' — you are caught up.')
+            ->assertSee('id="openTasks"', false)
+            ->assertSee('Catalog-ready')
+            ->assertDontSee('id="weeklyEarningsChart"', false)
+            ->assertDontSee('No performance data yet')
+            ->assertDontSee('Open Rate');
+    }
+
+    public function test_failed_dashboard_does_not_look_like_a_new_publisher(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        Schema::dropIfExists('sites');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('We could not refresh every number')
+            ->assertSee('we could not refresh your numbers')
+            ->assertDontSee('No performance data yet')
+            ->assertDontSee('Add a website with niche, language, and pricing');
     }
 }

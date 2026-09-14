@@ -31,7 +31,11 @@ class DashboardController extends Controller
                 UserFacingError::message($e, 'We could not load your dashboard. Please refresh and try again.')
             );
 
-            return view('publisher.dashboard', $this->emptyDashboardPayload());
+            $payload = $this->emptyDashboardPayload();
+            $payload['dashboardFailed'] = true;
+            $payload['welcomeSituation'] = 'we could not refresh your numbers';
+
+            return view('publisher.dashboard', $payload);
         }
     }
 
@@ -55,6 +59,7 @@ class DashboardController extends Controller
         $withdrawableBalance = $wallet ? $wallet->withdrawableBalance() : 0.0;
 
         $metrics = $this->buildPerformanceMetrics($stats);
+        $hasPaidOrders = (int) ($stats['total_orders'] ?? 0) > 0;
 
         return view('publisher.dashboard', [
             'siteCount' => $siteCount,
@@ -71,6 +76,10 @@ class DashboardController extends Controller
             'weeklyEarnings' => $this->buildWeeklyEarnings($siteIds),
             'monthlyEarnings' => $this->buildMonthlyEarnings($siteIds),
             'orderStatus' => $this->buildOrderStatusDistribution($siteIds),
+            'hasPaidOrders' => $hasPaidOrders,
+            'dashboardFailed' => false,
+            'publisherName' => (string) ($user->name ?: 'there'),
+            'welcomeSituation' => $this->welcomeSituation($needsYou, $listingWorkCount, $siteCount),
         ]);
     }
 
@@ -96,6 +105,10 @@ class DashboardController extends Controller
             'weeklyEarnings' => $this->buildWeeklyEarnings([]),
             'monthlyEarnings' => $this->buildMonthlyEarnings([]),
             'orderStatus' => $this->buildOrderStatusDistribution([]),
+            'hasPaidOrders' => false,
+            'dashboardFailed' => false,
+            'publisherName' => (string) (auth()->user()?->name ?: 'there'),
+            'welcomeSituation' => $this->welcomeSituation(0, 0, 0),
         ];
     }
 
@@ -245,6 +258,27 @@ class DashboardController extends Controller
         }
 
         return 'grow';
+    }
+
+    private function welcomeSituation(int $needsYou, int $listingWorkCount, int $siteCount): string
+    {
+        if ($needsYou > 0) {
+            return $needsYou === 1
+                ? '1 task needs you'
+                : $needsYou.' tasks need you';
+        }
+
+        if ($listingWorkCount > 0) {
+            return $listingWorkCount === 1
+                ? '1 listing still pending'
+                : $listingWorkCount.' listings still pending';
+        }
+
+        if ($siteCount === 0) {
+            return 'add your first site';
+        }
+
+        return 'you are caught up';
     }
 
     /**
