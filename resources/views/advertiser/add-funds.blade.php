@@ -999,8 +999,10 @@
         let html = '<ul class="af-activity-feed mb-0">';
         rows.forEach(function (row) {
             const debit = row.direction === 'debit';
-            const dead = ['rejected', 'failed', 'cancelled'].includes(String(row.status || '').toLowerCase())
-                || row.direction === 'none';
+            const status = String(row.status || '').toLowerCase();
+            const dead = ['rejected', 'failed', 'cancelled'].includes(status)
+                || row.direction === 'none'
+                || (status === 'refunded' && row.direction !== 'debit');
             const iconClass = row.type === 'bonus_credit' ? 'is-bonus' : (debit ? 'is-debit' : '');
             const amountClass = dead ? 'wallet-amount-flat' : (debit ? 'wallet-amount-debit' : 'wallet-amount-credit');
             const sign = dead ? '' : (debit ? '−' : '+');
@@ -1322,8 +1324,10 @@
                     return;
                 }
                 const t = res.transaction;
-                const dead = ['rejected', 'failed', 'cancelled'].includes(String(t.status || '').toLowerCase())
-                    || t.direction === 'none';
+                const status = String(t.status || '').toLowerCase();
+                const dead = ['rejected', 'failed', 'cancelled'].includes(status)
+                    || t.direction === 'none'
+                    || (status === 'refunded' && t.direction !== 'debit');
                 let invoiceBtn = '';
                 if (t.invoice_download_url) {
                     invoiceBtn = `<a class="btn btn-sm btn-primary w-100 mt-3" href="${escapeHtml(t.invoice_download_url)}"><i class="fa fa-download me-1"></i> Download Invoice</a>`;

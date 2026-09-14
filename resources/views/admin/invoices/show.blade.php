@@ -32,7 +32,7 @@
                 @csrf
                 <button class="btn btn-sm btn-outline-secondary">Regenerate PDF</button>
             </form>
-            @if(! $invoice->isCancelled())
+            @if($invoice->canResendCustomerEmail())
                 <form method="POST" action="{{ route('admin.invoices.resend', $invoice) }}"
                       data-slb-confirm="Resend this document email to {{ $invoice->customer_email }}?"
                       data-slb-confirm-title="Resend email?"
@@ -83,7 +83,7 @@
                         </div>
                         <div class="col-md-4">
                             <span class="text-muted d-block">Payment status</span>
-                            <strong>{{ $invoice->payment_status ? ucfirst((string) $invoice->payment_status) : '—' }}</strong>
+                            <strong>{{ ucfirst($invoice->displayPaymentStatus()) }}</strong>
                         </div>
                         <div class="col-md-4">
                             <span class="text-muted d-block">Method</span>

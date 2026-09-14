@@ -228,6 +228,54 @@ class AdminInvoiceOpsTest extends TestCase
         ]);
     }
 
+    public function test_resend_refunded_tax_invoice_fails_without_mail(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+
+        $advertiser = $this->advertiser();
+        $admin = $this->admin();
+        $order = $this->paidOrder($advertiser);
+        $invoice = app(BillingDocumentService::class)->handlePaymentPaid($order);
+        $order->payment_status = 'refunded';
+        $order->saveQuietly();
+        app(BillingDocumentService::class)->handlePaymentRefunded($order->fresh(['user', 'items']), 'Test refund');
+        Mail::fake();
+
+        $emailCount = (int) $invoice->fresh()->email_count;
+
+        $this->actingAs($admin)
+            ->from(route('admin.invoices.show', $invoice))
+            ->post(route('admin.invoices.resend', $invoice->fresh()))
+            ->assertRedirect(route('admin.invoices.show', $invoice))
+            ->assertSessionHas('error', 'Refunded or failed payment documents cannot be resent as a payment confirmation.');
+
+        $this->assertSame($emailCount, (int) $invoice->fresh()->email_count);
+        Mail::assertNothingQueued();
+        Mail::assertNotQueued(PaymentSuccessfulInvoiceMail::class);
+    }
+
+    public function test_admin_invoice_show_prefers_document_status_over_frozen_paid(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+
+        $advertiser = $this->advertiser();
+        $admin = $this->admin();
+        $invoice = $this->stubInvoice($advertiser, [
+            'status' => Invoice::STATUS_REFUNDED,
+            'payment_status' => 'paid',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.invoices.show', $invoice))
+            ->assertOk()
+            ->assertSee('Payment status', false)
+            ->assertSee('Refunded', false)
+            ->assertDontSee('>Paid<', false)
+            ->assertDontSee('Resend email', false);
+    }
+
     public function test_resend_payout_statement_queues_mail_when_withdrawal_exists(): void
     {
         Mail::fake();

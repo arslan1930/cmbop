@@ -91,12 +91,27 @@ class InvoiceController extends Controller
 
     private function preferredOrderDocument(Order $order, int $userId): ?Invoice
     {
-        $rank = [
-            Invoice::TYPE_TAX_INVOICE => 0,
-            Invoice::TYPE_REFUND_RECEIPT => 1,
-            Invoice::TYPE_PAYMENT_FAILURE => 2,
-            Invoice::TYPE_PAYMENT_RECEIPT => 3,
-        ];
+        $payment = (string) $order->payment_status;
+        $rank = match (true) {
+            $payment === 'refunded' => [
+                Invoice::TYPE_REFUND_RECEIPT => 0,
+                Invoice::TYPE_TAX_INVOICE => 1,
+                Invoice::TYPE_PAYMENT_RECEIPT => 2,
+                Invoice::TYPE_PAYMENT_FAILURE => 3,
+            ],
+            $payment === 'failed' => [
+                Invoice::TYPE_PAYMENT_FAILURE => 0,
+                Invoice::TYPE_TAX_INVOICE => 1,
+                Invoice::TYPE_REFUND_RECEIPT => 2,
+                Invoice::TYPE_PAYMENT_RECEIPT => 3,
+            ],
+            default => [
+                Invoice::TYPE_TAX_INVOICE => 0,
+                Invoice::TYPE_REFUND_RECEIPT => 1,
+                Invoice::TYPE_PAYMENT_FAILURE => 2,
+                Invoice::TYPE_PAYMENT_RECEIPT => 3,
+            ],
+        };
 
         return Invoice::query()
             ->where('user_id', $userId)

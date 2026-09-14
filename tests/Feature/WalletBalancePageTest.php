@@ -486,6 +486,57 @@ class WalletBalancePageTest extends TestCase
         $this->assertFalse($refunded['can_mark_paid']);
     }
 
+    public function test_transactions_endpoint_relabels_ledger_deposit_after_clawback(): void
+    {
+        $deposit = DepositRequest::create([
+            'user_id' => $this->user->id,
+            'reference_code' => 'DEP-LEDGER-RF',
+            'amount' => 25,
+            'payment_method' => 'paypal',
+            'status' => 'completed',
+            'approved_at' => now(),
+            'paid_at' => now(),
+        ]);
+        app(WalletLedgerService::class)->recordDeposit(
+            $this->wallet,
+            25,
+            $deposit,
+            'paypal',
+            $deposit->reference_code
+        );
+        app(WalletLedgerService::class)->recordAdjustment(
+            $this->wallet,
+            25,
+            'debit',
+            $deposit,
+            $deposit->reference_code,
+            'PayPal deposit refunded'
+        );
+        $deposit->update(['status' => 'refunded']);
+
+        $rows = collect($this->actingAs($this->user)
+            ->getJson(route('advertiser.balance.transactions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('transactions'));
+
+        $credit = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'DEP-LEDGER-RF'
+            && ($row['type'] ?? '') === 'deposit');
+        $this->assertNotEmpty($credit);
+        $this->assertSame('Refunded deposit', $credit['type_label']);
+        $this->assertSame('refunded', $credit['status']);
+        $this->assertSame('credit', $credit['direction']);
+        $this->assertSame(25.0, (float) $credit['signed_amount']);
+        $this->assertFalse($credit['can_mark_paid']);
+        $this->assertStringContainsString('refunded and removed', $credit['description']);
+
+        $debit = $rows->first(fn ($row) => ($row['reference'] ?? '') === 'DEP-LEDGER-RF'
+            && ($row['type'] ?? '') === 'adjustment');
+        $this->assertNotEmpty($debit);
+        $this->assertSame('debit', $debit['direction']);
+        $this->assertSame(-25.0, (float) $debit['signed_amount']);
+    }
+
     public function test_transactions_endpoint_returns_bonus_activity(): void
     {
         app(WalletLedgerService::class)->recordBonusCredit(

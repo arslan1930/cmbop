@@ -260,6 +260,28 @@ class Invoice extends Model
         ], true);
     }
 
+    /**
+     * Refund receipts and failure reports may be resent. Paid confirmations
+     * (tax invoice / payment receipt / deposit receipt) must not go out again
+     * after the money was refunded or the charge failed.
+     */
+    public function canResendCustomerEmail(): bool
+    {
+        if ($this->isCancelled()) {
+            return false;
+        }
+
+        if (! $this->isClosedDocument()) {
+            return true;
+        }
+
+        return ! in_array($this->type, [
+            self::TYPE_TAX_INVOICE,
+            self::TYPE_PAYMENT_RECEIPT,
+            self::TYPE_DEPOSIT_RECEIPT,
+        ], true);
+    }
+
     public function advertiserOrderUrl(): ?string
     {
         if (! $this->order_id) {
