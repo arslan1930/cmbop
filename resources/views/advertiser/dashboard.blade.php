@@ -237,6 +237,15 @@
 }
 .recent-order-row { cursor: pointer; text-decoration: none; color: inherit; }
 .recent-order-row:hover { background: rgba(255,255,255,0.45); }
+.recent-order-total--refunded {
+    color: #64748b;
+    font-weight: 600;
+}
+.recent-order-total--refunded s { text-decoration-thickness: 1px; }
+.recent-order-total--refunded .recent-order-total-note {
+    font-size: 12px;
+    font-weight: 500;
+}
 .kpi-tile .kpi-icon.is-muted { background: #e2e8f0 !important; color: #64748b !important; }
 </style>
 
@@ -644,9 +653,16 @@
                                                     {{ $statusLabel }}
                                                 </span>
                                             </td>
-                                            <td class="text-end py-3 fw-semibold" style="color:#1a585e;">
-                                                €{{ number_format((float) $order->total_amount, 2) }}
-                                            </td>
+                                            @if((string) $order->payment_status === 'refunded')
+                                                <td class="text-end py-3 recent-order-total--refunded">
+                                                    <s>€{{ number_format((float) $order->total_amount, 2) }}</s>
+                                                    <span class="recent-order-total-note">Refunded</span>
+                                                </td>
+                                            @else
+                                                <td class="text-end py-3 fw-semibold" style="color:#1a585e;">
+                                                    €{{ number_format((float) $order->total_amount, 2) }}
+                                                </td>
+                                            @endif
                                         </tr>
                                     @endforeach
                                 </tbody>

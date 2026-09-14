@@ -154,6 +154,38 @@ class AdvertiserDashboardPr1Test extends TestCase
         $this->assertStringContainsString('order-status pending', $html);
     }
 
+    public function test_recent_refunded_totals_are_not_shown_as_live_spend(): void
+    {
+        $user = $this->advertiser();
+        $this->makeOrder($user, [
+            'status' => 'review',
+            'payment_status' => 'refunded',
+            'total_amount' => 42,
+            'live_url' => 'https://live.example/refunded',
+        ]);
+        $this->makeOrder($user, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+            'total_amount' => 77,
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.dashboard'))
+            ->assertOk()
+            ->assertSee('Refunded', false)
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/recent-order-total--refunded[\s\S]*<s>€42\.00<\/s>[\s\S]*Refunded/',
+            $html
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/fw-semibold" style="color:#1a585e;">\s*€42\.00/',
+            $html
+        );
+        $this->assertStringContainsString('€77.00', $html);
+    }
+
     public function test_dashboard_uses_controller_not_closure(): void
     {
         $user = $this->advertiser();

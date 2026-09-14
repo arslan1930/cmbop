@@ -251,6 +251,8 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString("push(order.updated_at, 'Payment failed')", $js);
         $this->assertStringContainsString("push(order.updated_at, 'Refunded')", $js);
         $this->assertStringContainsString('${orderIsLiveWork(order) ? `<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="recheckLiveUrlBtn-', $js);
+        $this->assertStringContainsString('modRequested && orderIsLiveWork(order) && it.completion_notes', $js);
+        $this->assertStringNotContainsString('const revisionHtml = modRequested && it.completion_notes', $js);
         $this->assertMatchesRegularExpression(
             '/function loadOrderActivityTimeline[\\s\\S]{0,1800}reconstructOrderActivities/',
             $js,

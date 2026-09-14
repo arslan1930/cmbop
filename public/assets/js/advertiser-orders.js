@@ -2001,7 +2001,7 @@ function bootAdvertiserOrdersPage() {
                     </ul>
                </div>`
             : '';
-        const revisionHtml = modRequested && it.completion_notes
+        const revisionHtml = modRequested && orderIsLiveWork(order) && it.completion_notes
             ? `<div class="ui-callout ui-callout--attention ui-callout--sm ui-callout--flush mb-2"><span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span><div class="ui-callout__body"><strong>Change request:</strong> ${escapeHtml(it.completion_notes)}</div></div>`
             : '';
         const heading = itemsCount > 1
