@@ -189,9 +189,31 @@
 }
 
 .chat-bubble__meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   font-size: 0.7rem;
   color: var(--brand-ink-muted, #697078);
   margin-top: 0.3rem;
+}
+
+.chat-bubble__ticks {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  letter-spacing: -0.15em;
+  font-size: 0.62rem;
+  line-height: 1;
+  color: var(--brand-ink-muted, #697078);
+}
+
+.chat-bubble__ticks[data-read="1"] {
+  color: var(--brand-primary, #1a585e);
+}
+
+.chat-bubble__ticks .fa-check + .fa-check {
+  margin-left: 0.05em;
 }
 
 .chat-bubble__blocked-note {
