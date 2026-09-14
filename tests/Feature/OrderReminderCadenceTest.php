@@ -465,6 +465,21 @@ class OrderReminderCadenceTest extends TestCase
         Mail::assertNotQueued(AdvertiserReviewNudge::class);
     }
 
+    public function test_an_advertiser_who_owes_a_revised_article_is_not_nudged_to_review(): void
+    {
+        $publisher = $this->userWithRole('publisher');
+        $this->order($this->userWithRole('advertiser'), $this->site($publisher), 'review', [
+            'live_url' => 'https://example.com/the-post',
+            'live_url_submitted_at' => now()->subHours(30),
+            'modification_requested' => 'no',
+            'content_revision_requested' => 'yes',
+        ]);
+
+        $this->artisan('orders:nudge-advertisers')->assertSuccessful();
+
+        Mail::assertNotQueued(AdvertiserReviewNudge::class);
+    }
+
     // —— Advertiser: stalled notice ————————————————————————————————
 
     public function test_advertiser_is_told_when_their_publisher_runs_late(): void
@@ -494,6 +509,19 @@ class OrderReminderCadenceTest extends TestCase
         // is not yet worth worrying the advertiser about.
         $this->order($this->userWithRole('advertiser'), $this->site($publisher, '24h'), 'processing', [
             'accepted_at' => now()->subHours(30),
+        ]);
+
+        $this->artisan('orders:nudge-advertisers')->assertSuccessful();
+
+        Mail::assertNotQueued(AdvertiserOrderStalledNotice::class);
+    }
+
+    public function test_a_content_revision_is_not_reported_as_a_late_publisher(): void
+    {
+        $publisher = $this->userWithRole('publisher');
+        $this->order($this->userWithRole('advertiser'), $this->site($publisher, '24h'), 'processing', [
+            'accepted_at' => now()->subDays(5),
+            'content_revision_requested' => 'yes',
         ]);
 
         $this->artisan('orders:nudge-advertisers')->assertSuccessful();

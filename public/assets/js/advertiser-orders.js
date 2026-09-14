@@ -1249,6 +1249,11 @@ function bootAdvertiserOrdersPage() {
         const items = Array.isArray(order.items) ? order.items : [];
         const liveAt = items.map((it) => it && it.live_url_submitted_at).filter(Boolean).sort()[0];
         push(liveAt, 'Live URL submitted');
+        if (order.payment_status === 'failed') {
+            push(order.updated_at, 'Payment failed');
+        } else if (order.payment_status === 'refunded' && order.status !== 'completed') {
+            push(order.updated_at, 'Refunded');
+        }
         push(order.completed_at, order.payment_status === 'refunded' ? 'Completed · refunded' : 'Completed');
         if (!events.length) push(order.updated_at, 'Last updated');
         return events;
@@ -1950,9 +1955,9 @@ function bootAdvertiserOrdersPage() {
                 <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
                     ${liveUrlHealthBadge(it)}
                     <span class="small text-muted">Public reachability check${http}${checked}</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
+                    ${orderIsLiveWork(order) ? `<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
                         <i class="fa fa-refresh me-1"></i>Recheck
-                    </button>
+                    </button>` : ''}
                 </div>`;
         }
         const liveUrlHtml = liveUrl

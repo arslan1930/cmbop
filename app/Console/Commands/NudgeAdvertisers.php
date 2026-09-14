@@ -79,7 +79,7 @@ class NudgeAdvertisers extends Command
             $after = max(1, $laterReminderAt - 1);
         }
 
-        $items = OrderItem::query()
+        $query = OrderItem::query()
             ->whereNotNull('live_url')
             ->where('live_url', '!=', '')
             ->whereLiveUrlSubmittedAtIsRecorded()
@@ -90,7 +90,16 @@ class NudgeAdvertisers extends Command
             ->whereHas('order', function ($q) {
                 $q->where('status', 'review')
                     ->where('payment_status', 'paid');
-            })
+            });
+
+        if (Schema::hasColumn('order_items', 'content_revision_requested')) {
+            $query->where(function ($q) {
+                $q->where('content_revision_requested', 'no')
+                    ->orWhereNull('content_revision_requested');
+            });
+        }
+
+        $items = $query
             ->with('order')
             ->limit(300)
             ->get();
@@ -175,13 +184,22 @@ class NudgeAdvertisers extends Command
     ): int {
         $after = max(1, (int) config('reminders.advertiser_stalled.hours_after_deadline', 72));
 
-        $items = OrderItem::query()
+        $query = OrderItem::query()
             ->whereAcceptedAtIsRecorded()
             ->where(fn ($q) => $q->whereNull('live_url')->orWhere('live_url', ''))
             ->whereNull('stalled_notice_sent_at')
             ->whereHas('order', function ($q) {
                 $q->where('payment_status', 'paid')->whereIn('status', ['processing', 'pending']);
-            })
+            });
+
+        if (Schema::hasColumn('order_items', 'content_revision_requested')) {
+            $query->where(function ($q) {
+                $q->where('content_revision_requested', 'no')
+                    ->orWhereNull('content_revision_requested');
+            });
+        }
+
+        $items = $query
             ->with(['order', 'site'])
             ->limit(300)
             ->get();

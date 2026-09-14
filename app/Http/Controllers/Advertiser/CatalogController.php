@@ -4564,6 +4564,12 @@ class CatalogController extends Controller
 
         try {
             $order = Order::with('items')->where('user_id', auth()->id())->findOrFail($id);
+            if (! AdvertiserOrderStatus::isLiveAdvertiserWork($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This order is no longer live work, so the live URL is not rechecked.',
+                ], 422);
+            }
             $requestedItemId = isset($data['order_item_id']) ? (int) $data['order_item_id'] : null;
             if ($requestedItemId) {
                 $item = $order->items->firstWhere('id', $requestedItemId);
