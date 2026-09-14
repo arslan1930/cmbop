@@ -11,6 +11,7 @@
         'needs_review' => 0,
         'needs_action' => 0,
         'awaiting_payment' => 0,
+        'waiting_on_publisher' => 0,
     ];
     $recentOrders = $recentOrders ?? collect();
     $recommendedSites = $recommendedSites ?? collect();
@@ -59,6 +60,8 @@
 }
 .kpi-tile .kpi-label { font-size: 12px; color: #6b7280; display: block; }
 .kpi-tile .kpi-value { font-size: 1.35rem; font-weight: 700; color: var(--brand-primary, #1a585e); line-height: 1.1; }
+a.kpi-tile { text-decoration: none; color: inherit; }
+a.kpi-tile:hover { border-color: #cbd5e1; }
 .next-action {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px;
@@ -351,47 +354,55 @@
 <div class="dash-command-surface mb-4 dash-page-end">
     @include('advertiser.partials.dashboard-wallet-strip')
 
-    <!-- KPIs -->
+    <!-- KPIs: Active is completed + in progress + review + scheduled — not unpaid/cancelled. -->
     <div class="row g-3 mb-4 px-1 pt-1">
         <div class="col-6 col-lg-3">
-            <div class="kpi-tile">
+            <a href="{{ route('advertiser.orders') }}" class="kpi-tile">
                 <div class="kpi-icon" style="background:#3faeb2;color:#fff;"><i class="fa-solid fa-box-open" aria-hidden="true"></i></div>
                 <div>
-                    <span class="kpi-label">Total orders</span>
+                    <span class="kpi-label">Active</span>
                     <div class="kpi-value">{{ $stats['total'] }}</div>
                 </div>
-            </div>
+            </a>
+        </div>
+        <div class="col-6 col-lg-3">
+            <a href="{{ route('advertiser.orders', $needsAction > 0 ? ['status' => 'needs_action'] : []) }}" class="kpi-tile">
+                <div class="kpi-icon {{ $needsAction > 0 ? '' : 'is-muted' }}"
+                     style="background:{{ $needsAction > 0 ? '#d97706' : '#e2e8f0' }};color:{{ $needsAction > 0 ? '#fff' : '#64748b' }};">
+                    <i class="fa-solid fa-bell" aria-hidden="true"></i>
+                </div>
+                <div>
+                    <span class="kpi-label">Needs you</span>
+                    <div class="kpi-value">{{ $needsAction }}</div>
+                </div>
+            </a>
         </div>
         <div class="col-6 col-lg-3">
             <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#198754;color:#fff;"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
+                <div class="kpi-icon {{ ((int) ($stats['waiting_on_publisher'] ?? 0) > 0) ? '' : 'is-muted' }}"
+                     style="background:{{ ((int) ($stats['waiting_on_publisher'] ?? 0) > 0) ? '#0ea5e9' : '#e2e8f0' }};color:{{ ((int) ($stats['waiting_on_publisher'] ?? 0) > 0) ? '#fff' : '#64748b' }};">
+                    <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+                </div>
                 <div>
-                    <span class="kpi-label">Completed</span>
-                    <div class="kpi-value">{{ $stats['completed'] }}</div>
+                    <span class="kpi-label">Waiting on publisher</span>
+                    <div class="kpi-value">{{ (int) ($stats['waiting_on_publisher'] ?? 0) }}</div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="kpi-tile">
-                <div class="kpi-icon" style="background:#d97706;color:#fff;"><i class="fa-solid fa-clock" aria-hidden="true"></i></div>
+            <a href="{{ route('advertiser.orders', ['status' => 'in_progress']) }}" class="kpi-tile">
+                <div class="kpi-icon" style="background:#1a585e;color:#fff;"><i class="fa-solid fa-clock" aria-hidden="true"></i></div>
                 <div>
                     <span class="kpi-label">In progress</span>
                     <div class="kpi-value">{{ $stats['in_progress'] }}</div>
                 </div>
-            </div>
+            </a>
         </div>
-        <div class="col-6 col-lg-3">
-            <div class="kpi-tile">
-                <div class="kpi-icon {{ ((int) ($stats['cancelled'] ?? 0) > 0) ? '' : 'is-muted' }}"
-                     style="background:{{ ((int) ($stats['cancelled'] ?? 0) > 0) ? '#dc3545' : '#e2e8f0' }};color:{{ ((int) ($stats['cancelled'] ?? 0) > 0) ? '#fff' : '#64748b' }};">
-                    <i class="fa-solid fa-xmark-circle" aria-hidden="true"></i>
-                </div>
-                <div>
-                    <span class="kpi-label">Cancelled</span>
-                    <div class="kpi-value">{{ $stats['cancelled'] }}</div>
-                </div>
+        @if((int) ($stats['cancelled'] ?? 0) > 0)
+            <div class="col-12">
+                <p class="small text-muted mb-0 px-1">{{ (int) $stats['cancelled'] }} cancelled — not counted in Active.</p>
             </div>
-        </div>
+        @endif
     </div>
 
     <div class="row g-4 mb-4">

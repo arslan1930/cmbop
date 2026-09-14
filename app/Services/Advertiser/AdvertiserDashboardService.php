@@ -61,6 +61,7 @@ class AdvertiserDashboardService
             'needs_review' => 0,
             'needs_action' => 0,
             'awaiting_payment' => 0,
+            'waiting_on_publisher' => 0,
         ];
 
         $stats = $this->safe($user, 'order stats', fn () => $this->orderStats((int) $user->id), $emptyStats);
@@ -214,7 +215,8 @@ class AdvertiserDashboardService
      *     cancelled: int,
      *     needs_review: int,
      *     needs_action: int,
-     *     awaiting_payment: int
+     *     awaiting_payment: int,
+     *     waiting_on_publisher: int
      * }
      */
     public function orderStats(int $userId): array
@@ -262,6 +264,7 @@ class AdvertiserDashboardService
             'needs_review' => $needsReview,
             'needs_action' => $needsAction,
             'awaiting_payment' => $awaitingPayment,
+            'waiting_on_publisher' => $reviewWaitingUrl,
         ];
     }
 

@@ -205,6 +205,8 @@ class AdvertiserDashboardPr1Test extends TestCase
         $stats = app(AdvertiserDashboardService::class)->orderStats($user->id);
         $this->assertSame(1, $stats['needs_review']);
         $this->assertSame(1, $stats['needs_action']);
+        $this->assertSame(1, $stats['waiting_on_publisher']);
+        $this->assertSame(0, $stats['in_progress']);
         $this->assertSame(2, $stats['total']);
 
         $html = $this->actingAs($user)
@@ -215,6 +217,27 @@ class AdvertiserDashboardPr1Test extends TestCase
             ->getContent();
         $this->assertStringContainsString('order-status review', $html);
         $this->assertStringContainsString('order-status pending', $html);
+        $this->assertStringContainsString('Waiting on publisher', $html);
+        $this->assertStringContainsString('Needs you', $html);
+        $this->assertStringContainsString('kpi-label">Active', $html);
+        $this->assertStringNotContainsString('Total orders', $html);
+    }
+
+    public function test_unpaid_pending_is_not_waiting_on_publisher(): void
+    {
+        $user = $this->advertiser();
+        $this->makeOrder($user, [
+            'status' => 'pending',
+            'payment_status' => 'pending',
+            'paid_at' => null,
+            'payment_method' => 'card',
+        ]);
+
+        $stats = app(AdvertiserDashboardService::class)->orderStats($user->id);
+        $this->assertSame(0, $stats['waiting_on_publisher']);
+        $this->assertSame(0, $stats['in_progress']);
+        $this->assertSame(0, $stats['needs_action']);
+        $this->assertSame(1, $stats['awaiting_payment']);
     }
 
     public function test_recent_orders_queue_needs_action_first_with_next_copy(): void
