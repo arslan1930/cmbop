@@ -85,7 +85,9 @@ class NotificationController extends Controller
                 'audience' => $role,
             ], (int) $request->get('per_page', 20));
 
-            $items = collect($paginator->items())->map(fn (InAppNotification $n) => $n->toApiArray())->values();
+            $items = collect($paginator->items())->map(
+                fn (InAppNotification $n) => $this->notifications->presentNotification($n)
+            )->values();
 
             return response()->json([
                 'success' => true,

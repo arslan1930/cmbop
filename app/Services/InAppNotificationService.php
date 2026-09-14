@@ -18,6 +18,7 @@ use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Services\Orders\AdminOrderStatusOverride;
 use App\Services\Orders\OrderRefundService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -2575,6 +2576,86 @@ class InAppNotificationService
             ->get();
     }
 
+    /**
+     * “Review order” bells stay in history, but they are not unread work
+     * after the charge failed or a leftover (non-completed) refund.
+     *
+     * @param  Builder<InAppNotification>  $query
+     */
+    public function constrainOutStaleAdvertiserReviewBells(Builder $query): void
+    {
+        if (! Schema::hasTable('orders')) {
+            return;
+        }
+
+        $query->where(function ($keep) {
+            $keep->where(function ($notAdvertiserReview) {
+                $notAdvertiserReview->whereNotIn('audience', [
+                    InAppNotification::AUDIENCE_ADVERTISER,
+                    InAppNotification::AUDIENCE_ALL,
+                ])->orWhereNull('action_label')
+                    ->orWhere('action_label', '!=', 'Review order');
+            })->orWhere(function ($liveOrUnrelated) {
+                $liveOrUnrelated->whereNull('related_id')
+                    ->orWhere('related_type', '!=', Order::class)
+                    ->orWhereNotIn('related_id', function ($sub) {
+                        $sub->select('id')
+                            ->from('orders')
+                            ->where(function ($dead) {
+                                $dead->where('payment_status', 'failed')
+                                    ->orWhere(function ($refunded) {
+                                        $refunded->where('payment_status', 'refunded')
+                                            ->where('status', '!=', 'completed');
+                                    });
+                            });
+                    });
+            });
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function presentNotification(InAppNotification $notification): array
+    {
+        $payload = $notification->toApiArray();
+        if (! $this->isStaleAdvertiserReviewBell($notification)) {
+            return $payload;
+        }
+
+        $payload['action_label'] = 'View order';
+        $payload['is_unread'] = false;
+
+        return $payload;
+    }
+
+    public function isStaleAdvertiserReviewBell(InAppNotification $notification): bool
+    {
+        if (($notification->action_label ?: '') !== 'Review order') {
+            return false;
+        }
+
+        $audience = $notification->audience ?: InAppNotification::AUDIENCE_ALL;
+        if (! in_array($audience, [InAppNotification::AUDIENCE_ADVERTISER, InAppNotification::AUDIENCE_ALL], true)) {
+            return false;
+        }
+
+        if ($notification->related_type !== Order::class || ! $notification->related_id) {
+            return false;
+        }
+
+        $order = Order::query()->find($notification->related_id);
+        if (! $order) {
+            return false;
+        }
+
+        $payment = (string) $order->payment_status;
+        $status = (string) $order->status;
+
+        return $payment === 'failed'
+            || ($payment === 'refunded' && $status !== 'completed');
+    }
+
     public function unreadCount(int $userId, ?string $audience = null): int
     {
         InAppNotification::ensureTable();
@@ -2582,11 +2663,13 @@ class InAppNotificationService
             return 0;
         }
 
-        return InAppNotification::forUser($userId)
+        $query = InAppNotification::forUser($userId)
             ->forAudience($audience)
             ->unread()
-            ->notArchivedClock()
-            ->count();
+            ->notArchivedClock();
+        $this->constrainOutStaleAdvertiserReviewBells($query);
+
+        return $query->count();
     }
 
     public function listForUser(int $userId, array $filters = [], int $perPage = 20): LengthAwarePaginator
@@ -2601,6 +2684,9 @@ class InAppNotificationService
             ->latest();
 
         $status = $filters['status'] ?? 'active';
+        if (in_array($status, ['unread', 'active'], true)) {
+            $this->constrainOutStaleAdvertiserReviewBells($query);
+        }
         if ($status === 'unread') {
             $query->unread()->notArchivedClock();
         } elseif ($status === 'archived') {
