@@ -6,8 +6,8 @@
 <input type="file" id="quillImageInput" class="d-none" accept="image/*">
 
 <script>
-var quillUploadUrl = @json(route('admin.blogs.upload-image'));
-var quillDeleteUrl = @json(route('admin.blogs.delete-content-image'));
+var quillUploadUrl = @json(route('admin.blogs.upload-image', absolute: false));
+var quillDeleteUrl = @json(route('admin.blogs.delete-content-image', absolute: false));
 var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 var articleImagesManager = null;
 @php($editorLocales = $locales ?? (class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::supported() : ['en']))

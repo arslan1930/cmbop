@@ -325,7 +325,7 @@
 
     @if(auth()->user()->isAdmin())
     window.refreshAdminQueueBadges = function refreshAdminQueueBadges() {
-        fetch('{{ route("admin.dashboard.queue-counts") }}', {
+        fetch('{{ route("admin.dashboard.queue-counts", absolute: false) }}', {
             headers: { 'Accept': 'application/json' },
             credentials: 'same-origin'
         })

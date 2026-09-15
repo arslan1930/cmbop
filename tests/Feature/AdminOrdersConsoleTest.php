@@ -877,8 +877,8 @@ class AdminOrdersConsoleTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.orders.show', $order->id))
             ->assertOk()
-            ->assertSee(route('admin.orders.disputes.uphold', $dispute), false)
-            ->assertSee(route('admin.orders.disputes.dismiss', $dispute), false)
+            ->assertSee(route('admin.orders.disputes.uphold', $dispute, absolute: false), false)
+            ->assertSee(route('admin.orders.disputes.dismiss', $dispute, absolute: false), false)
             ->assertSee('data-resolve-url', false)
             ->assertDontSee('/admin/order-disputes/${', false)
             ->assertDontSee('sweetalert2.all.min.js', false)
@@ -897,7 +897,7 @@ class AdminOrdersConsoleTest extends TestCase
             ->assertOk()
             ->assertSee('id="remind-publisher"', false)
             ->assertSee('Remind to accept', false)
-            ->assertSee(route('admin.orders.remind-publisher', $item), false)
+            ->assertSee(route('admin.orders.remind-publisher', $item, absolute: false), false)
             ->assertSee('Does not use up the automated reminder ladder', false)
             ->assertDontSee('Remind to publish', false);
     }
@@ -913,7 +913,7 @@ class AdminOrdersConsoleTest extends TestCase
             ->get(route('admin.orders.show', $order->id))
             ->assertOk()
             ->assertSee('Remind to publish', false)
-            ->assertSee(route('admin.orders.remind-publisher', $item), false)
+            ->assertSee(route('admin.orders.remind-publisher', $item, absolute: false), false)
             ->assertDontSee('Remind to accept', false);
     }
 

@@ -199,7 +199,7 @@
     try { localStorage.removeItem('layoutDarkMode'); } catch (e) {}
 
     window.refreshAdminQueueBadges = function refreshMarketingQueueBadges() {
-        fetch(@json(route('marketing.dashboard.queue-counts')), {
+        fetch(@json(route('marketing.dashboard.queue-counts', absolute: false)), {
             headers: { 'Accept': 'application/json' },
             credentials: 'same-origin'
         })

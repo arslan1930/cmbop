@@ -188,7 +188,7 @@
                                 <div class="d-flex flex-wrap gap-1">
                                     <button class="btn btn-sm btn-outline-primary view-deposit"
                                             data-id="{{ $deposit->id }}"
-                                            data-show-url="{{ route('admin.deposits.show', $deposit->id) }}">
+                                            data-show-url="{{ route('admin.deposits.show', $deposit->id, absolute: false) }}">
                                         <i class="fa fa-eye"></i> View
                                     </button>
                                     @if(!empty($invoiceLinks[$deposit->id]))
@@ -244,9 +244,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = @json(csrf_token());
-    const approveUrlTemplate = @json(route('admin.deposits.approve', ['id' => '__ID__']));
-    const rejectUrlTemplate = @json(route('admin.deposits.reject', ['id' => '__ID__']));
-    const paypalRefundUrlTemplate = @json(route('admin.deposits.paypal-refund', ['id' => '__ID__']));
+    const approveUrlTemplate = @json(route('admin.deposits.approve', ['id' => '__ID__'], absolute: false));
+    const rejectUrlTemplate = @json(route('admin.deposits.reject', ['id' => '__ID__'], absolute: false));
+    const paypalRefundUrlTemplate = @json(route('admin.deposits.paypal-refund', ['id' => '__ID__'], absolute: false));
 
     function paypalDepositFields(deposit) {
         const response = (deposit && typeof deposit.paypal_response === 'object' && deposit.paypal_response)

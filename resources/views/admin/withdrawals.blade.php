@@ -246,15 +246,15 @@ const duplicateLookbackDays = {{ max(1, (int) config('billing.withdrawal_mark_pa
 
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     || '{{ csrf_token() }}';
-const withdrawalsDataUrl = @json(route('admin.withdrawals.data'));
-const withdrawalsStatisticsUrl = @json(route('admin.withdrawals.statistics'));
-const withdrawalsExportUrl = @json(route('admin.withdrawals.export'));
-const withdrawalsBatchUrl = @json(route('admin.withdrawals.batch'));
-const withdrawalsShowUrlTemplate = @json(route('admin.withdrawals.show', ['id' => '__ID__']));
-const withdrawalsProcessingUrlTemplate = @json(route('admin.withdrawals.processing', ['id' => '__ID__']));
-const withdrawalsPaidUrlTemplate = @json(route('admin.withdrawals.paid', ['id' => '__ID__']));
-const withdrawalsRejectUrlTemplate = @json(route('admin.withdrawals.reject', ['id' => '__ID__']));
-const financeUserUrlTemplate = @json(route('admin.finance.user', ['user' => '__ID__']));
+const withdrawalsDataUrl = @json(route('admin.withdrawals.data', absolute: false));
+const withdrawalsStatisticsUrl = @json(route('admin.withdrawals.statistics', absolute: false));
+const withdrawalsExportUrl = @json(route('admin.withdrawals.export', absolute: false));
+const withdrawalsBatchUrl = @json(route('admin.withdrawals.batch', absolute: false));
+const withdrawalsShowUrlTemplate = @json(route('admin.withdrawals.show', ['id' => '__ID__'], absolute: false));
+const withdrawalsProcessingUrlTemplate = @json(route('admin.withdrawals.processing', ['id' => '__ID__'], absolute: false));
+const withdrawalsPaidUrlTemplate = @json(route('admin.withdrawals.paid', ['id' => '__ID__'], absolute: false));
+const withdrawalsRejectUrlTemplate = @json(route('admin.withdrawals.reject', ['id' => '__ID__'], absolute: false));
+const financeUserUrlTemplate = @json(route('admin.finance.user', ['user' => '__ID__'], absolute: false));
 
 function withdrawalActionUrl(template, id) {
     return String(template).replace('__ID__', encodeURIComponent(id));
@@ -389,11 +389,13 @@ function loadWithdrawals(page = 1) {
         success: function(response) {
             if (response.success) {
                 renderWithdrawals(response.data);
-                renderAdminPagination(response.pagination, {
-                    links: '#paginationLinks',
-                    label: 'withdrawals',
-                    onNavigate: loadWithdrawals,
-                });
+                if (typeof window.renderAdminPagination === 'function') {
+                    window.renderAdminPagination(response.pagination, {
+                        links: '#paginationLinks',
+                        label: 'withdrawals',
+                        onNavigate: loadWithdrawals,
+                    });
+                }
             } else {
                 $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load') + '</td></tr>');
             }
@@ -860,21 +862,6 @@ $('#queueFilter').on('change', function() {
     loadWithdrawals(1);
 });
 
-document.addEventListener('DOMContentLoaded', function () {
-    if (typeof window.SlbLiveSearch !== 'undefined') {
-        window.SlbLiveSearch.init(document.getElementById('searchInput'), {
-            mode: 'event',
-            statusEl: document.getElementById('adminWithdrawalsSearchStatus'),
-            clearBtn: document.getElementById('adminWithdrawalsSearchClear'),
-            onSearch: function () { loadWithdrawals(1); },
-        });
-        return;
-    }
-    $('#searchInput').on('keypress', function(e) {
-        if (e.which === 13) loadWithdrawals(1);
-    });
-});
-
 // Deep-link query support (?status=completed&queue=history)
 (function initFromQuery() {
     const q = new URLSearchParams(window.location.search);
@@ -884,7 +871,21 @@ document.addEventListener('DOMContentLoaded', function () {
     if (q.get('search')) $('#searchInput').val(q.get('search'));
 })();
 
-loadStatistics();
-loadWithdrawals(1);
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.SlbLiveSearch !== 'undefined') {
+        window.SlbLiveSearch.init(document.getElementById('searchInput'), {
+            mode: 'event',
+            statusEl: document.getElementById('adminWithdrawalsSearchStatus'),
+            clearBtn: document.getElementById('adminWithdrawalsSearchClear'),
+            onSearch: function () { loadWithdrawals(1); },
+        });
+    } else {
+        $('#searchInput').on('keypress', function(e) {
+            if (e.which === 13) loadWithdrawals(1);
+        });
+    }
+    loadStatistics();
+    loadWithdrawals(1);
+});
 </script>
 @endsection

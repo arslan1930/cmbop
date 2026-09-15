@@ -254,6 +254,7 @@ class AdminPanelSmokeTest extends TestCase
             route('admin.deposits', ['status' => 'pending']),
             route('admin.withdrawals', ['queue' => 'open']),
             route('admin.users.index', ['user' => 1]),
+            route('admin.users.index', ['joined_from' => '2026-01-01', 'seen_to' => '2026-12-31']),
             route('admin.community.index', ['status' => 'pending']),
             route('admin.blogs.index', ['status' => 'published', 'q' => 'seo']),
             route('admin.emails.index', ['status' => 'delivered']),

@@ -197,7 +197,7 @@ class SiteController extends Controller
                 ->values();
 
             $selectedCountry = $countryFilter;
-            $exportUrl = route('admin.sites.records.export', $filter['query_params']);
+            $exportUrl = route('admin.sites.records.export', $filter['query_params'], absolute: false);
         } catch (\Throwable $e) {
             report($e);
 
@@ -222,7 +222,7 @@ class SiteController extends Controller
             $totalSites = 0;
             $healthCounts = CatalogHealthQueue::emptyCounts();
             $missingMarketCount = 0;
-            $exportUrl = route('admin.sites.records.export', $filter['query_params']);
+            $exportUrl = route('admin.sites.records.export', $filter['query_params'], absolute: false);
 
             return view('admin.sites.records', compact(
                 'sites',

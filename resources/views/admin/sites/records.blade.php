@@ -10,7 +10,7 @@
     $healthLabels = \App\Support\CatalogHealthQueue::LABELS;
     $countries = collect($countries ?? []);
     $totalSites = (int) ($totalSites ?? 0);
-    $exportUrl = $exportUrl ?? route('admin.sites.records.export');
+    $exportUrl = $exportUrl ?? route('admin.sites.records.export', absolute: false);
     $searchQ = $searchQ ?? '';
     $selectedLabel = '';
     if ($selectedCountry !== '') {
@@ -166,8 +166,8 @@
 
 <script>
 (function () {
-    const RECORDS_URL = @json(route('admin.sites.records'));
-    const EXPORT_BASE = @json(route('admin.sites.records.export'));
+    const RECORDS_URL = @json(route('admin.sites.records', absolute: false));
+    const EXPORT_BASE = @json(route('admin.sites.records.export', absolute: false));
     const TOTAL_SITES = @json($totalSites);
     const COUNTRIES = @json($countries->values());
     let selectedCountry = @json($selectedCountry);
@@ -180,8 +180,8 @@
     const siteSearch = document.getElementById('recordsSiteSearch');
     let siteQuery = @json($searchQ);
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-    const BULK_VERIFY_URL = @json(route('admin.sites.records.bulk-verify'));
-    const BULK_ACTIVATE_URL = @json(route('admin.sites.records.bulk-activate'));
+    const BULK_VERIFY_URL = @json(route('admin.sites.records.bulk-verify', absolute: false));
+    const BULK_ACTIVATE_URL = @json(route('admin.sites.records.bulk-activate', absolute: false));
     const searchInput = document.getElementById('recordsCountrySearch');
     const listEl = document.getElementById('recordsCountryList');
     const clearBtn = document.getElementById('recordsCountryClear');

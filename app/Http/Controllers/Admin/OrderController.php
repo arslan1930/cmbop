@@ -359,7 +359,7 @@ class OrderController extends Controller
             'failHint' => $canFailInFlight
                 ? $paymentPolicy->moneyHint('failed', $paymentMethod, (string) $order->payment_status)
                 : '',
-            'paymentUpdateUrl' => route('admin.payments.updateStatus', $order->id),
+            'paymentUpdateUrl' => route('admin.payments.updateStatus', $order->id, absolute: false),
         ]);
     }
 

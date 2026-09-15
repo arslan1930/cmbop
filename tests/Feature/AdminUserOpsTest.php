@@ -116,6 +116,80 @@ class AdminUserOpsTest extends TestCase
         $this->assertNotNull($suspended->id);
     }
 
+    public function test_joined_and_last_seen_date_filters(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $old = $this->userWithRole('advertiser', [
+            'name' => 'Old Joiner',
+            'email' => 'old.joiner@example.com',
+            'created_at' => now()->subDays(40),
+            'last_seen_at' => now()->subDays(30),
+        ]);
+        $recent = $this->userWithRole('advertiser', [
+            'name' => 'Recent Joiner',
+            'email' => 'recent.joiner@example.com',
+            'created_at' => now()->subDay(),
+            'last_seen_at' => now()->subHours(2),
+        ]);
+
+        $from = now()->subDays(7)->toDateString();
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.index', ['joined_from' => $from]))
+            ->assertOk()
+            ->assertSee('recent.joiner@example.com')
+            ->assertDontSee('old.joiner@example.com')
+            ->assertSee('Clear filters', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.index', ['seen_from' => $from]))
+            ->assertOk()
+            ->assertSee('recent.joiner@example.com')
+            ->assertDontSee('old.joiner@example.com');
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.index', ['joined_from' => 'not-a-date', 'seen_to' => '13/40/2026']))
+            ->assertOk()
+            ->assertSee('old.joiner@example.com')
+            ->assertSee('recent.joiner@example.com');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.users.export', ['joined_from' => $from]))
+            ->assertOk()
+            ->streamedContent();
+        $this->assertStringContainsString('recent.joiner@example.com', $csv);
+        $this->assertStringNotContainsString('old.joiner@example.com', $csv);
+        $this->assertSame($from, data_get(
+            ActivityLog::query()->where('action', 'user.exported')->latest('id')->first()?->properties,
+            'joined_from'
+        ));
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.index', ['user' => $recent->id, 'joined_from' => $from]))
+            ->assertOk()
+            ->assertSee('name="user"', false)
+            ->assertSee('value="'.$recent->id.'"', false)
+            ->assertSee('recent.joiner@example.com')
+            ->assertDontSee('old.joiner@example.com');
+
+        $this->assertNotNull($old->id);
+        $this->assertNotNull($recent->id);
+    }
+
+    public function test_users_page_uses_same_origin_ajax_urls(): void
+    {
+        $html = $this->actingAs($this->userWithRole('admin'))
+            ->get(route('admin.users.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('ROLE_UPDATE_URL = "\/admin\/users\/', $html);
+        $this->assertStringNotContainsString(
+            'ROLE_UPDATE_URL = "'.str_replace('/', '\/', rtrim((string) config('app.url'), '/').'/admin/users/'),
+            $html
+        );
+    }
+
     public function test_profile_shows_360_and_accepts_note(): void
     {
         $admin = $this->userWithRole('admin', ['name' => 'Admin Operator']);

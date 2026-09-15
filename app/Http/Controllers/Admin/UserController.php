@@ -95,6 +95,10 @@ class UserController extends Controller
                 'status' => $filters['status'],
                 'sort' => $filters['sort'],
                 'user' => $filters['user'] > 0 ? $filters['user'] : null,
+                'joined_from' => $filters['joined_from'] !== '' ? $filters['joined_from'] : null,
+                'joined_to' => $filters['joined_to'] !== '' ? $filters['joined_to'] : null,
+                'seen_from' => $filters['seen_from'] !== '' ? $filters['seen_from'] : null,
+                'seen_to' => $filters['seen_to'] !== '' ? $filters['seen_to'] : null,
                 'rows_exported' => $rows->count(),
                 'truncated' => $rows->count() >= self::EXPORT_LIMIT,
             ]
@@ -819,7 +823,17 @@ class UserController extends Controller
     }
 
     /**
-     * @return array{q: string, role: string, status: string, sort: string, user: int}
+     * @return array{
+     *     q: string,
+     *     role: string,
+     *     status: string,
+     *     sort: string,
+     *     user: int,
+     *     joined_from: string,
+     *     joined_to: string,
+     *     seen_from: string,
+     *     seen_to: string
+     * }
      */
     private function userIndexFilters(Request $request): array
     {
@@ -844,11 +858,25 @@ class UserController extends Controller
             'status' => $status,
             'sort' => $sort,
             'user' => $request->integer('user'),
+            'joined_from' => $this->filterDate($request->input('joined_from')),
+            'joined_to' => $this->filterDate($request->input('joined_to')),
+            'seen_from' => $this->filterDate($request->input('seen_from')),
+            'seen_to' => $this->filterDate($request->input('seen_to')),
         ];
     }
 
     /**
-     * @param  array{q: string, role: string, status: string, sort: string, user: int}  $filters
+     * @param  array{
+     *     q: string,
+     *     role: string,
+     *     status: string,
+     *     sort: string,
+     *     user: int,
+     *     joined_from: string,
+     *     joined_to: string,
+     *     seen_from: string,
+     *     seen_to: string
+     * }  $filters
      */
     private function applyUserIndexFilters($query, array $filters): void
     {
@@ -898,6 +926,32 @@ class UserController extends Controller
             $query->whereNull('suspended_at');
         }
 
+        $joinedFrom = $filters['joined_from'] ?? '';
+        $joinedTo = $filters['joined_to'] ?? '';
+        if ($joinedFrom !== '' && $joinedTo !== '' && $joinedTo < $joinedFrom) {
+            [$joinedFrom, $joinedTo] = [$joinedTo, $joinedFrom];
+        }
+        if ($joinedFrom !== '') {
+            $query->whereDate('created_at', '>=', $joinedFrom);
+        }
+        if ($joinedTo !== '') {
+            $query->whereDate('created_at', '<=', $joinedTo);
+        }
+
+        if ($this->hasColumn('users', 'last_seen_at')) {
+            $seenFrom = $filters['seen_from'] ?? '';
+            $seenTo = $filters['seen_to'] ?? '';
+            if ($seenFrom !== '' && $seenTo !== '' && $seenTo < $seenFrom) {
+                [$seenFrom, $seenTo] = [$seenTo, $seenFrom];
+            }
+            if ($seenFrom !== '') {
+                $query->whereDate('last_seen_at', '>=', $seenFrom);
+            }
+            if ($seenTo !== '') {
+                $query->whereDate('last_seen_at', '<=', $seenTo);
+            }
+        }
+
         match ($filters['sort']) {
             'oldest' => $query->orderBy('id'),
             'name' => $query->orderBy('name')->orderByDesc('id'),
@@ -906,6 +960,21 @@ class UserController extends Controller
                 : $query->latest('id'),
             default => $query->latest('id'),
         };
+    }
+
+    private function filterDate(mixed $value): string
+    {
+        $raw = is_string($value) ? search_text($value) : '';
+        if ($raw === '') {
+            return '';
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $raw);
+        if (! $date instanceof \DateTimeImmutable) {
+            return '';
+        }
+
+        return $date->format('Y-m-d') === $raw ? $raw : '';
     }
 
     private function denyUnlessCapability(Request $request, string ...$capabilities)

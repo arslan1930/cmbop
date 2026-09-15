@@ -567,12 +567,14 @@ $(document).ready(function() {
                         );
                     }
                     renderPaymentsTable(response.data);
-                    renderAdminPagination(response.pagination, {
-                        links: '#paginationLinks',
-                        info: '#paginationInfo',
-                        label: 'payments',
-                        onNavigate: loadPayments,
-                    });
+                    if (typeof window.renderAdminPagination === 'function') {
+                        window.renderAdminPagination(response.pagination, {
+                            links: '#paginationLinks',
+                            info: '#paginationInfo',
+                            label: 'payments',
+                            onNavigate: loadPayments,
+                        });
+                    }
                 } else {
                     $('#paymentsTableBody').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load payments') + '</td></tr>');
                 }
