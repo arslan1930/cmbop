@@ -119,9 +119,9 @@
 <script>
 const CSRF = '{{ csrf_token() }}';
 const SITE_OPTIONS = @json($sites->map(fn ($s) => ['id' => $s->id, 'label' => $s->site_name.' ('.$s->domain.')'])->values());
-const RATING_STORE = @json(route('admin.site-ratings.store'));
-const RATING_UPDATE = @json(route('admin.site-ratings.update', ['id' => '__ID__']));
-const RATING_DESTROY = @json(route('admin.site-ratings.destroy', ['id' => '__ID__']));
+const RATING_STORE = @json(route('admin.site-ratings.store', absolute: false));
+const RATING_UPDATE = @json(route('admin.site-ratings.update', ['id' => '__ID__'], absolute: false));
+const RATING_DESTROY = @json(route('admin.site-ratings.destroy', ['id' => '__ID__'], absolute: false));
 
 // Site names and rating comments are publisher/advertiser text, and these
 // dialogs are built as HTML strings, so escape before interpolating.

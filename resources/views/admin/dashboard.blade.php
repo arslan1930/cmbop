@@ -573,6 +573,7 @@
 <script>
 const CAN_FINANCE = @json(staff_can('finance'));
 const CAN_SUPPORT = @json(staff_can('support'));
+const REMIND_PUBLISHER_URL = @json(route('admin.orders.remind-publisher', ['orderItem' => '__ID__'], absolute: false));
 const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = (n) => Number(n || 0).toLocaleString();
 
@@ -634,7 +635,7 @@ function makeChart(existing, canvasId, config) {
 async function loadStatistics() {
     const retryEl = document.getElementById('kpiRetry');
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.statistics') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.statistics', absolute: false) }}`);
         const d = json.data;
 
         document.getElementById('kpiUsers').textContent = num(d.total_users);
@@ -670,7 +671,7 @@ async function loadFinanceStrip() {
     if (!CAN_FINANCE) return;
     const retryEl = document.getElementById('financeRetry');
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.finance') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.finance', absolute: false) }}`);
         const d = json.data;
         document.getElementById('financePeriod').textContent = d.period_label ? '· ' + d.period_label : '';
         document.getElementById('financeDueNow').textContent = money(d.due_to_pay_now);
@@ -688,7 +689,7 @@ async function loadBusinessStrip() {
     if (!CAN_FINANCE) return;
     const retryEl = document.getElementById('businessRetry');
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.business') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.business', absolute: false) }}`);
         const d = json.data;
         document.getElementById('businessPeriod').textContent = d.period_label ? '· ' + d.period_label : '';
         document.getElementById('businessMargin').textContent = money(d.margin);
@@ -715,7 +716,7 @@ function opsHealthToneLabel(tone) {
 async function loadOpsHealth() {
     const retryEl = document.getElementById('opsHealthRetry');
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.ops-health') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.ops-health', absolute: false) }}`);
         const d = json.data;
         document.getElementById('opsHealthTone').textContent = opsHealthToneLabel(d.tone);
         document.getElementById('opsPendingJobs').textContent = num(d.pending_jobs);
@@ -740,7 +741,7 @@ async function loadTrends() {
         document.getElementById('signupRetry'),
     ];
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.trends') }}?days=${chartDays}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.trends', absolute: false) }}?days=${chartDays}`);
 
         const commonOpts = {
             responsive: true,
@@ -812,7 +813,7 @@ async function loadDistributions() {
         document.getElementById('roleRetry'),
     ];
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.distributions') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.distributions', absolute: false) }}`);
 
         const palette = ['#1a585e', '#0ea5e9', '#3faeb2', '#75787B', '#0f766e', '#b8e4e4', '#94a3b8'];
 
@@ -876,7 +877,7 @@ async function loadActionQueue() {
     const enrichmentBody = document.getElementById('queueEnrichment');
 
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.action-queue') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.action-queue', absolute: false) }}`);
         const deposits = json.deposits || [];
         const withdrawals = json.withdrawals || [];
         const sites = json.sites || [];
@@ -1001,7 +1002,7 @@ async function loadStalledOrders() {
     const row = document.getElementById('stalledOrdersRow');
     if (!row) return;
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.stalled-orders') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.stalled-orders', absolute: false) }}`);
         const items = json.items || [];
         if (!items.length) {
             row.classList.add('d-none');
@@ -1049,7 +1050,7 @@ document.addEventListener('click', async (e) => {
     btn.classList.add('is-loading');
 
     try {
-        const res = await fetch(`{{ url('admin/orders/items') }}/${btn.dataset.item}/remind-publisher`, {
+        const res = await fetch(REMIND_PUBLISHER_URL.replace('__ID__', encodeURIComponent(btn.dataset.item)), {
             method: 'POST',
             credentials: 'same-origin',
             headers: {

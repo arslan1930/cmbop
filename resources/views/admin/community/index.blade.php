@@ -95,7 +95,7 @@
                                             data-title="Problem #{{ $item->id }}"
                                             data-template="community-detail-problems-{{ $item->id }}">Details</button>
                                     <button type="button" class="btn btn-sm btn-outline-primary btn-status"
-                                            data-url="{{ route('admin.community.problems.update', $item->id) }}"
+                                            data-url="{{ route('admin.community.problems.update', $item->id, absolute: false) }}"
                                             data-status="{{ $item->status }}"
                                             data-statuses="{{ implode(',', $statuses) }}"
                                             data-notes="{{ $item->admin_notes }}">Update</button>
@@ -155,7 +155,7 @@
                                             data-title="Suggestion #{{ $item->id }}"
                                             data-template="community-detail-suggestions-{{ $item->id }}">Details</button>
                                     <button type="button" class="btn btn-sm btn-outline-primary btn-status"
-                                            data-url="{{ route('admin.community.suggestions.update', $item->id) }}"
+                                            data-url="{{ route('admin.community.suggestions.update', $item->id, absolute: false) }}"
                                             data-status="{{ $item->status }}"
                                             data-statuses="{{ implode(',', $statuses) }}"
                                             data-notes="{{ $item->admin_notes }}">Update</button>
@@ -224,7 +224,7 @@
                                             data-title="Website #{{ $item->id }}"
                                             data-template="community-detail-websites-{{ $item->id }}">Details</button>
                                     <button type="button" class="btn btn-sm btn-outline-primary btn-status"
-                                            data-url="{{ route('admin.community.websites.update', $item->id) }}"
+                                            data-url="{{ route('admin.community.websites.update', $item->id, absolute: false) }}"
                                             data-status="{{ $item->status }}"
                                             data-statuses="{{ implode(',', $statuses) }}"
                                             data-notes="{{ $item->admin_notes }}">Update</button>
@@ -324,12 +324,12 @@
                                     @if($item->status === 'pending')
                                         @if(auth()->user()->isAdmin())
                                             <button type="button" class="btn btn-sm btn-success btn-claim-action"
-                                                    data-url="{{ route('admin.community.claims.approve', $item->id) }}"
+                                                    data-url="{{ route('admin.community.claims.approve', $item->id, absolute: false) }}"
                                                     data-open-orders="{{ (int) ($claimOpenOrders[$item->id] ?? 0) }}"
                                                     data-open-disputes="{{ (int) ($claimOpenDisputes[$item->id] ?? 0) }}"
                                                     data-mode="approve">Approve</button>
                                             <button type="button" class="btn btn-sm btn-outline-danger btn-claim-action"
-                                                    data-url="{{ route('admin.community.claims.reject', $item->id) }}"
+                                                    data-url="{{ route('admin.community.claims.reject', $item->id, absolute: false) }}"
                                                     data-mode="reject">Reject</button>
                                         @else
                                             <span class="small text-muted">Awaiting admin review</span>

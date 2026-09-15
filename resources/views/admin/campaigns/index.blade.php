@@ -391,7 +391,7 @@
     const previewStatus = document.getElementById('previewStatus');
     const previewFrame = document.getElementById('previewFrame');
     const sendBtn = document.getElementById('campaignSendBtn');
-    const countUrl = @json(route('admin.campaigns.recipient-count'));
+    const countUrl = @json(route('admin.campaigns.recipient-count', absolute: false));
 
     function setPreviewStatus(message, isError) {
         previewStatus.textContent = message;
@@ -529,7 +529,7 @@
         setPreviewStatus('Rendering preview…', false);
 
         try {
-            const res = await fetch(@json(route('admin.campaigns.preview')), {
+            const res = await fetch(@json(route('admin.campaigns.preview', absolute: false)), {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',

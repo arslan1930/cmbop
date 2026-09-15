@@ -2,12 +2,16 @@
 
 @section('content')
 @php
-    $filters = $filters ?? ['q' => '', 'role' => '', 'status' => '', 'sort' => 'newest', 'user' => 0];
+    $filters = $filters ?? ['q' => '', 'role' => '', 'status' => '', 'sort' => 'newest', 'user' => 0, 'joined_from' => '', 'joined_to' => '', 'seen_from' => '', 'seen_to' => ''];
     $hasActiveFilters = ($filters['q'] ?? '') !== ''
         || ($filters['role'] ?? '') !== ''
         || ($filters['status'] ?? '') !== ''
         || (($filters['sort'] ?? 'newest') !== 'newest')
-        || ((int) ($filters['user'] ?? 0) > 0);
+        || ((int) ($filters['user'] ?? 0) > 0)
+        || ($filters['joined_from'] ?? '') !== ''
+        || ($filters['joined_to'] ?? '') !== ''
+        || ($filters['seen_from'] ?? '') !== ''
+        || ($filters['seen_to'] ?? '') !== '';
 @endphp
 <div class="container-fluid">
 
@@ -74,6 +78,24 @@
                     <option value="last_seen" @selected(($filters['sort'] ?? '') === 'last_seen')>Last activity</option>
                 </select>
             </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold small text-muted mb-1" for="userJoinedFrom">Joined</label>
+                <div class="input-group">
+                    <input type="date" name="joined_from" id="userJoinedFrom" class="form-control"
+                           value="{{ $filters['joined_from'] ?? '' }}" aria-label="Joined from">
+                    <input type="date" name="joined_to" id="userJoinedTo" class="form-control"
+                           value="{{ $filters['joined_to'] ?? '' }}" aria-label="Joined to">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold small text-muted mb-1" for="userSeenFrom">Last activity</label>
+                <div class="input-group">
+                    <input type="date" name="seen_from" id="userSeenFrom" class="form-control"
+                           value="{{ $filters['seen_from'] ?? '' }}" aria-label="Last activity from">
+                    <input type="date" name="seen_to" id="userSeenTo" class="form-control"
+                           value="{{ $filters['seen_to'] ?? '' }}" aria-label="Last activity to">
+                </div>
+            </div>
             <div class="col-md-auto d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="fa fa-search me-1"></i> Filter
@@ -87,6 +109,10 @@
                         'status' => ($filters['status'] ?? '') !== '' ? $filters['status'] : null,
                         'sort' => (($filters['sort'] ?? 'newest') !== 'newest') ? $filters['sort'] : null,
                         'user' => ((int) ($filters['user'] ?? 0)) > 0 ? $filters['user'] : null,
+                        'joined_from' => ($filters['joined_from'] ?? '') !== '' ? $filters['joined_from'] : null,
+                        'joined_to' => ($filters['joined_to'] ?? '') !== '' ? $filters['joined_to'] : null,
+                        'seen_from' => ($filters['seen_from'] ?? '') !== '' ? $filters['seen_from'] : null,
+                        'seen_to' => ($filters['seen_to'] ?? '') !== '' ? $filters['seen_to'] : null,
                     ], fn ($value) => $value !== null && $value !== '')) }}"
                    class="btn btn-outline-secondary">
                     <i class="fa fa-file-csv me-1"></i> Export CSV
@@ -403,9 +429,9 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-const ROLE_UPDATE_URL = @json(route('admin.users.updateRoles', ['id' => '__ID__']));
-const COMPANY_UPDATE_URL = @json(route('admin.users.updateCompany', ['id' => '__ID__']));
-const PAYOUT_UPDATE_URL = @json(route('admin.users.updatePayoutProfile', ['id' => '__ID__']));
+const ROLE_UPDATE_URL = @json(route('admin.users.updateRoles', ['id' => '__ID__'], absolute: false));
+const COMPANY_UPDATE_URL = @json(route('admin.users.updateCompany', ['id' => '__ID__'], absolute: false));
+const PAYOUT_UPDATE_URL = @json(route('admin.users.updatePayoutProfile', ['id' => '__ID__'], absolute: false));
 function roleUpdateUrl(id) {
     return ROLE_UPDATE_URL.replace('__ID__', encodeURIComponent(String(id)));
 }

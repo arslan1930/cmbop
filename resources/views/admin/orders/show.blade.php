@@ -103,7 +103,7 @@
                         <button type="button"
                                 class="btn btn-sm btn-danger js-resolve-dispute"
                                 data-action="uphold"
-                                data-resolve-url="{{ route('admin.orders.disputes.uphold', $openDispute) }}">
+                                data-resolve-url="{{ route('admin.orders.disputes.uphold', $openDispute, absolute: false) }}">
                             Uphold &amp; claw back
                         </button>
                     @endif
@@ -175,7 +175,7 @@
                                         @foreach($remindableItems as $remindItem)
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-primary js-remind-publisher"
-                                                    data-remind-url="{{ route('admin.orders.remind-publisher', $remindItem) }}">
+                                                    data-remind-url="{{ route('admin.orders.remind-publisher', $remindItem, absolute: false) }}">
                                                 <i class="fa fa-bell me-1"></i>
                                                 {{ $remindItem->adminRemindTrack() === 'accept' ? 'Remind to accept' : 'Remind to publish' }}
                                                 @if($remindableItems->count() > 1)
@@ -409,7 +409,7 @@
                                             <button type="button"
                                                     class="btn btn-sm btn-danger js-resolve-dispute"
                                                     data-action="uphold"
-                                                    data-resolve-url="{{ route('admin.orders.disputes.uphold', $dispute) }}">
+                                                    data-resolve-url="{{ route('admin.orders.disputes.uphold', $dispute, absolute: false) }}">
                                                 Uphold &amp; claw back
                                             </button>
                                             @endif
@@ -417,7 +417,7 @@
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-secondary js-resolve-dispute"
                                                     data-action="dismiss"
-                                                    data-resolve-url="{{ route('admin.orders.disputes.dismiss', $dispute) }}">
+                                                    data-resolve-url="{{ route('admin.orders.disputes.dismiss', $dispute, absolute: false) }}">
                                                 Dismiss
                                             </button>
                                             @endif
@@ -699,7 +699,7 @@
         try {
             const payload = { reason };
             if (itemId) payload.order_item_id = itemId;
-            const data = await postJson(@json(route('admin.orders.disputes.open', $order->id)), payload);
+            const data = await postJson(@json(route('admin.orders.disputes.open', $order->id, absolute: false)), payload);
             await Swal.fire('Opened', data.message, 'success');
             window.location.reload();
         } catch (e) {
@@ -781,7 +781,7 @@
             if (notes === undefined) return;
             btn.disabled = true;
             try {
-                const data = await postJson(@json($paymentUpdateUrl ?? route('admin.payments.updateStatus', $order->id)), {
+                const data = await postJson(@json($paymentUpdateUrl ?? route('admin.payments.updateStatus', $order->id, absolute: false)), {
                     payment_status: status,
                     notes: notes || '',
                     send_notification: true,

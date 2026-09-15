@@ -176,7 +176,7 @@ class AdminDepositsCrashHardeningTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString(route('admin.deposits.show', $deposit->id), $html);
+        $this->assertStringContainsString(route('admin.deposits.show', $deposit->id, absolute: false), $html);
         $this->assertStringContainsString('data-show-url', $html);
         $this->assertStringContainsString('readJsonResponse', $html);
         $this->assertStringContainsString('paypalRefundUrlTemplate', $html);
