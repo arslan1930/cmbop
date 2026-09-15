@@ -33,6 +33,7 @@ class DashboardMetricsService
     public function __construct(
         private FinanceOverviewService $finance,
         private StalledOrderQueue $stalled,
+        private OpsHealthService $opsHealth,
     ) {}
 
     /**
@@ -235,6 +236,68 @@ class DashboardMetricsService
             'total_publisher_liability' => (float) $overview['total_publisher_liability'],
             'margin' => (float) $overview['platform']['margin'],
             'url' => route('admin.finance'),
+        ];
+    }
+
+    /**
+     * This-month profit vs GMV: margin, refunds, payouts, and who is actually here.
+     *
+     * @return array<string, float|int|string>
+     */
+    public function businessStrip(): array
+    {
+        $overview = $this->finance->overview($this->finance->resolvePeriod('month'));
+        $platform = $overview['platform'] ?? [];
+        $payouts = $overview['money_out']['withdrawals_paid'] ?? [];
+        $activity = $this->activityCounts();
+
+        return [
+            'period_label' => $overview['period']['label'] ?? 'This month',
+            'margin' => (float) ($platform['margin'] ?? 0),
+            'refunds' => (float) ($platform['refunds'] ?? 0),
+            'refund_orders_count' => (int) ($platform['refund_orders_count'] ?? 0),
+            'payouts_paid_net' => (float) ($payouts['net'] ?? 0),
+            'payouts_paid_count' => (int) ($payouts['count'] ?? 0),
+            'dau' => $activity['dau'],
+            'online' => $activity['online'],
+            'active_7d' => $activity['active_7d'],
+            'finance_url' => route('admin.finance'),
+            'refunds_url' => route('admin.payments', ['payment_status' => 'refunded']),
+            'payouts_url' => route('admin.withdrawals', ['queue' => 'history', 'status' => 'completed']),
+            'users_url' => route('admin.users.index'),
+        ];
+    }
+
+    /**
+     * Live mail/queue counters (not cached — same reason as queue-counts).
+     *
+     * @return array<string, mixed>
+     */
+    public function opsHealth(): array
+    {
+        return $this->opsHealth->snapshot();
+    }
+
+    /**
+     * @return array{dau: int, online: int, active_7d: int}
+     */
+    private function activityCounts(): array
+    {
+        $empty = ['dau' => 0, 'online' => 0, 'active_7d' => 0];
+        try {
+            if (! Schema::hasColumn('users', 'last_seen_at')) {
+                return $empty;
+            }
+        } catch (\Throwable) {
+            return $empty;
+        }
+
+        return [
+            'dau' => User::query()->where('last_seen_at', '>=', now()->startOfDay())->count(),
+            'online' => User::query()
+                ->where('last_seen_at', '>=', now()->subSeconds(User::ONLINE_WINDOW_SECONDS))
+                ->count(),
+            'active_7d' => User::query()->where('last_seen_at', '>=', now()->subDays(7))->count(),
         ];
     }
 

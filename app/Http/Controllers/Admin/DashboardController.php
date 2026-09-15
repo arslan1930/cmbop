@@ -148,6 +148,40 @@ class DashboardController extends Controller
     }
 
     /**
+     * This-month margin, refunds, payouts, and DAU (AJAX).
+     */
+    public function getBusinessStrip()
+    {
+        try {
+            return response()->json(['success' => true, 'data' => $this->metrics->businessStrip()]);
+        } catch (\Throwable $e) {
+            Log::error('Admin dashboard business strip error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Failed to load this-month figures'),
+            ], 500);
+        }
+    }
+
+    /**
+     * Mail/queue health counters (AJAX, not cached).
+     */
+    public function getOpsHealth()
+    {
+        try {
+            return response()->json(['success' => true, 'data' => $this->metrics->opsHealth()]);
+        } catch (\Throwable $e) {
+            Log::error('Admin dashboard ops health error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Failed to load mail and queue health'),
+            ], 500);
+        }
+    }
+
+    /**
      * Items that need admin attention (AJAX)
      */
     public function getActionQueue()

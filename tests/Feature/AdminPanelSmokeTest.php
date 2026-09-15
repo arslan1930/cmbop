@@ -195,6 +195,8 @@ class AdminPanelSmokeTest extends TestCase
             'admin.dashboard.distributions',
             'admin.dashboard.action-queue',
             'admin.dashboard.finance',
+            'admin.dashboard.business',
+            'admin.dashboard.ops-health',
             'admin.dashboard.queue-counts',
         ] as $name) {
             $this->actingAs($admin)

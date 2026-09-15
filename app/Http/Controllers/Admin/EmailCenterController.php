@@ -15,6 +15,7 @@ use App\Models\EmailLog;
 use App\Models\EmailNotificationSetting;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\Admin\OpsHealthService;
 use App\Support\EmailCatalog;
 use App\Support\MailJobPayload;
 use App\Support\UserFacingError;
@@ -90,16 +91,7 @@ class EmailCenterController extends Controller
             'configured' => config('mail.default') !== 'log' && filled(config('mail.mailers.smtp.host')),
         ];
 
-        $queue = [
-            'connection' => config('queue.default'),
-            'mail_connection' => config('email_notifications.queue_connection', config('queue.default')),
-            'mail_queue' => config('email_notifications.queue', 'emails'),
-            'auto_drain' => (bool) config('email_notifications.auto_drain'),
-            'pending_jobs' => Schema::hasTable('jobs') ? DB::table('jobs')->count() : 0,
-            'failed_jobs' => Schema::hasTable('failed_jobs') ? DB::table('failed_jobs')->count() : 0,
-            'mail_pending_jobs' => $this->queuedMailJobsCount(),
-            'mail_failed_jobs' => $this->failedMailJobsCount(),
-        ];
+        $queue = app(OpsHealthService::class)->snapshot();
 
         $failedLogs = $this->failedEmailLogs();
         $recentCampaigns = $this->recentCampaigns();
@@ -1390,20 +1382,12 @@ class EmailCenterController extends Controller
 
     protected function queuedMailJobsCount(): int
     {
-        if (! Schema::hasTable('jobs')) {
-            return 0;
-        }
-
-        return (int) DB::table('jobs')->where($this->mailJobPayloadConstraint())->count();
+        return app(OpsHealthService::class)->mailPendingCount();
     }
 
     protected function failedMailJobsCount(): int
     {
-        if (! Schema::hasTable('failed_jobs')) {
-            return 0;
-        }
-
-        return (int) DB::table('failed_jobs')->where($this->mailJobPayloadConstraint())->count();
+        return app(OpsHealthService::class)->mailFailedCount();
     }
 
     /**
@@ -1416,7 +1400,7 @@ class EmailCenterController extends Controller
         }
 
         return DB::table('failed_jobs')
-            ->where($this->mailJobPayloadConstraint())
+            ->where(app(OpsHealthService::class)->mailPayloadConstraint())
             ->pluck('uuid')
             ->filter()
             ->map(fn ($uuid) => (string) $uuid)
@@ -1429,9 +1413,7 @@ class EmailCenterController extends Controller
      */
     protected function mailJobPayloadConstraint(): \Closure
     {
-        return function ($q) {
-            $q->where('payload', 'like', '%SendQueuedMailable%');
-        };
+        return app(OpsHealthService::class)->mailPayloadConstraint();
     }
 
     /**

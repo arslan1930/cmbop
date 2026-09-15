@@ -663,6 +663,10 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('dashboard.action-queue');
         Route::get('/dashboard/finance', [AdminDashboardController::class, 'getFinanceStrip'])
             ->name('dashboard.finance');
+        Route::get('/dashboard/business', [AdminDashboardController::class, 'getBusinessStrip'])
+            ->name('dashboard.business');
+        Route::get('/dashboard/ops-health', [AdminDashboardController::class, 'getOpsHealth'])
+            ->name('dashboard.ops-health');
         Route::get('/dashboard/queue-counts', [AdminDashboardController::class, 'getQueueCounts'])
             ->name('dashboard.queue-counts');
         Route::get('/inbox', [AdminWorkInboxController::class, 'index'])
