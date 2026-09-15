@@ -470,6 +470,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(UserAdminNote::class)->latest('id');
     }
 
+    public function staffTwoFactor()
+    {
+        return $this->hasOne(StaffTwoFactor::class);
+    }
+
     public function isMarketing(): bool
     {
         return $this->isActiveRole('marketing');

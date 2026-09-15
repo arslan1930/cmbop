@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\UserAdminNote;
 use App\Services\ActivityLogger;
 use App\Services\Admin\FinanceOverviewService;
+use App\Services\Auth\StaffTwoFactorService;
 use App\Services\Wallet\PayoutProfileService;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
@@ -271,6 +272,32 @@ class UserController extends Controller
         );
 
         return back()->with('success', $user->email.' is now verified. They can sign in.');
+    }
+
+    public function clearTwoFactor(Request $request, User $user, StaffTwoFactorService $twoFactor)
+    {
+        $actor = $request->user();
+        if (! $actor || ! $actor->isAdmin()) {
+            abort(403);
+        }
+        if ((int) $actor->id === (int) $user->id) {
+            return back()->with('error', 'Turn off your own two-factor authentication from your profile.');
+        }
+        if (! $twoFactor->holdsStaffRole($user) || ! $twoFactor->isConfirmed($user)) {
+            return back()->with('error', 'This account does not have two-factor authentication on.');
+        }
+
+        $twoFactor->disable($user);
+
+        ActivityLogger::tryLog(
+            'staff_two_factor.cleared',
+            ($actor->name ?? 'Admin').' cleared two-factor authentication for user #'.$user->id,
+            $user,
+            ['user_id' => $user->id],
+            $user->name
+        );
+
+        return back()->with('success', 'Two-factor authentication was cleared for '.$user->email.'. They can set it up again from their profile.');
     }
 
     public function resendVerification(Request $request, User $user)

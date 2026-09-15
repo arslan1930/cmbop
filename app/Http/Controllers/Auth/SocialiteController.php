@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\UserConsent;
 use App\Models\Wallet;
+use App\Services\Auth\StaffTwoFactorService;
 use App\Services\EmailNotificationService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WelcomeBonusService;
@@ -336,8 +337,16 @@ class SocialiteController extends Controller
             return $this->loginRedirect(UserMessages::get('login.suspended'));
         }
 
+        $twoFactor = app(StaffTwoFactorService::class);
+        if ($twoFactor->mustChallenge($user)) {
+            $twoFactor->beginPending(request(), $user, true);
+
+            return redirect()->route('login.two-factor');
+        }
+
         Auth::login($user, true);
         request()->session()->regenerate();
+        $twoFactor->markSessionPassed(request(), $user);
 
         $user->load('activeRoleRelation', 'roles');
 

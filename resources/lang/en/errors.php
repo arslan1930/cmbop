@@ -8,6 +8,9 @@ return [
         'unverified' => 'Your email is not verified.',
         'suspended' => 'This account has been suspended. Contact support if you think this is a mistake.',
         'success' => 'Login successful!',
+        'two_factor' => 'Enter the code from your authenticator app.',
+        'two_factor_invalid' => 'That authentication code is not valid. Try again.',
+        'two_factor_expired' => 'That sign-in step expired. Sign in again.',
     ],
 
     'register' => [

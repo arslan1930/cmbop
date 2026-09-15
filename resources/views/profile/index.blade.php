@@ -155,6 +155,8 @@
             </div>
         </div>
 
+        @include('profile.partials.staff-two-factor')
+
         {{-- ══ SOCIAL LINKS ══ --}}
         <div class="col-lg-6">
             <div class="profile-card">

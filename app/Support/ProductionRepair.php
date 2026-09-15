@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\BillingRuleSetting;
+use App\Models\StaffTwoFactor;
 use App\Models\WelcomeBonusClaim;
 use App\Models\WelcomeBonusSetting;
 use Database\Seeders\RolesTableSeeder;
@@ -67,6 +68,7 @@ class ProductionRepair
 
         $this->ensureWelcomeBonusMigrations($notes);
         $this->ensureBillingRuleSettings($notes);
+        $this->ensureStaffTwoFactor($notes);
     }
 
     /**
@@ -394,6 +396,58 @@ class ProductionRepair
     {
         return [
             '2026_09_14_213000_create_billing_rule_settings_table.php',
+        ];
+    }
+
+    /**
+     * @param  list<string>  $notes
+     */
+    public function ensureStaffTwoFactor(array &$notes): void
+    {
+        if (static::staffTwoFactorStorageReady()) {
+            return;
+        }
+
+        foreach ($this->staffTwoFactorMigrationFiles() as $file) {
+            try {
+                Artisan::call('migrate', [
+                    '--force' => true,
+                    '--path' => 'database/migrations/'.$file,
+                ]);
+            } catch (\Throwable $e) {
+                $notes[] = 'staff two-factor migrate '.$file.' failed: '.$e->getMessage();
+                Log::error('Staff two-factor migrate failed', [
+                    'file' => $file,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (! Schema::hasTable('staff_two_factor')) {
+            StaffTwoFactor::ensureTable();
+        }
+
+        if (static::staffTwoFactorStorageReady()) {
+            $notes[] = 'staff two-factor table ready';
+        }
+    }
+
+    public static function staffTwoFactorStorageReady(): bool
+    {
+        try {
+            return Schema::hasTable('staff_two_factor');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function staffTwoFactorMigrationFiles(): array
+    {
+        return [
+            '2026_09_14_230000_create_staff_two_factor_table.php',
         ];
     }
 

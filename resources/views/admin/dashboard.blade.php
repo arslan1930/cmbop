@@ -8,6 +8,8 @@
         'subtitle' => 'Platform overview, money flow, and items that need your attention.',
     ])
 
+    @include('partials.staff-two-factor-prompt')
+
     {{-- Moderation being off changes nothing visible anywhere else: articles are
          approved, orders go through, and the scan log fills with passes. Nobody
          visits the moderation screen to check something they believe is running,
