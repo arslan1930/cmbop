@@ -7,12 +7,14 @@ use App\Jobs\CaptureSiteScreenshotJob;
 use App\Jobs\EnrichSiteJob;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\SiteStatusNotification;
+use App\Models\ActivityLog;
 use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
+use App\Models\SiteAdminNote;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\CheckoutSchemaService;
@@ -1330,6 +1332,24 @@ class SiteController extends Controller
         $categories = Category::catalogPickerNames();
         $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
 
+        $notes = collect();
+        SiteAdminNote::ensureTable();
+        if (SiteAdminNote::tableAvailable()) {
+            try {
+                $notes = SiteAdminNote::query()
+                    ->with('admin:id,name,email')
+                    ->where('site_id', $site->id)
+                    ->latest('id')
+                    ->limit(50)
+                    ->get();
+            } catch (\Throwable) {
+                $notes = collect();
+            }
+        }
+
+        $activities = ActivityLog::forSite((int) $site->id, 25);
+        $canAddNotes = (bool) ($user?->isMarketing() || $user?->staffCan('support'));
+
         $editData = compact(
             'site',
             'isMarketingEditor',
@@ -1337,7 +1357,10 @@ class SiteController extends Controller
             'languages',
             'countries',
             'categories',
-            'countryLanguageMap'
+            'countryLanguageMap',
+            'notes',
+            'activities',
+            'canAddNotes',
         );
 
         // Named view keeps @section / @stack working. File fallback covers a

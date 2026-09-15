@@ -58,6 +58,10 @@ class StaffCapabilityTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.analytics'))
             ->assertRedirect(route('admin.dashboard'));
+        $this->actingAs($admin)
+            ->get(route('admin.orders.index'))
+            ->assertOk()
+            ->assertDontSee('Order Payments');
         $this->actingAs($admin)->get(route('admin.dashboard'))
             ->assertOk()
             ->assertDontSee('>Money<', false)
@@ -74,6 +78,10 @@ class StaffCapabilityTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.finance'))->assertOk();
         $this->actingAs($admin)->get(route('admin.analytics'))->assertOk();
+        $this->actingAs($admin)
+            ->get(route('admin.orders.index'))
+            ->assertOk()
+            ->assertSee('Order Payments');
         $this->actingAs($admin)->get(route('admin.users.index'))->assertOk();
         $this->actingAs($admin)
             ->get(route('admin.inbox.index'))

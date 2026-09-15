@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\BillingRuleSetting;
 use App\Models\LegalPageOverride;
+use App\Models\SiteAdminNote;
 use App\Models\StaffCapability;
 use App\Models\StaffTwoFactor;
 use App\Models\WelcomeBonusClaim;
@@ -73,6 +74,7 @@ class ProductionRepair
         $this->ensureStaffTwoFactor($notes);
         $this->ensureStaffCapabilities($notes);
         $this->ensureLegalPageOverrides($notes);
+        $this->ensureSiteAdminNotes($notes);
     }
 
     /**
@@ -560,6 +562,62 @@ class ProductionRepair
     {
         return [
             '2026_09_15_051500_create_legal_page_overrides_table.php',
+        ];
+    }
+
+    /**
+     * Internal staff notes on a listing. `--path` can still create the table
+     * when a later unrelated migrate aborted the batch.
+     *
+     * @param  list<string>  $notes
+     */
+    public function ensureSiteAdminNotes(array &$notes): void
+    {
+        if (static::siteAdminNoteStorageReady()) {
+            return;
+        }
+
+        foreach ($this->siteAdminNoteMigrationFiles() as $file) {
+            try {
+                Artisan::call('migrate', [
+                    '--force' => true,
+                    '--path' => 'database/migrations/'.$file,
+                ]);
+            } catch (\Throwable $e) {
+                $notes[] = 'site admin notes migrate '.$file.' failed: '.$e->getMessage();
+                Log::error('Site admin notes migrate failed', [
+                    'file' => $file,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (! Schema::hasTable('site_admin_notes')) {
+            SiteAdminNote::forgetTableAvailabilityCache();
+            SiteAdminNote::ensureTable();
+        }
+
+        if (static::siteAdminNoteStorageReady()) {
+            $notes[] = 'site admin notes table ready';
+        }
+    }
+
+    public static function siteAdminNoteStorageReady(): bool
+    {
+        try {
+            return Schema::hasTable('site_admin_notes');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function siteAdminNoteMigrationFiles(): array
+    {
+        return [
+            '2026_09_15_061000_create_site_admin_notes_table.php',
         ];
     }
 

@@ -75,4 +75,31 @@ class ActivityLog extends Model
             return new Collection;
         }
     }
+
+    /**
+     * Staff history for one catalog listing.
+     *
+     * @return Collection<int, self>
+     */
+    public static function forSite(int $siteId, int $limit = 25)
+    {
+        try {
+            if (! Schema::hasTable((new static)->getTable())) {
+                return new Collection;
+            }
+
+            return static::query()
+                ->where(function ($q) use ($siteId) {
+                    $q->where(function ($inner) use ($siteId) {
+                        $inner->where('subject_type', Site::class)
+                            ->where('subject_id', $siteId);
+                    })->orWhere('properties->site_id', $siteId);
+                })
+                ->latest('id')
+                ->limit($limit)
+                ->get();
+        } catch (\Throwable) {
+            return new Collection;
+        }
+    }
 }

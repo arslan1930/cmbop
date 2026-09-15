@@ -30,6 +30,7 @@ use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\SiteController as AdminSiteController;
 use App\Http\Controllers\Admin\SiteDuplicateController as AdminSiteDuplicateController;
 use App\Http\Controllers\Admin\SiteEnrichmentController;
+use App\Http\Controllers\Admin\SiteNoteController as AdminSiteNoteController;
 use App\Http\Controllers\Admin\SiteRatingController;
 use App\Http\Controllers\Admin\StalledOrderController as AdminStalledOrderController;
 use App\Http\Controllers\Admin\UserController;
@@ -512,6 +513,8 @@ $registerStaffOpsRoutes = function () {
         ->name('sites.media');
     Route::get('/sites/{id}/edit', [AdminSiteController::class, 'edit'])
         ->name('sites.edit');
+    Route::post('/sites/{id}/notes', [AdminSiteNoteController::class, 'store'])
+        ->name('sites.notes.store');
     Route::put('/sites/{id}', [AdminSiteController::class, 'update'])
         ->name('sites.update');
     Route::post('/sites/{id}/upload-image', [AdminSiteController::class, 'uploadImage'])

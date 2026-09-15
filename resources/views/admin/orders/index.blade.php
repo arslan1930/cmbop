@@ -4,9 +4,11 @@
 <div class="container-fluid">
     @include('admin.partials.page-header', [
         'title' => 'Orders',
-        'subtitle' => 'Inspect marketplace orders, parties, chat, and activity. Payment changes stay on Order Payments.',
-        'actionUrl' => route('admin.payments'),
-        'actionLabel' => 'Order Payments',
+        'subtitle' => staff_can('finance')
+            ? 'Inspect marketplace orders, parties, chat, and activity. Payment changes stay on Order Payments.'
+            : 'Inspect marketplace orders, parties, chat, and activity.',
+        'actionUrl' => staff_can('finance') ? route('admin.payments') : null,
+        'actionLabel' => staff_can('finance') ? 'Order Payments' : null,
         'actionIcon' => 'fa-money-bill',
     ])
 
