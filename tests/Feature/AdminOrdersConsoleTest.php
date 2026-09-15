@@ -1274,4 +1274,38 @@ class AdminOrdersConsoleTest extends TestCase
             ->assertSee('797026', false)
             ->assertDontSee('No placements on this order.');
     }
+
+    public function test_in_flight_paid_order_show_offers_refund_and_fail(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $order = $this->orderFor($this->userWithRole('advertiser'), $this->siteFor($this->userWithRole('publisher')));
+
+        $this->actingAs($admin)
+            ->get(route('admin.orders.show', $order->id))
+            ->assertOk()
+            ->assertSee('id="order-money-actions"', false)
+            ->assertSee('Refund €50.00', false)
+            ->assertSee('Mark failed', false)
+            ->assertSee('js-order-payment-status', false)
+            ->assertSee('data-payment-status="refunded"', false)
+            ->assertDontSee('This screen is inspection-only', false)
+            ->assertDontSee('id="adminOpenDisputeBtn"', false);
+    }
+
+    public function test_completed_paid_order_show_offers_dispute_not_refund(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $order = $this->orderFor($this->userWithRole('advertiser'), $this->siteFor($this->userWithRole('publisher')));
+        $order->update(['status' => 'completed', 'completed_at' => now()->subDay()]);
+        $order->items->first()->update(['live_url' => 'https://admin-orders.example/live']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.orders.show', $order->id))
+            ->assertOk()
+            ->assertSee('id="adminOpenDisputeBtn"', false)
+            ->assertSee('Open dispute', false)
+            ->assertSee('requires a dispute clawback', false)
+            ->assertDontSee('Refund €50.00', false)
+            ->assertDontSee('data-payment-status="refunded"', false);
+    }
 }

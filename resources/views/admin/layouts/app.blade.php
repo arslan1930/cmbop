@@ -58,6 +58,15 @@
         <a href="{{ staff_route('dashboard') }}" class="{{ request()->routeIs($staffPrefix.'dashboard') ? 'active' : '' }}">
             <i class="fa fa-tachometer-alt"></i> <span>Dashboard</span>
         </a>
+        @if(auth()->user()->isAdmin())
+        <a href="{{ route('admin.inbox.index') }}" class="{{ request()->routeIs('admin.inbox.*') ? 'active' : '' }}">
+            <i class="fa fa-inbox"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Work inbox</span>
+                <span id="navBadgeInbox" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
+        </a>
+        @endif
 
         <div class="admin-nav-section">Marketplace</div>
         @if(auth()->user()->isAdmin())
@@ -307,6 +316,7 @@
             setNavBadge('navBadgeSites', data.unverified_sites || 0);
             setNavBadge('navBadgePayments', data.pending_payments || 0);
             setNavBadge('navBadgeCommunity', data.pending_community || data.pending_claims || 0);
+            setNavBadge('navBadgeInbox', (data.open_disputes || 0) + (data.pending_community || 0) + (data.stalled_orders || 0));
         })
         .catch(() => {});
     }

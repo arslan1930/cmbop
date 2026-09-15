@@ -11,6 +11,7 @@
     $countries = collect($countries ?? []);
     $totalSites = (int) ($totalSites ?? 0);
     $exportUrl = $exportUrl ?? route('admin.sites.records.export');
+    $searchQ = $searchQ ?? '';
     $selectedLabel = '';
     if ($selectedCountry !== '') {
         $match = $countries->first(fn ($c) => strtolower((string) ($c['code'] ?? '')) === $selectedCountry);
@@ -24,7 +25,7 @@
         <div>
             <h4 class="mb-1 fw-bold">Websites records sheet</h4>
             <p class="text-muted mb-0 small">
-                Live from database — refreshes on every load. Columns: URL, countries, categories, catalog health.
+                Live from database — refreshes on every load. Search, verify, or activate from this sheet.
             </p>
             @if($missingMarketCount > 0)
                 <p class="mb-0 mt-1 small" id="recordsMissingMarketNote">
@@ -34,6 +35,9 @@
             @endif
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <a href="{{ route('admin.sites.duplicates') }}" class="btn btn-sm btn-outline-warning">
+                <i class="fa fa-clone me-1"></i> Duplicate domains
+            </a>
             <a href="{{ $exportUrl }}" id="recordsExportBtn" class="btn btn-sm btn-primary">
                 <i class="fa fa-download me-1"></i> Download CSV
             </a>
@@ -46,6 +50,15 @@
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-3">
             <div class="row g-2 align-items-end">
+                <div class="col-sm-8 col-md-6 col-lg-4">
+                    <label for="recordsSiteSearch" class="form-label small fw-semibold mb-1">Search sites</label>
+                    <input type="search"
+                           id="recordsSiteSearch"
+                           class="form-control form-control-sm"
+                           placeholder="URL, domain, or name…"
+                           value="{{ $searchQ }}"
+                           autocomplete="off">
+                </div>
                 <div class="col-sm-8 col-md-6 col-lg-4">
                     <label for="recordsCountrySearch" class="form-label small fw-semibold mb-1">Filter by country</label>
                     <div data-records-country-filter>
@@ -129,6 +142,17 @@
         </div>
     </div>
 
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3" id="recordsBulkBar">
+        <span class="small text-muted" id="recordsSelectedCount">0 selected</span>
+        <button type="button" class="btn btn-sm btn-success" id="recordsBulkVerify" disabled>
+            Verify selected
+        </button>
+        <button type="button" class="btn btn-sm btn-primary" id="recordsBulkActivate" disabled>
+            Activate selected
+        </button>
+        <span class="small text-muted">Confirm before it runs. Max 50 per batch.</span>
+    </div>
+
     <div id="recordsTableWrap" data-loading="0">
         @include('admin.sites.partials.records-table', [
             'sites' => $sites,
@@ -153,6 +177,11 @@
     let healthCounts = @json($healthCounts);
     const HEALTH_LABELS = @json($healthLabels);
 
+    const siteSearch = document.getElementById('recordsSiteSearch');
+    let siteQuery = @json($searchQ);
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const BULK_VERIFY_URL = @json(route('admin.sites.records.bulk-verify'));
+    const BULK_ACTIVATE_URL = @json(route('admin.sites.records.bulk-activate'));
     const searchInput = document.getElementById('recordsCountrySearch');
     const listEl = document.getElementById('recordsCountryList');
     const clearBtn = document.getElementById('recordsCountryClear');
@@ -234,6 +263,12 @@
         if (meta.health_counts && typeof meta.health_counts === 'object') {
             healthCounts = meta.health_counts;
         }
+        if (typeof meta.q === 'string') {
+            siteQuery = meta.q;
+            if (siteSearch && document.activeElement !== siteSearch) {
+                siteSearch.value = siteQuery;
+            }
+        }
         if (typeof meta.missing_market_count === 'number') {
             missingMarketCount = meta.missing_market_count;
             healthCounts.missing_market = missingMarketCount;
@@ -257,6 +292,9 @@
                 showingLabel.innerHTML = `Showing ${total} ${plural} in <strong class="text-uppercase">${escapeHtml(selectedCountry)}</strong>`;
             } else {
                 showingLabel.innerHTML = `Showing ${total} ${plural}`;
+            }
+            if (siteQuery) {
+                showingLabel.innerHTML += ` matching <strong>${escapeHtml(siteQuery)}</strong>`;
             }
         }
 
@@ -310,6 +348,12 @@
         const token = ++fetchToken;
         const params = new URLSearchParams();
         params.set('partial', '1');
+        if (options.q !== undefined) {
+            siteQuery = String(options.q || '').trim();
+        } else if (siteSearch) {
+            siteQuery = String(siteSearch.value || '').trim();
+        }
+        if (siteQuery) params.set('q', siteQuery);
         if (options.health === 'missing_market' || options.missingMarket) {
             params.set('missing_market', '1');
         } else if (options.health) {
@@ -337,11 +381,13 @@
 
             tableWrap.innerHTML = data.table_html || '';
             updateChrome(data);
+            syncRecordsSelection();
 
             const nextParams = new URLSearchParams();
             if (data.health === 'missing_market' || data.missing_market) nextParams.set('missing_market', '1');
             else if (data.health) nextParams.set('health', data.health);
             else if (data.selected_country) nextParams.set('country', data.selected_country);
+            if (siteQuery) nextParams.set('q', siteQuery);
             const nextUrl = nextParams.toString() ? `${RECORDS_URL}?${nextParams}` : RECORDS_URL;
             window.history.replaceState({}, '', nextUrl);
         } catch (err) {
@@ -459,6 +505,7 @@
                 if (!data.success) throw new Error('Pagination failed');
                 tableWrap.innerHTML = data.table_html || '';
                 updateChrome(data);
+                syncRecordsSelection();
                 const next = new URL(href, window.location.origin);
                 next.searchParams.delete('partial');
                 window.history.replaceState({}, '', next.pathname + next.search);
@@ -468,6 +515,116 @@
                 if (token === fetchToken) tableWrap.dataset.loading = '0';
             });
     });
+
+    let searchTimer = 0;
+    siteSearch?.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(() => {
+            loadRecords({
+                q: siteSearch.value,
+                health: healthFilter || undefined,
+                country: selectedCountry || undefined,
+                missingMarket: healthFilter === 'missing_market',
+            });
+        }, 250);
+    });
+
+    function selectedRecordIds() {
+        return [...tableWrap.querySelectorAll('.js-records-row:checked')].map((el) => Number(el.value));
+    }
+
+    function syncRecordsSelection() {
+        const boxes = [...tableWrap.querySelectorAll('.js-records-row')];
+        const selected = boxes.filter((el) => el.checked);
+        const countEl = document.getElementById('recordsSelectedCount');
+        const verifyBtn = document.getElementById('recordsBulkVerify');
+        const activateBtn = document.getElementById('recordsBulkActivate');
+        const all = document.getElementById('recordsSelectAll');
+        if (countEl) countEl.textContent = selected.length + ' selected';
+        if (verifyBtn) verifyBtn.disabled = selected.length < 1;
+        if (activateBtn) activateBtn.disabled = selected.length < 1;
+        if (all) {
+            all.checked = boxes.length > 0 && selected.length === boxes.length;
+            all.indeterminate = selected.length > 0 && selected.length < boxes.length;
+        }
+    }
+
+    tableWrap.addEventListener('change', (e) => {
+        if (e.target.id === 'recordsSelectAll') {
+            tableWrap.querySelectorAll('.js-records-row').forEach((el) => {
+                el.checked = e.target.checked;
+            });
+        }
+        if (e.target.id === 'recordsSelectAll' || e.target.classList.contains('js-records-row')) {
+            syncRecordsSelection();
+        }
+    });
+
+    async function runRecordsBulk(url, title, text, confirmText) {
+        const ids = selectedRecordIds();
+        if (!ids.length) return;
+        const ok = window.slbConfirm
+            ? await window.slbConfirm({
+                title,
+                text,
+                confirmText,
+                danger: true,
+            })
+            : window.confirm(text);
+        if (!ok) return;
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ ids }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Bulk update failed');
+            }
+            if (window.showAppToast) {
+                window.showAppToast(data.message || 'Updated', 'success');
+            }
+            await loadRecords({
+                health: healthFilter || undefined,
+                country: selectedCountry || undefined,
+                missingMarket: healthFilter === 'missing_market',
+            });
+        } catch (err) {
+            if (window.showAppToast) {
+                window.showAppToast(err.message || 'Bulk update failed', 'error');
+            } else if (typeof Swal !== 'undefined') {
+                Swal.fire('Error', err.message || 'Bulk update failed', 'error');
+            }
+        }
+    }
+
+    document.getElementById('recordsBulkVerify')?.addEventListener('click', () => {
+        const n = selectedRecordIds().length;
+        runRecordsBulk(
+            BULK_VERIFY_URL,
+            'Verify selected sites?',
+            'Manually verify ' + n + ' site' + (n === 1 ? '' : 's') + '? This is the same as Verify on each listing.',
+            'Verify selected'
+        );
+    });
+    document.getElementById('recordsBulkActivate')?.addEventListener('click', () => {
+        const n = selectedRecordIds().length;
+        runRecordsBulk(
+            BULK_ACTIVATE_URL,
+            'Activate selected sites?',
+            'Turn ' + n + ' site' + (n === 1 ? '' : 's') + ' live in the catalog? Listings that fail the go-live gates stay off.',
+            'Activate selected'
+        );
+    });
+
+    syncRecordsSelection();
 })();
 </script>
 @endsection

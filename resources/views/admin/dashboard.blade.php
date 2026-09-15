@@ -96,7 +96,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="#dashboardActionQueues">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.inbox.index') }}">
                 <div class="card-body">
                     <div class="text-muted small">Needs Attention</div>
                     <div class="d-flex align-items-end justify-content-between">
@@ -252,7 +252,7 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-gavel me-2 text-danger"></i>Open disputes</strong>
-                    <a href="{{ route('admin.orders.index', ['dispute' => 'open']) }}" class="small">View all</a>
+                    <a href="{{ route('admin.inbox.index', ['tab' => 'disputes']) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -272,7 +272,7 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-comments me-2 text-secondary"></i>Community inbox</strong>
-                    <a href="{{ route('admin.community.index', ['status' => 'pending']) }}" class="small">View all</a>
+                    <a href="{{ route('admin.inbox.index', ['tab' => 'community']) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -318,7 +318,7 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-triangle-exclamation me-2 text-danger"></i>Stalled orders <span class="badge text-bg-danger ms-1" id="stalledOrdersCount">0</span></strong>
-                    <span class="text-muted small">Remind the publisher, or open the order to refund.</span>
+                    <span class="text-muted small">Remind the publisher, or open the order to refund. · <a href="{{ route('admin.inbox.index', ['tab' => 'stalled']) }}">Work inbox</a></span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">

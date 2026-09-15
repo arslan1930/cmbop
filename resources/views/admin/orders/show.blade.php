@@ -39,7 +39,7 @@
 <div class="container-fluid">
     @include('admin.partials.page-header', [
         'title' => 'Order #' . $order->order_number,
-        'subtitle' => 'Stage can be corrected here · chat is read-only and payments use Order Payments',
+        'subtitle' => 'Refund, fail, or claw back from this page · chat is read-only',
         'actionUrl' => route('admin.orders.index'),
         'actionLabel' => 'All orders',
         'actionIcon' => 'fa-arrow-left',
@@ -50,6 +50,69 @@
         <span class="badge text-bg-{{ $payClass }}">Payment: {{ $order->payment_status }}</span>
         <span class="badge text-bg-light text-dark border">{{ \App\Models\Invoice::paymentMethodLabel($order->payment_method) }}</span>
         <span class="badge text-bg-light text-dark border">€{{ number_format((float) $order->total_amount, 2) }}</span>
+    </div>
+
+    @php
+        $canRefundInFlight = (bool) ($canRefundInFlight ?? false);
+        $canFailInFlight = (bool) ($canFailInFlight ?? false);
+        $needsDisputeClawback = (bool) ($needsDisputeClawback ?? false);
+        $openDispute = $openDispute ?? null;
+        $hasPrimaryMoneyActions = $canRefundInFlight
+            || $canFailInFlight
+            || ! empty($canOpenDispute)
+            || ($openDispute && $openDispute->isOpen());
+    @endphp
+    <div class="card border-0 shadow-sm mb-3" id="order-money-actions">
+        <div class="card-body py-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <div>
+                    <div class="fw-semibold">Money actions</div>
+                    <p class="small text-muted mb-0">
+                        @if($canRefundInFlight || $canFailInFlight)
+                            In-flight paid orders refund or fail here (same money move as Order Payments).
+                        @elseif($needsDisputeClawback)
+                            This placement is complete. Refunding the advertiser requires a dispute clawback so the publisher payout is reversed first.
+                        @else
+                            Payment changes for unpaid checkouts still live in Order Payments.
+                        @endif
+                    </p>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    @if($canRefundInFlight)
+                        <button type="button"
+                                class="btn btn-sm btn-danger js-order-payment-status"
+                                data-payment-status="refunded"
+                                data-hint="{{ $refundHint }}">
+                            <i class="fa fa-undo me-1"></i> Refund €{{ number_format((float) $order->total_amount, 2) }}
+                        </button>
+                    @endif
+                    @if($canFailInFlight)
+                        <button type="button"
+                                class="btn btn-sm btn-outline-danger js-order-payment-status"
+                                data-payment-status="failed"
+                                data-hint="{{ $failHint }}">
+                            <i class="fa fa-times me-1"></i> Mark failed
+                        </button>
+                    @endif
+                    @if(!empty($canOpenDispute))
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="adminOpenDisputeBtn">
+                            <i class="fa fa-flag me-1"></i> Open dispute
+                        </button>
+                    @endif
+                    @if($openDispute && $openDispute->isOpen())
+                        <button type="button"
+                                class="btn btn-sm btn-danger js-resolve-dispute"
+                                data-action="uphold"
+                                data-resolve-url="{{ route('admin.orders.disputes.uphold', $openDispute) }}">
+                            Uphold &amp; claw back
+                        </button>
+                    @endif
+                    <a href="{{ $paymentsUrl }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fa fa-money-bill me-1"></i> Order Payments
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <ul class="nav nav-tabs mb-3" role="tablist">
@@ -291,15 +354,13 @@
                         </div>
                     </div>
                 </div>
-                @if($order->status === 'completed' || ($disputes ?? collect())->isNotEmpty())
+                @if($order->status === 'completed' || ($disputes ?? collect())->isNotEmpty() || !empty($canOpenDispute))
                 <div class="col-12" id="order-disputes">
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-white border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
                             <strong>Link-removed dispute / clawback</strong>
                             @if(!empty($canOpenDispute))
-                                <button type="button" class="btn btn-sm btn-outline-danger" id="adminOpenDisputeBtn">
-                                    <i class="fa fa-flag me-1"></i> Open dispute
-                                </button>
+                                <span class="small text-muted">Open from Money actions above</span>
                             @endif
                         </div>
                         <div class="card-body">
@@ -494,10 +555,32 @@
                         <div class="col-md-9"><span class="text-muted small">Admin notes</span><div>{{ $order->admin_notes ?: '—' }}</div></div>
                     </div>
                     <p class="text-muted small mb-3">
-                        To mark paid, failed, or refunded, use the Order Payments tools. Completed paid orders need a dispute clawback. This screen is inspection-only.
+                        @if($canRefundInFlight || $canFailInFlight)
+                            Refund and mark-failed use the same Order Payments endpoint and money rules. Notes below are saved with the status change.
+                        @elseif($needsDisputeClawback)
+                            Completed paid orders cannot be refunded here. Use Open dispute / Uphold &amp; claw back above.
+                        @else
+                            Unpaid checkouts are marked paid or failed from Order Payments.
+                        @endif
                     </p>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ $paymentsUrl }}" class="btn btn-primary btn-sm">
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        @if($canRefundInFlight)
+                            <button type="button"
+                                    class="btn btn-primary btn-sm js-order-payment-status"
+                                    data-payment-status="refunded"
+                                    data-hint="{{ $refundHint }}">
+                                <i class="fa fa-undo me-1"></i> Refund €{{ number_format((float) $order->total_amount, 2) }}
+                            </button>
+                        @endif
+                        @if($canFailInFlight)
+                            <button type="button"
+                                    class="btn btn-outline-danger btn-sm js-order-payment-status"
+                                    data-payment-status="failed"
+                                    data-hint="{{ $failHint }}">
+                                <i class="fa fa-times me-1"></i> Mark failed
+                            </button>
+                        @endif
+                        <a href="{{ $paymentsUrl }}" class="btn btn-outline-secondary btn-sm">
                             <i class="fa fa-money-bill me-1"></i> Open Order Payments
                         </a>
                         <a href="{{ route('admin.invoices.index', ['search' => $order->order_number]) }}" class="btn btn-outline-secondary btn-sm">
@@ -672,8 +755,40 @@
         btn.addEventListener('click', () => resolveDispute(btn.dataset.resolveUrl, btn.dataset.action));
     });
 
+    document.querySelectorAll('.js-order-payment-status').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const status = btn.dataset.paymentStatus;
+            const hint = btn.dataset.hint || '';
+            const isRefund = status === 'refunded';
+            const { value: notes } = await Swal.fire({
+                title: isRefund ? 'Refund this order?' : 'Mark this payment failed?',
+                html: '<p class="small text-start mb-2">' + hint.replace(/</g, '&lt;') + '</p>',
+                input: 'textarea',
+                inputLabel: 'Admin notes (optional)',
+                inputAttributes: { maxlength: 2000 },
+                showCancelButton: true,
+                confirmButtonText: isRefund ? 'Refund' : 'Mark failed',
+                customClass: { confirmButton: 'slb-swal-danger' },
+            });
+            if (notes === undefined) return;
+            btn.disabled = true;
+            try {
+                const data = await postJson(@json($paymentUpdateUrl ?? route('admin.payments.updateStatus', $order->id)), {
+                    payment_status: status,
+                    notes: notes || '',
+                    send_notification: true,
+                });
+                await Swal.fire('Done', data.message || 'Payment updated.', 'success');
+                window.location.reload();
+            } catch (e) {
+                btn.disabled = false;
+                Swal.fire('Error', e.message || 'Failed', 'error');
+            }
+        });
+    });
+
     const hash = window.location.hash;
-    if (hash === '#order-schedule' || hash === '#order-disputes') {
+    if (hash === '#order-schedule' || hash === '#order-disputes' || hash === '#order-money-actions') {
         document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' });
     }
 })();

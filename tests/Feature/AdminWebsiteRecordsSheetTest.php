@@ -80,6 +80,11 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertSee('https://records-sheet.example', false)
             ->assertSee('de|at', false)
             ->assertSee('Technology|Business &amp; Finance', false)
+            ->assertSee('Search sites', false)
+            ->assertSee('Verify selected', false)
+            ->assertSee('Activate selected', false)
+            ->assertSee('Duplicate domains', false)
+            ->assertSee(route('admin.sites.duplicates'), false)
             ->assertDontSee('€99', false);
     }
 
@@ -324,5 +329,56 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertOk()
             ->assertSee('Websites records sheet', false)
             ->assertSee(route('admin.sites.records'), false);
+    }
+
+    public function test_records_search_filters_by_domain(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_name' => 'Needle Records Site',
+            'site_url' => 'https://needle-records.example',
+            'domain' => 'needle-records.example',
+        ]);
+        $this->makeSite($publisher, [
+            'site_name' => 'Other Records Site',
+            'site_url' => 'https://other-records.example',
+            'domain' => 'other-records.example',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['q' => 'needle-records']))
+            ->assertOk()
+            ->assertSee('https://needle-records.example', false)
+            ->assertDontSee('https://other-records.example', false);
+    }
+
+    public function test_records_bulk_verify_and_activate_use_existing_site_actions(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_name' => 'Bulk Verify Site',
+            'site_url' => 'https://bulk-verify.example',
+            'domain' => 'bulk-verify.example',
+            'verified' => false,
+            'active' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.records.bulk-verify'), ['ids' => [$site->id]])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('updated', 1);
+
+        $this->assertTrue((bool) $site->fresh()->verified);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.records.bulk-activate'), ['ids' => [$site->id]])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('updated', 1);
+
+        $this->assertTrue((bool) $site->fresh()->active);
     }
 }
