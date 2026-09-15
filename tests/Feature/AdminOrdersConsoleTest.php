@@ -1195,6 +1195,12 @@ class AdminOrdersConsoleTest extends TestCase
             'ordersDataUrl = "'.str_replace('/', '\/', rtrim((string) config('app.url'), '/').'/admin/orders/data').'"',
             $html
         );
+
+        $source = (string) file_get_contents(resource_path('views/admin/orders/index.blade.php'));
+        $this->assertMatchesRegularExpression(
+            "/addEventListener\\('DOMContentLoaded'[\\s\\S]*loadOrders\\(/",
+            $source
+        );
     }
 
     public function test_support_only_can_load_orders_json_without_invoice_urls(): void
