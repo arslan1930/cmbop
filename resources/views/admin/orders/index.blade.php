@@ -113,8 +113,8 @@
 
 <script>
 (function () {
-    const ordersDataUrl = @json(route('admin.orders.data'));
-    const ordersIndexUrl = @json(route('admin.orders.index'));
+    const ordersDataUrl = @json(route('admin.orders.data', absolute: false));
+    const ordersIndexUrl = @json(route('admin.orders.index', absolute: false));
     const ordersExportUrl = @json(route('admin.orders.export', absolute: false));
     const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     let currentPage = 1;
@@ -241,10 +241,15 @@
             headers: { 'Accept': 'application/json' },
             credentials: 'same-origin',
         })
-            .then(r => r.json())
-            .then(json => {
-                if (!json.success) {
-                    body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load orders</td></tr>';
+            .then(async (r) => {
+                let json = null;
+                try { json = await r.json(); } catch (e) { json = null; }
+                return { r, json };
+            })
+            .then(({ json }) => {
+                if (!json || json.success !== true) {
+                    const msg = (json && json.message) ? json.message : 'Failed to load orders';
+                    body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">' + escapeHtml(msg) + '</td></tr>';
                     return;
                 }
                 const pagination = json.pagination || {};

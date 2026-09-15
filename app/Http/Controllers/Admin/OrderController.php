@@ -211,16 +211,20 @@ class OrderController extends Controller
 
         $perPage = max(1, min(100, (int) $request->get('per_page', 20)));
         $orders = $query->paginate($perPage);
+        $actor = $request->user();
+        $canSeeInvoices = $actor instanceof User && $actor->staffCan(StaffCapability::FINANCE);
         $invoiceLinks = app(AdminInvoiceLinks::class);
-        $invoicesByOrder = $invoiceLinks->forOrders($orders->getCollection());
+        $invoicesByOrder = $canSeeInvoices
+            ? $invoiceLinks->forOrders($orders->getCollection())
+            : collect();
 
-        $data = $orders->getCollection()->map(function (Order $order) use ($invoiceLinks, $invoicesByOrder) {
+        $data = $orders->getCollection()->map(function (Order $order) use ($invoiceLinks, $invoicesByOrder, $canSeeInvoices) {
             $item = $order->items->first();
             $site = $item?->site;
             $publisher = $site?->publisher;
             $liveUrl = $order->items->first(fn (OrderItem $line) => filled($line->live_url))?->live_url;
-            $documents = $invoicesByOrder->get((int) $order->id, []);
-            $primary = $invoiceLinks->primary($documents);
+            $documents = $canSeeInvoices ? $invoicesByOrder->get((int) $order->id, []) : [];
+            $primary = $canSeeInvoices ? $invoiceLinks->primary($documents) : null;
 
             return [
                 'id' => $order->id,

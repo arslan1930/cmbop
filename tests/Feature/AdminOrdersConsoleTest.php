@@ -10,6 +10,7 @@ use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\Role;
 use App\Models\Site;
+use App\Models\StaffCapability;
 use App\Models\User;
 use App\Services\Orders\OrderClawbackService;
 use Carbon\Carbon;
@@ -1177,6 +1178,45 @@ class AdminOrdersConsoleTest extends TestCase
                 '--force' => true,
             ]);
         }
+    }
+
+    public function test_orders_console_fetches_data_on_the_same_origin(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.orders.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('ordersDataUrl = "\/admin\/orders\/data"', $html);
+        $this->assertStringContainsString('ordersIndexUrl = "\/admin\/orders"', $html);
+        $this->assertStringNotContainsString(
+            'ordersDataUrl = "'.str_replace('/', '\/', rtrim((string) config('app.url'), '/').'/admin/orders/data').'"',
+            $html
+        );
+    }
+
+    public function test_support_only_can_load_orders_json_without_invoice_urls(): void
+    {
+        $admin = $this->userWithRole('admin');
+        StaffCapability::ensureTable();
+        StaffCapability::query()->create([
+            'user_id' => $admin->id,
+            'capability' => StaffCapability::SUPPORT,
+        ]);
+
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+        $order = $this->orderFor($advertiser, $site);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.orders.data'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonFragment(['order_number' => $order->order_number])
+            ->assertJsonPath('data.0.invoice_url', null);
     }
 
     public function test_open_dispute_for_missing_order_is_json_404(): void
