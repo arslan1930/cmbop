@@ -103,6 +103,7 @@ class AdminPanelSmokeTest extends TestCase
             ['admin.staff-handbook'],
             ['admin.site-ratings.index'],
             ['admin.finance'],
+            ['admin.analytics'],
             ['admin.finance.ledger'],
             ['admin.payments'],
             ['admin.invoices.index'],
@@ -112,6 +113,8 @@ class AdminPanelSmokeTest extends TestCase
             ['admin.community.index'],
             ['admin.blogs.index'],
             ['admin.blogs.create'],
+            ['admin.legal.index'],
+            ['admin.categories.index'],
             ['admin.emails.index'],
             ['admin.campaigns.index'],
             ['admin.audiences.index'],
@@ -180,6 +183,9 @@ class AdminPanelSmokeTest extends TestCase
         $this->assertStringContainsString(route('admin.orders.index'), $html);
         $this->assertStringContainsString(route('admin.sites.index'), $html);
         $this->assertStringContainsString(route('admin.finance'), $html);
+        $this->assertStringContainsString(route('admin.analytics'), $html);
+        $this->assertStringContainsString(route('admin.legal.index'), $html);
+        $this->assertStringContainsString(route('admin.categories.index'), $html);
         $this->assertStringContainsString(route('admin.users.index'), $html);
         $this->assertStringContainsString(route('admin.emails.index'), $html);
         $this->assertStringContainsString(route('admin.catalog-activity'), $html);
@@ -239,6 +245,8 @@ class AdminPanelSmokeTest extends TestCase
             route('admin.inbox.index', ['tab' => 'disputes']),
             route('admin.sites.duplicates'),
             route('admin.finance', ['period' => 'month']),
+            route('admin.analytics', ['period' => 'week']),
+            route('admin.legal.edit', ['slug' => 'cookie-policy', 'locale' => 'en']),
             route('admin.finance.ledger', ['type' => 'deposit', 'search' => 'smoke']),
             route('admin.payments', ['payment_status' => 'unpaid']),
             route('admin.invoices.index', ['status' => 'paid', 'type' => 'tax_invoice', 'search' => 'INV']),
@@ -549,6 +557,7 @@ class AdminPanelSmokeTest extends TestCase
             'admin.finance.export',
             'admin.finance.ledger.export',
             'admin.finance.refunds.export',
+            'admin.analytics.export',
             'admin.orders.export',
             'admin.users.export',
             'admin.withdrawals.export',

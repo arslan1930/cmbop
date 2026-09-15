@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Blog;
 use App\Models\Country;
+use App\Models\LegalPageOverride;
 use App\Models\Order;
 use App\Models\Site;
+use App\Services\BlogHtmlSanitizer;
 use App\Services\CuratedBlogWriter;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Services\Marketing\GuestPostPriceIndex;
@@ -153,14 +155,48 @@ class MarketingPageController extends Controller
         return view('pages.why-choose-us');
     }
 
+    public function privacyPolicy()
+    {
+        return $this->legal(LegalPageOverride::SLUG_PRIVACY);
+    }
+
+    public function termsOfServices()
+    {
+        return $this->legal(LegalPageOverride::SLUG_TERMS);
+    }
+
     public function cookiePolicy()
     {
-        return view('pages.cookie-policy');
+        return $this->legal(LegalPageOverride::SLUG_COOKIE);
     }
 
     public function refundPolicy()
     {
-        return view('pages.refund-policy');
+        return $this->legal(LegalPageOverride::SLUG_REFUND);
+    }
+
+    private function legal(string $slug)
+    {
+        $meta = LegalPageOverride::PAGES[$slug] ?? null;
+        abort_unless(is_array($meta), 404);
+
+        $locale = public_locale();
+        $override = LegalPageOverride::publishedFor($slug, $locale);
+        if ($override && ! BlogHtmlSanitizer::isBlank($override->body_html)) {
+            $html = app(BlogHtmlSanitizer::class)->sanitize($override->body_html);
+            $hero = filled($override->title)
+                ? (string) $override->title
+                : __('messages.'.$meta['hero']);
+
+            return view('pages.legal-custom', [
+                'slug' => $slug,
+                'meta' => $meta,
+                'hero' => $hero,
+                'html' => $html,
+            ]);
+        }
+
+        return view($meta['view']);
     }
 
     /**
