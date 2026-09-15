@@ -1211,6 +1211,7 @@ class AdminFinanceHubTest extends TestCase
             ->assertSee('Find user dossier')
             ->assertSee('Wallet ledger')
             ->assertSee('Export period CSV')
+            ->assertSee('Export refunds')
             ->getContent();
 
         $this->assertStringContainsString('admin-finance-toolbar', $html);
@@ -1222,6 +1223,7 @@ class AdminFinanceHubTest extends TestCase
         $this->assertStringContainsString('id="adminFinanceUserOpen"', $html);
         $this->assertStringContainsString('id="adminFinanceWalletLedger"', $html);
         $this->assertStringContainsString('id="adminFinanceExport"', $html);
+        $this->assertStringContainsString('id="adminFinanceRefundsExport"', $html);
         $this->assertStringContainsString('id="adminFinanceApplyRange"', $html);
 
         $blade = (string) file_get_contents(resource_path('views/admin/finance.blade.php'));
@@ -1293,6 +1295,9 @@ class AdminFinanceHubTest extends TestCase
         $this->assertTrue((bool) preg_match('/id="adminFinanceExport"[^>]+href="([^"]+)"/', $html, $export));
         $this->assertStringContainsString('period=all', $export[1]);
         $this->assertStringNotContainsString('q=', $export[1]);
+        $this->assertTrue((bool) preg_match('/id="adminFinanceRefundsExport"[^>]+href="([^"]+)"/', $html, $refunds));
+        $this->assertStringContainsString('period=all', $refunds[1]);
+        $this->assertStringNotContainsString('q=', $refunds[1]);
     }
 
     public function test_overview_export_link_uses_custom_dates_not_dossier_query(): void
@@ -1313,6 +1318,10 @@ class AdminFinanceHubTest extends TestCase
         $this->assertStringContainsString('date_to=2026-01-31', $export[1]);
         $this->assertStringNotContainsString('period=', $export[1]);
         $this->assertStringNotContainsString('q=', $export[1]);
+        $this->assertTrue((bool) preg_match('/id="adminFinanceRefundsExport"[^>]+href="([^"]+)"/', $html, $refunds));
+        $this->assertStringContainsString('date_from=2026-01-01', $refunds[1]);
+        $this->assertStringContainsString('date_to=2026-01-31', $refunds[1]);
+        $this->assertStringNotContainsString('q=', $refunds[1]);
     }
 
     public function test_ledger_rejects_invalid_dates_and_array_search(): void

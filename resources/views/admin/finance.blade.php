@@ -58,6 +58,12 @@
                     <i class="fa fa-file-csv me-1"></i> Export period CSV
                 </a>
             </div>
+            <div class="admin-finance-toolbar__action">
+                <span class="form-label fw-semibold small text-muted mb-1" aria-hidden="true">&nbsp;</span>
+                <a id="adminFinanceRefundsExport" href="{{ route('admin.finance.refunds.export', $exportQuery) }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fa fa-file-csv me-1"></i> Export refunds
+                </a>
+            </div>
         </div>
     </div>
 

@@ -273,6 +273,8 @@ class AdminOrdersConsoleTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('function syncOrdersUrl', false)
+            ->assertSee('function syncExportHref', false)
+            ->assertSee('id="exportOrdersBtn"', false)
             ->assertSee('history.replaceState', false)
             ->assertSee("boot.get('date_from')", false)
             ->assertSee("boot.get('date_to')", false)

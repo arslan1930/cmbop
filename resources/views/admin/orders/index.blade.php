@@ -67,9 +67,12 @@
                         <input type="date" id="dateTo" class="form-control">
                     </div>
                 </div>
-                <div class="col-md-2 d-flex align-items-end gap-2">
+                <div class="col-md-2 d-flex align-items-end gap-2 flex-wrap">
                     <button type="submit" class="btn btn-primary btn-sm">Filter</button>
                     <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary btn-sm">Reset</button>
+                    <a id="exportOrdersBtn" href="{{ route('admin.orders.export', absolute: false) }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fa fa-file-csv me-1"></i> Export CSV
+                    </a>
                 </div>
             </form>
         </div>
@@ -110,6 +113,7 @@
 (function () {
     const ordersDataUrl = @json(route('admin.orders.data'));
     const ordersIndexUrl = @json(route('admin.orders.index'));
+    const ordersExportUrl = @json(route('admin.orders.export', absolute: false));
     const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     let currentPage = 1;
 
@@ -134,6 +138,20 @@
         const next = params.toString() ? (ordersIndexUrl + '?' + params.toString()) : ordersIndexUrl;
         if (history.replaceState) {
             history.replaceState({}, '', next);
+        }
+        syncExportHref();
+    }
+
+    function syncExportHref() {
+        const params = new URLSearchParams();
+        const filters = readFilters();
+        Object.keys(filters).forEach((key) => {
+            if (filters[key]) params.set(key, filters[key]);
+        });
+        const qs = params.toString();
+        const btn = document.getElementById('exportOrdersBtn');
+        if (btn) {
+            btn.href = ordersExportUrl + (qs ? '?' + qs : '');
         }
     }
 
