@@ -98,15 +98,16 @@ class AdminAnalyticsTest extends TestCase
             ->get(route('admin.analytics.export', ['period' => 'month']))
             ->assertOk()
             ->streamedContent();
-        $this->assertStringContainsString('42.5', $month);
+        $this->assertStringContainsString('kpi,paid_gmv,42.5', $month);
+        $this->assertStringContainsString('kpi,paid_orders,1', $month);
         $this->assertStringNotContainsString('888.25', $month);
 
         $all = $this->actingAs($admin)
             ->get(route('admin.analytics.export', ['period' => 'all']))
             ->assertOk()
             ->streamedContent();
-        $this->assertStringContainsString('42.5', $all);
-        $this->assertStringContainsString('888.25', $all);
+        $this->assertStringContainsString('kpi,paid_gmv,930.75', $all);
+        $this->assertStringContainsString('kpi,paid_orders,2', $all);
     }
 
     /**
