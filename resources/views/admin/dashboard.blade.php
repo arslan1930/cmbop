@@ -47,6 +47,51 @@
         </div>
     @endif
 
+    <!-- Ops health: silent mail/queue death is invisible on Email Center until someone opens it. -->
+    <div class="row g-3 mb-4" id="dashboardOpsHealth">
+        <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <strong class="text-muted small"><span class="text-uppercase">Ops health</span> <span id="opsHealthTone" class="fw-normal"></span></strong>
+            <a href="{{ route('admin.emails.index') }}" class="small">Open Email Center</a>
+        </div>
+        <div class="col-12 d-none" id="opsHealthRetry"></div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.emails.index') }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Jobs waiting</div>
+                    <div class="fs-4 fw-semibold" id="opsPendingJobs">—</div>
+                    <div class="small text-muted">Database queue rows</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.emails.index') }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Failed jobs</div>
+                    <div class="fs-4 fw-semibold" id="opsFailedJobs">—</div>
+                    <div class="small text-muted">All queues, including mail</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.emails.index') }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Mail waiting</div>
+                    <div class="fs-4 fw-semibold" id="opsMailPending">—</div>
+                    <div class="small text-muted">Queued SendQueuedMailable</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.emails.index') }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Mail failed</div>
+                    <div class="fs-4 fw-semibold" id="opsMailFailed">—</div>
+                    <div class="small text-muted" id="opsAutoDrain">Auto-drain —</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- KPI cards -->
     <div class="row g-3 mb-4">
         <div class="col-12 d-none" id="kpiRetry"></div>
@@ -159,6 +204,51 @@
                     <div class="text-muted small">Fee margin (this month)</div>
                     <div class="fs-4 fw-semibold" id="financeMargin">—</div>
                     <div class="small text-muted">Fees − fee reversals − bonuses</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- This month: GMV on the KPI row is all-time paid totals. These four are the profit picture. -->
+    <div class="row g-3 mb-4" id="dashboardBusinessStrip">
+        <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <strong class="text-muted small"><span class="text-uppercase">This month</span> <span id="businessPeriod" class="fw-normal"></span></strong>
+            <a href="{{ route('admin.finance') }}" class="small">Open finance</a>
+        </div>
+        <div class="col-12 d-none" id="businessRetry"></div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance') }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Platform margin</div>
+                    <div class="fs-4 fw-semibold" id="businessMargin">—</div>
+                    <div class="small text-muted">Fees − reversals − bonuses</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.payments', ['payment_status' => 'refunded']) }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Refunds</div>
+                    <div class="fs-4 fw-semibold" id="businessRefunds">—</div>
+                    <div class="small text-muted"><span id="businessRefundCount">0</span> refunded orders</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.withdrawals', ['queue' => 'history', 'status' => 'completed']) }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Payouts paid</div>
+                    <div class="fs-4 fw-semibold" id="businessPayouts">—</div>
+                    <div class="small text-muted"><span id="businessPayoutCount">0</span> completed withdrawals</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index') }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Active today</div>
+                    <div class="fs-4 fw-semibold" id="businessDau">—</div>
+                    <div class="small text-muted"><span id="businessOnline">0</span> online now · <span id="businessActive7d">0</span> in 7 days</div>
                 </div>
             </div>
         </div>
@@ -571,6 +661,55 @@ async function loadFinanceStrip() {
     }
 }
 
+async function loadBusinessStrip() {
+    const retryEl = document.getElementById('businessRetry');
+    try {
+        const json = await dashboardFetch(`{{ route('admin.dashboard.business') }}`);
+        const d = json.data;
+        document.getElementById('businessPeriod').textContent = d.period_label ? '· ' + d.period_label : '';
+        document.getElementById('businessMargin').textContent = money(d.margin);
+        document.getElementById('businessRefunds').textContent = money(d.refunds);
+        document.getElementById('businessRefundCount').textContent = num(d.refund_orders_count);
+        document.getElementById('businessPayouts').textContent = money(d.payouts_paid_net);
+        document.getElementById('businessPayoutCount').textContent = num(d.payouts_paid_count);
+        document.getElementById('businessDau').textContent = num(d.dau);
+        document.getElementById('businessOnline').textContent = num(d.online);
+        document.getElementById('businessActive7d').textContent = num(d.active_7d);
+        hideRetry(retryEl);
+    } catch (err) {
+        showRetry(retryEl, 'loadBusinessStrip');
+        throw err;
+    }
+}
+
+function opsHealthToneLabel(tone) {
+    if (tone === 'fail') return '· failed jobs need a look';
+    if (tone === 'warn') return '· mail or jobs are waiting';
+    return '· clear';
+}
+
+async function loadOpsHealth() {
+    const retryEl = document.getElementById('opsHealthRetry');
+    try {
+        const json = await dashboardFetch(`{{ route('admin.dashboard.ops-health') }}`);
+        const d = json.data;
+        document.getElementById('opsHealthTone').textContent = opsHealthToneLabel(d.tone);
+        document.getElementById('opsPendingJobs').textContent = num(d.pending_jobs);
+        document.getElementById('opsFailedJobs').textContent = num(d.failed_jobs);
+        document.getElementById('opsMailPending').textContent = num(d.mail_pending_jobs);
+        document.getElementById('opsMailFailed').textContent = num(d.mail_failed_jobs);
+        document.getElementById('opsAutoDrain').textContent = 'Auto-drain ' + (d.auto_drain ? 'on' : 'off');
+        const failEl = document.getElementById('opsFailedJobs');
+        const mailFailEl = document.getElementById('opsMailFailed');
+        failEl.classList.toggle('text-danger', Number(d.failed_jobs) > 0);
+        mailFailEl.classList.toggle('text-danger', Number(d.mail_failed_jobs) > 0);
+        hideRetry(retryEl);
+    } catch (err) {
+        showRetry(retryEl, 'loadOpsHealth');
+        throw err;
+    }
+}
+
 async function loadTrends() {
     const retryEls = [
         document.getElementById('trendRetry'),
@@ -908,6 +1047,8 @@ document.addEventListener('click', async (e) => {
 const dashboardLoaders = {
     loadStatistics,
     loadFinanceStrip,
+    loadBusinessStrip,
+    loadOpsHealth,
     loadTrends,
     loadDistributions,
     loadActionQueue,
@@ -974,7 +1115,7 @@ document.addEventListener('keydown', (e) => {
     followKpiLink(kpi);
 });
 
-Promise.all([loadStatistics(), loadFinanceStrip(), loadTrends(), loadDistributions(), loadActionQueue(), loadStalledOrders()])
+Promise.all([loadStatistics(), loadFinanceStrip(), loadBusinessStrip(), loadOpsHealth(), loadTrends(), loadDistributions(), loadActionQueue(), loadStalledOrders()])
     .catch(err => console.error('Dashboard load failed', err));
 </script>
 @endsection

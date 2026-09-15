@@ -20,6 +20,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AdminDashboardTest extends TestCase
@@ -70,6 +71,22 @@ class AdminDashboardTest extends TestCase
             ->assertSee('id="financePeriod"', false)
             ->assertDontSee('id="financePeriod" class="fw-normal text-capitalize"', false)
             ->assertDontSee('text-uppercase small">Finance', false)
+            ->assertSee('Ops health')
+            ->assertSee('Jobs waiting')
+            ->assertSee('Failed jobs')
+            ->assertSee('Mail waiting')
+            ->assertSee('Mail failed')
+            ->assertSee('Platform margin')
+            ->assertSee('Payouts paid')
+            ->assertSee('Active today')
+            ->assertSee('id="dashboardOpsHealth"', false)
+            ->assertSee('id="dashboardBusinessStrip"', false)
+            ->assertSee(route('admin.dashboard.ops-health'), false)
+            ->assertSee(route('admin.dashboard.business'), false)
+            ->assertSee(route('admin.emails.index'), false)
+            ->assertSee(route('admin.payments', ['payment_status' => 'refunded']), false)
+            ->assertSee('loadOpsHealth')
+            ->assertSee('loadBusinessStrip')
             ->assertSee('Unpaid orders')
             ->assertSee('Open disputes')
             ->assertSee('Community inbox')
@@ -786,5 +803,122 @@ class AdminDashboardTest extends TestCase
                 });
             }
         }
+    }
+
+    public function test_business_strip_matches_finance_overview_and_counts_dau(): void
+    {
+        $admin = $this->makeAdmin();
+        $admin->forceFill(['last_seen_at' => now()])->save();
+
+        $stale = User::factory()->create([
+            'email_verified_at' => now(),
+            'last_seen_at' => now()->subDays(3),
+        ]);
+        User::factory()->create([
+            'email_verified_at' => now(),
+            'last_seen_at' => now()->subDays(10),
+        ]);
+
+        Withdrawal::create([
+            'user_id' => $admin->id,
+            'amount' => 40,
+            'fee' => 5,
+            'net_amount' => 35,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'a@b.com'],
+            'status' => 'completed',
+            'processed_at' => now()->subDay(),
+        ]);
+
+        $order = Order::create([
+            'user_id' => $admin->id,
+            'order_number' => 'ORD-REF-BI',
+            'reference_code' => 'REF-REF-BI',
+            'subtotal' => 50,
+            'tax' => 0,
+            'total_amount' => 50,
+            'payment_method' => 'wallet',
+            'payment_status' => 'refunded',
+            'status' => 'cancelled',
+            'paid_at' => now()->subDays(2),
+        ]);
+        $order->updated_at = now()->subDay();
+        $order->save();
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('month')
+        );
+
+        $json = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.business'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.period_label', $overview['period']['label'])
+            ->assertJsonPath('data.finance_url', route('admin.finance'))
+            ->assertJsonPath('data.refunds_url', route('admin.payments', ['payment_status' => 'refunded']))
+            ->assertJsonPath('data.payouts_url', route('admin.withdrawals', ['queue' => 'history', 'status' => 'completed']))
+            ->assertJsonPath('data.users_url', route('admin.users.index'))
+            ->json('data');
+
+        $this->assertEquals($overview['platform']['margin'], $json['margin']);
+        $this->assertEquals($overview['platform']['refunds'], $json['refunds']);
+        $this->assertEquals($overview['platform']['refund_orders_count'], $json['refund_orders_count']);
+        $this->assertEquals($overview['money_out']['withdrawals_paid']['net'], $json['payouts_paid_net']);
+        $this->assertEquals($overview['money_out']['withdrawals_paid']['count'], $json['payouts_paid_count']);
+        $this->assertSame(1, (int) $json['dau']);
+        $this->assertSame(2, (int) $json['active_7d']);
+        $this->assertGreaterThanOrEqual(1, (int) $json['online']);
+        $this->assertTrue($stale->last_seen_at->lt(now()->startOfDay()));
+    }
+
+    public function test_ops_health_counts_failed_mail_jobs(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.ops-health'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.tone', 'ok')
+            ->assertJsonPath('data.failed_jobs', 0)
+            ->assertJsonPath('data.mail_failed_jobs', 0)
+            ->assertJsonPath('data.url', route('admin.emails.index'));
+
+        if (! Schema::hasTable('failed_jobs')) {
+            $this->markTestSkipped('failed_jobs table is missing');
+        }
+
+        DB::table('failed_jobs')->insert([
+            [
+                'uuid' => (string) Str::uuid(),
+                'connection' => 'database',
+                'queue' => 'emails',
+                'payload' => json_encode([
+                    'displayName' => 'App\\Mail\\WelcomeEmail',
+                    'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
+                    'data' => ['commandName' => 'Illuminate\\Mail\\SendQueuedMailable'],
+                ]),
+                'exception' => 'SMTP failed',
+                'failed_at' => now(),
+            ],
+            [
+                'uuid' => (string) Str::uuid(),
+                'connection' => 'database',
+                'queue' => 'default',
+                'payload' => json_encode([
+                    'displayName' => 'App\\Jobs\\EnrichSiteJob',
+                    'data' => ['commandName' => 'App\\Jobs\\EnrichSiteJob'],
+                ]),
+                'exception' => 'timeout',
+                'failed_at' => now(),
+            ],
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.ops-health'))
+            ->assertOk()
+            ->assertJsonPath('data.tone', 'fail')
+            ->assertJsonPath('data.failed_jobs', 2)
+            ->assertJsonPath('data.mail_failed_jobs', 1);
     }
 }
