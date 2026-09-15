@@ -66,7 +66,7 @@ class StaffCapabilityTest extends TestCase
             ->assertOk()
             ->assertDontSee('>Money<', false)
             ->assertSee('Work inbox')
-            ->assertSee('Legal pages')
+            ->assertSee('Legal &amp; FAQ', false)
             ->assertSee('Niches')
             ->assertDontSee('Due to pay now');
     }
@@ -100,7 +100,7 @@ class StaffCapabilityTest extends TestCase
             ->assertSee('Money')
             ->assertSee('Analytics')
             ->assertDontSee('Work inbox')
-            ->assertDontSee('Legal pages')
+            ->assertDontSee('Legal &amp; FAQ', false)
             ->assertSee('Due to pay now');
     }
 

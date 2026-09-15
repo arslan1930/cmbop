@@ -8,7 +8,7 @@
         'title' => $meta['label'],
         'subtitle' => 'Publishing replaces the built-in translated page for this locale only. Other locales keep their translations.',
         'actionUrl' => route('admin.legal.index'),
-        'actionLabel' => 'All legal pages',
+        'actionLabel' => 'Legal & FAQ',
         'actionIcon' => 'fa-arrow-left',
     ])
 
@@ -24,6 +24,13 @@
         @endforeach
         <a href="{{ $publicUrl }}" class="btn btn-sm btn-link" target="_blank" rel="noopener">View public page</a>
     </div>
+
+    @if($slug === \App\Models\LegalPageOverride::SLUG_FAQ)
+        <div class="alert alert-warning" role="note">
+            Publishing replaces the built-in accordion and FAQPage schema for this locale.
+            Welcome-credit question #4 is no longer auto-hidden when grants are off — write that copy yourself if you still want it.
+        </div>
+    @endif
 
     <div class="card border-0 shadow-sm">
         <div class="card-body">

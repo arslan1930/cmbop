@@ -1,12 +1,12 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Legal pages')
+@section('title', 'Legal & FAQ')
 
 @section('content')
 <div class="container-fluid py-3">
     @include('admin.partials.page-header', [
-        'title' => 'Legal pages',
-        'subtitle' => 'Built-in translations stay live until you publish a custom version for a locale. Revert any time.',
+        'title' => 'Legal & FAQ',
+        'subtitle' => 'Privacy, terms, cookies, refunds, and FAQ stay on built-in translations until you publish a custom version for a locale. Revert any time.',
     ])
 
     <div class="card border-0 shadow-sm">

@@ -19,6 +19,8 @@ class LegalPageOverride extends Model
 
     public const SLUG_REFUND = 'refund-policy';
 
+    public const SLUG_FAQ = 'faq';
+
     /**
      * @var array<string, array{label: string, view: string, hero: string, meta_title: string, meta_description: string}>
      */
@@ -50,6 +52,13 @@ class LegalPageOverride extends Model
             'hero' => 'refund_title',
             'meta_title' => 'meta_refund_title',
             'meta_description' => 'meta_refund_description',
+        ],
+        self::SLUG_FAQ => [
+            'label' => 'FAQ',
+            'view' => 'pages.faq',
+            'hero' => 'faq_title',
+            'meta_title' => 'meta_faq_title',
+            'meta_description' => 'meta_faq_description',
         ],
     ];
 

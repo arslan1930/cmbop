@@ -43,6 +43,67 @@ class AdminLegalPagesTest extends TestCase
         $this->get('/refund-policy')
             ->assertOk()
             ->assertSee('FAQPage', false);
+
+        $this->get('/faq')
+            ->assertOk()
+            ->assertSee(__('messages.faq_title'))
+            ->assertSee(__('messages.faq_q_1'))
+            ->assertSee('"@type":"FAQPage"', false)
+            ->assertDontSee('legal-cms-body', false);
+    }
+
+    public function test_published_faq_override_replaces_built_in_and_drops_schema(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->put(route('admin.legal.update', 'faq'), [
+                'locale' => 'en',
+                'title' => 'Custom FAQ heading',
+                'body_html' => '<h2>Custom question UNIQUE-FAQ-TOKEN</h2><p>Custom answer</p><script>alert(1)</script>',
+                'publish' => '1',
+            ])
+            ->assertRedirect(route('admin.legal.edit', ['slug' => 'faq', 'locale' => 'en']))
+            ->assertSessionHas('success');
+
+        $this->get('/faq')
+            ->assertOk()
+            ->assertSee('Custom FAQ heading')
+            ->assertSee('UNIQUE-FAQ-TOKEN')
+            ->assertSee('legal-cms-body', false)
+            ->assertDontSee('alert(1)', false)
+            ->assertDontSee('"@type":"FAQPage"', false)
+            ->assertDontSee(__('messages.faq_q_1'));
+
+        $this->get(LocalizedPublicPath::publicPath('faq', 'de'))
+            ->assertOk()
+            ->assertSee('"@type":"FAQPage"', false)
+            ->assertDontSee('UNIQUE-FAQ-TOKEN');
+
+        $this->actingAs($admin)
+            ->get(route('admin.legal.edit', ['slug' => 'faq', 'locale' => 'en']))
+            ->assertOk()
+            ->assertSee('FAQPage schema')
+            ->assertSee('Welcome-credit question');
+    }
+
+    public function test_unpublished_faq_draft_keeps_built_in_schema(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->put(route('admin.legal.update', 'faq'), [
+                'locale' => 'en',
+                'title' => 'Draft FAQ',
+                'body_html' => '<p>DRAFT-FAQ-TOKEN</p>',
+            ])
+            ->assertRedirect();
+
+        $this->get('/faq')
+            ->assertOk()
+            ->assertSee('"@type":"FAQPage"', false)
+            ->assertSee(__('messages.faq_q_1'))
+            ->assertDontSee('DRAFT-FAQ-TOKEN');
     }
 
     public function test_published_override_replaces_that_locale_only(): void
@@ -130,7 +191,8 @@ class AdminLegalPagesTest extends TestCase
         $this->actingAs($support)
             ->get(route('admin.legal.index'))
             ->assertOk()
-            ->assertSee('Privacy policy');
+            ->assertSee('Privacy policy')
+            ->assertSee('FAQ');
 
         $this->actingAs($finance)
             ->get(route('admin.legal.index'))

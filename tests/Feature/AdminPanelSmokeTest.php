@@ -247,6 +247,7 @@ class AdminPanelSmokeTest extends TestCase
             route('admin.finance', ['period' => 'month']),
             route('admin.analytics', ['period' => 'week']),
             route('admin.legal.edit', ['slug' => 'cookie-policy', 'locale' => 'en']),
+            route('admin.legal.edit', ['slug' => 'faq', 'locale' => 'en']),
             route('admin.finance.ledger', ['type' => 'deposit', 'search' => 'smoke']),
             route('admin.payments', ['payment_status' => 'unpaid']),
             route('admin.invoices.index', ['status' => 'paid', 'type' => 'tax_invoice', 'search' => 'INV']),

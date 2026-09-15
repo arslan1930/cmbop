@@ -154,7 +154,7 @@
             <i class="fa fa-blog"></i> <span>Blogs</span>
         </a>
         <a href="{{ route('admin.legal.index') }}" class="{{ request()->routeIs('admin.legal.*') ? 'active' : '' }}">
-            <i class="fa fa-gavel"></i> <span>Legal pages</span>
+            <i class="fa fa-gavel"></i> <span>Legal &amp; FAQ</span>
         </a>
         <a href="{{ route('admin.categories.index') }}" class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
             <i class="fa fa-tags"></i> <span>Niches</span>

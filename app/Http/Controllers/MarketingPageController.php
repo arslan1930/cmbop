@@ -32,7 +32,7 @@ class MarketingPageController extends Controller
 
     public function faq()
     {
-        return view('pages.faq');
+        return $this->legal(LegalPageOverride::SLUG_FAQ);
     }
 
     public function pricing()
