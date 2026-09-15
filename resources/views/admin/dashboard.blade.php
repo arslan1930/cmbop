@@ -59,7 +59,7 @@
                 <div class="card-body py-3">
                     <div class="text-muted small">Jobs waiting</div>
                     <div class="fs-4 fw-semibold" id="opsPendingJobs">—</div>
-                    <div class="small text-muted">Database queue rows</div>
+                    <div class="small text-muted">In the database queue</div>
                 </div>
             </div>
         </div>
@@ -77,7 +77,7 @@
                 <div class="card-body py-3">
                     <div class="text-muted small">Mail waiting</div>
                     <div class="fs-4 fw-semibold" id="opsMailPending">—</div>
-                    <div class="small text-muted">Queued SendQueuedMailable</div>
+                    <div class="small text-muted">Queued mail, not yet sent</div>
                 </div>
             </div>
         </div>
