@@ -79,6 +79,9 @@ class ActivityLogger
     private static function withSubjectContext(?Model $subject, array $properties): array
     {
         if ($subject instanceof Site) {
+            if (! array_key_exists('site_id', $properties)) {
+                $properties['site_id'] = (int) $subject->id;
+            }
             if (! array_key_exists('publisher_id', $properties) && $subject->publisher_id) {
                 $properties['publisher_id'] = (int) $subject->publisher_id;
             }

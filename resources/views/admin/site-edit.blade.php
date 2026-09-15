@@ -552,6 +552,56 @@
         </div>
     </div>
 
+    <div class="row g-3 mt-1">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white"><strong>Internal notes</strong></div>
+                <div class="card-body">
+                    @if($canAddNotes ?? false)
+                    <form method="POST" action="{{ staff_route('sites.notes.store', $site->id) }}" class="mb-3">
+                        @csrf
+                        <label class="form-label small" for="siteAdminNoteBody">Add a note (not visible to the publisher)</label>
+                        <textarea name="body" id="siteAdminNoteBody" class="form-control mb-2" rows="3" required minlength="3" maxlength="2000" placeholder="Moderator context, metric caveats, ownership flags…"></textarea>
+                        <button type="submit" class="btn btn-sm btn-primary">Save note</button>
+                    </form>
+                    @endif
+                    @forelse($notes ?? [] as $note)
+                        <div class="border-bottom pb-2 mb-2">
+                            <div class="small text-muted">
+                                {{ $note->admin?->name ?: 'Staff' }}
+                                · {{ $note->created_at?->format('d M Y H:i') }}
+                            </div>
+                            <div>{{ $note->body }}</div>
+                        </div>
+                    @empty
+                        <p class="text-muted mb-0">No notes yet.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <strong>Activity</strong>
+                    @if(auth()->user()?->isAdmin())
+                        <a href="{{ route('admin.activity-logs.index', ['q' => $site->domain ?: $site->site_name]) }}" class="small">History</a>
+                    @endif
+                </div>
+                <div class="card-body">
+                    @forelse($activities ?? [] as $activity)
+                        <div class="mb-2 pb-2 border-bottom">
+                            <div class="fw-semibold small">{{ activity_action_label($activity->action) }}</div>
+                            <div>{{ $activity->description }}</div>
+                            <div class="small text-muted">{{ $activity->created_at?->format('d M Y H:i') }}</div>
+                        </div>
+                    @empty
+                        <p class="text-muted mb-0">No activity logged yet.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>

@@ -781,6 +781,8 @@ if (! function_exists('activity_action_labels')) {
             'legal.page_published' => 'Published legal page',
             'legal.page_saved' => 'Saved legal page draft',
             'legal.page_reverted' => 'Reverted legal page',
+            'user.note_added' => 'Added user note',
+            'site.note_added' => 'Added site note',
             'category.created' => 'Created catalog niche',
             'category.updated' => 'Updated catalog niche',
             'category.renamed' => 'Renamed catalog niche',

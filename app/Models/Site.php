@@ -848,6 +848,11 @@ class Site extends Model
         return $this->belongsTo(User::class, 'publisher_id');
     }
 
+    public function adminNotes()
+    {
+        return $this->hasMany(SiteAdminNote::class)->latest('id');
+    }
+
     public function agencySiteImport()
     {
         return $this->belongsTo(AgencySiteImport::class, 'agency_site_import_id');
