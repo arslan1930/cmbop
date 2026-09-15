@@ -101,7 +101,7 @@
                 <div class="card-body">
                     <h2 class="h6 mb-3">Actions</h2>
                     <div class="d-flex flex-column gap-2">
-                        @if(! $user->hasVerifiedEmail())
+                        @if(staff_can('support') && ! $user->hasVerifiedEmail())
                             <form method="POST" action="{{ route('admin.users.verify-email', $user) }}">
                                 @csrf
                                 <button type="submit" class="btn btn-sm btn-success w-100">
@@ -115,7 +115,7 @@
                                 </button>
                             </form>
                         @endif
-                        @if($canSuspend && ! $user->isSuspended())
+                        @if(staff_can('support') && $canSuspend && ! $user->isSuspended())
                             <form method="POST" action="{{ route('admin.users.suspend', $user) }}" class="js-suspend-form">
                                 @csrf
                                 <label class="form-label small mb-1" for="suspendReason">Suspend reason</label>
@@ -124,7 +124,7 @@
                                     <i class="fa fa-ban me-1"></i> Suspend account
                                 </button>
                             </form>
-                        @elseif($canSuspend && $user->isSuspended())
+                        @elseif(staff_can('support') && $canSuspend && $user->isSuspended())
                             <form method="POST" action="{{ route('admin.users.unsuspend', $user) }}" class="js-unsuspend-form">
                                 @csrf
                                 <button type="submit" class="btn btn-sm btn-outline-success w-100">
@@ -132,7 +132,7 @@
                                 </button>
                             </form>
                         @endif
-                        @if(auth()->user()?->isAdmin() && $targetHasStaffTwoFactor && (int) $user->id !== (int) auth()->id())
+                        @if(staff_is_unrestricted() && $targetHasStaffTwoFactor && (int) $user->id !== (int) auth()->id())
                             <form method="POST" action="{{ route('admin.users.two-factor.clear', $user) }}"
                                   data-slb-confirm="Clear two-factor authentication for this staff account? They can sign in with password only until they set it up again."
                                   data-slb-confirm-title="Clear two-factor?"
@@ -144,16 +144,51 @@
                                 </button>
                             </form>
                         @endif
+                        @if(staff_can('finance'))
                         <a href="{{ route('admin.finance.user', $user) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fa fa-coins me-1"></i> Finance dossier
                         </a>
+                        @endif
+                        @if(staff_can('support'))
                         <a href="{{ route('admin.content-library.index', ['user_id' => $user->id]) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fa fa-folder-open me-1"></i> Articles
                         </a>
+                        @endif
                         <a href="{{ route('admin.users.index', ['user' => $user->id]) }}#user-{{ $user->id }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fa fa-pen me-1"></i> Edit company / payout
                         </a>
                     </div>
+                    @if(staff_is_unrestricted() && $user->hasRole('admin') && (int) $user->id !== (int) auth()->id())
+                    <hr>
+                    <h3 class="h6 mb-2">Admin access</h3>
+                    <p class="small text-muted">No overlay is full admin. Limited accounts only get the boxes you tick.</p>
+                    <form method="POST" action="{{ route('admin.users.capabilities', $user) }}">
+                        @csrf
+                        @php
+                            $targetUnrestricted = $targetUnrestricted ?? false;
+                            $targetCapabilities = $targetCapabilities ?? [];
+                        @endphp
+                        <div class="form-check mb-1">
+                            <input class="form-check-input" type="radio" name="access" id="accessFull" value="full" @checked($targetUnrestricted)>
+                            <label class="form-check-label" for="accessFull">Full admin</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="access" id="accessLimited" value="limited" @checked(! $targetUnrestricted)>
+                            <label class="form-check-label" for="accessLimited">Limited</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="capabilities[]" value="finance" id="capFinance" @checked(in_array('finance', $targetCapabilities, true))>
+                            <label class="form-check-label" for="capFinance">Finance</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="capabilities[]" value="support" id="capSupport" @checked(in_array('support', $targetCapabilities, true))>
+                            <label class="form-check-label" for="capSupport">Support</label>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-outline-primary w-100">Save access</button>
+                    </form>
+                    @elseif($user->hasRole('admin'))
+                    <div class="small text-muted mt-2">Access: {{ !empty($targetUnrestricted) ? 'full admin' : implode(', ', $targetCapabilities ?? []) }}</div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -355,12 +390,14 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white"><strong>Internal notes</strong></div>
                 <div class="card-body">
+                    @if(staff_can('support'))
                     <form method="POST" action="{{ route('admin.users.notes.store', $user) }}" class="mb-3">
                         @csrf
                         <label class="form-label small" for="adminNoteBody">Add a note (not visible to the user)</label>
                         <textarea name="body" id="adminNoteBody" class="form-control mb-2" rows="3" required minlength="3" maxlength="2000" placeholder="Support context, fraud flags, payout caveats…"></textarea>
                         <button type="submit" class="btn btn-sm btn-primary">Save note</button>
                     </form>
+                    @endif
                     @forelse($notes as $note)
                         <div class="border-bottom pb-2 mb-2">
                             <div class="small text-muted">

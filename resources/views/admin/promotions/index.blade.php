@@ -7,7 +7,7 @@
             <h1 class="h3 mb-1">Promotions Center</h1>
             <p class="text-muted mb-0">
                 Site notices and sized ad banners. Notices do not change catalog prices.
-                @if(auth()->user()?->isAdmin())
+                @if(auth()->user()?->isAdmin() && staff_can('finance'))
                     Admins can also toggle the advertiser signup bonus here.
                 @endif
             </p>
@@ -52,7 +52,7 @@
         $welcomeBonusEuro = '€'.rtrim(rtrim(number_format($welcomeBonusAmount, 2, '.', ''), '0'), '.');
         $welcomeBonusClaims = $welcomeBonusClaims ?? ['week' => 0, 'total' => 0, 'last' => null, 'available' => false];
     @endphp
-    @if(auth()->user()?->isAdmin())
+    @if(auth()->user()?->isAdmin() && staff_can('finance'))
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">

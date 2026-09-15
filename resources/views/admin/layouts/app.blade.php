@@ -58,7 +58,7 @@
         <a href="{{ staff_route('dashboard') }}" class="{{ request()->routeIs($staffPrefix.'dashboard') ? 'active' : '' }}">
             <i class="fa fa-tachometer-alt"></i> <span>Dashboard</span>
         </a>
-        @if(auth()->user()->isAdmin())
+        @if(auth()->user()->isAdmin() && staff_can('support'))
         <a href="{{ route('admin.inbox.index') }}" class="{{ request()->routeIs('admin.inbox.*') ? 'active' : '' }}">
             <i class="fa fa-inbox"></i>
             <span class="d-flex align-items-center w-100">
@@ -90,13 +90,13 @@
         <a href="{{ staff_route('staff-handbook') }}" class="{{ request()->routeIs($staffPrefix.'staff-handbook') ? 'active' : '' }}">
             <i class="fa fa-book"></i> <span>Staff handbook</span>
         </a>
-        @if(auth()->user()->isAdmin())
+        @if(auth()->user()->isAdmin() && staff_can('support'))
         <a href="{{ route('admin.site-ratings.index') }}" class="{{ request()->routeIs('admin.site-ratings.*') ? 'active' : '' }}">
             <i class="fa fa-star"></i> <span>Ratings</span>
         </a>
         @endif
 
-        @if(auth()->user()->isAdmin())
+        @if(auth()->user()->isAdmin() && staff_can('finance'))
         <div class="admin-nav-section">Money</div>
         <a href="{{ route('admin.finance') }}" class="{{ request()->routeIs('admin.finance') || request()->routeIs('admin.finance.user') ? 'active' : '' }}">
             <i class="fa fa-chart-pie"></i> <span>Finance</span>
@@ -135,6 +135,7 @@
         <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
             <i class="fa fa-users"></i> <span>Users</span>
         </a>
+        @if(staff_can('support'))
         <a href="{{ route('admin.community.index') }}" class="{{ request()->routeIs('admin.community.*') ? 'active' : '' }}">
             <i class="fa fa-comments"></i>
             <span class="d-flex align-items-center w-100">
@@ -142,7 +143,9 @@
                 <span id="navBadgeCommunity" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
             </span>
         </a>
+        @endif
 
+        @if(staff_can('support'))
         <div class="admin-nav-section">Growth</div>
         <a href="{{ route('admin.blogs.index') }}" class="{{ request()->routeIs('admin.blogs.*') ? 'active' : '' }}">
             <i class="fa fa-blog"></i> <span>Blogs</span>
@@ -165,13 +168,16 @@
         <a href="{{ route('admin.content-library.index') }}" class="{{ request()->routeIs('admin.content-library.*') ? 'active' : '' }}">
             <i class="fa fa-folder-open"></i> <span>Content Library</span>
         </a>
+        @endif
         <div class="admin-nav-section">System</div>
         <a href="{{ route('admin.activity-logs.index') }}" class="{{ request()->routeIs('admin.activity-logs.*') ? 'active' : '' }}">
             <i class="fa fa-history"></i> <span>Activity History</span>
         </a>
+        @if(staff_can('support'))
         <a href="{{ route('admin.catalog-activity') }}" class="{{ request()->routeIs('admin.catalog-activity*') ? 'active' : '' }}" title="Hide-mode and copy-strike queue">
             <i class="fa fa-eye"></i> <span>Catalog Activity</span>
         </a>
+        @endif
         @endif
     </div>
 </div>
@@ -189,7 +195,13 @@
 
         <div class="d-none d-md-block">
             <span class="admin-mode-badge">
-                {{ auth()->user()->isMarketing() ? 'Marketing' : 'Admin' }}
+                @if(auth()->user()->isMarketing())
+                    Marketing
+                @elseif(staff_is_unrestricted())
+                    Admin
+                @else
+                    Admin · {{ staff_capability_label() }}
+                @endif
             </span>
             <span class="ms-2">
                 @include('partials.role-switcher', ['variant' => 'outline-secondary'])

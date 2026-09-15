@@ -42,7 +42,7 @@
                 <strong>Content moderation is switched off.</strong>
                 No article is being scanned, so casino, adult and every other restricted
                 category is passing straight through to checkout.
-                <a href="{{ route('admin.moderation.index') }}" class="alert-link">Turn it back on</a>.
+                <a href="{{ staff_can('support') ? route('admin.moderation.index') : route('admin.dashboard') }}" class="alert-link">{{ staff_can('support') ? 'Turn it back on' : 'Dashboard' }}</a>.
             </div>
         </div>
     @endif
@@ -51,11 +51,11 @@
     <div class="row g-3 mb-4" id="dashboardOpsHealth">
         <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <strong class="text-muted small"><span class="text-uppercase">Ops health</span> <span id="opsHealthTone" class="fw-normal"></span></strong>
-            <a href="{{ route('admin.emails.index') }}" class="small">Open Email Center</a>
+            <a href="{{ staff_can('support') ? route('admin.emails.index') : route('admin.dashboard') }}" class="small">{{ staff_can('support') ? 'Open Email Center' : 'Dashboard' }}</a>
         </div>
         <div class="col-12 d-none" id="opsHealthRetry"></div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.emails.index') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ staff_can('support') ? route('admin.emails.index') : route('admin.dashboard') }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Jobs waiting</div>
                     <div class="fs-4 fw-semibold" id="opsPendingJobs">—</div>
@@ -64,7 +64,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.emails.index') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ staff_can('support') ? route('admin.emails.index') : route('admin.dashboard') }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Failed jobs</div>
                     <div class="fs-4 fw-semibold" id="opsFailedJobs">—</div>
@@ -73,7 +73,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.emails.index') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ staff_can('support') ? route('admin.emails.index') : route('admin.dashboard') }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Mail waiting</div>
                     <div class="fs-4 fw-semibold" id="opsMailPending">—</div>
@@ -82,7 +82,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.emails.index') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ staff_can('support') ? route('admin.emails.index') : route('admin.dashboard') }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Mail failed</div>
                     <div class="fs-4 fw-semibold" id="opsMailFailed">—</div>
@@ -114,7 +114,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ staff_can('finance') ? route('admin.finance') : route('admin.orders.index') }}">
                 <div class="card-body">
                     <div class="text-muted small">GMV (paid orders)</div>
                     <div class="d-flex align-items-end justify-content-between">
@@ -129,7 +129,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.sites.records') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ staff_can('support') ? route('admin.sites.records') : staff_route('sites.index') }}">
                 <div class="card-body">
                     <div class="text-muted small">Sites</div>
                     <div class="d-flex align-items-end justify-content-between">
@@ -143,7 +143,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.inbox.index') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ staff_can('support') ? route('admin.inbox.index') : '#dashboardActionQueues' }}">
                 <div class="card-body">
                     <div class="text-muted small">Needs Attention</div>
                     <div class="d-flex align-items-end justify-content-between">
@@ -151,13 +151,19 @@
                         <span class="badge bg-danger-subtle text-danger">Action queue</span>
                     </div>
                     <div class="small text-muted mt-2">
+                        @if(staff_can('finance'))
                         <span id="kpiDeposits">0</span> deposits ·
                         <span id="kpiWithdrawals">0</span> withdrawals ·
                         <span id="kpiPayments">0</span> unpaid ·
+                        @endif
                         <span id="kpiSitesReview">0</span> sites ·
+                        @if(staff_can('support'))
                         <span id="kpiCommunity">0</span> community ·
+                        @endif
                         <span id="kpiDisputes">0</span> disputes ·
+                        @if(staff_can('support'))
                         <span id="kpiStalled">0</span> stalled
+                        @endif
                     </div>
                 </div>
             </div>
@@ -165,6 +171,7 @@
     </div>
 
     <!-- Finance strip (same numbers as /admin/finance) -->
+    @if(staff_can('finance'))
     <div class="row g-3 mb-4">
         <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <strong class="text-muted small"><span class="text-uppercase">Finance</span> <span id="financePeriod" class="fw-normal"></span></strong>
@@ -208,8 +215,10 @@
             </div>
         </div>
     </div>
+    @endif
 
     <!-- This month: GMV on the KPI row is all-time paid totals. These four are the profit picture. -->
+    @if(staff_can('finance'))
     <div class="row g-3 mb-4" id="dashboardBusinessStrip">
         <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <strong class="text-muted small"><span class="text-uppercase">This month</span> <span id="businessPeriod" class="fw-normal"></span></strong>
@@ -253,10 +262,12 @@
             </div>
         </div>
     </div>
+    @endif
 
     <!-- Action queues (first viewport priority) -->
     <div id="dashboardActionQueues">
     <div class="row g-3 mb-4">
+        @if(staff_can('finance'))
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
@@ -297,6 +308,7 @@
                 </div>
             </div>
         </div>
+        @endif
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
@@ -320,6 +332,7 @@
     </div>
 
     <div class="row g-3 mb-4">
+        @if(staff_can('finance'))
         <div class="col-lg-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
@@ -340,11 +353,12 @@
                 </div>
             </div>
         </div>
+        @endif
         <div class="col-lg-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-gavel me-2 text-danger"></i>Open disputes</strong>
-                    <a href="{{ route('admin.inbox.index', ['tab' => 'disputes']) }}" class="small">View all</a>
+                    <a href="{{ staff_can('support') ? route('admin.inbox.index', ['tab' => 'disputes']) : route('admin.orders.index') }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -360,6 +374,7 @@
                 </div>
             </div>
         </div>
+        @if(staff_can('support'))
         <div class="col-lg-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
@@ -380,6 +395,7 @@
                 </div>
             </div>
         </div>
+        @endif
         <div class="col-lg-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
@@ -405,6 +421,7 @@
     {{-- Orders the reminder cadence could not rescue. Hidden entirely when the
          queue is empty so an untouched panel is not a permanent fixture.
          Kept inside #dashboardActionQueues so Needs Attention scrolls here too. --}}
+    @if(staff_can('support'))
     <div class="row g-3 mb-4 d-none" id="stalledOrdersRow">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
@@ -435,6 +452,7 @@
             </div>
         </div>
     </div>
+    @endif
     </div>
 
     <!-- Charts -->
@@ -553,6 +571,8 @@
 
 <script src="{{ asset('js/chart.umd.min.js') }}?v={{ @filemtime(public_path('js/chart.umd.min.js')) ?: '1' }}"></script>
 <script>
+const CAN_FINANCE = @json(staff_can('finance'));
+const CAN_SUPPORT = @json(staff_can('support'));
 const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = (n) => Number(n || 0).toLocaleString();
 
@@ -623,19 +643,21 @@ async function loadStatistics() {
         document.getElementById('kpiPublishers').textContent = num(d.publishers);
         document.getElementById('kpiAdmins').textContent = num(d.admins);
         document.getElementById('kpiMarketers').textContent = num(d.marketers);
-        document.getElementById('kpiRevenue').textContent = money(d.revenue);
-        document.getElementById('kpiRevenue7d').textContent = money(d.revenue_7d) + ' / 7d';
-        document.getElementById('kpiPaidOrders').textContent = num(d.paid_orders);
+        if (document.getElementById('kpiRevenue')) {
+            document.getElementById('kpiRevenue').textContent = money(d.revenue);
+            document.getElementById('kpiRevenue7d').textContent = money(d.revenue_7d) + ' / 7d';
+            document.getElementById('kpiPaidOrders').textContent = num(d.paid_orders);
+        }
         document.getElementById('kpiSites').textContent = num(d.total_sites);
         document.getElementById('kpiVerified').textContent = num(d.live_sites ?? d.verified_sites);
         document.getElementById('kpiUnverified').textContent = num(d.unverified_sites) + ' in review';
-        document.getElementById('kpiDeposits').textContent = num(d.pending_deposits);
-        document.getElementById('kpiWithdrawals').textContent = num(d.pending_withdrawals);
-        document.getElementById('kpiPayments').textContent = num(d.pending_payments);
+        if (document.getElementById('kpiDeposits')) document.getElementById('kpiDeposits').textContent = num(d.pending_deposits);
+        if (document.getElementById('kpiWithdrawals')) document.getElementById('kpiWithdrawals').textContent = num(d.pending_withdrawals);
+        if (document.getElementById('kpiPayments')) document.getElementById('kpiPayments').textContent = num(d.pending_payments);
         document.getElementById('kpiSitesReview').textContent = num(d.unverified_sites);
-        document.getElementById('kpiCommunity').textContent = num(d.pending_community);
+        if (document.getElementById('kpiCommunity')) document.getElementById('kpiCommunity').textContent = num(d.pending_community);
         document.getElementById('kpiDisputes').textContent = num(d.open_disputes);
-        document.getElementById('kpiStalled').textContent = num(d.stalled_orders);
+        if (document.getElementById('kpiStalled')) document.getElementById('kpiStalled').textContent = num(d.stalled_orders);
         document.getElementById('kpiAttention').textContent = num(d.needs_attention);
         hideRetry(retryEl);
     } catch (err) {
@@ -645,6 +667,7 @@ async function loadStatistics() {
 }
 
 async function loadFinanceStrip() {
+    if (!CAN_FINANCE) return;
     const retryEl = document.getElementById('financeRetry');
     try {
         const json = await dashboardFetch(`{{ route('admin.dashboard.finance') }}`);
@@ -662,6 +685,7 @@ async function loadFinanceStrip() {
 }
 
 async function loadBusinessStrip() {
+    if (!CAN_FINANCE) return;
     const retryEl = document.getElementById('businessRetry');
     try {
         const json = await dashboardFetch(`{{ route('admin.dashboard.business') }}`);
@@ -861,10 +885,11 @@ async function loadActionQueue() {
         const community = json.community || [];
         const enrichment = json.enrichment || [];
 
-        if (!deposits.length) {
-            depBody.innerHTML = emptyRow(3, 'No pending deposits');
-        } else {
-            depBody.innerHTML = deposits.map(d => `
+        if (depBody) {
+            if (!deposits.length) {
+                depBody.innerHTML = emptyRow(3, 'No pending deposits');
+            } else {
+                depBody.innerHTML = deposits.map(d => `
                 <tr>
                     <td>
                         <div class="fw-semibold">${cellLink(d.url, d.user)}</div>
@@ -873,12 +898,14 @@ async function loadActionQueue() {
                     <td>${money(d.amount)}</td>
                     <td class="small text-muted">${escapeHtml(d.date)}</td>
                 </tr>`).join('');
+            }
         }
 
-        if (!withdrawals.length) {
-            wBody.innerHTML = emptyRow(3, 'No pending withdrawals');
-        } else {
-            wBody.innerHTML = withdrawals.map(w => `
+        if (wBody) {
+            if (!withdrawals.length) {
+                wBody.innerHTML = emptyRow(3, 'No pending withdrawals');
+            } else {
+                wBody.innerHTML = withdrawals.map(w => `
                 <tr>
                     <td>
                         <div class="fw-semibold">${cellLink(w.url, w.user)}</div>
@@ -887,12 +914,14 @@ async function loadActionQueue() {
                     <td>${money(w.amount)}</td>
                     <td class="small text-muted">${escapeHtml(w.date)}</td>
                 </tr>`).join('');
+            }
         }
 
-        if (!sites.length) {
-            sBody.innerHTML = emptyRow(3, 'No sites awaiting verification');
-        } else {
-            sBody.innerHTML = sites.map(s => `
+        if (sBody) {
+            if (!sites.length) {
+                sBody.innerHTML = emptyRow(3, 'No sites awaiting verification');
+            } else {
+                sBody.innerHTML = sites.map(s => `
                 <tr>
                     <td>
                         <div class="fw-semibold">${cellLink(s.url, s.site_name || '—')}</div>
@@ -901,65 +930,76 @@ async function loadActionQueue() {
                     <td>${escapeHtml(s.publisher)}</td>
                     <td class="small text-muted">${escapeHtml(s.date)}</td>
                 </tr>`).join('');
+            }
         }
 
-        if (!unpaid.length) {
-            unpaidBody.innerHTML = emptyRow(3, 'No unpaid orders');
-        } else {
-            unpaidBody.innerHTML = unpaid.map(o => `
+        if (unpaidBody) {
+            if (!unpaid.length) {
+                unpaidBody.innerHTML = emptyRow(3, 'No unpaid orders');
+            } else {
+                unpaidBody.innerHTML = unpaid.map(o => `
                 <tr>
                     <td class="fw-semibold">${cellLink(o.url, '#' + o.order_number)}</td>
                     <td>${money(o.amount)}</td>
                     <td class="small text-muted">${escapeHtml(o.date)}</td>
                 </tr>`).join('');
+            }
         }
 
-        if (!disputes.length) {
-            disputeBody.innerHTML = emptyRow(3, 'No open disputes');
-        } else {
-            disputeBody.innerHTML = disputes.map(d => `
+        if (disputeBody) {
+            if (!disputes.length) {
+                disputeBody.innerHTML = emptyRow(3, 'No open disputes');
+            } else {
+                disputeBody.innerHTML = disputes.map(d => `
                 <tr>
                     <td class="fw-semibold">${cellLink(d.url, '#' + d.order_number)}</td>
                     <td class="small text-truncate" style="max-width:120px;">${escapeHtml(d.reason || '')}</td>
                     <td class="small text-muted">${escapeHtml(d.date)}</td>
                 </tr>`).join('');
+            }
         }
 
-        if (!community.length) {
-            communityBody.innerHTML = emptyRow(3, 'Inbox is clear');
-        } else {
-            communityBody.innerHTML = community.map(c => `
+        if (communityBody) {
+            if (!community.length) {
+                communityBody.innerHTML = emptyRow(3, 'Inbox is clear');
+            } else {
+                communityBody.innerHTML = community.map(c => `
                 <tr>
                     <td><span class="badge text-bg-light">${escapeHtml(c.type)}</span></td>
                     <td>${cellLink(c.url, c.label)}</td>
                     <td class="small text-muted">${escapeHtml(c.date)}</td>
                 </tr>`).join('');
+            }
         }
 
-        if (!enrichment.length) {
-            enrichmentBody.innerHTML = emptyRow(3, 'No failed scans');
-        } else {
-            enrichmentBody.innerHTML = enrichment.map(e => `
+        if (enrichmentBody) {
+            if (!enrichment.length) {
+                enrichmentBody.innerHTML = emptyRow(3, 'No failed scans');
+            } else {
+                enrichmentBody.innerHTML = enrichment.map(e => `
                 <tr>
                     <td class="fw-semibold">${cellLink(e.url, e.site_name)}</td>
                     <td class="small text-truncate" style="max-width:120px;">${escapeHtml(e.error || '')}</td>
                     <td class="small text-muted">${escapeHtml(e.date)}</td>
                 </tr>`).join('');
+            }
         }
     } catch (err) {
-        depBody.innerHTML = retryRow(3, 'loadActionQueue');
-        wBody.innerHTML = retryRow(3, 'loadActionQueue');
-        sBody.innerHTML = retryRow(3, 'loadActionQueue');
-        unpaidBody.innerHTML = retryRow(3, 'loadActionQueue');
-        disputeBody.innerHTML = retryRow(3, 'loadActionQueue');
-        communityBody.innerHTML = retryRow(3, 'loadActionQueue');
-        enrichmentBody.innerHTML = retryRow(3, 'loadActionQueue');
+        if (depBody) depBody.innerHTML = retryRow(3, 'loadActionQueue');
+        if (wBody) wBody.innerHTML = retryRow(3, 'loadActionQueue');
+        if (sBody) sBody.innerHTML = retryRow(3, 'loadActionQueue');
+        if (unpaidBody) unpaidBody.innerHTML = retryRow(3, 'loadActionQueue');
+        if (disputeBody) disputeBody.innerHTML = retryRow(3, 'loadActionQueue');
+        if (communityBody) communityBody.innerHTML = retryRow(3, 'loadActionQueue');
+        if (enrichmentBody) enrichmentBody.innerHTML = retryRow(3, 'loadActionQueue');
         throw err;
     }
 }
 
 async function loadStalledOrders() {
+    if (!CAN_SUPPORT) return;
     const row = document.getElementById('stalledOrdersRow');
+    if (!row) return;
     try {
         const json = await dashboardFetch(`{{ route('admin.dashboard.stalled-orders') }}`);
         const items = json.items || [];
@@ -1115,7 +1155,16 @@ document.addEventListener('keydown', (e) => {
     followKpiLink(kpi);
 });
 
-Promise.all([loadStatistics(), loadFinanceStrip(), loadBusinessStrip(), loadOpsHealth(), loadTrends(), loadDistributions(), loadActionQueue(), loadStalledOrders()])
+Promise.all([
+    loadStatistics(),
+    CAN_FINANCE ? loadFinanceStrip() : Promise.resolve(),
+    CAN_FINANCE ? loadBusinessStrip() : Promise.resolve(),
+    loadOpsHealth(),
+    loadTrends(),
+    loadDistributions(),
+    loadActionQueue(),
+    CAN_SUPPORT ? loadStalledOrders() : Promise.resolve(),
+])
     .catch(err => console.error('Dashboard load failed', err));
 </script>
 @endsection

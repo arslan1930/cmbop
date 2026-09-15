@@ -2,6 +2,7 @@
 
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Services\Auth\StaffCapabilityService;
 use App\Support\MarketingHistoryDisplay;
 use App\Support\PublicI18n;
 use App\Support\WelcomeBonusCopy;
@@ -607,6 +608,44 @@ if (! function_exists('staff_route')) {
     function staff_route(string $name, mixed $parameters = [], bool $absolute = true): string
     {
         return route(staff_route_prefix().ltrim($name, '.'), $parameters, $absolute);
+    }
+}
+
+if (! function_exists('staff_can')) {
+    /**
+     * Current user may use any of the listed admin capabilities.
+     */
+    function staff_can(string ...$capabilities): bool
+    {
+        $user = auth()->user();
+
+        return $user instanceof User && $user->staffCan(...$capabilities);
+    }
+}
+
+if (! function_exists('staff_is_unrestricted')) {
+    /**
+     * Current user is a full admin (no capability overlay rows).
+     */
+    function staff_is_unrestricted(): bool
+    {
+        $user = auth()->user();
+
+        return $user instanceof User && $user->staffIsUnrestricted();
+    }
+}
+
+if (! function_exists('staff_capability_label')) {
+    function staff_capability_label(?User $user = null): string
+    {
+        $user ??= auth()->user();
+        if (! $user instanceof User) {
+            return '';
+        }
+
+        $service = app(StaffCapabilityService::class);
+
+        return $service->label($service->storedCapabilities($user));
     }
 }
 

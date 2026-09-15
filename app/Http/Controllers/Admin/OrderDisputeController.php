@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
+use App\Models\StaffCapability;
+use App\Models\User;
 use App\Services\Orders\OrderClawbackService;
 use App\Support\UserFacingError;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +22,9 @@ class OrderDisputeController extends Controller
 
     public function open(Request $request, $orderId)
     {
+        if ($denied = $this->denyUnlessCapability($request, StaffCapability::SUPPORT)) {
+            return $denied;
+        }
         $data = $request->validate([
             'reason' => 'required|string|min:10|max:1000',
             'order_item_id' => 'nullable|integer',
@@ -78,6 +83,9 @@ class OrderDisputeController extends Controller
 
     public function uphold(Request $request, $disputeId)
     {
+        if ($denied = $this->denyUnlessCapability($request, StaffCapability::FINANCE)) {
+            return $denied;
+        }
         $data = $request->validate([
             'admin_notes' => 'required|string|min:10|max:1000',
         ]);
@@ -118,6 +126,9 @@ class OrderDisputeController extends Controller
 
     public function dismiss(Request $request, $disputeId)
     {
+        if ($denied = $this->denyUnlessCapability($request, StaffCapability::SUPPORT)) {
+            return $denied;
+        }
         $data = $request->validate([
             'admin_notes' => 'required|string|min:10|max:1000',
         ]);
@@ -154,6 +165,19 @@ class OrderDisputeController extends Controller
                 'message' => UserFacingError::message($e, 'Unable to dismiss dispute.'),
             ], 500);
         }
+    }
+
+    private function denyUnlessCapability(Request $request, string $capability): ?JsonResponse
+    {
+        $actor = $request->user();
+        if ($actor instanceof User && $actor->staffCan($capability)) {
+            return null;
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'This area is limited to a different admin capability.',
+        ], 403);
     }
 
     private function disputesUnavailableResponse(): ?JsonResponse

@@ -89,6 +89,7 @@ use App\Http\Controllers\Publisher\WithdrawalController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StaffTwoFactorController;
+use App\Http\Middleware\EnsureStaffCapability;
 use App\Http\Middleware\RedirectMarketingFromAdmin;
 use App\Http\Middleware\RoleMiddleware;
 use App\Models\Site;
@@ -595,63 +596,10 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('dashboard');
         $registerStaffOpsRoutes();
 
-        // Records sheet routes must be registered before /sites/{id} wildcards.
-        Route::get('/sites/records', [AdminSiteController::class, 'records'])
-            ->name('sites.records');
-        Route::get('/sites/records/export', [AdminSiteController::class, 'exportRecords'])
-            ->name('sites.records.export');
-        Route::post('/sites/records/bulk-verify', [AdminSiteController::class, 'bulkVerify'])
-            ->middleware('throttle:10,1')
-            ->name('sites.records.bulk-verify');
-        Route::post('/sites/records/bulk-activate', [AdminSiteController::class, 'bulkActivate'])
-            ->middleware('throttle:10,1')
-            ->name('sites.records.bulk-activate');
-        Route::get('/sites/duplicates', [AdminSiteDuplicateController::class, 'index'])
-            ->name('sites.duplicates');
-
-        Route::post('/sites/{id}/verify', [AdminSiteController::class, 'verify'])
-            ->name('sites.verify');
-        // sites.active is registered in shared staff ops (admin + permitted marketing).
-
-        Route::get('/site-ratings', [SiteRatingController::class, 'index'])
-            ->name('site-ratings.index');
-        Route::post('/site-ratings', [SiteRatingController::class, 'store'])
-            ->name('site-ratings.store');
-        Route::put('/site-ratings/{id}', [SiteRatingController::class, 'update'])
-            ->name('site-ratings.update');
-        Route::delete('/site-ratings/{id}', [SiteRatingController::class, 'destroy'])
-            ->name('site-ratings.destroy');
-
-        Route::get('/community', [CommunityFeedbackController::class, 'index'])
-            ->name('community.index');
-        Route::patch('/community/problems/{id}', [CommunityFeedbackController::class, 'updateProblem'])
-            ->name('community.problems.update');
-        Route::patch('/community/suggestions/{id}', [CommunityFeedbackController::class, 'updateSuggestion'])
-            ->name('community.suggestions.update');
-        Route::patch('/community/websites/{id}', [CommunityFeedbackController::class, 'updateWebsiteSuggestion'])
-            ->name('community.websites.update');
-        Route::post('/community/claims/{id}/approve', [CommunityFeedbackController::class, 'approveClaim'])
-            ->name('community.claims.approve');
-        Route::post('/community/claims/{id}/reject', [CommunityFeedbackController::class, 'rejectClaim'])
-            ->name('community.claims.reject');
-
         Route::get('/activity-logs', [AdminActivityLogController::class, 'index'])
             ->name('activity-logs.index');
         Route::get('/activity-logs/export', [AdminActivityLogController::class, 'export'])
             ->name('activity-logs.export');
-
-        Route::get('/catalog-activity', [AdminCatalogActivityController::class, 'index'])
-            ->name('catalog-activity');
-        Route::get('/catalog-activity/{user}', [AdminCatalogActivityController::class, 'show'])
-            ->name('catalog-activity.show');
-        Route::post('/catalog-activity/{user}/exempt', [AdminCatalogActivityController::class, 'toggleExempt'])
-            ->name('catalog-activity.exempt');
-        Route::post('/catalog-activity/{user}/lift-hide', [AdminCatalogActivityController::class, 'liftHide'])
-            ->name('catalog-activity.lift-hide');
-        Route::post('/catalog-activity/{user}/reset-strikes', [AdminCatalogActivityController::class, 'resetStrikes'])
-            ->name('catalog-activity.reset-strikes');
-        Route::post('/catalog-activity/{user}/clear-copy-hide', [AdminCatalogActivityController::class, 'clearCopyHide'])
-            ->name('catalog-activity.clear-copy-hide');
 
         Route::get('/dashboard/statistics', [AdminDashboardController::class, 'getStatistics'])
             ->name('dashboard.statistics');
@@ -661,174 +609,246 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('dashboard.distributions');
         Route::get('/dashboard/action-queue', [AdminDashboardController::class, 'getActionQueue'])
             ->name('dashboard.action-queue');
-        Route::get('/dashboard/finance', [AdminDashboardController::class, 'getFinanceStrip'])
-            ->name('dashboard.finance');
-        Route::get('/dashboard/business', [AdminDashboardController::class, 'getBusinessStrip'])
-            ->name('dashboard.business');
         Route::get('/dashboard/ops-health', [AdminDashboardController::class, 'getOpsHealth'])
             ->name('dashboard.ops-health');
         Route::get('/dashboard/queue-counts', [AdminDashboardController::class, 'getQueueCounts'])
             ->name('dashboard.queue-counts');
-        Route::get('/inbox', [AdminWorkInboxController::class, 'index'])
-            ->name('inbox.index');
-
-        Route::get('/dashboard/stalled-orders', [AdminStalledOrderController::class, 'index'])
-            ->name('dashboard.stalled-orders');
-        Route::post('/orders/items/{orderItem}/remind-publisher', [AdminStalledOrderController::class, 'remindPublisher'])
-            ->name('orders.remind-publisher');
 
         Route::get('/users', [UserController::class, 'index'])
             ->name('users.index');
         Route::get('/users/{user}', [UserController::class, 'show'])
             ->name('users.show');
-        Route::post('/users/{user}/suspend', [UserController::class, 'suspend'])
-            ->name('users.suspend');
-        Route::post('/users/{user}/unsuspend', [UserController::class, 'unsuspend'])
-            ->name('users.unsuspend');
-        Route::post('/users/{user}/notes', [UserController::class, 'storeNote'])
-            ->name('users.notes.store');
-        Route::post('/users/{user}/verify-email', [UserController::class, 'verifyEmail'])
-            ->name('users.verify-email');
-        Route::post('/users/{user}/two-factor/clear', [UserController::class, 'clearTwoFactor'])
-            ->name('users.two-factor.clear');
-        Route::post('/users/{user}/resend-verification', [UserController::class, 'resendVerification'])
-            ->name('users.resend-verification');
-        Route::post('/users/{id}/update-company', [UserController::class, 'updateCompany'])
-            ->name('users.updateCompany');
-        Route::post('/users/{id}/payout-profile', [UserController::class, 'updatePayoutProfile'])
-            ->name('users.updatePayoutProfile');
-        Route::post('/users/{id}/roles', [UserController::class, 'updateRoles'])
-            ->name('users.updateRoles');
 
-        Route::get('/payments', [AdminPaymentController::class, 'index'])->name('payments');
-        Route::get('/payments/data', [AdminPaymentController::class, 'getPaymentsData'])->name('payments.data');
-        Route::get('/payments/export', [AdminPaymentController::class, 'export'])->name('payments.export');
-        Route::get('/payments/{id}', [AdminPaymentController::class, 'show'])->name('payments.show');
-        Route::post('/payments/{id}/update-status', [AdminPaymentController::class, 'updatePaymentStatus'])->name('payments.updateStatus');
+        Route::middleware(EnsureStaffCapability::class.':unrestricted')->group(function () {
+            Route::post('/users/{user}/two-factor/clear', [UserController::class, 'clearTwoFactor'])
+                ->name('users.two-factor.clear');
+            Route::post('/users/{id}/roles', [UserController::class, 'updateRoles'])
+                ->name('users.updateRoles');
+            Route::post('/users/{user}/capabilities', [UserController::class, 'syncCapabilities'])
+                ->name('users.capabilities');
+        });
 
-        Route::get('/invoices', [AdminInvoiceController::class, 'index'])->name('invoices.index');
-        Route::post('/invoices/generate', [AdminInvoiceController::class, 'generate'])->name('invoices.generate');
-        Route::post('/invoices/backfill-missing', [AdminInvoiceController::class, 'backfillMissing'])->name('invoices.backfill-missing');
-        Route::post('/invoices/regenerate-missing-pdfs', [AdminInvoiceController::class, 'regenerateMissingPdfs'])->name('invoices.regenerate-missing-pdfs');
-        Route::get('/invoices/{invoice}', [AdminInvoiceController::class, 'show'])->name('invoices.show');
-        Route::get('/invoices/{invoice}/download', [AdminInvoiceController::class, 'download'])->name('invoices.download');
-        Route::get('/invoices/{invoice}/view', [AdminInvoiceController::class, 'viewPdf'])->name('invoices.view');
-        Route::post('/invoices/{invoice}/resend', [AdminInvoiceController::class, 'resend'])->name('invoices.resend');
-        Route::post('/invoices/{invoice}/cancel', [AdminInvoiceController::class, 'cancel'])->name('invoices.cancel');
-        Route::post('/invoices/{invoice}/regenerate-pdf', [AdminInvoiceController::class, 'regeneratePdf'])->name('invoices.regenerate-pdf');
+        Route::middleware(EnsureStaffCapability::class.':support')->group(function () {
+            // Records sheet routes must be registered before /sites/{id} wildcards.
+            Route::get('/sites/records', [AdminSiteController::class, 'records'])
+                ->name('sites.records');
+            Route::get('/sites/records/export', [AdminSiteController::class, 'exportRecords'])
+                ->name('sites.records.export');
+            Route::post('/sites/records/bulk-verify', [AdminSiteController::class, 'bulkVerify'])
+                ->middleware('throttle:10,1')
+                ->name('sites.records.bulk-verify');
+            Route::post('/sites/records/bulk-activate', [AdminSiteController::class, 'bulkActivate'])
+                ->middleware('throttle:10,1')
+                ->name('sites.records.bulk-activate');
+            Route::get('/sites/duplicates', [AdminSiteDuplicateController::class, 'index'])
+                ->name('sites.duplicates');
 
-        Route::get('/finance', [AdminFinanceController::class, 'index'])->name('finance');
-        Route::post('/finance/payout-rules/min', [AdminBillingRuleSettingController::class, 'updateMin'])
-            ->name('finance.payout-rules.min');
-        Route::post('/finance/payout-rules/fee', [AdminBillingRuleSettingController::class, 'updateFee'])
-            ->name('finance.payout-rules.fee');
-        Route::get('/finance/export', [AdminFinanceController::class, 'export'])->name('finance.export');
-        Route::get('/finance/ledger', [AdminFinanceController::class, 'ledger'])->name('finance.ledger');
-        Route::get('/finance/ledger/export', [AdminFinanceController::class, 'ledgerExport'])->name('finance.ledger.export');
-        Route::get('/finance/users/{user}', [AdminFinanceController::class, 'user'])->name('finance.user');
-        Route::post('/finance/wallets/{wallet}/clear-debt', [AdminFinanceController::class, 'clearDebt'])->name('finance.wallets.clear-debt');
+            Route::post('/sites/{id}/verify', [AdminSiteController::class, 'verify'])
+                ->name('sites.verify');
+            // sites.active is registered in shared staff ops (admin + permitted marketing).
 
-        Route::get('/deposits', [AdminDepositController::class, 'index'])->name('deposits');
-        Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
-        Route::post('/deposits/{id}/approve', [AdminDepositController::class, 'approve'])->name('deposits.approve');
-        Route::post('/deposits/{id}/reject', [AdminDepositController::class, 'reject'])->name('deposits.reject');
-        Route::post('/deposits/{id}/paypal-refund', [AdminDepositController::class, 'refundPaypal'])->name('deposits.paypal-refund');
-        Route::get('/deposits/{deposit}/approve-confirm', [AdminDepositApproveConfirmController::class, 'show'])
-            ->middleware('throttle:30,1')
-            ->name('deposits.approve-confirm.show')
-            ->whereNumber('deposit');
-        Route::post('/deposits/{deposit}/approve-confirm', [AdminDepositApproveConfirmController::class, 'confirm'])
-            ->middleware('throttle:12,1')
-            ->name('deposits.approve-confirm')
-            ->whereNumber('deposit');
+            Route::get('/site-ratings', [SiteRatingController::class, 'index'])
+                ->name('site-ratings.index');
+            Route::post('/site-ratings', [SiteRatingController::class, 'store'])
+                ->name('site-ratings.store');
+            Route::put('/site-ratings/{id}', [SiteRatingController::class, 'update'])
+                ->name('site-ratings.update');
+            Route::delete('/site-ratings/{id}', [SiteRatingController::class, 'destroy'])
+                ->name('site-ratings.destroy');
 
-        Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals');
-        Route::get('/withdrawals/data', [AdminWithdrawalController::class, 'getWithdrawalsData'])->name('withdrawals.data');
-        Route::get('/withdrawals/statistics', [AdminWithdrawalController::class, 'getStatistics'])->name('withdrawals.statistics');
-        Route::get('/withdrawals/export', [AdminWithdrawalController::class, 'exportCsv'])->name('withdrawals.export');
-        Route::post('/withdrawals/batch', [AdminWithdrawalController::class, 'batchUpdate'])->name('withdrawals.batch');
-        Route::get('/withdrawals/{withdrawal}/mark-paid-confirm', [WithdrawalMarkPaidConfirmController::class, 'show'])
-            ->middleware('throttle:30,1')
-            ->name('withdrawals.mark-paid-confirm.show')
-            ->whereNumber('withdrawal');
-        Route::post('/withdrawals/{withdrawal}/mark-paid-confirm', [WithdrawalMarkPaidConfirmController::class, 'confirm'])
-            ->middleware('throttle:12,1')
-            ->name('withdrawals.mark-paid-confirm')
-            ->whereNumber('withdrawal');
-        Route::get('/withdrawals/{id}', [AdminWithdrawalController::class, 'show'])->name('withdrawals.show')->whereNumber('id');
-        Route::post('/withdrawals/{id}/status', [AdminWithdrawalController::class, 'updateStatus'])->name('withdrawals.update-status')->whereNumber('id');
-        Route::post('/withdrawals/{id}/processing', [AdminWithdrawalController::class, 'markProcessing'])->name('withdrawals.processing')->whereNumber('id');
-        Route::post('/withdrawals/{id}/paid', [AdminWithdrawalController::class, 'markPaid'])->name('withdrawals.paid')->whereNumber('id');
-        Route::post('/withdrawals/{id}/reject', [AdminWithdrawalController::class, 'reject'])->name('withdrawals.reject')->whereNumber('id');
+            Route::get('/community', [CommunityFeedbackController::class, 'index'])
+                ->name('community.index');
+            Route::patch('/community/problems/{id}', [CommunityFeedbackController::class, 'updateProblem'])
+                ->name('community.problems.update');
+            Route::patch('/community/suggestions/{id}', [CommunityFeedbackController::class, 'updateSuggestion'])
+                ->name('community.suggestions.update');
+            Route::patch('/community/websites/{id}', [CommunityFeedbackController::class, 'updateWebsiteSuggestion'])
+                ->name('community.websites.update');
+            Route::post('/community/claims/{id}/approve', [CommunityFeedbackController::class, 'approveClaim'])
+                ->name('community.claims.approve');
+            Route::post('/community/claims/{id}/reject', [CommunityFeedbackController::class, 'rejectClaim'])
+                ->name('community.claims.reject');
 
-        Route::post('blogs/sync-curated', [AdminBlogController::class, 'syncCurated'])
-            ->name('blogs.sync-curated');
-        Route::post('blogs/upload-image', [AdminBlogController::class, 'uploadImage'])->name('blogs.upload-image');
-        Route::delete('blogs/content-image', [AdminBlogController::class, 'deleteContentImage'])->name('blogs.delete-content-image');
-        Route::resource('blogs', AdminBlogController::class);
-        Route::post('blogs/{id}/toggle-status', [AdminBlogController::class, 'toggleStatus'])->name('blogs.toggle-status');
+            Route::get('/catalog-activity', [AdminCatalogActivityController::class, 'index'])
+                ->name('catalog-activity');
+            Route::get('/catalog-activity/{user}', [AdminCatalogActivityController::class, 'show'])
+                ->name('catalog-activity.show');
+            Route::post('/catalog-activity/{user}/exempt', [AdminCatalogActivityController::class, 'toggleExempt'])
+                ->name('catalog-activity.exempt');
+            Route::post('/catalog-activity/{user}/lift-hide', [AdminCatalogActivityController::class, 'liftHide'])
+                ->name('catalog-activity.lift-hide');
+            Route::post('/catalog-activity/{user}/reset-strikes', [AdminCatalogActivityController::class, 'resetStrikes'])
+                ->name('catalog-activity.reset-strikes');
+            Route::post('/catalog-activity/{user}/clear-copy-hide', [AdminCatalogActivityController::class, 'clearCopyHide'])
+                ->name('catalog-activity.clear-copy-hide');
 
-        Route::get('/emails', [AdminEmailCenterController::class, 'index'])->name('emails.index');
-        Route::get('/emails/preview/{key}', [AdminEmailCenterController::class, 'preview'])->name('emails.preview');
-        Route::get('/emails/logs/{emailLog}', [AdminEmailCenterController::class, 'showLog'])->name('emails.log');
-        Route::post('/emails/test', [AdminEmailCenterController::class, 'sendTest'])
-            ->middleware('throttle:5,1')
-            ->name('emails.test');
-        Route::post('/emails/retry', [AdminEmailCenterController::class, 'retryFailed'])->name('emails.retry');
-        Route::post('/emails/settings', [AdminEmailCenterController::class, 'updateSettings'])->name('emails.settings');
+            Route::get('/inbox', [AdminWorkInboxController::class, 'index'])
+                ->name('inbox.index');
 
-        Route::post('/promotions/welcome-bonus', [AdminWelcomeBonusSettingController::class, 'toggle'])
-            ->name('promotions.welcome-bonus.toggle');
-        Route::post('/promotions/welcome-bonus/amount', [AdminWelcomeBonusSettingController::class, 'updateAmount'])
-            ->name('promotions.welcome-bonus.amount');
+            Route::get('/dashboard/stalled-orders', [AdminStalledOrderController::class, 'index'])
+                ->name('dashboard.stalled-orders');
+            Route::post('/orders/items/{orderItem}/remind-publisher', [AdminStalledOrderController::class, 'remindPublisher'])
+                ->name('orders.remind-publisher');
 
-        Route::get('/audiences', [AdminAudienceController::class, 'index'])->name('audiences.index');
-        Route::get('/audiences/export', [AdminAudienceController::class, 'export'])
-            ->middleware('throttle:12,1')
-            ->name('audiences.export');
-        Route::get('/campaigns', [AdminCampaignController::class, 'index'])->name('campaigns.index');
-        Route::match(['get', 'post'], '/campaigns/recipient-count', [AdminCampaignController::class, 'recipientCount'])
-            ->middleware('throttle:30,1')
-            ->name('campaigns.recipient-count');
-        Route::post('/campaigns/preview', [AdminCampaignController::class, 'preview'])
-            ->middleware('throttle:20,1')
-            ->name('campaigns.preview');
-        Route::post('/campaigns/send', [AdminCampaignController::class, 'send'])
-            ->middleware('throttle:6,1')
-            ->name('campaigns.send');
-        Route::get('/campaigns/{campaign}', [AdminCampaignController::class, 'show'])
-            ->whereNumber('campaign')
-            ->name('campaigns.show');
+            Route::post('/users/{user}/suspend', [UserController::class, 'suspend'])
+                ->name('users.suspend');
+            Route::post('/users/{user}/unsuspend', [UserController::class, 'unsuspend'])
+                ->name('users.unsuspend');
+            Route::post('/users/{user}/notes', [UserController::class, 'storeNote'])
+                ->name('users.notes.store');
+            Route::post('/users/{user}/verify-email', [UserController::class, 'verifyEmail'])
+                ->name('users.verify-email');
+            Route::post('/users/{user}/resend-verification', [UserController::class, 'resendVerification'])
+                ->name('users.resend-verification');
+            Route::post('/users/{id}/update-company', [UserController::class, 'updateCompany'])
+                ->name('users.updateCompany');
+        });
 
-        Route::get('/moderation', [AdminContentModerationController::class, 'index'])->name('moderation.index');
-        Route::post('/moderation/settings', [AdminContentModerationController::class, 'updateSettings'])->name('moderation.settings');
-        Route::get('/moderation/logs/{log}', [AdminContentModerationController::class, 'show'])->name('moderation.show');
-        Route::post('/moderation/logs/{log}/override', [AdminContentModerationController::class, 'override'])->name('moderation.override');
-        Route::post('/moderation/logs/{log}/revert', [AdminContentModerationController::class, 'revert'])->name('moderation.revert');
+        Route::middleware(EnsureStaffCapability::class.':finance')->group(function () {
+            Route::get('/dashboard/finance', [AdminDashboardController::class, 'getFinanceStrip'])
+                ->name('dashboard.finance');
+            Route::get('/dashboard/business', [AdminDashboardController::class, 'getBusinessStrip'])
+                ->name('dashboard.business');
+            Route::post('/users/{id}/payout-profile', [UserController::class, 'updatePayoutProfile'])
+                ->name('users.updatePayoutProfile');
+        });
 
-        Route::get('/content-library', [AdminContentLibraryController::class, 'index'])->name('content-library.index');
-        Route::get('/content-library/results', [AdminContentLibraryController::class, 'results'])->name('content-library.results');
-        Route::get('/content-library/export', [AdminContentLibraryController::class, 'export'])->name('content-library.export');
-        Route::post('/content-library/bulk-retry', [AdminContentLibraryController::class, 'bulkRetry'])
-            ->middleware('throttle:10,1')
-            ->name('content-library.bulk-retry');
-        Route::post('/content-library/bulk-archive', [AdminContentLibraryController::class, 'bulkArchive'])
-            ->middleware('throttle:10,1')
-            ->name('content-library.bulk-archive');
-        Route::get('/content-library/{submission}', [AdminContentLibraryController::class, 'show'])->name('content-library.show');
-        Route::get('/content-library/{submission}/download', [AdminContentLibraryController::class, 'download'])->name('content-library.download');
-        Route::post('/content-library/{submission}/retry', [AdminContentLibraryController::class, 'retry'])
-            ->middleware('throttle:20,1')
-            ->name('content-library.retry');
-        Route::post('/content-library/{submission}/override', [AdminContentLibraryController::class, 'override'])
-            ->middleware('throttle:20,1')
-            ->name('content-library.override');
-        Route::post('/content-library/{submission}/archive', [AdminContentLibraryController::class, 'archive'])
-            ->middleware('throttle:20,1')
-            ->name('content-library.archive');
-        Route::post('/content-library/{submission}/restore', [AdminContentLibraryController::class, 'restore'])
-            ->middleware('throttle:20,1')
-            ->name('content-library.restore');
+        Route::middleware(EnsureStaffCapability::class.':finance')->group(function () {
+            Route::get('/payments', [AdminPaymentController::class, 'index'])->name('payments');
+            Route::get('/payments/data', [AdminPaymentController::class, 'getPaymentsData'])->name('payments.data');
+            Route::get('/payments/export', [AdminPaymentController::class, 'export'])->name('payments.export');
+            Route::get('/payments/{id}', [AdminPaymentController::class, 'show'])->name('payments.show');
+            Route::post('/payments/{id}/update-status', [AdminPaymentController::class, 'updatePaymentStatus'])->name('payments.updateStatus');
+
+            Route::get('/invoices', [AdminInvoiceController::class, 'index'])->name('invoices.index');
+            Route::post('/invoices/generate', [AdminInvoiceController::class, 'generate'])->name('invoices.generate');
+            Route::post('/invoices/backfill-missing', [AdminInvoiceController::class, 'backfillMissing'])->name('invoices.backfill-missing');
+            Route::post('/invoices/regenerate-missing-pdfs', [AdminInvoiceController::class, 'regenerateMissingPdfs'])->name('invoices.regenerate-missing-pdfs');
+            Route::get('/invoices/{invoice}', [AdminInvoiceController::class, 'show'])->name('invoices.show');
+            Route::get('/invoices/{invoice}/download', [AdminInvoiceController::class, 'download'])->name('invoices.download');
+            Route::get('/invoices/{invoice}/view', [AdminInvoiceController::class, 'viewPdf'])->name('invoices.view');
+            Route::post('/invoices/{invoice}/resend', [AdminInvoiceController::class, 'resend'])->name('invoices.resend');
+            Route::post('/invoices/{invoice}/cancel', [AdminInvoiceController::class, 'cancel'])->name('invoices.cancel');
+            Route::post('/invoices/{invoice}/regenerate-pdf', [AdminInvoiceController::class, 'regeneratePdf'])->name('invoices.regenerate-pdf');
+
+            Route::get('/finance', [AdminFinanceController::class, 'index'])->name('finance');
+            Route::post('/finance/payout-rules/min', [AdminBillingRuleSettingController::class, 'updateMin'])
+                ->name('finance.payout-rules.min');
+            Route::post('/finance/payout-rules/fee', [AdminBillingRuleSettingController::class, 'updateFee'])
+                ->name('finance.payout-rules.fee');
+            Route::get('/finance/export', [AdminFinanceController::class, 'export'])->name('finance.export');
+            Route::get('/finance/ledger', [AdminFinanceController::class, 'ledger'])->name('finance.ledger');
+            Route::get('/finance/ledger/export', [AdminFinanceController::class, 'ledgerExport'])->name('finance.ledger.export');
+            Route::get('/finance/users/{user}', [AdminFinanceController::class, 'user'])->name('finance.user');
+            Route::post('/finance/wallets/{wallet}/clear-debt', [AdminFinanceController::class, 'clearDebt'])->name('finance.wallets.clear-debt');
+
+            Route::get('/deposits', [AdminDepositController::class, 'index'])->name('deposits');
+            Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
+            Route::post('/deposits/{id}/approve', [AdminDepositController::class, 'approve'])->name('deposits.approve');
+            Route::post('/deposits/{id}/reject', [AdminDepositController::class, 'reject'])->name('deposits.reject');
+            Route::post('/deposits/{id}/paypal-refund', [AdminDepositController::class, 'refundPaypal'])->name('deposits.paypal-refund');
+            Route::get('/deposits/{deposit}/approve-confirm', [AdminDepositApproveConfirmController::class, 'show'])
+                ->middleware('throttle:30,1')
+                ->name('deposits.approve-confirm.show')
+                ->whereNumber('deposit');
+            Route::post('/deposits/{deposit}/approve-confirm', [AdminDepositApproveConfirmController::class, 'confirm'])
+                ->middleware('throttle:12,1')
+                ->name('deposits.approve-confirm')
+                ->whereNumber('deposit');
+
+            Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals');
+            Route::get('/withdrawals/data', [AdminWithdrawalController::class, 'getWithdrawalsData'])->name('withdrawals.data');
+            Route::get('/withdrawals/statistics', [AdminWithdrawalController::class, 'getStatistics'])->name('withdrawals.statistics');
+            Route::get('/withdrawals/export', [AdminWithdrawalController::class, 'exportCsv'])->name('withdrawals.export');
+            Route::post('/withdrawals/batch', [AdminWithdrawalController::class, 'batchUpdate'])->name('withdrawals.batch');
+            Route::get('/withdrawals/{withdrawal}/mark-paid-confirm', [WithdrawalMarkPaidConfirmController::class, 'show'])
+                ->middleware('throttle:30,1')
+                ->name('withdrawals.mark-paid-confirm.show')
+                ->whereNumber('withdrawal');
+            Route::post('/withdrawals/{withdrawal}/mark-paid-confirm', [WithdrawalMarkPaidConfirmController::class, 'confirm'])
+                ->middleware('throttle:12,1')
+                ->name('withdrawals.mark-paid-confirm')
+                ->whereNumber('withdrawal');
+            Route::get('/withdrawals/{id}', [AdminWithdrawalController::class, 'show'])->name('withdrawals.show')->whereNumber('id');
+            Route::post('/withdrawals/{id}/status', [AdminWithdrawalController::class, 'updateStatus'])->name('withdrawals.update-status')->whereNumber('id');
+            Route::post('/withdrawals/{id}/processing', [AdminWithdrawalController::class, 'markProcessing'])->name('withdrawals.processing')->whereNumber('id');
+            Route::post('/withdrawals/{id}/paid', [AdminWithdrawalController::class, 'markPaid'])->name('withdrawals.paid')->whereNumber('id');
+            Route::post('/withdrawals/{id}/reject', [AdminWithdrawalController::class, 'reject'])->name('withdrawals.reject')->whereNumber('id');
+
+            Route::post('/promotions/welcome-bonus', [AdminWelcomeBonusSettingController::class, 'toggle'])
+                ->name('promotions.welcome-bonus.toggle');
+            Route::post('/promotions/welcome-bonus/amount', [AdminWelcomeBonusSettingController::class, 'updateAmount'])
+                ->name('promotions.welcome-bonus.amount');
+        });
+
+        Route::middleware(EnsureStaffCapability::class.':support')->group(function () {
+            Route::post('blogs/sync-curated', [AdminBlogController::class, 'syncCurated'])
+                ->name('blogs.sync-curated');
+            Route::post('blogs/upload-image', [AdminBlogController::class, 'uploadImage'])->name('blogs.upload-image');
+            Route::delete('blogs/content-image', [AdminBlogController::class, 'deleteContentImage'])->name('blogs.delete-content-image');
+            Route::resource('blogs', AdminBlogController::class);
+            Route::post('blogs/{id}/toggle-status', [AdminBlogController::class, 'toggleStatus'])->name('blogs.toggle-status');
+
+            Route::get('/emails', [AdminEmailCenterController::class, 'index'])->name('emails.index');
+            Route::get('/emails/preview/{key}', [AdminEmailCenterController::class, 'preview'])->name('emails.preview');
+            Route::get('/emails/logs/{emailLog}', [AdminEmailCenterController::class, 'showLog'])->name('emails.log');
+            Route::post('/emails/test', [AdminEmailCenterController::class, 'sendTest'])
+                ->middleware('throttle:5,1')
+                ->name('emails.test');
+            Route::post('/emails/retry', [AdminEmailCenterController::class, 'retryFailed'])->name('emails.retry');
+            Route::post('/emails/settings', [AdminEmailCenterController::class, 'updateSettings'])->name('emails.settings');
+
+            Route::get('/audiences', [AdminAudienceController::class, 'index'])->name('audiences.index');
+            Route::get('/audiences/export', [AdminAudienceController::class, 'export'])
+                ->middleware('throttle:12,1')
+                ->name('audiences.export');
+            Route::get('/campaigns', [AdminCampaignController::class, 'index'])->name('campaigns.index');
+            Route::match(['get', 'post'], '/campaigns/recipient-count', [AdminCampaignController::class, 'recipientCount'])
+                ->middleware('throttle:30,1')
+                ->name('campaigns.recipient-count');
+            Route::post('/campaigns/preview', [AdminCampaignController::class, 'preview'])
+                ->middleware('throttle:20,1')
+                ->name('campaigns.preview');
+            Route::post('/campaigns/send', [AdminCampaignController::class, 'send'])
+                ->middleware('throttle:6,1')
+                ->name('campaigns.send');
+            Route::get('/campaigns/{campaign}', [AdminCampaignController::class, 'show'])
+                ->whereNumber('campaign')
+                ->name('campaigns.show');
+
+            Route::get('/moderation', [AdminContentModerationController::class, 'index'])->name('moderation.index');
+            Route::post('/moderation/settings', [AdminContentModerationController::class, 'updateSettings'])->name('moderation.settings');
+            Route::get('/moderation/logs/{log}', [AdminContentModerationController::class, 'show'])->name('moderation.show');
+            Route::post('/moderation/logs/{log}/override', [AdminContentModerationController::class, 'override'])->name('moderation.override');
+            Route::post('/moderation/logs/{log}/revert', [AdminContentModerationController::class, 'revert'])->name('moderation.revert');
+
+            Route::get('/content-library', [AdminContentLibraryController::class, 'index'])->name('content-library.index');
+            Route::get('/content-library/results', [AdminContentLibraryController::class, 'results'])->name('content-library.results');
+            Route::get('/content-library/export', [AdminContentLibraryController::class, 'export'])->name('content-library.export');
+            Route::post('/content-library/bulk-retry', [AdminContentLibraryController::class, 'bulkRetry'])
+                ->middleware('throttle:10,1')
+                ->name('content-library.bulk-retry');
+            Route::post('/content-library/bulk-archive', [AdminContentLibraryController::class, 'bulkArchive'])
+                ->middleware('throttle:10,1')
+                ->name('content-library.bulk-archive');
+            Route::get('/content-library/{submission}', [AdminContentLibraryController::class, 'show'])->name('content-library.show');
+            Route::get('/content-library/{submission}/download', [AdminContentLibraryController::class, 'download'])->name('content-library.download');
+            Route::post('/content-library/{submission}/retry', [AdminContentLibraryController::class, 'retry'])
+                ->middleware('throttle:20,1')
+                ->name('content-library.retry');
+            Route::post('/content-library/{submission}/override', [AdminContentLibraryController::class, 'override'])
+                ->middleware('throttle:20,1')
+                ->name('content-library.override');
+            Route::post('/content-library/{submission}/archive', [AdminContentLibraryController::class, 'archive'])
+                ->middleware('throttle:20,1')
+                ->name('content-library.archive');
+            Route::post('/content-library/{submission}/restore', [AdminContentLibraryController::class, 'restore'])
+                ->middleware('throttle:20,1')
+                ->name('content-library.restore');
+
+            Route::post('/orders/{id}/disputes', [AdminOrderDisputeController::class, 'open'])->name('orders.disputes.open');
+            Route::post('/order-disputes/{id}/dismiss', [AdminOrderDisputeController::class, 'dismiss'])->name('orders.disputes.dismiss');
+        });
 
         Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/data', [AdminOrderController::class, 'data'])->name('orders.data');
@@ -836,9 +856,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('orders.content.download');
         Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->name('orders.show');
         Route::post('/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
-        Route::post('/orders/{id}/disputes', [AdminOrderDisputeController::class, 'open'])->name('orders.disputes.open');
-        Route::post('/order-disputes/{id}/uphold', [AdminOrderDisputeController::class, 'uphold'])->name('orders.disputes.uphold');
-        Route::post('/order-disputes/{id}/dismiss', [AdminOrderDisputeController::class, 'dismiss'])->name('orders.disputes.dismiss');
+        Route::post('/order-disputes/{id}/uphold', [AdminOrderDisputeController::class, 'uphold'])
+            ->middleware(EnsureStaffCapability::class.':finance')
+            ->name('orders.disputes.uphold');
     });
 
 // Public + authenticated feedback (report a problem / suggestion box)

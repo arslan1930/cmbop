@@ -99,7 +99,7 @@
                             <i class="fa fa-flag me-1"></i> Open dispute
                         </button>
                     @endif
-                    @if($openDispute && $openDispute->isOpen())
+                    @if($openDispute && $openDispute->isOpen() && !empty($canUpholdDispute))
                         <button type="button"
                                 class="btn btn-sm btn-danger js-resolve-dispute"
                                 data-action="uphold"
@@ -107,9 +107,11 @@
                             Uphold &amp; claw back
                         </button>
                     @endif
+                    @if(staff_can('finance'))
                     <a href="{{ $paymentsUrl }}" class="btn btn-sm btn-outline-secondary">
                         <i class="fa fa-money-bill me-1"></i> Order Payments
                     </a>
+                    @endif
                 </div>
             </div>
         </div>
@@ -403,18 +405,22 @@
                                     @endif
                                     @if($dispute->isOpen())
                                         <div class="d-flex flex-wrap gap-2 mt-3">
+                                            @if(!empty($canUpholdDispute))
                                             <button type="button"
                                                     class="btn btn-sm btn-danger js-resolve-dispute"
                                                     data-action="uphold"
                                                     data-resolve-url="{{ route('admin.orders.disputes.uphold', $dispute) }}">
                                                 Uphold &amp; claw back
                                             </button>
+                                            @endif
+                                            @if(!empty($canDismissDispute))
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-secondary js-resolve-dispute"
                                                     data-action="dismiss"
                                                     data-resolve-url="{{ route('admin.orders.disputes.dismiss', $dispute) }}">
                                                 Dismiss
                                             </button>
+                                            @endif
                                         </div>
                                     @endif
                                 </div>
@@ -580,12 +586,14 @@
                                 <i class="fa fa-times me-1"></i> Mark failed
                             </button>
                         @endif
+                        @if(staff_can('finance'))
                         <a href="{{ $paymentsUrl }}" class="btn btn-outline-secondary btn-sm">
                             <i class="fa fa-money-bill me-1"></i> Open Order Payments
                         </a>
                         <a href="{{ route('admin.invoices.index', ['search' => $order->order_number]) }}" class="btn btn-outline-secondary btn-sm">
                             <i class="fa fa-file-invoice-dollar me-1"></i> Search invoices
                         </a>
+                        @endif
                     </div>
                     @if($order->invoices->isNotEmpty())
                         <div class="mt-3">
