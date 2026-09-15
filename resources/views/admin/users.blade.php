@@ -191,21 +191,27 @@
                             <i class="fa fa-eye me-2"></i><span class="btn-text">View</span>
                         </button>
                     </li>
+                    @if(staff_can('finance'))
                     <li>
                         <a class="dropdown-item" href="{{ route('admin.finance.user', $user) }}">
                             <i class="fa fa-coins me-2"></i>Finance
                         </a>
                     </li>
+                    @endif
+                    @if(staff_can('support'))
                     <li>
                         <a class="dropdown-item" href="{{ route('admin.content-library.index', ['user_id' => $user->id]) }}">
                             <i class="fa fa-folder-open me-2"></i>Articles
                         </a>
                     </li>
+                    @endif
+                    @if(staff_is_unrestricted())
                     <li>
                         <button type="button" class="dropdown-item action-roles" data-id="{{ $user->id }}">
                             <i class="fa fa-bullhorn me-2"></i><span class="btn-text">Marketing</span>
                         </button>
                     </li>
+                    @endif
                 </ul>
             </div>
         </td>
@@ -242,9 +248,11 @@
                             {{ $user->company_name ?? '-' }}
                         </span>
 
+                        @if(staff_can('support'))
                         <button class="btn btn-sm btn-link text-primary p-0 ms-2 btn-edit-company" data-id="{{ $user->id }}">
                             Edit
                         </button>
+                        @endif
                     </div>
 
                     <div class="detail-line">
@@ -255,6 +263,7 @@
                         @else
                             <span class="text-muted">Not set</span>
                         @endif
+                        @if(staff_can('finance'))
                         <button type="button"
                                 class="btn btn-sm btn-link text-primary p-0 ms-2 btn-edit-payout"
                                 data-id="{{ $user->id }}"
@@ -269,6 +278,7 @@
                                 data-wallet="{{ $user->payout_crypto_trx_wallet }}">
                             Edit payout
                         </button>
+                        @endif
                     </div>
 
                     <div class="detail-line">

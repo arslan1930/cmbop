@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\BillingRuleSetting;
+use App\Models\StaffCapability;
 use App\Models\StaffTwoFactor;
 use App\Models\WelcomeBonusClaim;
 use App\Models\WelcomeBonusSetting;
@@ -69,6 +70,7 @@ class ProductionRepair
         $this->ensureWelcomeBonusMigrations($notes);
         $this->ensureBillingRuleSettings($notes);
         $this->ensureStaffTwoFactor($notes);
+        $this->ensureStaffCapabilities($notes);
     }
 
     /**
@@ -448,6 +450,58 @@ class ProductionRepair
     {
         return [
             '2026_09_14_230000_create_staff_two_factor_table.php',
+        ];
+    }
+
+    /**
+     * @param  list<string>  $notes
+     */
+    public function ensureStaffCapabilities(array &$notes): void
+    {
+        if (static::staffCapabilityStorageReady()) {
+            return;
+        }
+
+        foreach ($this->staffCapabilityMigrationFiles() as $file) {
+            try {
+                Artisan::call('migrate', [
+                    '--force' => true,
+                    '--path' => 'database/migrations/'.$file,
+                ]);
+            } catch (\Throwable $e) {
+                $notes[] = 'staff capabilities migrate '.$file.' failed: '.$e->getMessage();
+                Log::error('Staff capabilities migrate failed', [
+                    'file' => $file,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (! Schema::hasTable('staff_capabilities')) {
+            StaffCapability::ensureTable();
+        }
+
+        if (static::staffCapabilityStorageReady()) {
+            $notes[] = 'staff capabilities table ready';
+        }
+    }
+
+    public static function staffCapabilityStorageReady(): bool
+    {
+        try {
+            return Schema::hasTable('staff_capabilities');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function staffCapabilityMigrationFiles(): array
+    {
+        return [
+            '2026_09_15_040000_create_staff_capabilities_table.php',
         ];
     }
 

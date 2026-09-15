@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderActivity;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
+use App\Models\StaffCapability;
 use App\Models\User;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Orders\AdminOrderStatusOverride;
@@ -214,13 +215,22 @@ class OrderController extends Controller
         $disputableItems = $order->items
             ->filter(fn (OrderItem $line) => $clawbacks->canOpenDispute($order, $line, asAdmin: true))
             ->values();
-        $canOpenDispute = $disputableItems->isNotEmpty();
 
         $override = app(AdminOrderStatusOverride::class);
         $paymentPolicy = app(AdminPaymentStatusPolicy::class);
         $paymentMethod = (string) ($order->payment_method ?? '');
-        $canRefundInFlight = $paymentPolicy->canRefundInFlight($order);
-        $canFailInFlight = $paymentPolicy->canFailInFlight($order);
+        $actor = auth()->user();
+        $canRefundInFlight = $paymentPolicy->canRefundInFlight($order)
+            && $actor instanceof User
+            && $actor->staffCan(StaffCapability::FINANCE);
+        $canFailInFlight = $paymentPolicy->canFailInFlight($order)
+            && $actor instanceof User
+            && $actor->staffCan(StaffCapability::FINANCE);
+        $canOpenDispute = $disputableItems->isNotEmpty()
+            && $actor instanceof User
+            && $actor->staffCan(StaffCapability::SUPPORT);
+        $canUpholdDispute = $actor instanceof User && $actor->staffCan(StaffCapability::FINANCE);
+        $canDismissDispute = $actor instanceof User && $actor->staffCan(StaffCapability::SUPPORT);
 
         return view('admin.orders.show', [
             'order' => $order,
@@ -230,6 +240,8 @@ class OrderController extends Controller
             'openDispute' => $openDispute,
             'disputableItems' => $disputableItems,
             'canOpenDispute' => $canOpenDispute,
+            'canUpholdDispute' => $canUpholdDispute,
+            'canDismissDispute' => $canDismissDispute,
             'statusTargets' => $override->availableFor($order),
             'canOverrideStatus' => $override->isOverridable($order),
             'canRefundInFlight' => $canRefundInFlight,

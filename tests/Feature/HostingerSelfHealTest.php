@@ -317,6 +317,7 @@ class HostingerSelfHealTest extends TestCase
             '2026_08_14_180100_create_welcome_bonus_claims_table.php',
             '2026_09_14_213000_create_billing_rule_settings_table.php',
             '2026_09_14_230000_create_staff_two_factor_table.php',
+            '2026_09_15_040000_create_staff_capabilities_table.php',
         ] as $file) {
             $this->assertFileExists(database_path('migrations/'.$file));
         }

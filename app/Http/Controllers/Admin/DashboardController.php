@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\StaffCapability;
+use App\Models\User;
 use App\Services\Admin\DashboardMetricsService;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Support\ProductionReadiness;
@@ -190,7 +192,7 @@ class DashboardController extends Controller
             // Work list — same reason as queue-counts: do not freeze pending rows.
             return response()->json([
                 'success' => true,
-                ...$this->metrics->actionQueue(),
+                ...$this->scopedActionQueue(),
             ]);
         } catch (\Throwable $e) {
             Log::error('Admin dashboard action queue error: '.$e->getMessage());
@@ -218,5 +220,30 @@ class DashboardController extends Controller
     private function cacheTtl(): int
     {
         return (int) config('dashboard.metrics_cache_seconds', 0);
+    }
+
+    /**
+     * Hide money queues from support-only staff and community from finance-only.
+     *
+     * @return array<string, mixed>
+     */
+    private function scopedActionQueue(): array
+    {
+        $data = $this->metrics->actionQueue();
+        $user = request()->user();
+        if (! $user instanceof User) {
+            return $data;
+        }
+
+        if (! $user->staffCan(StaffCapability::FINANCE)) {
+            $data['deposits'] = collect();
+            $data['withdrawals'] = collect();
+            $data['unpaid'] = collect();
+        }
+        if (! $user->staffCan(StaffCapability::SUPPORT)) {
+            $data['community'] = collect();
+        }
+
+        return $data;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\ToleratesUnparseableDates;
 use App\Notifications\VerifyEmail;
+use App\Services\Auth\StaffCapabilityService;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Builder;
@@ -442,6 +443,25 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isAdmin(): bool
     {
         return $this->isActiveRole('admin');
+    }
+
+    /**
+     * True when this admin may use any of the listed capabilities.
+     * Unrestricted admins (no overlay rows) pass every check.
+     */
+    public function staffCan(string ...$capabilities): bool
+    {
+        return app(StaffCapabilityService::class)->allows($this, ...$capabilities);
+    }
+
+    public function staffCanAny(string ...$capabilities): bool
+    {
+        return $this->staffCan(...$capabilities);
+    }
+
+    public function staffIsUnrestricted(): bool
+    {
+        return app(StaffCapabilityService::class)->isUnrestricted($this);
     }
 
     /**

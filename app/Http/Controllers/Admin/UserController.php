@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\UserAdminNote;
 use App\Services\ActivityLogger;
 use App\Services\Admin\FinanceOverviewService;
+use App\Services\Auth\StaffCapabilityService;
 use App\Services\Auth\StaffTwoFactorService;
 use App\Services\Wallet\PayoutProfileService;
 use App\Support\UserFacingError;
@@ -29,6 +30,7 @@ class UserController extends Controller
 
     public function __construct(
         private PayoutProfileService $payoutProfiles,
+        private StaffCapabilityService $capabilities,
     ) {}
 
     // ✅ Users listing
@@ -141,11 +143,56 @@ class UserController extends Controller
             $activities = collect();
         }
 
-        return view('admin.users.show', compact('user', 'dossier', 'sites', 'notes', 'activities'));
+        $targetCapabilities = $this->capabilities->storedCapabilities($user);
+        $targetUnrestricted = $this->capabilities->isUnrestricted($user);
+
+        return view('admin.users.show', compact(
+            'user',
+            'dossier',
+            'sites',
+            'notes',
+            'activities',
+            'targetCapabilities',
+            'targetUnrestricted',
+        ));
+    }
+
+    public function syncCapabilities(Request $request, User $user)
+    {
+        $denied = $this->denyUnlessUnrestricted($request);
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        $data = $request->validate([
+            'access' => 'required|in:full,limited',
+            'capabilities' => 'nullable|array',
+            'capabilities.*' => 'in:finance,support',
+        ]);
+
+        $caps = $data['access'] === 'full'
+            ? []
+            : array_values($data['capabilities'] ?? []);
+
+        if ($data['access'] === 'limited' && $caps === []) {
+            return back()->with('error', 'Choose finance, support, or both — or keep full admin.');
+        }
+
+        try {
+            $this->capabilities->sync($request->user(), $user, $caps);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Access updated: '.$this->capabilities->label($caps).'.');
     }
 
     public function suspend(Request $request, User $user)
     {
+        $denied = $this->denyUnlessCapability($request, 'support');
+        if ($denied !== null) {
+            return $denied;
+        }
         $data = $request->validate([
             'reason' => 'required|string|min:5|max:500',
         ]);
@@ -187,6 +234,10 @@ class UserController extends Controller
 
     public function unsuspend(Request $request, User $user)
     {
+        $denied = $this->denyUnlessCapability($request, 'support');
+        if ($denied !== null) {
+            return $denied;
+        }
         $blocked = $this->suspendGuard($request->user(), $user, allowAdmins: true);
         if ($blocked !== null) {
             return $blocked;
@@ -225,6 +276,10 @@ class UserController extends Controller
 
     public function storeNote(Request $request, User $user)
     {
+        $denied = $this->denyUnlessCapability($request, 'support');
+        if ($denied !== null) {
+            return $denied;
+        }
         $data = $request->validate([
             'body' => 'required|string|min:3|max:2000',
         ]);
@@ -253,6 +308,10 @@ class UserController extends Controller
 
     public function verifyEmail(Request $request, User $user)
     {
+        $denied = $this->denyUnlessCapability($request, 'support');
+        if ($denied !== null) {
+            return $denied;
+        }
         if ($user->hasVerifiedEmail()) {
             return back()->with('success', 'This email is already verified.');
         }
@@ -276,6 +335,10 @@ class UserController extends Controller
 
     public function clearTwoFactor(Request $request, User $user, StaffTwoFactorService $twoFactor)
     {
+        $denied = $this->denyUnlessUnrestricted($request);
+        if ($denied !== null) {
+            return $denied;
+        }
         $actor = $request->user();
         if (! $actor || ! $actor->isAdmin()) {
             abort(403);
@@ -302,6 +365,10 @@ class UserController extends Controller
 
     public function resendVerification(Request $request, User $user)
     {
+        $denied = $this->denyUnlessCapability($request, 'support');
+        if ($denied !== null) {
+            return $denied;
+        }
         if ($user->hasVerifiedEmail()) {
             return back()->with('success', 'This email is already verified.');
         }
@@ -328,6 +395,10 @@ class UserController extends Controller
     // ✅ Update Company (AJAX)
     public function updateCompany(Request $request, $id)
     {
+        $denied = $this->denyUnlessCapability($request, 'support');
+        if ($denied !== null) {
+            return $denied;
+        }
         $request->validate([
             'company_name' => 'nullable|string|max:255',
         ]);
@@ -383,10 +454,14 @@ class UserController extends Controller
     }
 
     /**
-     * Support-only: update a user's locked payout destinations and email them.
+     * Finance-only: update a user's locked payout destinations and email them.
      */
     public function updatePayoutProfile(Request $request, $id)
     {
+        $denied = $this->denyUnlessCapability($request, 'finance');
+        if ($denied !== null) {
+            return $denied;
+        }
         $data = $request->validate([
             'payment_method' => 'required|in:bank,paypal,wise,crypto',
             'paypal_email' => 'nullable|email|max:255',
@@ -470,6 +545,11 @@ class UserController extends Controller
      */
     public function updateRoles(Request $request, $id)
     {
+        $denied = $this->denyUnlessUnrestricted($request);
+        if ($denied !== null) {
+            return $denied;
+        }
+
         $actor = auth()->user();
         if (! $actor || (! $actor->isAdmin() && ! $actor->hasRole('admin'))) {
             return response()->json([
@@ -712,6 +792,39 @@ class UserController extends Controller
                 : $query->latest('id'),
             default => $query->latest('id'),
         };
+    }
+
+    private function denyUnlessCapability(Request $request, string ...$capabilities)
+    {
+        $actor = $request->user();
+        if ($actor instanceof User && $actor->staffCan(...$capabilities)) {
+            return null;
+        }
+
+        return $this->capabilityDeniedResponse($request);
+    }
+
+    private function denyUnlessUnrestricted(Request $request)
+    {
+        $actor = $request->user();
+        if ($actor instanceof User && $actor->staffIsUnrestricted()) {
+            return null;
+        }
+
+        return $this->capabilityDeniedResponse($request);
+    }
+
+    private function capabilityDeniedResponse(Request $request)
+    {
+        $message = 'This area is limited to a different admin capability.';
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+            ], 403);
+        }
+
+        return redirect()->route('admin.dashboard')->with('error', $message);
     }
 
     private function suspendGuard(?User $actor, User $target, bool $allowAdmins = false)
