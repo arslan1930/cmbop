@@ -62,11 +62,15 @@ class StaffCapabilityTest extends TestCase
             ->get(route('admin.orders.index'))
             ->assertOk()
             ->assertDontSee('Order Payments');
+        $this->actingAs($admin)
+            ->getJson(route('admin.orders.data'))
+            ->assertOk()
+            ->assertJsonPath('success', true);
         $this->actingAs($admin)->get(route('admin.dashboard'))
             ->assertOk()
             ->assertDontSee('>Money<', false)
             ->assertSee('Work inbox')
-            ->assertSee('Legal pages')
+            ->assertSee('Legal &amp; FAQ', false)
             ->assertSee('Niches')
             ->assertDontSee('Due to pay now');
     }
@@ -100,7 +104,7 @@ class StaffCapabilityTest extends TestCase
             ->assertSee('Money')
             ->assertSee('Analytics')
             ->assertDontSee('Work inbox')
-            ->assertDontSee('Legal pages')
+            ->assertDontSee('Legal &amp; FAQ', false)
             ->assertSee('Due to pay now');
     }
 

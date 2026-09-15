@@ -113,8 +113,8 @@
 
 <script>
 (function () {
-    const ordersDataUrl = @json(route('admin.orders.data'));
-    const ordersIndexUrl = @json(route('admin.orders.index'));
+    const ordersDataUrl = @json(route('admin.orders.data', absolute: false));
+    const ordersIndexUrl = @json(route('admin.orders.index', absolute: false));
     const ordersExportUrl = @json(route('admin.orders.export', absolute: false));
     const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     let currentPage = 1;
@@ -241,10 +241,15 @@
             headers: { 'Accept': 'application/json' },
             credentials: 'same-origin',
         })
-            .then(r => r.json())
-            .then(json => {
-                if (!json.success) {
-                    body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load orders</td></tr>';
+            .then(async (r) => {
+                let json = null;
+                try { json = await r.json(); } catch (e) { json = null; }
+                return { r, json };
+            })
+            .then(({ json }) => {
+                if (!json || json.success !== true) {
+                    const msg = (json && json.message) ? json.message : 'Failed to load orders';
+                    body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">' + escapeHtml(msg) + '</td></tr>';
                     return;
                 }
                 const pagination = json.pagination || {};
@@ -285,12 +290,14 @@
                         + '</tr>';
                 }).join('');
 
-                renderAdminPagination(json.pagination, {
-                    links: '#ordersPagination',
-                    info: '#ordersPaginationMeta',
-                    label: 'orders',
-                    onNavigate: loadOrders,
-                });
+                if (typeof window.renderAdminPagination === 'function') {
+                    window.renderAdminPagination(json.pagination, {
+                        links: '#ordersPagination',
+                        info: '#ordersPaginationMeta',
+                        label: 'orders',
+                        onNavigate: loadOrders,
+                    });
+                }
             })
             .catch(() => {
                 body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load orders</td></tr>';
@@ -314,25 +321,24 @@
     {{-- Page clicks are handled by renderAdminPagination's delegated listener. --}}
 
     document.addEventListener('DOMContentLoaded', function () {
-        if (typeof window.SlbLiveSearch === 'undefined') return;
-        window.SlbLiveSearch.init(document.getElementById('searchInput'), {
-            mode: 'event',
-            statusEl: document.getElementById('adminOrdersSearchStatus'),
-            clearBtn: document.getElementById('adminOrdersSearchClear'),
-            onSearch: function () { loadOrders(1); },
-        });
+        if (typeof window.SlbLiveSearch !== 'undefined') {
+            window.SlbLiveSearch.init(document.getElementById('searchInput'), {
+                mode: 'event',
+                statusEl: document.getElementById('adminOrdersSearchStatus'),
+                clearBtn: document.getElementById('adminOrdersSearchClear'),
+                onSearch: function () { loadOrders(1); },
+            });
+        }
+        const boot = new URLSearchParams(window.location.search);
+        if (boot.get('status')) document.getElementById('statusFilter').value = boot.get('status');
+        if (boot.get('payment_status')) document.getElementById('paymentStatusFilter').value = boot.get('payment_status');
+        if (boot.get('dispute')) document.getElementById('disputeFilter').value = boot.get('dispute');
+        if (boot.get('search')) document.getElementById('searchInput').value = boot.get('search');
+        if (boot.get('date_from')) document.getElementById('dateFrom').value = boot.get('date_from');
+        if (boot.get('date_to')) document.getElementById('dateTo').value = boot.get('date_to');
+        const bootPage = parseInt(boot.get('page') || '1', 10);
+        loadOrders(Number.isFinite(bootPage) && bootPage > 0 ? bootPage : 1);
     });
-
-    const boot = new URLSearchParams(window.location.search);
-    if (boot.get('status')) document.getElementById('statusFilter').value = boot.get('status');
-    if (boot.get('payment_status')) document.getElementById('paymentStatusFilter').value = boot.get('payment_status');
-    if (boot.get('dispute')) document.getElementById('disputeFilter').value = boot.get('dispute');
-    if (boot.get('search')) document.getElementById('searchInput').value = boot.get('search');
-    if (boot.get('date_from')) document.getElementById('dateFrom').value = boot.get('date_from');
-    if (boot.get('date_to')) document.getElementById('dateTo').value = boot.get('date_to');
-    const bootPage = parseInt(boot.get('page') || '1', 10);
-
-    loadOrders(Number.isFinite(bootPage) && bootPage > 0 ? bootPage : 1);
 })();
 </script>
 @endsection

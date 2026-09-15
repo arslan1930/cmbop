@@ -281,6 +281,11 @@ class SeoAndSecurityHeadersTest extends TestCase
 
     public function test_help_widget_has_accessible_labels(): void
     {
+        config([
+            'services.tawk.property_id' => '',
+            'services.tawk.widget_id' => '',
+        ]);
+
         $this->get('/')
             ->assertOk()
             ->assertSee('aria-label="Open help and feedback"', false)
