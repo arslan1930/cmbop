@@ -101,6 +101,9 @@
         <a href="{{ route('admin.finance') }}" class="{{ request()->routeIs('admin.finance') || request()->routeIs('admin.finance.user') ? 'active' : '' }}">
             <i class="fa fa-chart-pie"></i> <span>Finance</span>
         </a>
+        <a href="{{ route('admin.analytics') }}" class="{{ request()->routeIs('admin.analytics') ? 'active' : '' }}">
+            <i class="fa fa-chart-bar"></i> <span>Analytics</span>
+        </a>
         <a href="{{ route('admin.finance.ledger') }}" class="{{ request()->routeIs('admin.finance.ledger') ? 'active' : '' }}">
             <i class="fa fa-book"></i> <span>Wallet ledger</span>
         </a>
@@ -149,6 +152,12 @@
         <div class="admin-nav-section">Growth</div>
         <a href="{{ route('admin.blogs.index') }}" class="{{ request()->routeIs('admin.blogs.*') ? 'active' : '' }}">
             <i class="fa fa-blog"></i> <span>Blogs</span>
+        </a>
+        <a href="{{ route('admin.legal.index') }}" class="{{ request()->routeIs('admin.legal.*') ? 'active' : '' }}">
+            <i class="fa fa-gavel"></i> <span>Legal pages</span>
+        </a>
+        <a href="{{ route('admin.categories.index') }}" class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
+            <i class="fa fa-tags"></i> <span>Niches</span>
         </a>
         <a href="{{ route('admin.emails.index') }}" class="{{ request()->routeIs('admin.emails.*') ? 'active' : '' }}">
             <i class="fa fa-envelope-open-text"></i> <span>Email Center</span>

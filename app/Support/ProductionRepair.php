@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\BillingRuleSetting;
+use App\Models\LegalPageOverride;
 use App\Models\StaffCapability;
 use App\Models\StaffTwoFactor;
 use App\Models\WelcomeBonusClaim;
@@ -71,6 +72,7 @@ class ProductionRepair
         $this->ensureBillingRuleSettings($notes);
         $this->ensureStaffTwoFactor($notes);
         $this->ensureStaffCapabilities($notes);
+        $this->ensureLegalPageOverrides($notes);
     }
 
     /**
@@ -502,6 +504,62 @@ class ProductionRepair
     {
         return [
             '2026_09_15_040000_create_staff_capabilities_table.php',
+        ];
+    }
+
+    /**
+     * Per-locale HTML overrides for privacy/terms/cookie/refund. `--path` can
+     * still create the table when a later unrelated migrate aborted the batch.
+     *
+     * @param  list<string>  $notes
+     */
+    public function ensureLegalPageOverrides(array &$notes): void
+    {
+        if (static::legalPageOverrideStorageReady()) {
+            return;
+        }
+
+        foreach ($this->legalPageOverrideMigrationFiles() as $file) {
+            try {
+                Artisan::call('migrate', [
+                    '--force' => true,
+                    '--path' => 'database/migrations/'.$file,
+                ]);
+            } catch (\Throwable $e) {
+                $notes[] = 'legal page overrides migrate '.$file.' failed: '.$e->getMessage();
+                Log::error('Legal page overrides migrate failed', [
+                    'file' => $file,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (! Schema::hasTable('legal_page_overrides')) {
+            LegalPageOverride::forgetTableAvailabilityCache();
+            LegalPageOverride::ensureTable();
+        }
+
+        if (static::legalPageOverrideStorageReady()) {
+            $notes[] = 'legal page overrides table ready';
+        }
+    }
+
+    public static function legalPageOverrideStorageReady(): bool
+    {
+        try {
+            return Schema::hasTable('legal_page_overrides');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function legalPageOverrideMigrationFiles(): array
+    {
+        return [
+            '2026_09_15_051500_create_legal_page_overrides_table.php',
         ];
     }
 

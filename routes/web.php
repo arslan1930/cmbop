@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ActivityLogController as AdminActivityLogController;
 use App\Http\Controllers\Admin\AdBannerController as AdminAdBannerController;
 use App\Http\Controllers\Admin\AdminWithdrawalController;
+use App\Http\Controllers\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Admin\AudienceController as AdminAudienceController;
 use App\Http\Controllers\Admin\BillingRuleSettingController as AdminBillingRuleSettingController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Admin\BlogController as AdminBlogController;
 use App\Http\Controllers\Admin\BulkSiteRequestController as AdminBulkSiteRequestController;
 use App\Http\Controllers\Admin\CampaignController as AdminCampaignController;
 use App\Http\Controllers\Admin\CatalogActivityController as AdminCatalogActivityController;
+use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\CommunityFeedbackController;
 use App\Http\Controllers\Admin\ContentLibraryController as AdminContentLibraryController;
 use App\Http\Controllers\Admin\ContentModerationController as AdminContentModerationController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\Admin\EmailCenterController as AdminEmailCenterControll
 // Publisher and Advertiser controllers
 use App\Http\Controllers\Admin\FinanceController as AdminFinanceController;
 use App\Http\Controllers\Admin\InvoiceController as AdminInvoiceController;
+use App\Http\Controllers\Admin\LegalPageController as AdminLegalPageController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\OrderDisputeController as AdminOrderDisputeController;
 use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
@@ -182,8 +185,8 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
     Route::get($p('how-it-works'), [MarketingPageController::class, 'howItWorks'])->name('how-it-works');
     Route::get($p('become-a-publisher'), [MarketingPageController::class, 'becomePublisher'])->name('become-a-publisher');
     Route::get($p('why-choose-us'), [MarketingPageController::class, 'whyChooseUs'])->name('why-choose-us');
-    Route::get($p('privacy-policy'), fn () => view('pages.privacy-policy'))->name('privacy-policy');
-    Route::get($p('terms-of-services'), fn () => view('pages.terms-of-services'))->name('terms-of-services');
+    Route::get($p('privacy-policy'), [MarketingPageController::class, 'privacyPolicy'])->name('privacy-policy');
+    Route::get($p('terms-of-services'), [MarketingPageController::class, 'termsOfServices'])->name('terms-of-services');
     Route::get($p('cookie-policy'), [MarketingPageController::class, 'cookiePolicy'])->name('cookie-policy');
     Route::get($p('refund-policy'), [MarketingPageController::class, 'refundPolicy'])->name('refund-policy');
     Route::get($p('blog'), [BlogController::class, 'index'])->name('blog.index');
@@ -688,6 +691,26 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             Route::get('/inbox', [AdminWorkInboxController::class, 'index'])
                 ->name('inbox.index');
 
+            Route::get('/legal', [AdminLegalPageController::class, 'index'])
+                ->name('legal.index');
+            Route::get('/legal/{slug}/edit', [AdminLegalPageController::class, 'edit'])
+                ->name('legal.edit');
+            Route::put('/legal/{slug}', [AdminLegalPageController::class, 'update'])
+                ->name('legal.update');
+            Route::post('/legal/{slug}/revert', [AdminLegalPageController::class, 'revert'])
+                ->name('legal.revert');
+
+            Route::get('/categories', [AdminCategoryController::class, 'index'])
+                ->name('categories.index');
+            Route::post('/categories', [AdminCategoryController::class, 'store'])
+                ->name('categories.store');
+            Route::get('/categories/{category}/edit', [AdminCategoryController::class, 'edit'])
+                ->name('categories.edit');
+            Route::put('/categories/{category}', [AdminCategoryController::class, 'update'])
+                ->name('categories.update');
+            Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy'])
+                ->name('categories.destroy');
+
             Route::get('/dashboard/stalled-orders', [AdminStalledOrderController::class, 'index'])
                 ->name('dashboard.stalled-orders');
             Route::post('/orders/items/{orderItem}/remind-publisher', [AdminStalledOrderController::class, 'remindPublisher'])
@@ -735,6 +758,10 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             Route::post('/invoices/{invoice}/regenerate-pdf', [AdminInvoiceController::class, 'regeneratePdf'])->name('invoices.regenerate-pdf');
 
             Route::get('/finance', [AdminFinanceController::class, 'index'])->name('finance');
+            Route::get('/analytics', [AdminAnalyticsController::class, 'index'])->name('analytics');
+            Route::get('/analytics/export', [AdminAnalyticsController::class, 'export'])
+                ->middleware('throttle:12,1')
+                ->name('analytics.export');
             Route::post('/finance/payout-rules/min', [AdminBillingRuleSettingController::class, 'updateMin'])
                 ->name('finance.payout-rules.min');
             Route::post('/finance/payout-rules/fee', [AdminBillingRuleSettingController::class, 'updateFee'])

@@ -53,10 +53,17 @@ class StaffCapabilityTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.users.index'))->assertOk();
         $this->actingAs($admin)->get(route('admin.inbox.index'))->assertOk();
+        $this->actingAs($admin)->get(route('admin.legal.index'))->assertOk();
+        $this->actingAs($admin)->get(route('admin.categories.index'))->assertOk();
+        $this->actingAs($admin)
+            ->get(route('admin.analytics'))
+            ->assertRedirect(route('admin.dashboard'));
         $this->actingAs($admin)->get(route('admin.dashboard'))
             ->assertOk()
             ->assertDontSee('>Money<', false)
             ->assertSee('Work inbox')
+            ->assertSee('Legal pages')
+            ->assertSee('Niches')
             ->assertDontSee('Due to pay now');
     }
 
@@ -66,9 +73,16 @@ class StaffCapabilityTest extends TestCase
         $this->restrict($admin, [StaffCapability::FINANCE]);
 
         $this->actingAs($admin)->get(route('admin.finance'))->assertOk();
+        $this->actingAs($admin)->get(route('admin.analytics'))->assertOk();
         $this->actingAs($admin)->get(route('admin.users.index'))->assertOk();
         $this->actingAs($admin)
             ->get(route('admin.inbox.index'))
+            ->assertRedirect(route('admin.dashboard'));
+        $this->actingAs($admin)
+            ->get(route('admin.legal.index'))
+            ->assertRedirect(route('admin.dashboard'));
+        $this->actingAs($admin)
+            ->get(route('admin.categories.index'))
             ->assertRedirect(route('admin.dashboard'));
         $this->actingAs($admin)
             ->getJson(route('admin.community.index'))
@@ -76,7 +90,9 @@ class StaffCapabilityTest extends TestCase
         $this->actingAs($admin)->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('Money')
+            ->assertSee('Analytics')
             ->assertDontSee('Work inbox')
+            ->assertDontSee('Legal pages')
             ->assertSee('Due to pay now');
     }
 
