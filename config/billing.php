@@ -184,16 +184,24 @@ return [
     |
     | Deducted from the withdrawal before payout (publisher receives net).
     | Default 0 — order platform markup is the primary revenue product.
+    | Admin Finance → Payout rules can overlay this for new requests.
+    | Existing withdrawals keep the fee stored when they were requested.
     |
     */
     'withdrawal_fee_percent' => (float) env('WITHDRAWAL_FEE_PERCENT', 0),
+    'withdrawal_fee_percent_max' => 50,
 
     /*
     |--------------------------------------------------------------------------
     | Minimum publisher withdrawal amount (EUR)
     |--------------------------------------------------------------------------
+    |
+    | Admin Finance → Payout rules can overlay this for new requests.
+    | Advertiser leftover withdrawals are not limited by this floor.
+    |
     */
     'withdrawal_min_amount' => (float) env('WITHDRAWAL_MIN_AMOUNT', 20),
+    'withdrawal_min_amount_max' => 10000,
 
     /*
     |--------------------------------------------------------------------------

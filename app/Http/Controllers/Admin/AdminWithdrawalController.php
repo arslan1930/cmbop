@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Withdrawal;
 use App\Services\ActivityLogger;
 use App\Services\Billing\AdminInvoiceLinks;
+use App\Services\Billing\BillingRuleService;
 use App\Services\Wallet\ManualWithdrawalInvalidTransitionException;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
 use App\Services\Wallet\ManualWithdrawalUnknownWalletException;
@@ -23,9 +24,12 @@ class AdminWithdrawalController extends Controller
     /**
      * Display withdrawals payout queue.
      */
-    public function index()
+    public function index(BillingRuleService $billingRules)
     {
-        return view('admin.withdrawals');
+        return view('admin.withdrawals', [
+            'platformChargePercent' => $billingRules->withdrawalFeePercent(),
+            'minWithdrawalAmount' => $billingRules->minWithdrawalAmount(),
+        ]);
     }
 
     /**

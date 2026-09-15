@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Services\Billing\BillingRuleService;
 use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
 
 /**
@@ -21,7 +22,7 @@ class WithdrawalRequestNotification extends PlatformMailable
         parent::__construct();
         $this->withdrawal = $withdrawal;
         $this->user = $user;
-        $this->platformChargePercent = (float) config('billing.withdrawal_fee_percent', 0);
+        $this->platformChargePercent = app(BillingRuleService::class)->withdrawalFeePercent();
         $this->notificationType = 'withdrawal_request';
     }
 

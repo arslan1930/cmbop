@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\Billing\BillingRuleService;
 use App\Services\OrderPaymentService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -219,7 +220,7 @@ class FinanceOverviewService
                 'gmv_completed' => 0.0,
                 'order_fees' => 0.0,
                 'withdrawal_fees' => 0.0,
-                'withdrawal_fee_percent' => (float) config('billing.withdrawal_fee_percent', 0),
+                'withdrawal_fee_percent' => $this->withdrawalFeePercent(),
                 'refunds' => 0.0,
                 'refunded_order_fees' => 0.0,
                 'refund_orders_count' => 0,
@@ -711,7 +712,7 @@ class FinanceOverviewService
             'gmv_completed' => round($gmvCompleted, 2),
             'order_fees' => round($orderFees, 2),
             'withdrawal_fees' => round($withdrawalFeeSum, 2),
-            'withdrawal_fee_percent' => (float) config('billing.withdrawal_fee_percent', 0),
+            'withdrawal_fee_percent' => $this->withdrawalFeePercent(),
             'refunds' => round($refundOrderSum, 2),
             'refunded_order_fees' => round($refundedOrderFees, 2),
             'refund_orders_count' => $this->refundOrdersCount($refundOrders, $failedRefundOrders, $start, $end),
@@ -1505,5 +1506,10 @@ class FinanceOverviewService
         $this->applyCreatedWindow($query, $start, $end);
 
         return $query;
+    }
+
+    private function withdrawalFeePercent(): float
+    {
+        return app(BillingRuleService::class)->withdrawalFeePercent();
     }
 }

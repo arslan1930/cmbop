@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\WithdrawalRequestedConfirmation;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
+use App\Services\Billing\BillingRuleService;
 use App\Services\EmailNotificationService;
 use App\Services\Wallet\PayoutProfileService;
 use App\Services\Wallet\WalletLedgerService;
@@ -21,16 +22,17 @@ class WithdrawalController extends Controller
 {
     public function __construct(
         private PayoutProfileService $payoutProfiles,
+        private BillingRuleService $billingRules,
     ) {}
 
     private function platformChargePercent(): float
     {
-        return (float) config('billing.withdrawal_fee_percent', 0);
+        return $this->billingRules->withdrawalFeePercent();
     }
 
     private function minWithdrawalAmount(): float
     {
-        return max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
+        return $this->billingRules->minWithdrawalAmount();
     }
 
     public function index()

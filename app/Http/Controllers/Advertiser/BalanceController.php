@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
+use App\Services\Billing\BillingRuleService;
 use App\Services\EmailNotificationService;
 use App\Services\Wallet\PayoutProfileService;
 use App\Services\Wallet\WalletLedgerService;
@@ -25,6 +26,7 @@ class BalanceController extends Controller
         protected WalletOverviewService $overview,
         protected WalletLedgerService $ledger,
         protected PayoutProfileService $payoutProfiles,
+        protected BillingRuleService $billingRules,
     ) {}
 
     public function index()
@@ -253,7 +255,7 @@ class BalanceController extends Controller
                 $this->payoutProfiles->setPreferredMethod($user, (string) $request->payment_method);
             }
 
-            $feePercent = (float) config('billing.withdrawal_fee_percent', 0);
+            $feePercent = $this->billingRules->withdrawalFeePercent();
             $fee = round(($amount * $feePercent) / 100, 2);
             $netAmount = round($amount - $fee, 2);
 

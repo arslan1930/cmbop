@@ -8,6 +8,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\ActivityLogger;
 use App\Services\Admin\FinanceOverviewService;
+use App\Services\Billing\BillingRuleService;
 use App\Services\Orders\OrderClawbackService;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,7 @@ class FinanceController extends Controller
 
     public function __construct(
         private FinanceOverviewService $finance,
+        private BillingRuleService $billingRules,
     ) {}
 
     /**
@@ -78,6 +80,7 @@ class FinanceController extends Controller
             'userQueryTooShort' => $userQuery !== '' && mb_strlen($needle) < 2,
             'hasMoreMatches' => $hasMoreMatches,
             'userMatches' => $userMatches,
+            'payoutRules' => $this->billingRules->snapshot(),
         ]);
     }
 
