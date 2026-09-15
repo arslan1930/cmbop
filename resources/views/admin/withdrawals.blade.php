@@ -389,11 +389,13 @@ function loadWithdrawals(page = 1) {
         success: function(response) {
             if (response.success) {
                 renderWithdrawals(response.data);
-                renderAdminPagination(response.pagination, {
-                    links: '#paginationLinks',
-                    label: 'withdrawals',
-                    onNavigate: loadWithdrawals,
-                });
+                if (typeof window.renderAdminPagination === 'function') {
+                    window.renderAdminPagination(response.pagination, {
+                        links: '#paginationLinks',
+                        label: 'withdrawals',
+                        onNavigate: loadWithdrawals,
+                    });
+                }
             } else {
                 $('#withdrawalsTable').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load') + '</td></tr>');
             }
@@ -860,21 +862,6 @@ $('#queueFilter').on('change', function() {
     loadWithdrawals(1);
 });
 
-document.addEventListener('DOMContentLoaded', function () {
-    if (typeof window.SlbLiveSearch !== 'undefined') {
-        window.SlbLiveSearch.init(document.getElementById('searchInput'), {
-            mode: 'event',
-            statusEl: document.getElementById('adminWithdrawalsSearchStatus'),
-            clearBtn: document.getElementById('adminWithdrawalsSearchClear'),
-            onSearch: function () { loadWithdrawals(1); },
-        });
-        return;
-    }
-    $('#searchInput').on('keypress', function(e) {
-        if (e.which === 13) loadWithdrawals(1);
-    });
-});
-
 // Deep-link query support (?status=completed&queue=history)
 (function initFromQuery() {
     const q = new URLSearchParams(window.location.search);
@@ -884,7 +871,21 @@ document.addEventListener('DOMContentLoaded', function () {
     if (q.get('search')) $('#searchInput').val(q.get('search'));
 })();
 
-loadStatistics();
-loadWithdrawals(1);
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.SlbLiveSearch !== 'undefined') {
+        window.SlbLiveSearch.init(document.getElementById('searchInput'), {
+            mode: 'event',
+            statusEl: document.getElementById('adminWithdrawalsSearchStatus'),
+            clearBtn: document.getElementById('adminWithdrawalsSearchClear'),
+            onSearch: function () { loadWithdrawals(1); },
+        });
+    } else {
+        $('#searchInput').on('keypress', function(e) {
+            if (e.which === 13) loadWithdrawals(1);
+        });
+    }
+    loadStatistics();
+    loadWithdrawals(1);
+});
 </script>
 @endsection

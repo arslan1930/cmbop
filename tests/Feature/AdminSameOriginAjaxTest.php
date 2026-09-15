@@ -101,4 +101,21 @@ class AdminSameOriginAjaxTest extends TestCase
             $html
         );
     }
+
+    public function test_withdrawals_table_loads_after_deferred_pagination_js(): void
+    {
+        $source = (string) file_get_contents(resource_path('views/admin/withdrawals.blade.php'));
+        $this->assertMatchesRegularExpression(
+            "/addEventListener\\('DOMContentLoaded'[\\s\\S]*loadWithdrawals\\(/",
+            $source
+        );
+        $this->assertMatchesRegularExpression(
+            '/typeof window\\.renderAdminPagination === \'function\'/',
+            $source
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/\\}\\)\\(\\);\\s*loadStatistics\\(\\);\\s*loadWithdrawals\\(1\\);/',
+            $source
+        );
+    }
 }

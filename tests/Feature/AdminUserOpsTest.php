@@ -164,6 +164,14 @@ class AdminUserOpsTest extends TestCase
             'joined_from'
         ));
 
+        $this->actingAs($admin)
+            ->get(route('admin.users.index', ['user' => $recent->id, 'joined_from' => $from]))
+            ->assertOk()
+            ->assertSee('name="user"', false)
+            ->assertSee('value="'.$recent->id.'"', false)
+            ->assertSee('recent.joiner@example.com')
+            ->assertDontSee('old.joiner@example.com');
+
         $this->assertNotNull($old->id);
         $this->assertNotNull($recent->id);
     }

@@ -96,6 +96,9 @@
                            value="{{ $filters['seen_to'] ?? '' }}" aria-label="Last activity to">
                 </div>
             </div>
+            @if(((int) ($filters['user'] ?? 0)) > 0)
+                <input type="hidden" name="user" value="{{ (int) $filters['user'] }}">
+            @endif
             <div class="col-md-auto d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="fa fa-search me-1"></i> Filter
