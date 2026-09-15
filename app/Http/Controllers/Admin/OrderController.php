@@ -9,12 +9,15 @@ use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\StaffCapability;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Orders\AdminOrderStatusOverride;
 use App\Services\Orders\AdminPaymentStatusPolicy;
 use App\Services\Orders\OrderClawbackService;
 use App\Support\ArticleDownload;
+use App\Support\Csv;
 use App\Support\UserFacingError;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -26,9 +29,98 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class OrderController extends Controller
 {
+    public const EXPORT_LIMIT = 5000;
+
     public function index()
     {
         return view('admin.orders.index');
+    }
+
+    /**
+     * CSV of the current orders-console filter (capped).
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        try {
+            if (! Schema::hasTable('orders')) {
+                $rows = collect();
+            } else {
+                $rows = $this->filteredOrdersQuery($request)->limit(self::EXPORT_LIMIT)->get();
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Admin orders export query failed', [
+                'error' => $e->getMessage(),
+            ]);
+            $rows = collect();
+        }
+
+        $filename = 'orders-'.now()->format('Y-m-d-His').'.csv';
+
+        ActivityLogger::tryLog(
+            'order.exported',
+            ($request->user()?->name ?? 'Admin').' exported orders ('.$rows->count().' row(s)).',
+            null,
+            [
+                'search' => search_text($request->input('search')),
+                'status' => search_text($request->input('status')),
+                'payment_status' => search_text($request->input('payment_status')),
+                'dispute' => search_text($request->input('dispute')),
+                'date_from' => search_text($request->input('date_from')) ?: null,
+                'date_to' => search_text($request->input('date_to')) ?: null,
+                'rows_exported' => $rows->count(),
+                'truncated' => $rows->count() >= self::EXPORT_LIMIT,
+            ]
+        );
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'order_number',
+                'reference_code',
+                'advertiser_name',
+                'advertiser_email',
+                'site_name',
+                'publisher_name',
+                'publisher_email',
+                'status',
+                'payment_status',
+                'payment_method',
+                'total_amount',
+                'live_url',
+                'open_dispute',
+                'created_at',
+            ]);
+
+            foreach ($rows as $order) {
+                $item = $order->items->first();
+                $site = $item?->site;
+                $publisher = $site?->publisher;
+                $liveUrl = $order->items->first(fn (OrderItem $line) => filled($line->live_url))?->live_url;
+                $openDispute = OrderItemDispute::tableAvailable()
+                    && (int) ($order->open_disputes_count ?? 0) > 0;
+
+                fputcsv($out, [
+                    Csv::cell($order->order_number),
+                    Csv::cell($order->reference_code),
+                    Csv::cell($order->user?->name),
+                    Csv::cell($order->user?->email),
+                    Csv::cell($item?->site_name ?: ($site?->site_name)),
+                    Csv::cell($publisher?->name),
+                    Csv::cell($publisher?->email),
+                    Csv::cell($order->status),
+                    Csv::cell($order->payment_status),
+                    Csv::cell($order->payment_method),
+                    Csv::cell($order->total_amount),
+                    Csv::cell($liveUrl),
+                    $openDispute ? 'yes' : 'no',
+                    Csv::cell(optional($order->created_at)?->toIso8601String()),
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     public function data(Request $request)
@@ -45,7 +137,10 @@ class OrderController extends Controller
         }
     }
 
-    private function ordersData(Request $request)
+    /**
+     * Same filters as the orders console table.
+     */
+    private function filteredOrdersQuery(Request $request): Builder
     {
         $query = Order::with(['user', 'items.site.publisher'])
             ->orderByDesc('created_at');
@@ -106,6 +201,13 @@ class OrderController extends Controller
         if ($dateTo !== '') {
             $query->whereDate('created_at', '<=', $dateTo);
         }
+
+        return $query;
+    }
+
+    private function ordersData(Request $request)
+    {
+        $query = $this->filteredOrdersQuery($request);
 
         $perPage = max(1, min(100, (int) $request->get('per_page', 20)));
         $orders = $query->paginate($perPage);

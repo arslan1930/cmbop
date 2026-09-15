@@ -117,6 +117,8 @@ class AdminPaymentsNamedRoutesNotificationTest extends TestCase
         $this->assertStringContainsString('PAYMENTS_DATA', $html);
         $this->assertStringContainsString('PAYMENTS_UPDATE', $html);
         $this->assertStringContainsString('PAYMENTS_EXPORT', $html);
+        $this->assertStringContainsString('REFUNDS_EXPORT', $html);
+        $this->assertStringContainsString('id="exportRefundsBtn"', $html);
         $this->assertStringContainsString('ORDERS_SHOW', $html);
         $this->assertStringContainsString('id="update_notes"', $html);
         $this->assertStringContainsString('id="update_payment_reference"', $html);

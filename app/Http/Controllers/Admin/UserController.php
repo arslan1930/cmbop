@@ -13,12 +13,17 @@ use App\Services\Admin\FinanceOverviewService;
 use App\Services\Auth\StaffCapabilityService;
 use App\Services\Auth\StaffTwoFactorService;
 use App\Services\Wallet\PayoutProfileService;
+use App\Support\Csv;
 use App\Support\UserFacingError;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserController extends Controller
 {
@@ -27,6 +32,8 @@ class UserController extends Controller
 
     /** Hard cap on how many users may hold the marketing role. */
     public const MAX_MARKETING = 5;
+
+    public const EXPORT_LIMIT = 5000;
 
     public function __construct(
         private PayoutProfileService $payoutProfiles,
@@ -38,22 +45,7 @@ class UserController extends Controller
     {
         $hasRolePivot = $this->rolePivotAvailable();
         $filters = $this->userIndexFilters($request);
-        $query = User::query();
-        if ($hasRolePivot) {
-            $query->with('roles');
-        }
-        if ($this->tableExists('orders') && $this->hasColumn('orders', 'payment_status')) {
-            $query->withCount([
-                'orders as paid_orders_count' => fn ($q) => $q->where('payment_status', 'paid'),
-            ]);
-            if ($this->hasColumn('orders', 'total_amount')) {
-                $query->withSum([
-                    'orders as paid_orders_total' => fn ($q) => $q->where('payment_status', 'paid'),
-                ], 'total_amount');
-            }
-        }
-
-        $this->applyUserIndexFilters($query, $filters);
+        $query = $this->userIndexQuery($filters);
 
         try {
             $users = $query->paginate(25)->withQueryString();
@@ -63,26 +55,101 @@ class UserController extends Controller
             $this->applyUserIndexFilters($fallback, $filters);
             $users = $fallback->paginate(25)->withQueryString();
         }
-        $users->getCollection()->each(function (User $user) use ($hasRolePivot) {
-            if ($user->relationLoaded('roles')) {
-                return;
-            }
-            if (! $hasRolePivot) {
-                $user->setRelation('roles', collect());
-
-                return;
-            }
-            try {
-                $user->load('roles');
-            } catch (\Throwable) {
-                $user->setRelation('roles', collect());
-            }
-        });
+        $this->hydrateUserIndexRoles($users->getCollection(), $hasRolePivot);
         $adminCount = $this->adminCount();
         $marketingCount = $this->marketingCount();
         $maxMarketing = self::MAX_MARKETING;
 
         return view('admin.users', compact('users', 'adminCount', 'marketingCount', 'maxMarketing', 'filters'));
+    }
+
+    /**
+     * CSV of the current users listing filter (capped). Omits payout destinations.
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $filters = $this->userIndexFilters($request);
+        $hasRolePivot = $this->rolePivotAvailable();
+
+        try {
+            $rows = $this->userIndexQuery($filters)->limit(self::EXPORT_LIMIT)->get();
+        } catch (\Throwable $e) {
+            Log::warning('Admin users export query failed', [
+                'error' => $e->getMessage(),
+            ]);
+            $fallback = User::query();
+            $this->applyUserIndexFilters($fallback, $filters);
+            $rows = $fallback->limit(self::EXPORT_LIMIT)->get();
+        }
+        $this->hydrateUserIndexRoles($rows, $hasRolePivot);
+
+        $filename = 'users-'.now()->format('Y-m-d-His').'.csv';
+
+        ActivityLogger::tryLog(
+            'user.exported',
+            ($request->user()?->name ?? 'Admin').' exported users ('.$rows->count().' row(s)).',
+            null,
+            [
+                'q' => $filters['q'],
+                'role' => $filters['role'],
+                'status' => $filters['status'],
+                'sort' => $filters['sort'],
+                'user' => $filters['user'] > 0 ? $filters['user'] : null,
+                'rows_exported' => $rows->count(),
+                'truncated' => $rows->count() >= self::EXPORT_LIMIT,
+            ]
+        );
+
+        $hasPhone = $this->hasColumn('users', 'phone');
+        $hasCountry = $this->hasColumn('users', 'country');
+        $hasCompany = $this->hasColumn('users', 'company_name');
+        $hasLastSeen = $this->hasColumn('users', 'last_seen_at');
+        $hasSuspended = User::hasUsersColumn('suspended_at');
+
+        return response()->streamDownload(function () use ($rows, $hasPhone, $hasCountry, $hasCompany, $hasLastSeen, $hasSuspended) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'id',
+                'name',
+                'email',
+                'phone',
+                'country',
+                'company',
+                'roles',
+                'email_verified',
+                'suspended',
+                'paid_orders_count',
+                'paid_orders_total',
+                'joined_at',
+                'last_seen_at',
+            ]);
+
+            foreach ($rows as $user) {
+                $roles = $user->relationLoaded('roles')
+                    ? $user->roles->pluck('name')->implode('|')
+                    : '';
+
+                fputcsv($out, [
+                    Csv::cell($user->id),
+                    Csv::cell($user->name),
+                    Csv::cell($user->email),
+                    Csv::cell($hasPhone ? $user->phone : ''),
+                    Csv::cell($hasCountry ? $user->country : ''),
+                    Csv::cell($hasCompany ? $user->company_name : ''),
+                    Csv::cell($roles),
+                    $user->hasVerifiedEmail() ? 'yes' : 'no',
+                    ($hasSuspended && $user->isSuspended()) ? 'yes' : 'no',
+                    Csv::cell((int) ($user->paid_orders_count ?? 0)),
+                    Csv::cell(number_format((float) ($user->paid_orders_total ?? 0), 2, '.', '')),
+                    Csv::cell(optional($user->created_at)?->toIso8601String()),
+                    Csv::cell($hasLastSeen ? optional($user->last_seen_at)?->toIso8601String() : ''),
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     /**
@@ -702,6 +769,53 @@ class UserController extends Controller
             'marketing_count' => $marketingCount,
             'max_marketing' => self::MAX_MARKETING,
         ]);
+    }
+
+    /**
+     * Same listing query as the users index (filters + paid-order aggregates).
+     */
+    private function userIndexQuery(array $filters): Builder
+    {
+        $query = User::query();
+        if ($this->rolePivotAvailable()) {
+            $query->with('roles');
+        }
+        if ($this->tableExists('orders') && $this->hasColumn('orders', 'payment_status')) {
+            $query->withCount([
+                'orders as paid_orders_count' => fn ($q) => $q->where('payment_status', 'paid'),
+            ]);
+            if ($this->hasColumn('orders', 'total_amount')) {
+                $query->withSum([
+                    'orders as paid_orders_total' => fn ($q) => $q->where('payment_status', 'paid'),
+                ], 'total_amount');
+            }
+        }
+
+        $this->applyUserIndexFilters($query, $filters);
+
+        return $query;
+    }
+
+    /**
+     * @param  Collection<int, User>  $users
+     */
+    private function hydrateUserIndexRoles(Collection $users, bool $hasRolePivot): void
+    {
+        $users->each(function (User $user) use ($hasRolePivot) {
+            if ($user->relationLoaded('roles')) {
+                return;
+            }
+            if (! $hasRolePivot) {
+                $user->setRelation('roles', collect());
+
+                return;
+            }
+            try {
+                $user->load('roles');
+            } catch (\Throwable) {
+                $user->setRelation('roles', collect());
+            }
+        });
     }
 
     /**

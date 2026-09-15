@@ -548,6 +548,9 @@ class AdminPanelSmokeTest extends TestCase
             'admin.payments.export',
             'admin.finance.export',
             'admin.finance.ledger.export',
+            'admin.finance.refunds.export',
+            'admin.orders.export',
+            'admin.users.export',
             'admin.withdrawals.export',
             'admin.audiences.export',
         ] as $name) {

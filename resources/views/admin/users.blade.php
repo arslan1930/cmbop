@@ -81,6 +81,16 @@
                 @if($hasActiveFilters)
                     <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">Clear filters</a>
                 @endif
+                <a href="{{ route('admin.users.export', array_filter([
+                        'q' => ($filters['q'] ?? '') !== '' ? $filters['q'] : null,
+                        'role' => ($filters['role'] ?? '') !== '' ? $filters['role'] : null,
+                        'status' => ($filters['status'] ?? '') !== '' ? $filters['status'] : null,
+                        'sort' => (($filters['sort'] ?? 'newest') !== 'newest') ? $filters['sort'] : null,
+                        'user' => ((int) ($filters['user'] ?? 0)) > 0 ? $filters['user'] : null,
+                    ], fn ($value) => $value !== null && $value !== '')) }}"
+                   class="btn btn-outline-secondary">
+                    <i class="fa fa-file-csv me-1"></i> Export CSV
+                </a>
             </div>
         </form>
     </div>

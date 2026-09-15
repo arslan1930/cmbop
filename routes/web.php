@@ -616,6 +616,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
 
         Route::get('/users', [UserController::class, 'index'])
             ->name('users.index');
+        Route::get('/users/export', [UserController::class, 'export'])
+            ->middleware('throttle:12,1')
+            ->name('users.export');
         Route::get('/users/{user}', [UserController::class, 'show'])
             ->name('users.show');
 
@@ -737,6 +740,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             Route::post('/finance/payout-rules/fee', [AdminBillingRuleSettingController::class, 'updateFee'])
                 ->name('finance.payout-rules.fee');
             Route::get('/finance/export', [AdminFinanceController::class, 'export'])->name('finance.export');
+            Route::get('/finance/refunds/export', [AdminFinanceController::class, 'refundsExport'])
+                ->middleware('throttle:12,1')
+                ->name('finance.refunds.export');
             Route::get('/finance/ledger', [AdminFinanceController::class, 'ledger'])->name('finance.ledger');
             Route::get('/finance/ledger/export', [AdminFinanceController::class, 'ledgerExport'])->name('finance.ledger.export');
             Route::get('/finance/users/{user}', [AdminFinanceController::class, 'user'])->name('finance.user');
@@ -852,6 +858,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
 
         Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/data', [AdminOrderController::class, 'data'])->name('orders.data');
+        Route::get('/orders/export', [AdminOrderController::class, 'export'])
+            ->middleware('throttle:12,1')
+            ->name('orders.export');
         Route::get('/orders/items/{orderItem}/content', [AdminOrderController::class, 'downloadContent'])
             ->name('orders.content.download');
         Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->name('orders.show');

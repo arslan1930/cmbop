@@ -26,6 +26,9 @@
             <a id="exportPaymentsBtn" href="{{ route('admin.payments.export', absolute: false) }}" class="btn btn-outline-secondary btn-sm">
                 <i class="fa fa-download me-1"></i> Export CSV
             </a>
+            <a id="exportRefundsBtn" href="{{ route('admin.finance.refunds.export', absolute: false) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fa fa-file-csv me-1"></i> Export refunds
+            </a>
         </div>
     </div>
 
@@ -257,6 +260,7 @@ function escapeHtml(value) {
 const PAYMENTS_DATA = @json(route('admin.payments.data', absolute: false));
 const PAYMENTS_UPDATE = @json(route('admin.payments.updateStatus', ['id' => '__ID__'], absolute: false));
 const PAYMENTS_EXPORT = @json(route('admin.payments.export', absolute: false));
+const REFUNDS_EXPORT = @json(route('admin.finance.refunds.export', absolute: false));
 const ORDERS_SHOW = @json(route('admin.orders.show', ['id' => '__ID__'], absolute: false));
 
 function paymentUrl(template, id) {
@@ -293,6 +297,14 @@ function syncFiltersToUrl() {
     });
     const exportQs = exportParams.toString();
     $('#exportPaymentsBtn').attr('href', PAYMENTS_EXPORT + (exportQs ? '?' + exportQs : ''));
+    const refundParams = new URLSearchParams();
+    ['date_from', 'date_to'].forEach(function (key) {
+        if (data[key]) {
+            refundParams.set(key, data[key]);
+        }
+    });
+    const refundQs = refundParams.toString();
+    $('#exportRefundsBtn').attr('href', REFUNDS_EXPORT + (refundQs ? '?' + refundQs : ''));
 }
 
 function applyQueryFilters() {

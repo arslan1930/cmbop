@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Order;
+use App\Models\OrderItemDispute;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
@@ -10,6 +12,7 @@ use App\Services\ActivityLogger;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Billing\BillingRuleService;
 use App\Services\Orders\OrderClawbackService;
+use App\Support\Csv;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -17,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -24,6 +28,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class FinanceController extends Controller
 {
     public const LEDGER_EXPORT_LIMIT = 10000;
+
+    public const REFUNDS_EXPORT_LIMIT = 5000;
 
     public const DOSSIER_SEARCH_LIMIT = 8;
 
@@ -374,6 +380,199 @@ class FinanceController extends Controller
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    /**
+     * Refunded orders plus upheld clawbacks for the finance period.
+     */
+    public function refundsExport(Request $request): StreamedResponse
+    {
+        $input = $this->validatedPeriodInput($request);
+        $period = $this->finance->resolvePeriod(
+            $input['period'] ?? null,
+            $input['date_from'] ?? null,
+            $input['date_to'] ?? null
+        );
+
+        try {
+            $rows = $this->refundExportRows($period);
+        } catch (\Throwable $e) {
+            Log::warning('Admin refunds export query failed', [
+                'error' => $e->getMessage(),
+            ]);
+            $rows = collect();
+        }
+
+        $truncated = $rows->count() > self::REFUNDS_EXPORT_LIMIT;
+        $rows = $rows->take(self::REFUNDS_EXPORT_LIMIT)->values();
+        $filename = 'refunds-'.$period['key'].'-'.now()->format('Y-m-d-His').'.csv';
+
+        ActivityLogger::tryLog(
+            'finance.refunds_exported',
+            ($request->user()?->name ?? 'Admin').' exported refunds ('.$rows->count().' row(s)).',
+            null,
+            [
+                'period' => $period['key'] ?? null,
+                'label' => $period['label'] ?? null,
+                'date_from' => $input['date_from'] ?? null,
+                'date_to' => $input['date_to'] ?? null,
+                'rows_exported' => $rows->count(),
+                'truncated' => $truncated,
+            ]
+        );
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'kind',
+                'occurred_at',
+                'order_number',
+                'reference_code',
+                'advertiser_name',
+                'advertiser_email',
+                'publisher_name',
+                'publisher_email',
+                'site_name',
+                'amount',
+                'advertiser_credited',
+                'publisher_debited',
+                'debt_created',
+                'payment_status',
+                'order_status',
+                'dispute_id',
+            ]);
+
+            foreach ($rows as $row) {
+                fputcsv($out, [
+                    Csv::cell($row['kind'] ?? ''),
+                    Csv::cell($row['occurred_at'] ?? ''),
+                    Csv::cell($row['order_number'] ?? ''),
+                    Csv::cell($row['reference_code'] ?? ''),
+                    Csv::cell($row['advertiser_name'] ?? ''),
+                    Csv::cell($row['advertiser_email'] ?? ''),
+                    Csv::cell($row['publisher_name'] ?? ''),
+                    Csv::cell($row['publisher_email'] ?? ''),
+                    Csv::cell($row['site_name'] ?? ''),
+                    Csv::cell($row['amount'] ?? ''),
+                    Csv::cell($row['advertiser_credited'] ?? ''),
+                    Csv::cell($row['publisher_debited'] ?? ''),
+                    Csv::cell($row['debt_created'] ?? ''),
+                    Csv::cell($row['payment_status'] ?? ''),
+                    Csv::cell($row['order_status'] ?? ''),
+                    Csv::cell($row['dispute_id'] ?? ''),
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * @param  array{start: mixed, end: mixed, key: string, label: string}  $period
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function refundExportRows(array $period): Collection
+    {
+        $start = $period['start'] ?? null;
+        $end = $period['end'] ?? null;
+        $rows = collect();
+
+        try {
+            if (Schema::hasTable('orders')) {
+                $orders = Order::query()
+                    ->with(['user', 'items.site.publisher'])
+                    ->where('payment_status', 'refunded');
+                if ($start) {
+                    $orders->where('updated_at', '>=', $start);
+                }
+                if ($end) {
+                    $orders->where('updated_at', '<=', $end);
+                }
+
+                foreach ($orders->get() as $order) {
+                    $item = $order->items->first();
+                    $site = $item?->site;
+                    $publisher = $site?->publisher;
+                    $amount = number_format((float) $order->total_amount, 2, '.', '');
+                    $rows->push([
+                        'kind' => 'order_refund',
+                        'occurred_at' => optional($order->updated_at)?->toIso8601String(),
+                        'sort_at' => optional($order->updated_at)?->timestamp ?? 0,
+                        'order_number' => $order->order_number,
+                        'reference_code' => $order->reference_code,
+                        'advertiser_name' => $order->user?->name,
+                        'advertiser_email' => $order->user?->email,
+                        'publisher_name' => $publisher?->name,
+                        'publisher_email' => $publisher?->email,
+                        'site_name' => $item?->site_name ?: ($site?->site_name),
+                        'amount' => $amount,
+                        'advertiser_credited' => $amount,
+                        'publisher_debited' => '',
+                        'debt_created' => '',
+                        'payment_status' => $order->payment_status,
+                        'order_status' => $order->status,
+                        'dispute_id' => '',
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Admin refunds export order query failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            if (OrderItemDispute::tableAvailable()) {
+                $disputes = OrderItemDispute::query()
+                    ->with(['order.user', 'orderItem.site.publisher'])
+                    ->where('status', OrderItemDispute::STATUS_UPHELD);
+                if ($start) {
+                    $disputes->where('resolved_at', '>=', $start);
+                }
+                if ($end) {
+                    $disputes->where('resolved_at', '<=', $end);
+                }
+
+                foreach ($disputes->get() as $dispute) {
+                    $order = $dispute->order;
+                    $item = $dispute->orderItem;
+                    $site = $item?->site;
+                    $publisher = $site?->publisher;
+                    $credited = number_format((float) ($dispute->advertiser_credited ?? 0), 2, '.', '');
+                    $rows->push([
+                        'kind' => 'clawback',
+                        'occurred_at' => optional($dispute->resolved_at)?->toIso8601String(),
+                        'sort_at' => optional($dispute->resolved_at)?->timestamp ?? 0,
+                        'order_number' => $order?->order_number,
+                        'reference_code' => $order?->reference_code,
+                        'advertiser_name' => $order?->user?->name,
+                        'advertiser_email' => $order?->user?->email,
+                        'publisher_name' => $publisher?->name,
+                        'publisher_email' => $publisher?->email,
+                        'site_name' => $item?->site_name ?: ($site?->site_name),
+                        'amount' => $credited,
+                        'advertiser_credited' => $credited,
+                        'publisher_debited' => $dispute->publisher_debited === null
+                            ? ''
+                            : number_format((float) $dispute->publisher_debited, 2, '.', ''),
+                        'debt_created' => $dispute->debt_created === null
+                            ? ''
+                            : number_format((float) $dispute->debt_created, 2, '.', ''),
+                        'payment_status' => $order?->payment_status,
+                        'order_status' => $order?->status,
+                        'dispute_id' => $dispute->id,
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Admin refunds export clawback query failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $rows->sortByDesc('sort_at')->values();
     }
 
     /**
