@@ -88,6 +88,17 @@ final class LeftoverPublicI18nSlugs
 
 PHP;
 
+        $patched = preg_replace(
+            '/class\s+PublicI18n(?:\s+extends\s+\S+)?(?:\s+implements\s+[^{]+)?\s*\{/',
+            '$0'.$method,
+            $src,
+            1,
+            $count
+        );
+        if (is_string($patched) && $count === 1) {
+            return $patched;
+        }
+
         $patched = preg_replace('/}\s*$/', $method."}\n", $src, 1, $count);
         if (! is_string($patched) || $count !== 1) {
             return null;
