@@ -93,11 +93,12 @@ class HomepageCatalogPreviewTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('**', $html);
+        $this->assertHeroDaSlightlyBelowDr($html);
     }
 
     public function test_homepage_always_shows_catalog_table_even_without_sites(): void
     {
-        $this->get('/')
+        $html = $this->get('/')
             ->assertOk()
             ->assertSee('Publisher catalog preview', false)
             ->assertSee('Add to cart', false)
@@ -107,7 +108,54 @@ class HomepageCatalogPreviewTest extends TestCase
             ->assertSee('hamburg**.de', false)
             ->assertDontSee('Demo Site', false)
             ->assertDontSee('dashboard.png', false)
-            ->assertDontSee('advertiser/catalog', false);
+            ->assertDontSee('advertiser/catalog', false)
+            ->getContent();
+
+        $this->assertHeroDaSlightlyBelowDr($html);
+    }
+
+    public function test_hero_keeps_demo_da_slightly_below_dr_when_live_da_is_far_lower(): void
+    {
+        $publisher = $this->publisher();
+        $this->makeSite($publisher, [
+            'site_name' => 'Low DA News',
+            'domain' => 'low-da-news.de',
+            'site_url' => 'https://low-da-news.de',
+            'country' => 'de',
+            'language' => 'de',
+            'countries' => ['de'],
+            'languages' => ['de'],
+            'dr' => 89,
+            'da' => 32,
+            'traffic' => 500000,
+        ]);
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/catalog-metric--da">\s*<span class="catalog-metric__value">32</',
+            $html
+        );
+        $this->assertHeroDaSlightlyBelowDr($html);
+    }
+
+    public function test_hero_ctas_stay_on_one_line(): void
+    {
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertStringContainsString('slb-hero-cta-group', $html);
+        $this->assertStringContainsString('Get Started', $html);
+        $this->assertStringContainsString('Become a publisher', $html);
+
+        $hero = (string) file_get_contents(resource_path('views/components/hero.blade.php'));
+        $this->assertMatchesRegularExpression(
+            '/\.slb-hero-cta-group\s*\{[^}]*flex-wrap:\s*nowrap/s',
+            $hero
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/\.slb-hero-cta-group\s*\{[^}]*flex-direction:\s*column/s',
+            $hero
+        );
+        $this->assertStringContainsString('white-space: nowrap', $hero);
     }
 
     public function test_hero_catalog_preview_keeps_full_table_readable_on_narrow_viewports(): void
@@ -182,5 +230,29 @@ class HomepageCatalogPreviewTest extends TestCase
         $this->assertSame('berlin**.de', $service->maskDomain('berlin-editorial.de'));
         $this->assertSame('london**.co.uk', $service->maskDomain('www.london-trade.co.uk'));
         $this->assertSame('site**.com', $service->maskDomain(''));
+    }
+
+    private function assertHeroDaSlightlyBelowDr(string $html): void
+    {
+        preg_match_all(
+            '/catalog-metric--dr[^>]*>\s*<span class="catalog-metric__value">(\d+)/',
+            $html,
+            $drMatches
+        );
+        preg_match_all(
+            '/catalog-metric--da">\s*<span class="catalog-metric__value">(\d+)/',
+            $html,
+            $daMatches
+        );
+
+        $this->assertCount(3, $drMatches[1], $html);
+        $this->assertCount(3, $daMatches[1], $html);
+
+        foreach ($drMatches[1] as $i => $drValue) {
+            $dr = (int) $drValue;
+            $da = (int) $daMatches[1][$i];
+            $this->assertLessThan($dr, $da, "row {$i} DA {$da} should be below DR {$dr}");
+            $this->assertGreaterThanOrEqual($dr - 8, $da, "row {$i} DA {$da} should stay close to DR {$dr}");
+        }
     }
 }

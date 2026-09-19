@@ -24,7 +24,7 @@
             'domain_masked' => 'berlin**.de',
             'traffic' => 627000,
             'dr' => 89,
-            'da' => 74,
+            'da' => 83,
             'price' => 253.87,
             'categories' => ['Technology', 'Business'],
             'more_cats' => 1,
@@ -40,7 +40,7 @@
             'domain_masked' => 'munich**.de',
             'traffic' => 580400,
             'dr' => 89,
-            'da' => 28,
+            'da' => 82,
             'price' => 188.98,
             'categories' => ['Technology', 'Business'],
             'more_cats' => 1,
@@ -56,7 +56,7 @@
             'domain_masked' => 'hamburg**.de',
             'traffic' => 501200,
             'dr' => 88,
-            'da' => 28,
+            'da' => 81,
             'price' => 149.63,
             'categories' => ['Technology', 'Business'],
             'more_cats' => 1,
@@ -82,7 +82,7 @@
     $rows = [];
     foreach ($fallbackRows as $i => $base) {
         $site = $catalogPreview->get($i);
-        $rows[] = is_array($site)
+        $row = is_array($site)
             ? array_merge($base, [
                 'dr' => $site['dr'] ?? $base['dr'],
                 'da' => $site['da'] ?? $base['da'],
@@ -90,6 +90,11 @@
                 'traffic' => $site['traffic'] ?? $base['traffic'],
             ])
             : $base;
+        $dr = max(0, (int) ($row['dr'] ?? 0));
+        $gap = [6, 7, 5][$i] ?? 6;
+        $row['dr'] = $dr;
+        $row['da'] = max(0, $dr - $gap);
+        $rows[] = $row;
     }
 
     $rowCount = count($rows);

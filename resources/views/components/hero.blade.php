@@ -76,7 +76,7 @@
     position: relative;
     z-index: 2;
     display: grid;
-    grid-template-columns: minmax(220px, 0.62fr) minmax(0, 1.85fr);
+    grid-template-columns: minmax(320px, 0.72fr) minmax(0, 1.8fr);
     gap: 20px;
     align-items: center;
     width: 100%;
@@ -138,8 +138,12 @@
 
   .slb-hero-cta-group {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    flex-wrap: nowrap;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: max-content;
+    max-width: 100%;
     margin-top: 1.75rem;
     animation: slbHeroFade 0.7s ease 0.24s both;
   }
@@ -149,23 +153,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 14px 28px;
-    font-size: 0.98rem;
+    flex: 0 0 auto;
+    padding: 11px 16px;
+    font-size: 0.86rem;
     font-weight: 700;
     border-radius: 12px;
     text-decoration: none;
     white-space: nowrap;
-    max-width: 100%;
+    max-width: none;
     transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-  }
-
-  @media (max-width: 399.98px) {
-    .slb-hero-cta,
-    .slb-hero-cta-secondary {
-      white-space: normal;
-      text-align: center;
-      line-height: 1.25;
-    }
   }
 
   .slb-hero-cta {
@@ -360,6 +356,8 @@
     }
     .slb-hero-cta-group {
       justify-content: center;
+      margin-left: auto;
+      margin-right: auto;
     }
     /*
      * Stacked hero: shrinking the full dashboard to ~360px makes metrics
@@ -394,12 +392,15 @@
       padding-top: 12px;
     }
     .slb-hero-cta-group {
-      flex-direction: column;
-      align-items: stretch;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      justify-content: center;
     }
     .slb-hero-cta,
     .slb-hero-cta-secondary {
-      width: 100%;
+      width: auto;
+      padding: 10px 12px;
+      font-size: 0.8rem;
     }
     .slb-hero-visual {
       border-radius: 14px;
