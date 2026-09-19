@@ -1,0 +1,25 @@
+<?php
+
+return array_replace(require __DIR__.'/../en/messages.php', [
+    'login' => 'Zaloguj się',
+    'Sign Up' => 'Zarejestruj się',
+    'logout' => 'Wyloguj',
+    'hero_support' => 'Rynek artykułów gościnnych na zweryfikowanych stronach wydawców.',
+    'get_started' => 'Zacznij',
+    'hero_tagline' => 'Globalny rynek link buildingu dla SEO, digital PR i dystrybucji treści.',
+    'nav_marketplace' => 'Rynek',
+    'nav_pricing' => 'Cennik',
+    'nav_how_it_works' => 'Jak to działa',
+    'nav_about' => 'O nas',
+    'nav_faq' => 'FAQ',
+    'nav_become_publisher' => 'Zostań wydawcą',
+    'contact' => 'Kontakt',
+    'blog' => 'Blog',
+    'language' => 'Język',
+    'meta_home_title' => 'Kupuj artykuły gościnne u zweryfikowanych wydawców | SEOLinkBuildings',
+    'meta_home_description' => 'Kupuj artykuły gościnne na zweryfikowanych stronach wydawców. Portfel EUR, przejrzyste ceny, żywy URL na zamówieniu — rynek SEOLinkBuildings.',
+    'meta_home_description_off' => 'Kupuj artykuły gościnne na zweryfikowanych stronach wydawców. Portfel EUR, przejrzyste ceny, żywy URL na zamówieniu — rynek SEOLinkBuildings.',
+    'meta_blog_title' => 'Blog o link buildingu i digital PR | SEOLinkBuildings',
+    'meta_blog_description' => 'Praktyczne przewodniki po artykułach gościnnych, anchorach i AEO/SEO od zespołu SEOLinkBuildings.',
+    'Dashboard' => 'Panel',
+]);
