@@ -149,6 +149,54 @@ PHP);
         $decoded = json_decode(implode('', $output), true);
         $this->assertIsArray($decoded);
         $this->assertContains('guest-post-prices-europe', $decoded);
+        $this->assertTrue(
+            LeftoverPublicI18nSlugs::sourceDefinesMethod((string) file_get_contents($leftover)),
+            'leftover PublicI18n.php must keep the method on disk for leftover web.php:201'
+        );
+    }
+
+    public function test_leftover_unguarded_web_php_caller_survives_after_persist(): void
+    {
+        $dir = sys_get_temp_dir().DIRECTORY_SEPARATOR.'slb_i18n_persist_'.bin2hex(random_bytes(4));
+        mkdir($dir);
+        $leftover = $dir.DIRECTORY_SEPARATOR.'PublicI18n.php';
+        file_put_contents($leftover, <<<'PHP'
+<?php
+
+namespace App\Support;
+
+class PublicI18n
+{
+    public static function supported(): array
+    {
+        return ['en'];
+    }
+}
+PHP);
+
+        $injector = base_path('app/Support/LeftoverPublicI18nSlugs.php');
+        $script = $dir.DIRECTORY_SEPARATOR.'boot.php';
+        file_put_contents($script, <<<PHP
+<?php
+require_once {$this->phpString($injector)};
+\\App\\Support\\LeftoverPublicI18nSlugs::ensureEnglishOnlyMarketingSlugsMethod({$this->phpString($leftover)});
+\$englishOnlyMarketingSlugs = class_exists(\\App\\Support\\PublicI18n::class)
+    ? \\App\\Support\\PublicI18n::englishOnlyMarketingSlugs()
+    : ['guest-post-prices-europe'];
+echo json_encode(\$englishOnlyMarketingSlugs);
+PHP);
+
+        $output = [];
+        $exit = 0;
+        exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($script).' 2>&1', $output, $exit);
+        @unlink($script);
+        $persisted = (string) @file_get_contents($leftover);
+        @unlink($leftover);
+        @rmdir($dir);
+
+        $this->assertSame(0, $exit, implode("\n", $output));
+        $this->assertTrue(LeftoverPublicI18nSlugs::sourceDefinesMethod($persisted));
+        $this->assertSame(['guest-post-prices-europe'], json_decode(implode('', $output), true));
     }
 
     private function phpString(string $value): string

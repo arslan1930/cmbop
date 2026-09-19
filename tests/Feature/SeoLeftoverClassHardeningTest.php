@@ -37,6 +37,13 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $composer = (string) file_get_contents(base_path('composer.json'));
         $this->assertStringContainsString('leftover_public_i18n_slugs_boot.php', $composer);
 
+        $artisan = (string) file_get_contents(base_path('artisan'));
+        $index = (string) file_get_contents(base_path('public/index.php'));
+        $helper = (string) file_get_contents(base_path('app/Helpers/LanguageHelper.php'));
+        $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $artisan);
+        $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $index);
+        $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $helper);
+
         $controller = (string) file_get_contents(base_path('app/Http/Controllers/MarketingPageController.php'));
         $this->assertStringContainsString('class_exists(CountryLander::class)', $controller);
         $this->assertStringContainsString('class_exists(GuestPostPriceIndex::class)', $controller);
