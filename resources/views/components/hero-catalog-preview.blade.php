@@ -23,8 +23,8 @@
             'name' => 'berlin**.de',
             'domain_masked' => 'berlin**.de',
             'traffic' => 627000,
-            'dr' => 89,
-            'da' => 83,
+            'dr' => 48,
+            'da' => 58,
             'price' => 253.87,
             'categories' => ['Technology', 'Business'],
             'more_cats' => 1,
@@ -39,8 +39,8 @@
             'name' => 'munich**.de',
             'domain_masked' => 'munich**.de',
             'traffic' => 580400,
-            'dr' => 89,
-            'da' => 82,
+            'dr' => 45,
+            'da' => 55,
             'price' => 188.98,
             'categories' => ['Technology', 'Business'],
             'more_cats' => 1,
@@ -55,8 +55,8 @@
             'name' => 'hamburg**.de',
             'domain_masked' => 'hamburg**.de',
             'traffic' => 501200,
-            'dr' => 88,
-            'da' => 81,
+            'dr' => 42,
+            'da' => 52,
             'price' => 149.63,
             'categories' => ['Technology', 'Business'],
             'more_cats' => 1,
@@ -80,20 +80,17 @@
     }
 
     $rows = [];
-    foreach ($fallbackRows as $i => $base) {
+    foreach ($fallbackRows as $base) {
         $site = $catalogPreview->get($i);
         $row = is_array($site)
             ? array_merge($base, [
-                'dr' => $site['dr'] ?? $base['dr'],
-                'da' => $site['da'] ?? $base['da'],
                 'price' => $site['price'] ?? $base['price'],
                 'traffic' => $site['traffic'] ?? $base['traffic'],
             ])
             : $base;
-        $dr = max(0, (int) ($row['dr'] ?? 0));
-        $gap = [6, 7, 5][$i] ?? 6;
-        $row['dr'] = $dr;
-        $row['da'] = max(0, $dr - $gap);
+        // Demo scores stay in a mid band so live high-DR teasers cannot jump to ~90.
+        $row['dr'] = max(40, min(50, (int) ($base['dr'] ?? 45)));
+        $row['da'] = max(50, min(60, (int) ($base['da'] ?? 55)));
         $rows[] = $row;
     }
 

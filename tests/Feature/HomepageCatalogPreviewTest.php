@@ -93,7 +93,7 @@ class HomepageCatalogPreviewTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('**', $html);
-        $this->assertHeroDaSlightlyBelowDr($html);
+        $this->assertHeroDemoDrDaBands($html);
     }
 
     public function test_homepage_always_shows_catalog_table_even_without_sites(): void
@@ -111,10 +111,10 @@ class HomepageCatalogPreviewTest extends TestCase
             ->assertDontSee('advertiser/catalog', false)
             ->getContent();
 
-        $this->assertHeroDaSlightlyBelowDr($html);
+        $this->assertHeroDemoDrDaBands($html);
     }
 
-    public function test_hero_keeps_demo_da_slightly_below_dr_when_live_da_is_far_lower(): void
+    public function test_hero_keeps_demo_dr_da_in_mid_band_when_live_scores_are_extreme(): void
     {
         $publisher = $this->publisher();
         $this->makeSite($publisher, [
@@ -133,10 +133,14 @@ class HomepageCatalogPreviewTest extends TestCase
         $html = $this->get('/')->assertOk()->getContent();
 
         $this->assertDoesNotMatchRegularExpression(
+            '/catalog-metric--dr[^>]*>\s*<span class="catalog-metric__value">89</',
+            $html
+        );
+        $this->assertDoesNotMatchRegularExpression(
             '/catalog-metric--da">\s*<span class="catalog-metric__value">32</',
             $html
         );
-        $this->assertHeroDaSlightlyBelowDr($html);
+        $this->assertHeroDemoDrDaBands($html);
     }
 
     public function test_hero_ctas_stay_on_one_line(): void
@@ -232,7 +236,7 @@ class HomepageCatalogPreviewTest extends TestCase
         $this->assertSame('site**.com', $service->maskDomain(''));
     }
 
-    private function assertHeroDaSlightlyBelowDr(string $html): void
+    private function assertHeroDemoDrDaBands(string $html): void
     {
         preg_match_all(
             '/catalog-metric--dr[^>]*>\s*<span class="catalog-metric__value">(\d+)/',
@@ -251,8 +255,10 @@ class HomepageCatalogPreviewTest extends TestCase
         foreach ($drMatches[1] as $i => $drValue) {
             $dr = (int) $drValue;
             $da = (int) $daMatches[1][$i];
-            $this->assertLessThan($dr, $da, "row {$i} DA {$da} should be below DR {$dr}");
-            $this->assertGreaterThanOrEqual($dr - 8, $da, "row {$i} DA {$da} should stay close to DR {$dr}");
+            $this->assertGreaterThanOrEqual(40, $dr, "row {$i} DR {$dr} should be at least 40");
+            $this->assertLessThanOrEqual(50, $dr, "row {$i} DR {$dr} should be at most 50");
+            $this->assertGreaterThanOrEqual(50, $da, "row {$i} DA {$da} should be at least 50");
+            $this->assertLessThanOrEqual(60, $da, "row {$i} DA {$da} should be at most 60");
         }
     }
 }
