@@ -14,6 +14,13 @@ try {
     // Register the Composer autoloader...
     require __DIR__.'/../vendor/autoload.php';
 
+    // Leftover bootstrap/app.php may skip the injector. Heal PublicI18n.php
+    // before routes/web.php boots (unguarded englishOnlyMarketingSlugs()).
+    $leftoverPublicI18nBoot = __DIR__.'/../app/Support/leftover_public_i18n_boot.php';
+    if (is_file($leftoverPublicI18nBoot)) {
+        require_once $leftoverPublicI18nBoot;
+    }
+
     // Bootstrap Laravel and handle the request...
     /** @var Application $app */
     $app = require_once __DIR__.'/../bootstrap/app.php';
