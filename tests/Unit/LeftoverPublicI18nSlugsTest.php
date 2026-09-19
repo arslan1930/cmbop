@@ -141,6 +141,7 @@ PHP);
         $output = [];
         $exit = 0;
         exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($script).' 2>&1', $output, $exit);
+        $persisted = (string) @file_get_contents($leftover);
         @unlink($script);
         @unlink($leftover);
         @rmdir($dir);
@@ -150,7 +151,7 @@ PHP);
         $this->assertIsArray($decoded);
         $this->assertContains('guest-post-prices-europe', $decoded);
         $this->assertTrue(
-            LeftoverPublicI18nSlugs::sourceDefinesMethod((string) file_get_contents($leftover)),
+            LeftoverPublicI18nSlugs::sourceDefinesMethod($persisted),
             'leftover PublicI18n.php must keep the method on disk for leftover web.php:201'
         );
     }
