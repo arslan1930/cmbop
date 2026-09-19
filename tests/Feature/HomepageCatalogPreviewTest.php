@@ -78,13 +78,16 @@ class HomepageCatalogPreviewTest extends TestCase
         $html = $this->get('/')
             ->assertOk()
             ->assertSee('Publisher catalog preview', false)
-            ->assertSee('Add to cart', false)
+            ->assertSee('Buy Now', false)
+            ->assertSee('Niche', false)
+            ->assertSee('Backlinks', false)
             ->assertSee('berlin**.de', false)
-            ->assertSee('munich**.de', false)
+            ->assertSee('munich**.net', false)
             ->assertSee('hamburg**.de', false)
             ->assertSee('Germany', false)
             ->assertDontSee('Demo Site', false)
             ->assertDontSee('German News Hub', false)
+            ->assertDontSee('Add to cart', false)
             ->assertDontSee('dashboard.png', false)
             ->assertDontSee('French Lifestyle', false)
             ->assertDontSee('french-lifestyle.fr', false)
@@ -100,12 +103,13 @@ class HomepageCatalogPreviewTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertSee('Publisher catalog preview', false)
-            ->assertSee('Add to cart', false)
+            ->assertSee('Buy Now', false)
             ->assertSee('Germany', false)
             ->assertSee('berlin**.de', false)
-            ->assertSee('munich**.de', false)
+            ->assertSee('munich**.net', false)
             ->assertSee('hamburg**.de', false)
             ->assertDontSee('Demo Site', false)
+            ->assertDontSee('Add to cart', false)
             ->assertDontSee('dashboard.png', false)
             ->assertDontSee('advertiser/catalog', false);
     }
@@ -116,7 +120,7 @@ class HomepageCatalogPreviewTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('catalog-table', $html);
+        $this->assertStringContainsString('slb-hero-shot-table', $html);
         $this->assertStringContainsString('slb-hero-catalog-clone', $html);
         $this->assertStringContainsString('min-width: 720px', $html);
         $this->assertStringContainsString('overscroll-behavior-x: contain', $html);

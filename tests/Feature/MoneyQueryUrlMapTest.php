@@ -20,7 +20,7 @@ class MoneyQueryUrlMapTest extends TestCase
         $de = $this->get('/de')->assertOk()->getContent();
 
         $this->assertStringContainsString('Guest Post Marketplace for SEO Backlinks', $home);
-        $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $home);
+        $this->assertStringContainsString('Earn powerful backlinks from trusted websites.', $home);
         $this->assertStringNotContainsString('Buy guest posts from verified publishers', $home);
         $this->assertStringNotContainsString('Become a Publisher and Sell Guest Posts', $home);
 
