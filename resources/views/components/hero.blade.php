@@ -43,11 +43,11 @@
     position: relative;
     width: 100%;
     margin-top: 0;
-    min-height: auto;
+    min-height: min(88vh, 820px);
     overflow: visible;
     display: flex;
     align-items: center;
-    padding: 52px 0 56px;
+    padding: 28px 0 0;
     background: var(--grad-hero, linear-gradient(145deg, #e6f5f5 0%, #f7fafb 40%, #ffffff 100%));
   }
 
@@ -76,14 +76,14 @@
     position: relative;
     z-index: 2;
     display: grid;
-    grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
-    gap: 32px;
+    grid-template-columns: minmax(320px, 0.72fr) minmax(0, 1.8fr);
+    gap: 20px;
     align-items: center;
     width: 100%;
-    max-width: 1280px;
+    max-width: 1600px;
     margin: 0 auto;
-    padding-left: clamp(20px, 3.5vw, 40px);
-    padding-right: clamp(20px, 3.5vw, 40px);
+    padding-left: clamp(16px, 4vw, 56px);
+    padding-right: 0;
     min-width: 0;
   }
 
@@ -106,9 +106,9 @@
   }
 
   .slb-hero-mark {
-    height: clamp(44px, 6vw, 64px);
+    height: clamp(56px, 8vw, 84px);
     width: auto;
-    max-width: min(420px, 94%);
+    max-width: min(560px, 94%);
     object-fit: contain;
     background: transparent;
     flex-shrink: 0;
@@ -117,8 +117,8 @@
   .slb-hero-title {
     margin: 0;
     font-family: var(--slb-font-display, 'Sora', sans-serif);
-    font-size: clamp(1.55rem, 2.6vw, 2.15rem);
-    line-height: 1.18;
+    font-size: clamp(1.65rem, 3.2vw, 2.55rem);
+    line-height: 1.15;
     font-weight: 700;
     color: var(--brand-primary, #1a585e);
     letter-spacing: -0.015em;
@@ -139,7 +139,11 @@
   .slb-hero-cta-group {
     display: flex;
     flex-wrap: nowrap;
-    gap: 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: max-content;
+    max-width: 100%;
     margin-top: 1.75rem;
     animation: slbHeroFade 0.7s ease 0.24s both;
   }
@@ -149,23 +153,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 12px 22px;
-    font-size: 0.92rem;
+    flex: 0 0 auto;
+    padding: 11px 16px;
+    font-size: 0.86rem;
     font-weight: 700;
     border-radius: 12px;
     text-decoration: none;
     white-space: nowrap;
-    max-width: 100%;
+    max-width: none;
     transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-  }
-
-  @media (max-width: 399.98px) {
-    .slb-hero-cta,
-    .slb-hero-cta-secondary {
-      white-space: normal;
-      text-align: center;
-      line-height: 1.25;
-    }
   }
 
   .slb-hero-cta {
@@ -222,183 +218,82 @@
 
   .slb-hero-visual {
     position: relative;
-    align-self: center;
-    justify-self: stretch;
-    width: 100%;
-    max-width: 100%;
-    zoom: 1;
+    align-self: end;
+    justify-self: end;
+    width: 1340px;
+    max-width: none;
+    zoom: 0.74;
     animation: slbHeroRise 0.9s ease 0.18s both;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-radius: 18px;
-    box-shadow: 0 22px 56px rgba(15, 45, 60, 0.16);
-    border: 1px solid rgba(26, 88, 94, 0.08);
-    background: #fff;
+    overflow: hidden;
+    border-radius: 18px 0 0 0;
+    box-shadow: -18px 24px 70px rgba(26, 88, 94, 0.18);
+    border: 1px solid rgba(26, 88, 94, 0.1);
+    border-right: none;
+    background: #f7fafb;
   }
 
   .slb-hero-catalog-clone {
     pointer-events: none;
-    padding: 0;
-    background: #fff;
+    padding: 10px 8px 6px 10px;
+    background: transparent;
     width: 100%;
     min-width: 0;
+  }
+
+  .slb-hero-catalog-clone .catalog-filters-card .row {
+    flex-wrap: nowrap;
+  }
+
+  .slb-hero-catalog-clone .catalog-tag-quick {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+
+  .slb-hero-catalog-clone .catalog-table-scroll {
+    display: block !important;
     overflow: visible;
   }
 
-  .slb-hero-shot-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: auto;
-    font-size: 10px;
-    line-height: 1.2;
-    color: #334155;
-    margin: 0;
+  .slb-hero-catalog-clone .catalog-metric {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 3.5rem;
   }
 
-  .slb-hero-shot-table thead th {
-    background: #3b82f6;
-    color: #fff;
-    font-size: 8.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    padding: 8px 6px;
-    text-align: center;
-    border: 0;
-  }
-
-  .slb-hero-shot-table thead th.is-site {
-    text-align: left;
-    padding-left: 12px;
-    border-radius: 16px 0 0 0;
-  }
-
-  .slb-hero-shot-table thead th:last-child {
-    border-radius: 0 16px 0 0;
-  }
-
-  .slb-hero-shot-table tbody td {
-    padding: 7px 5px;
-    border-bottom: 1px solid #eef2f6;
-    vertical-align: middle;
-    text-align: center;
-    white-space: nowrap;
-    background: #fff;
-  }
-
-  .slb-hero-shot-table tbody tr:last-child td {
-    border-bottom: 0;
-  }
-
-  .slb-hero-shot-table td.is-site {
-    text-align: left;
-    padding-left: 12px;
-    min-width: 96px;
-  }
-
-  .slb-hero-shot-domain {
-    display: inline-block;
-    font-weight: 600;
-    color: #64748b;
-    max-width: 92px;
+  .slb-hero-catalog-clone .catalog-metric__bar {
+    display: block;
+    width: 3.25rem;
+    max-width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: #d5dbe3;
     overflow: hidden;
   }
 
-  .slb-hero-shot-icons {
-    display: inline-flex;
-    gap: 4px;
-    margin-left: 6px;
-    color: #94a3b8;
-    font-size: 9px;
-  }
-
-  .slb-hero-shot-table td.is-niche {
-    text-align: left;
-    white-space: normal;
-    min-width: 96px;
-    max-width: 128px;
-    font-size: 9.5px;
-    line-height: 1.3;
-    color: #64748b;
-  }
-
-  .slb-hero-shot-table td.is-niche span {
+  .slb-hero-catalog-clone .catalog-metric__fill {
     display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #3faeb2;
   }
 
-  .slb-hero-shot-more {
-    color: #0ea5e9;
-    font-weight: 600;
+  .slb-hero-catalog-clone .catalog-metric--da .catalog-metric__fill {
+    background: #24abe2;
   }
 
-  .slb-hero-shot-table td.is-country {
-    text-align: left;
-  }
-
-  .slb-hero-shot-flag {
-    display: inline-block;
-    margin-right: 4px;
-    font-size: 12px;
-  }
-
-  .slb-hero-shot-dr {
-    display: inline-flex;
+  .slb-hero-catalog-clone .catalog-country {
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: 22px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 3px;
-    background: #2563eb;
-    color: #fff;
-    font-weight: 700;
-    font-size: 9px;
+    gap: 2px;
   }
 
-  .slb-hero-shot-table td.is-metric {
-    font-weight: 600;
-    color: #334155;
-  }
-
-  .slb-hero-shot-table td.is-metric i {
-    color: #f59e0b;
-    font-size: 9px;
-    margin-right: 2px;
-  }
-
-  .slb-hero-shot-sponsored {
-    color: #16a34a;
-    font-weight: 600;
-    font-size: 9.5px;
-  }
-
-  .slb-hero-shot-table td.is-price {
-    font-weight: 700;
-    color: #0f172a;
-  }
-
-  .slb-hero-shot-table td.is-action {
-    white-space: nowrap;
-  }
-
-  .slb-hero-shot-buy {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 8px;
-    border-radius: 6px;
-    background: #22c55e;
-    color: #fff;
-    font-size: 9px;
-    font-weight: 700;
-  }
-
-  .slb-hero-shot-fav {
-    display: inline-flex;
-    margin-left: 6px;
-    color: #94a3b8;
-    font-size: 11px;
+  .slb-hero-catalog-clone__flag-tile {
+    font-size: 1.15rem;
+    background: #e6f5f5;
   }
 
   .slb-hero-catalog-hit {
@@ -461,6 +356,8 @@
     }
     .slb-hero-cta-group {
       justify-content: center;
+      margin-left: auto;
+      margin-right: auto;
     }
     /*
      * Stacked hero: shrinking the full dashboard to ~360px makes metrics
@@ -479,8 +376,8 @@
       overscroll-behavior-x: contain;
       border-radius: 16px;
       box-shadow: 0 18px 48px rgba(26, 88, 94, 0.14);
-      background: #fff;
-      border: 1px solid rgba(26, 88, 94, 0.08);
+      background: #f7fafb;
+      border: 1px solid rgba(26, 88, 94, 0.1);
       scrollbar-width: thin;
     }
     .slb-hero-catalog-clone {
@@ -495,12 +392,15 @@
       padding-top: 12px;
     }
     .slb-hero-cta-group {
-      flex-direction: column;
-      align-items: stretch;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      justify-content: center;
     }
     .slb-hero-cta,
     .slb-hero-cta-secondary {
-      width: 100%;
+      width: auto;
+      padding: 10px 12px;
+      font-size: 0.8rem;
     }
     .slb-hero-visual {
       border-radius: 14px;
