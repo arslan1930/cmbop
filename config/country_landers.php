@@ -677,4 +677,46 @@ return [
             ],
         ],
     ],
+    'poland' => [
+        'slug' => 'guest-posts-poland',
+        'codes' => ['pl'],
+        'market' => 'Poland',
+        'keyword' => 'guest posts poland',
+        'kicker' => 'Polish publishers',
+        'title' => 'Guest posts in Poland',
+        'meta_title' => 'Guest Posts in Poland — PL Publishers, EUR',
+        'meta_description' => 'Buy guest posts on verified Polish publishers. EUR wallet, tracked live URLs, and a public sample of Poland inventory.',
+        'subtitle' => 'Primary-Poland publishers. Pay in EUR and keep the live URL on the order.',
+        'point_1_title' => 'Poland-primary listings',
+        'point_1_body' => 'Teasers are PL-primary sites — not a mixed Central Europe dump. Czech and Slovak stay on their own filters after login.',
+        'point_2_title' => 'EUR checkout',
+        'point_2_body' => 'Quotes and the wallet are in euro. Fund once, then buy Polish placements.',
+        'point_3_title' => 'Language',
+        'point_3_body' => 'Most PL-primary sites publish in Polish. Match the brief to the listing language.',
+        'teaser_title' => 'Sample Polish inventory',
+        'teaser_subtitle' => 'Masked preview of live Poland listings. Register to see domains and check out.',
+        'blog_slugs' => [
+            'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
+            'how-to-choose-a-publisher-site-dr-da-traffic-niche',
+            'wallet-escrow-and-refunds-explained',
+        ],
+        'faqs' => [
+            [
+                'q' => 'Can I buy Polish guest posts here?',
+                'a' => 'Yes. Register, filter country Poland, and check out in EUR.',
+            ],
+            [
+                'q' => 'Should the article be in Polish?',
+                'a' => 'Most PL-primary sites publish in Polish. Match the brief to the listing.',
+            ],
+            [
+                'q' => 'Do you show domains here?',
+                'a' => 'No. Hosts stay masked until you register.',
+            ],
+            [
+                'q' => 'How does delivery work?',
+                'a' => 'The publisher submits the live URL on the order. You approve it or request changes there.',
+            ],
+        ],
+    ],
 ];

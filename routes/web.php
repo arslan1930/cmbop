@@ -92,6 +92,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Support\CountryLander;
+use App\Support\EnglishOnlyMarketingSlugs;
 use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
@@ -107,29 +108,43 @@ use Illuminate\Support\Facades\Route;
 /*
 |--------------------------------------------------------------------------
 | Public marketing routes (multilingual: en unprefixed UK English,
-| de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee prefixed). Authenticated SaaS + login/register stay English-only.
+| de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee|pl prefixed). Authenticated SaaS + login/register stay English-only.
 |--------------------------------------------------------------------------
 */
 
-$prefixedLocales = class_exists(PublicI18n::class)
-    ? PublicI18n::prefixed()
-    : (array) config('i18n.prefixed', [
-        'de', 'fr', 'nl', 'es', 'it', 'us',
-        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
-    ]);
-$supportedLocales = class_exists(PublicI18n::class)
-    ? PublicI18n::supported()
-    : (array) config('i18n.supported', [
-        'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
-        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
-    ]);
+$prefixedLocales = (array) config('i18n.prefixed', [
+    'de', 'fr', 'nl', 'es', 'it', 'us',
+    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
+]);
+if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'prefixed')) {
+    try {
+        $prefixedLocales = array_values(array_unique(array_filter(
+            array_merge($prefixedLocales, PublicI18n::prefixed()),
+            'strlen'
+        )));
+    } catch (Throwable) {
+    }
+}
+$supportedLocales = (array) config('i18n.supported', [
+    'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
+    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
+]);
+if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
+    try {
+        $supportedLocales = array_values(array_unique(array_filter(
+            array_merge($supportedLocales, PublicI18n::supported()),
+            'strlen'
+        )));
+    } catch (Throwable) {
+    }
+}
 $prefixedLocalePattern = implode('|', array_values(array_filter($prefixedLocales, 'strlen')));
 $supportedLocalePattern = implode('|', array_values(array_filter($supportedLocales, 'strlen')));
 if ($prefixedLocalePattern === '') {
-    $prefixedLocalePattern = 'de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee';
+    $prefixedLocalePattern = 'de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee|pl';
 }
 if ($supportedLocalePattern === '') {
-    $supportedLocalePattern = 'en|de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee';
+    $supportedLocalePattern = 'en|de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee|pl';
 }
 
 // Stacked locale cleanup: /nl/fr → /nl
@@ -197,9 +212,24 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
         ->name('newsletter.subscribe');
 };
 
-$englishOnlyMarketingSlugs = class_exists(PublicI18n::class)
-    ? PublicI18n::englishOnlyMarketingSlugs()
-    : ['guest-post-prices-europe'];
+$englishOnlyMarketingSlugs = ['guest-post-prices-europe'];
+if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')) {
+    try {
+        $fromPublic = PublicI18n::englishOnlyMarketingSlugs();
+        if (is_array($fromPublic) && $fromPublic !== []) {
+            $englishOnlyMarketingSlugs = $fromPublic;
+        }
+    } catch (Throwable) {
+    }
+} elseif (class_exists(EnglishOnlyMarketingSlugs::class) && method_exists(EnglishOnlyMarketingSlugs::class, 'all')) {
+    try {
+        $fromHelper = EnglishOnlyMarketingSlugs::all();
+        if (is_array($fromHelper) && $fromHelper !== []) {
+            $englishOnlyMarketingSlugs = $fromHelper;
+        }
+    } catch (Throwable) {
+    }
+}
 
 $registerEnglishOnlyMarketingRoutes = function () {
     $landers = class_exists(CountryLander::class) ? CountryLander::all() : [];

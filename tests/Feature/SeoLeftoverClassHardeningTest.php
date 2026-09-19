@@ -22,6 +22,10 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('prependToGroup(\'web\', CanonicalHost::class)', $bootstrap);
         $this->assertStringContainsString('LeftoverPublicI18nSlugs.php', $bootstrap);
         $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $bootstrap);
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', (string) file_get_contents(base_path('composer.json')));
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', (string) file_get_contents(base_path('artisan')));
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', (string) file_get_contents(base_path('public/index.php')));
+        $this->assertStringContainsString('persistMissingMethod', (string) file_get_contents(base_path('app/Support/LeftoverPublicI18nSlugs.php')));
 
         $web = (string) file_get_contents(base_path('routes/web.php'));
         $this->assertStringContainsString('class_exists(CountryLander::class)', $web);
@@ -29,6 +33,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $web);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $web);
         $this->assertStringContainsString('PublicI18n::englishOnlyMarketingSlugs()', $web);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')", $web);
+        $this->assertStringContainsString('class_exists(EnglishOnlyMarketingSlugs::class)', $web);
         $this->assertStringContainsString('class_exists(RobotsTxt::class)', $web);
 
         $controller = (string) file_get_contents(base_path('app/Http/Controllers/MarketingPageController.php'));
