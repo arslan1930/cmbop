@@ -80,7 +80,7 @@
     }
 
     $rows = [];
-    foreach ($fallbackRows as $base) {
+    foreach ($fallbackRows as $i => $base) {
         $site = $catalogPreview->get($i);
         $row = is_array($site)
             ? array_merge($base, [
