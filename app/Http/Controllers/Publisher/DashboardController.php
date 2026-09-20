@@ -20,12 +20,22 @@ class DashboardController extends Controller
             return view('publisher.dashboard', $this->dashboard->build(auth()->user()));
         } catch (\Throwable $e) {
             report($e);
-            session()->flash(
-                'error',
-                UserFacingError::message($e, 'We could not load your dashboard. Please refresh and try again.')
-            );
+            try {
+                session()->flash(
+                    'error',
+                    UserFacingError::message($e, 'We could not load your dashboard. Please refresh and try again.')
+                );
+            } catch (\Throwable $flash) {
+                report($flash);
+            }
 
-            return view('publisher.dashboard', $this->dashboard->emptyPayload());
+            try {
+                return view('publisher.dashboard', $this->dashboard->emptyPayload());
+            } catch (\Throwable $inner) {
+                report($inner);
+
+                return view('publisher.dashboard', PublisherDashboardService::inertPayload());
+            }
         }
     }
 
@@ -42,9 +52,16 @@ class DashboardController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
+            try {
+                $data = $this->dashboard->emptyStatisticsPayload();
+            } catch (\Throwable $inner) {
+                report($inner);
+                $data = PublisherDashboardService::inertStatisticsPayload();
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => $this->dashboard->emptyStatisticsPayload(),
+                'data' => $data,
             ]);
         }
     }

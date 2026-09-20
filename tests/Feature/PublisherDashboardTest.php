@@ -1420,6 +1420,68 @@ class PublisherDashboardTest extends TestCase
             ->assertDontSee('SQLSTATE');
     }
 
+    public function test_dashboard_html_stays_ok_when_build_throws(): void
+    {
+        $publisher = $this->publisherWithWallet();
+
+        $this->mock(PublisherDashboardService::class, function ($mock) {
+            $mock->shouldReceive('build')
+                ->once()
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: leftover boom'));
+            $mock->shouldReceive('emptyPayload')
+                ->once()
+                ->andReturn(PublisherDashboardService::inertPayload());
+        });
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Add your first website')
+            ->assertDontSee('SQLSTATE');
+    }
+
+    public function test_dashboard_html_stays_ok_when_empty_payload_also_throws(): void
+    {
+        $publisher = $this->publisherWithWallet();
+
+        $this->mock(PublisherDashboardService::class, function ($mock) {
+            $mock->shouldReceive('build')
+                ->once()
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: leftover boom'));
+            $mock->shouldReceive('emptyPayload')
+                ->once()
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: empty payload boom'));
+        });
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Add your first website')
+            ->assertDontSee('SQLSTATE');
+    }
+
+    public function test_dashboard_json_stays_ok_when_empty_statistics_also_throw(): void
+    {
+        $publisher = $this->publisherWithWallet();
+
+        $this->mock(PublisherDashboardService::class, function ($mock) {
+            $mock->shouldReceive('statisticsPayload')
+                ->once()
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: leftover boom'));
+            $mock->shouldReceive('emptyStatisticsPayload')
+                ->once()
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: empty stats boom'));
+        });
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.primary_action', 'add_site')
+            ->assertJsonPath('data.total_orders', 0)
+            ->assertDontSee('SQLSTATE');
+    }
+
     public function test_needs_you_survives_missing_modification_and_live_url_columns(): void
     {
         $publisher = $this->publisherWithWallet();

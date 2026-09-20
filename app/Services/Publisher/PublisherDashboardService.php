@@ -78,25 +78,31 @@ class PublisherDashboardService
      */
     public function emptyPayload(): array
     {
-        $stats = $this->buildStatistics([]);
-        $siteQueues = $this->emptySiteQueues();
-        $money = $this->emptyMoneyStrip();
+        try {
+            $stats = $this->buildStatistics([]);
+            $siteQueues = $this->emptySiteQueues();
+            $money = $this->emptyMoneyStrip();
 
-        return array_merge($siteQueues, $money, [
-            'needsYou' => 0,
-            'waitingOnAdvertiser' => 0,
-            'unreadChat' => 0,
-            'latestUnreadOrderId' => null,
-            'openDisputes' => 0,
-            'primaryAction' => 'add_site',
-            'attentionQueues' => [],
-            'stats' => $stats,
-            'metrics' => $this->buildPerformanceMetrics($stats),
-            'recentTasks' => [],
-            'weeklyEarnings' => $this->buildWeeklyEarnings([]),
-            'monthlyEarnings' => $this->buildMonthlyEarnings([]),
-            'orderStatus' => $this->buildOrderStatusDistribution([]),
-        ]);
+            return array_merge($siteQueues, $money, [
+                'needsYou' => 0,
+                'waitingOnAdvertiser' => 0,
+                'unreadChat' => 0,
+                'latestUnreadOrderId' => null,
+                'openDisputes' => 0,
+                'primaryAction' => 'add_site',
+                'attentionQueues' => [],
+                'stats' => $stats,
+                'metrics' => $this->buildPerformanceMetrics($stats),
+                'recentTasks' => [],
+                'weeklyEarnings' => $this->buildWeeklyEarnings([]),
+                'monthlyEarnings' => $this->buildMonthlyEarnings([]),
+                'orderStatus' => $this->buildOrderStatusDistribution([]),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Publisher dashboard empty payload failed', ['error' => $e->getMessage()]);
+
+            return static::inertPayload();
+        }
     }
 
     /**
@@ -149,19 +155,132 @@ class PublisherDashboardService
      */
     public function emptyStatisticsPayload(): array
     {
-        $stats = $this->buildStatistics([]);
-        $siteQueues = $this->emptySiteQueues();
-        $money = $this->emptyMoneyStrip();
+        try {
+            $stats = $this->buildStatistics([]);
+            $siteQueues = $this->emptySiteQueues();
+            $money = $this->emptyMoneyStrip();
 
-        return array_merge($stats, $this->buildPerformanceMetrics($stats), $siteQueues, [
+            return array_merge($stats, $this->buildPerformanceMetrics($stats), $siteQueues, [
+                'needs_you' => 0,
+                'waiting_on_advertiser' => 0,
+                'unread_chat' => 0,
+                'open_disputes' => 0,
+                'debt_balance' => $money['debtBalance'],
+                'reserved_balance' => $money['reservedBalance'],
+                'payout_ready' => $money['payoutReady'],
+                'pending_withdrawal_count' => $money['pendingWithdrawalCount'],
+                'in_progress_earnings' => 0.0,
+                'primary_action' => 'add_site',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Publisher dashboard empty statistics failed', ['error' => $e->getMessage()]);
+
+            return static::inertStatisticsPayload();
+        }
+    }
+
+    /**
+     * Last-resort view payload: no DB, no schema, no container.
+     *
+     * @return array<string, mixed>
+     */
+    public static function inertPayload(): array
+    {
+        $min = 20.0;
+        try {
+            $min = max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
+        } catch (\Throwable) {
+            $min = 20.0;
+        }
+
+        $stats = [
+            'total_orders' => 0,
+            'pending_orders' => 0,
+            'processing_orders' => 0,
+            'review_orders' => 0,
+            'scheduled_orders' => 0,
+            'completed_orders' => 0,
+            'cancelled_orders' => 0,
+            'total_earnings' => 0.0,
+            'pending_earnings' => 0.0,
+            'in_progress_earnings' => 0.0,
+            'total_sites' => 0,
+            'success_rate' => 0.0,
+        ];
+
+        return [
+            'siteCount' => 0,
+            'unverifiedSiteCount' => 0,
+            'awaitingDetailsCount' => 0,
+            'detailsCompleteCount' => 0,
+            'inviteCount' => 0,
+            'bulkBlocking' => false,
+            'liveSiteCount' => 0,
+            'waitingOnStaffCount' => 0,
+            'availableBalance' => 0.0,
+            'withdrawableBalance' => 0.0,
+            'reservedBalance' => 0.0,
+            'debtBalance' => 0.0,
+            'payoutReady' => false,
+            'pendingWithdrawalCount' => 0,
+            'pendingWithdrawalAmount' => 0.0,
+            'minWithdrawalAmount' => $min,
+            'needsYou' => 0,
+            'waitingOnAdvertiser' => 0,
+            'unreadChat' => 0,
+            'latestUnreadOrderId' => null,
+            'openDisputes' => 0,
+            'primaryAction' => 'add_site',
+            'attentionQueues' => [],
+            'stats' => $stats,
+            'metrics' => [
+                'success_rate' => 0.0,
+                'completion_rate' => 0.0,
+                'open_rate' => 0.0,
+                'avg_order_value' => 0.0,
+            ],
+            'recentTasks' => [],
+            'weeklyEarnings' => [
+                'labels' => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                'values' => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ],
+            'monthlyEarnings' => [
+                'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                'values' => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ],
+            'orderStatus' => [
+                'labels' => ['Pending', 'Processing', 'In Review', 'Scheduled', 'Completed', 'Cancelled'],
+                'values' => [0, 0, 0, 0, 0, 0],
+            ],
+        ];
+    }
+
+    /**
+     * Last-resort statistics JSON: no DB, no schema, no container.
+     *
+     * @return array<string, mixed>
+     */
+    public static function inertStatisticsPayload(): array
+    {
+        $inert = static::inertPayload();
+
+        return array_merge($inert['stats'], $inert['metrics'], [
+            'siteCount' => 0,
+            'unverifiedSiteCount' => 0,
+            'awaitingDetailsCount' => 0,
+            'detailsCompleteCount' => 0,
+            'inviteCount' => 0,
+            'bulkBlocking' => false,
+            'liveSiteCount' => 0,
+            'waitingOnStaffCount' => 0,
             'needs_you' => 0,
             'waiting_on_advertiser' => 0,
             'unread_chat' => 0,
             'open_disputes' => 0,
-            'debt_balance' => $money['debtBalance'],
-            'reserved_balance' => $money['reservedBalance'],
-            'payout_ready' => $money['payoutReady'],
-            'pending_withdrawal_count' => $money['pendingWithdrawalCount'],
+            'debt_balance' => 0.0,
+            'reserved_balance' => 0.0,
+            'payout_ready' => false,
+            'pending_withdrawal_count' => 0,
             'in_progress_earnings' => 0.0,
             'primary_action' => 'add_site',
         ]);
