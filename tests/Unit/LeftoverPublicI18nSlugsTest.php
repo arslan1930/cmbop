@@ -33,6 +33,10 @@ PHP;
         $this->assertTrue(LeftoverPublicI18nSlugs::sourceDefinesMethod((string) $patched));
         $this->assertStringContainsString('function englishOnlyMarketingSlugs(): array', (string) $patched);
         $this->assertStringContainsString("return ['guest-post-prices-europe'];", (string) $patched);
+        $this->assertLessThan(
+            strpos((string) $patched, 'function default'),
+            strpos((string) $patched, 'function englishOnlyMarketingSlugs')
+        );
     }
 
     public function test_does_not_duplicate_method_when_source_already_defines_it(): void

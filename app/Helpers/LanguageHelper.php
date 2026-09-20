@@ -2,11 +2,20 @@
 
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Support\LeftoverPublicI18nSlugs;
 use App\Support\MarketingHistoryDisplay;
 use App\Support\PublicI18n;
 use App\Support\WelcomeBonusCopy;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Request;
+
+$leftoverPublicI18nSlugs = __DIR__.'/../Support/LeftoverPublicI18nSlugs.php';
+if (is_file($leftoverPublicI18nSlugs)) {
+    require_once $leftoverPublicI18nSlugs;
+    if (class_exists(LeftoverPublicI18nSlugs::class)) {
+        LeftoverPublicI18nSlugs::ensureEnglishOnlyMarketingSlugsMethod();
+    }
+}
 
 if (! function_exists('get_language_switcher_url')) {
     function get_language_switcher_url($locale)

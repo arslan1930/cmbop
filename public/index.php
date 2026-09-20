@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\LeftoverPublicI18nSlugs;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
