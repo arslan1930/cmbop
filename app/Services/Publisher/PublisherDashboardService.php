@@ -308,6 +308,11 @@ class PublisherDashboardService
             ) {
                 return 0;
             }
+            if ($this->schemaHasTable('bulk_site_request_items')
+                && ! $this->schemaHasColumn('bulk_site_request_items', 'site_id')
+            ) {
+                return 0;
+            }
 
             return BulkSiteRequest::query()
                 ->where('publisher_id', $userId)
@@ -383,6 +388,9 @@ class PublisherDashboardService
         $empty = $this->emptyMoneyStrip();
 
         try {
+            if (! Wallet::tableAvailable()) {
+                return $empty;
+            }
             $wallet = $user->activeWallet();
         } catch (\Throwable) {
             return $empty;
@@ -429,7 +437,10 @@ class PublisherDashboardService
         $pendingCount = 0;
         $pendingAmount = 0.0;
         try {
-            if (Withdrawal::tableAvailable() && Withdrawal::hasTableColumn('status')) {
+            if (Withdrawal::tableAvailable()
+                && Withdrawal::hasTableColumn('status')
+                && Withdrawal::hasTableColumn('user_id')
+            ) {
                 $pending = Withdrawal::query()
                     ->where('user_id', $user->id)
                     ->whereIn('status', ['pending', 'processing']);
@@ -1066,7 +1077,9 @@ class PublisherDashboardService
     {
         if (! $this->schemaHasTable('wallet_transactions')
             || ! $this->schemaHasColumn('wallet_transactions', 'related_id')
+            || ! $this->schemaHasColumn('wallet_transactions', 'related_type')
             || ! $this->schemaHasColumn('wallet_transactions', 'type')
+            || ! $this->schemaHasColumn('wallet_transactions', 'direction')
         ) {
             $query->whereBetween('orders.updated_at', [$start, $end]);
 
@@ -1150,19 +1163,24 @@ class PublisherDashboardService
             return 0.0;
         }
 
-        return round((float) OrderItem::whereIn('site_id', $siteIds)
-            ->recognizedForFinance()
-            ->whereHas('order', function ($q) use ($orderStatus) {
-                $q->where('status', $orderStatus)
-                    ->where('payment_status', 'paid');
-            })
-            ->sum(OrderItem::publisherPayoutSqlExpression()), 2);
+        try {
+            return round((float) OrderItem::whereIn('site_id', $siteIds)
+                ->recognizedForFinance()
+                ->whereHas('order', function ($q) use ($orderStatus) {
+                    $q->where('status', $orderStatus)
+                        ->where('payment_status', 'paid');
+                })
+                ->sum(OrderItem::publisherPayoutSqlExpression()), 2);
+        } catch (\Throwable) {
+            return 0.0;
+        }
     }
 
     private function unreadChatReady(): bool
     {
         return $this->schemaHasColumn('order_chat_messages', 'is_read')
             && $this->schemaHasColumn('order_chat_messages', 'sender_type')
+            && $this->schemaHasColumn('order_chat_messages', 'order_id')
             && $this->orderItemsReady()
             && $this->paidOrdersReady()
             && $this->schemaHasColumn('sites', 'publisher_id');
