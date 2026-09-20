@@ -135,4 +135,10 @@ class VisitorSupportChatTest extends TestCase
         config(['services.support_chat.enabled' => false]);
         $this->assertFalse(VisitorSupportChat::enabled());
     }
+
+    public function test_missing_config_key_does_not_assume_first_party_files(): void
+    {
+        config(['services.support_chat' => []]);
+        $this->assertFalse(VisitorSupportChat::enabled());
+    }
 }
