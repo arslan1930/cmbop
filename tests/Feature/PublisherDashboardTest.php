@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
+use App\Models\OrderChatMessage;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\Role;
@@ -10,6 +11,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class PublisherDashboardTest extends TestCase
@@ -32,6 +34,10 @@ class PublisherDashboardTest extends TestCase
             'reserved_balance' => 0,
             'currency' => 'EUR',
         ]);
+
+        $user->forceFill([
+            'payout_paypal_email' => 'publisher-payout@example.com',
+        ])->save();
 
         return $user;
     }
@@ -542,5 +548,221 @@ class PublisherDashboardTest extends TestCase
             ->assertSee('id="openTasks">3', false);
 
         $html->assertSee(route('publisher.tasks', ['needs_action' => 1], false), false);
+
+        $recent = $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.recent'))
+            ->assertOk()
+            ->json('orders');
+        $this->assertNotEmpty($recent);
+        $this->assertTrue((bool) ($recent[0]['needs_you'] ?? false));
+        $this->assertStringContainsString('focus=order', (string) ($recent[0]['open_url'] ?? ''));
+        $this->assertStringContainsString('order=', (string) ($recent[0]['open_url'] ?? ''));
+    }
+
+    public function test_awaiting_details_beats_unverified_lump_and_splits_site_kpi(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher, [
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'site_name' => 'Needs Details Blog',
+            'site_url' => 'https://needs-details.example',
+            'domain' => 'needs-details.example',
+        ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.awaitingDetailsCount', 1)
+            ->assertJsonPath('data.primary_action', 'site_details');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Finish listing details')
+            ->assertSee('Need your details')
+            ->assertDontSee('Grow your catalog');
+    }
+
+    public function test_pending_invite_is_primary_when_listings_are_otherwise_done(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $staff = User::factory()->create(['email_verified_at' => now()]);
+        $this->site($publisher, [
+            'verified' => false,
+            'active' => false,
+            'publisher_accepted_at' => null,
+            'assigned_by_user_id' => $staff->id,
+            'site_name' => 'Invite Blog',
+            'site_url' => 'https://invite-dash.example',
+            'domain' => 'invite-dash.example',
+        ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.inviteCount', 1)
+            ->assertJsonPath('data.primary_action', 'invites');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Accept a site invite')
+            ->assertSee(route('publisher.websites', ['status' => 'invites'], false), false);
+    }
+
+    public function test_clawback_debt_is_primary_when_no_task_work_remains(): void
+    {
+        $publisher = $this->publisherWithWallet(80);
+        $this->site($publisher);
+        $wallet = $publisher->fresh()->activeWallet();
+        $wallet->forceFill(['debt_balance' => 40])->save();
+
+        $stats = $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.primary_action', 'debt')
+            ->json('data');
+        $this->assertEqualsWithDelta(40.0, (float) $stats['debt_balance'], 0.01);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Withdrawals are blocked')
+            ->assertSee('Debt €40.00 blocks withdrawals');
+    }
+
+    public function test_unread_chat_is_primary_when_needs_you_is_zero(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $item = $this->createOrderItem($advertiser, $site, [
+            'status' => 'review',
+            'payment_status' => 'paid',
+        ]);
+
+        OrderChatMessage::create([
+            'order_id' => $item->order_id,
+            'user_id' => $advertiser->id,
+            'sender_type' => 'advertiser',
+            'message' => 'Please check the live URL',
+            'is_read' => false,
+        ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.needs_you', 0)
+            ->assertJsonPath('data.unread_chat', 1)
+            ->assertJsonPath('data.primary_action', 'chat');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('You have 1 unread chat')
+            ->assertSee('focus=messages', false);
+    }
+
+    public function test_open_dispute_surfaces_on_home_when_nothing_else_needs_you(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $item = $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'payment_status' => 'paid',
+        ]);
+        OrderItemDispute::ensureTable();
+        OrderItemDispute::create([
+            'order_id' => $item->order_id,
+            'order_item_id' => $item->id,
+            'opened_by' => $advertiser->id,
+            'status' => OrderItemDispute::STATUS_OPEN,
+            'reason' => 'Live URL was removed.',
+        ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.open_disputes', 1)
+            ->assertJsonPath('data.primary_action', 'disputes');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('1 open dispute on a placement');
+    }
+
+    public function test_payout_setup_is_primary_when_withdrawable_and_no_method(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $publisher->forceFill(['payout_paypal_email' => null])->save();
+        $this->site($publisher);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('data.payout_ready', false)
+            ->assertJsonPath('data.primary_action', 'payout');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Set up payout details');
+    }
+
+    public function test_processing_payout_is_included_in_pending_tile_and_json(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+            'total_amount' => 115,
+        ], [
+            'price' => 115,
+            'live_url' => 'https://live.example/done',
+        ]);
+
+        $stats = $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->json('data');
+        $this->assertEqualsWithDelta(100.0, (float) $stats['in_progress_earnings'], 0.01);
+        $this->assertEqualsWithDelta(0.0, (float) $stats['pending_earnings'], 0.01);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Pending earnings')
+            ->assertSee('Publishing, not yet in review');
+    }
+
+    public function test_dashboard_survives_missing_chat_disputes_and_bulk_tables(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('order_chat_messages');
+        Schema::dropIfExists('order_item_disputes');
+        Schema::dropIfExists('bulk_site_requests');
+        OrderItemDispute::forgetTableAvailabilityCache();
+        OrderChatMessage::forgetBlockedColumnCache();
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Grow your catalog')
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.unread_chat', 0)
+            ->assertJsonPath('data.open_disputes', 0);
     }
 }
