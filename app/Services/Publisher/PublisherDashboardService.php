@@ -106,33 +106,64 @@ class PublisherDashboardService
      */
     public function statisticsPayload(User $user): array
     {
-        $userId = (int) $user->id;
-        $siteIds = $this->publisherSiteIds($userId);
-        $stats = $this->buildStatistics($siteIds);
-        $metrics = $this->buildPerformanceMetrics($stats);
-        $siteQueues = $this->siteQueues($userId, $siteIds);
-        $money = $this->moneyStrip($user);
-        $needsYou = $this->safeInt(fn () => PublisherNeedsAction::needsYouCount($userId));
-        $unreadChat = $this->unreadChatCount($userId);
-        $openDisputes = $this->openDisputeCount($userId);
+        try {
+            $userId = (int) $user->id;
+            $siteIds = $this->publisherSiteIds($userId);
+            $stats = $this->buildStatistics($siteIds);
+            $metrics = $this->buildPerformanceMetrics($stats);
+            $siteQueues = $this->siteQueues($userId, $siteIds);
+            $money = $this->moneyStrip($user);
+            $needsYou = $this->safeInt(fn () => PublisherNeedsAction::needsYouCount($userId));
+            $unreadChat = $this->unreadChatCount($userId);
+            $openDisputes = $this->openDisputeCount($userId);
 
-        return array_merge($stats, $metrics, $siteQueues, [
-            'needs_you' => $needsYou,
-            'waiting_on_advertiser' => $this->safeInt(fn () => PublisherNeedsAction::waitingOnAdvertiserCount($userId)),
-            'unread_chat' => $unreadChat,
-            'open_disputes' => $openDisputes,
+            return array_merge($stats, $metrics, $siteQueues, [
+                'needs_you' => $needsYou,
+                'waiting_on_advertiser' => $this->safeInt(fn () => PublisherNeedsAction::waitingOnAdvertiserCount($userId)),
+                'unread_chat' => $unreadChat,
+                'open_disputes' => $openDisputes,
+                'debt_balance' => $money['debtBalance'],
+                'reserved_balance' => $money['reservedBalance'],
+                'payout_ready' => $money['payoutReady'],
+                'pending_withdrawal_count' => $money['pendingWithdrawalCount'],
+                'in_progress_earnings' => (float) ($stats['in_progress_earnings'] ?? 0),
+                'primary_action' => $this->resolvePrimaryAction(
+                    $needsYou,
+                    $unreadChat,
+                    $openDisputes,
+                    $siteQueues,
+                    $money,
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Publisher dashboard statistics payload failed', ['error' => $e->getMessage()]);
+
+            return $this->emptyStatisticsPayload();
+        }
+    }
+
+    /**
+     * Leftover-safe JSON body when a mixed Hostinger schema still throws.
+     *
+     * @return array<string, mixed>
+     */
+    public function emptyStatisticsPayload(): array
+    {
+        $stats = $this->buildStatistics([]);
+        $siteQueues = $this->emptySiteQueues();
+        $money = $this->emptyMoneyStrip();
+
+        return array_merge($stats, $this->buildPerformanceMetrics($stats), $siteQueues, [
+            'needs_you' => 0,
+            'waiting_on_advertiser' => 0,
+            'unread_chat' => 0,
+            'open_disputes' => 0,
             'debt_balance' => $money['debtBalance'],
             'reserved_balance' => $money['reservedBalance'],
             'payout_ready' => $money['payoutReady'],
             'pending_withdrawal_count' => $money['pendingWithdrawalCount'],
-            'in_progress_earnings' => (float) ($stats['in_progress_earnings'] ?? 0),
-            'primary_action' => $this->resolvePrimaryAction(
-                $needsYou,
-                $unreadChat,
-                $openDisputes,
-                $siteQueues,
-                $money,
-            ),
+            'in_progress_earnings' => 0.0,
+            'primary_action' => 'add_site',
         ]);
     }
 
@@ -1080,6 +1111,7 @@ class PublisherDashboardService
             || ! $this->schemaHasColumn('wallet_transactions', 'related_type')
             || ! $this->schemaHasColumn('wallet_transactions', 'type')
             || ! $this->schemaHasColumn('wallet_transactions', 'direction')
+            || ! $this->schemaHasColumn('wallet_transactions', 'created_at')
         ) {
             $query->whereBetween('orders.updated_at', [$start, $end]);
 

@@ -10,6 +10,8 @@ use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\CheckoutSchemaService;
+use App\Services\Publisher\PublisherDashboardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -1370,6 +1372,134 @@ class PublisherDashboardTest extends TestCase
             ->getJson(route('publisher.dashboard.statistics'))
             ->assertJsonPath('data.total_orders', 1)
             ->assertJsonPath('data.open_disputes', 0);
+    }
+
+    public function test_dashboard_json_stays_ok_when_metrics_throw(): void
+    {
+        $publisher = $this->publisherWithWallet();
+
+        $this->mock(PublisherDashboardService::class, function ($mock) {
+            $mock->shouldReceive('statisticsPayload')
+                ->once()
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: leftover boom'));
+            $mock->shouldReceive('emptyStatisticsPayload')
+                ->once()
+                ->andReturn([
+                    'total_orders' => 0,
+                    'needs_you' => 0,
+                    'primary_action' => 'add_site',
+                ]);
+            $mock->shouldReceive('recentTasksPayload')
+                ->once()
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: leftover boom'));
+            $mock->shouldReceive('publisherSiteIds')->andReturn([]);
+            $mock->shouldReceive('weeklyEarningsPayload')
+                ->once()
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: leftover boom'));
+        });
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.primary_action', 'add_site')
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.recent'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(0, 'orders')
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.weekly-earnings'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.values', [0, 0, 0, 0, 0, 0, 0])
+            ->assertDontSee('SQLSTATE');
+    }
+
+    public function test_needs_you_survives_missing_modification_and_live_url_columns(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $item = $this->createOrderItem($advertiser, $site, [
+            'status' => 'pending',
+            'payment_status' => 'paid',
+        ]);
+
+        $this->mock(CheckoutSchemaService::class, function ($mock) {
+            $mock->shouldReceive('ensureCheckoutTables')->andReturnNull();
+        });
+
+        Schema::dropIfExists('order_items');
+        Schema::create('order_items', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('site_id')->nullable();
+            $table->timestamps();
+        });
+        DB::table('order_items')->insert([
+            'id' => $item->id,
+            'order_id' => $item->order_id,
+            'site_id' => $site->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('data.needs_you', 1)
+            ->assertJsonPath('data.primary_action', 'tasks');
+    }
+
+    public function test_dashboard_survives_wallet_transactions_without_created_at(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'payment_status' => 'paid',
+        ]);
+
+        Schema::dropIfExists('wallet_transactions');
+        Schema::create('wallet_transactions', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('related_id')->nullable();
+            $table->string('related_type')->nullable();
+            $table->string('type')->nullable();
+            $table->string('direction')->nullable();
+        });
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.weekly-earnings'))
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_dashboard_survives_chat_schema_without_sender_type(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('order_chat_messages');
+        Schema::create('order_chat_messages', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->boolean('is_read')->default(false);
+            $table->text('message')->nullable();
+            $table->timestamps();
+        });
+        OrderChatMessage::forgetBlockedColumnCache();
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('data.unread_chat', 0);
     }
 
     private function assertDashboardLeftoverSafe(User $publisher): void

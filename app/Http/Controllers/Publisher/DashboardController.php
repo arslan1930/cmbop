@@ -43,9 +43,9 @@ class DashboardController extends Controller
             report($e);
 
             return response()->json([
-                'success' => false,
-                'message' => UserFacingError::message($e, 'We could not load dashboard statistics. Please try again.'),
-            ], 500);
+                'success' => true,
+                'data' => $this->dashboard->emptyStatisticsPayload(),
+            ]);
         }
     }
 
@@ -68,9 +68,9 @@ class DashboardController extends Controller
             report($e);
 
             return response()->json([
-                'success' => false,
-                'message' => UserFacingError::message($e, 'Failed to fetch recent orders.'),
-            ], 500);
+                'success' => true,
+                'orders' => [],
+            ]);
         }
     }
 
@@ -90,13 +90,12 @@ class DashboardController extends Controller
             report($e);
 
             return response()->json([
-                'success' => false,
-                'message' => UserFacingError::message($e, 'Failed to load weekly earnings.'),
+                'success' => true,
                 'data' => [
                     'labels' => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                     'values' => [0, 0, 0, 0, 0, 0, 0],
                 ],
-            ], 500);
+            ]);
         }
     }
 
@@ -116,13 +115,12 @@ class DashboardController extends Controller
             report($e);
 
             return response()->json([
-                'success' => false,
-                'message' => UserFacingError::message($e, 'Failed to load order status.'),
+                'success' => true,
                 'data' => [
                     'labels' => ['Pending', 'Processing', 'In Review', 'Scheduled', 'Completed', 'Cancelled'],
                     'values' => [0, 0, 0, 0, 0, 0],
                 ],
-            ], 500);
+            ]);
         }
     }
 
@@ -142,13 +140,12 @@ class DashboardController extends Controller
             report($e);
 
             return response()->json([
-                'success' => false,
-                'message' => UserFacingError::message($e, 'Failed to load monthly earnings.'),
+                'success' => true,
                 'data' => [
                     'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
                     'values' => [0, 0, 0, 0, 0, 0],
                 ],
-            ], 500);
+            ]);
         }
     }
 }
