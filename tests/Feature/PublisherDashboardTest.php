@@ -971,19 +971,11 @@ class PublisherDashboardTest extends TestCase
         $publisher = $this->publisherWithWallet();
         $this->site($publisher);
 
-        Schema::dropIfExists('order_items');
         Schema::dropIfExists('orders');
         Schema::create('orders', function ($table) {
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable();
             $table->string('status')->nullable();
-            $table->timestamps();
-        });
-        Schema::create('order_items', function ($table) {
-            $table->id();
-            $table->unsignedBigInteger('order_id')->nullable();
-            $table->unsignedBigInteger('site_id')->nullable();
-            $table->decimal('price', 10, 2)->nullable();
             $table->timestamps();
         });
 
