@@ -4,13 +4,17 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\Role;
+use App\Models\Site;
 use App\Models\User;
 use App\Services\Admin\DashboardMetricsService;
 use App\Services\Wallet\PayoutProfileService;
 use App\Support\ProductionReadiness;
 use Database\Seeders\RolesTableSeeder;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -207,5 +211,137 @@ class AdminLeftoverErrorHardeningTest extends TestCase
         $this->assertSafeJsonFailure(
             $this->actingAs($admin)->getJson(route('admin.dashboard.statistics'))
         );
+    }
+
+    public function test_dashboard_json_survives_missing_queue_tables(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('bulk_site_request_items');
+        Schema::dropIfExists('bulk_site_requests');
+        Schema::dropIfExists('failed_jobs');
+        Schema::dropIfExists('content_moderation_logs');
+        Schema::dropIfExists('site_enrichment_runs');
+        Schema::enableForeignKeyConstraints();
+
+        if (Schema::hasColumn('users', 'catalog_hide_until')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('catalog_hide_until');
+            });
+        }
+
+        $page = $this->actingAs($admin)->get(route('admin.dashboard'));
+        $this->assertSafePage($page);
+        $page->assertOk();
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('open_bulk_requests', 0)
+            ->assertJsonPath('failed_mail', 0)
+            ->assertJsonPath('moderation_errors', 0)
+            ->assertJsonPath('enrichment_failed', 0)
+            ->assertJsonPath('catalog_hide', 0)
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('bulk', [])
+            ->assertJsonPath('mail', [])
+            ->assertJsonPath('moderation', [])
+            ->assertJsonPath('enrichment', [])
+            ->assertJsonPath('catalog_hide', [])
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.open_bulk_requests', 0)
+            ->assertJsonPath('data.failed_mail', 0)
+            ->assertDontSee('SQLSTATE');
+    }
+
+    public function test_dashboard_statistics_survive_missing_bulk_and_sites_tables(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        Site::create([
+            'publisher_id' => $publisher->id,
+            'site_name' => 'Live leftover site',
+            'site_url' => 'https://leftover-live.example',
+            'domain' => 'leftover-live.example',
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'us',
+            'language' => 'en',
+            'category' => 'marketing',
+            'price' => 40,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Catalog visible leftover fixture',
+            'verified' => 1,
+            'active' => 1,
+        ]);
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('bulk_site_request_items');
+        Schema::dropIfExists('bulk_site_requests');
+        Schema::enableForeignKeyConstraints();
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.live_sites', 1)
+            ->assertJsonPath('data.total_sites', 1)
+            ->assertDontSee('SQLSTATE');
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('sites');
+        Schema::enableForeignKeyConstraints();
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.live_sites', 0)
+            ->assertJsonPath('data.total_sites', 0)
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('unverified_sites', 0);
+    }
+
+    public function test_action_queue_ok_when_failed_mail_date_is_unparseable(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        DB::table('failed_jobs')->insert([
+            'uuid' => (string) Str::uuid(),
+            'connection' => 'database',
+            'queue' => 'emails',
+            'payload' => json_encode([
+                'displayName' => 'App\\Mail\\WelcomeEmail',
+                'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
+                'data' => ['commandName' => 'Illuminate\\Mail\\SendQueuedMailable'],
+            ]),
+            'exception' => 'SMTP leftover date',
+            'failed_at' => 'not-a-date',
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('mail.0.label', 'SMTP leftover date');
     }
 }

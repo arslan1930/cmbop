@@ -47,33 +47,25 @@ class DashboardMetricsService
      */
     public function statistics(): array
     {
-        $advertiserRoleId = Role::where('name', 'advertiser')->value('id');
-        $publisherRoleId = Role::where('name', 'publisher')->value('id');
-        $adminRoleId = Role::where('name', 'admin')->value('id');
-        $marketingRoleId = Role::where('name', 'marketing')->value('id');
+        $advertiserRoleId = $this->roleId('advertiser');
+        $publisherRoleId = $this->roleId('publisher');
+        $adminRoleId = $this->roleId('admin');
+        $marketingRoleId = $this->roleId('marketing');
         $queues = $this->queueCounts();
 
         return [
-            'total_users' => User::count(),
-            'advertisers' => $advertiserRoleId
-                ? (int) DB::table('role_user')->where('role_id', $advertiserRoleId)->distinct()->count('user_id')
-                : 0,
-            'publishers' => $publisherRoleId
-                ? (int) DB::table('role_user')->where('role_id', $publisherRoleId)->distinct()->count('user_id')
-                : 0,
-            'admins' => $adminRoleId
-                ? (int) DB::table('role_user')->where('role_id', $adminRoleId)->distinct()->count('user_id')
-                : 0,
-            'marketers' => $marketingRoleId
-                ? (int) DB::table('role_user')->where('role_id', $marketingRoleId)->distinct()->count('user_id')
-                : 0,
-            'total_sites' => Site::count(),
-            'verified_sites' => Site::where('verified', 1)->count(),
-            'live_sites' => Site::query()->catalogVisible()->count(),
+            'total_users' => $this->safeInt(fn () => User::count()),
+            'advertisers' => $this->roleUserCount($advertiserRoleId),
+            'publishers' => $this->roleUserCount($publisherRoleId),
+            'admins' => $this->roleUserCount($adminRoleId),
+            'marketers' => $this->roleUserCount($marketingRoleId),
+            'total_sites' => $this->safeInt(fn () => Site::count()),
+            'verified_sites' => $this->safeInt(fn () => Site::where('verified', 1)->count()),
+            'live_sites' => $this->liveSitesCount(),
             'unverified_sites' => $queues['unverified_sites'],
-            'total_orders' => Order::count(),
-            'paid_orders' => Order::where('payment_status', 'paid')->count(),
-            'revenue' => (float) Order::where('payment_status', 'paid')->sum('total_amount'),
+            'total_orders' => $this->safeInt(fn () => Order::count()),
+            'paid_orders' => $this->safeInt(fn () => Order::where('payment_status', 'paid')->count()),
+            'revenue' => $this->safeFloat(fn () => Order::where('payment_status', 'paid')->sum('total_amount')),
             'pending_deposits' => $queues['pending_deposits'],
             'pending_withdrawals' => $queues['pending_withdrawals'],
             'pending_payments' => $queues['pending_payments'],
@@ -86,13 +78,13 @@ class DashboardMetricsService
             'enrichment_failed' => $queues['enrichment_failed'],
             'catalog_hide' => $queues['catalog_hide'],
             'needs_attention' => $queues['needs_attention'],
-            'new_users_7d' => User::where('created_at', '>=', now()->subDays(7))->count(),
-            'orders_7d' => Order::where('payment_status', 'paid')
+            'new_users_7d' => $this->safeInt(fn () => User::where('created_at', '>=', now()->subDays(7))->count()),
+            'orders_7d' => $this->safeInt(fn () => Order::where('payment_status', 'paid')
                 ->whereRaw($this->paidAtSql().' >= ?', [now()->subDays(7)])
-                ->count(),
-            'revenue_7d' => (float) Order::where('payment_status', 'paid')
+                ->count()),
+            'revenue_7d' => $this->safeFloat(fn () => Order::where('payment_status', 'paid')
                 ->whereRaw($this->paidAtSql().' >= ?', [now()->subDays(7)])
-                ->sum('total_amount'),
+                ->sum('total_amount')),
         ];
     }
 
@@ -205,7 +197,7 @@ class DashboardMetricsService
         $pendingWebsites = $this->pendingCount(WebsiteSuggestion::class, 'website_suggestions');
         $pendingCommunity = $pendingClaims + $pendingProblems + $pendingSuggestions + $pendingWebsites;
         $openDisputes = $this->openDisputesCount();
-        $stalledOrders = $this->stalled->count();
+        $stalledOrders = $this->safeInt(fn () => $this->stalled->count());
         $openBulk = $this->openBulkRequestsCount();
         $failedMail = $this->failedMailCount();
         $moderationErrors = $this->moderationErrorsCount();
@@ -362,7 +354,7 @@ class DashboardMetricsService
 
     private function unpaidOrdersCount(): int
     {
-        return $this->unpaidOrdersQuery()->count();
+        return $this->safeInt(fn () => $this->unpaidOrdersQuery()->count());
     }
 
     /**
@@ -370,21 +362,27 @@ class DashboardMetricsService
      */
     private function unpaidQueue(): Collection
     {
-        return $this->unpaidOrdersQuery()
-            ->with('user:id,name,email')
-            ->latest()
-            ->take(5)
-            ->get()
-            ->map(fn (Order $o) => [
-                'id' => $o->id,
-                'order_number' => $o->order_number,
-                'user' => $o->user?->name ?? 'Unknown',
-                'email' => $o->user?->email,
-                'amount' => (float) $o->total_amount,
-                'date' => $this->formatDate($o->created_at, 'd M Y H:i'),
-                'age' => $this->ageLabel($o->created_at),
-                'url' => route('admin.orders.show', $o->id),
-            ]);
+        try {
+            return $this->unpaidOrdersQuery()
+                ->with('user:id,name,email')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(fn (Order $o) => [
+                    'id' => $o->id,
+                    'order_number' => $o->order_number,
+                    'user' => $o->user?->name ?? 'Unknown',
+                    'email' => $o->user?->email,
+                    'amount' => (float) $o->total_amount,
+                    'date' => $this->formatDate($o->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($o->created_at),
+                    'url' => route('admin.orders.show', $o->id),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard unpaid queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
     }
 
     /**
@@ -396,22 +394,28 @@ class DashboardMetricsService
             return collect();
         }
 
-        return OrderItemDispute::query()
-            ->where('status', OrderItemDispute::STATUS_OPEN)
-            ->with(['order:id,order_number,user_id', 'order.user:id,name', 'orderItem:id,site_name'])
-            ->latest()
-            ->take(5)
-            ->get()
-            ->map(fn (OrderItemDispute $d) => [
-                'id' => $d->id,
-                'order_number' => $d->order?->order_number ?? '',
-                'site_name' => $d->orderItem?->site_name ?: '—',
-                'advertiser' => $d->order?->user?->name ?? 'Unknown',
-                'reason' => Str::limit((string) $d->reason, 80),
-                'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
-                'age' => $this->ageLabel($d->created_at),
-                'url' => $d->order_id ? route('admin.orders.show', $d->order_id) : route('admin.orders.index'),
-            ]);
+        try {
+            return OrderItemDispute::query()
+                ->where('status', OrderItemDispute::STATUS_OPEN)
+                ->with(['order:id,order_number,user_id', 'order.user:id,name', 'orderItem:id,site_name'])
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(fn (OrderItemDispute $d) => [
+                    'id' => $d->id,
+                    'order_number' => $d->order?->order_number ?? '',
+                    'site_name' => $d->orderItem?->site_name ?: '—',
+                    'advertiser' => $d->order?->user?->name ?? 'Unknown',
+                    'reason' => Str::limit((string) $d->reason, 80),
+                    'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($d->created_at),
+                    'url' => $d->order_id ? route('admin.orders.show', $d->order_id) : route('admin.orders.index'),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard dispute queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
     }
 
     /**
@@ -716,7 +720,77 @@ class DashboardMetricsService
             return 0;
         }
 
-        return OrderItemDispute::where('status', OrderItemDispute::STATUS_OPEN)->count();
+        return $this->safeInt(fn () => OrderItemDispute::where('status', OrderItemDispute::STATUS_OPEN)->count());
+    }
+
+    private function liveSitesCount(): int
+    {
+        try {
+            if (! Schema::hasTable('sites')) {
+                return 0;
+            }
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        try {
+            return (int) Site::query()->catalogVisible()->count();
+        } catch (\Throwable $e) {
+            // Leftover Hostinger: catalogVisible() joins bulk_site_requests.
+            Log::warning('Dashboard live sites count failed', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            return (int) Site::query()->active()->notArchived()->count();
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard live sites fallback failed', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            return (int) Site::query()->where('active', 1)->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function roleId(string $name): mixed
+    {
+        try {
+            return Role::where('name', $name)->value('id');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function roleUserCount(mixed $roleId): int
+    {
+        if (! $roleId) {
+            return 0;
+        }
+
+        try {
+            return (int) DB::table('role_user')->where('role_id', $roleId)->distinct()->count('user_id');
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function safeInt(callable $resolve): int
+    {
+        try {
+            return (int) $resolve();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function safeFloat(callable $resolve): float
+    {
+        try {
+            return (float) $resolve();
+        } catch (\Throwable) {
+            return 0.0;
+        }
     }
 
     /**
