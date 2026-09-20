@@ -90,6 +90,10 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
         $marketplace = (string) file_get_contents(base_path('resources/views/pages/marketplace.blade.php'));
         $lander = (string) file_get_contents(base_path('resources/views/pages/guest-posts-country.blade.php'));
+        $this->assertStringContainsString("view()->exists('advertiser.partials.metric-source')", (string) file_get_contents(base_path('resources/views/components/hero-catalog-preview.blade.php')));
+        $this->assertStringContainsString('slb-hero-catalog-clone', (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
+        $this->assertStringContainsString("@include('components.hero')", (string) file_get_contents(base_path('resources/views/home.blade.php')));
+        $this->assertStringNotContainsString('dashboard.png', (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
         $this->assertStringContainsString("view()->exists('components.country-lander-nav')", $marketplace);
         $this->assertStringContainsString("view()->exists('components.country-lander-nav')", $lander);
         $this->assertStringContainsString("view()->exists('components.country-lander-nav')", $prices);

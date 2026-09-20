@@ -17,7 +17,7 @@ class BrandPresenceTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('slb-hero-title', $html);
-        $this->assertStringContainsString('Earn powerful backlinks from trusted websites.', $html);
+        $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $html);
         $this->assertStringContainsString('assets/img/logo1.png', $html);
         $this->assertStringContainsString('slb-hero-mark', $html);
         $this->assertStringContainsString('favicon.svg', $html);
@@ -73,7 +73,7 @@ class BrandPresenceTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Guest Post Marketplace for SEO Backlinks', $home);
-        $this->assertStringContainsString('Earn powerful backlinks from trusted websites.', $home);
+        $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $home);
         $this->assertStringNotContainsString('Buy guest posts from verified publishers', $home);
 
         $market = $this->get('/marketplace')
