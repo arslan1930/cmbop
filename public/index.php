@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\LeftoverPublicI18nSlugs;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
@@ -13,6 +14,14 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
 try {
     // Register the Composer autoloader...
     require __DIR__.'/../vendor/autoload.php';
+
+    $leftoverPublicI18nSlugs = __DIR__.'/../app/Support/LeftoverPublicI18nSlugs.php';
+    if (is_file($leftoverPublicI18nSlugs)) {
+        require_once $leftoverPublicI18nSlugs;
+        if (class_exists(LeftoverPublicI18nSlugs::class)) {
+            LeftoverPublicI18nSlugs::ensureEnglishOnlyMarketingSlugsMethod();
+        }
+    }
 
     // Bootstrap Laravel and handle the request...
     /** @var Application $app */

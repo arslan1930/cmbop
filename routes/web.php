@@ -92,6 +92,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Support\CountryLander;
+use App\Support\EnglishOnlyMarketingSlugs;
 use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
@@ -197,9 +198,37 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
         ->name('newsletter.subscribe');
 };
 
-$englishOnlyMarketingSlugs = class_exists(PublicI18n::class)
-    ? PublicI18n::englishOnlyMarketingSlugs()
-    : ['guest-post-prices-europe'];
+$englishOnlyMarketingSlugs = ['guest-post-prices-europe'];
+try {
+    // Leftover PublicI18n.php can exist without this method. Call it when present.
+    if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')) {
+        $resolved = PublicI18n::englishOnlyMarketingSlugs();
+        if (is_array($resolved) && $resolved !== []) {
+            $englishOnlyMarketingSlugs = array_values(array_unique(array_filter(
+                $resolved,
+                static fn ($slug) => is_string($slug) && trim($slug) !== ''
+            )));
+        }
+    } elseif (class_exists(EnglishOnlyMarketingSlugs::class) && method_exists(EnglishOnlyMarketingSlugs::class, 'all')) {
+        $fromHelper = EnglishOnlyMarketingSlugs::all();
+        if (is_array($fromHelper) && $fromHelper !== []) {
+            $englishOnlyMarketingSlugs = array_values(array_unique(array_filter(
+                $fromHelper,
+                static fn ($slug) => is_string($slug) && trim($slug) !== ''
+            )));
+        }
+    } elseif (class_exists(CountryLander::class) && method_exists(CountryLander::class, 'slugs')) {
+        $englishOnlyMarketingSlugs = array_values(array_unique(array_merge(
+            $englishOnlyMarketingSlugs,
+            CountryLander::slugs()
+        )));
+    }
+} catch (Throwable) {
+    $englishOnlyMarketingSlugs = ['guest-post-prices-europe'];
+}
+if ($englishOnlyMarketingSlugs === []) {
+    $englishOnlyMarketingSlugs = ['guest-post-prices-europe'];
+}
 
 $registerEnglishOnlyMarketingRoutes = function () {
     $landers = class_exists(CountryLander::class) ? CountryLander::all() : [];

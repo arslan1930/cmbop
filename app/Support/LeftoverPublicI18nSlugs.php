@@ -14,17 +14,13 @@ final class LeftoverPublicI18nSlugs
     public static function ensureEnglishOnlyMarketingSlugsMethod(?string $sourceFile = null): void
     {
         try {
+            $sourceFile ??= __DIR__.DIRECTORY_SEPARATOR.'PublicI18n.php';
+
             if (class_exists(PublicI18n::class, false)
                 && method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')) {
                 return;
             }
 
-            // Already loaded without the method — PHP cannot add it after the fact.
-            if (class_exists(PublicI18n::class, false)) {
-                return;
-            }
-
-            $sourceFile ??= __DIR__.DIRECTORY_SEPARATOR.'PublicI18n.php';
             if (! is_file($sourceFile)) {
                 return;
             }
@@ -43,19 +39,35 @@ final class LeftoverPublicI18nSlugs
                 return;
             }
 
+            // Leftover local PublicI18n.php keeps 500ing artisan at web.php:201
+            // until the method exists on disk. Write it back when possible.
+            if (is_writable($sourceFile)) {
+                @file_put_contents($sourceFile, $patched);
+            }
+
+            // Already loaded without the method — PHP cannot add it this request.
+            if (class_exists(PublicI18n::class, false)) {
+                return;
+            }
+
             $helper = __DIR__.DIRECTORY_SEPARATOR.'EnglishOnlyMarketingSlugs.php';
             if (is_file($helper)) {
                 require_once $helper;
             }
 
-            $tmp = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR)
-                .DIRECTORY_SEPARATOR
-                .'slb_public_i18n_'.md5($patched).'.php';
-            if (! is_file($tmp) && file_put_contents($tmp, $patched) === false) {
-                return;
+            $loadPath = $sourceFile;
+            $onDisk = (string) @file_get_contents($sourceFile);
+            if (! self::sourceDefinesMethod($onDisk)) {
+                $tmp = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR)
+                    .DIRECTORY_SEPARATOR
+                    .'slb_public_i18n_'.md5($patched).'.php';
+                if (! is_file($tmp) && file_put_contents($tmp, $patched) === false) {
+                    return;
+                }
+                $loadPath = $tmp;
             }
 
-            require_once $tmp;
+            require_once $loadPath;
         } catch (\Throwable) {
         }
     }
@@ -87,6 +99,17 @@ final class LeftoverPublicI18nSlugs
     }
 
 PHP;
+
+        $patched = preg_replace(
+            '/class\s+PublicI18n(?:\s+extends\s+\S+)?(?:\s+implements\s+[^{]+)?\s*\{/',
+            '$0'.$method,
+            $src,
+            1,
+            $count
+        );
+        if (is_string($patched) && $count === 1) {
+            return $patched;
+        }
 
         $patched = preg_replace('/}\s*$/', $method."}\n", $src, 1, $count);
         if (! is_string($patched) || $count !== 1) {
