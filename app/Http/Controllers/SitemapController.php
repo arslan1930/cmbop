@@ -135,7 +135,9 @@ class SitemapController extends Controller
      */
     private function urlEntry(string $path, string $locale, string $changefreq, string $priority, ?array $availableLocales = null, ?array $pathByLocale = null): array
     {
-        if (! class_exists(PublicI18n::class)) {
+        if (! class_exists(PublicI18n::class)
+            || ! method_exists(PublicI18n::class, 'urlForLocale')
+            || ! method_exists(PublicI18n::class, 'hreflang')) {
             $path = ltrim($path, '/');
 
             return [
@@ -147,7 +149,11 @@ class SitemapController extends Controller
         }
 
         $alternates = [];
-        $altLocales = $availableLocales ?: PublicI18n::supported();
+        $altLocales = $availableLocales ?: (
+            method_exists(PublicI18n::class, 'supported')
+                ? PublicI18n::supported()
+                : $this->supportedLocales()
+        );
         foreach ($altLocales as $alt) {
             $altPath = ltrim((string) ($pathByLocale[$alt] ?? $path), '/');
             $alternates[] = [
@@ -155,7 +161,10 @@ class SitemapController extends Controller
                 'href' => PublicI18n::urlForLocale($altPath, $alt),
             ];
         }
-        $xDefault = in_array(PublicI18n::default(), $altLocales, true) ? PublicI18n::default() : $locale;
+        $defaultLocale = method_exists(PublicI18n::class, 'default')
+            ? PublicI18n::default()
+            : $this->defaultLocale();
+        $xDefault = in_array($defaultLocale, $altLocales, true) ? $defaultLocale : $locale;
         $xDefaultPath = ltrim((string) ($pathByLocale[$xDefault] ?? $path), '/');
         $alternates[] = [
             'hreflang' => 'x-default',
@@ -175,8 +184,14 @@ class SitemapController extends Controller
      */
     private function supportedLocales(): array
     {
-        if (class_exists(PublicI18n::class)) {
-            return PublicI18n::supported();
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
+            $fromSupported = PublicI18n::supported();
+            if (is_array($fromSupported) && $fromSupported !== []) {
+                return array_values(array_filter(
+                    $fromSupported,
+                    static fn ($locale) => is_string($locale) && $locale !== ''
+                ));
+            }
         }
 
         return array_values(array_filter(
@@ -187,7 +202,7 @@ class SitemapController extends Controller
 
     private function defaultLocale(): string
     {
-        if (class_exists(PublicI18n::class)) {
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'default')) {
             return PublicI18n::default();
         }
 

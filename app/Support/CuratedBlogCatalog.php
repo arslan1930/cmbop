@@ -196,7 +196,9 @@ class CuratedBlogCatalog
             return $html;
         }
 
-        $prefixed = class_exists(PublicI18n::class) ? PublicI18n::prefixed() : [];
+        $prefixed = (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'prefixed'))
+            ? PublicI18n::prefixed()
+            : [];
         $locales = implode('|', array_map(
             static fn (string $locale): string => preg_quote($locale, '~'),
             $prefixed

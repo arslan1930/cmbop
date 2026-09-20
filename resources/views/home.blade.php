@@ -35,7 +35,7 @@
     'name' => 'SEOLinkBuildings',
     'alternateName' => ['SEO Link Buildings', 'Seolink Buildings'],
     'url' => url('/'),
-    'inLanguage' => class_exists(\App\Support\PublicI18n::class)
+    'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
         ? \App\Support\PublicI18n::htmlLang()
         : 'en-GB',
     'publisher' => [

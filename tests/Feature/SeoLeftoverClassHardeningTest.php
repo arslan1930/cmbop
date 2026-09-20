@@ -31,6 +31,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')", $web);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'prefixed')", $web);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $web);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'catalogTeaserCountries')", $web);
         $this->assertStringContainsString('PublicI18n::englishOnlyMarketingSlugs()', $web);
         $this->assertStringContainsString('class_exists(EnglishOnlyMarketingSlugs::class)', $web);
         $this->assertStringContainsString('} catch (Throwable)', $web);
@@ -64,6 +65,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(CountryLander::class)', $sitemap);
         $this->assertStringContainsString('class_exists(GuestPostPriceIndex::class)', $sitemap);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $sitemap);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $sitemap);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $sitemap);
         $this->assertStringContainsString('class_exists(ThinBlogRedirects::class)', $sitemap);
         $this->assertStringContainsString('method_exists(Blog::class, \'scopeWithoutLegacyRedirects\')', $sitemap);
 
@@ -107,6 +110,18 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('JSON_HEX_TAG', (string) file_get_contents(resource_path('views/pages/about.blade.php')));
         $this->assertStringContainsString('JSON_HEX_TAG', (string) file_get_contents(resource_path('views/components/breadcrumbs.blade.php')));
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $helper);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $helper);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'switchUrl')", $helper);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $helper);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'shouldShowLanguageSwitcher')", $helper);
+
+        $navbar = (string) file_get_contents(base_path('resources/views/components/navbar.blade.php'));
+        $suggestion = (string) file_get_contents(base_path('resources/views/components/language-suggestion.blade.php'));
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'rememberedPublicLocale')", $navbar);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'htmlLang')", $navbar);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'preferredFromBrowser')", $suggestion);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'htmlLang')", $suggestion);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'htmlLang')", (string) file_get_contents(resource_path('views/home.blade.php')));
 
         $marketplace = (string) file_get_contents(base_path('resources/views/pages/marketplace.blade.php'));
         $lander = (string) file_get_contents(base_path('resources/views/pages/guest-posts-country.blade.php'));
@@ -135,6 +150,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $blogModel);
         $this->assertStringContainsString('class_exists(ThinBlogRedirects::class)', $blogModel);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $catalog);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'prefixed')", $catalog);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $writer);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $validates);
     }

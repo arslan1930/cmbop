@@ -186,7 +186,8 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
         $catalogPreview = collect();
         if (class_exists(CatalogTeaserService::class)) {
             try {
-                $teaserCountries = class_exists(PublicI18n::class)
+                $teaserCountries = (class_exists(PublicI18n::class)
+                    && method_exists(PublicI18n::class, 'catalogTeaserCountries'))
                     ? PublicI18n::catalogTeaserCountries((string) app()->getLocale())
                     : ['de'];
                 $catalogPreview = app(CatalogTeaserService::class)->teasersForCountries($teaserCountries, 8);

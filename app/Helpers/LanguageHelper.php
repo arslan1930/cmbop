@@ -20,7 +20,7 @@ if (is_file($leftoverPublicI18nSlugs)) {
 if (! function_exists('get_language_switcher_url')) {
     function get_language_switcher_url($locale)
     {
-        if (! class_exists(PublicI18n::class)) {
+        if (! class_exists(PublicI18n::class) || ! method_exists(PublicI18n::class, 'switchUrl')) {
             return url('/');
         }
 
@@ -31,7 +31,7 @@ if (! function_exists('get_language_switcher_url')) {
 if (! function_exists('localized_url')) {
     function localized_url($path = '', $locale = null)
     {
-        if (! class_exists(PublicI18n::class)) {
+        if (! class_exists(PublicI18n::class) || ! method_exists(PublicI18n::class, 'urlForLocale')) {
             $path = ltrim((string) $path, '/');
 
             return $path === '' ? url('/') : url($path);
@@ -72,7 +72,8 @@ if (! function_exists('welcome_bonus_message')) {
 if (! function_exists('show_public_language_switcher')) {
     function show_public_language_switcher(): bool
     {
-        if (! class_exists(PublicI18n::class)) {
+        if (! class_exists(PublicI18n::class)
+            || ! method_exists(PublicI18n::class, 'shouldShowLanguageSwitcher')) {
             return false;
         }
 
@@ -103,9 +104,13 @@ if (! function_exists('get_available_locales')) {
             'ee' => ['name' => 'Eesti', 'flag' => '🇪🇪', 'code' => 'ee'],
         ];
 
-        $supported = class_exists(PublicI18n::class)
-            ? array_flip(PublicI18n::supported())
-            : ['en' => 0];
+        $supported = ['en' => 0];
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
+            $fromSupported = PublicI18n::supported();
+            if (is_array($fromSupported) && $fromSupported !== []) {
+                $supported = array_flip($fromSupported);
+            }
+        }
 
         return array_filter($catalog, fn ($code) => isset($supported[$code]), ARRAY_FILTER_USE_KEY);
     }

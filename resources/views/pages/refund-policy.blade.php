@@ -33,7 +33,7 @@
     'name' => __('messages.meta_refund_title'),
     'url' => localized_url('refund-policy'),
     'description' => welcome_bonus_message('meta_refund_description', 'meta_refund_description_off'),
-    'inLanguage' => class_exists(\App\Support\PublicI18n::class)
+    'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
         ? \App\Support\PublicI18n::htmlLang()
         : 'en-GB',
     'dateModified' => __('messages.refund_last_updated_iso'),

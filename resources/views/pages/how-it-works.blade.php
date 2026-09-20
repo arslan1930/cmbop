@@ -40,7 +40,7 @@
     'name' => __('messages.how_page_howto_name'),
     'description' => welcome_bonus_message('meta_how_it_works_description', 'meta_how_it_works_description_off'),
     'url' => localized_url('how-it-works'),
-    'inLanguage' => class_exists(\App\Support\PublicI18n::class)
+    'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
         ? \App\Support\PublicI18n::htmlLang()
         : 'en-GB',
     'step' => $howToSteps,
