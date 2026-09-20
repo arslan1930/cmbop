@@ -12,7 +12,8 @@
       <div class="slb-hero-brand-stack">
         <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
              alt="SEOLinkBuildings"
-             class="slb-hero-mark">
+             class="slb-hero-mark"
+             fetchpriority="high">
       </div>
 
       <h1 class="slb-hero-title">{{ __('messages.hero_support') }}</h1>

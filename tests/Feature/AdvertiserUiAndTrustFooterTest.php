@@ -40,6 +40,12 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
 
     public function test_advertiser_shell_footer_shows_trustpilot(): void
     {
+        config([
+            'services.support_chat.enabled' => false,
+            'services.tawk.property_id' => '',
+            'services.tawk.widget_id' => '',
+        ]);
+
         $html = $this->actingAs($this->advertiser)
             ->get(route('advertiser.catalog'))
             ->assertOk()
@@ -115,7 +121,10 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
     public function test_trustpilot_strings_exist_in_every_locale(): void
     {
         foreach (PublicI18n::supported() as $locale) {
-            $messages = require resource_path('lang/'.$locale.'/messages.php');
+            $lang = PublicI18n::messagesFallback($locale) ?? $locale;
+            $path = resource_path('lang/'.$lang.'/messages.php');
+            $this->assertFileExists($path, $locale.' has no messages file (fallback '.$lang.')');
+            $messages = require $path;
             foreach (['trustpilot_read_reviews', 'trustpilot_aria'] as $key) {
                 $this->assertArrayHasKey($key, $messages, $locale.' is missing '.$key);
                 $this->assertNotSame('', trim((string) $messages[$key]));
