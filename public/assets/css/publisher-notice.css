@@ -49,7 +49,7 @@
 .publisher-needs-alert__link:hover,
 .publisher-needs-alert__link:focus-visible {
     color: var(--brand-primary, #1a585e);
-    transform: translateZ(0) scale(1.025);
+    transform: scale(1.025);
 }
 
 .publisher-needs-alert__link:focus-visible {
