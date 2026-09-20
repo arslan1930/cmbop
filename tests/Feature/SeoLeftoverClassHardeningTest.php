@@ -29,18 +29,25 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $web);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $web);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')", $web);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'prefixed')", $web);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $web);
         $this->assertStringContainsString('PublicI18n::englishOnlyMarketingSlugs()', $web);
         $this->assertStringContainsString('class_exists(EnglishOnlyMarketingSlugs::class)', $web);
         $this->assertStringContainsString('} catch (Throwable)', $web);
         $this->assertStringContainsString('class_exists(RobotsTxt::class)', $web);
 
         $composer = (string) file_get_contents(base_path('composer.json'));
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', $composer);
         $this->assertStringContainsString('leftover_public_i18n_slugs_boot.php', $composer);
+        $this->assertFileExists(base_path('app/Support/leftover_public_i18n_boot.php'));
+        $this->assertFileExists(base_path('app/Support/leftover_public_i18n_slugs_boot.php'));
 
         $artisan = (string) file_get_contents(base_path('artisan'));
         $index = (string) file_get_contents(base_path('public/index.php'));
         $helper = (string) file_get_contents(base_path('app/Helpers/LanguageHelper.php'));
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', $artisan);
         $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $artisan);
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', $index);
         $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $index);
         $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $helper);
 

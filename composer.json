@@ -25,6 +25,7 @@
     },
     "autoload": {
         "files": [
+            "app/Support/leftover_public_i18n_boot.php",
             "app/Support/leftover_public_i18n_slugs_boot.php",
             "app/Helpers/LanguageHelper.php",
             "app/Helpers/FormHelper.php",

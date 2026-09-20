@@ -10,6 +10,12 @@ define('LARAVEL_START', microtime(true));
 // Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
 
+// Leftover europe-pl artisan still requires leftover_public_i18n_boot.php.
+$leftoverPublicI18nBoot = __DIR__.'/app/Support/leftover_public_i18n_boot.php';
+if (is_file($leftoverPublicI18nBoot)) {
+    require_once $leftoverPublicI18nBoot;
+}
+
 // Leftover PublicI18n.php + leftover web.php still calls
 // PublicI18n::englishOnlyMarketingSlugs() unguarded. Define it before routes.
 $leftoverPublicI18nSlugs = __DIR__.'/app/Support/LeftoverPublicI18nSlugs.php';

@@ -112,18 +112,38 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-$prefixedLocales = class_exists(PublicI18n::class)
-    ? PublicI18n::prefixed()
-    : (array) config('i18n.prefixed', [
-        'de', 'fr', 'nl', 'es', 'it', 'us',
-        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
-    ]);
-$supportedLocales = class_exists(PublicI18n::class)
-    ? PublicI18n::supported()
-    : (array) config('i18n.supported', [
-        'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
-        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
-    ]);
+$prefixedLocales = (array) config('i18n.prefixed', [
+    'de', 'fr', 'nl', 'es', 'it', 'us',
+    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
+]);
+if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'prefixed')) {
+    try {
+        $fromPrefixed = PublicI18n::prefixed();
+        if (is_array($fromPrefixed) && $fromPrefixed !== []) {
+            $prefixedLocales = array_values(array_unique(array_filter(
+                array_merge($prefixedLocales, $fromPrefixed),
+                'strlen'
+            )));
+        }
+    } catch (Throwable) {
+    }
+}
+$supportedLocales = (array) config('i18n.supported', [
+    'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
+    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
+]);
+if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
+    try {
+        $fromSupported = PublicI18n::supported();
+        if (is_array($fromSupported) && $fromSupported !== []) {
+            $supportedLocales = array_values(array_unique(array_filter(
+                array_merge($supportedLocales, $fromSupported),
+                'strlen'
+            )));
+        }
+    } catch (Throwable) {
+    }
+}
 $prefixedLocalePattern = implode('|', array_values(array_filter($prefixedLocales, 'strlen')));
 $supportedLocalePattern = implode('|', array_values(array_filter($supportedLocales, 'strlen')));
 if ($prefixedLocalePattern === '') {

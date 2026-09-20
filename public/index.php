@@ -15,6 +15,11 @@ try {
     // Register the Composer autoloader...
     require __DIR__.'/../vendor/autoload.php';
 
+    $leftoverPublicI18nBoot = __DIR__.'/../app/Support/leftover_public_i18n_boot.php';
+    if (is_file($leftoverPublicI18nBoot)) {
+        require_once $leftoverPublicI18nBoot;
+    }
+
     $leftoverPublicI18nSlugs = __DIR__.'/../app/Support/LeftoverPublicI18nSlugs.php';
     if (is_file($leftoverPublicI18nSlugs)) {
         require_once $leftoverPublicI18nSlugs;

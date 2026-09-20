@@ -135,4 +135,13 @@ class VisitorSupportChatTest extends TestCase
         config(['services.support_chat.enabled' => false]);
         $this->assertFalse(VisitorSupportChat::enabled());
     }
+
+    public function test_widget_partial_guards_leftover_support_chat_class(): void
+    {
+        $partial = (string) file_get_contents(resource_path('views/partials/visitor-support-chat.blade.php'));
+        $this->assertStringContainsString('class_exists(\\App\\Support\\VisitorSupportChat::class)', $partial);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\VisitorSupportChat::class, 'companyName')", $partial);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\VisitorSupportChat::class, 'welcomeMessage')", $partial);
+        $this->assertStringContainsString("Route::has('support.chat')", $partial);
+    }
 }
