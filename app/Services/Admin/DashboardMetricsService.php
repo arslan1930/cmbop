@@ -107,22 +107,28 @@ class DashboardMetricsService
             $labels[] = $start->copy()->addDays($i)->format('Y-m-d');
         }
 
-        $revenueRows = Order::where('payment_status', 'paid')
-            ->whereRaw($paidAt.' >= ?', [$start])
-            ->selectRaw('DATE('.$paidAt.') as day, SUM(total_amount) as total')
-            ->groupBy('day')
-            ->pluck('total', 'day');
+        $revenueRows = $this->safeKeyedRows(function () use ($paidAt, $start) {
+            return Order::where('payment_status', 'paid')
+                ->whereRaw($paidAt.' >= ?', [$start])
+                ->selectRaw('DATE('.$paidAt.') as day, SUM(total_amount) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
+        });
 
-        $signupRows = User::where('created_at', '>=', $start)
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
-            ->groupBy('day')
-            ->pluck('total', 'day');
+        $signupRows = $this->safeKeyedRows(function () use ($start) {
+            return User::where('created_at', '>=', $start)
+                ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
+        });
 
-        $orderRows = Order::where('payment_status', 'paid')
-            ->whereRaw($paidAt.' >= ?', [$start])
-            ->selectRaw('DATE('.$paidAt.') as day, COUNT(*) as total')
-            ->groupBy('day')
-            ->pluck('total', 'day');
+        $orderRows = $this->safeKeyedRows(function () use ($paidAt, $start) {
+            return Order::where('payment_status', 'paid')
+                ->whereRaw($paidAt.' >= ?', [$start])
+                ->selectRaw('DATE('.$paidAt.') as day, COUNT(*) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
+        });
 
         $revenueByDay = $this->indexByDay($revenueRows);
         $signupsByDay = $this->indexByDay($signupRows);
@@ -152,15 +158,19 @@ class DashboardMetricsService
      */
     public function distributions(): array
     {
-        $orderStatus = Order::select('status', DB::raw('COUNT(*) as total'))
-            ->groupBy('status')
-            ->pluck('total', 'status');
+        $orderStatus = $this->safeKeyedRows(function () {
+            return Order::select('status', DB::raw('COUNT(*) as total'))
+                ->groupBy('status')
+                ->pluck('total', 'status');
+        });
 
-        $roleCounts = DB::table('role_user')
-            ->join('roles', 'roles.id', '=', 'role_user.role_id')
-            ->select('roles.name', DB::raw('COUNT(DISTINCT role_user.user_id) as total'))
-            ->groupBy('roles.name')
-            ->pluck('total', 'name');
+        $roleCounts = $this->safeKeyedRows(function () {
+            return DB::table('role_user')
+                ->join('roles', 'roles.id', '=', 'role_user.role_id')
+                ->select('roles.name', DB::raw('COUNT(DISTINCT role_user.user_id) as total'))
+                ->groupBy('roles.name')
+                ->pluck('total', 'name');
+        });
 
         return [
             'orders' => [
@@ -790,6 +800,22 @@ class DashboardMetricsService
             return (float) $resolve();
         } catch (\Throwable) {
             return 0.0;
+        }
+    }
+
+    /**
+     * @return Collection<string, mixed>
+     */
+    private function safeKeyedRows(callable $resolve): Collection
+    {
+        try {
+            $rows = $resolve();
+
+            return $rows instanceof Collection ? $rows : collect($rows);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard series query failed', ['error' => $e->getMessage()]);
+
+            return collect();
         }
     }
 

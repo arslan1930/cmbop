@@ -344,4 +344,95 @@ class AdminLeftoverErrorHardeningTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('mail.0.label', 'SMTP leftover date');
     }
+
+    public function test_dashboard_charts_survive_missing_orders_and_role_user(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('orders');
+        Schema::enableForeignKeyConstraints();
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.trends'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(30, 'labels')
+            ->assertJsonCount(30, 'revenue')
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.distributions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('orders.labels', [])
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.total_orders', 0);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('unpaid', []);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.stalled-orders'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('items', [])
+            ->assertDontSee('SQLSTATE');
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('role_user');
+        Schema::enableForeignKeyConstraints();
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.distributions'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('roles.labels', [])
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.advertisers', 0)
+            ->assertJsonPath('data.admins', 0);
+    }
+
+    public function test_dashboard_queues_survive_missing_bulk_items_and_hide_date(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $hidden = User::factory()->create([
+            'email_verified_at' => now(),
+            'catalog_hide_until' => now()->addHours(6),
+        ]);
+        DB::table('users')->where('id', $hidden->id)->update([
+            'catalog_hide_until' => 'not-a-date',
+        ]);
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('bulk_site_request_items');
+        Schema::enableForeignKeyConstraints();
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('open_bulk_requests', 0)
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('bulk', [])
+            ->assertDontSee('SQLSTATE');
+    }
 }
