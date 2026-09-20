@@ -1,14 +1,25 @@
 @extends('layouts.app')
 
-@section('title', __('messages.meta_blog_title'))
-@section('description', __('messages.meta_blog_description'))
 @php
+    $blogPage = isset($blog) ? (int) $blog->currentPage() : 1;
+    $blogTitle = __('messages.meta_blog_title');
+    $blogDescription = __('messages.meta_blog_description');
+    if ($blogPage > 1) {
+        $blogTitle .= ' — Page '.$blogPage;
+        $blogDescription = 'Older link-building and digital PR articles from SEOLinkBuildings. Page '.$blogPage.' of the public blog.';
+    }
     $blogCanonical = localized_url('blog');
-    if (isset($blog) && $blog->currentPage() > 1) {
-        $blogCanonical .= '?page='.$blog->currentPage();
+    if ($blogPage > 1) {
+        $blogCanonical .= '?page='.$blogPage;
     }
 @endphp
+@section('title', $blogTitle)
+@section('description', $blogDescription)
 @section('canonical', $blogCanonical)
+@if($blogPage > 1)
+@section('robots', 'noindex, follow')
+@section('skip_hreflang', '1')
+@endif
 
 @push('head')
     @if(isset($blog) && $blog->previousPageUrl())
@@ -29,6 +40,12 @@
 
 <!-- ==================== BLOG CONTENT ==================== -->
 <div class="container py-5" style="max-width:1200px;">
+    @include('components.breadcrumbs', [
+        'items' => [
+            ['name' => __('messages.home'), 'url' => localized_url('/')],
+            ['name' => __('messages.blog'), 'url' => localized_url('blog')],
+        ],
+    ])
 
     <!-- Search and Filter Bar -->
     <div class="row mb-5">
@@ -115,6 +132,8 @@
                                                     <img src="{{ $post->publicFeaturedImageUrl() }}" 
                                                          class="img-fluid w-100 h-100" 
                                                          alt="{{ $post->title }}"
+                                                         loading="lazy"
+                                                         decoding="async"
                                                          style="object-fit: cover; transition: transform 0.3s;">
                                                 </div>
                                             </div>
@@ -204,7 +223,11 @@
                                 <div class="d-flex gap-3 align-items-start">
                                     @if($recent->publicFeaturedImageUrl())
                                         <img src="{{ $recent->publicFeaturedImageUrl() }}" 
-                                             alt="{{ $recent->title }}" 
+                                             alt="{{ $recent->title }}"
+                                             width="60"
+                                             height="60"
+                                             loading="lazy"
+                                             decoding="async"
                                              style="width: 60px; height: 60px; object-fit: cover; border-radius: 12px;">
                                     @else
                                         <div style="width: 60px; height: 60px; background:linear-gradient(135deg, #1a585e 0%, #3faeb2 100%); border-radius: 12px;" class="d-flex align-items-center justify-content-center">

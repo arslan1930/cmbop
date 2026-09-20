@@ -338,10 +338,35 @@ class PublicI18n
         ], true);
     }
 
+    /**
+     * Blog page 2+ is a listing chrome duplicate — keep crawlable via rel=next/prev,
+     * but do not index or attach a full hreflang cluster.
+     */
+    public static function isPaginatedBlogIndex(Request $request): bool
+    {
+        $page = (int) $request->query('page', 1);
+        if ($page <= 1) {
+            return false;
+        }
+
+        $path = self::pathWithoutLocale($request);
+        if (class_exists(LocalizedPublicPath::class)) {
+            $path = LocalizedPublicPath::canonicalize($path);
+        }
+
+        return $path === 'blog';
+    }
+
     public static function robotsContent(Request $request): string
     {
         if (self::isPublicAuthEntryPath($request)) {
             return 'noindex, nofollow';
+        }
+
+        // Paginated blog indexes share the same title/description as page 1.
+        // Posts are already in the sitemap; page 2+ should not join the hreflang cluster.
+        if (method_exists(self::class, 'isPaginatedBlogIndex') && self::isPaginatedBlogIndex($request)) {
+            return 'noindex, follow';
         }
 
         return 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
@@ -490,6 +515,13 @@ class PublicI18n
         $path = $pathOverride !== null ? ltrim($pathOverride, '/') : self::pathWithoutLocale($request);
         if (class_exists(LocalizedPublicPath::class)) {
             $path = LocalizedPublicPath::canonicalize($path);
+        }
+
+        // noindex paginated listings must not emit a cluster that points at page 1.
+        if (method_exists(self::class, 'isPaginatedBlogIndex')
+            && self::isPaginatedBlogIndex($request)
+            && ($path === 'blog' || str_ends_with($path, '/blog'))) {
+            return [];
         }
 
         $first = $path === '' ? '' : explode('/', $path, 2)[0];

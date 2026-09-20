@@ -12,6 +12,12 @@
 ])
 
 <div class="container py-5" style="max-width: 900px;">
+    @include('components.breadcrumbs', [
+        'items' => [
+            ['name' => __('messages.home'), 'url' => localized_url('/')],
+            ['name' => __('messages.nav_become_publisher'), 'url' => localized_url('become-a-publisher')],
+        ],
+    ])
 
     {{-- What the platform gives you --}}
     <div class="row g-4 mb-5">

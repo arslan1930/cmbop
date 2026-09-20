@@ -57,6 +57,7 @@ return [
         'guest-posts-bulgaria',
         'guest-posts-hungary',
         'guest-posts-estonia',
+        'guest-posts-poland',
         'guest-post-prices-europe',
     ],
 

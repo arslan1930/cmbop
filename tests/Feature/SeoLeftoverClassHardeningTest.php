@@ -64,6 +64,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'englishOnlyMarketingSlugs')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'isEnglishOnlyMarketingPath')", $i18n);
+        $this->assertStringContainsString("method_exists(self::class, 'isPaginatedBlogIndex')", $i18n);
 
         $about = (string) file_get_contents(base_path('resources/views/pages/about.blade.php'));
         $prices = (string) file_get_contents(base_path('resources/views/pages/guest-post-prices-europe.blade.php'));
@@ -76,6 +77,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(\\App\\Support\\BrandOrganization::class, 'pageGraphJson')", $layout);
         $this->assertStringContainsString("method_exists(\\App\\Support\\MarketingCssBundle::class, 'urlIfReady')", $layout);
         $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'robotsContent')", $layout);
+        $this->assertStringContainsString('skip_hreflang', $layout);
         $this->assertStringContainsString('urlIfReady', $layout);
         $this->assertStringContainsString('pageGraphJson', $layout);
         $this->assertStringContainsString('jsonLd', (string) file_get_contents(base_path('app/Support/BrandOrganization.php')));
@@ -115,7 +117,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
     public function test_public_money_pages_and_admin_login_stay_up(): void
     {
-        foreach (['/', '/about', '/marketplace', '/guest-posts-germany', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login'] as $path) {
+        foreach (['/', '/about', '/marketplace', '/guest-posts-germany', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login'] as $path) {
             $this->get($path)
                 ->assertOk()
                 ->assertDontSee('SQLSTATE')

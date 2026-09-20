@@ -14,6 +14,12 @@
 
 <!-- ==================== TERMS CONTENT ==================== -->
 <div class="container py-5" style="max-width:900px;">
+    @include('components.breadcrumbs', [
+        'items' => [
+            ['name' => __('messages.home'), 'url' => localized_url('/')],
+            ['name' => __('messages.terms_of_service'), 'url' => localized_url('terms-of-services')],
+        ],
+    ])
 
     <!-- ===== 1. ACCEPTANCE OF TERMS ===== -->
     <div class="mb-4 p-4 p-md-5 rounded-4 shadow-sm" style="background:white; border:1px solid #eef0f3;">

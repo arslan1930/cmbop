@@ -14,6 +14,12 @@
 
 <!-- ==================== PRIVACY CONTENT ==================== -->
 <div class="container py-5" style="max-width:900px;">
+    @include('components.breadcrumbs', [
+        'items' => [
+            ['name' => __('messages.home'), 'url' => localized_url('/')],
+            ['name' => __('messages.privacy_policy'), 'url' => localized_url('privacy-policy')],
+        ],
+    ])
 
     <!-- ===== TABLE OF CONTENTS ===== -->
     <div class="mb-5 p-4 rounded-4" style="background:linear-gradient(135deg, #e6f5f5, #f7fafb); border:1px solid #b8e4e4;">
