@@ -17,7 +17,9 @@ class PublicCopyIntegrityTest extends TestCase
 
     private function langPath(string $locale): string
     {
-        return resource_path('lang/'.$locale.'/messages.php');
+        $lang = PublicI18n::messagesFallback($locale) ?? $locale;
+
+        return resource_path('lang/'.$lang.'/messages.php');
     }
 
     /**

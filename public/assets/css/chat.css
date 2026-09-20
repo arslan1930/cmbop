@@ -260,7 +260,6 @@
 .chat-emoji-strip button:hover,
 .chat-emoji-strip button:focus-visible {
   background: #fff;
-  transform: translateY(-1px);
 }
 
 .chat-emoji-strip button:disabled {
