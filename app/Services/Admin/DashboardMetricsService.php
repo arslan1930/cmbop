@@ -192,12 +192,8 @@ class DashboardMetricsService
      */
     public function queueCounts(): array
     {
-        $pendingDeposits = DepositRequest::tableAvailable()
-            ? DepositRequest::where('status', 'pending')->count()
-            : 0;
-        $pendingWithdrawals = Withdrawal::tableAvailable()
-            ? Withdrawal::whereIn('status', ['pending', 'processing'])->count()
-            : 0;
+        $pendingDeposits = $this->pendingDepositsCount();
+        $pendingWithdrawals = $this->pendingWithdrawalsCount();
         // Ready-for-admin queue only (exclude unfinished awaiting_details drafts)
         $unverifiedSites = $this->unverifiedSitesCount();
         $pendingPayments = $this->unpaidOrdersCount();
@@ -254,16 +250,31 @@ class DashboardMetricsService
      */
     public function financeStrip(): array
     {
-        $overview = $this->finance->overview($this->finance->resolvePeriod('month'));
-
-        return [
-            'period_label' => $overview['period']['label'],
-            'due_to_pay_now' => (float) $overview['due_to_pay_now'],
-            'in_publisher_wallets' => (float) $overview['in_publisher_wallets'],
-            'total_publisher_liability' => (float) $overview['total_publisher_liability'],
-            'margin' => (float) $overview['platform']['margin'],
-            'url' => route('admin.finance'),
+        $empty = [
+            'period_label' => '',
+            'due_to_pay_now' => 0.0,
+            'in_publisher_wallets' => 0.0,
+            'total_publisher_liability' => 0.0,
+            'margin' => 0.0,
+            'url' => $this->safeRoute('admin.finance') ?? '',
         ];
+
+        try {
+            $overview = $this->finance->overview($this->finance->resolvePeriod('month'));
+
+            return [
+                'period_label' => (string) data_get($overview, 'period.label', ''),
+                'due_to_pay_now' => (float) ($overview['due_to_pay_now'] ?? 0),
+                'in_publisher_wallets' => (float) ($overview['in_publisher_wallets'] ?? 0),
+                'total_publisher_liability' => (float) ($overview['total_publisher_liability'] ?? 0),
+                'margin' => (float) data_get($overview, 'platform.margin', 0),
+                'url' => $this->safeRoute('admin.finance') ?? $empty['url'],
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard finance strip failed', ['error' => $e->getMessage()]);
+
+            return $empty;
+        }
     }
 
     /**
@@ -273,48 +284,8 @@ class DashboardMetricsService
      */
     public function actionQueue(): array
     {
-        $deposits = DepositRequest::tableAvailable()
-            ? DepositRequest::with('user:id,name,email')
-                ->where('status', 'pending')
-                ->latest()
-                ->take(5)
-                ->get()
-                ->map(fn ($d) => [
-                    'id' => $d->id,
-                    'user' => $d->user?->name ?? 'Unknown',
-                    'email' => $d->user?->email,
-                    'amount' => (float) $d->amount,
-                    'method' => $d->payment_method,
-                    'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
-                    'age' => $this->ageLabel($d->created_at),
-                    // deposits.show is JSON for the list-page modal; the HTML queue is the working page.
-                    'url' => route('admin.deposits', ['status' => 'pending']),
-                    'action_url' => $this->depositActionUrl((int) $d->id),
-                    'action_label' => 'Review',
-                ])
-            : collect();
-
-        $withdrawals = Withdrawal::tableAvailable()
-            ? Withdrawal::with('user:id,name,email')
-                ->whereIn('status', ['pending', 'processing'])
-                ->latest()
-                ->take(5)
-                ->get()
-                ->map(fn ($w) => [
-                    'id' => $w->id,
-                    'user' => $w->user?->name ?? 'Unknown',
-                    'email' => $w->user?->email,
-                    'amount' => (float) $w->net_amount,
-                    'method' => $w->payment_method,
-                    'status' => $w->status,
-                    'date' => $this->formatDate($w->created_at, 'd M Y H:i'),
-                    'age' => $this->ageLabel($w->created_at),
-                    // withdrawals.show is JSON for the list-page modal; the HTML queue is the working page.
-                    'url' => route('admin.withdrawals', ['queue' => 'open']),
-                    'action_url' => $this->withdrawalActionUrl((int) $w->id),
-                    'action_label' => 'Mark paid',
-                ])
-            : collect();
+        $deposits = $this->depositQueue();
+        $withdrawals = $this->withdrawalQueue();
 
         $sites = collect();
         try {
@@ -360,6 +331,103 @@ class DashboardMetricsService
     private function unpaidOrdersQuery()
     {
         return Order::query()->unpaidOps();
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function depositQueue(): Collection
+    {
+        try {
+            if (! DepositRequest::tableAvailable()) {
+                return collect();
+            }
+
+            return DepositRequest::with('user:id,name,email')
+                ->where('status', 'pending')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(fn ($d) => [
+                    'id' => $d->id,
+                    'user' => $d->user?->name ?? 'Unknown',
+                    'email' => $d->user?->email,
+                    'amount' => (float) $d->amount,
+                    'method' => $d->payment_method,
+                    'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($d->created_at),
+                    // deposits.show is JSON for the list-page modal; the HTML queue is the working page.
+                    'url' => route('admin.deposits', ['status' => 'pending']),
+                    'action_url' => $this->depositActionUrl((int) $d->id),
+                    'action_label' => 'Review',
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard deposits queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function withdrawalQueue(): Collection
+    {
+        try {
+            if (! Withdrawal::tableAvailable()) {
+                return collect();
+            }
+
+            return Withdrawal::with('user:id,name,email')
+                ->whereIn('status', ['pending', 'processing'])
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(fn ($w) => [
+                    'id' => $w->id,
+                    'user' => $w->user?->name ?? 'Unknown',
+                    'email' => $w->user?->email,
+                    'amount' => (float) $w->net_amount,
+                    'method' => $w->payment_method,
+                    'status' => $w->status,
+                    'date' => $this->formatDate($w->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($w->created_at),
+                    // withdrawals.show is JSON for the list-page modal; the HTML queue is the working page.
+                    'url' => route('admin.withdrawals', ['queue' => 'open']),
+                    'action_url' => $this->withdrawalActionUrl((int) $w->id),
+                    'action_label' => 'Mark paid',
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard withdrawals queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    private function pendingDepositsCount(): int
+    {
+        try {
+            if (! DepositRequest::tableAvailable()) {
+                return 0;
+            }
+
+            return DepositRequest::where('status', 'pending')->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function pendingWithdrawalsCount(): int
+    {
+        try {
+            if (! Withdrawal::tableAvailable()) {
+                return 0;
+            }
+
+            return Withdrawal::whereIn('status', ['pending', 'processing'])->count();
+        } catch (\Throwable) {
+            return 0;
+        }
     }
 
     private function unpaidOrdersCount(): int

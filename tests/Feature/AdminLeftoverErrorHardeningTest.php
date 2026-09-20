@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\Site;
@@ -434,5 +435,62 @@ class AdminLeftoverErrorHardeningTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('bulk', [])
             ->assertDontSee('SQLSTATE');
+    }
+
+    public function test_dashboard_money_feeds_survive_leftover_deposit_schema(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $deposit = DepositRequest::create([
+            'user_id' => $admin->id,
+            'reference_code' => '777111',
+            'amount' => 25,
+            'payment_method' => 'wise',
+            'status' => 'pending',
+        ]);
+        DB::table('deposit_requests')->where('id', $deposit->id)->update([
+            'created_at' => 'not-a-date',
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('deposits.0.id', $deposit->id)
+            ->assertJsonPath('deposits.0.date', '')
+            ->assertDontSee('SQLSTATE');
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('deposit_requests');
+        Schema::create('deposit_requests', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->decimal('amount', 10, 2)->nullable();
+        });
+        Schema::dropIfExists('wallets');
+        Schema::enableForeignKeyConstraints();
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('pending_deposits', 0)
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('deposits', [])
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.finance'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertDontSee('SQLSTATE');
+
+        $page = $this->actingAs($admin)->get(route('admin.dashboard'));
+        $this->assertSafePage($page);
+        $page->assertOk();
     }
 }

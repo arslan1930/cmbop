@@ -21,8 +21,8 @@
                 <ul class="mb-1 mt-2">
                     @foreach($opsAlerts as $opsAlert)
                         <li>
-                            {{ $opsAlert['title'] }}
-                            @if($opsAlert['detail'] !== '')
+                            {{ $opsAlert['title'] ?? '' }}
+                            @if(($opsAlert['detail'] ?? '') !== '')
                                 — {{ $opsAlert['detail'] }}
                             @endif
                         </li>
@@ -541,25 +541,25 @@
                         <div class="col-6 col-md-3">
                             <div class="border rounded-3 p-3 h-100">
                                 <div class="small text-muted">Live announcements</div>
-                                <div class="fs-4 fw-semibold">{{ $promoStats['announcements_live'] }}</div>
+                                <div class="fs-4 fw-semibold">{{ (int) ($promoStats['announcements_live'] ?? 0) }}</div>
                             </div>
                         </div>
                         <div class="col-6 col-md-3">
                             <div class="border rounded-3 p-3 h-100">
                                 <div class="small text-muted">Live banners</div>
-                                <div class="fs-4 fw-semibold">{{ $promoStats['banners_live'] }}</div>
+                                <div class="fs-4 fw-semibold">{{ (int) ($promoStats['banners_live'] ?? 0) }}</div>
                             </div>
                         </div>
                         <div class="col-6 col-md-3">
                             <div class="border rounded-3 p-3 h-100">
                                 <div class="small text-muted">Banner impressions</div>
-                                <div class="fs-4 fw-semibold">{{ number_format($promoStats['banner_impressions']) }}</div>
+                                <div class="fs-4 fw-semibold">{{ number_format((int) ($promoStats['banner_impressions'] ?? 0)) }}</div>
                             </div>
                         </div>
                         <div class="col-6 col-md-3">
                             <div class="border rounded-3 p-3 h-100">
                                 <div class="small text-muted">Banner clicks</div>
-                                <div class="fs-4 fw-semibold">{{ number_format($promoStats['banner_clicks']) }}</div>
+                                <div class="fs-4 fw-semibold">{{ number_format((int) ($promoStats['banner_clicks'] ?? 0)) }}</div>
                             </div>
                         </div>
                     </div>
