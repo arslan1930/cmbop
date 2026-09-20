@@ -4,6 +4,7 @@ namespace App\Services\Advertiser;
 
 use App\Models\Order;
 use App\Models\Project;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -91,7 +92,11 @@ class AdvertiserProjectCheckout
                 $q->whereNull('payment_status')
                     ->orWhere('payment_status', '!=', 'failed');
             })
-            ->with(Schema::hasColumn('orders', 'project_id') ? ['items', 'project:id,project_name'] : ['items'])
+            ->with(
+                Schema::hasColumn('orders', 'project_id') && Schema::hasTable('projects')
+                    ? ['items', 'project:id,project_name']
+                    : ['items']
+            )
             ->latest('id')
             ->limit(80)
             ->get();
@@ -178,7 +183,7 @@ class AdvertiserProjectCheckout
      * host therefore cannot pull an unassigned order into this project's
      * `needs_improvements` / `needs_you` buckets.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\Order>  $query
+     * @param  Builder<Order>  $query
      */
     public function constrainOrdersToProject($query, Project $project, ?string $stage = null): void
     {

@@ -5254,7 +5254,7 @@ class CatalogController extends Controller
             $query = Order::where('user_id', $userId);
             if ($loadItems) {
                 $with = OrderItemDispute::tableAvailable() ? ['items.latestDispute'] : ['items'];
-                if (Schema::hasColumn('orders', 'project_id')) {
+                if (Schema::hasColumn('orders', 'project_id') && Schema::hasTable('projects')) {
                     $with[] = 'project:id,project_name';
                 }
                 $query->with($with);

@@ -10,7 +10,6 @@ use App\Models\User;
 use App\Services\CheckoutSchemaService;
 use App\Services\InAppNotificationService;
 use App\Services\OrderChatContactGuard;
-use App\Support\AdvertiserOrderDetails;
 use App\Support\AdvertiserOrderStatus;
 use App\Support\CatalogVisitUrl;
 use App\Support\PublisherNeedsAction;
@@ -172,7 +171,12 @@ class ChatController extends Controller
                 // Leftover is_read / read_at must not hide the thread.
             }
 
-            $order->loadMissing(['items.site.publisher', 'user']);
+            try {
+                $order->loadMissing(['user']);
+            } catch (\Throwable $e) {
+                // Leftover users must not hide the thread.
+            }
+            $this->loadOrderItemsForChat($order);
             $details = $this->buildOrderChatDetails($order, $user);
 
             return response()->json([
@@ -602,18 +606,23 @@ class ChatController extends Controller
         }
 
         try {
-            $order->loadMissing(['items.site']);
+            $order->loadMissing(['items.site.publisher']);
         } catch (\Throwable $e) {
             try {
                 $order->unsetRelation('items');
-                $order->loadMissing(['items']);
-                foreach ($order->items as $loaded) {
-                    if ($loaded instanceof OrderItem) {
-                        $loaded->setRelation('site', null);
+                $order->loadMissing(['items.site']);
+            } catch (\Throwable $siteMissing) {
+                try {
+                    $order->unsetRelation('items');
+                    $order->loadMissing(['items']);
+                    foreach ($order->items as $loaded) {
+                        if ($loaded instanceof OrderItem) {
+                            $loaded->setRelation('site', null);
+                        }
                     }
+                } catch (\Throwable $inner) {
+                    $order->setRelation('items', collect());
                 }
-            } catch (\Throwable $inner) {
-                $order->setRelation('items', collect());
             }
         }
     }

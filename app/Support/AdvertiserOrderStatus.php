@@ -458,8 +458,13 @@ class AdvertiserOrderStatus
             $item = $item ?? null;
         }
         $status = (string) $order->status;
-        $hasItems = $order->items->isNotEmpty();
-        $hasLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
+        try {
+            $hasItems = $order->items->isNotEmpty();
+            $hasLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
+        } catch (\Throwable $e) {
+            $hasItems = false;
+            $hasLiveUrl = false;
+        }
         $paid = in_array($order->payment_status, ['paid', 'completed', 'refunded'], true)
             || in_array($status, ['processing', 'review', 'completed'], true);
         $acceptedOrLater = $hasItems && (
