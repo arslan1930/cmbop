@@ -58,7 +58,9 @@
     ]));
     $cta = match ($primaryAction) {
         'tasks' => [
-            'title' => 'You have '.$needsYou.' task'.($needsYou === 1 ? '' : 's').' that need you',
+            'title' => $needsYou === 1
+                ? 'You have 1 task that needs you'
+                : 'You have '.$needsYou.' tasks that need you',
             'body' => 'Accept, publish a live URL, or reply to a change request.',
             'href' => route('publisher.tasks', ['needs_action' => 1]),
             'button' => 'Open tasks',
