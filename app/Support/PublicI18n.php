@@ -65,17 +65,17 @@ class PublicI18n
 
     public static function supported(): array
     {
-        return config('i18n.supported', [
+        return self::configuredLocales('supported', [
             'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
-            'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
+            'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
         ]);
     }
 
     public static function prefixed(): array
     {
-        return config('i18n.prefixed', [
+        return self::configuredLocales('prefixed', [
             'de', 'fr', 'nl', 'es', 'it', 'us',
-            'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
+            'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
         ]);
     }
 
@@ -87,6 +87,31 @@ class PublicI18n
     public static function supportedPattern(): string
     {
         return implode('|', self::supported());
+    }
+
+    /**
+     * Union config + hardcoded fallback so leftover Hostinger i18n.php
+     * with a short list cannot hide locales that this deploy still ships.
+     *
+     * @param  list<string>  $fallback
+     * @return list<string>
+     */
+    private static function configuredLocales(string $key, array $fallback): array
+    {
+        $fromConfig = (array) config('i18n.'.$key, []);
+        $merged = [];
+        foreach (array_merge($fallback, $fromConfig) as $code) {
+            if (! is_string($code)) {
+                continue;
+            }
+            $code = strtolower(trim($code));
+            if ($code === '' || isset($merged[$code])) {
+                continue;
+            }
+            $merged[$code] = $code;
+        }
+
+        return array_values($merged);
     }
 
     /**
@@ -104,6 +129,7 @@ class PublicI18n
             'se' => 'sv-SE',
             'no' => 'nb-NO',
             'ee' => 'et-EE',
+            'pl' => 'pl-PL',
             default => $locale,
         };
     }
@@ -138,6 +164,7 @@ class PublicI18n
             'bg' => 'bg_BG',
             'hu' => 'hu_HU',
             'ee' => 'et_EE',
+            'pl' => 'pl_PL',
             default => $locale.'_'.strtoupper($locale),
         };
     }
@@ -171,6 +198,7 @@ class PublicI18n
             'bg' => ['bg'],
             'hu' => ['hu'],
             'ee' => ['ee'],
+            'pl' => ['pl'],
             default => ['de'],
         };
     }
@@ -220,6 +248,9 @@ class PublicI18n
             'ro-ro' => 'ro',
             'bg-bg' => 'bg',
             'hu-hu' => 'hu',
+            'pl' => 'pl',
+            'pl-pl' => 'pl',
+            'pol' => 'pl',
         ];
 
         if (isset($aliases[$normalized]) && self::isSupported($aliases[$normalized])) {

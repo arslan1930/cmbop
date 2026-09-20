@@ -8,7 +8,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Collapse www → apex on the live host so GSC equity is not split.
- * Hostinger also 301s HTTP→HTTPS at the edge; this covers www on PHP.
+ * Brand ccTLDs (seolinkbuildings.ch, .pl, …) 301 onto seolinkbuildings.com.
+ * Hostinger also 301s HTTP→HTTPS at the edge; this covers www and country hosts on PHP.
  */
 class CanonicalHost
 {
@@ -21,12 +22,26 @@ class CanonicalHost
         }
 
         $host = strtolower((string) $request->getHost());
-        if ($host !== 'www.'.self::APEX) {
-            return $next($request);
+        if ($host === 'www.'.self::APEX) {
+            $target = 'https://'.self::APEX.$request->getRequestUri();
+
+            return redirect()->to($target, 301);
         }
 
-        $target = 'https://'.self::APEX.$request->getRequestUri();
+        if (class_exists(\App\Support\CountryHost::class)) {
+            try {
+                $locale = \App\Support\CountryHost::localeForHost($host);
+                if (is_string($locale) && $locale !== '') {
+                    $target = \App\Support\CountryHost::apexUrl($request, $locale);
+                    $targetHost = strtolower((string) parse_url($target, PHP_URL_HOST));
+                    if ($targetHost !== '' && $targetHost !== $host) {
+                        return redirect()->to($target, 301);
+                    }
+                }
+            } catch (\Throwable) {
+            }
+        }
 
-        return redirect()->to($target, 301);
+        return $next($request);
     }
 }

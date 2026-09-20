@@ -101,11 +101,17 @@ if (! function_exists('get_available_locales')) {
             'bg' => ['name' => 'Български', 'flag' => '🇧🇬', 'code' => 'bg'],
             'hu' => ['name' => 'Magyar', 'flag' => '🇭🇺', 'code' => 'hu'],
             'ee' => ['name' => 'Eesti', 'flag' => '🇪🇪', 'code' => 'ee'],
+            'pl' => ['name' => 'Polski', 'flag' => '🇵🇱', 'code' => 'pl'],
         ];
 
-        $supported = class_exists(PublicI18n::class)
-            ? array_flip(PublicI18n::supported())
-            : ['en' => 0];
+        $supported = array_merge(array_keys($catalog), (array) config('i18n.supported', []));
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
+            try {
+                $supported = array_merge($supported, PublicI18n::supported());
+            } catch (Throwable) {
+            }
+        }
+        $supported = array_flip(array_filter($supported, 'strlen'));
 
         return array_filter($catalog, fn ($code) => isset($supported[$code]), ARRAY_FILTER_USE_KEY);
     }
