@@ -91,7 +91,7 @@
             <span class="navbar-lang-flag">{!! $currentLanguage['flag'] !!}</span>
             <span>{{ $currentLanguage['name'] }}</span>
           </button>
-          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown" style="min-width: 150px;">
+          <ul class="dropdown-menu dropdown-menu-end navbar-lang-menu" aria-labelledby="languageDropdown">
             @foreach($languages as $code => $language)
               <li>
                 <a class="dropdown-item d-flex align-items-center gap-2 {{ $code == $currentLocale ? 'active' : '' }}"
@@ -244,6 +244,15 @@
   }
 
   .navbar-lang-flag { font-size: 1.2rem; }
+
+  /* 17+ locales: keep AT/CH/RO/PL reachable instead of clipping under overflow-x:hidden. */
+  #mainNavbar .navbar-lang-menu {
+    min-width: 220px;
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+  }
 
   .navbar-nav .nav-link {
     transition: color 150ms ease, background 150ms ease;

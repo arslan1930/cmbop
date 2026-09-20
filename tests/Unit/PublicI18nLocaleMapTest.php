@@ -17,6 +17,8 @@ class PublicI18nLocaleMapTest extends TestCase
         $this->assertStringContainsString('at', PublicI18n::prefixedPattern());
         $this->assertStringContainsString('ch', PublicI18n::prefixedPattern());
         $this->assertStringContainsString('ro', PublicI18n::prefixedPattern());
+        $this->assertStringContainsString('pl', PublicI18n::prefixedPattern());
+        $this->assertStringContainsString('pl', PublicI18n::supportedPattern());
         $this->assertStringContainsString('en', PublicI18n::supportedPattern());
         $this->assertFalse(PublicI18n::isPrefixed('en'));
         $this->assertTrue(PublicI18n::isPrefixed('us'));
@@ -34,6 +36,7 @@ class PublicI18nLocaleMapTest extends TestCase
         $this->assertSame('el-GR', PublicI18n::hreflang('gr'));
         $this->assertSame('sv-SE', PublicI18n::hreflang('se'));
         $this->assertSame('et-EE', PublicI18n::hreflang('ee'));
+        $this->assertSame('pl-PL', PublicI18n::hreflang('pl'));
 
         $this->assertSame('en_GB', PublicI18n::ogLocale('en'));
         $this->assertSame('en_US', PublicI18n::ogLocale('us'));
@@ -60,6 +63,8 @@ class PublicI18nLocaleMapTest extends TestCase
         $this->assertSame('se', PublicI18n::fromBrowserTag('sv-SE'));
         $this->assertSame('no', PublicI18n::fromBrowserTag('nb-NO'));
         $this->assertSame('ee', PublicI18n::fromBrowserTag('et-EE'));
+        $this->assertSame('pl', PublicI18n::fromBrowserTag('pl-PL'));
+        $this->assertSame('pl', PublicI18n::fromBrowserTag('pl'));
         $this->assertSame('ro', PublicI18n::fromBrowserTag('ro-RO'));
         $this->assertNull(PublicI18n::fromBrowserTag(''));
         $this->assertNull(PublicI18n::fromBrowserTag('ja-JP'));

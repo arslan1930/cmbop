@@ -121,7 +121,25 @@ class SeoGapAuditTest extends TestCase
             ->assertOk()
             ->assertSee('/guest-posts-poland', false)
             ->assertSee('seolinkbuildings.com', false)
+            ->assertSee('Polish (/pl)', false)
+            ->assertSee('301 onto seolinkbuildings.com', false)
             ->assertDontSee('seolinkbuildings.pl', false)
             ->assertDontSee('seolinkbuildings.de', false);
+    }
+
+    public function test_polish_locale_is_on_dot_com_and_in_the_sitemap_index(): void
+    {
+        $html = $this->get('/pl')->assertOk()->getContent();
+        $this->assertStringContainsString('lang="pl-PL"', $html);
+        $this->assertStringContainsString('hreflang="pl-PL"', $html);
+        $this->assertStringNotContainsString('seolinkbuildings.pl', $html);
+
+        $this->get('/sitemap.xml')
+            ->assertOk()
+            ->assertSee('sitemap-pl.xml', false);
+        $this->get('/sitemap-pl.xml')
+            ->assertOk()
+            ->assertSee('/pl/rynek', false)
+            ->assertSee('hreflang="pl-PL"', false);
     }
 }

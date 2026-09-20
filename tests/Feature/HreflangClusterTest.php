@@ -96,6 +96,7 @@ class HreflangClusterTest extends TestCase
         $this->assertSame(url('/'), $expected['en-GB']);
         $this->assertSame(url('/us'), $expected['en-US']);
         $this->assertSame(url('/at'), $expected['de-AT']);
+        $this->assertSame(url('/pl'), $expected['pl-PL']);
         $this->assertSame(url('/'), $expected['x-default']);
         $this->assertNotSame($expected['en-US'], $expected['x-default']);
 

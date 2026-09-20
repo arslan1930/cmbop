@@ -22,6 +22,14 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('prependToGroup(\'web\', CanonicalHost::class)', $bootstrap);
         $this->assertStringContainsString('LeftoverPublicI18nSlugs.php', $bootstrap);
         $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $bootstrap);
+        $this->assertStringContainsString('CountryHost.php', $bootstrap);
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', (string) file_get_contents(base_path('composer.json')));
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', (string) file_get_contents(base_path('artisan')));
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', (string) file_get_contents(base_path('public/index.php')));
+        $this->assertStringContainsString('persistMissingMethod', (string) file_get_contents(base_path('app/Support/LeftoverPublicI18nSlugs.php')));
+        $canonicalHost = (string) file_get_contents(base_path('app/Http/Middleware/CanonicalHost.php'));
+        $this->assertStringContainsString('CountryHost::localeForHost', $canonicalHost);
+        $this->assertStringContainsString('CountryHost::apexUrl', $canonicalHost);
 
         $web = (string) file_get_contents(base_path('routes/web.php'));
         $this->assertStringContainsString('class_exists(CountryLander::class)', $web);
@@ -29,6 +37,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $web);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $web);
         $this->assertStringContainsString('PublicI18n::englishOnlyMarketingSlugs()', $web);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')", $web);
+        $this->assertStringContainsString('class_exists(EnglishOnlyMarketingSlugs::class)', $web);
         $this->assertStringContainsString('class_exists(RobotsTxt::class)', $web);
 
         $controller = (string) file_get_contents(base_path('app/Http/Controllers/MarketingPageController.php'));
@@ -117,7 +127,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
     public function test_public_money_pages_and_admin_login_stay_up(): void
     {
-        foreach (['/', '/about', '/marketplace', '/guest-posts-germany', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login'] as $path) {
+        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login'] as $path) {
             $this->get($path)
                 ->assertOk()
                 ->assertDontSee('SQLSTATE')
