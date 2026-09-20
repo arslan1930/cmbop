@@ -17,6 +17,8 @@ use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Models\Withdrawal;
 use App\Services\Reminders\StalledOrderQueue;
+use App\Services\Wallet\ManualDepositApproveLink;
+use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
 use App\Support\MarketingOpsQueues;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -285,7 +287,7 @@ class DashboardMetricsService
                     'age' => $this->ageLabel($d->created_at),
                     // deposits.show is JSON for the list-page modal; the HTML queue is the working page.
                     'url' => route('admin.deposits', ['status' => 'pending']),
-                    'action_url' => $this->safeRoute('admin.deposits.approve-confirm.show', $d->id),
+                    'action_url' => $this->depositActionUrl((int) $d->id),
                     'action_label' => 'Review',
                 ])
             : collect();
@@ -307,25 +309,33 @@ class DashboardMetricsService
                     'age' => $this->ageLabel($w->created_at),
                     // withdrawals.show is JSON for the list-page modal; the HTML queue is the working page.
                     'url' => route('admin.withdrawals', ['queue' => 'open']),
-                    'action_url' => $this->safeRoute('admin.withdrawals.mark-paid-confirm.show', $w->id),
+                    'action_url' => $this->withdrawalActionUrl((int) $w->id),
                     'action_label' => 'Mark paid',
                 ])
             : collect();
 
-        $sites = Site::with('publisher:id,name,email')
-            ->needsAdminReview()
-            ->latest()
-            ->take(5)
-            ->get()
-            ->map(fn ($s) => [
-                'id' => $s->id,
-                'site_name' => $s->site_name,
-                'site_url' => $s->site_url,
-                'publisher' => $s->publisher?->name ?? 'Unknown',
-                'date' => $this->formatDate($s->created_at, 'd M Y'),
-                'age' => $this->ageLabel($s->created_at),
-                'url' => route('admin.sites.edit', $s->id),
-            ]);
+        $sites = collect();
+        try {
+            if (Schema::hasTable('sites')) {
+                $sites = Site::with('publisher:id,name,email')
+                    ->needsAdminReview()
+                    ->latest()
+                    ->take(5)
+                    ->get()
+                    ->map(fn ($s) => [
+                        'id' => $s->id,
+                        'site_name' => $s->site_name,
+                        'site_url' => $s->site_url,
+                        'publisher' => $s->publisher?->name ?? 'Unknown',
+                        'date' => $this->formatDate($s->created_at, 'd M Y'),
+                        'age' => $this->ageLabel($s->created_at),
+                        'url' => route('admin.sites.edit', $s->id),
+                    ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard sites queue failed', ['error' => $e->getMessage()]);
+            $sites = collect();
+        }
 
         return [
             'deposits' => $deposits,
@@ -800,6 +810,46 @@ class DashboardMetricsService
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function depositActionUrl(int $id): ?string
+    {
+        try {
+            if ($id > 0 && class_exists(ManualDepositApproveLink::class) && method_exists(ManualDepositApproveLink::class, 'url')) {
+                return $this->sameOriginSignedUrl(ManualDepositApproveLink::url($id))
+                    ?? $this->safeRoute('admin.deposits', ['status' => 'pending']);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard deposit action URL failed', ['error' => $e->getMessage()]);
+        }
+
+        return $this->safeRoute('admin.deposits', ['status' => 'pending']);
+    }
+
+    private function withdrawalActionUrl(int $id): ?string
+    {
+        try {
+            if ($id > 0 && class_exists(ManualWithdrawalMarkPaidLink::class) && method_exists(ManualWithdrawalMarkPaidLink::class, 'url')) {
+                return $this->sameOriginSignedUrl(ManualWithdrawalMarkPaidLink::url($id))
+                    ?? $this->safeRoute('admin.withdrawals', ['queue' => 'open']);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard withdrawal action URL failed', ['error' => $e->getMessage()]);
+        }
+
+        return $this->safeRoute('admin.withdrawals', ['queue' => 'open']);
+    }
+
+    private function sameOriginSignedUrl(string $absolute): ?string
+    {
+        $parts = parse_url($absolute);
+        if (! is_array($parts) || empty($parts['path'])) {
+            return null;
+        }
+
+        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
+
+        return $parts['path'].$query;
     }
 
     private function safeRoute(string $name, mixed $parameters = []): ?string

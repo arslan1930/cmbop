@@ -99,6 +99,7 @@ class AdminDashboardTest extends TestCase
             ->assertSee('kpiCatalogHide')
             ->assertSee("row.classList.add('d-none')", false)
             ->assertSee('setQueuePanel')
+            ->assertSee('setText')
             ->assertSee('queuesAllClear')
             ->assertSee('All queues are clear.')
             ->assertSee('Users with more than one role appear in more than one slice.')
@@ -441,21 +442,34 @@ class AdminDashboardTest extends TestCase
             'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
         ]);
 
-        $this->actingAs($admin)
+        $queue = $this->actingAs($admin)
             ->getJson(route('admin.dashboard.action-queue'))
             ->assertOk()
             ->assertJsonPath('deposits.0.url', route('admin.deposits', ['status' => 'pending']))
-            ->assertJsonPath('deposits.0.action_url', route('admin.deposits.approve-confirm.show', $deposit->id))
             ->assertJsonPath('deposits.0.action_label', 'Review')
             ->assertJsonPath('withdrawals.0.url', route('admin.withdrawals', ['queue' => 'open']))
-            ->assertJsonPath('withdrawals.0.action_url', route('admin.withdrawals.mark-paid-confirm.show', $withdrawal->id))
             ->assertJsonPath('withdrawals.0.action_label', 'Mark paid')
             ->assertJsonPath('withdrawals.0.id', $withdrawal->id)
-            ->assertJsonPath('sites.0.url', route('admin.sites.edit', $site->id));
+            ->assertJsonPath('sites.0.url', route('admin.sites.edit', $site->id))
+            ->json();
 
-        $this->assertNotEmpty($this->actingAs($admin)
-            ->getJson(route('admin.dashboard.action-queue'))
-            ->json('deposits.0.age'));
+        $depositAction = (string) ($queue['deposits'][0]['action_url'] ?? '');
+        $this->assertStringContainsString('/admin/deposits/'.$deposit->id.'/approve-confirm', $depositAction);
+        $this->assertStringContainsString('signature=', $depositAction);
+        $this->actingAs($admin)
+            ->get($depositAction)
+            ->assertOk()
+            ->assertSee('Confirm deposit approval', false);
+
+        $withdrawalAction = (string) ($queue['withdrawals'][0]['action_url'] ?? '');
+        $this->assertStringContainsString('/admin/withdrawals/'.$withdrawal->id.'/mark-paid-confirm', $withdrawalAction);
+        $this->assertStringContainsString('signature=', $withdrawalAction);
+        $this->actingAs($admin)
+            ->get($withdrawalAction)
+            ->assertOk()
+            ->assertSee('Confirm marked paid', false);
+
+        $this->assertNotEmpty($queue['deposits'][0]['age'] ?? null);
     }
 
     public function test_finance_strip_matches_overview_service(): void

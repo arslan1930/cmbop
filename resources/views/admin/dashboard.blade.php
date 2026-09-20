@@ -176,7 +176,7 @@
         All queues are clear. Nothing needs attention right now.
     </div>
     <div class="row g-3 mb-4 js-queue-row">
-        <div class="col-lg-4 js-queue-panel" data-queue="deposits">
+        <div class="col-12 col-lg js-queue-panel" data-queue="deposits">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-wallet me-2 text-success"></i>Pending Deposits</strong>
@@ -196,7 +196,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-4 js-queue-panel" data-queue="withdrawals">
+        <div class="col-12 col-lg js-queue-panel" data-queue="withdrawals">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-money-bill-wave me-2 text-warning"></i>Pending Withdrawals</strong>
@@ -216,7 +216,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-4 js-queue-panel" data-queue="sites">
+        <div class="col-12 col-lg js-queue-panel" data-queue="sites">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-globe me-2 text-primary"></i>Sites Awaiting Verify</strong>
@@ -239,7 +239,7 @@
     </div>
 
     <div class="row g-3 mb-4 js-queue-row">
-        <div class="col-lg-3 js-queue-panel" data-queue="unpaid">
+        <div class="col-12 col-lg js-queue-panel" data-queue="unpaid">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-money-bill me-2 text-info"></i>Unpaid orders</strong>
@@ -259,7 +259,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 js-queue-panel" data-queue="disputes">
+        <div class="col-12 col-lg js-queue-panel" data-queue="disputes">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-gavel me-2 text-danger"></i>Open disputes</strong>
@@ -279,7 +279,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 js-queue-panel" data-queue="community">
+        <div class="col-12 col-lg js-queue-panel" data-queue="community">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-comments me-2 text-secondary"></i>Community inbox</strong>
@@ -299,7 +299,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 js-queue-panel" data-queue="enrichment">
+        <div class="col-12 col-lg js-queue-panel" data-queue="enrichment">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-chart-line me-2 text-warning"></i>Enrichment failed</strong>
@@ -322,7 +322,7 @@
     </div>
 
     <div class="row g-3 mb-4 js-queue-row">
-        <div class="col-lg-3 js-queue-panel" data-queue="bulk">
+        <div class="col-12 col-lg js-queue-panel" data-queue="bulk">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-layer-group me-2 text-primary"></i>Bulk requests</strong>
@@ -342,7 +342,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 js-queue-panel" data-queue="mail">
+        <div class="col-12 col-lg js-queue-panel" data-queue="mail">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-envelope-open-text me-2 text-danger"></i>Failed mail</strong>
@@ -362,7 +362,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 js-queue-panel" data-queue="moderation">
+        <div class="col-12 col-lg js-queue-panel" data-queue="moderation">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-shield-alt me-2 text-danger"></i>Moderation errors</strong>
@@ -382,7 +382,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 js-queue-panel" data-queue="catalog_hide">
+        <div class="col-12 col-lg js-queue-panel" data-queue="catalog_hide">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-eye-slash me-2 text-warning"></i>Catalog hide-mode</strong>
@@ -528,7 +528,10 @@
                         try {
                             if (class_exists(\App\Services\PromotionService::class)
                                 && method_exists(\App\Services\PromotionService::class, 'dashboardStats')) {
-                                $promoStats = array_merge($promoStats, app(\App\Services\PromotionService::class)->dashboardStats());
+                                $loaded = app(\App\Services\PromotionService::class)->dashboardStats();
+                                if (is_array($loaded)) {
+                                    $promoStats = array_merge($promoStats, $loaded);
+                                }
                             }
                         } catch (\Throwable) {
                             // Leftover Hostinger: missing promotions tables must not 500 the dashboard.
@@ -627,37 +630,42 @@ function makeChart(existing, canvasId, config) {
     return new Chart(document.getElementById(canvasId), config);
 }
 
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
 async function loadStatistics() {
     const retryEl = document.getElementById('kpiRetry');
     try {
         const json = await dashboardFetch(`{{ route('admin.dashboard.statistics') }}`);
         const d = json.data;
 
-        document.getElementById('kpiUsers').textContent = num(d.total_users);
-        document.getElementById('kpiUsers7d').textContent = '+' + num(d.new_users_7d) + ' / 7d';
-        document.getElementById('kpiAdvertisers').textContent = num(d.advertisers);
-        document.getElementById('kpiPublishers').textContent = num(d.publishers);
-        document.getElementById('kpiAdmins').textContent = num(d.admins);
-        document.getElementById('kpiMarketers').textContent = num(d.marketers);
-        document.getElementById('kpiRevenue').textContent = money(d.revenue);
-        document.getElementById('kpiRevenue7d').textContent = money(d.revenue_7d) + ' / 7d';
-        document.getElementById('kpiPaidOrders').textContent = num(d.paid_orders);
-        document.getElementById('kpiSites').textContent = num(d.total_sites);
-        document.getElementById('kpiVerified').textContent = num(d.live_sites ?? d.verified_sites);
-        document.getElementById('kpiUnverified').textContent = num(d.unverified_sites) + ' in review';
-        document.getElementById('kpiDeposits').textContent = num(d.pending_deposits);
-        document.getElementById('kpiWithdrawals').textContent = num(d.pending_withdrawals);
-        document.getElementById('kpiPayments').textContent = num(d.pending_payments);
-        document.getElementById('kpiSitesReview').textContent = num(d.unverified_sites);
-        document.getElementById('kpiCommunity').textContent = num(d.pending_community);
-        document.getElementById('kpiDisputes').textContent = num(d.open_disputes);
-        document.getElementById('kpiStalled').textContent = num(d.stalled_orders);
-        document.getElementById('kpiBulk').textContent = num(d.open_bulk_requests);
-        document.getElementById('kpiMail').textContent = num(d.failed_mail);
-        document.getElementById('kpiModeration').textContent = num(d.moderation_errors);
-        document.getElementById('kpiEnrichment').textContent = num(d.enrichment_failed);
-        document.getElementById('kpiCatalogHide').textContent = num(d.catalog_hide);
-        document.getElementById('kpiAttention').textContent = num(d.needs_attention);
+        setText('kpiUsers', num(d.total_users));
+        setText('kpiUsers7d', '+' + num(d.new_users_7d) + ' / 7d');
+        setText('kpiAdvertisers', num(d.advertisers));
+        setText('kpiPublishers', num(d.publishers));
+        setText('kpiAdmins', num(d.admins));
+        setText('kpiMarketers', num(d.marketers));
+        setText('kpiRevenue', money(d.revenue));
+        setText('kpiRevenue7d', money(d.revenue_7d) + ' / 7d');
+        setText('kpiPaidOrders', num(d.paid_orders));
+        setText('kpiSites', num(d.total_sites));
+        setText('kpiVerified', num(d.live_sites ?? d.verified_sites));
+        setText('kpiUnverified', num(d.unverified_sites) + ' in review');
+        setText('kpiDeposits', num(d.pending_deposits));
+        setText('kpiWithdrawals', num(d.pending_withdrawals));
+        setText('kpiPayments', num(d.pending_payments));
+        setText('kpiSitesReview', num(d.unverified_sites));
+        setText('kpiCommunity', num(d.pending_community));
+        setText('kpiDisputes', num(d.open_disputes));
+        setText('kpiStalled', num(d.stalled_orders));
+        setText('kpiBulk', num(d.open_bulk_requests));
+        setText('kpiMail', num(d.failed_mail));
+        setText('kpiModeration', num(d.moderation_errors));
+        setText('kpiEnrichment', num(d.enrichment_failed));
+        setText('kpiCatalogHide', num(d.catalog_hide));
+        setText('kpiAttention', num(d.needs_attention));
         hideRetry(retryEl);
     } catch (err) {
         showRetry(retryEl, 'loadStatistics');
@@ -818,10 +826,10 @@ function waitingCell(item) {
     const age = item && item.age ? String(item.age) : '';
     const date = item && item.date ? String(item.date) : '';
     if (age && date) {
-        return `<td class="small text-muted"><div>${escapeHtml(age)}</div><div>${escapeHtml(date)}</div></td>`;
+        return `<td class="small text-muted"><div class="text-nowrap">${escapeHtml(age)}</div><div class="text-nowrap">${escapeHtml(date)}</div></td>`;
     }
     if (age || date) {
-        return `<td class="small text-muted">${escapeHtml(age || date)}</td>`;
+        return `<td class="small text-muted text-nowrap">${escapeHtml(age || date)}</td>`;
     }
     return `<td class="small text-muted">—</td>`;
 }
