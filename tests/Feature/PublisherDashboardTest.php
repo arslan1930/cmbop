@@ -907,4 +907,254 @@ class PublisherDashboardTest extends TestCase
             ->assertJsonPath('data.unverifiedSiteCount', 0)
             ->assertJsonPath('data.liveSiteCount', 0);
     }
+
+    public function test_dashboard_survives_missing_bulk_site_request_items_table(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('bulk_site_request_items');
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('data.bulkBlocking', false);
+    }
+
+    public function test_dashboard_survives_order_items_without_site_id(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('order_items');
+        Schema::create('order_items', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->decimal('price', 10, 2)->nullable();
+            $table->timestamps();
+        });
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('data.total_orders', 0)
+            ->assertJsonPath('data.needs_you', 0);
+    }
+
+    public function test_dashboard_survives_wallets_schema_without_balance(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $this->site($publisher);
+
+        Schema::dropIfExists('wallets');
+        Schema::create('wallets', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('role_id')->nullable();
+            $table->timestamps();
+        });
+        DB::table('wallets')->insert([
+            'user_id' => $publisher->id,
+            'role_id' => $publisher->active_role_id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertSee('Grow your catalog');
+    }
+
+    public function test_dashboard_survives_orders_schema_without_payment_status(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('order_items');
+        Schema::dropIfExists('orders');
+        Schema::create('orders', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('status')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('order_items', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('site_id')->nullable();
+            $table->decimal('price', 10, 2)->nullable();
+            $table->timestamps();
+        });
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('data.total_orders', 0);
+    }
+
+    public function test_dashboard_survives_missing_wallet_transactions_table(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'payment_status' => 'paid',
+            'completed_at' => now(),
+        ]);
+
+        Schema::dropIfExists('wallet_transactions');
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.weekly-earnings'))
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_dashboard_survives_chat_schema_without_is_read(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('order_chat_messages');
+        Schema::create('order_chat_messages', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('sender_type')->nullable();
+            $table->text('message')->nullable();
+            $table->timestamps();
+        });
+        OrderChatMessage::forgetBlockedColumnCache();
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('data.unread_chat', 0);
+    }
+
+    public function test_dashboard_survives_bulk_requests_without_status(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('bulk_site_request_items');
+        Schema::dropIfExists('bulk_site_requests');
+        Schema::create('bulk_site_requests', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('publisher_id')->nullable();
+            $table->timestamps();
+        });
+        DB::table('bulk_site_requests')->insert([
+            'publisher_id' => $publisher->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('data.bulkBlocking', false);
+    }
+
+    public function test_dashboard_survives_withdrawals_without_amount(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $this->site($publisher);
+
+        Schema::dropIfExists('withdrawals');
+        Schema::create('withdrawals', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('status')->nullable();
+            $table->timestamps();
+        });
+        DB::table('withdrawals')->insert([
+            'user_id' => $publisher->id,
+            'status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('data.pending_withdrawal_count', 1);
+    }
+
+    public function test_dashboard_survives_disputes_schema_without_status(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('order_item_disputes');
+        Schema::create('order_item_disputes', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('order_item_id')->nullable();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->timestamps();
+        });
+        OrderItemDispute::forgetTableAvailabilityCache();
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('data.open_disputes', 0);
+    }
+
+    public function test_dashboard_survives_orders_schema_without_completed_at(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'payment_status' => 'paid',
+        ]);
+
+        if (! Schema::hasColumn('orders', 'completed_at')) {
+            $this->markTestSkipped('orders.completed_at is already absent');
+        }
+
+        try {
+            Schema::table('orders', function ($table) {
+                $table->dropColumn('completed_at');
+            });
+        } catch (\Throwable) {
+            $this->markTestSkipped('Could not drop orders.completed_at on this driver');
+        }
+
+        if (Schema::hasColumn('orders', 'completed_at')) {
+            $this->markTestSkipped('orders.completed_at is still present after drop');
+        }
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.completed_orders', 1);
+    }
+
+    private function assertDashboardLeftoverSafe(User $publisher): void
+    {
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE');
+
+        foreach ([
+            'publisher.dashboard.statistics',
+            'publisher.dashboard.recent',
+            'publisher.dashboard.weekly-earnings',
+            'publisher.dashboard.monthly-earnings',
+            'publisher.dashboard.order-status',
+        ] as $name) {
+            $this->actingAs($publisher)
+                ->getJson(route($name))
+                ->assertOk()
+                ->assertJsonPath('success', true)
+                ->assertDontSee('SQLSTATE');
+        }
+    }
 }

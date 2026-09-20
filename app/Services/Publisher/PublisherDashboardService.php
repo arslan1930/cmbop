@@ -142,7 +142,7 @@ class PublisherDashboardService
     public function publisherSiteIds(int $userId): array
     {
         return $this->safeList(function () use ($userId) {
-            if (! Schema::hasTable('sites')) {
+            if (! $this->schemaHasColumn('sites', 'publisher_id')) {
                 return [];
             }
 
@@ -243,14 +243,14 @@ class PublisherDashboardService
         }
 
         $siteCount = $this->safeInt(function () use ($userId) {
-            if (! Schema::hasTable('sites')) {
+            if (! $this->schemaHasColumn('sites', 'publisher_id')) {
                 return 0;
             }
 
             return Site::where('publisher_id', $userId)->count();
         });
         $unverified = $this->safeInt(function () use ($userId) {
-            if (! Schema::hasTable('sites') || ! Site::hasSitesColumn('verified')) {
+            if (! $this->schemaHasColumn('sites', 'publisher_id') || ! Site::hasSitesColumn('verified')) {
                 return 0;
             }
 
@@ -262,21 +262,21 @@ class PublisherDashboardService
                 ->count();
         });
         $awaitingDetails = $this->safeInt(function () use ($userId) {
-            if (! Site::hasSitesColumn('onboarding_status')) {
+            if (! $this->schemaHasColumn('sites', 'publisher_id') || ! Site::hasSitesColumn('onboarding_status')) {
                 return 0;
             }
 
             $query = Site::query()
                 ->where('publisher_id', $userId)
                 ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS);
-            if (Schema::hasTable('bulk_site_requests')) {
+            if ($this->cancelledBulkFilterReady()) {
                 $query->notFromCancelledBulk();
             }
 
             return $query->count();
         });
         $detailsComplete = $this->safeInt(function () use ($userId) {
-            if (! Site::hasSitesColumn('onboarding_status')) {
+            if (! $this->schemaHasColumn('sites', 'publisher_id') || ! Site::hasSitesColumn('onboarding_status')) {
                 return 0;
             }
 
@@ -286,20 +286,26 @@ class PublisherDashboardService
                     Site::ONBOARDING_DETAILS_COMPLETE,
                     Site::ONBOARDING_READY_FOR_REVIEW,
                 ]);
-            if (Schema::hasTable('bulk_site_requests')) {
+            if ($this->cancelledBulkFilterReady()) {
                 $query->notFromCancelledBulk();
             }
 
             return $query->count();
         });
         $invites = $this->safeInt(function () use ($userId) {
+            if (! $this->schemaHasColumn('sites', 'publisher_id')) {
+                return 0;
+            }
+
             return Site::query()
                 ->where('publisher_id', $userId)
                 ->pendingPublisherAcceptance()
                 ->count();
         });
         $bulkBlocking = $this->safeInt(function () use ($userId) {
-            if (! Schema::hasTable('bulk_site_requests')) {
+            if (! $this->schemaHasColumn('bulk_site_requests', 'publisher_id')
+                || ! $this->schemaHasColumn('bulk_site_requests', 'status')
+            ) {
                 return 0;
             }
 
@@ -342,11 +348,7 @@ class PublisherDashboardService
 
     private function liveSitesCount(int $userId): int
     {
-        try {
-            if (! Schema::hasTable('sites')) {
-                return 0;
-            }
-        } catch (\Throwable) {
+        if (! $this->schemaHasColumn('sites', 'publisher_id') || ! Site::hasSitesColumn('active')) {
             return 0;
         }
 
@@ -391,7 +393,9 @@ class PublisherDashboardService
         $reserved = 0.0;
         $debt = 0.0;
         try {
-            $available = $wallet ? (float) $wallet->balance : 0.0;
+            if ($wallet && Wallet::hasTableColumn('balance')) {
+                $available = (float) $wallet->balance;
+            }
         } catch (\Throwable) {
             $available = 0.0;
         }
@@ -401,7 +405,9 @@ class PublisherDashboardService
             $withdrawable = $available;
         }
         try {
-            $reserved = $wallet ? (float) $wallet->reserved_balance : 0.0;
+            if ($wallet && Wallet::hasTableColumn('reserved_balance')) {
+                $reserved = (float) $wallet->reserved_balance;
+            }
         } catch (\Throwable) {
             $reserved = 0.0;
         }
@@ -428,7 +434,9 @@ class PublisherDashboardService
                     ->where('user_id', $user->id)
                     ->whereIn('status', ['pending', 'processing']);
                 $pendingCount = (int) (clone $pending)->count();
-                $pendingAmount = round((float) (clone $pending)->sum('amount'), 2);
+                if (Withdrawal::hasTableColumn('amount')) {
+                    $pendingAmount = round((float) (clone $pending)->sum('amount'), 2);
+                }
             }
         } catch (\Throwable) {
             $pendingCount = 0;
@@ -467,7 +475,7 @@ class PublisherDashboardService
     private function unreadChatCount(int $userId): int
     {
         return $this->safeInt(function () use ($userId) {
-            if (! Schema::hasTable('order_chat_messages')) {
+            if (! $this->unreadChatReady()) {
                 return 0;
             }
 
@@ -478,7 +486,7 @@ class PublisherDashboardService
     private function latestUnreadOrderId(int $userId): ?int
     {
         try {
-            if (! Schema::hasTable('order_chat_messages')) {
+            if (! $this->unreadChatReady()) {
                 return null;
             }
             $row = $this->unreadChatQuery($userId)->orderByDesc('created_at')->first(['order_id']);
@@ -507,7 +515,11 @@ class PublisherDashboardService
     private function openDisputeCount(int $userId): int
     {
         return $this->safeInt(function () use ($userId) {
-            if (! OrderItemDispute::tableAvailable()) {
+            if (! OrderItemDispute::tableAvailable()
+                || ! $this->schemaHasColumn('order_item_disputes', 'status')
+                || ! $this->orderItemsReady()
+                || ! $this->schemaHasColumn('sites', 'publisher_id')
+            ) {
                 return 0;
             }
 
@@ -684,7 +696,7 @@ class PublisherDashboardService
      */
     private function visibleOrderIds(array $siteIds): array
     {
-        if ($siteIds === []) {
+        if ($siteIds === [] || ! $this->orderItemsReady() || ! $this->paidOrdersReady()) {
             return [];
         }
 
@@ -725,6 +737,12 @@ class PublisherDashboardService
             return $empty;
         }
 
+        $empty['total_sites'] = count($siteIds);
+
+        if (! $this->orderItemsReady() || ! $this->paidOrdersReady()) {
+            return $empty;
+        }
+
         try {
             $orderIds = $this->visibleOrderIds($siteIds);
             $completedOrders = $orderIds === [] ? 0 : Order::whereIn('id', $orderIds)->where('status', 'completed')->count();
@@ -747,27 +765,9 @@ class PublisherDashboardService
                 'cancelled_orders' => $cancelledOrders,
                 'total_sites' => count($siteIds),
                 'success_rate' => $successRate,
-                'total_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
-                    ->recognizedForFinance()
-                    ->whereHas('order', function ($q) {
-                        $q->where('status', 'completed')
-                            ->where('payment_status', 'paid');
-                    })
-                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2),
-                'pending_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
-                    ->recognizedForFinance()
-                    ->whereHas('order', function ($q) {
-                        $q->where('status', 'review')
-                            ->where('payment_status', 'paid');
-                    })
-                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2),
-                'in_progress_earnings' => round((float) OrderItem::whereIn('site_id', $siteIds)
-                    ->recognizedForFinance()
-                    ->whereHas('order', function ($q) {
-                        $q->where('status', 'processing')
-                            ->where('payment_status', 'paid');
-                    })
-                    ->sum(OrderItem::publisherPayoutSqlExpression()), 2),
+                'total_earnings' => $this->sumPublisherPayout($siteIds, 'completed'),
+                'pending_earnings' => $this->sumPublisherPayout($siteIds, 'review'),
+                'in_progress_earnings' => $this->sumPublisherPayout($siteIds, 'processing'),
             ];
         } catch (\Throwable $e) {
             Log::warning('Publisher dashboard statistics failed', ['error' => $e->getMessage()]);
@@ -812,7 +812,7 @@ class PublisherDashboardService
      */
     public function buildRecentTasks(array $siteIds, int $userId = 0): array
     {
-        if ($siteIds === []) {
+        if ($siteIds === [] || ! $this->orderItemsReady() || ! $this->paidOrdersReady()) {
             return [];
         }
 
@@ -970,14 +970,17 @@ class PublisherDashboardService
      */
     private function completedEarningsQuery(array $siteIds)
     {
-        return OrderItem::query()
+        $query = OrderItem::query()
             ->whereIn('order_items.site_id', $siteIds)
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->whereIn('orders.payment_status', ['paid', 'refunded'])
-            ->where(function ($q) {
-                $q->where('orders.status', 'completed')
-                    ->orWhereNotNull('orders.completed_at');
-            });
+            ->whereIn('orders.payment_status', ['paid', 'refunded']);
+
+        return $query->where(function ($q) {
+            $q->where('orders.status', 'completed');
+            if ($this->schemaHasColumn('orders', 'completed_at')) {
+                $q->orWhereNotNull('orders.completed_at');
+            }
+        });
     }
 
     /**
@@ -985,6 +988,10 @@ class PublisherDashboardService
      */
     private function netEarningsInWindow(array $siteIds, Carbon $start, Carbon $end): float
     {
+        if (! $this->orderItemsReady() || ! $this->paidOrdersReady() || ! $this->schemaHasColumn('order_items', 'price')) {
+            return 0.0;
+        }
+
         try {
             $ts = $this->completionTimestampSql();
             $recognized = (float) $this->completedEarningsQuery($siteIds)
@@ -1017,8 +1024,10 @@ class PublisherDashboardService
             ->whereHas('order', function ($q) {
                 $q->whereIn('payment_status', ['paid', 'refunded'])
                     ->where(function ($order) {
-                        $order->where('status', 'completed')
-                            ->orWhereNotNull('completed_at');
+                        $order->where('status', 'completed');
+                        if ($this->schemaHasColumn('orders', 'completed_at')) {
+                            $order->orWhereNotNull('completed_at');
+                        }
                     });
             })
             ->whereHas('disputes', function ($disputes) use ($start, $end) {
@@ -1043,8 +1052,10 @@ class PublisherDashboardService
             ->whereHas('order', function ($q) use ($start, $end) {
                 $q->where('payment_status', 'refunded')
                     ->where(function ($order) {
-                        $order->where('status', 'completed')
-                            ->orWhereNotNull('completed_at');
+                        $order->where('status', 'completed');
+                        if ($this->schemaHasColumn('orders', 'completed_at')) {
+                            $order->orWhereNotNull('completed_at');
+                        }
                     });
                 $this->constrainOrderRefundedInWindow($q, $start, $end);
             })
@@ -1053,7 +1064,10 @@ class PublisherDashboardService
 
     private function constrainOrderRefundedInWindow($query, Carbon $start, Carbon $end): void
     {
-        if (! Schema::hasTable('wallet_transactions')) {
+        if (! $this->schemaHasTable('wallet_transactions')
+            || ! $this->schemaHasColumn('wallet_transactions', 'related_id')
+            || ! $this->schemaHasColumn('wallet_transactions', 'type')
+        ) {
             $query->whereBetween('orders.updated_at', [$start, $end]);
 
             return;
@@ -1124,6 +1138,69 @@ class PublisherDashboardService
                 'labels' => $labels,
                 'values' => [0, 0, 0, 0, 0, 0],
             ];
+        }
+    }
+
+    /**
+     * @param  array<int>  $siteIds
+     */
+    private function sumPublisherPayout(array $siteIds, string $orderStatus): float
+    {
+        if (! $this->schemaHasColumn('order_items', 'price')) {
+            return 0.0;
+        }
+
+        return round((float) OrderItem::whereIn('site_id', $siteIds)
+            ->recognizedForFinance()
+            ->whereHas('order', function ($q) use ($orderStatus) {
+                $q->where('status', $orderStatus)
+                    ->where('payment_status', 'paid');
+            })
+            ->sum(OrderItem::publisherPayoutSqlExpression()), 2);
+    }
+
+    private function unreadChatReady(): bool
+    {
+        return $this->schemaHasColumn('order_chat_messages', 'is_read')
+            && $this->schemaHasColumn('order_chat_messages', 'sender_type')
+            && $this->orderItemsReady()
+            && $this->paidOrdersReady()
+            && $this->schemaHasColumn('sites', 'publisher_id');
+    }
+
+    private function orderItemsReady(): bool
+    {
+        return $this->schemaHasColumn('order_items', 'site_id')
+            && $this->schemaHasColumn('order_items', 'order_id');
+    }
+
+    private function paidOrdersReady(): bool
+    {
+        return $this->schemaHasColumn('orders', 'payment_status')
+            && $this->schemaHasColumn('orders', 'status');
+    }
+
+    private function cancelledBulkFilterReady(): bool
+    {
+        return $this->schemaHasTable('bulk_site_requests')
+            && $this->schemaHasColumn('bulk_site_requests', 'status');
+    }
+
+    private function schemaHasTable(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function schemaHasColumn(string $table, string $column): bool
+    {
+        try {
+            return Schema::hasTable($table) && Schema::hasColumn($table, $column);
+        } catch (\Throwable) {
+            return false;
         }
     }
 
