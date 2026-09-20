@@ -23,8 +23,8 @@
             'name' => 'berlin**.de',
             'domain_masked' => 'berlin**.de',
             'traffic' => 627000,
-            'dr' => 48,
-            'da' => 58,
+            'dr' => 89,
+            'da' => 83,
             'price' => 253.87,
             'categories' => ['Technology', 'Business'],
             'more_cats' => 1,
@@ -39,8 +39,8 @@
             'name' => 'munich**.de',
             'domain_masked' => 'munich**.de',
             'traffic' => 580400,
-            'dr' => 45,
-            'da' => 55,
+            'dr' => 89,
+            'da' => 82,
             'price' => 188.98,
             'categories' => ['Technology', 'Business'],
             'more_cats' => 1,
@@ -55,8 +55,8 @@
             'name' => 'hamburg**.de',
             'domain_masked' => 'hamburg**.de',
             'traffic' => 501200,
-            'dr' => 42,
-            'da' => 52,
+            'dr' => 88,
+            'da' => 83,
             'price' => 149.63,
             'categories' => ['Technology', 'Business'],
             'more_cats' => 1,
@@ -69,31 +69,7 @@
         ],
     ];
 
-    $catalogPreview = $catalogPreview ?? collect();
-    if ($catalogPreview instanceof \Illuminate\Support\Collection) {
-        $catalogPreview = $catalogPreview
-            ->filter(fn ($site) => strtolower((string) ($site['country'] ?? '')) === 'de')
-            ->values()
-            ->take(3);
-    } else {
-        $catalogPreview = collect();
-    }
-
-    $rows = [];
-    foreach ($fallbackRows as $i => $base) {
-        $site = $catalogPreview->get($i);
-        $row = is_array($site)
-            ? array_merge($base, [
-                'price' => $site['price'] ?? $base['price'],
-                'traffic' => $site['traffic'] ?? $base['traffic'],
-            ])
-            : $base;
-        // Demo scores stay in a mid band so live high-DR teasers cannot jump to ~90.
-        $row['dr'] = max(40, min(50, (int) ($base['dr'] ?? 45)));
-        $row['da'] = max(50, min(60, (int) ($base['da'] ?? 55)));
-        $rows[] = $row;
-    }
-
+    $rows = $fallbackRows;
     $rowCount = count($rows);
 @endphp
 

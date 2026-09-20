@@ -93,7 +93,7 @@ class HomepageCatalogPreviewTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('**', $html);
-        $this->assertHeroDemoDrDaBands($html);
+        $this->assertHeroDemoScreenshotScores($html);
     }
 
     public function test_homepage_always_shows_catalog_table_even_without_sites(): void
@@ -111,10 +111,10 @@ class HomepageCatalogPreviewTest extends TestCase
             ->assertDontSee('advertiser/catalog', false)
             ->getContent();
 
-        $this->assertHeroDemoDrDaBands($html);
+        $this->assertHeroDemoScreenshotScores($html);
     }
 
-    public function test_hero_keeps_demo_dr_da_in_mid_band_when_live_scores_are_extreme(): void
+    public function test_hero_keeps_screenshot_demo_scores_when_live_teasers_exist(): void
     {
         $publisher = $this->publisher();
         $this->makeSite($publisher, [
@@ -125,7 +125,7 @@ class HomepageCatalogPreviewTest extends TestCase
             'language' => 'de',
             'countries' => ['de'],
             'languages' => ['de'],
-            'dr' => 89,
+            'dr' => 12,
             'da' => 32,
             'traffic' => 500000,
         ]);
@@ -133,14 +133,14 @@ class HomepageCatalogPreviewTest extends TestCase
         $html = $this->get('/')->assertOk()->getContent();
 
         $this->assertDoesNotMatchRegularExpression(
-            '/catalog-metric--dr[^>]*>\s*<span class="catalog-metric__value">89</',
+            '/catalog-metric--dr[^>]*>\s*<span class="catalog-metric__value">12</',
             $html
         );
         $this->assertDoesNotMatchRegularExpression(
             '/catalog-metric--da">\s*<span class="catalog-metric__value">32</',
             $html
         );
-        $this->assertHeroDemoDrDaBands($html);
+        $this->assertHeroDemoScreenshotScores($html);
     }
 
     public function test_hero_ctas_stay_on_one_line(): void
@@ -236,7 +236,7 @@ class HomepageCatalogPreviewTest extends TestCase
         $this->assertSame('site**.com', $service->maskDomain(''));
     }
 
-    private function assertHeroDemoDrDaBands(string $html): void
+    private function assertHeroDemoScreenshotScores(string $html): void
     {
         preg_match_all(
             '/catalog-metric--dr[^>]*>\s*<span class="catalog-metric__value">(\d+)/',
@@ -249,16 +249,13 @@ class HomepageCatalogPreviewTest extends TestCase
             $daMatches
         );
 
-        $this->assertCount(3, $drMatches[1], $html);
-        $this->assertCount(3, $daMatches[1], $html);
-
-        foreach ($drMatches[1] as $i => $drValue) {
-            $dr = (int) $drValue;
-            $da = (int) $daMatches[1][$i];
-            $this->assertGreaterThanOrEqual(40, $dr, "row {$i} DR {$dr} should be at least 40");
-            $this->assertLessThanOrEqual(50, $dr, "row {$i} DR {$dr} should be at most 50");
-            $this->assertGreaterThanOrEqual(50, $da, "row {$i} DA {$da} should be at least 50");
-            $this->assertLessThanOrEqual(60, $da, "row {$i} DA {$da} should be at most 60");
-        }
+        $this->assertSame(['89', '89', '88'], $drMatches[1], $html);
+        $this->assertSame(['83', '82', '83'], $daMatches[1], $html);
+        $this->assertStringContainsString('€253.87', $html);
+        $this->assertStringContainsString('€188.98', $html);
+        $this->assertStringContainsString('€149.63', $html);
+        $this->assertStringContainsString('627k', $html);
+        $this->assertStringContainsString('580.4k', $html);
+        $this->assertStringContainsString('501.2k', $html);
     }
 }
