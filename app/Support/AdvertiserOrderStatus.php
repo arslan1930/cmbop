@@ -50,6 +50,25 @@ class AdvertiserOrderStatus
                             });
                     });
                 }
+
+                if (Schema::hasColumn('order_items', 'live_url_check_ok')) {
+                    $windowDays = max(1, (int) config('orders.live_url_down_window_days', 90));
+                    $q->orWhere(function ($linkDown) use ($windowDays) {
+                        $linkDown->where('status', 'completed')
+                            ->where('payment_status', 'paid')
+                            ->whereHas('items', function ($iq) use ($windowDays) {
+                                $iq->whereNotNull('live_url')
+                                    ->where('live_url', '!=', '')
+                                    ->where('live_url_check_ok', false)
+                                    ->where(function ($recent) use ($windowDays) {
+                                        $recent->where('live_url_checked_at', '>=', now()->subDays($windowDays));
+                                        if (Schema::hasColumn('order_items', 'completed_at')) {
+                                            $recent->orWhere('completed_at', '>=', now()->subDays($windowDays));
+                                        }
+                                    });
+                            });
+                    });
+                }
             });
         static::constrainWithoutFailedPayment($query);
 
@@ -392,6 +411,17 @@ class AdvertiserOrderStatus
                     'label' => 'Completed',
                     'next' => 'Placement details are missing for this order.',
                     'cls' => 'status-completed',
+                    'stage' => 'completed',
+                    'auto_approve_hint' => null,
+                ];
+            }
+
+            $linkDown = $hasLiveUrl && $item->live_url_check_ok === false;
+            if ($linkDown) {
+                return [
+                    'label' => 'Completed · link may be down',
+                    'next' => 'The live URL did not respond. Recheck it, or open the published page.',
+                    'cls' => 'status-review',
                     'stage' => 'completed',
                     'auto_approve_hint' => null,
                 ];

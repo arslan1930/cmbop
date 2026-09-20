@@ -274,6 +274,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ->dailyAt('05:10')
             ->withoutOverlapping();
 
+        $schedule->command('orders:recheck-completed-live-urls --limit='.(int) config('orders.live_url_recheck_limit', 40))
+            ->dailyAt('05:40')
+            ->withoutOverlapping();
+
         // Queued mail sits on the "emails" queue until a worker consumes it. Hosts
         // that only offer cron have no resident worker, so drain the backlog here.
         $schedule->command('mail:drain-queue')

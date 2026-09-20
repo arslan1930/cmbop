@@ -127,10 +127,12 @@
             <span class="nav-label">Projects</span>
         </a>
 
-        <a href="{{ route('advertiser.site-claims') }}" class="{{ request()->routeIs('advertiser.site-claims') || request()->routeIs('site-claims.*') ? 'active' : '' }}">
-            <i class="fa fa-user-check" aria-hidden="true"></i>
-            <span class="nav-label">My Claims</span>
-        </a>
+        @if(auth()->user()?->hasRole('publisher'))
+            <a href="{{ route('advertiser.site-claims') }}" class="{{ request()->routeIs('advertiser.site-claims') || request()->routeIs('site-claims.*') ? 'active' : '' }}">
+                <i class="fa fa-user-check" aria-hidden="true"></i>
+                <span class="nav-label">My Claims</span>
+            </a>
+        @endif
 
         <!-- Add Funds -->
         <a href="{{ route('advertiser.add-funds') }}" class="{{ request()->routeIs('advertiser.add-funds*') || request()->routeIs('advertiser.balance*') ? 'active' : '' }}">

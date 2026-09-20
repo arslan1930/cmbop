@@ -29,4 +29,20 @@ return [
         FILTER_VALIDATE_BOOL
     ),
 
+    /*
+    | Recheck completed live URLs this many days after the last check.
+    */
+    'live_url_recheck_stale_days' => (int) env('ORDER_LIVE_URL_RECHECK_STALE_DAYS', 7),
+
+    /*
+    | Max completed placements to recheck per scheduled run.
+    */
+    'live_url_recheck_limit' => (int) env('ORDER_LIVE_URL_RECHECK_LIMIT', 40),
+
+    /*
+    | Completed placements with a failed live-URL check stay in Needs you
+    | for this many days after the last check.
+    */
+    'live_url_down_window_days' => (int) env('ORDER_LIVE_URL_DOWN_WINDOW_DAYS', 90),
+
 ];
