@@ -55,7 +55,7 @@ class PublisherDashboardService
             'latestUnreadOrderId' => $latestUnreadOrderId,
             'openDisputes' => $openDisputes,
             'primaryAction' => $primaryAction,
-            'attentionQueues' => $this->attentionQueues(
+            'attentionQueues' => $this->safeAttentionQueues(
                 $primaryAction,
                 $needsYou,
                 $unreadChat,
@@ -250,7 +250,7 @@ class PublisherDashboardService
             return Site::where('publisher_id', $userId)->count();
         });
         $unverified = $this->safeInt(function () use ($userId) {
-            if (! Schema::hasTable('sites')) {
+            if (! Schema::hasTable('sites') || ! Site::hasSitesColumn('verified')) {
                 return 0;
             }
 
@@ -518,6 +518,37 @@ class PublisherDashboardService
                 })
                 ->count();
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $siteQueues
+     * @param  array<string, mixed>  $money
+     * @return list<array<string, mixed>>
+     */
+    private function safeAttentionQueues(
+        string $primaryAction,
+        int $needsYou,
+        int $unreadChat,
+        ?int $latestUnreadOrderId,
+        int $openDisputes,
+        array $siteQueues,
+        array $money,
+    ): array {
+        try {
+            return $this->attentionQueues(
+                $primaryAction,
+                $needsYou,
+                $unreadChat,
+                $latestUnreadOrderId,
+                $openDisputes,
+                $siteQueues,
+                $money,
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Publisher dashboard attention queues failed', ['error' => $e->getMessage()]);
+
+            return [];
+        }
     }
 
     /**
@@ -923,8 +954,12 @@ class PublisherDashboardService
 
     private function completionTimestampSql(): string
     {
-        if (Schema::hasColumn('order_items', 'completed_at')) {
-            return 'COALESCE(order_items.completed_at, orders.updated_at)';
+        try {
+            if (Schema::hasTable('order_items') && Schema::hasColumn('order_items', 'completed_at')) {
+                return 'COALESCE(order_items.completed_at, orders.updated_at)';
+            }
+        } catch (\Throwable) {
+            // Leftover Hostinger: inspect failed — use order.updated_at.
         }
 
         return 'orders.updated_at';

@@ -11,6 +11,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -856,5 +857,54 @@ class PublisherDashboardTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.pending_withdrawal_count', 0);
+    }
+
+    public function test_dashboard_survives_missing_orders_table(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('orders');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.total_orders', 0)
+            ->assertJsonPath('data.needs_you', 0);
+    }
+
+    public function test_dashboard_survives_sites_schema_without_verified_or_active(): void
+    {
+        $publisher = $this->publisherWithWallet();
+
+        Schema::dropIfExists('sites');
+        Schema::create('sites', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('publisher_id')->nullable();
+            $table->timestamps();
+        });
+        DB::table('sites')->insert([
+            'publisher_id' => $publisher->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.unverifiedSiteCount', 0)
+            ->assertJsonPath('data.liveSiteCount', 0);
     }
 }
