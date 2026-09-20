@@ -2,6 +2,8 @@
 
 namespace App\Services\Admin;
 
+use App\Models\BulkSiteRequest;
+use App\Models\ContentModerationLog;
 use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\OrderItemDispute;
@@ -15,6 +17,7 @@ use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Models\Withdrawal;
 use App\Services\Reminders\StalledOrderQueue;
+use App\Support\MarketingOpsQueues;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -75,6 +78,11 @@ class DashboardMetricsService
             'pending_community' => $queues['pending_community'],
             'open_disputes' => $queues['open_disputes'],
             'stalled_orders' => $queues['stalled_orders'],
+            'open_bulk_requests' => $queues['open_bulk_requests'],
+            'failed_mail' => $queues['failed_mail'],
+            'moderation_errors' => $queues['moderation_errors'],
+            'enrichment_failed' => $queues['enrichment_failed'],
+            'catalog_hide' => $queues['catalog_hide'],
             'needs_attention' => $queues['needs_attention'],
             'new_users_7d' => User::where('created_at', '>=', now()->subDays(7))->count(),
             'orders_7d' => Order::where('payment_status', 'paid')
@@ -168,6 +176,7 @@ class DashboardMetricsService
             'roles' => [
                 'labels' => $roleCounts->keys()->map(fn ($s) => ucfirst($s))->values(),
                 'values' => $roleCounts->values()->map(fn ($v) => (int) $v)->values(),
+                'note' => 'Users with more than one role appear in more than one slice.',
             ],
         ];
     }
@@ -195,13 +204,23 @@ class DashboardMetricsService
         $pendingCommunity = $pendingClaims + $pendingProblems + $pendingSuggestions + $pendingWebsites;
         $openDisputes = $this->openDisputesCount();
         $stalledOrders = $this->stalled->count();
+        $openBulk = $this->openBulkRequestsCount();
+        $failedMail = $this->failedMailCount();
+        $moderationErrors = $this->moderationErrorsCount();
+        $enrichmentFailed = $this->enrichmentFailedCount();
+        $catalogHide = $this->catalogHideCount();
         $needsAttention = $pendingDeposits
             + $pendingWithdrawals
             + $unverifiedSites
             + $pendingPayments
             + $pendingCommunity
             + $openDisputes
-            + $stalledOrders;
+            + $stalledOrders
+            + $openBulk
+            + $failedMail
+            + $moderationErrors
+            + $enrichmentFailed
+            + $catalogHide;
 
         return [
             'pending_deposits' => $pendingDeposits,
@@ -215,6 +234,11 @@ class DashboardMetricsService
             'pending_community' => $pendingCommunity,
             'open_disputes' => $openDisputes,
             'stalled_orders' => $stalledOrders,
+            'open_bulk_requests' => $openBulk,
+            'failed_mail' => $failedMail,
+            'moderation_errors' => $moderationErrors,
+            'enrichment_failed' => $enrichmentFailed,
+            'catalog_hide' => $catalogHide,
             'needs_attention' => $needsAttention,
         ];
     }
@@ -241,7 +265,7 @@ class DashboardMetricsService
     /**
      * Items that need admin attention (top 5 per queue).
      *
-     * @return array{deposits: mixed, withdrawals: mixed, sites: mixed, unpaid: mixed, disputes: mixed, community: mixed, enrichment: mixed}
+     * @return array{deposits: mixed, withdrawals: mixed, sites: mixed, unpaid: mixed, disputes: mixed, community: mixed, enrichment: mixed, bulk: mixed, mail: mixed, moderation: mixed, catalog_hide: mixed}
      */
     public function actionQueue(): array
     {
@@ -257,9 +281,12 @@ class DashboardMetricsService
                     'email' => $d->user?->email,
                     'amount' => (float) $d->amount,
                     'method' => $d->payment_method,
-                    'date' => optional($d->created_at)->format('d M Y H:i'),
+                    'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($d->created_at),
                     // deposits.show is JSON for the list-page modal; the HTML queue is the working page.
                     'url' => route('admin.deposits', ['status' => 'pending']),
+                    'action_url' => $this->safeRoute('admin.deposits.approve-confirm.show', $d->id),
+                    'action_label' => 'Review',
                 ])
             : collect();
 
@@ -276,9 +303,12 @@ class DashboardMetricsService
                     'amount' => (float) $w->net_amount,
                     'method' => $w->payment_method,
                     'status' => $w->status,
-                    'date' => optional($w->created_at)->format('d M Y H:i'),
+                    'date' => $this->formatDate($w->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($w->created_at),
                     // withdrawals.show is JSON for the list-page modal; the HTML queue is the working page.
                     'url' => route('admin.withdrawals', ['queue' => 'open']),
+                    'action_url' => $this->safeRoute('admin.withdrawals.mark-paid-confirm.show', $w->id),
+                    'action_label' => 'Mark paid',
                 ])
             : collect();
 
@@ -292,7 +322,8 @@ class DashboardMetricsService
                 'site_name' => $s->site_name,
                 'site_url' => $s->site_url,
                 'publisher' => $s->publisher?->name ?? 'Unknown',
-                'date' => optional($s->created_at)->format('d M Y'),
+                'date' => $this->formatDate($s->created_at, 'd M Y'),
+                'age' => $this->ageLabel($s->created_at),
                 'url' => route('admin.sites.edit', $s->id),
             ]);
 
@@ -304,6 +335,10 @@ class DashboardMetricsService
             'disputes' => $this->disputeQueue(),
             'community' => $this->communityQueue(),
             'enrichment' => $this->enrichmentQueue(),
+            'bulk' => $this->bulkQueue(),
+            'mail' => $this->failedMailQueue(),
+            'moderation' => $this->moderationQueue(),
+            'catalog_hide' => $this->catalogHideQueue(),
         ];
     }
 
@@ -336,7 +371,8 @@ class DashboardMetricsService
                 'user' => $o->user?->name ?? 'Unknown',
                 'email' => $o->user?->email,
                 'amount' => (float) $o->total_amount,
-                'date' => optional($o->created_at)->format('d M Y H:i'),
+                'date' => $this->formatDate($o->created_at, 'd M Y H:i'),
+                'age' => $this->ageLabel($o->created_at),
                 'url' => route('admin.orders.show', $o->id),
             ]);
     }
@@ -362,7 +398,8 @@ class DashboardMetricsService
                 'site_name' => $d->orderItem?->site_name ?: '—',
                 'advertiser' => $d->order?->user?->name ?? 'Unknown',
                 'reason' => Str::limit((string) $d->reason, 80),
-                'date' => optional($d->created_at)->format('d M Y H:i'),
+                'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
+                'age' => $this->ageLabel($d->created_at),
                 'url' => $d->order_id ? route('admin.orders.show', $d->order_id) : route('admin.orders.index'),
             ]);
     }
@@ -379,7 +416,8 @@ class DashboardMetricsService
                 'type' => 'problem',
                 'label' => $r->subject ?: 'Problem report',
                 'from' => $r->name ?: ($r->email ?: 'Unknown'),
-                'date' => optional($r->created_at)->format('d M Y'),
+                'date' => $this->formatDate($r->created_at, 'd M Y'),
+                'age' => $this->ageLabel($r->created_at),
                 'sort_at' => optional($r->created_at)?->timestamp ?? 0,
                 'url' => route('admin.community.index', ['tab' => 'problems', 'status' => 'pending']),
             ]))
@@ -387,7 +425,8 @@ class DashboardMetricsService
                 'type' => 'suggestion',
                 'label' => Str::limit((string) $r->message, 60) ?: 'Suggestion',
                 'from' => $r->name ?: ($r->email ?: 'Unknown'),
-                'date' => optional($r->created_at)->format('d M Y'),
+                'date' => $this->formatDate($r->created_at, 'd M Y'),
+                'age' => $this->ageLabel($r->created_at),
                 'sort_at' => optional($r->created_at)?->timestamp ?? 0,
                 'url' => route('admin.community.index', ['tab' => 'suggestions', 'status' => 'pending']),
             ]))
@@ -395,7 +434,8 @@ class DashboardMetricsService
                 'type' => 'website',
                 'label' => $r->website_name ?: ($r->website_url ?: 'Website suggestion'),
                 'from' => $r->website_url ?: 'Unknown',
-                'date' => optional($r->created_at)->format('d M Y'),
+                'date' => $this->formatDate($r->created_at, 'd M Y'),
+                'age' => $this->ageLabel($r->created_at),
                 'sort_at' => optional($r->created_at)?->timestamp ?? 0,
                 'url' => route('admin.community.index', ['tab' => 'websites', 'status' => 'pending']),
             ]))
@@ -403,7 +443,8 @@ class DashboardMetricsService
                 'type' => 'claim',
                 'label' => $r->website_name ?: ($r->domain ?: 'Site claim'),
                 'from' => $r->contact_email ?: 'Unknown',
-                'date' => optional($r->created_at)->format('d M Y'),
+                'date' => $this->formatDate($r->created_at, 'd M Y'),
+                'age' => $this->ageLabel($r->created_at),
                 'sort_at' => optional($r->created_at)?->timestamp ?? 0,
                 'url' => route('admin.community.index', ['tab' => 'claims', 'status' => 'pending']),
             ]));
@@ -438,7 +479,8 @@ class DashboardMetricsService
                     'site_name' => $run->site?->site_name ?: 'Unknown site',
                     'status' => $run->status,
                     'error' => Str::limit((string) ($run->error ?: 'Enrichment failed'), 80),
-                    'date' => optional($run->created_at)->format('d M Y'),
+                    'date' => $this->formatDate($run->created_at, 'd M Y'),
+                    'age' => $this->ageLabel($run->created_at),
                     'url' => $run->site_id
                         ? route('admin.sites.edit', $run->site_id)
                         : route('admin.site-enrichment.index'),
@@ -452,6 +494,212 @@ class DashboardMetricsService
         }
     }
 
+    /**
+     * Same predicate as marketing “Waiting on you” so leftover Done rows stay visible.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function bulkQueue(): Collection
+    {
+        try {
+            if (! Schema::hasTable('bulk_site_requests')) {
+                return collect();
+            }
+
+            return MarketingOpsQueues::bulkWaitingOnMarketer()
+                ->with('publisher:id,name,email')
+                ->latest('id')
+                ->take(5)
+                ->get()
+                ->map(fn (BulkSiteRequest $bulk) => [
+                    'id' => $bulk->id,
+                    'publisher' => $bulk->publisher?->name ?? 'Unknown',
+                    'status' => $bulk->status,
+                    'count' => (int) ($bulk->estimated_count ?? 0),
+                    'date' => $this->formatDate($bulk->created_at, 'd M Y'),
+                    'age' => $this->ageLabel($bulk->created_at),
+                    'url' => $this->safeRoute('admin.bulk-site-requests.show', $bulk->id)
+                        ?? $this->safeRoute('admin.bulk-site-requests.index', ['status' => MarketingOpsQueues::FILTER_NEEDS_MARKETER]),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard bulk queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * Retryable SendQueuedMailable rows — same source as Email Center’s failed-mail count.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function failedMailQueue(): Collection
+    {
+        try {
+            if (! Schema::hasTable('failed_jobs')) {
+                return collect();
+            }
+
+            return collect(DB::table('failed_jobs')
+                ->where('payload', 'like', '%SendQueuedMailable%')
+                ->orderByDesc('id')
+                ->take(5)
+                ->get())
+                ->map(function ($row) {
+                    $firstLine = strtok(str_replace(["\r\n", "\r"], "\n", (string) ($row->exception ?? '')), "\n") ?: 'Failed mail job';
+
+                    return [
+                        'id' => $row->id,
+                        'label' => Str::limit(trim((string) $firstLine), 80),
+                        'date' => $this->formatDate($row->failed_at ?? null, 'd M Y H:i'),
+                        'age' => $this->ageLabel($row->failed_at ?? null),
+                        'url' => $this->safeRoute('admin.emails.index'),
+                    ];
+                });
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard failed-mail queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * Scan errors that never produced an approve/reject — same filter as /admin/moderation?status=error.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function moderationQueue(): Collection
+    {
+        try {
+            if (! ContentModerationLog::tableAvailable()) {
+                return collect();
+            }
+
+            return ContentModerationLog::query()
+                ->where('status', ContentModerationLog::STATUS_ERROR)
+                ->latest('id')
+                ->take(5)
+                ->get()
+                ->map(fn (ContentModerationLog $log) => [
+                    'id' => $log->id,
+                    'label' => Str::limit((string) ($log->error_message ?: $log->error_code ?: 'Scan error'), 80),
+                    'date' => $this->formatDate($log->created_at, 'd M Y'),
+                    'age' => $this->ageLabel($log->created_at),
+                    'url' => $this->safeRoute('admin.moderation.show', $log->id)
+                        ?? $this->safeRoute('admin.moderation.index', ['status' => 'error']),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard moderation queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * Advertisers currently in catalog hide mode.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function catalogHideQueue(): Collection
+    {
+        try {
+            if (! Schema::hasTable('users') || ! Schema::hasColumn('users', 'catalog_hide_until')) {
+                return collect();
+            }
+
+            return User::query()
+                ->whereNotNull('catalog_hide_until')
+                ->where('catalog_hide_until', '>', now())
+                ->orderByDesc('catalog_hide_until')
+                ->take(5)
+                ->get(['id', 'name', 'email', 'catalog_hide_until'])
+                ->filter(fn (User $user) => $user->inCatalogHideMode())
+                ->values()
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'user' => $user->name ?: 'Unknown',
+                    'email' => $user->email,
+                    'date' => $this->formatDate($user->catalog_hide_until, 'd M Y H:i'),
+                    'age' => $this->ageLabel($user->catalog_hide_until),
+                    'url' => $this->safeRoute('admin.catalog-activity', ['user' => $user->id]),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard catalog-hide queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    private function openBulkRequestsCount(): int
+    {
+        try {
+            if (! Schema::hasTable('bulk_site_requests')) {
+                return 0;
+            }
+
+            return MarketingOpsQueues::bulkWaitingOnMarketer()->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function failedMailCount(): int
+    {
+        try {
+            if (! Schema::hasTable('failed_jobs')) {
+                return 0;
+            }
+
+            return (int) DB::table('failed_jobs')->where('payload', 'like', '%SendQueuedMailable%')->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function moderationErrorsCount(): int
+    {
+        try {
+            if (! ContentModerationLog::tableAvailable()) {
+                return 0;
+            }
+
+            return ContentModerationLog::where('status', ContentModerationLog::STATUS_ERROR)->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function enrichmentFailedCount(): int
+    {
+        try {
+            if (! Schema::hasTable('site_enrichment_runs')) {
+                return 0;
+            }
+
+            return SiteEnrichmentRun::query()->needsAttention()->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function catalogHideCount(): int
+    {
+        try {
+            if (! Schema::hasTable('users') || ! Schema::hasColumn('users', 'catalog_hide_until')) {
+                return 0;
+            }
+
+            return User::query()
+                ->whereNotNull('catalog_hide_until')
+                ->where('catalog_hide_until', '>', now())
+                ->get(['id', 'catalog_hide_until'])
+                ->filter(fn (User $user) => $user->inCatalogHideMode())
+                ->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
     private function openDisputesCount(): int
     {
         if (! OrderItemDispute::tableAvailable()) {
@@ -461,9 +709,6 @@ class DashboardMetricsService
         return OrderItemDispute::where('status', OrderItemDispute::STATUS_OPEN)->count();
     }
 
-    /**
-     * @param  class-string  $model
-     */
     /**
      * @param  class-string  $model
      * @param  callable(object): array<string, mixed>  $mapper
@@ -509,6 +754,60 @@ class DashboardMetricsService
             return $model::where('status', 'pending')->count();
         } catch (\Throwable) {
             return 0;
+        }
+    }
+
+    private function ageLabel(mixed $value): ?string
+    {
+        $date = $this->parseDate($value);
+        if (! $date) {
+            return null;
+        }
+
+        try {
+            return $date->diffForHumans();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function formatDate(mixed $value, string $format = 'd M Y'): string
+    {
+        $date = $this->parseDate($value);
+        if (! $date) {
+            return '';
+        }
+
+        try {
+            return $date->format($format);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    private function parseDate(mixed $value): ?Carbon
+    {
+        if ($value instanceof Carbon) {
+            return $value;
+        }
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function safeRoute(string $name, mixed $parameters = []): ?string
+    {
+        try {
+            return route($name, $parameters);
+        } catch (\Throwable) {
+            return null;
         }
     }
 

@@ -76,10 +76,18 @@
             </span>
         </a>
         <a href="{{ staff_route('bulk-site-requests.index') }}" class="{{ request()->routeIs($staffPrefix.'bulk-site-requests.*') ? 'active' : '' }}">
-            <i class="fa fa-layer-group"></i> <span>Bulk requests</span>
+            <i class="fa fa-layer-group"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Bulk requests</span>
+                <span id="navBadgeBulk" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
         </a>
         <a href="{{ staff_route('site-enrichment.index') }}" class="{{ request()->routeIs($staffPrefix.'site-enrichment.*') ? 'active' : '' }}">
-            <i class="fa fa-chart-line"></i> <span>Enrichment</span>
+            <i class="fa fa-chart-line"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Enrichment</span>
+                <span id="navBadgeEnrichment" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
         </a>
         <a href="{{ staff_route('staff-handbook') }}" class="{{ request()->routeIs($staffPrefix.'staff-handbook') ? 'active' : '' }}">
             <i class="fa fa-book"></i> <span>Staff handbook</span>
@@ -142,7 +150,11 @@
             <i class="fa fa-blog"></i> <span>Blogs</span>
         </a>
         <a href="{{ route('admin.emails.index') }}" class="{{ request()->routeIs('admin.emails.*') ? 'active' : '' }}">
-            <i class="fa fa-envelope-open-text"></i> <span>Email Center</span>
+            <i class="fa fa-envelope-open-text"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Email Center</span>
+                <span id="navBadgeMail" class="badge bg-danger text-white rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
         </a>
         <a href="{{ route('admin.campaigns.index') }}" class="{{ request()->routeIs('admin.campaigns.*') ? 'active' : '' }}">
             <i class="fa fa-paper-plane"></i> <span>Campaigns</span>
@@ -154,7 +166,11 @@
             <i class="fa fa-bullhorn"></i> <span>Promotions</span>
         </a>
         <a href="{{ route('admin.moderation.index') }}" class="{{ request()->routeIs('admin.moderation.*') ? 'active' : '' }}">
-            <i class="fa fa-shield-alt"></i> <span>Moderation</span>
+            <i class="fa fa-shield-alt"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Moderation</span>
+                <span id="navBadgeModeration" class="badge bg-danger text-white rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
         </a>
         <a href="{{ route('admin.content-library.index') }}" class="{{ request()->routeIs('admin.content-library.*') ? 'active' : '' }}">
             <i class="fa fa-folder-open"></i> <span>Content Library</span>
@@ -164,7 +180,11 @@
             <i class="fa fa-history"></i> <span>Activity History</span>
         </a>
         <a href="{{ route('admin.catalog-activity') }}" class="{{ request()->routeIs('admin.catalog-activity*') ? 'active' : '' }}" title="Hide-mode and copy-strike queue">
-            <i class="fa fa-eye"></i> <span>Catalog Activity</span>
+            <i class="fa fa-eye"></i>
+            <span class="d-flex align-items-center w-100">
+                <span>Catalog Activity</span>
+                <span id="navBadgeCatalog" class="badge bg-warning text-dark rounded-pill ms-auto" style="display:none;">0</span>
+            </span>
         </a>
         @endif
     </div>
@@ -313,6 +333,11 @@
             setNavBadge('navBadgeSites', data.unverified_sites || 0);
             setNavBadge('navBadgePayments', data.pending_payments || 0);
             setNavBadge('navBadgeCommunity', data.pending_community || data.pending_claims || 0);
+            setNavBadge('navBadgeBulk', data.open_bulk_requests || 0);
+            setNavBadge('navBadgeEnrichment', data.enrichment_failed || 0);
+            setNavBadge('navBadgeMail', data.failed_mail || 0);
+            setNavBadge('navBadgeModeration', data.moderation_errors || 0);
+            setNavBadge('navBadgeCatalog', data.catalog_hide || 0);
         })
         .catch(() => {});
     }

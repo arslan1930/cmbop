@@ -112,6 +112,13 @@
                         <span id="kpiDisputes">0</span> disputes ·
                         <span id="kpiStalled">0</span> stalled
                     </div>
+                    <div class="small text-muted mt-1">
+                        <span id="kpiBulk">0</span> bulk ·
+                        <span id="kpiMail">0</span> mail ·
+                        <span id="kpiModeration">0</span> scans ·
+                        <span id="kpiEnrichment">0</span> enrichment ·
+                        <span id="kpiCatalogHide">0</span> hide-mode
+                    </div>
                 </div>
             </div>
         </div>
@@ -162,10 +169,14 @@
         </div>
     </div>
 
-    <!-- Action queues (first viewport priority) -->
+    <!-- Action queues (first viewport priority). Empty cards collapse like stalled orders. -->
     <div id="dashboardActionQueues">
-    <div class="row g-3 mb-4">
-        <div class="col-lg-4">
+    <div class="alert alert-success d-none mb-4" id="queuesAllClear" role="status">
+        <i class="fa fa-circle-check me-1" aria-hidden="true"></i>
+        All queues are clear. Nothing needs attention right now.
+    </div>
+    <div class="row g-3 mb-4 js-queue-row">
+        <div class="col-lg-4 js-queue-panel" data-queue="deposits">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-wallet me-2 text-success"></i>Pending Deposits</strong>
@@ -175,17 +186,17 @@
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 align-middle">
                             <thead class="table-light">
-                                <tr><th>User</th><th>Amount</th><th>Date</th></tr>
+                                <tr><th>User</th><th>Amount</th><th>Waiting</th><th class="text-end">Action</th></tr>
                             </thead>
                             <tbody id="queueDeposits">
-                                <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+                                <tr><td colspan="4" class="text-center text-muted py-3">Loading…</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-lg-4">
+        <div class="col-lg-4 js-queue-panel" data-queue="withdrawals">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-money-bill-wave me-2 text-warning"></i>Pending Withdrawals</strong>
@@ -195,17 +206,17 @@
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 align-middle">
                             <thead class="table-light">
-                                <tr><th>User</th><th>Amount</th><th>Date</th></tr>
+                                <tr><th>User</th><th>Amount</th><th>Waiting</th><th class="text-end">Action</th></tr>
                             </thead>
                             <tbody id="queueWithdrawals">
-                                <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+                                <tr><td colspan="4" class="text-center text-muted py-3">Loading…</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-lg-4">
+        <div class="col-lg-4 js-queue-panel" data-queue="sites">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-globe me-2 text-primary"></i>Sites Awaiting Verify</strong>
@@ -215,7 +226,7 @@
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 align-middle">
                             <thead class="table-light">
-                                <tr><th>Site</th><th>Publisher</th><th>Date</th></tr>
+                                <tr><th>Site</th><th>Publisher</th><th>Waiting</th></tr>
                             </thead>
                             <tbody id="queueSites">
                                 <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
@@ -227,8 +238,8 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-lg-3">
+    <div class="row g-3 mb-4 js-queue-row">
+        <div class="col-lg-3 js-queue-panel" data-queue="unpaid">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-money-bill me-2 text-info"></i>Unpaid orders</strong>
@@ -238,7 +249,7 @@
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 align-middle">
                             <thead class="table-light">
-                                <tr><th>Order</th><th>Amount</th><th>Date</th></tr>
+                                <tr><th>Order</th><th>Amount</th><th>Waiting</th></tr>
                             </thead>
                             <tbody id="queueUnpaid">
                                 <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
@@ -248,7 +259,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3">
+        <div class="col-lg-3 js-queue-panel" data-queue="disputes">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-gavel me-2 text-danger"></i>Open disputes</strong>
@@ -258,7 +269,7 @@
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 align-middle">
                             <thead class="table-light">
-                                <tr><th>Order</th><th>Reason</th><th>Date</th></tr>
+                                <tr><th>Order</th><th>Reason</th><th>Waiting</th></tr>
                             </thead>
                             <tbody id="queueDisputes">
                                 <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
@@ -268,7 +279,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3">
+        <div class="col-lg-3 js-queue-panel" data-queue="community">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-comments me-2 text-secondary"></i>Community inbox</strong>
@@ -278,7 +289,7 @@
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 align-middle">
                             <thead class="table-light">
-                                <tr><th>Type</th><th>Item</th><th>Date</th></tr>
+                                <tr><th>Type</th><th>Item</th><th>Waiting</th></tr>
                             </thead>
                             <tbody id="queueCommunity">
                                 <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
@@ -288,7 +299,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-3">
+        <div class="col-lg-3 js-queue-panel" data-queue="enrichment">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-chart-line me-2 text-warning"></i>Enrichment failed</strong>
@@ -298,10 +309,93 @@
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 align-middle">
                             <thead class="table-light">
-                                <tr><th>Site</th><th>Error</th><th>Date</th></tr>
+                                <tr><th>Site</th><th>Error</th><th>Waiting</th></tr>
                             </thead>
                             <tbody id="queueEnrichment">
                                 <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4 js-queue-row">
+        <div class="col-lg-3 js-queue-panel" data-queue="bulk">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-layer-group me-2 text-primary"></i>Bulk requests</strong>
+                    <a href="{{ route('admin.bulk-site-requests.index', ['status' => 'needs_marketer']) }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>Publisher</th><th>Status</th><th>Waiting</th></tr>
+                            </thead>
+                            <tbody id="queueBulk">
+                                <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 js-queue-panel" data-queue="mail">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-envelope-open-text me-2 text-danger"></i>Failed mail</strong>
+                    <a href="{{ route('admin.emails.index') }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>Job</th><th>Waiting</th></tr>
+                            </thead>
+                            <tbody id="queueMail">
+                                <tr><td colspan="2" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 js-queue-panel" data-queue="moderation">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-shield-alt me-2 text-danger"></i>Moderation errors</strong>
+                    <a href="{{ route('admin.moderation.index', ['status' => 'error']) }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>Error</th><th>Waiting</th></tr>
+                            </thead>
+                            <tbody id="queueModeration">
+                                <tr><td colspan="2" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 js-queue-panel" data-queue="catalog_hide">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-eye-slash me-2 text-warning"></i>Catalog hide-mode</strong>
+                    <a href="{{ route('admin.catalog-activity') }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>User</th><th>Until</th></tr>
+                            </thead>
+                            <tbody id="queueCatalogHide">
+                                <tr><td colspan="2" class="text-center text-muted py-3">Loading…</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -395,6 +489,7 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0">
                     <strong><i class="fa fa-users me-2 text-secondary"></i>Users by Role</strong>
+                    <div class="small text-muted mt-1">Users with more than one role appear in more than one slice.</div>
                 </div>
                 <div class="card-body d-flex justify-content-center">
                     <canvas id="roleChart" style="max-height:260px;"></canvas>
@@ -424,7 +519,20 @@
                         </div>
                     </div>
                     @php
-                        $promoStats = app(\App\Services\PromotionService::class)->dashboardStats();
+                        $promoStats = [
+                            'announcements_live' => 0,
+                            'banners_live' => 0,
+                            'banner_impressions' => 0,
+                            'banner_clicks' => 0,
+                        ];
+                        try {
+                            if (class_exists(\App\Services\PromotionService::class)
+                                && method_exists(\App\Services\PromotionService::class, 'dashboardStats')) {
+                                $promoStats = array_merge($promoStats, app(\App\Services\PromotionService::class)->dashboardStats());
+                            }
+                        } catch (\Throwable) {
+                            // Leftover Hostinger: missing promotions tables must not 500 the dashboard.
+                        }
                     @endphp
                     <div class="row g-3 mt-2">
                         <div class="col-6 col-md-3">
@@ -544,6 +652,11 @@ async function loadStatistics() {
         document.getElementById('kpiCommunity').textContent = num(d.pending_community);
         document.getElementById('kpiDisputes').textContent = num(d.open_disputes);
         document.getElementById('kpiStalled').textContent = num(d.stalled_orders);
+        document.getElementById('kpiBulk').textContent = num(d.open_bulk_requests);
+        document.getElementById('kpiMail').textContent = num(d.failed_mail);
+        document.getElementById('kpiModeration').textContent = num(d.moderation_errors);
+        document.getElementById('kpiEnrichment').textContent = num(d.enrichment_failed);
+        document.getElementById('kpiCatalogHide').textContent = num(d.catalog_hide);
         document.getElementById('kpiAttention').textContent = num(d.needs_attention);
         hideRetry(retryEl);
     } catch (err) {
@@ -701,6 +814,44 @@ function cellLink(url, label) {
     return `<a href="${escapeHtml(url)}">${text}</a>`;
 }
 
+function waitingCell(item) {
+    const age = item && item.age ? String(item.age) : '';
+    const date = item && item.date ? String(item.date) : '';
+    if (age && date) {
+        return `<td class="small text-muted"><div>${escapeHtml(age)}</div><div>${escapeHtml(date)}</div></td>`;
+    }
+    if (age || date) {
+        return `<td class="small text-muted">${escapeHtml(age || date)}</td>`;
+    }
+    return `<td class="small text-muted">—</td>`;
+}
+
+function actionCell(item) {
+    if (!item || !item.action_url) return '<td></td>';
+    const label = item.action_label || 'Open';
+    return `<td class="text-end"><a href="${escapeHtml(item.action_url)}" class="btn btn-sm btn-outline-primary">${escapeHtml(label)}</a></td>`;
+}
+
+function setQueuePanel(name, hasItems) {
+    const panel = document.querySelector(`.js-queue-panel[data-queue="${name}"]`);
+    if (!panel) return;
+    panel.classList.toggle('d-none', !hasItems);
+}
+
+function refreshQueueLayout() {
+    document.querySelectorAll('.js-queue-row').forEach((row) => {
+        const visible = [...row.querySelectorAll('.js-queue-panel')].some((panel) => !panel.classList.contains('d-none'));
+        row.classList.toggle('d-none', !visible);
+    });
+    const stalled = document.getElementById('stalledOrdersRow');
+    const anyQueue = [...document.querySelectorAll('#dashboardActionQueues .js-queue-panel')].some((panel) => !panel.classList.contains('d-none'));
+    const stalledVisible = stalled && !stalled.classList.contains('d-none');
+    const allClear = document.getElementById('queuesAllClear');
+    if (allClear) {
+        allClear.classList.toggle('d-none', anyQueue || stalledVisible);
+    }
+}
+
 async function loadActionQueue() {
     const depBody = document.getElementById('queueDeposits');
     const wBody = document.getElementById('queueWithdrawals');
@@ -709,6 +860,10 @@ async function loadActionQueue() {
     const disputeBody = document.getElementById('queueDisputes');
     const communityBody = document.getElementById('queueCommunity');
     const enrichmentBody = document.getElementById('queueEnrichment');
+    const bulkBody = document.getElementById('queueBulk');
+    const mailBody = document.getElementById('queueMail');
+    const moderationBody = document.getElementById('queueModeration');
+    const catalogBody = document.getElementById('queueCatalogHide');
 
     try {
         const json = await dashboardFetch(`{{ route('admin.dashboard.action-queue') }}`);
@@ -719,9 +874,14 @@ async function loadActionQueue() {
         const disputes = json.disputes || [];
         const community = json.community || [];
         const enrichment = json.enrichment || [];
+        const bulk = json.bulk || [];
+        const mail = json.mail || [];
+        const moderation = json.moderation || [];
+        const catalogHide = json.catalog_hide || [];
 
+        setQueuePanel('deposits', deposits.length > 0);
         if (!deposits.length) {
-            depBody.innerHTML = emptyRow(3, 'No pending deposits');
+            depBody.innerHTML = emptyRow(4, 'No pending deposits');
         } else {
             depBody.innerHTML = deposits.map(d => `
                 <tr>
@@ -730,12 +890,14 @@ async function loadActionQueue() {
                         <div class="small text-muted">${escapeHtml(d.email || '')}</div>
                     </td>
                     <td>${money(d.amount)}</td>
-                    <td class="small text-muted">${escapeHtml(d.date)}</td>
+                    ${waitingCell(d)}
+                    ${actionCell(d)}
                 </tr>`).join('');
         }
 
+        setQueuePanel('withdrawals', withdrawals.length > 0);
         if (!withdrawals.length) {
-            wBody.innerHTML = emptyRow(3, 'No pending withdrawals');
+            wBody.innerHTML = emptyRow(4, 'No pending withdrawals');
         } else {
             wBody.innerHTML = withdrawals.map(w => `
                 <tr>
@@ -744,10 +906,12 @@ async function loadActionQueue() {
                         <div class="small text-muted">${escapeHtml(w.email || '')}${w.status && w.status !== 'pending' ? ' · ' + escapeHtml(w.status) : ''}</div>
                     </td>
                     <td>${money(w.amount)}</td>
-                    <td class="small text-muted">${escapeHtml(w.date)}</td>
+                    ${waitingCell(w)}
+                    ${actionCell(w)}
                 </tr>`).join('');
         }
 
+        setQueuePanel('sites', sites.length > 0);
         if (!sites.length) {
             sBody.innerHTML = emptyRow(3, 'No sites awaiting verification');
         } else {
@@ -758,10 +922,11 @@ async function loadActionQueue() {
                         <div class="small text-muted text-truncate" style="max-width:140px;">${escapeHtml(s.site_url || '')}</div>
                     </td>
                     <td>${escapeHtml(s.publisher)}</td>
-                    <td class="small text-muted">${escapeHtml(s.date)}</td>
+                    ${waitingCell(s)}
                 </tr>`).join('');
         }
 
+        setQueuePanel('unpaid', unpaid.length > 0);
         if (!unpaid.length) {
             unpaidBody.innerHTML = emptyRow(3, 'No unpaid orders');
         } else {
@@ -769,10 +934,11 @@ async function loadActionQueue() {
                 <tr>
                     <td class="fw-semibold">${cellLink(o.url, '#' + o.order_number)}</td>
                     <td>${money(o.amount)}</td>
-                    <td class="small text-muted">${escapeHtml(o.date)}</td>
+                    ${waitingCell(o)}
                 </tr>`).join('');
         }
 
+        setQueuePanel('disputes', disputes.length > 0);
         if (!disputes.length) {
             disputeBody.innerHTML = emptyRow(3, 'No open disputes');
         } else {
@@ -780,10 +946,11 @@ async function loadActionQueue() {
                 <tr>
                     <td class="fw-semibold">${cellLink(d.url, '#' + d.order_number)}</td>
                     <td class="small text-truncate" style="max-width:120px;">${escapeHtml(d.reason || '')}</td>
-                    <td class="small text-muted">${escapeHtml(d.date)}</td>
+                    ${waitingCell(d)}
                 </tr>`).join('');
         }
 
+        setQueuePanel('community', community.length > 0);
         if (!community.length) {
             communityBody.innerHTML = emptyRow(3, 'Inbox is clear');
         } else {
@@ -791,10 +958,11 @@ async function loadActionQueue() {
                 <tr>
                     <td><span class="badge text-bg-light">${escapeHtml(c.type)}</span></td>
                     <td>${cellLink(c.url, c.label)}</td>
-                    <td class="small text-muted">${escapeHtml(c.date)}</td>
+                    ${waitingCell(c)}
                 </tr>`).join('');
         }
 
+        setQueuePanel('enrichment', enrichment.length > 0);
         if (!enrichment.length) {
             enrichmentBody.innerHTML = emptyRow(3, 'No failed scans');
         } else {
@@ -802,17 +970,76 @@ async function loadActionQueue() {
                 <tr>
                     <td class="fw-semibold">${cellLink(e.url, e.site_name)}</td>
                     <td class="small text-truncate" style="max-width:120px;">${escapeHtml(e.error || '')}</td>
-                    <td class="small text-muted">${escapeHtml(e.date)}</td>
+                    ${waitingCell(e)}
                 </tr>`).join('');
         }
+
+        setQueuePanel('bulk', bulk.length > 0);
+        if (!bulk.length) {
+            bulkBody.innerHTML = emptyRow(3, 'No bulk requests waiting');
+        } else {
+            bulkBody.innerHTML = bulk.map(b => `
+                <tr>
+                    <td>
+                        <div class="fw-semibold">${cellLink(b.url, b.publisher)}</div>
+                        <div class="small text-muted">${b.count ? escapeHtml(String(b.count)) + ' sites' : ''}</div>
+                    </td>
+                    <td class="small">${escapeHtml(b.status || '')}</td>
+                    ${waitingCell(b)}
+                </tr>`).join('');
+        }
+
+        setQueuePanel('mail', mail.length > 0);
+        if (!mail.length) {
+            mailBody.innerHTML = emptyRow(2, 'No failed mail');
+        } else {
+            mailBody.innerHTML = mail.map(m => `
+                <tr>
+                    <td class="small">${cellLink(m.url, m.label)}</td>
+                    ${waitingCell(m)}
+                </tr>`).join('');
+        }
+
+        setQueuePanel('moderation', moderation.length > 0);
+        if (!moderation.length) {
+            moderationBody.innerHTML = emptyRow(2, 'No scan errors');
+        } else {
+            moderationBody.innerHTML = moderation.map(m => `
+                <tr>
+                    <td class="small">${cellLink(m.url, m.label)}</td>
+                    ${waitingCell(m)}
+                </tr>`).join('');
+        }
+
+        setQueuePanel('catalog_hide', catalogHide.length > 0);
+        if (!catalogHide.length) {
+            catalogBody.innerHTML = emptyRow(2, 'Nobody in hide-mode');
+        } else {
+            catalogBody.innerHTML = catalogHide.map(c => `
+                <tr>
+                    <td>
+                        <div class="fw-semibold">${cellLink(c.url, c.user)}</div>
+                        <div class="small text-muted">${escapeHtml(c.email || '')}</div>
+                    </td>
+                    ${waitingCell(c)}
+                </tr>`).join('');
+        }
+        refreshQueueLayout();
     } catch (err) {
-        depBody.innerHTML = retryRow(3, 'loadActionQueue');
-        wBody.innerHTML = retryRow(3, 'loadActionQueue');
+        ['deposits', 'withdrawals', 'sites', 'unpaid', 'disputes', 'community', 'enrichment', 'bulk', 'mail', 'moderation', 'catalog_hide']
+            .forEach((name) => setQueuePanel(name, true));
+        depBody.innerHTML = retryRow(4, 'loadActionQueue');
+        wBody.innerHTML = retryRow(4, 'loadActionQueue');
         sBody.innerHTML = retryRow(3, 'loadActionQueue');
         unpaidBody.innerHTML = retryRow(3, 'loadActionQueue');
         disputeBody.innerHTML = retryRow(3, 'loadActionQueue');
         communityBody.innerHTML = retryRow(3, 'loadActionQueue');
         enrichmentBody.innerHTML = retryRow(3, 'loadActionQueue');
+        bulkBody.innerHTML = retryRow(3, 'loadActionQueue');
+        mailBody.innerHTML = retryRow(2, 'loadActionQueue');
+        moderationBody.innerHTML = retryRow(2, 'loadActionQueue');
+        catalogBody.innerHTML = retryRow(2, 'loadActionQueue');
+        refreshQueueLayout();
         throw err;
     }
 }
@@ -824,6 +1051,7 @@ async function loadStalledOrders() {
         const items = json.items || [];
         if (!items.length) {
             row.classList.add('d-none');
+            refreshQueueLayout();
             return;
         }
 
@@ -853,9 +1081,11 @@ async function loadStalledOrders() {
                     </div>
                 </td>
             </tr>`).join('');
+        refreshQueueLayout();
     } catch (err) {
         row.classList.remove('d-none');
         document.getElementById('queueStalled').innerHTML = retryRow(7, 'loadStalledOrders');
+        refreshQueueLayout();
         throw err;
     }
 }
