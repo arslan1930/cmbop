@@ -55,7 +55,9 @@
 @endpush
 
 @section('content')
-    @include('components.hero')
+    @if (view()->exists('components.hero'))
+        @include('components.hero')
+    @endif
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')

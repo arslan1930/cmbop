@@ -202,8 +202,13 @@
 </main>
 
 @include('components.footer')
-@unless(\App\Support\VisitorSupportChat::enabled() || \App\Support\TawkChat::enabled())
-    @include('components.help-feedback-widget')
+@unless(
+    (class_exists(\App\Support\VisitorSupportChat::class) && method_exists(\App\Support\VisitorSupportChat::class, 'enabled') && \App\Support\VisitorSupportChat::enabled() && view()->exists('partials.visitor-support-chat'))
+    || (class_exists(\App\Support\TawkChat::class) && method_exists(\App\Support\TawkChat::class, 'enabled') && \App\Support\TawkChat::enabled())
+)
+    @if (view()->exists('components.help-feedback-widget'))
+        @include('components.help-feedback-widget')
+    @endif
 @endunless
 
 <!-- Back to Top Button -->
@@ -238,7 +243,9 @@ $(document).ready(function() {
     });
 });
 </script>
-@include('partials.tawk')
+@if (view()->exists('partials.tawk'))
+    @include('partials.tawk')
+@endif
 
 </body>
 </html>

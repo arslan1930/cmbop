@@ -74,7 +74,15 @@ class TawkChatWidgetTest extends TestCase
             $layout = (string) file_get_contents($path);
             $this->assertStringContainsString('partials.tawk', $layout);
             $this->assertStringContainsString('TawkChat::enabled()', $layout);
+            $this->assertStringContainsString('class_exists(\\App\\Support\\VisitorSupportChat::class)', $layout);
+            $this->assertStringContainsString('class_exists(\\App\\Support\\TawkChat::class)', $layout);
+            $this->assertStringContainsString("view()->exists('partials.tawk')", $layout);
         }
+
+        $tawk = (string) file_get_contents(resource_path('views/partials/tawk.blade.php'));
+        $this->assertStringContainsString('class_exists(\\App\\Support\\VisitorSupportChat::class)', $tawk);
+        $this->assertStringContainsString('class_exists(\\App\\Support\\TawkChat::class)', $tawk);
+        $this->assertStringContainsString("view()->exists('partials.visitor-support-chat')", $tawk);
 
         $admin = (string) file_get_contents(resource_path('views/admin/layouts/app.blade.php'));
         $this->assertStringNotContainsString('partials.tawk', $admin);

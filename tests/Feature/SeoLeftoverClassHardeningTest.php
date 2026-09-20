@@ -28,8 +28,21 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(CatalogTeaserService::class)', $web);
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $web);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $web);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')", $web);
         $this->assertStringContainsString('PublicI18n::englishOnlyMarketingSlugs()', $web);
+        $this->assertStringContainsString('class_exists(EnglishOnlyMarketingSlugs::class)', $web);
+        $this->assertStringContainsString('} catch (Throwable)', $web);
         $this->assertStringContainsString('class_exists(RobotsTxt::class)', $web);
+
+        $composer = (string) file_get_contents(base_path('composer.json'));
+        $this->assertStringContainsString('leftover_public_i18n_slugs_boot.php', $composer);
+
+        $artisan = (string) file_get_contents(base_path('artisan'));
+        $index = (string) file_get_contents(base_path('public/index.php'));
+        $helper = (string) file_get_contents(base_path('app/Helpers/LanguageHelper.php'));
+        $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $artisan);
+        $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $index);
+        $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $helper);
 
         $controller = (string) file_get_contents(base_path('app/Http/Controllers/MarketingPageController.php'));
         $this->assertStringContainsString('class_exists(CountryLander::class)', $controller);
@@ -91,6 +104,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $marketplace = (string) file_get_contents(base_path('resources/views/pages/marketplace.blade.php'));
         $lander = (string) file_get_contents(base_path('resources/views/pages/guest-posts-country.blade.php'));
         $this->assertStringContainsString("view()->exists('advertiser.partials.metric-source')", (string) file_get_contents(base_path('resources/views/components/hero-catalog-preview.blade.php')));
+        $this->assertStringContainsString("view()->exists('components.hero-catalog-preview')", (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
+        $this->assertStringContainsString("view()->exists('components.hero')", (string) file_get_contents(base_path('resources/views/home.blade.php')));
         $this->assertStringContainsString('slb-hero-catalog-clone', (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
         $this->assertStringContainsString("@include('components.hero')", (string) file_get_contents(base_path('resources/views/home.blade.php')));
         $this->assertStringNotContainsString('dashboard.png', (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
@@ -127,6 +142,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         }
         $this->get('/sitemap-en.xml')->assertOk();
         $this->get('/robots.txt')->assertOk();
+        $this->get('/de/guest-posts-germany')->assertRedirect('/guest-posts-germany');
+        $this->get('/de/guest-post-prices-europe')->assertRedirect('/guest-post-prices-europe');
 
         $this->assertNull(Site::forgetMarketingCaches());
     }
