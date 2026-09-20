@@ -765,4 +765,96 @@ class PublisherDashboardTest extends TestCase
             ->assertJsonPath('data.unread_chat', 0)
             ->assertJsonPath('data.open_disputes', 0);
     }
+
+    public function test_dashboard_survives_missing_sites_table(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('sites');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE')
+            ->assertSee('Add your first website');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.total_sites', 0)
+            ->assertJsonPath('data.needs_you', 0);
+    }
+
+    public function test_dashboard_survives_missing_order_items_table(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('order_items');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.total_orders', 0)
+            ->assertJsonPath('data.needs_you', 0);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.recent'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(0, 'orders');
+    }
+
+    public function test_dashboard_survives_missing_wallets_table(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $this->site($publisher);
+
+        Schema::dropIfExists('wallets');
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE')
+            ->assertSee('Grow your catalog');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_dashboard_survives_withdrawals_table_without_status(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $this->site($publisher);
+
+        Schema::dropIfExists('withdrawals');
+        Schema::create('withdrawals', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->decimal('amount', 12, 2)->nullable();
+            $table->timestamps();
+        });
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE')
+            ->assertSee('Grow your catalog');
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pending_withdrawal_count', 0);
+    }
 }

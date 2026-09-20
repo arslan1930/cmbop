@@ -386,10 +386,20 @@ class PublisherDashboardService
             return $empty;
         }
 
-        $available = $wallet ? (float) $wallet->balance : 0.0;
-        $withdrawable = $wallet ? $wallet->withdrawableBalance() : 0.0;
+        $available = 0.0;
+        $withdrawable = 0.0;
         $reserved = 0.0;
         $debt = 0.0;
+        try {
+            $available = $wallet ? (float) $wallet->balance : 0.0;
+        } catch (\Throwable) {
+            $available = 0.0;
+        }
+        try {
+            $withdrawable = $wallet ? $wallet->withdrawableBalance() : 0.0;
+        } catch (\Throwable) {
+            $withdrawable = $available;
+        }
         try {
             $reserved = $wallet ? (float) $wallet->reserved_balance : 0.0;
         } catch (\Throwable) {
@@ -413,7 +423,7 @@ class PublisherDashboardService
         $pendingCount = 0;
         $pendingAmount = 0.0;
         try {
-            if (Withdrawal::tableAvailable()) {
+            if (Withdrawal::tableAvailable() && Withdrawal::hasTableColumn('status')) {
                 $pending = Withdrawal::query()
                     ->where('user_id', $user->id)
                     ->whereIn('status', ['pending', 'processing']);
