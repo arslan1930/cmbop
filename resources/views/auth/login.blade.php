@@ -196,7 +196,7 @@ function togglePassword(id, el){
     }
 }
 
-document.getElementById('loginForm').addEventListener('submit', async function(e){
+document.getElementById('loginForm')?.addEventListener('submit', async function(e){
     e.preventDefault();
 
     document.querySelectorAll('.form-control').forEach(i=>{

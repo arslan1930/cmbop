@@ -200,6 +200,30 @@ class AuthLoginHardeningTest extends TestCase
             ->assertJsonValidationErrors(['email', 'password']);
     }
 
+    public function test_array_email_on_login_is_validation_not_a_500(): void
+    {
+        $this->postJson(route('login.post'), [
+            'email' => ['a@example.com'],
+            'password' => 'secret',
+        ])->assertStatus(422)
+            ->assertJsonPath('status', 'validation')
+            ->assertJsonValidationErrors('email');
+    }
+
+    public function test_empty_login_does_not_burn_the_attempt_budget(): void
+    {
+        for ($i = 0; $i < 6; $i++) {
+            $this->postJson(route('login.post'), [])
+                ->assertStatus(422)
+                ->assertJsonPath('status', 'validation');
+        }
+
+        $this->postJson(route('login.post'), [
+            'email' => 'nobody@example.com',
+            'password' => 'wrong-password',
+        ])->assertOk()->assertJsonPath('status', 'error');
+    }
+
     public function test_json_csrf_mismatch_uses_everyday_language(): void
     {
         Route::middleware('web')->post('/__hardening/csrf-json', fn () => abort(419));

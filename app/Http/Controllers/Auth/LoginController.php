@@ -23,8 +23,27 @@ class LoginController extends Controller
      */
     public function login(Request $request)
     {
+        // Validate first: empty / array fields used to 500 on the rate-limit
+        // key (`email[]=`) and still burned the 5-attempt budget.
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'validation',
+                'message' => $this->copy('register.validation', 'Please fix the highlighted fields and try again.'),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $email = function_exists('scalar_text')
+            ? scalar_text($request->input('email'))
+            : (string) $request->input('email');
+
         // 🔒 Rate limiting (5 attempts per minute per email + IP)
-        $key = 'login:'.$request->ip().'|'.$request->email;
+        $key = 'login:'.$request->ip().'|'.$email;
 
         // Per-IP budget as well: the email+IP key alone lets one host spray
         // credentials across many accounts without ever tripping the limit.
@@ -46,21 +65,10 @@ class LoginController extends Controller
         RateLimiter::hit($key, 60); // 60 seconds
         RateLimiter::hit($ipKey, 300); // 5 minutes
 
-        // ✅ Validation
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'validation',
-                'message' => $this->copy('register.validation', 'Please fix the highlighted fields and try again.'),
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $credentials = $request->only('email', 'password');
+        $credentials = [
+            'email' => $email,
+            'password' => $request->input('password'),
+        ];
         $remember = $request->boolean('remember');
 
         // Attempt login

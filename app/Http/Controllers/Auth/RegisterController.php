@@ -23,17 +23,20 @@ class RegisterController extends Controller
     /**
      * Show the registration form
      */
-    public function show(WelcomeBonusService $welcomeBonus)
+    public function show()
     {
         $roles = ['advertiser' => 'Advertiser', 'publisher' => 'Publisher'];
         $welcomeBonusEnabled = false;
         $welcomeBonusAmount = 0.0;
-        try {
-            $welcomeBonusEnabled = $welcomeBonus->canGrant();
-            $welcomeBonusAmount = $welcomeBonus->amount();
-        } catch (\Throwable) {
-            $welcomeBonusEnabled = false;
-            $welcomeBonusAmount = 0.0;
+        if (class_exists(WelcomeBonusService::class)) {
+            try {
+                $welcomeBonus = app(WelcomeBonusService::class);
+                $welcomeBonusEnabled = $welcomeBonus->canGrant();
+                $welcomeBonusAmount = $welcomeBonus->amount();
+            } catch (\Throwable) {
+                $welcomeBonusEnabled = false;
+                $welcomeBonusAmount = 0.0;
+            }
         }
 
         return view('auth.register', compact('roles', 'welcomeBonusEnabled', 'welcomeBonusAmount'));
