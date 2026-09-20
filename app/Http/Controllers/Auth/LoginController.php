@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Support\UserMessages;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -40,7 +39,7 @@ class LoginController extends Controller
 
             return response()->json([
                 'status' => 'error',
-                'message' => UserMessages::get('login.throttled'),
+                'message' => $this->copy('login.throttled', 'Too many login attempts. Please try again later.'),
             ], 429)->header('Retry-After', (string) $retry);
         }
 
@@ -56,8 +55,9 @@ class LoginController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'status' => 'validation',
+                'message' => $this->copy('register.validation', 'Please fix the highlighted fields and try again.'),
                 'errors' => $validator->errors(),
-            ]);
+            ], 422);
         }
 
         $credentials = $request->only('email', 'password');
@@ -71,7 +71,7 @@ class LoginController extends Controller
         $user = Auth::user();
 
         // Same JSON as a bad password so login cannot confirm the account exists.
-        if (! $user->hasVerifiedEmail()) {
+        if (method_exists($user, 'hasVerifiedEmail') && ! $user->hasVerifiedEmail()) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -79,14 +79,14 @@ class LoginController extends Controller
             return $this->invalidCredentialsResponse();
         }
 
-        if ($user->isSuspended()) {
+        if (method_exists($user, 'isSuspended') && $user->isSuspended()) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
             return response()->json([
                 'status' => 'error',
-                'message' => UserMessages::get('login.suspended'),
+                'message' => $this->copy('login.suspended', 'This account has been suspended. Contact support if you think this is a mistake.'),
             ]);
         }
 
@@ -94,14 +94,16 @@ class LoginController extends Controller
 
         // Relative dashboard path — survives APP_URL=localhost misconfig
         $user->load('activeRoleRelation', 'roles');
-        $redirect = $user->getDashboardRoute();
+        $redirect = method_exists($user, 'getDashboardRoute')
+            ? $user->getDashboardRoute()
+            : '/';
 
         RateLimiter::clear($key);
         RateLimiter::clear($ipKey);
 
         return response()->json([
             'status' => 'success',
-            'message' => UserMessages::get('login.success'),
+            'message' => $this->copy('login.success', 'Login successful!'),
             'redirect' => $redirect,
         ]);
     }
@@ -122,7 +124,14 @@ class LoginController extends Controller
     {
         return response()->json([
             'status' => 'error',
-            'message' => UserMessages::get('login.invalid'),
+            'message' => $this->copy('login.invalid', 'Invalid email or password.'),
         ]);
+    }
+
+    private function copy(string $key, string $fallback): string
+    {
+        return function_exists('user_message')
+            ? user_message($key, $fallback)
+            : $fallback;
     }
 }

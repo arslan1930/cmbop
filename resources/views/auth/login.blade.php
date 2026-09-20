@@ -203,25 +203,35 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         i.classList.remove('is-invalid');
         i.removeAttribute('aria-invalid');
     });
-    document.querySelectorAll('#emailError, #passwordError').forEach(el => { el.textContent = ''; });
-
-    const formData = new FormData(this);
-
-    const res = await fetch("{{ route('login.post', absolute: false) }}", {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'Accept': 'application/json',
-        },
-        body: formData
+    document.querySelectorAll('#emailError, #passwordError').forEach(el => {
+        el.textContent = '';
+        el.classList.remove('d-block');
     });
 
+    const formData = new FormData(this);
+    let res;
     let data;
+
     try {
+        res = await fetch("{{ route('login.post', absolute: false) }}", {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+                'Accept': 'application/json',
+            },
+            body: formData
+        });
         data = await res.json();
     } catch (e) {
-        slbAlert({ icon: 'error', title: 'Server error', text: 'Please try again in a moment.' });
+        const text = (typeof slbHttpMessage === 'function')
+            ? slbHttpMessage({ status: res && res.status ? res.status : 0 }, 'Please try again in a moment.')
+            : 'Please try again in a moment.';
+        if (typeof slbAlert === 'function') {
+            slbAlert({ icon: 'error', title: 'Something went wrong', text: text });
+        } else {
+            slbAlertFallback(text);
+        }
         return;
     }
 
@@ -241,7 +251,10 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
                 input.classList.add('is-invalid');
                 input.setAttribute('aria-invalid', 'true');
             }
-            if (feedback) feedback.textContent = message;
+            if (feedback) {
+                feedback.textContent = message;
+                feedback.classList.add('d-block');
+            }
         });
     }
 
@@ -274,13 +287,17 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
 
     } else if(data.status === 'validation'){
         showFieldErrors(data.errors);
-        const firstError = Object.values(data.errors)[0][0];
+        const firstBag = data.errors ? Object.values(data.errors)[0] : null;
+        const firstError = Array.isArray(firstBag) ? firstBag[0] : (firstBag || data.message || 'Please fix the highlighted fields and try again.');
         const toastEl = buildAuthToast(firstError, 'danger');
         toastContainer.appendChild(toastEl);
         new bootstrap.Toast(toastEl).show();
 
     } else {
-        const toastEl = buildAuthToast(data.message, 'danger');
+        const failText = (typeof slbHttpMessage === 'function')
+            ? slbHttpMessage({ status: res.status, data: data }, data.message || 'Invalid email or password.')
+            : (data.message || 'Invalid email or password.');
+        const toastEl = buildAuthToast(failText, 'danger');
         toastContainer.appendChild(toastEl);
         new bootstrap.Toast(toastEl).show();
     }
@@ -305,16 +322,31 @@ document.getElementById('resendBtn')?.addEventListener('click', async function (
         const emailData = new FormData();
         emailData.append('email', email);
 
-        const res2 = await fetch("{{ route('verification.resend') }}", {
+        const res2 = await fetch("{{ route('verification.resend', absolute: false) }}", {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+                'Accept': 'application/json',
+            },
             body: emailData
         });
 
-        const result = await res2.json();
+        let result;
+        try {
+            result = await res2.json();
+        } catch (parseErr) {
+            result = {};
+        }
         sendingToastInstance.hide();
 
-        const toast2 = buildLoginToast(result.message, result.status === 'success' ? 'success' : 'danger');
+        const ok = result.status === 'success';
+        const msg = ok
+            ? (result.message || 'Verification email resent successfully.')
+            : ((typeof slbHttpMessage === 'function')
+                ? slbHttpMessage({ status: res2.status, data: result }, result.message || 'Failed to send email. Please try again.')
+                : (result.message || 'Failed to send email. Please try again.'));
+        const toast2 = buildLoginToast(msg, ok ? 'success' : 'danger');
         toastContainer.appendChild(toast2);
         new bootstrap.Toast(toast2).show();
     } catch (err) {
@@ -324,6 +356,14 @@ document.getElementById('resendBtn')?.addEventListener('click', async function (
         new bootstrap.Toast(toast2).show();
     }
 });
+
+function slbAlertFallback(text) {
+    const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) return;
+    const toastEl = buildLoginToast(text, 'danger');
+    toastContainer.appendChild(toastEl);
+    new bootstrap.Toast(toastEl).show();
+}
 
 function buildLoginToast(message, variant) {
     const solid = variant === 'success' || variant === 'danger';

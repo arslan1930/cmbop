@@ -559,6 +559,19 @@ body.slb-marketing:has(.auth-page) {
   flex: 1 1 auto;
 }
 
+/* Bootstrap hides .invalid-feedback unless it is a sibling of .is-invalid.
+   Password fields live inside .input-group, so the message sits after the
+   group and would never show. */
+.auth-page .input-group:has(.is-invalid) .form-control,
+.auth-page .input-group:has(.is-invalid) .input-group-text {
+  border-color: var(--bs-form-invalid-border-color, #dc3545);
+}
+
+.auth-page .input-group:has(.is-invalid) + .invalid-feedback,
+.auth-page .invalid-feedback.d-block {
+  display: block;
+}
+
 @media (max-width: 1199.98px) {
   .auth-form-col {
     min-width: 0;

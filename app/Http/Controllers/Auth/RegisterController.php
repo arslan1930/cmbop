@@ -9,7 +9,6 @@ use App\Models\UserConsent;
 use App\Models\Wallet;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WelcomeBonusService;
-use App\Support\UserMessages;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,11 +44,18 @@ class RegisterController extends Controller
      */
     public function register(Request $request)
     {
-        $key = app(WelcomeBonusService::class)->registerRateLimitKey($request);
+        $key = 'register:'.$request->ip();
+        if (class_exists(WelcomeBonusService::class)) {
+            try {
+                $key = app(WelcomeBonusService::class)->registerRateLimitKey($request);
+            } catch (\Throwable) {
+                $key = 'register:'.$request->ip();
+            }
+        }
         if (RateLimiter::tooManyAttempts($key, 5)) {
             return response()->json([
                 'status' => 'error',
-                'message' => UserMessages::get('register.throttled'),
+                'message' => $this->copy('register.throttled', 'Too many registration attempts. Please try again later.'),
             ], 429);
         }
 
@@ -67,7 +73,7 @@ class RegisterController extends Controller
             // Do not burn rate-limit budget on validation mistakes
             return response()->json([
                 'status' => 'validation',
-                'message' => UserMessages::get('register.validation'),
+                'message' => $this->copy('register.validation', 'Please fix the highlighted fields and try again.'),
                 'errors' => $validator->errors(),
             ], 422);
         }
@@ -82,11 +88,11 @@ class RegisterController extends Controller
 
             return response()->json([
                 'status' => 'error',
-                'message' => UserMessages::get('register.unavailable'),
+                'message' => $this->copy('register.unavailable', 'Registration is temporarily unavailable. Please contact support.'),
             ], 500);
         }
 
-        $bonusService = app(WelcomeBonusService::class);
+        $bonusService = class_exists(WelcomeBonusService::class) ? app(WelcomeBonusService::class) : null;
         $welcomeBonus = 0.0;
         $user = null;
 
@@ -105,9 +111,12 @@ class RegisterController extends Controller
             $user->active_role_id = $activeRole->id;
             $user->save();
 
-            $welcomeBonus = $bonusService->amountFor($request, (string) $request->role);
-            if ($welcomeBonus > 0 && ! $bonusService->recordClaim($user, $request, $welcomeBonus, 'registration')) {
-                $welcomeBonus = 0.0;
+            $welcomeBonus = 0.0;
+            if ($bonusService) {
+                $welcomeBonus = $bonusService->amountFor($request, (string) $request->role);
+                if ($welcomeBonus > 0 && ! $bonusService->recordClaim($user, $request, $welcomeBonus, 'registration')) {
+                    $welcomeBonus = 0.0;
+                }
             }
 
             $welcomeBonus = Wallet::insertRegistrationPair(
@@ -139,13 +148,15 @@ class RegisterController extends Controller
 
             return response()->json([
                 'status' => 'error',
-                'message' => UserMessages::get('register.failed'),
+                'message' => $this->copy('register.failed', 'Something went wrong. Please try again.'),
             ], 500);
         }
 
         // Side-effects after commit — never roll back a created account
         if ($welcomeBonus > 0) {
-            $bonusService->queueClaimCookie();
+            if ($bonusService && method_exists($bonusService, 'queueClaimCookie')) {
+                $bonusService->queueClaimCookie();
+            }
             try {
                 $advertiserWallet = Wallet::where('user_id', $user->id)
                     ->where('role_id', $advertiserRole->id)
@@ -202,5 +213,12 @@ class RegisterController extends Controller
             'verification_sent' => $verificationSent,
             'redirect' => route('login', absolute: false),
         ]);
+    }
+
+    private function copy(string $key, string $fallback): string
+    {
+        return function_exists('user_message')
+            ? user_message($key, $fallback)
+            : $fallback;
     }
 }

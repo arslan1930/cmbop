@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\UserMessages;
+
 if (! function_exists('scalar_text')) {
     /**
      * First usable scalar as a string.
@@ -187,5 +189,20 @@ if (! function_exists('blade_e')) {
         }
 
         return e($value, $doubleEncode);
+    }
+}
+
+if (! function_exists('user_message')) {
+    /**
+     * Leftover-safe user-facing copy from lang/errors.php.
+     */
+    function user_message(string $key, ?string $fallback = null): string
+    {
+        if (class_exists(UserMessages::class)
+            && method_exists(UserMessages::class, 'get')) {
+            return UserMessages::get($key, [], $fallback);
+        }
+
+        return $fallback ?? 'Something went wrong. Please try again.';
     }
 }

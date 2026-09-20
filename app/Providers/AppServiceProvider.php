@@ -19,7 +19,6 @@ use App\Support\BillingCustomerMailSuppressor;
 use App\Support\MarketingOpsQueues;
 use App\Support\OrderLifecycleMailSuppressor;
 use App\Support\PublicStorageLink;
-use App\Support\UserMessages;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -106,7 +105,9 @@ class AppServiceProvider extends ServiceProvider
                 ->response(function (Request $request, array $headers) {
                     return response()->json([
                         'status' => 'error',
-                        'message' => UserMessages::get('password.throttled'),
+                        'message' => function_exists('user_message')
+                            ? user_message('password.throttled', 'Too many attempts. Please try again later.')
+                            : 'Too many attempts. Please try again later.',
                     ], 429, $headers);
                 });
         });
@@ -117,7 +118,9 @@ class AppServiceProvider extends ServiceProvider
                 ->response(function (Request $request, array $headers) {
                     return response()->json([
                         'status' => 'error',
-                        'message' => UserMessages::get('password.reset_throttled'),
+                        'message' => function_exists('user_message')
+                            ? user_message('password.reset_throttled', 'Too many attempts. Try again later.')
+                            : 'Too many attempts. Try again later.',
                     ], 429, $headers);
                 });
         });
@@ -125,8 +128,11 @@ class AppServiceProvider extends ServiceProvider
         // Authenticated users hitting /login or /register go to their role dashboard.
         RedirectIfAuthenticated::redirectUsing(function () {
             $user = Auth::user();
+            if ($user && method_exists($user, 'getDashboardRoute')) {
+                return $user->getDashboardRoute();
+            }
 
-            return $user ? $user->getDashboardRoute() : '/';
+            return '/';
         });
 
         // Gap-fill: welcome + admin new-user (HTTP only — skips seeders/artisan)

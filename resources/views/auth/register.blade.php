@@ -155,16 +155,16 @@
                                         <div class="input-group">
                                             <input type="password" name="password" id="password" class="form-control auth-input pe-5" placeholder="Create a password" autocomplete="new-password" required aria-describedby="passwordError">
                                             <button type="button" class="input-group-text" style="cursor:pointer" onclick="togglePassword('password', this)" aria-label="Show or hide password"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
-                                            <div class="invalid-feedback" id="passwordError" role="alert" aria-live="polite"></div>
                                         </div>
+                                        <div class="invalid-feedback" id="passwordError" role="alert" aria-live="polite"></div>
                                     </div>
                                     <div class="col-12 col-xl-6">
                                         <label for="password_confirmation" class="auth-label">Confirm password <span class="text-danger">*</span></label>
                                         <div class="input-group">
                                             <input type="password" name="password_confirmation" id="password_confirmation" class="form-control auth-input pe-5" placeholder="Repeat password" autocomplete="new-password" required aria-describedby="password_confirmationError">
                                             <button type="button" class="input-group-text" style="cursor:pointer" onclick="togglePassword('password_confirmation', this)" aria-label="Show or hide password confirmation"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
-                                            <div class="invalid-feedback" id="password_confirmationError" role="alert" aria-live="polite"></div>
                                         </div>
+                                        <div class="invalid-feedback" id="password_confirmationError" role="alert" aria-live="polite"></div>
                                     </div>
                                 </div>
 
@@ -385,7 +385,10 @@ document.querySelectorAll('#roleSelect .role-card').forEach(card=>{
 
         ['nameError','emailError','passwordError','password_confirmationError','roleError','termsError'].forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.innerText = '';
+            if (el) {
+                el.innerText = '';
+                el.classList.remove('d-block');
+            }
         });
 
         const role = document.getElementById('roleInput')?.value;
@@ -420,11 +423,21 @@ document.querySelectorAll('#roleSelect .role-card').forEach(card=>{
 
             const contentType = res.headers.get('content-type') || '';
             if (!contentType.includes('application/json')) {
-                throw new Error('Unexpected server response');
+                const fallback = (typeof slbHttpMessage === 'function')
+                    ? slbHttpMessage({ status: res.status }, 'Please refresh and try again.')
+                    : (res.status === 419
+                        ? 'Your session expired. Refresh the page and try again.'
+                        : 'Please refresh and try again.');
+                throw new Error(fallback);
             }
             data = await res.json();
+            if (res.status === 419 && (!data.status || data.status === 'error')) {
+                showToast(data.message || 'Your session expired. Refresh the page and try again.', 'danger');
+                resetSubmitButton();
+                return;
+            }
         } catch (err) {
-            showToast('Server error occurred. Please refresh and try again.', 'danger');
+            showToast((err && err.message) ? err.message : 'Server error occurred. Please refresh and try again.', 'danger');
             resetSubmitButton();
             return;
         }
@@ -444,7 +457,10 @@ document.querySelectorAll('#roleSelect .role-card').forEach(card=>{
                 const input = form.querySelector(`[name="${key}"]`);
                 const errorDiv = document.getElementById(key + 'Error');
                 if (input) input.classList.add('is-invalid');
-                if (errorDiv) errorDiv.innerText = errors[key][0];
+                if (errorDiv) {
+                    errorDiv.innerText = errors[key][0];
+                    errorDiv.classList.add('d-block');
+                }
                 if (errors[key][0]) messages.push(errors[key][0]);
             }
             showToast(messages[0] || data.message || 'Please fix the highlighted fields.', 'warning');
