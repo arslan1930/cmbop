@@ -71,7 +71,7 @@ trait ValidatesBlogPost
      */
     protected function publicLocales(): array
     {
-        if (class_exists(PublicI18n::class)) {
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
             return PublicI18n::supported();
         }
 

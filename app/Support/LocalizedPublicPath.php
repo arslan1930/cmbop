@@ -238,7 +238,13 @@ class LocalizedPublicPath
     public static function for(string $englishPath, ?string $locale): string
     {
         $englishPath = trim($englishPath, '/');
-        if ($englishPath === '' || ! PublicI18n::isSupported($locale) || $locale === PublicI18n::default() || $locale === 'us') {
+        if ($englishPath === ''
+            || ! class_exists(PublicI18n::class)
+            || ! method_exists(PublicI18n::class, 'isSupported')
+            || ! method_exists(PublicI18n::class, 'default')
+            || ! PublicI18n::isSupported($locale)
+            || $locale === PublicI18n::default()
+            || $locale === 'us') {
             return $englishPath;
         }
 
@@ -302,10 +308,16 @@ class LocalizedPublicPath
      */
     public static function publicPath(string $englishPath, ?string $locale): string
     {
-        $locale = $locale ?? PublicI18n::default();
+        $locale = $locale ?? (
+            class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'default')
+                ? PublicI18n::default()
+                : 'en'
+        );
         $localized = self::for($englishPath, $locale);
 
-        if (! PublicI18n::isPrefixed($locale)) {
+        if (! class_exists(PublicI18n::class)
+            || ! method_exists(PublicI18n::class, 'isPrefixed')
+            || ! PublicI18n::isPrefixed($locale)) {
             return $localized === '' ? '/' : '/'.$localized;
         }
 

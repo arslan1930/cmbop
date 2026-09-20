@@ -57,7 +57,7 @@
     'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
         ? \App\Support\PublicI18n::htmlLang()
         : 'en-GB',
-    'mainEntity' => class_exists(\App\Support\BrandOrganization::class)
+    'mainEntity' => (class_exists(\App\Support\BrandOrganization::class) && method_exists(\App\Support\BrandOrganization::class, 'schema'))
         ? \App\Support\BrandOrganization::schema([
         'foundingLocation' => [
             '@type' => 'Place',

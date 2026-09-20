@@ -180,7 +180,9 @@
 <a href="#main-content" class="skip-to-content">Skip to main content</a>
 
 @include('components.navbar')
-@include('components.language-suggestion')
+@if (view()->exists('components.language-suggestion'))
+    @include('components.language-suggestion')
+@endif
 
 <main id="main-content" tabindex="-1">
     <div class="container-fluid px-3 px-md-4">

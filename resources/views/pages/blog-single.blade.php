@@ -5,15 +5,22 @@
     $resolvedTitle = $activeTranslation?->title ?: $blog->title;
     $resolvedSlug = $activeTranslation?->slug ?: $blog->slug;
     $resolvedExcerpt = $activeTranslation?->excerpt ?: $blog->excerpt;
-    $resolvedContent = \App\Support\WelcomeBonusCopy::scrubGrantAdvertisingHtml(
-        \App\Support\CuratedBlogCatalog::rewriteCatalogLinks(
-            $activeTranslation?->content ?: $blog->content
-        )
-    );
+    $resolvedContent = $activeTranslation?->content ?: $blog->content;
+    if (class_exists(\App\Support\CuratedBlogCatalog::class)
+        && method_exists(\App\Support\CuratedBlogCatalog::class, 'rewriteCatalogLinks')) {
+        $resolvedContent = \App\Support\CuratedBlogCatalog::rewriteCatalogLinks($resolvedContent);
+    }
+    if (class_exists(\App\Support\WelcomeBonusCopy::class)
+        && method_exists(\App\Support\WelcomeBonusCopy::class, 'scrubGrantAdvertisingHtml')) {
+        $resolvedContent = \App\Support\WelcomeBonusCopy::scrubGrantAdvertisingHtml($resolvedContent);
+    }
     $blogCanonical = $canonicalUrl ?? $blog->canonicalUrl($activeTranslation?->locale ?: app()->getLocale(), 'en');
     $blogDescription = $activeTranslation?->meta_description ?: ($resolvedExcerpt ?: \Illuminate\Support\Str::limit(strip_tags($resolvedContent ?? ''), 160));
     $blogPageTitle = $activeTranslation?->meta_title ?: ($resolvedTitle ?? 'Blog');
-    $blogFaq = \App\Support\CuratedBlogCatalog::faqForBlog($blog, $resolvedSlug);
+    $blogFaq = (class_exists(\App\Support\CuratedBlogCatalog::class)
+        && method_exists(\App\Support\CuratedBlogCatalog::class, 'faqForBlog'))
+        ? \App\Support\CuratedBlogCatalog::faqForBlog($blog, $resolvedSlug)
+        : [];
 @endphp
 
 @section('title', $blogPageTitle.' — SEOLinkBuildings')

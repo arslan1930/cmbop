@@ -51,21 +51,27 @@ if (! function_exists('public_locale')) {
 if (! function_exists('welcome_bonus_can_grant')) {
     function welcome_bonus_can_grant(): bool
     {
-        return WelcomeBonusCopy::canGrant();
+        return class_exists(WelcomeBonusCopy::class) && method_exists(WelcomeBonusCopy::class, 'canGrant')
+            ? WelcomeBonusCopy::canGrant()
+            : false;
     }
 }
 
 if (! function_exists('welcome_bonus_euro')) {
     function welcome_bonus_euro(): string
     {
-        return WelcomeBonusCopy::euro();
+        return class_exists(WelcomeBonusCopy::class) && method_exists(WelcomeBonusCopy::class, 'euro')
+            ? WelcomeBonusCopy::euro()
+            : '20';
     }
 }
 
 if (! function_exists('welcome_bonus_message')) {
     function welcome_bonus_message(string $key, ?string $offKey = null): string
     {
-        return WelcomeBonusCopy::message($key, $offKey);
+        return class_exists(WelcomeBonusCopy::class) && method_exists(WelcomeBonusCopy::class, 'message')
+            ? WelcomeBonusCopy::message($key, $offKey)
+            : __("messages.{$key}");
     }
 }
 

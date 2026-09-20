@@ -199,7 +199,7 @@ class CuratedBlogWriter
             return;
         }
 
-        $locale = (class_exists(PublicI18n::class) && PublicI18n::isSupported($blog->primary_locale))
+        $locale = (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'isSupported') && PublicI18n::isSupported($blog->primary_locale))
             ? $blog->primary_locale
             : 'en';
 
@@ -254,7 +254,7 @@ class CuratedBlogWriter
             return;
         }
 
-        $primary = (class_exists(PublicI18n::class) && PublicI18n::isSupported($blog->primary_locale))
+        $primary = (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'isSupported') && PublicI18n::isSupported($blog->primary_locale))
             ? $blog->primary_locale
             : 'en';
 
@@ -264,7 +264,7 @@ class CuratedBlogWriter
                 if ($locale === '' || $locale === $primary) {
                     continue;
                 }
-                if (class_exists(PublicI18n::class) && ! PublicI18n::isSupported($locale)) {
+                if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'isSupported') && ! PublicI18n::isSupported($locale)) {
                     continue;
                 }
                 if (! is_array($fields)) {

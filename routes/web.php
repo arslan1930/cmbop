@@ -312,7 +312,7 @@ Route::get('/sitemap-{locale}.xml', [SitemapController::class, 'locale'])
     ->where('locale', $supportedLocalePattern)
     ->name('sitemap.locale');
 Route::get('/robots.txt', function () {
-    $body = class_exists(RobotsTxt::class)
+    $body = (class_exists(RobotsTxt::class) && method_exists(RobotsTxt::class, 'render'))
         ? RobotsTxt::render()
         : (is_file(public_path('robots.txt'))
             ? (string) file_get_contents(public_path('robots.txt'))
@@ -330,7 +330,7 @@ Route::get('/llms.txt', function () {
     abort_unless(is_file($path), 404);
 
     $body = (string) file_get_contents($path);
-    if (class_exists(WelcomeBonusCopy::class)) {
+    if (class_exists(WelcomeBonusCopy::class) && method_exists(WelcomeBonusCopy::class, 'applyToLlmsTxt')) {
         $body = WelcomeBonusCopy::applyToLlmsTxt($body);
     }
 

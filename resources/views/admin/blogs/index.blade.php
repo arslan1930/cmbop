@@ -47,7 +47,7 @@
             <label class="form-label small text-muted mb-1" for="adminBlogsLocale">Primary locale</label>
             <select name="locale" id="adminBlogsLocale" class="form-select form-select-sm">
                 <option value="">All</option>
-                @foreach((class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::supported() : ['en']) as $code)
+                @foreach(((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en']) as $code)
                     <option value="{{ $code }}" @selected(request('locale') === $code)>{{ strtoupper($code) }}</option>
                 @endforeach
             </select>
@@ -110,7 +110,7 @@
                                 <div class="small text-muted">{{ parse_url($blog->canonicalUrl(), PHP_URL_PATH) }}</div>
                             </td>
                             <td>
-                                @foreach((class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::supported() : ['en']) as $code)
+                                @foreach(((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en']) as $code)
                                     @php
                                         $translation = $blog->translations->firstWhere('locale', $code);
                                     @endphp

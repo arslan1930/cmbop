@@ -10,7 +10,7 @@ var quillUploadUrl = @json(route('admin.blogs.upload-image'));
 var quillDeleteUrl = @json(route('admin.blogs.delete-content-image'));
 var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 var articleImagesManager = null;
-@php($editorLocales = $locales ?? (class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::supported() : ['en']))
+@php($editorLocales = $locales ?? ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en']))
 var blogEditorLocales = @json($editorLocales);
 
 function isEmptyQuillHtml(html) {

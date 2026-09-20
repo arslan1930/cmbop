@@ -64,7 +64,7 @@
     'name' => 'EU guest-post price index',
     'description' => $metaDescription,
     'url' => $canonical,
-    'creator' => class_exists(\App\Support\BrandOrganization::class)
+    'creator' => (class_exists(\App\Support\BrandOrganization::class) && method_exists(\App\Support\BrandOrganization::class, 'schema'))
         ? \App\Support\BrandOrganization::schema()
         : ['@type' => 'Organization', 'name' => 'SEOLinkBuildings'],
     'isAccessibleForFree' => true,
