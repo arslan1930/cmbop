@@ -755,21 +755,19 @@ class AddFundsController extends Controller
 
             $depositRequest = DepositRequest::create($payload);
 
-            // Send email notification to admin
+            // Send email notification to admin (skip when no mailbox is configured —
+            // empty ADMIN_EMAIL + no admin users used to throw "To/Cc/Bcc header").
             try {
-                $admins = User::whereHas('roles', function ($query) {
-                    $query->where('name', 'admin');
-                })->get();
-
-                if ($admins->count() > 0) {
-                    foreach ($admins as $admin) {
-                        Mail::to($admin->email)->send(new DepositRequestSubmitted($depositRequest));
-                    }
+                $recipients = $this->adminDepositMailRecipients();
+                if ($recipients === []) {
+                    Log::info('Deposit invoice created with no admin mailbox configured', [
+                        'deposit_request_id' => $depositRequest->id,
+                    ]);
                 } else {
-                    $defaultAdminEmail = config('mail.admin_email', 'admin@yourdomain.com');
-                    Mail::to($defaultAdminEmail)->send(new DepositRequestSubmitted($depositRequest));
+                    foreach ($recipients as $email) {
+                        Mail::to($email)->send(new DepositRequestSubmitted($depositRequest));
+                    }
                 }
-
             } catch (\Throwable $e) {
                 Log::error('Failed to send deposit notification email: '.$e->getMessage());
             }
@@ -975,25 +973,50 @@ class AddFundsController extends Controller
         }
 
         try {
-            $admins = User::whereHas('roles', fn ($query) => $query->where('name', 'admin'))->get();
-
-            if ($admins->isEmpty()) {
-                $fallback = config('mail.admin_email');
-                if (filled($fallback)) {
-                    Mail::to($fallback)->send(new DepositMarkedPaid($deposit));
-                }
-
-                return;
-            }
-
-            foreach ($admins as $admin) {
-                Mail::to($admin->email)->send(new DepositMarkedPaid($deposit));
+            $recipients = $this->adminDepositMailRecipients();
+            foreach ($recipients as $email) {
+                Mail::to($email)->send(new DepositMarkedPaid($deposit));
             }
         } catch (\Throwable $e) {
             Log::error('Failed to send deposit marked-paid email: '.$e->getMessage(), [
                 'deposit_request_id' => $deposit->id,
             ]);
         }
+    }
+
+    /**
+     * Admin deposit emails need a real To address. Empty ADMIN_EMAIL with no
+     * admin users (common on leftover Hostinger) must not call Mail::to('').
+     *
+     * @return list<string>
+     */
+    private function adminDepositMailRecipients(): array
+    {
+        $emails = [];
+
+        try {
+            $admins = User::whereHas('roles', fn ($query) => $query->where('name', 'admin'))->get();
+            foreach ($admins as $admin) {
+                $email = trim((string) ($admin->email ?? ''));
+                if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $emails[] = $email;
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        if ($emails === []) {
+            $fallback = trim((string) (
+                config('mail.admin_email')
+                ?: config('email_notifications.brand.support_email')
+                ?: ''
+            ));
+            if ($fallback !== '' && filter_var($fallback, FILTER_VALIDATE_EMAIL)) {
+                $emails[] = $fallback;
+            }
+        }
+
+        return array_values(array_unique($emails));
     }
 
     public function getStatus($id)
