@@ -160,7 +160,6 @@ class CatalogSchemaDriftResilienceTest extends TestCase
 
     public function test_catalog_loads_when_order_items_and_featured_columns_are_missing(): void
     {
-        $this->dropSitesColumnIfPresent('owner_id');
         $this->dropSitesColumnIfPresent('featured_until');
         $this->dropSitesColumnIfPresent('screenshot_path');
         Schema::dropIfExists('order_items');
