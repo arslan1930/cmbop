@@ -46,6 +46,7 @@ use App\Mail\PayoutProfileUpdatedBySupport;
 use App\Mail\PaypalPaymentNotCompleted;
 use App\Mail\PublisherAcceptNudge;
 use App\Mail\PublisherAddSiteReminderMail;
+use App\Mail\PublisherListingNudge;
 use App\Mail\PublisherPublishNudge;
 use App\Mail\RefundReceiptMail;
 use App\Mail\SiteClaimOwnershipTransferred;
@@ -403,6 +404,13 @@ class EmailCatalog
                 'mailable' => AdminAssignedSiteNotification::class,
                 'status' => 'active',
             ],
+            'publisher_listing_nudge' => [
+                'name' => 'Publisher Listing Nudge',
+                'description' => 'Staff reminder for publishers to accept a listing or finish pending details.',
+                'category' => 'Publishers',
+                'mailable' => PublisherListingNudge::class,
+                'status' => 'active',
+            ],
             'audience_campaign' => [
                 'name' => 'Updates & Campaigns',
                 'description' => 'Admin-composed marketing / update email to a selected audience, with a signed marketing unsubscribe footer.',
@@ -680,6 +688,7 @@ class EmailCatalog
             'bulk site request from' => 'bulk_site_request_submitted',
             'your sites were added to pending sites' => 'bulk_sites_seeded',
             'please accept a website we added' => 'admin_assigned_site',
+            'reminder — finish your listing' => 'publisher_listing_nudge',
             'your bulk website request was cancelled' => 'bulk_request_cancelled',
             'we did not add' => 'bulk_request_items_rejected',
             'spend budget' => 'spend_budget_alert',
@@ -691,6 +700,7 @@ class EmailCatalog
             'your site verification' => 'site_status',
             'your site submission was not accepted' => 'site_status',
             'your site was archived' => 'site_status',
+            'your site was restored' => 'site_status',
             'site claim:' => 'site_claim_submitted',
             'claim approved' => 'site_claim_reviewed',
             'claim update' => 'site_claim_reviewed',
@@ -894,6 +904,7 @@ class EmailCatalog
             ),
             'bulk_sites_seeded' => new BulkSitesSeededNotification(self::sampleBulkSiteRequest(), 3, $user, ['example.com', 'sample-two.example']),
             'admin_assigned_site' => new AdminAssignedSiteNotification($site, $user),
+            'publisher_listing_nudge' => new PublisherListingNudge($site, 'details', $user),
             'audience_campaign' => new AudienceCampaignMail(self::sampleCampaign(), $user),
             'bulk_request_cancelled' => new BulkSiteRequestCancelled(self::sampleBulkSiteRequest(), $user, 'Sample cancellation reason for preview.'),
             'bulk_request_items_rejected' => new BulkSiteItemsRejected(

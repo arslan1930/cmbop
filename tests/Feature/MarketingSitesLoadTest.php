@@ -103,6 +103,10 @@ class MarketingSitesLoadTest extends TestCase
                     'missing_cover',
                     'status_reason',
                     'description_looks_english',
+                    'can_nudge',
+                    'notes_count',
+                    'duplicate',
+                    'archived',
                 ]],
                 'meta' => ['current_page', 'last_page', 'total', 'per_page'],
             ])

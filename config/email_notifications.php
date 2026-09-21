@@ -44,6 +44,7 @@ use App\Mail\PayoutProfileUpdatedBySupport;
 use App\Mail\PaypalPaymentNotCompleted;
 use App\Mail\PublisherAcceptNudge;
 use App\Mail\PublisherAddSiteReminderMail;
+use App\Mail\PublisherListingNudge;
 use App\Mail\PublisherPublishNudge;
 use App\Mail\RefundReceiptMail;
 use App\Mail\SiteClaimOwnershipTransferred;
@@ -408,6 +409,13 @@ return [
             'audience' => 'publisher',
             'preference' => null,
             'mailable' => AdminAssignedSiteNotification::class,
+            'default_enabled' => true,
+        ],
+        'publisher_listing_nudge' => [
+            'name' => 'Publisher Listing Nudge',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => PublisherListingNudge::class,
             'default_enabled' => true,
         ],
         'admin_new_user' => [

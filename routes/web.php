@@ -580,6 +580,12 @@ $registerStaffOpsRoutes = function () {
         ->name('sites.create');
     Route::post('/sites', [AdminSiteController::class, 'storeForPublisher'])
         ->name('sites.store');
+    Route::post('/sites/bulk', [AdminSiteController::class, 'bulk'])
+        ->name('sites.bulk');
+    Route::post('/sites/{id}/notes', [AdminSiteController::class, 'storeNote'])
+        ->name('sites.notes.store');
+    Route::post('/sites/{id}/nudge', [AdminSiteController::class, 'nudgePublisher'])
+        ->name('sites.nudge');
     Route::get('/staff-handbook', fn () => view('admin.staff-handbook'))
         ->name('staff-handbook');
     Route::get('/users/{id}/sites', [AdminSiteController::class, 'userSites'])
@@ -598,6 +604,8 @@ $registerStaffOpsRoutes = function () {
     // Admin: any site. Marketing: pending / not-live (!verified && !active) only.
     Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
         ->name('sites.destroy');
+    Route::post('/sites/{id}/restore', [AdminSiteController::class, 'restore'])
+        ->name('sites.restore');
 
     Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
         ->name('bulk-site-requests.index');

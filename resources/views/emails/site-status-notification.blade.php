@@ -107,6 +107,15 @@ What this means:
 Please contact support if you believe this is an error.
 @break
 
+@case('restored')
+Your site <strong>{{ $site->site_name }}</strong> has been restored from archive.
+
+What this means:
+- The listing is no longer archived
+- It stays off the catalog until it is active again
+- Existing orders are unchanged
+@break
+
 @default
 There has been a status change for your site <strong>{{ $site->site_name }}</strong>.
 @endswitch
