@@ -167,6 +167,58 @@ class AdminCatalogHealthQueueTest extends TestCase
         $this->assertStringContainsString('url,countries,categories,active,health', $body);
     }
 
+    public function test_sites_index_health_queue_lists_live_rows_in_place(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+
+        $this->makeSite($publisher, [
+            'site_name' => 'Clean Health Index Site',
+            'domain' => 'clean-index.example',
+            'site_url' => 'https://clean-index.example',
+        ]);
+        $below = $this->makeSite($publisher, [
+            'site_name' => 'Thin Health Index Site',
+            'domain' => 'below-index.example',
+            'site_url' => 'https://below-index.example',
+            'da' => 12,
+            'dr' => 12,
+            'traffic' => 200,
+        ]);
+        $this->makeSite($publisher, [
+            'site_name' => 'Unverified Health Index Site',
+            'domain' => 'unverified-index.example',
+            'site_url' => 'https://unverified-index.example',
+            'verified' => false,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.sites.index', ['health' => 'below_quality']))
+            ->assertOk()
+            ->assertSee('Catalog health', false)
+            ->assertSee('Below quality bar', false)
+            ->assertSee('Thin Health Index Site', false)
+            ->assertDontSee('Clean Health Index Site', false)
+            ->assertDontSee('Unverified Health Index Site', false)
+            ->assertSee('DA/DR', false)
+            ->assertSee('Open in records sheet', false)
+            ->assertSee(route('admin.sites.records', ['health' => 'below_quality'], false), false)
+            ->getContent();
+
+        $this->assertStringContainsString((string) $below->da, $html);
+        $this->assertStringContainsString('>Deactivate</button>', $html);
+        $this->assertStringContainsString('toggle-active', $html);
+        $this->assertStringContainsString('data-flat-queue="1"', $html);
+        $this->assertStringContainsString('id="usersSection" class="d-none"', $html);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.index', ['health' => 'unverified']))
+            ->assertOk()
+            ->assertSee('Unverified Health Index Site', false)
+            ->assertDontSee('Thin Health Index Site', false)
+            ->assertSee('Unverified active', false);
+    }
+
     public function test_records_partial_health_filter_returns_json(): void
     {
         $admin = $this->userWithRoles(['admin'], 'admin');
