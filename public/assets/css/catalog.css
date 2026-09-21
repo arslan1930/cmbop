@@ -2463,6 +2463,7 @@ button.site-badge-new.is-alerting,
 button.site-chip {
     margin: 0;
     font-family: inherit;
+    cursor: pointer;
 }
 
 .site-chip i {

@@ -76,6 +76,7 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringContainsString('function toggleCardDetails', $js);
         $this->assertStringContainsString('.catalog-card-details-toggle', $js);
         $this->assertStringContainsString('[data-catalog-open-details]', $js);
+        $this->assertStringContainsString('data-catalog-open-section', $js);
         $this->assertStringContainsString('function inventoryFromHtml', $js);
         $css = (string) file_get_contents(public_path('assets/css/catalog.css'));
         $this->assertDoesNotMatchRegularExpression(
@@ -229,6 +230,8 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringNotContainsString('media/not-a-path', $html);
         $this->assertStringNotContainsString('/storage/not-a-path', $html);
         $this->assertStringNotContainsString('catalog-tile--preview', $html);
+        $this->assertStringNotContainsString('site-chip--social', $html);
+        $this->assertStringNotContainsString('Social promotions', $html);
         $this->assertStringNotContainsString('site-chip--featured', $html);
         $this->assertStringNotContainsString('site-chip--sale', $html);
 

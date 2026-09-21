@@ -1,7 +1,7 @@
 {{-- Homepage / social discoverability chips for closed catalog rows.
      Selection stays in Site Details; these only signal the offer exists.
      Expects $homepageOptions (array), $defaultHomepageDays (?int), $socialChannels (list),
-     and optional $socialChannelLabels. --}}
+     optional $socialChannelLabels, and optional $openDetailsId (site id). --}}
 @php
     $placementHomepageOptions = $homepageOptions ?? [];
     $placementFreeHomepageDays = $defaultHomepageDays ?? null;
@@ -11,12 +11,18 @@
         'instagram' => 'Instagram',
         'x' => 'X',
     ];
+    $placementOpenDetailsId = trim((string) ($openDetailsId ?? ''));
     $showHomepagePlacementChip = $placementHomepageOptions !== [];
     $showSocialPlacementChip = $placementSocialChannels !== [];
+    $socialNames = collect($placementSocialChannels)
+        ->map(fn ($c) => $placementSocialLabels[$c] ?? ucfirst((string) $c))
+        ->filter()
+        ->values();
+    $socialChipLabel = $socialNames->isNotEmpty()
+        ? ('Social: '.$socialNames->implode(', '))
+        : 'Social promotions';
     $socialTitle = $showSocialPlacementChip
-        ? ('Social share included: '.collect($placementSocialChannels)
-            ->map(fn ($c) => $placementSocialLabels[$c] ?? ucfirst((string) $c))
-            ->implode(', '))
+        ? ('Social promotions included: '.$socialNames->implode(', '))
         : '';
 @endphp
 @if($showHomepagePlacementChip)
@@ -35,8 +41,20 @@
     @endif
 @endif
 @if($showSocialPlacementChip)
-    <span class="site-chip site-chip--social site-chip--descriptor"@if($socialTitle !== '') aria-label="{{ $socialTitle }}"@endif>
-        <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
-        <span>Social</span>
-    </span>
+    @if($placementOpenDetailsId !== '')
+        <button type="button"
+                class="site-chip site-chip--social site-chip--descriptor"
+                data-catalog-open-details="{{ $placementOpenDetailsId }}"
+                data-catalog-open-section="social"
+                data-no-tip
+                aria-label="{{ $socialTitle }} — open Details">
+            <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+            <span>{{ $socialChipLabel }}</span>
+        </button>
+    @else
+        <span class="site-chip site-chip--social site-chip--descriptor"@if($socialTitle !== '') aria-label="{{ $socialTitle }}"@endif>
+            <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+            <span>{{ $socialChipLabel }}</span>
+        </span>
+    @endif
 @endif

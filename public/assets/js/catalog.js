@@ -4241,16 +4241,23 @@ function setCatalogDetailsToggleState(toggle, open) {
     if (icon) icon.classList.toggle('rotate-arrow', !!open);
 }
 
-function toggleCardDetails(toggle) {
+function toggleCardDetails(toggle, opts) {
     if (!toggle) return;
 
     const panel = document.getElementById(toggle.dataset.cardDetails || '');
     if (!panel) return;
 
+    const forceOpen = !!(opts && opts.open);
     const willOpen = panel.hidden;
-    panel.hidden = !willOpen;
-    setCatalogDetailsToggleState(toggle, willOpen);
+    if (!willOpen && !forceOpen) {
+        panel.hidden = true;
+        setCatalogDetailsToggleState(toggle, false);
+        return;
+    }
+
     if (willOpen) {
+        panel.hidden = false;
+        setCatalogDetailsToggleState(toggle, true);
         hydrateExpandScreenshots(panel);
         if (typeof initCatalogExpandPreviewZoom === 'function') {
             initCatalogExpandPreviewZoom(panel);
@@ -4258,6 +4265,13 @@ function toggleCardDetails(toggle) {
         const siteId = (toggle.dataset.cardDetails || '').replace('card-details-', '');
         if (siteId) {
             syncSensitiveSelectionUi(siteId);
+        }
+    }
+
+    if (opts && opts.scrollTo && !panel.hidden) {
+        const el = panel.querySelector(opts.scrollTo);
+        if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'nearest' });
         }
     }
 }
@@ -4755,21 +4769,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Toggle expanded row — multi-open: siblings stay expanded.
-    function toggleExpandRow(id, arrowElement) {
+    function toggleExpandRow(id, arrowElement, opts) {
         const expandedRow = document.querySelector('.expanded-row-' + id);
         if (!expandedRow) return;
 
         const arrow = arrowElement || document.getElementById('arrow-' + id);
         const isClosed = expandedRow.style.display === 'none' || expandedRow.style.display === '';
+        const forceOpen = !!(opts && opts.open);
 
-        if (isClosed) {
-            expandedRow.style.display = 'table-row';
-            hydrateExpandScreenshots(expandedRow);
-            if (typeof initCatalogExpandPreviewZoom === 'function') {
-                initCatalogExpandPreviewZoom(expandedRow);
+        if (isClosed || forceOpen) {
+            if (isClosed) {
+                expandedRow.style.display = 'table-row';
+                hydrateExpandScreenshots(expandedRow);
+                if (typeof initCatalogExpandPreviewZoom === 'function') {
+                    initCatalogExpandPreviewZoom(expandedRow);
+                }
+                setCatalogDetailsToggleState(arrow, true);
+                syncSensitiveSelectionUi(id);
             }
-            setCatalogDetailsToggleState(arrow, true);
-            syncSensitiveSelectionUi(id);
+            if (opts && opts.scrollTo) {
+                const el = expandedRow.querySelector(opts.scrollTo);
+                if (el && typeof el.scrollIntoView === 'function') {
+                    el.scrollIntoView({ block: 'nearest' });
+                }
+            }
         } else {
             expandedRow.style.display = 'none';
             setCatalogDetailsToggleState(arrow, false);
@@ -4791,8 +4814,8 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleExpandRow(id, arrow);
     });
 
-    // Homepage thumbnail on the closed row — same Details toggle as the
-    // labelled button, not a hover or whole-row expand.
+    // Homepage thumbnail / Social chip on the closed row — dedicated Details
+    // controls, not a hover or whole-row expand.
     document.addEventListener('click', function (e) {
         const thumb = e.target.closest('[data-catalog-open-details]');
         if (!thumb) return;
@@ -4804,18 +4827,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const id = thumb.getAttribute('data-catalog-open-details');
         if (!id) return;
 
+        const section = thumb.getAttribute('data-catalog-open-section');
+        const opts = section
+            ? { open: true, scrollTo: '[data-catalog-section="' + section + '"]' }
+            : undefined;
+
         const card = thumb.closest('.catalog-mobile-card');
         if (card) {
             const cardToggle = card.querySelector('.catalog-card-details-toggle');
             if (cardToggle) {
-                toggleCardDetails(cardToggle);
+                toggleCardDetails(cardToggle, opts);
                 return;
             }
         }
 
         const arrow = document.getElementById('arrow-' + id);
         if (arrow) {
-            toggleExpandRow(id, arrow);
+            toggleExpandRow(id, arrow, opts);
         }
     });
 

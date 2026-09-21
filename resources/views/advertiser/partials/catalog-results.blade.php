@@ -415,6 +415,7 @@
                                 'defaultHomepageDays' => $defaultHomepageDays,
                                 'socialChannels' => $socialChannels,
                                 'socialChannelLabels' => $socialChannelLabels,
+                                'openDetailsId' => (string) $site->id,
                             ])
                         </div>
                         @endif
@@ -844,12 +845,13 @@
                         @endif
 
                         @if($socialChannels !== [])
+                        <div data-catalog-section="social">
                         <p class="mb-1 catalog-details-heading">
-                            <strong>Social</strong>
+                            <strong>Social promotions</strong>
                             <x-glass-tip
-                                title="Social"
+                                title="Social promotions"
                                 body="Publisher will share the live post on these channels at no extra cost."
-                                label="About Social"
+                                label="About Social promotions"
                                 placement="top" />
                         </p>
                             <div class="d-flex flex-wrap gap-1 mb-3" aria-label="Included social channels">
@@ -857,6 +859,7 @@
                                     <span class="badge bg-light text-dark border">{{ $socialChannelLabels[$channel] ?? ucfirst($channel) }}</span>
                                 @endforeach
                             </div>
+                        </div>
                         @endif
 
                         @php
@@ -1146,6 +1149,7 @@
                             'defaultHomepageDays' => $defaultHomepageDays,
                             'socialChannels' => $socialChannels,
                             'socialChannelLabels' => $socialChannelLabels,
+                            'openDetailsId' => (string) $site->id,
                         ])
                     </div>
                     @endif
@@ -1337,8 +1341,8 @@
                 </div>
             @endif
             @if($socialChannels !== [])
-                <div class="mt-3">
-                    <div class="small fw-semibold mb-1">Social</div>
+                <div class="mt-3" data-catalog-section="social">
+                    <div class="small fw-semibold mb-1">Social promotions</div>
                     <div class="d-flex flex-wrap gap-1" aria-label="Included social channels">
                         @foreach($socialChannels as $channel)
                             <span class="badge bg-light text-dark border">{{ $socialChannelLabels[$channel] ?? ucfirst($channel) }}</span>
@@ -1556,13 +1560,13 @@
                 </div>
                 @endif
                 @if($socialChannels !== [])
-                <div class="catalog-card-details__row">
+                <div class="catalog-card-details__row" data-catalog-section="social">
                     <dt>
-                        Social
+                        Social promotions
                         <x-glass-tip
-                            title="Social"
+                            title="Social promotions"
                             body="Publisher will share the live post on these channels at no extra cost."
-                            label="About Social"
+                            label="About Social promotions"
                             placement="top" />
                     </dt>
                     <dd>
