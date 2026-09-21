@@ -199,7 +199,7 @@ class OrderItem extends Model
      */
     public function scopeRecognizedForFinance($query)
     {
-        if (! OrderItemDispute::tableAvailable()) {
+        if (! static::disputesStatusReady()) {
             return $query;
         }
 
@@ -217,7 +217,7 @@ class OrderItem extends Model
      */
     public function scopeClawedBack($query)
     {
-        if (! OrderItemDispute::tableAvailable()) {
+        if (! static::disputesStatusReady()) {
             return $query->whereRaw('0 = 1');
         }
 
@@ -527,8 +527,10 @@ class OrderItem extends Model
         }
 
         $qualified = $table === '' ? '' : rtrim($table, '.').'.';
-        $base = "({$qualified}price - COALESCE({$qualified}additional_price, 0) - COALESCE({$qualified}homepage_price, 0))";
-        $extras = "COALESCE({$qualified}additional_price, 0) + COALESCE({$qualified}homepage_price, 0)";
+        $additional = static::optionalNumericSql($qualified, 'additional_price');
+        $homepage = static::optionalNumericSql($qualified, 'homepage_price');
+        $base = "({$qualified}price - {$additional} - {$homepage})";
+        $extras = "{$additional} + {$homepage}";
         $legacyPayout = "{$base} / {$rate}";
 
         $publisherBase = $legacyPayout;
@@ -541,6 +543,35 @@ class OrderItem extends Model
         }
 
         return DB::raw("ROUND({$publisherBase} + {$extras}, 2)");
+    }
+
+    /**
+     * COALESCE only when the leftover Hostinger column exists.
+     */
+    private static function optionalNumericSql(string $qualified, string $column): string
+    {
+        try {
+            if (Schema::hasColumn('order_items', $column)) {
+                return "COALESCE({$qualified}{$column}, 0)";
+            }
+        } catch (\Throwable) {
+            // Mixed schema — treat the add-on as zero.
+        }
+
+        return '0';
+    }
+
+    private static function disputesStatusReady(): bool
+    {
+        if (! OrderItemDispute::tableAvailable()) {
+            return false;
+        }
+
+        try {
+            return Schema::hasColumn('order_item_disputes', 'status');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**

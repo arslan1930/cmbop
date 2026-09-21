@@ -736,9 +736,12 @@ class WebsiteLeftoverErrorHardeningTest extends TestCase
         $this->siteFor($publisher);
         Schema::dropIfExists('order_items');
 
-        $this->assertSafeJsonFailure(
-            $this->actingAs($publisher)->getJson(route('publisher.dashboard.recent'))
-        );
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.recent'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(0, 'orders')
+            ->assertDontSee('SQLSTATE');
     }
 
     public function test_catalog_still_renders_when_sites_table_is_gone(): void
@@ -893,9 +896,12 @@ class WebsiteLeftoverErrorHardeningTest extends TestCase
         $this->siteFor($publisher);
         Schema::dropIfExists('sites');
 
-        $this->assertSafeJsonFailure(
-            $this->actingAs($publisher)->getJson(route('publisher.dashboard.weekly-earnings'))
-        );
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.weekly-earnings'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.values', [0, 0, 0, 0, 0, 0, 0])
+            ->assertDontSee('SQLSTATE');
     }
 
     private function paidOrder(User $advertiser, Site $site): Order
