@@ -291,7 +291,8 @@ class AdminCampaignsTest extends TestCase
             ->assertSee('sandbox', false)
             ->assertSee('requestSubmit() throws if the submitter is disabled', false)
             ->assertSee("method: 'POST'", false)
-            ->assertSee("Accept': 'application/json, text/html'", false)
+            ->assertSee("'Accept': 'application/json'", false)
+            ->assertSee("'Accept': 'text/html, application/json'", false)
             ->assertSee('name="include_unverified" value="0"', false)
             ->assertSee('Advertisers: never checked out', false)
             ->assertSee('value="advertisers_no_paid_orders"', false)
@@ -397,14 +398,17 @@ class AdminCampaignsTest extends TestCase
     {
         $admin = $this->makeUser('admin');
 
-        $this->actingAs($admin)
+        $payload = $this->actingAs($admin)
             ->postJson(route('admin.campaigns.from-template'), [
                 'template' => 'password_reset',
             ])
             ->assertOk()
-            ->assertJsonPath('subject', 'Password Reset')
-            ->assertJsonPath('cta_label', 'Reset Password')
-            ->assertSee('password/reset/preview-token', false);
+            ->json();
+
+        $this->assertSame('Password Reset', $payload['subject']);
+        $this->assertSame('Reset Password', $payload['cta_label']);
+        $this->assertStringContainsString('password/reset/preview-token', (string) ($payload['cta_url'] ?? ''));
+        $this->assertStringContainsString('password/reset/preview-token', (string) ($payload['html'] ?? ''));
     }
 
     public function test_preview_with_template_matches_email_center(): void
