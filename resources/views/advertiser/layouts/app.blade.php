@@ -127,10 +127,12 @@
             <span class="nav-label">Projects</span>
         </a>
 
-        <a href="{{ route('advertiser.site-claims') }}" class="{{ request()->routeIs('advertiser.site-claims') || request()->routeIs('site-claims.*') ? 'active' : '' }}">
-            <i class="fa fa-user-check" aria-hidden="true"></i>
-            <span class="nav-label">My Claims</span>
-        </a>
+        @if(auth()->user()?->hasRole('publisher'))
+            <a href="{{ route('advertiser.site-claims') }}" class="{{ request()->routeIs('advertiser.site-claims') || request()->routeIs('site-claims.*') ? 'active' : '' }}">
+                <i class="fa fa-user-check" aria-hidden="true"></i>
+                <span class="nav-label">My Claims</span>
+            </a>
+        @endif
 
         <!-- Add Funds -->
         <a href="{{ route('advertiser.add-funds') }}" class="{{ request()->routeIs('advertiser.add-funds*') || request()->routeIs('advertiser.balance*') ? 'active' : '' }}">
@@ -177,7 +179,16 @@
 
         <!-- Cart — count + estimated total while browsing -->
         @php
-            $headerCart = is_array($headerCart ?? null) ? $headerCart : session('cart', []);
+            try {
+                $headerCart = is_array($headerCart ?? null) ? $headerCart : session('cart', []);
+                if (! is_array($headerCart)) {
+                    $headerCart = [];
+                }
+                $headerCart = array_values(array_filter($headerCart, 'is_array'));
+            } catch (\Throwable $e) {
+                report($e);
+                $headerCart = [];
+            }
             $headerCartCount = (int) array_sum(array_map(fn ($row) => (int) ($row['quantity'] ?? 0), $headerCart));
             $headerCartTotal = round(array_sum(array_map(
                 fn ($row) => ((float) ($row['price'] ?? 0)) * ((int) ($row['quantity'] ?? 0)),
@@ -341,7 +352,10 @@
         @include('partials.payment-trust', ['compact' => true, 'showMethods' => true, 'brief' => true])
     </div>
 </footer>
-@unless(\App\Support\VisitorSupportChat::enabled() || \App\Support\TawkChat::enabled())
+@unless(
+    (class_exists(\App\Support\VisitorSupportChat::class) && \App\Support\VisitorSupportChat::enabled() && view()->exists('partials.visitor-support-chat'))
+    || (class_exists(\App\Support\TawkChat::class) && \App\Support\TawkChat::enabled())
+)
     @include('components.help-feedback-widget')
 @endunless
 

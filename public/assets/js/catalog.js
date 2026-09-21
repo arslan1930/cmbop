@@ -32,6 +32,16 @@ window.catalogSitePreviewOnError = function (img) {
         return;
     }
     img.onerror = null;
+    var tile = img.closest('.catalog-tile--preview');
+    if (tile) {
+        img.hidden = true;
+        var initials = tile.querySelector('.catalog-tile__initials');
+        if (initials) {
+            initials.hidden = false;
+        }
+        tile.classList.remove('catalog-tile--preview');
+        return;
+    }
     var z = img.closest('.site-preview-zoom');
     if (z) {
         z.classList.add('is-broken');
@@ -46,7 +56,7 @@ window.catalogSitePreviewOnError = function (img) {
 
 /**
  * Floating desktop zoom popover for Site Details / card expand previews.
- * Previews stay out of catalog rows; hover enlarge only on expand.
+ * Closed rows show a small thumbnail; hover enlarge only on the Details panel.
  */
 function initCatalogExpandPreviewZoom(root) {
     const scope = root || document;
@@ -467,11 +477,18 @@ function destroyBulkDealRail() {
 }
 
 function bulkRailReadCollapsed() {
-    try {
-        return window.localStorage.getItem(BULK_RAIL_COLLAPSED_KEY) === '1';
-    } catch (err) {
-        // Private mode / blocked storage: the section simply starts open.
+    const section = document.querySelector('[data-bulk-rail]');
+    if (section && section.getAttribute('data-bulk-start') === 'open') {
         return false;
+    }
+    try {
+        const stored = window.localStorage.getItem(BULK_RAIL_COLLAPSED_KEY);
+        if (stored === '1') return true;
+        if (stored === '0') return false;
+        return true;
+    } catch (err) {
+        // Private mode / blocked storage: start collapsed like a first visit.
+        return true;
     }
 }
 
@@ -2642,24 +2659,35 @@ const CatalogLive = (function () {
         }
     }
 
+    function catalogMoneyLabel(amount) {
+        const n = Number(amount);
+        if (!Number.isFinite(n)) return '';
+        return (window.slbFormatMoney || function (value) { return '€' + Number(value).toFixed(2); })(n);
+    }
+
+    function inventoryFromHtml(card) {
+        const raw = card && card.getAttribute('data-inventory-from');
+        if (raw === null || raw === '') return '';
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 0) return '';
+        return ' <span class="catalog-inventory-from">· from <strong class="catalog-inventory-teaser__price">'
+            + catalogMoneyLabel(n) + '</strong></span>';
+    }
+
     function syncResultsCount(card) {
         const el = document.getElementById('catalogResultsCount');
         if (!el || !card) return;
         const total = parseInt(card.getAttribute('data-result-total') || '0', 10) || 0;
         const first = parseInt(card.getAttribute('data-first-item') || '0', 10) || 0;
         const last = parseInt(card.getAttribute('data-last-item') || '0', 10) || 0;
+        const fromHtml = inventoryFromHtml(card);
         if (total > 0 && first > 0) {
             el.innerHTML = 'Showing <strong class="text-dark">' + first + '–' + last
                 + '</strong> of <strong class="text-dark">' + total.toLocaleString()
-                + '</strong> ' + (total === 1 ? 'site' : 'sites');
+                + '</strong> ' + (total === 1 ? 'site' : 'sites') + fromHtml;
         } else {
             // Keep Phase 6 empty-status wording after live fragment swap.
             el.textContent = card.getAttribute('data-status-text') || 'No sites match your filters';
-        }
-
-        const countEl = document.querySelector('.catalog-inventory-teaser strong.text-dark');
-        if (countEl) {
-            countEl.textContent = total.toLocaleString();
         }
 
         announceResults(total, first, last, card);
@@ -2893,6 +2921,7 @@ const CatalogLive = (function () {
         syncFilterChips(params);
         syncMoreFiltersBadge(params);
         syncTagQuick(params);
+        syncFavoritesQuick(params);
         syncSuggestButtons(params);
         if (typeof updateButtonStates === 'function') updateButtonStates();
         if (typeof syncDefaultHomepagePrices === 'function') syncDefaultHomepagePrices();
@@ -2966,6 +2995,7 @@ const CatalogLive = (function () {
             syncFilterChips(params);
             syncMoreFiltersBadge(params);
             syncTagQuick(params);
+            syncFavoritesQuick(params);
             syncSuggestButtons(params);
             return Promise.resolve();
         }
@@ -3264,14 +3294,25 @@ window.scheduleCatalogFilterLive = scheduleCatalogFilterLive;
 
     initCatalogCategoryToggle();
     initCatalogTagQuick();
+    initCatalogFavoritesQuick();
 })();
 
 function syncTagQuick(params) {
     const current = params && params.get
         ? (params.get('tag') || '')
         : ((document.getElementById('catalogTagFilter') || {}).value || '');
-    document.querySelectorAll('.catalog-tag-quick__btn').forEach(function (btn) {
+    document.querySelectorAll('.catalog-tag-quick [data-catalog-tag]').forEach(function (btn) {
         const on = (btn.getAttribute('data-catalog-tag') || '') === current;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+}
+
+function syncFavoritesQuick(params) {
+    const on = params && params.get
+        ? params.get('favorites_filter') === '1'
+        : ((document.querySelector('#filterForm select[name="favorites_filter"]') || {}).value === '1');
+    document.querySelectorAll('[data-catalog-favorites]').forEach(function (btn) {
         btn.classList.toggle('is-active', on);
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
@@ -3290,6 +3331,19 @@ function initCatalogTagQuick() {
             select.dispatchEvent(new Event('change', { bubbles: true }));
         }
         syncTagQuick({ get: function () { return tag; } });
+    });
+}
+
+function initCatalogFavoritesQuick() {
+    const btn = document.querySelector('[data-catalog-favorites]');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        const select = document.querySelector('#filterForm select[name="favorites_filter"]');
+        if (!select) return;
+        const nextOn = select.value !== '1';
+        select.value = nextOn ? '1' : '';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        syncFavoritesQuick({ get: function (key) { return key === 'favorites_filter' && nextOn ? '1' : ''; } });
     });
 }
 
@@ -3764,6 +3818,18 @@ function catalogRoundMoney(value) {
 function catalogVisibleFirst(nodes) {
     const list = Array.prototype.slice.call(nodes);
     return list.find(function (el) { return el.offsetParent !== null; }) || list[0] || null;
+}
+
+function markCatalogSiteInCart(siteId) {
+    const id = String(siteId);
+    document.querySelectorAll('.buy-now[data-id="' + id + '"]').forEach(function (buy) {
+        if (buy.dataset.bulkHint === '1' || buy.hasAttribute('data-bulk-hint')) return;
+        buy.classList.add('is-in-cart');
+        buy.dataset.inCart = '1';
+        buy.innerHTML = '<i class="fa-solid fa-cart-shopping" aria-hidden="true"></i> <span>In cart</span>';
+        const name = buy.dataset.name || 'this site';
+        buy.setAttribute('aria-label', 'Open cart — ' + name + ' is already in your cart');
+    });
 }
 
 /**
@@ -4284,16 +4350,23 @@ function setCatalogDetailsToggleState(toggle, open) {
     if (icon) icon.classList.toggle('rotate-arrow', !!open);
 }
 
-function toggleCardDetails(toggle) {
+function toggleCardDetails(toggle, opts) {
     if (!toggle) return;
 
     const panel = document.getElementById(toggle.dataset.cardDetails || '');
     if (!panel) return;
 
+    const forceOpen = !!(opts && opts.open);
     const willOpen = panel.hidden;
-    panel.hidden = !willOpen;
-    setCatalogDetailsToggleState(toggle, willOpen);
+    if (!willOpen && !forceOpen) {
+        panel.hidden = true;
+        setCatalogDetailsToggleState(toggle, false);
+        return;
+    }
+
     if (willOpen) {
+        panel.hidden = false;
+        setCatalogDetailsToggleState(toggle, true);
         hydrateExpandScreenshots(panel);
         if (typeof initCatalogExpandPreviewZoom === 'function') {
             initCatalogExpandPreviewZoom(panel);
@@ -4301,6 +4374,14 @@ function toggleCardDetails(toggle) {
         const siteId = (toggle.dataset.cardDetails || '').replace('card-details-', '');
         if (siteId) {
             syncSensitiveSelectionUi(siteId);
+        }
+    }
+
+    if (opts && opts.scrollTo && !panel.hidden) {
+        const article = panel.closest('article');
+        const el = ((article && article.querySelector(opts.scrollTo)) || panel.querySelector(opts.scrollTo));
+        if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({ block: 'nearest' });
         }
     }
 }
@@ -4623,14 +4704,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function catalogActionClick(e) {
-        // Interactive chrome must not toggle Details — ↗, eye, Buy, favorite,
-        // blacklist, claim, tip chips, Details itself (has its own handler), etc.
-        return !!e.target.closest(
-            'button, a, input, label, select, textarea, .reveal-url, .hide-url, .toggle-url, .catalog-url-eye, .expand-arrow, .catalog-card-details-toggle, .btn-icon-quiet, .site-open-link, .buy-now, .favorite-btn, .blacklist-btn, .btn-claim-site, .copy-example-url, .sensitive-price-checkbox, .homepage-placement-radio, .form-check-label, .site-chip, .site-badge-new, .catalog-site-actions, .catalog-site-controls, .catalog-card-details'
-        );
-    }
-
     const URL_MASK = '•••••••';
 
     /**
@@ -4666,9 +4739,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 delete el.dataset.host;
             }
-            if (el.getAttribute('title') !== null) {
-                el.setAttribute('title', displayText);
-            }
+            el.removeAttribute('title');
         });
         return nodes[0] || null;
     }
@@ -4685,11 +4756,7 @@ document.addEventListener('DOMContentLoaded', function() {
         roots.forEach(function (root) {
             root.querySelectorAll('.catalog-site-name, [data-site-name-label]').forEach(function (el) {
                 el.textContent = displayName;
-                if (setTitle) {
-                    el.setAttribute('title', displayName);
-                } else {
-                    el.removeAttribute('title');
-                }
+                el.removeAttribute('title');
             });
             root.setAttribute('data-name', displayName);
             root.querySelectorAll('[data-name]').forEach(function (el) {
@@ -4818,28 +4885,39 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Toggle expanded row — multi-open: siblings stay expanded.
-    function toggleExpandRow(id, arrowElement) {
+    function toggleExpandRow(id, arrowElement, opts) {
         const expandedRow = document.querySelector('.expanded-row-' + id);
         if (!expandedRow) return;
 
         const arrow = arrowElement || document.getElementById('arrow-' + id);
         const isClosed = expandedRow.style.display === 'none' || expandedRow.style.display === '';
+        const forceOpen = !!(opts && opts.open);
 
-        if (isClosed) {
-            expandedRow.style.display = 'table-row';
-            hydrateExpandScreenshots(expandedRow);
-            if (typeof initCatalogExpandPreviewZoom === 'function') {
-                initCatalogExpandPreviewZoom(expandedRow);
+        if (isClosed || forceOpen) {
+            if (isClosed) {
+                expandedRow.style.display = 'table-row';
+                hydrateExpandScreenshots(expandedRow);
+                if (typeof initCatalogExpandPreviewZoom === 'function') {
+                    initCatalogExpandPreviewZoom(expandedRow);
+                }
+                setCatalogDetailsToggleState(arrow, true);
+                syncSensitiveSelectionUi(id);
             }
-            setCatalogDetailsToggleState(arrow, true);
-            syncSensitiveSelectionUi(id);
+            if (opts && opts.scrollTo) {
+                const el = expandedRow.querySelector(opts.scrollTo);
+                if (el && typeof el.scrollIntoView === 'function') {
+                    el.scrollIntoView({ block: 'nearest' });
+                }
+            }
         } else {
             expandedRow.style.display = 'none';
             setCatalogDetailsToggleState(arrow, false);
         }
     }
 
-    // Details button — dedicated control (also excluded from whole-row handler).
+    // Details button only — row / card body clicks must not expand. Hovering a
+    // metric or name must not feel like a second page. Delegated so live-fetched
+    // rows stay interactive. Multi-open: opening one does not close others.
     document.addEventListener('click', function (e) {
         const arrow = e.target.closest('.expand-arrow');
         if (!arrow) return;
@@ -4852,31 +4930,37 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleExpandRow(id, arrow);
     });
 
-    // Whole-row click toggles Details (name, URL text, tile, metrics, empty space).
-    // ↗ stays external-only; interactive chrome is filtered via catalogActionClick.
-    // Delegated so live-fetched rows stay interactive. Multi-open: opening one
-    // does not close others; second click on the same row collapses it.
+    // Homepage thumbnail / Social chip on the closed row — dedicated Details
+    // controls, not a hover or whole-row expand.
     document.addEventListener('click', function (e) {
-        const row = e.target.closest('tr.site-row');
-        if (!row) return;
-        if (catalogActionClick(e)) return;
-
-        const id = row.getAttribute('data-id');
+        const thumb = e.target.closest('[data-catalog-open-details]');
+        if (!thumb) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') {
+            e.stopImmediatePropagation();
+        }
+        const id = thumb.getAttribute('data-catalog-open-details');
         if (!id) return;
 
-        toggleExpandRow(id, document.getElementById('arrow-' + id));
-    });
+        const section = thumb.getAttribute('data-catalog-open-section');
+        const opts = section
+            ? { open: true, scrollTo: '[data-catalog-section="' + section + '"]' }
+            : undefined;
 
-    // Mobile cards: same body-click toggle parity with the table.
-    document.addEventListener('click', function (e) {
-        const card = e.target.closest('.catalog-mobile-card');
-        if (!card) return;
-        if (catalogActionClick(e)) return;
+        const card = thumb.closest('.catalog-mobile-card');
+        if (card) {
+            const cardToggle = card.querySelector('.catalog-card-details-toggle');
+            if (cardToggle) {
+                toggleCardDetails(cardToggle, opts);
+                return;
+            }
+        }
 
-        const toggle = card.querySelector('.catalog-card-details-toggle');
-        if (!toggle) return;
-
-        toggleCardDetails(toggle);
+        const arrow = document.getElementById('arrow-' + id);
+        if (arrow) {
+            toggleExpandRow(id, arrow, opts);
+        }
     });
 
     // Copy example URL
@@ -4928,6 +5012,15 @@ document.addEventListener('DOMContentLoaded', function() {
         let name = button.dataset.name;
         if (!id || Number.isNaN(id)) {
             catalogToast('Could not add to cart.', 'error');
+            return;
+        }
+
+        if ((button.classList.contains('is-in-cart') || button.dataset.inCart === '1')
+            && button.dataset.bulkHint !== '1'
+            && !button.hasAttribute('data-bulk-hint')) {
+            if (typeof window.openCart === 'function') {
+                window.openCart();
+            }
             return;
         }
 

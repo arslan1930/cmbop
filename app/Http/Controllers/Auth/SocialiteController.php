@@ -10,7 +10,6 @@ use App\Models\Wallet;
 use App\Services\EmailNotificationService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WelcomeBonusService;
-use App\Support\UserMessages;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +32,7 @@ class SocialiteController extends Controller
                 'callback' => rtrim(request()->getSchemeAndHttpHost(), '/').'/auth/google/callback',
             ]);
 
-            return $this->loginRedirect(UserMessages::get('oauth.unavailable'));
+            return $this->loginRedirect($this->copy('oauth.unavailable', 'Google sign-in is not available. Please use email and password.'));
         }
 
         try {
@@ -43,7 +42,7 @@ class SocialiteController extends Controller
                 'exception' => $e::class,
             ]);
 
-            return $this->loginRedirect(UserMessages::get('oauth.temporary'));
+            return $this->loginRedirect($this->copy('oauth.temporary', 'Google sign-in is temporarily unavailable. Please try again or use email and password.'));
         }
     }
 
@@ -58,13 +57,13 @@ class SocialiteController extends Controller
 
             return $this->loginRedirect(
                 $denied
-                    ? UserMessages::get('oauth.cancelled')
-                    : UserMessages::get('oauth.failed')
+                    ? $this->copy('oauth.cancelled', 'Google sign-in was cancelled. You can try again or use email and password.')
+                    : $this->copy('oauth.failed', 'Google sign-in failed. Please try again or use email and password.')
             );
         }
 
         if (! google_oauth_configured()) {
-            return $this->loginRedirect(UserMessages::get('oauth.unavailable'));
+            return $this->loginRedirect($this->copy('oauth.unavailable', 'Google sign-in is not available. Please use email and password.'));
         }
 
         try {
@@ -97,7 +96,7 @@ class SocialiteController extends Controller
             }
 
             if (! $email) {
-                return $this->loginRedirect(UserMessages::get('oauth.no_email'));
+                return $this->loginRedirect($this->copy('oauth.no_email', 'Google did not share an email address. Please use another sign-in method.'));
             }
 
             $request = request();
@@ -105,7 +104,7 @@ class SocialiteController extends Controller
             $registerKey = $bonusService->registerRateLimitKey($request);
             if (RateLimiter::tooManyAttempts($registerKey, 5)) {
                 return $this->loginRedirect(
-                    UserMessages::get('register.throttled')
+                    $this->copy('register.throttled', 'Too many registration attempts. Please try again later.')
                 );
             }
             RateLimiter::hit($registerKey, 600);
@@ -211,7 +210,7 @@ class SocialiteController extends Controller
             ]);
 
             return redirect()->to(route('login', absolute: false))
-                ->with('error', UserMessages::get('oauth.failed'));
+                ->with('error', $this->copy('oauth.failed', 'Google sign-in failed. Please try again or use email and password.'));
         }
     }
 
@@ -332,8 +331,8 @@ class SocialiteController extends Controller
 
     private function loginAndRedirect(User $user): RedirectResponse
     {
-        if ($user->isSuspended()) {
-            return $this->loginRedirect(UserMessages::get('login.suspended'));
+        if (method_exists($user, 'isSuspended') && $user->isSuspended()) {
+            return $this->loginRedirect($this->copy('login.suspended', 'This account has been suspended. Contact support if you think this is a mistake.'));
         }
 
         Auth::login($user, true);
@@ -358,7 +357,9 @@ class SocialiteController extends Controller
      */
     private function postLoginDestination(User $user): string
     {
-        $dashboard = $user->getDashboardRoute();
+        $dashboard = method_exists($user, 'getDashboardRoute')
+            ? $user->getDashboardRoute()
+            : '/';
         $intended = session()->pull('url.intended');
 
         if (! is_string($intended) || $intended === '') {
@@ -385,5 +386,12 @@ class SocialiteController extends Controller
         }
 
         return $intended;
+    }
+
+    private function copy(string $key, string $fallback): string
+    {
+        return function_exists('user_message')
+            ? user_message($key, $fallback)
+            : $fallback;
     }
 }

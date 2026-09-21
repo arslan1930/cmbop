@@ -295,6 +295,14 @@ class EmailVerificationLinkTest extends TestCase
         Notification::assertSentTo($unverified, VerifyEmail::class);
     }
 
+    public function test_verification_resend_empty_email_returns_json_validation(): void
+    {
+        $this->postJson(route('verification.resend'), [])
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'validation')
+            ->assertJsonValidationErrors('email');
+    }
+
     public function test_send_email_verification_notification_does_not_throw(): void
     {
         Notification::fake();

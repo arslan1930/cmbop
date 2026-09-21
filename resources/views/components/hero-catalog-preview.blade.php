@@ -177,19 +177,25 @@
                 <th scope="col" class="text-center catalog-th"><span class="catalog-th-label">Category</span></th>
                 <th scope="col" class="text-center catalog-th">
                   <span class="catalog-th-label">
-                    @include('advertiser.partials.metric-source', ['type' => 'traffic'])
+                    @if (view()->exists('advertiser.partials.metric-source'))
+                      @include('advertiser.partials.metric-source', ['type' => 'traffic'])
+                    @endif
                     <span class="catalog-th-text">Traffic</span>
                   </span>
                 </th>
                 <th scope="col" class="text-center catalog-th">
                   <span class="catalog-th-label">
-                    @include('advertiser.partials.metric-source', ['type' => 'dr'])
+                    @if (view()->exists('advertiser.partials.metric-source'))
+                      @include('advertiser.partials.metric-source', ['type' => 'dr'])
+                    @endif
                     <span class="catalog-th-text">DR</span>
                   </span>
                 </th>
                 <th scope="col" class="text-center catalog-th">
                   <span class="catalog-th-label">
-                    @include('advertiser.partials.metric-source', ['type' => 'da'])
+                    @if (view()->exists('advertiser.partials.metric-source'))
+                      @include('advertiser.partials.metric-source', ['type' => 'da'])
+                    @endif
                     <span class="catalog-th-text">DA</span>
                   </span>
                 </th>

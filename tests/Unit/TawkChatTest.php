@@ -38,4 +38,15 @@ class TawkChatTest extends TestCase
         ]);
         $this->assertNull(TawkChat::embedSrc());
     }
+
+    public function test_missing_config_key_falls_back_to_env_default(): void
+    {
+        config(['services.tawk' => []]);
+
+        $this->assertTrue(TawkChat::enabled());
+        $this->assertSame(
+            'https://embed.tawk.to/6aa6a3693d02a53444168308/default',
+            TawkChat::embedSrc()
+        );
+    }
 }

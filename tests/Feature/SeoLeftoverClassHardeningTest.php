@@ -22,10 +22,14 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('prependToGroup(\'web\', CanonicalHost::class)', $bootstrap);
         $this->assertStringContainsString('LeftoverPublicI18nSlugs.php', $bootstrap);
         $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $bootstrap);
+        $this->assertStringContainsString('CountryHost.php', $bootstrap);
         $this->assertStringContainsString('leftover_public_i18n_boot.php', (string) file_get_contents(base_path('composer.json')));
         $this->assertStringContainsString('leftover_public_i18n_boot.php', (string) file_get_contents(base_path('artisan')));
         $this->assertStringContainsString('leftover_public_i18n_boot.php', (string) file_get_contents(base_path('public/index.php')));
         $this->assertStringContainsString('persistMissingMethod', (string) file_get_contents(base_path('app/Support/LeftoverPublicI18nSlugs.php')));
+        $canonicalHost = (string) file_get_contents(base_path('app/Http/Middleware/CanonicalHost.php'));
+        $this->assertStringContainsString('CountryHost::localeForHost', $canonicalHost);
+        $this->assertStringContainsString('CountryHost::apexUrl', $canonicalHost);
 
         $web = (string) file_get_contents(base_path('routes/web.php'));
         $this->assertStringContainsString('class_exists(CountryLander::class)', $web);
@@ -81,6 +85,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'englishOnlyMarketingSlugs')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'isEnglishOnlyMarketingPath')", $i18n);
+        $this->assertStringContainsString("method_exists(self::class, 'isPaginatedBlogIndex')", $i18n);
 
         $about = (string) file_get_contents(base_path('resources/views/pages/about.blade.php'));
         $prices = (string) file_get_contents(base_path('resources/views/pages/guest-post-prices-europe.blade.php'));
@@ -93,6 +98,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(\\App\\Support\\BrandOrganization::class, 'pageGraphJson')", $layout);
         $this->assertStringContainsString("method_exists(\\App\\Support\\MarketingCssBundle::class, 'urlIfReady')", $layout);
         $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'robotsContent')", $layout);
+        $this->assertStringContainsString('skip_hreflang', $layout);
         $this->assertStringContainsString('urlIfReady', $layout);
         $this->assertStringContainsString('pageGraphJson', $layout);
         $this->assertStringContainsString('jsonLd', (string) file_get_contents(base_path('app/Support/BrandOrganization.php')));
@@ -107,6 +113,10 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
         $marketplace = (string) file_get_contents(base_path('resources/views/pages/marketplace.blade.php'));
         $lander = (string) file_get_contents(base_path('resources/views/pages/guest-posts-country.blade.php'));
+        $this->assertStringContainsString("view()->exists('advertiser.partials.metric-source')", (string) file_get_contents(base_path('resources/views/components/hero-catalog-preview.blade.php')));
+        $this->assertStringContainsString('slb-hero-catalog-clone', (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
+        $this->assertStringContainsString("@include('components.hero')", (string) file_get_contents(base_path('resources/views/home.blade.php')));
+        $this->assertStringNotContainsString('dashboard.png', (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
         $this->assertStringContainsString("view()->exists('components.country-lander-nav')", $marketplace);
         $this->assertStringContainsString("view()->exists('components.country-lander-nav')", $lander);
         $this->assertStringContainsString("view()->exists('components.country-lander-nav')", $prices);
@@ -132,7 +142,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
     public function test_public_money_pages_and_admin_login_stay_up(): void
     {
-        foreach (['/', '/about', '/marketplace', '/guest-posts-germany', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login'] as $path) {
+        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login'] as $path) {
             $this->get($path)
                 ->assertOk()
                 ->assertDontSee('SQLSTATE')

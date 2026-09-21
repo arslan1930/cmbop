@@ -1,7 +1,7 @@
 {{-- Homepage / social discoverability chips for closed catalog rows.
-     Selection stays in Site Details; these only signal the offer exists.
+     Selection stays in Site Details; chips open that section.
      Expects $homepageOptions (array), $defaultHomepageDays (?int), $socialChannels (list),
-     and optional $socialChannelLabels. --}}
+     optional $socialChannelLabels, and optional $openDetailsId (site id). --}}
 @php
     $placementHomepageOptions = $homepageOptions ?? [];
     $placementFreeHomepageDays = $defaultHomepageDays ?? null;
@@ -11,33 +11,58 @@
         'instagram' => 'Instagram',
         'x' => 'X',
     ];
+    $placementOpenDetailsId = trim((string) ($openDetailsId ?? ''));
     $showHomepagePlacementChip = $placementHomepageOptions !== [];
     $showSocialPlacementChip = $placementSocialChannels !== [];
+    $socialNames = collect($placementSocialChannels)
+        ->map(fn ($c) => $placementSocialLabels[$c] ?? ucfirst((string) $c))
+        ->filter()
+        ->values();
+    $socialChipLabel = $socialNames->isNotEmpty()
+        ? $socialNames->implode(', ')
+        : 'Social';
     $socialTitle = $showSocialPlacementChip
-        ? ('Social share included: '.collect($placementSocialChannels)
-            ->map(fn ($c) => $placementSocialLabels[$c] ?? ucfirst((string) $c))
-            ->implode(', '))
+        ? ('Social promotions included: '.$socialNames->implode(', '))
         : '';
+    $homepageChipLabel = $placementFreeHomepageDays !== null ? 'Free homepage' : 'Homepage';
+    $homepageAria = $placementFreeHomepageDays !== null
+        ? ('Free homepage placement for up to '.$placementFreeHomepageDays.' day'.($placementFreeHomepageDays > 1 ? 's' : '').' — choose duration in Details')
+        : 'Optional homepage placement available — choose duration in Details';
 @endphp
 @if($showHomepagePlacementChip)
-    @if($placementFreeHomepageDays !== null)
-        <span class="site-chip site-chip--homepage site-chip--descriptor"
-              title="Free homepage placement for up to {{ $placementFreeHomepageDays }} day{{ $placementFreeHomepageDays > 1 ? 's' : '' }} — choose duration in Details">
+    @if($placementOpenDetailsId !== '')
+        <button type="button"
+                class="site-chip site-chip--homepage site-chip--descriptor"
+                data-catalog-open-details="{{ $placementOpenDetailsId }}"
+                data-catalog-open-section="homepage"
+                data-no-tip
+                aria-label="{{ $homepageAria }}">
             <i class="fa-solid fa-house" aria-hidden="true"></i>
-            <span>Free homepage</span>
-        </span>
+            <span>{{ $homepageChipLabel }}</span>
+        </button>
     @else
         <span class="site-chip site-chip--homepage site-chip--descriptor"
-              title="Optional homepage placement available — choose duration in Details">
+              aria-label="{{ $homepageAria }}">
             <i class="fa-solid fa-house" aria-hidden="true"></i>
-            <span>Homepage</span>
+            <span>{{ $homepageChipLabel }}</span>
         </span>
     @endif
 @endif
 @if($showSocialPlacementChip)
-    <span class="site-chip site-chip--social site-chip--descriptor"
-          title="{{ $socialTitle }}">
-        <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
-        <span>Social</span>
-    </span>
+    @if($placementOpenDetailsId !== '')
+        <button type="button"
+                class="site-chip site-chip--social site-chip--descriptor"
+                data-catalog-open-details="{{ $placementOpenDetailsId }}"
+                data-catalog-open-section="social"
+                data-no-tip
+                aria-label="{{ $socialTitle }} — open Details">
+            <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+            <span>{{ $socialChipLabel }}</span>
+        </button>
+    @else
+        <span class="site-chip site-chip--social site-chip--descriptor"@if($socialTitle !== '') aria-label="{{ $socialTitle }}"@endif>
+            <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+            <span>{{ $socialChipLabel }}</span>
+        </span>
+    @endif
 @endif

@@ -103,8 +103,10 @@ use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Validator;
 
 /*
 |--------------------------------------------------------------------------
@@ -518,22 +520,44 @@ Route::post('/email/verification-notification', function (Request $request) {
 
 // ✅ NEW: Resend verification WITHOUT login (AJAX)
 Route::post('/email/resend', function (Request $request) {
-
-    $request->validate([
+    $validator = Validator::make($request->all(), [
         'email' => 'required|email',
     ]);
 
-    $user = User::where('email', $request->email)->first();
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => 'validation',
+            'message' => function_exists('user_message')
+                ? user_message('register.validation', 'Please fix the highlighted fields and try again.')
+                : 'Please fix the highlighted fields and try again.',
+            'errors' => $validator->errors(),
+        ], 422);
+    }
 
-    if ($user && ! $user->hasVerifiedEmail()) {
-        $user->sendEmailVerificationNotification();
+    try {
+        $user = class_exists(User::class)
+            ? User::where('email', $request->email)->first()
+            : null;
+
+        if ($user && method_exists($user, 'hasVerifiedEmail') && ! $user->hasVerifiedEmail()
+            && method_exists($user, 'sendEmailVerificationNotification')) {
+            $user->sendEmailVerificationNotification();
+        }
+    } catch (Throwable $e) {
+        Log::error('Verification resend failed', ['error' => $e->getMessage()]);
+
+        return response()->json([
+            'status' => 'error',
+            'message' => function_exists('user_message')
+                ? user_message('generic.retry', 'Something went wrong. Please try again.')
+                : 'Something went wrong. Please try again.',
+        ], 503);
     }
 
     return response()->json([
         'status' => 'success',
         'message' => 'Verification email resent successfully.',
     ]);
-
 })->middleware('throttle:3,1')->name('verification.resend');
 
 // ✅ NEW: Role Switch (Dropdown) Route

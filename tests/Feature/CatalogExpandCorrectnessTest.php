@@ -267,7 +267,7 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('Homepage promotions', $html);
         $this->assertStringContainsString('homepage-placement-group', $html);
         $this->assertMatchesRegularExpression(
-            '/catalog-expand-meta[\s\S]*?Homepage promotions[\s\S]*?<strong>Social<\/strong>/u',
+            '/catalog-expand-meta[\s\S]*?Homepage promotions[\s\S]*?<strong>Social promotions<\/strong>/u',
             $html
         );
         $this->assertStringContainsString('Facebook', $html);
@@ -304,7 +304,7 @@ class CatalogExpandCorrectnessTest extends TestCase
         // Homepage promotions is omitted when the listing has no homepage offer.
         $this->assertStringNotContainsString('Homepage promotions', $html);
         $this->assertStringNotContainsString('Not offered on this listing.', $html);
-        $this->assertStringNotContainsString('<strong>Social</strong>', $html);
+        $this->assertStringNotContainsString('<strong>Social promotions</strong>', $html);
         $this->assertStringNotContainsString('No social sharing included on this listing.', $html);
         $this->assertStringNotContainsString('No description yet', $html);
         $this->assertStringContainsString('Turnaround', $html);
@@ -324,7 +324,7 @@ class CatalogExpandCorrectnessTest extends TestCase
 
         $this->assertStringContainsString('site-chip--social', $html);
         $this->assertStringContainsString('Facebook', $html);
-        $this->assertStringContainsString('Social', $html);
+        $this->assertStringContainsString('Social promotions', $html);
         $this->assertStringContainsString('Homepage promotions', $html);
         $this->assertStringContainsString('Choose a duration in this panel, or change it later in the cart.', $html);
         $this->assertStringNotContainsString('Choose a duration above Buy.', $html);
@@ -368,7 +368,11 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('Homepage</span>', $html);
         $this->assertStringNotContainsString('Free homepage', $html);
         $this->assertStringContainsString('site-chip--social', $html);
-        $this->assertStringContainsString('Homepage placement available in Details.', $html);
+        $this->assertStringContainsString('Facebook, Instagram', $html);
+        $this->assertStringNotContainsString('Social: Facebook', $html);
+        $this->assertStringContainsString('data-catalog-open-section="social"', $html);
+        $this->assertStringContainsString('data-catalog-open-section="homepage"', $html);
+        $this->assertStringNotContainsString('Homepage placement available in Details.', $html);
     }
 
     public function test_free_homepage_chip_skips_paid_only_hint(): void

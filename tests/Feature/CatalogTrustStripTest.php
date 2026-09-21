@@ -83,7 +83,7 @@ class CatalogTrustStripTest extends TestCase
         $this->assertStringContainsString('No completed orders yet', $html);
         $this->assertStringContainsString('Ratings from advertisers after completed orders', $html);
         $this->assertStringNotContainsString('No completions yet', $html);
-        $this->assertStringContainsString('<dt>Trust</dt>', $html);
+        $this->assertMatchesRegularExpression('/<dt>\s*Trust\b/s', $html);
     }
 
     public function test_leftover_rating_without_completions_hides_stars(): void

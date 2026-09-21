@@ -158,6 +158,35 @@ class CatalogSchemaDriftResilienceTest extends TestCase
         $this->assertSame(0, Site::countWithHomepagePlacement());
     }
 
+    public function test_catalog_loads_when_order_items_and_featured_columns_are_missing(): void
+    {
+        foreach (['featured_until', 'screenshot_path'] as $column) {
+            try {
+                $this->dropSitesColumnIfPresent($column);
+            } catch (\Throwable) {
+                // SQLite may refuse index-backed leftover columns.
+            }
+        }
+        Schema::dropIfExists('order_items');
+
+        $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->assertDontSee('Something went wrong')
+            ->assertDontSee('Unknown column')
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog.results'))
+            ->assertOk()
+            ->assertDontSee('Unknown column');
+
+        $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog.bulk-deals'))
+            ->assertOk()
+            ->assertDontSee('Unknown column');
+    }
+
     private function dropSitesColumnIfPresent(string $column): void
     {
         if (! Schema::hasColumn('sites', $column)) {

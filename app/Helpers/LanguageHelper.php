@@ -65,7 +65,11 @@ if (! function_exists('welcome_bonus_euro')) {
 if (! function_exists('welcome_bonus_message')) {
     function welcome_bonus_message(string $key, ?string $offKey = null): string
     {
-        return WelcomeBonusCopy::message($key, $offKey);
+        if (class_exists(WelcomeBonusCopy::class) && method_exists(WelcomeBonusCopy::class, 'message')) {
+            return WelcomeBonusCopy::message($key, $offKey);
+        }
+
+        return $offKey ? (string) __("messages.$offKey") : (string) __("messages.$key");
     }
 }
 

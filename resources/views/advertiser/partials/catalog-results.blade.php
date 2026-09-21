@@ -2,7 +2,23 @@
      Included by advertiser.catalog and returned by GET advertiser.catalog.results. --}}
 @php
     use Illuminate\Support\Str;
-    $resultTotal = $sites->total();
+    $resultTotal = 0;
+    $resultFirstItem = null;
+    $resultLastItem = null;
+    try {
+        $resultTotal = method_exists($sites, 'total') ? (int) $sites->total() : 0;
+        $resultFirstItem = method_exists($sites, 'firstItem') ? $sites->firstItem() : null;
+        $resultLastItem = method_exists($sites, 'lastItem') ? $sites->lastItem() : null;
+        $resultCurrentPage = method_exists($sites, 'currentPage') ? (int) $sites->currentPage() : 1;
+        $resultLastPage = method_exists($sites, 'lastPage') ? (int) $sites->lastPage() : 1;
+    } catch (\Throwable $e) {
+        report($e);
+        $resultTotal = 0;
+        $resultFirstItem = null;
+        $resultLastItem = null;
+        $resultCurrentPage = 1;
+        $resultLastPage = 1;
+    }
     $hasActiveFilters = $hasActiveFilters ?? (
         request()->filled('site')
         || request()->filled('search')
@@ -39,8 +55,8 @@
     $catalogResultsStatus = $catalogResultsStatus ?? app(\App\Services\Catalog\CatalogFilterStatus::class)->summarize(
         request(),
         $resultTotal,
-        $sites->firstItem() ?: null,
-        $sites->lastItem() ?: null
+        $resultFirstItem ?: null,
+        $resultLastItem ?: null
     );
     $catalogEmptyHeadline = $catalogEmptyHeadline ?? (
         $resultTotal < 1
@@ -51,20 +67,44 @@
             )
             : null
     );
-    $inCatalogHideMode = (bool) (auth()->user()?->inCatalogHideMode() ?? false);
+    $inCatalogHideMode = false;
+    try {
+        $inCatalogHideMode = (bool) (auth()->user()?->inCatalogHideMode() ?? false);
+    } catch (\Throwable $e) {
+        report($e);
+    }
     $currentUser = $currentUser ?? auth()->user();
     $favorites = $favorites ?? [];
     $blacklist = $blacklist ?? [];
+    $inventoryFrom = $inventoryFrom ?? null;
+    $cartSiteIds = [];
+    try {
+        $catalogCartLines = is_array($cart ?? null) ? $cart : session('cart', []);
+        if (! is_array($catalogCartLines)) {
+            $catalogCartLines = [];
+        }
+        foreach ($catalogCartLines as $line) {
+            $cid = (int) (is_array($line) ? ($line['id'] ?? 0) : 0);
+            if ($cid > 0) {
+                $cartSiteIds[$cid] = $cid;
+            }
+        }
+        $cartSiteIds = array_values($cartSiteIds);
+    } catch (\Throwable $e) {
+        report($e);
+        $cartSiteIds = [];
+    }
 @endphp
             <div class="card border-0 shadow-sm catalog-results-card" id="catalogResults" aria-live="polite"
                  tabindex="-1"
                  data-effective-query="{{ e(json_encode(\App\Services\Catalog\CatalogUrlQuery::fromRequest(request()))) }}"
                  data-catalog-hide-mode="{{ $inCatalogHideMode ? '1' : '0' }}"
                  data-result-total="{{ (int) $resultTotal }}"
-                 data-first-item="{{ (int) ($sites->firstItem() ?: 0) }}"
-                 data-last-item="{{ (int) ($sites->lastItem() ?: 0) }}"
-                 data-current-page="{{ (int) $sites->currentPage() }}"
-                 data-last-page="{{ (int) $sites->lastPage() }}"
+                 data-first-item="{{ (int) ($resultFirstItem ?: 0) }}"
+                 data-last-item="{{ (int) ($resultLastItem ?: 0) }}"
+                 data-current-page="{{ (int) ($resultCurrentPage ?? 1) }}"
+                 data-last-page="{{ (int) ($resultLastPage ?? 1) }}"
+                 data-inventory-from="{{ $inventoryFrom !== null ? e(number_format((float) $inventoryFrom, 2, '.', '')) : '' }}"
                  data-status-text="{{ $catalogResultsStatus['text'] }}"
                  data-status-announce="{{ $catalogResultsStatus['announce'] }}">
                 <div class="catalog-results-busy" hidden aria-hidden="true">
@@ -164,11 +204,7 @@
                 $isBlacklisted = in_array($site->id, $blacklist);
                 $isFavorited = in_array($site->id, $favorites);
                 // Decode sensitive prices (only positive numeric add-ons are selectable)
-                $sensitivePrices = $site->sensitive_prices;
-                if (is_string($sensitivePrices)) {
-                    $sensitivePrices = json_decode($sensitivePrices, true);
-                }
-                $sensitivePrices = is_array($sensitivePrices) ? $sensitivePrices : [];
+                $sensitivePrices = $site->safeJsonArray('sensitive_prices');
                 $sensitivePrices = collect($sensitivePrices)
                     ->filter(fn ($amount, $type) => is_string($type) && $type !== ''
                         && is_numeric($amount) && (float) $amount > 0)
@@ -212,22 +248,43 @@
                 $isNew = $site->isRecentlyCreated();
                 // Everyday catalog shows full identity (no eye). Mask + eye only
                 // while copy-strike hide mode is active (one control for name + URL).
-                $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
-                $canSeeUrl = $showsIdentity; // reveal state inside hide mode; always true outside
-                $displayHost = $urlVisibility->hostFor($currentUser, $site);
-                $displayRootedUrl = $urlVisibility->rootedUrlFor($currentUser, $site);
-                $displayName = $urlVisibility->nameFor($currentUser, $site);
+                $showsIdentity = true;
+                $canSeeUrl = true;
+                $displayHost = '';
+                $displayRootedUrl = '';
+                $displayName = (string) ($site->site_name ?? '');
+                try {
+                    $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
+                    $canSeeUrl = $showsIdentity; // reveal state inside hide mode; always true outside
+                    $displayHost = $urlVisibility->hostFor($currentUser, $site);
+                    $displayRootedUrl = $urlVisibility->rootedUrlFor($currentUser, $site);
+                    $displayName = $urlVisibility->nameFor($currentUser, $site);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
                 $identityLabel = $showsIdentity
                     ? (string) $site->site_name
                     : 'this website';
                 $eyeShowLabel = 'Show site name and URL';
                 $eyeHideLabel = 'Hide site name and URL';
+                // Closed-row thumbnail only while identity is shown — a homepage
+                // shot would leak the host in hide mode. Details expand still
+                // loads the large preview either way.
+                $previewPaths = $site->homepagePreviewUrlChain();
+                $previewUrl = $previewPaths[0] ?? null;
+                $expandZoomPaths = $site->zoomPreviewUrlChain();
+                if ($expandZoomPaths === [] && $previewPaths !== []) {
+                    $expandZoomPaths = $previewPaths;
+                }
+                $expandZoomUrl = $expandZoomPaths[0] ?? $previewUrl;
+                $tilePreviewPaths = $showsIdentity ? $previewPaths : [];
+                $tilePreviewUrl = $showsIdentity ? $previewUrl : null;
             @endphp
             <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}"
                 data-id="{{ $site->id }}"
                 data-name="{{ $displayName }}"
                 data-publisher-id="{{ (int) $site->publisher_id }}"
-                @if((int) $site->owner_id > 0) data-owner-id="{{ (int) $site->owner_id }}" @endif
+                @if((int) ($site->getAttribute('owner_id') ?? 0) > 0) data-owner-id="{{ (int) $site->getAttribute('owner_id') }}" @endif
                 @if($isOwnedByMe) data-own-listing="1" @endif>
                 <td class="catalog-site-cell">
 
@@ -235,6 +292,9 @@
                         @include('advertiser.partials.catalog-site-tile', [
                             'label' => $displayHost,
                             'size' => 'md',
+                            'previewUrl' => $tilePreviewUrl,
+                            'previewChain' => $tilePreviewPaths,
+                            'openDetailsId' => $tilePreviewUrl ? (string) $site->id : '',
                         ])
 
                         <div class="catalog-site-stack__body">
@@ -244,7 +304,7 @@
                         <div class="catalog-site-title-row">
                             <span class="text-dark catalog-site-name"
                                   data-site-name-label
-                                  @if($showsIdentity) title="{{ $displayName }}" @endif>
+                                  title="{{ $displayName }}">
                                 {{ $displayName }}
                             </span>
 
@@ -323,7 +383,6 @@
                                id="url-host-{{ $site->id }}"
                                data-url-open="{{ $site->id }}"
                                data-site-host
-                               title="{{ $displayRootedUrl }} — open in a new tab"
                                aria-label="Open {{ $displayRootedUrl }} in a new tab"
                                @if($showsIdentity) data-host="{{ $displayHost }}" @endif
                                @if($inCatalogHideMode && ! $showsIdentity)
@@ -334,59 +393,67 @@
                                @endif>{{ $displayRootedUrl }}</a>
                             <span class="catalog-site-status-row">
                                 @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
+                                @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                             </span>
                         </div>
 
                         @php
-                            // Better-of on pack qty: hide bulk chip when custom is ≥ bulk
-                            // (bulk never wins). If bulk is stronger, keep both — custom
-                            // still applies on qty 1–2 where bulk does not.
-                            // Chip % labels use effective savings after the payout floor.
-                            $dealCustomPct = $site->activeCustomDiscountPercent();
-                            $dealBulkPct = $site->joinsBulkDiscount()
-                                ? (float) $site->bulk_discount_percent
-                                : null;
-                            $showSaleChip = $dealCustomPct !== null && $catalogSalePctDisplay;
-                            $showBulkChip = $dealBulkPct !== null
-                                && ($dealCustomPct === null || $dealBulkPct > (float) $dealCustomPct);
-                            $dealSaleChipPct = $catalogSalePctDisplay;
-                            $dealBulkChipPct = $dealBulkPct;
-                            if ($showBulkChip) {
-                                // $site->price is already advertiser-facing; reprice from
-                                // the publisher base so the chip % is not fee-on-fee.
-                                $packSite = clone $site;
-                                $packSite->price = $catalogPublisherPrice;
-                                $packPricing = app(\App\Services\CartPricingService::class)
-                                    ->priceForAdvertiser($packSite, null, (int) config('site_promotions.bulk.min_qty', 3));
-                                $dealBulkChipPct = (float) ($packPricing['discount_percent'] ?? $dealBulkPct);
-                                if ($dealBulkChipPct <= 0) {
-                                    $showBulkChip = false;
-                                }
-                            }
+                            $dealCustomPct = null;
+                            $dealBulkPct = null;
+                            $showSaleChip = false;
+                            $showBulkChip = false;
+                            $dealSaleChipPct = null;
+                            $dealBulkChipPct = null;
                             $showPlacementChips = $homepageOptions !== [] || $socialChannels !== [];
-                            $showPaidHomepageHint = $homepageOptions !== [] && $defaultHomepageDays === null;
+                            $inCart = in_array((int) $site->id, $cartSiteIds, true);
+                            try {
+                                // Better-of on pack qty: hide bulk chip when custom is ≥ bulk
+                                // (bulk never wins). If bulk is stronger, keep both — custom
+                                // still applies on qty 1–2 where bulk does not.
+                                // Chip % labels use effective savings after the payout floor.
+                                $dealCustomPct = $site->activeCustomDiscountPercent();
+                                $dealBulkPct = $site->joinsBulkDiscount()
+                                    ? (float) $site->bulk_discount_percent
+                                    : null;
+                                $showSaleChip = $dealCustomPct !== null && $catalogSalePctDisplay;
+                                $showBulkChip = $dealBulkPct !== null
+                                    && ($dealCustomPct === null || $dealBulkPct > (float) $dealCustomPct);
+                                $dealSaleChipPct = $catalogSalePctDisplay;
+                                $dealBulkChipPct = $dealBulkPct;
+                                if ($showBulkChip) {
+                                    // $site->price is already advertiser-facing; reprice from
+                                    // the publisher base so the chip % is not fee-on-fee.
+                                    $packSite = clone $site;
+                                    $packSite->price = $catalogPublisherPrice;
+                                    $packPricing = app(\App\Services\CartPricingService::class)
+                                        ->priceForAdvertiser($packSite, null, (int) config('site_promotions.bulk.min_qty', 3));
+                                    $dealBulkChipPct = (float) ($packPricing['discount_percent'] ?? $dealBulkPct);
+                                    if ($dealBulkChipPct <= 0) {
+                                        $showBulkChip = false;
+                                    }
+                                }
+                            } catch (\Throwable $e) {
+                                report($e);
+                            }
                         @endphp
                         @if($site->isFeatured() || $showSaleChip || $showBulkChip || $showPlacementChips)
                         <div class="catalog-site-deals">
                             @if($site->isFeatured())
-                                <span class="site-chip site-chip--featured site-chip--descriptor"
-                                      title="Featured placement — higher visibility in the catalog">
+                                <span class="site-chip site-chip--featured site-chip--descriptor">
                                     <i class="fa-solid fa-bolt" aria-hidden="true"></i>
                                     <span>Featured</span>
                                 </span>
                             @endif
 
                             @if($showSaleChip)
-                                <span class="site-chip site-chip--sale site-chip--status"
-                                      title="Limited-time publisher discount on each article (after fee floor)">
+                                <span class="site-chip site-chip--sale site-chip--status">
                                     <i class="fa-solid fa-percent" aria-hidden="true"></i>
                                     <span>−{{ rtrim(rtrim(number_format((float) $dealSaleChipPct, 1), '0'), '.') }}%</span>
                                 </span>
                             @endif
 
                             @if($showBulkChip)
-                                <span class="site-chip site-chip--bulk site-chip--status"
-                                      title="Better rate when you buy {{ (int) config('site_promotions.bulk.min_qty', 3) }}–{{ (int) config('site_promotions.bulk.max_qty', 5) }} articles — exclusive better-of with a site sale, not stacked">
+                                <span class="site-chip site-chip--bulk site-chip--status">
                                     <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
                                     <span>Bulk −{{ rtrim(rtrim(number_format((float) $dealBulkChipPct, 1), '0'), '.') }}%</span>
                                 </span>
@@ -397,6 +464,7 @@
                                 'defaultHomepageDays' => $defaultHomepageDays,
                                 'socialChannels' => $socialChannels,
                                 'socialChannelLabels' => $socialChannelLabels,
+                                'openDetailsId' => (string) $site->id,
                             ])
                         </div>
                         @endif
@@ -487,12 +555,18 @@
 
                 <td class="text-center catalog-stat-cell">
                     @php
-                        $countryCode = $site->primaryCountryCode() ?: $site->country;
+                        $countryCode = null;
+                        $countryName = '';
+                        try {
+                            $countryCode = $site->primaryCountryCode();
+                            $countryName = fullCountry($countryCode);
+                        } catch (\Throwable $e) {
+                            report($e);
+                        }
                     @endphp
                     <div class="catalog-country">
                         <span class="catalog-country__flag" aria-hidden="true">{!! getCountryFlag($countryCode) !!}</span>
-                        <span class="catalog-country__name text-muted small"
-                              title="{{ fullCountry($countryCode) }}">{{ fullCountry($countryCode) }}</span>
+                        <span class="catalog-country__name text-muted small"@if($countryName !== '') title="{{ $countryName }}"@endif>{{ $countryName }}</span>
                     </div>
                 </td>
 
@@ -505,22 +579,24 @@
                             'align' => 'center',
                         ])
 
-                        @if(! empty($showPaidHomepageHint))
-                            <p class="small text-muted mb-1 catalog-homepage-hint">Homepage placement available in Details.</p>
-                        @endif
-
                         @if($isOwnedByMe)
                             @include('advertiser.partials.catalog-own-listing', ['align' => 'center'])
                         @else
-                        <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
+                        <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2{{ $inCart ? ' is-in-cart' : '' }}"
                                 data-id="{{ $site->id }}"
                                 data-base-price="{{ $catalogListPrice }}"
                                 data-publisher-price="{{ $catalogPublisherPrice }}"
                                 data-discount-percent="{{ $catalogSalePct ?? 0 }}"
                                 data-name="{{ $displayName }}"
-                                aria-label="Buy placement for {{ $identityLabel }}">
-                            <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
-                            <span>Add to cart</span>
+                                @if($inCart) data-in-cart="1" @endif
+                                aria-label="{{ $inCart ? 'Open cart — '.$identityLabel.' is already in your cart' : 'Buy placement for '.$identityLabel }}">
+                            @if($inCart)
+                                <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
+                                <span>In cart</span>
+                            @else
+                                <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
+                                <span>Add to cart</span>
+                            @endif
                         </button>
                         <div class="catalog-buy-addon-hint small text-muted mt-1" data-site-id="{{ $site->id }}" hidden></div>
                         @endif
@@ -547,19 +623,6 @@
                                     <i class="fa-solid fa-ban" aria-hidden="true"></i>
                                 </button>
                             </div>
-
-                        @unless($isOwnedByMe)
-                            <button type="button"
-                                    class="btn-claim-site"
-                                    data-site-id="{{ $site->id }}"
-                                    data-site-name="{{ $displayName }}"
-                                    data-site-url="{{ $canSeeUrl ? $site->site_url : '' }}"
-                                    data-glass-tip-placement="left"
-                                    title="Is this your site? Claim it if you own it"
-                                    aria-label="Claim website {{ $identityLabel }}">
-                                Is this your site?
-                            </button>
-                        @endunless
                         </div>
                     </div>
                 </td>
@@ -572,23 +635,13 @@
     <td colspan="7" class="catalog-expand-cell">
         <div class="row">
             <div class="col-md-12">
-                <h6 class="mb-3">Site Details</h6>
+                <h6 class="mb-2 catalog-expand-title">Site Details</h6>
 
                 {{-- Preview | Description | Pricing | Tags + sample --}}
-                <div class="row align-items-start g-4 catalog-expand-grid">
+                <div class="row align-items-start g-3 catalog-expand-grid">
 
-                    @php
-                        // Full capture → thumb → upload; /media then /storage (Hostinger).
-                        $previewPaths = $site->homepagePreviewUrlChain();
-                        $previewUrl = $previewPaths[0] ?? null;
-                        $expandZoomPaths = $site->zoomPreviewUrlChain();
-                        if ($expandZoomPaths === [] && $previewPaths !== []) {
-                            $expandZoomPaths = $previewPaths;
-                        }
-                        $expandZoomUrl = $expandZoomPaths[0] ?? $previewUrl;
-                    @endphp
                     @if($previewUrl)
-                    <div class="col-12 catalog-expand-preview">
+                    <div class="col-lg-4 col-md-5 catalog-expand-preview">
                         <p class="small text-muted mb-2 catalog-details-heading">
                             <strong>Homepage preview</strong>
                             <x-glass-tip
@@ -783,6 +836,7 @@
                         @endif
 
                         @if($homepageOptions !== [])
+                        <div data-catalog-section="homepage">
                         <p class="mb-1 catalog-details-heading">
                             <strong>Homepage promotions</strong>
                             <x-glass-tip
@@ -835,15 +889,17 @@
                                     </div>
                                 @endforeach
                             </div>
+                        </div>
                         @endif
 
                         @if($socialChannels !== [])
+                        <div data-catalog-section="social">
                         <p class="mb-1 catalog-details-heading">
-                            <strong>Social</strong>
+                            <strong>Social promotions</strong>
                             <x-glass-tip
-                                title="Social"
+                                title="Social promotions"
                                 body="Publisher will share the live post on these channels at no extra cost."
-                                label="About Social"
+                                label="About Social promotions"
                                 placement="top" />
                         </p>
                             <div class="d-flex flex-wrap gap-1 mb-3" aria-label="Included social channels">
@@ -851,6 +907,7 @@
                                     <span class="badge bg-light text-dark border">{{ $socialChannelLabels[$channel] ?? ucfirst($channel) }}</span>
                                 @endforeach
                             </div>
+                        </div>
                         @endif
 
                         @php
@@ -942,6 +999,14 @@
                                 {{ $site->publicationDurationLabel() }}
                             </span>
                         @endif
+
+                        @include('advertiser.partials.catalog-claim', [
+                            'site' => $site,
+                            'displayName' => $displayName,
+                            'identityLabel' => $identityLabel,
+                            'canSeeUrl' => $canSeeUrl,
+                            'isOwnedByMe' => $isOwnedByMe,
+                        ])
                     </div>
 
                 </div>
@@ -999,23 +1064,37 @@
             $isBlacklisted = in_array($site->id, $blacklist);
             $isFavorited = in_array($site->id, $favorites);
             $isNew = $site->isRecentlyCreated();
-            $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
-            $canSeeUrl = $showsIdentity;
-            $displayHost = $urlVisibility->hostFor($currentUser, $site);
-            $displayRootedUrl = $urlVisibility->rootedUrlFor($currentUser, $site);
-            $displayName = $urlVisibility->nameFor($currentUser, $site);
+            $showsIdentity = true;
+            $canSeeUrl = true;
+            $displayHost = '';
+            $displayRootedUrl = '';
+            $displayName = (string) ($site->site_name ?? '');
+            try {
+                $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
+                $canSeeUrl = $showsIdentity;
+                $displayHost = $urlVisibility->hostFor($currentUser, $site);
+                $displayRootedUrl = $urlVisibility->rootedUrlFor($currentUser, $site);
+                $displayName = $urlVisibility->nameFor($currentUser, $site);
+            } catch (\Throwable $e) {
+                report($e);
+            }
             $identityLabel = $showsIdentity
                 ? (string) $site->site_name
                 : 'this website';
             $eyeShowLabel = 'Show site name and URL';
             $eyeHideLabel = 'Hide site name and URL';
+            $mobilePreviewPaths = $site->homepagePreviewUrlChain();
+            $mobilePreviewUrl = $mobilePreviewPaths[0] ?? null;
+            $mobileZoomPaths = $site->zoomPreviewUrlChain();
+            if ($mobileZoomPaths === [] && $mobilePreviewPaths !== []) {
+                $mobileZoomPaths = $mobilePreviewPaths;
+            }
+            $mobileZoomUrl = $mobileZoomPaths[0] ?? $mobilePreviewUrl;
+            $tilePreviewPaths = $showsIdentity ? $mobilePreviewPaths : [];
+            $tilePreviewUrl = $showsIdentity ? $mobilePreviewUrl : null;
             $mobileLabels = $site->nicheBadgeLabels();
             $mobileCategory = $mobileLabels[0] ?? '—';
-            $mobileSensitivePrices = $site->sensitive_prices;
-            if (is_string($mobileSensitivePrices)) {
-                $mobileSensitivePrices = json_decode($mobileSensitivePrices, true);
-            }
-            $mobileSensitivePrices = is_array($mobileSensitivePrices) ? $mobileSensitivePrices : [];
+            $mobileSensitivePrices = $site->safeJsonArray('sensitive_prices');
             $mobileSensitivePrices = collect($mobileSensitivePrices)
                 ->filter(fn ($amount, $type) => is_string($type) && $type !== ''
                     && is_numeric($amount) && (float) $amount > 0)
@@ -1039,24 +1118,28 @@
             $catalogSalePrice = $viewPrices['sale'];
             $articlePay = $catalogSalePrice ?? $catalogListPrice;
             $showAdvertiserPay = ! $isOwnedByMe;
+            $inCart = in_array((int) $site->id, $cartSiteIds, true);
         @endphp
         <article class="catalog-mobile-card {{ $isBlacklisted ? 'is-blacklisted' : '' }}"
                  data-id="{{ $site->id }}"
                  data-name="{{ $displayName }}"
                  data-publisher-id="{{ (int) $site->publisher_id }}"
-                 @if((int) $site->owner_id > 0) data-owner-id="{{ (int) $site->owner_id }}" @endif
+                 @if((int) ($site->getAttribute('owner_id') ?? 0) > 0) data-owner-id="{{ (int) $site->getAttribute('owner_id') }}" @endif
                  @if($isOwnedByMe) data-own-listing="1" @endif>
             <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                 <div class="catalog-mobile-card__host d-flex align-items-start gap-2">
                     @include('advertiser.partials.catalog-site-tile', [
                         'label' => $displayHost,
                         'size' => 'lg',
+                        'previewUrl' => $tilePreviewUrl,
+                        'previewChain' => $tilePreviewPaths,
+                        'openDetailsId' => $tilePreviewUrl ? (string) $site->id : '',
                     ])
 
                     <div class="catalog-mobile-card__main">
-                    <div class="fw-semibold text-dark text-truncate catalog-site-name"
+                    <div class="fw-semibold text-dark catalog-site-name"
                          data-site-name-label
-                         @if($showsIdentity) title="{{ $displayName }}" @endif>{{ $displayName }}</div>
+                         title="{{ $displayName }}">{{ $displayName }}</div>
                     {{-- Visit sits on the rooted URL, not next to the name. --}}
                     <a href="{{ route('advertiser.catalog.visit', $site->id) }}"
                        target="_blank"
@@ -1064,7 +1147,6 @@
                        class="site-open-link catalog-site-rooted-url catalog-site-url text-truncate"
                        id="url-host-mobile-{{ $site->id }}"
                        data-site-host
-                       title="{{ $displayRootedUrl }} — open in a new tab"
                        aria-label="Open {{ $displayRootedUrl }} in a new tab"
                        @if($showsIdentity) data-host="{{ $displayHost }}" @endif
                        @if($inCatalogHideMode && ! $showsIdentity)
@@ -1078,44 +1160,54 @@
                             <span class="site-chip site-chip--verified site-chip--status"><span class="catalog-verified-lottie" data-lottie="{{ asset('assets/vendor/lottie/verified.json') }}" aria-hidden="true"></span><span class="visually-hidden">Verified</span></span>
                         @endif
                         @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
+                        @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                         @if($isNew)
                             <span class="site-badge-new" aria-label="New listing">NEW</span>
                         @endif
                     </div>
                     @php
-                        $mobileCustomPct = $site->activeCustomDiscountPercent();
-                        $mobileBulkPct = $site->joinsBulkDiscount()
-                            ? (float) $site->bulk_discount_percent
-                            : null;
-                        $showMobileSaleChip = $mobileCustomPct !== null && $catalogSalePctDisplay;
-                        $showMobileBulkChip = $mobileBulkPct !== null
-                            && ($mobileCustomPct === null || $mobileBulkPct > (float) $mobileCustomPct);
-                        $mobileSaleChipPct = $catalogSalePctDisplay;
-                        $mobileBulkChipPct = $mobileBulkPct;
-                        if ($showMobileBulkChip) {
-                            // $site->price is already advertiser-facing; reprice from
-                            // the publisher base so the chip % is not fee-on-fee.
-                            $mobilePackSite = clone $site;
-                            $mobilePackSite->price = $catalogPublisherPrice;
-                            $mobilePackPricing = app(\App\Services\CartPricingService::class)
-                                ->priceForAdvertiser($mobilePackSite, null, (int) config('site_promotions.bulk.min_qty', 3));
-                            $mobileBulkChipPct = (float) ($mobilePackPricing['discount_percent'] ?? $mobileBulkPct);
-                            if ($mobileBulkChipPct <= 0) {
-                                $showMobileBulkChip = false;
+                        $mobileCustomPct = null;
+                        $mobileBulkPct = null;
+                        $showMobileSaleChip = false;
+                        $showMobileBulkChip = false;
+                        $mobileSaleChipPct = null;
+                        $mobileBulkChipPct = null;
+                        try {
+                            $mobileCustomPct = $site->activeCustomDiscountPercent();
+                            $mobileBulkPct = $site->joinsBulkDiscount()
+                                ? (float) $site->bulk_discount_percent
+                                : null;
+                            $showMobileSaleChip = $mobileCustomPct !== null && $catalogSalePctDisplay;
+                            $showMobileBulkChip = $mobileBulkPct !== null
+                                && ($mobileCustomPct === null || $mobileBulkPct > (float) $mobileCustomPct);
+                            $mobileSaleChipPct = $catalogSalePctDisplay;
+                            $mobileBulkChipPct = $mobileBulkPct;
+                            if ($showMobileBulkChip) {
+                                // $site->price is already advertiser-facing; reprice from
+                                // the publisher base so the chip % is not fee-on-fee.
+                                $mobilePackSite = clone $site;
+                                $mobilePackSite->price = $catalogPublisherPrice;
+                                $mobilePackPricing = app(\App\Services\CartPricingService::class)
+                                    ->priceForAdvertiser($mobilePackSite, null, (int) config('site_promotions.bulk.min_qty', 3));
+                                $mobileBulkChipPct = (float) ($mobilePackPricing['discount_percent'] ?? $mobileBulkPct);
+                                if ($mobileBulkChipPct <= 0) {
+                                    $showMobileBulkChip = false;
+                                }
                             }
+                        } catch (\Throwable $e) {
+                            report($e);
                         }
                     @endphp
                     @if($showMobileSaleChip || $showMobileBulkChip || $homepageOptions !== [] || $socialChannels !== [])
                     <div class="catalog-site-deals catalog-site-deals--mobile mt-1">
                         @if($showMobileSaleChip)
-                            <span class="site-chip site-chip--sale site-chip--status" title="Limited-time publisher discount on each article (after fee floor)">
+                            <span class="site-chip site-chip--sale site-chip--status">
                                 <i class="fa-solid fa-percent" aria-hidden="true"></i>
                                 <span>−{{ rtrim(rtrim(number_format((float) $mobileSaleChipPct, 1), '0'), '.') }}%</span>
                             </span>
                         @endif
                         @if($showMobileBulkChip)
-                            <span class="site-chip site-chip--bulk site-chip--status"
-                                  title="Better rate when you buy {{ (int) config('site_promotions.bulk.min_qty', 3) }}–{{ (int) config('site_promotions.bulk.max_qty', 5) }} articles — exclusive better-of with a site sale, not stacked">
+                            <span class="site-chip site-chip--bulk site-chip--status">
                                 <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
                                 <span>Bulk −{{ rtrim(rtrim(number_format((float) $mobileBulkChipPct, 1), '0'), '.') }}%</span>
                             </span>
@@ -1125,6 +1217,7 @@
                             'defaultHomepageDays' => $defaultHomepageDays,
                             'socialChannels' => $socialChannels,
                             'socialChannelLabels' => $socialChannelLabels,
+                            'openDetailsId' => (string) $site->id,
                         ])
                     </div>
                     @endif
@@ -1150,8 +1243,14 @@
                 @endif
             </div>
             @php
-                $mobileCountry = $site->primaryCountryCode() ?: $site->country;
-                $mobileCountryName = fullCountry($mobileCountry);
+                $mobileCountry = null;
+                $mobileCountryName = '';
+                try {
+                    $mobileCountry = $site->primaryCountryCode();
+                    $mobileCountryName = fullCountry($mobileCountry);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
             @endphp
             <div class="catalog-mobile-metrics">
                 <div>
@@ -1177,7 +1276,7 @@
                 </div>
                 <div>
                     <span class="text-muted catalog-mobile-metrics__label">Country</span>
-                    <strong title="{{ $mobileCountryName }}">{!! getCountryFlag($mobileCountry) !!} {{ $mobileCountryName }}</strong>
+                    <strong class="catalog-country__name" title="{{ $mobileCountryName }}">{!! getCountryFlag($mobileCountry) !!} {{ $mobileCountryName }}</strong>
                 </div>
             </div>
             @if(!empty($mobileSensitivePrices))
@@ -1264,6 +1363,7 @@
             @if($homepageOptions !== [])
                 <div class="homepage-placement-group mt-3"
                      data-site-id="{{ $site->id }}"
+                     data-catalog-section="homepage"
                      role="radiogroup"
                      aria-label="Homepage placement duration">
                     <div class="small fw-semibold mb-1 catalog-details-heading">
@@ -1316,8 +1416,8 @@
                 </div>
             @endif
             @if($socialChannels !== [])
-                <div class="mt-3">
-                    <div class="small fw-semibold mb-1">Social</div>
+                <div class="mt-3" data-catalog-section="social">
+                    <div class="small fw-semibold mb-1">Social promotions</div>
                     <div class="d-flex flex-wrap gap-1" aria-label="Included social channels">
                         @foreach($socialChannels as $channel)
                             <span class="badge bg-light text-dark border">{{ $socialChannelLabels[$channel] ?? ucfirst($channel) }}</span>
@@ -1329,15 +1429,21 @@
                 @if($isOwnedByMe)
                     @include('advertiser.partials.catalog-own-listing', ['align' => 'start'])
                 @else
-                <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
+                <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2{{ $inCart ? ' is-in-cart' : '' }}"
                         data-id="{{ $site->id }}"
                         data-base-price="{{ $catalogListPrice }}"
                         data-publisher-price="{{ $catalogPublisherPrice }}"
                         data-discount-percent="{{ $catalogSalePct ?? 0 }}"
                         data-name="{{ $displayName }}"
-                        aria-label="Buy placement for {{ $identityLabel }}">
-                    <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
-                    <span>Add to cart</span>
+                        @if($inCart) data-in-cart="1" @endif
+                        aria-label="{{ $inCart ? 'Open cart — '.$identityLabel.' is already in your cart' : 'Buy placement for '.$identityLabel }}">
+                    @if($inCart)
+                        <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
+                        <span>In cart</span>
+                    @else
+                        <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
+                        <span>Add to cart</span>
+                    @endif
                 </button>
                 <div class="catalog-buy-addon-hint small text-muted" data-site-id="{{ $site->id }}" hidden></div>
                 @endif
@@ -1375,18 +1481,6 @@
                             <i class="fa-solid fa-ban" aria-hidden="true"></i>
                         </button>
                     </div>
-                    @unless($isOwnedByMe)
-                        <button type="button"
-                                class="btn-claim-site"
-                                data-site-id="{{ $site->id }}"
-                                data-site-name="{{ $displayName }}"
-                                data-site-url="{{ $canSeeUrl ? $site->site_url : '' }}"
-                                data-glass-tip-placement="left"
-                                title="Is this your site? Claim it if you own it"
-                                aria-label="Claim website {{ $identityLabel }}">
-                            Is this your site?
-                        </button>
-                    @endunless
                 </div>
             </div>
 
@@ -1403,15 +1497,6 @@
             </button>
 
             <dl class="catalog-card-details" id="card-details-{{ $site->id }}" hidden>
-                @php
-                    $mobilePreviewPaths = $site->homepagePreviewUrlChain();
-                    $mobilePreviewUrl = $mobilePreviewPaths[0] ?? null;
-                    $mobileZoomPaths = $site->zoomPreviewUrlChain();
-                    if ($mobileZoomPaths === [] && $mobilePreviewPaths !== []) {
-                        $mobileZoomPaths = $mobilePreviewPaths;
-                    }
-                    $mobileZoomUrl = $mobileZoomPaths[0] ?? $mobilePreviewUrl;
-                @endphp
                 @if($mobilePreviewUrl)
                 <div class="catalog-card-details__row">
                     <dt>
@@ -1545,13 +1630,13 @@
                 </div>
                 @endif
                 @if($socialChannels !== [])
-                <div class="catalog-card-details__row">
+                <div class="catalog-card-details__row" data-catalog-section="social">
                     <dt>
-                        Social
+                        Social promotions
                         <x-glass-tip
-                            title="Social"
+                            title="Social promotions"
                             body="Publisher will share the live post on these channels at no extra cost."
-                            label="About Social"
+                            label="About Social promotions"
                             placement="top" />
                     </dt>
                     <dd>
@@ -1609,6 +1694,20 @@
                     </dd>
                 </div>
                 @endif
+                @unless($isOwnedByMe)
+                <div class="catalog-card-details__row">
+                    <dt>Claim listing</dt>
+                    <dd>
+                        @include('advertiser.partials.catalog-claim', [
+                            'site' => $site,
+                            'displayName' => $displayName,
+                            'identityLabel' => $identityLabel,
+                            'canSeeUrl' => $canSeeUrl,
+                            'isOwnedByMe' => $isOwnedByMe,
+                        ])
+                    </dd>
+                </div>
+                @endunless
             </dl>
         </article>
     @empty

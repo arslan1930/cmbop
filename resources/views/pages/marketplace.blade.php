@@ -12,6 +12,12 @@
 ])
 
 <div class="container py-5">
+    @include('components.breadcrumbs', [
+        'items' => [
+            ['name' => __('messages.home'), 'url' => localized_url('/')],
+            ['name' => __('messages.nav_marketplace'), 'url' => localized_url('marketplace')],
+        ],
+    ])
     <div class="row g-4 mb-5">
         @foreach(range(1, 3) as $i)
             <div class="col-md-4">

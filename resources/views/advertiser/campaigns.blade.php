@@ -25,7 +25,7 @@
     <div class="project-page-head__copy">
         <h2 class="project-page-title">Projects</h2>
         <p class="project-page-sub">
-            One project per client site. Counts are placements whose destination host matches this project.
+            One project per client site. Assign orders at checkout. Counts include assigned orders and unassigned placements whose destination host matches.
         </p>
     </div>
     <button type="button" class="btn btn-sm btn-primary project-create-btn" data-bs-toggle="modal" data-bs-target="#projectModal">

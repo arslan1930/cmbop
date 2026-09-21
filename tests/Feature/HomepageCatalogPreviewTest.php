@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\Marketing\CatalogTeaserService;
+use App\Support\PublicI18n;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -181,6 +182,23 @@ class HomepageCatalogPreviewTest extends TestCase
         );
         $this->assertStringNotContainsString('overflow-x: clip;', file_get_contents(resource_path('views/layouts/app.blade.php')));
         $this->assertStringNotContainsString('overflow-x: clip;', file_get_contents(resource_path('views/components/navbar.blade.php')));
+    }
+
+    public function test_every_locale_homepage_uses_the_catalog_clone_hero(): void
+    {
+        $paths = ['/'];
+        foreach (PublicI18n::prefixed() as $locale) {
+            $paths[] = '/'.$locale;
+        }
+
+        foreach ($paths as $path) {
+            $html = $this->get($path)->assertOk()->getContent();
+            $this->assertStringContainsString('slb-hero-catalog-clone', $html, $path);
+            $this->assertStringContainsString('catalog-filters-card', $html, $path);
+            $this->assertStringContainsString('catalog-table', $html, $path);
+            $this->assertStringContainsString('berlin**.de', $html, $path);
+            $this->assertStringNotContainsString('dashboard.png', $html, $path);
+        }
     }
 
     public function test_teaser_service_diversifies_countries_before_filling(): void

@@ -115,6 +115,16 @@ class RegisterPageTest extends TestCase
             ->assertJsonStructure(['errors' => ['email', 'terms']]);
     }
 
+    public function test_register_password_errors_are_outside_the_input_group(): void
+    {
+        $html = $this->get(route('register'))->assertOk()->getContent();
+        $this->assertStringContainsString('id="passwordError"', $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/<div class="input-group">[^<]*(?:<(?!\/div)[^>]*>[^<]*)*id="passwordError"/',
+            $html
+        );
+    }
+
     public function test_register_succeeds_when_wallet_bonus_columns_are_missing(): void
     {
         Notification::fake();

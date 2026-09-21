@@ -43,9 +43,20 @@ if (! function_exists('money_js')) {
      */
     function money_js(): array
     {
-        $cart = session('cart', []);
-        app(CartDisplayFx::class)->syncWithCart(is_array($cart) ? array_values($cart) : []);
+        try {
+            $cart = session('cart', []);
+            app(CartDisplayFx::class)->syncWithCart(is_array($cart) ? array_values($cart) : []);
 
-        return app(MoneyDisplay::class)->jsPayload();
+            return app(MoneyDisplay::class)->jsPayload();
+        } catch (Throwable) {
+            return [
+                'currency' => 'EUR',
+                'usd' => false,
+                'rate' => 1.0,
+                'cart_rate' => 1.0,
+                'symbol' => '€',
+                'guide' => false,
+            ];
+        }
     }
 }

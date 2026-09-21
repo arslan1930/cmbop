@@ -13,7 +13,10 @@
         <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
              alt="SEOLinkBuildings"
              class="slb-hero-mark"
-             fetchpriority="high">
+             width="1006"
+             height="280"
+             fetchpriority="high"
+             decoding="async">
       </div>
 
       <h1 class="slb-hero-title">{{ __('messages.hero_support') }}</h1>

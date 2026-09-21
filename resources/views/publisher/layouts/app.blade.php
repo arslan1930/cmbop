@@ -149,30 +149,32 @@
             $headerEarnings = 0.0;
             $headerWithdrawable = 0.0;
             $headerReserved = 0.0;
-            $headerAdvertiserWallet = null;
+            $headerBalanceTitle = 'Earnings €0.00 · Withdrawable €0.00';
             try {
                 $headerPublisherRoleId = \App\Models\Wallet::publisherRoleId();
                 $headerAdvertiserRoleId = \App\Models\Wallet::advertiserRoleId();
-                $headerWallets = $headerUser->wallets()
-                    ->whereIn('role_id', array_filter([$headerPublisherRoleId, $headerAdvertiserRoleId]))
-                    ->get()
-                    ->keyBy(fn ($wallet) => (int) $wallet->role_id);
+                $headerWallets = $headerUser
+                    ? $headerUser->wallets()
+                        ->whereIn('role_id', array_filter([$headerPublisherRoleId, $headerAdvertiserRoleId]))
+                        ->get()
+                        ->keyBy(fn ($wallet) => (int) $wallet->role_id)
+                    : collect();
                 $headerPublisherWallet = $headerPublisherRoleId ? $headerWallets->get((int) $headerPublisherRoleId) : null;
-                $headerAdvertiserWallet = ($headerAdvertiserRoleId && $headerUser->hasRole('advertiser'))
+                $headerAdvertiserWallet = ($headerAdvertiserRoleId && $headerUser && $headerUser->hasRole('advertiser'))
                     ? $headerWallets->get((int) $headerAdvertiserRoleId)
                     : null;
                 $headerEarnings = (float) ($headerPublisherWallet?->balance ?? 0);
                 $headerWithdrawable = $headerPublisherWallet ? $headerPublisherWallet->withdrawableBalance() : 0;
                 $headerReserved = (float) ($headerPublisherWallet?->reserved_balance ?? 0);
+                $headerBalanceTitle = 'Earnings €'.number_format($headerEarnings, 2)
+                    .' · Withdrawable €'.number_format($headerWithdrawable, 2)
+                    .($headerReserved > 0 ? ' · On hold €'.number_format($headerReserved, 2) : '')
+                    .($headerAdvertiserWallet
+                        ? ' · Advertiser spendable €'.number_format((float) ($headerAdvertiserWallet->balance ?? 0), 2)
+                        : '');
             } catch (\Throwable $e) {
                 report($e);
             }
-            $headerBalanceTitle = 'Earnings €'.number_format($headerEarnings, 2)
-                .' · Withdrawable €'.number_format($headerWithdrawable, 2)
-                .($headerReserved > 0 ? ' · On hold €'.number_format($headerReserved, 2) : '')
-                .($headerAdvertiserWallet
-                    ? ' · Advertiser spendable €'.number_format((float) $headerAdvertiserWallet->balance, 2)
-                    : '');
         @endphp
         <a href="{{ route('publisher.balance') }}" class="balance-block text-decoration-none" data-glass-tip data-glass-tip-body="{{ $headerBalanceTitle }}" data-glass-tip-placement="bottom" aria-label="Publisher earnings {{ number_format($headerEarnings, 2) }} euros, withdrawable {{ number_format($headerWithdrawable, 2) }}">
             <span class="balance-label">Earnings</span>
@@ -186,7 +188,7 @@
                     data-bs-toggle="dropdown"
                     aria-expanded="false"
                     aria-label="Account menu">
-                @php $user = auth()->user(); @endphp
+                @php $user = $headerUser ?? auth()->user(); @endphp
                 @include('partials.user-avatar', ['user' => $user, 'size' => 36])
             </button>
 
@@ -195,8 +197,8 @@
                     <div class="d-flex align-items-center gap-2">
                         @include('partials.user-avatar', ['user' => $user, 'size' => 32])
                         <div>
-                            <strong>{{ $user->name }}</strong><br>
-                            <small class="text-muted">{{ $user->email }}</small>
+                            <strong>{{ $user?->name }}</strong><br>
+                            <small class="text-muted">{{ $user?->email }}</small>
                         </div>
                     </div>
                 </li>
@@ -259,7 +261,10 @@
         @include('partials.payment-trust', ['compact' => true, 'showMethods' => true, 'brief' => true])
     </div>
 </footer>
-@unless(\App\Support\VisitorSupportChat::enabled() || \App\Support\TawkChat::enabled())
+@unless(
+    (class_exists(\App\Support\VisitorSupportChat::class) && \App\Support\VisitorSupportChat::enabled() && view()->exists('partials.visitor-support-chat'))
+    || (class_exists(\App\Support\TawkChat::class) && \App\Support\TawkChat::enabled())
+)
     @include('components.help-feedback-widget')
 @endunless
 

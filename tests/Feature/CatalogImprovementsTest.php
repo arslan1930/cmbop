@@ -154,6 +154,7 @@ class CatalogImprovementsTest extends TestCase
         $this->assertStringContainsString('function initCatalogSuggest', $js);
         $this->assertStringContainsString('function initCatalogCategoryToggle', $js);
         $this->assertStringContainsString('function initCatalogTagQuick', $js);
+        $this->assertStringContainsString('function initCatalogFavoritesQuick', $js);
         $this->assertStringContainsString('data-effective-query', $js);
         $this->assertStringContainsString('typedSearch', $js);
         $this->assertStringContainsString('keepTypedSearch', $js);

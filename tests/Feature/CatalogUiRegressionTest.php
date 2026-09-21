@@ -117,7 +117,6 @@ class CatalogUiRegressionTest extends TestCase
 
         $this->assertStringContainsString("closest('.reveal-url, .toggle-url')", $js);
         $this->assertStringContainsString('stopImmediatePropagation', $js);
-        $this->assertStringContainsString('catalogActionClick', $js);
         // Eye listeners are gated to hide mode, then capture-phase so reveal
         // runs before any leftover expand handlers.
         $this->assertStringContainsString('if (CatalogConfig && CatalogConfig.inCatalogHideMode) {', $js);
@@ -152,10 +151,10 @@ class CatalogUiRegressionTest extends TestCase
             '/inCatalogHideMode\)\s*\{[\s\S]*?addEventListener\(\s*[\'"]click[\'"]\s*,\s*function\s*\([^)]*\)\s*\{[\s\S]*?reveal-url[\s\S]*?\}\s*,\s*true\s*\)/',
             $js
         );
-        // Whole-row Details toggle is delegated + exclusion-guarded (not a
-        // per-row forEach), so eye / ↗ / Buy near-misses do not steal clicks.
-        $this->assertStringContainsString("closest('tr.site-row')", $js);
-        $this->assertStringContainsString('catalogActionClick(e)', $js);
+        // Details expands only from the dedicated .expand-arrow / card toggle.
+        $this->assertStringContainsString("closest('.expand-arrow')", $js);
+        $this->assertStringNotContainsString('Whole-row click toggles Details', $js);
+        $this->assertStringNotContainsString('function catalogActionClick', $js);
         $this->assertDoesNotMatchRegularExpression(
             '/querySelectorAll\(\s*[\'"]\.site-row[\'"]\s*\)\.forEach\([^)]*toggleExpandRow/s',
             $js

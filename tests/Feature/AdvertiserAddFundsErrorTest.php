@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\DepositRequestSubmitted;
 use App\Models\DepositRequest;
 use App\Models\Invoice;
 use App\Models\Role;
@@ -11,6 +12,8 @@ use App\Models\WalletTransaction;
 use App\Services\Wallet\WalletOverviewService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -110,6 +113,56 @@ class AdvertiserAddFundsErrorTest extends TestCase
             'user_id' => $advertiser->id,
             'reference_code' => 'XXXXXXXX',
         ]);
+    }
+
+    public function test_store_skips_admin_mail_when_no_mailbox_is_configured(): void
+    {
+        config([
+            'mail.admin_email' => '',
+            'email_notifications.brand.support_email' => '',
+        ]);
+        Mail::fake();
+        Log::spy();
+
+        $advertiser = $this->advertiser();
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.add-funds.store'), [
+                'amount' => 50,
+                'payment_method' => 'wise',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        Mail::assertNothingOutgoing();
+        Log::shouldNotHaveReceived(
+            'error',
+            fn (...$args) => is_string($args[0] ?? null)
+                && str_contains($args[0], 'Failed to send deposit notification email')
+        );
+    }
+
+    public function test_store_uses_support_fallback_when_admin_email_is_empty(): void
+    {
+        config([
+            'mail.admin_email' => '',
+            'email_notifications.brand.support_email' => 'ops@seolinkbuildings.com',
+        ]);
+        Mail::fake();
+
+        $advertiser = $this->advertiser();
+
+        $this->actingAs($advertiser)
+            ->postJson(route('advertiser.add-funds.store'), [
+                'amount' => 50,
+                'payment_method' => 'bank',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        Mail::assertQueued(DepositRequestSubmitted::class, function ($mail) {
+            return $mail->hasTo('ops@seolinkbuildings.com');
+        });
     }
 
     public function test_store_survives_missing_users_company_name_column(): void
