@@ -480,7 +480,7 @@
 
                 <td class="text-center catalog-stat-cell">
                     @php
-                        $countryCode = $site->primaryCountryCode() ?: $site->country;
+                        $countryCode = $site->primaryCountryCode();
                     @endphp
                     <div class="catalog-country">
                         <span class="catalog-country__flag" aria-hidden="true">{!! getCountryFlag($countryCode) !!}</span>
@@ -1134,7 +1134,7 @@
                 @endif
             </div>
             @php
-                $mobileCountry = $site->primaryCountryCode() ?: $site->country;
+                $mobileCountry = $site->primaryCountryCode();
                 $mobileCountryName = fullCountry($mobileCountry);
             @endphp
             <div class="catalog-mobile-metrics">

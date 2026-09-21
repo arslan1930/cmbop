@@ -51,6 +51,9 @@ class SiteCatalogLabelHelpersTest extends TestCase
         $this->assertSame('Not specified', (new Site(['link_type' => '']))->linkTypeLabel('Not specified'));
         $this->assertNull((new Site(['link_type' => '???']))->linkTypeLabel());
         $this->assertNull((new Site(['link_type' => 'guest']))->linkTypeLabel());
+        $this->assertNull((new Site(['turnaround_time' => '???']))->turnaroundLabel());
+        $this->assertNull((new Site(['publication_time' => 'not-json']))->publicationDurationLabel());
+        $this->assertNull((new Site(['country' => '??', 'countries' => 'not-json']))->primaryCountryCode());
     }
 
     public function test_language_codes_survive_leftover_json_junk(): void

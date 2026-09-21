@@ -196,11 +196,14 @@ class CatalogUxHoverTest extends TestCase
             'languages' => 'not-json',
             'language' => 'de',
             'link_type' => '???',
+            'country' => '??',
             'countries' => 'not-json',
             'categories' => 'not-json',
             'sensitive_prices' => 'not-json',
             'homepage_placement_prices' => 'not-json',
             'social_promotion' => 'not-json',
+            'turnaround_time' => '???',
+            'publication_time' => 'not-a-duration',
         ]);
 
         $html = $this->actingAs($this->advertiser)
@@ -213,6 +216,8 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringNotContainsString('NOT-JSON', $html);
         $this->assertStringNotContainsString('not-json', $html);
         $this->assertStringNotContainsString('???', $html);
+        $this->assertStringNotContainsString('not-a-duration', $html);
+        $this->assertStringNotContainsString('48 hours', $html);
 
         $chips = view('advertiser.partials.catalog-meta-chips', [
             'site' => $site->fresh(),
@@ -231,5 +236,6 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringContainsString('German', $fragment);
         $this->assertStringNotContainsString('NOT-JSON', $fragment);
         $this->assertStringNotContainsString('???', $fragment);
+        $this->assertStringNotContainsString('not-a-duration', $fragment);
     }
 }

@@ -740,7 +740,7 @@ class Site extends Model
             'permanent' => 'Permanent',
             default => preg_match('/^(\d+)\s*days?$/i', $raw, $m)
                 ? ((int) $m[1] === 1 ? '1 day' : ((int) $m[1]).' days')
-                : $raw,
+                : $fallback,
         };
     }
 
@@ -760,7 +760,8 @@ class Site extends Model
             '3days', '3 days' => '3 days',
             '5days', '5 days' => '5 days',
             '7days', '7 days' => '7 days',
-            default => $raw,
+            // Leftover Hostinger junk ("???", "not-json") is not a turnaround.
+            default => $this->turnaroundHours() !== null ? $raw : $fallback,
         };
     }
 
@@ -1856,11 +1857,17 @@ class Site extends Model
      */
     public function homepagePreviewUrlChain(): array
     {
-        return $this->previewUrlChainFrom([
-            $this->screenshot_path,
-            $this->screenshot_thumb_path,
-            $this->site_image,
-        ]);
+        try {
+            return $this->previewUrlChainFrom([
+                $this->screenshot_path ?? null,
+                $this->screenshot_thumb_path ?? null,
+                $this->site_image ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     /**
@@ -1886,11 +1893,17 @@ class Site extends Model
      */
     public function zoomPreviewUrlChain(): array
     {
-        return $this->previewUrlChainFrom([
-            $this->screenshot_path,
-            $this->site_image,
-            $this->screenshot_thumb_path,
-        ]);
+        try {
+            return $this->previewUrlChainFrom([
+                $this->screenshot_path ?? null,
+                $this->site_image ?? null,
+                $this->screenshot_thumb_path ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     /**
@@ -2016,15 +2029,27 @@ class Site extends Model
     public function primaryCountryCode(): ?string
     {
         // Scalar sites.country wins (same as catalog inventory / country filter).
-        return app(CatalogCountryInventory::class)
+        $code = app(CatalogCountryInventory::class)
             ->primaryCountryCode($this->country, $this->safeJsonArray('countries'));
+        $code = strtolower(trim((string) ($code ?? '')));
+        if ($code === '' || $code === 'xx') {
+            return null;
+        }
+
+        // Leftover Hostinger junk ("??", "not-json") must not paint a flag.
+        return isset(marketplace_countries()[$code]) ? $code : null;
     }
 
     public function primaryLanguageCode(): ?string
     {
-        $codes = $this->languageCodes();
+        $known = marketplace_languages();
+        foreach ($this->languageCodes() as $code) {
+            if (isset($known[$code])) {
+                return $code;
+            }
+        }
 
-        return $codes[0] ?? null;
+        return null;
     }
 
     /**
@@ -2178,46 +2203,52 @@ class Site extends Model
      */
     public function catalogDescriptionHtml(): string
     {
-        $html = $this->safeDescriptionHtml();
-        if ($html === '' || ! str_contains($html, '<a ')) {
-            return $html;
+        try {
+            $html = $this->safeDescriptionHtml();
+            if ($html === '' || ! str_contains($html, '<a ')) {
+                return $html;
+            }
+
+            $visibility = app(SiteUrlVisibility::class);
+            $allowed = array_values(array_unique(array_filter([
+                strtolower($visibility->host($this->site_url)),
+                strtolower($visibility->host((string) $this->example_url)),
+            ])));
+            if ($allowed === []) {
+                return $html;
+            }
+
+            $visit = route('advertiser.catalog.visit', $this->id);
+
+            return preg_replace_callback(
+                '/<a\s+href="([^"]*)"/i',
+                function (array $m) use ($visibility, $allowed, $visit) {
+                    $href = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $host = strtolower($visibility->host($href));
+                    if ($host === '' || ! in_array($host, $allowed, true)) {
+                        return $m[0];
+                    }
+
+                    $path = (string) (parse_url($href, PHP_URL_PATH) ?: '/');
+                    if (! str_starts_with($path, '/') || str_starts_with($path, '//')) {
+                        return '<a href="'.e($visit).'"';
+                    }
+
+                    $query = parse_url($href, PHP_URL_QUERY);
+                    $rel = $path.($query ? '?'.$query : '');
+                    if (strlen($rel) > 500 || str_contains($rel, '\\') || str_contains($rel, '://')) {
+                        return '<a href="'.e($visit).'"';
+                    }
+
+                    return '<a href="'.e($visit.'?path='.rawurlencode($rel)).'"';
+                },
+                $html
+            ) ?? $html;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return '';
         }
-
-        $visibility = app(SiteUrlVisibility::class);
-        $allowed = array_values(array_unique(array_filter([
-            strtolower($visibility->host($this->site_url)),
-            strtolower($visibility->host((string) $this->example_url)),
-        ])));
-        if ($allowed === []) {
-            return $html;
-        }
-
-        $visit = route('advertiser.catalog.visit', $this->id);
-
-        return preg_replace_callback(
-            '/<a\s+href="([^"]*)"/i',
-            function (array $m) use ($visibility, $allowed, $visit) {
-                $href = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $host = strtolower($visibility->host($href));
-                if ($host === '' || ! in_array($host, $allowed, true)) {
-                    return $m[0];
-                }
-
-                $path = (string) (parse_url($href, PHP_URL_PATH) ?: '/');
-                if (! str_starts_with($path, '/') || str_starts_with($path, '//')) {
-                    return '<a href="'.e($visit).'"';
-                }
-
-                $query = parse_url($href, PHP_URL_QUERY);
-                $rel = $path.($query ? '?'.$query : '');
-                if (strlen($rel) > 500 || str_contains($rel, '\\') || str_contains($rel, '://')) {
-                    return '<a href="'.e($visit).'"';
-                }
-
-                return '<a href="'.e($visit.'?path='.rawurlencode($rel)).'"';
-            },
-            $html
-        ) ?? $html;
     }
 
     /**
