@@ -225,7 +225,7 @@
                 data-id="{{ $site->id }}"
                 data-name="{{ $displayName }}"
                 data-publisher-id="{{ (int) $site->publisher_id }}"
-                @if((int) $site->owner_id > 0) data-owner-id="{{ (int) $site->owner_id }}" @endif
+                @if((int) ($site->getAttribute('owner_id') ?? 0) > 0) data-owner-id="{{ (int) $site->getAttribute('owner_id') }}" @endif
                 @if($isOwnedByMe) data-own-listing="1" @endif>
                 <td class="catalog-site-cell">
 
@@ -1041,7 +1041,7 @@
                  data-id="{{ $site->id }}"
                  data-name="{{ $displayName }}"
                  data-publisher-id="{{ (int) $site->publisher_id }}"
-                 @if((int) $site->owner_id > 0) data-owner-id="{{ (int) $site->owner_id }}" @endif
+                 @if((int) ($site->getAttribute('owner_id') ?? 0) > 0) data-owner-id="{{ (int) $site->getAttribute('owner_id') }}" @endif
                  @if($isOwnedByMe) data-own-listing="1" @endif>
             <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                 <div class="catalog-mobile-card__host d-flex align-items-start gap-2">
