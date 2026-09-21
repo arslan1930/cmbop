@@ -356,6 +356,79 @@ class WebsiteLeftoverErrorHardeningTest extends TestCase
         );
     }
 
+    public function test_catalog_visit_redirects_safely_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $response = $this->actingAs($advertiser)->get(route('advertiser.catalog.visit', 1));
+
+        $this->assertNotSame(500, $response->status());
+        $response->assertRedirect(route('advertiser.catalog'));
+        $response->assertDontSee('SQLSTATE');
+        $this->assertStringNotContainsString('SQLSTATE', (string) session('error'));
+    }
+
+    public function test_catalog_reveal_url_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.catalog.reveal-url', 1))
+        );
+    }
+
+    public function test_catalog_hide_url_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.catalog.hide-url', 1))
+        );
+    }
+
+    public function test_website_suggestion_returns_json_when_suggestions_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('website_suggestions');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.website-suggestions.store'), [
+                'website_name' => 'Leftover Suggest Daily',
+                'website_url' => 'https://leftover-suggest.example',
+            ])
+        );
+    }
+
+    public function test_site_rating_returns_json_when_items_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('order_items');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.ratings.store'), [
+                'order_item_id' => 1,
+                'rating' => 5,
+            ])
+        );
+    }
+
+    public function test_site_rating_batch_returns_json_when_items_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('order_items');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.ratings.batch'), [
+                'ratings' => [
+                    ['order_item_id' => 1, 'rating' => 5],
+                ],
+            ])
+        );
+    }
+
     public function test_get_cart_returns_json_when_submissions_table_is_gone(): void
     {
         $advertiser = $this->userWithRole('advertiser');
