@@ -220,6 +220,18 @@
                     : 'this website';
                 $eyeShowLabel = 'Show site name and URL';
                 $eyeHideLabel = 'Hide site name and URL';
+                // Closed-row thumbnail only while identity is shown — a homepage
+                // shot would leak the host in hide mode. Details expand still
+                // loads the large preview either way.
+                $previewPaths = $site->homepagePreviewUrlChain();
+                $previewUrl = $previewPaths[0] ?? null;
+                $expandZoomPaths = $site->zoomPreviewUrlChain();
+                if ($expandZoomPaths === [] && $previewPaths !== []) {
+                    $expandZoomPaths = $previewPaths;
+                }
+                $expandZoomUrl = $expandZoomPaths[0] ?? $previewUrl;
+                $tilePreviewPaths = $showsIdentity ? $previewPaths : [];
+                $tilePreviewUrl = $showsIdentity ? $previewUrl : null;
             @endphp
             <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}"
                 data-id="{{ $site->id }}"
@@ -233,6 +245,9 @@
                         @include('advertiser.partials.catalog-site-tile', [
                             'label' => $displayHost,
                             'size' => 'md',
+                            'previewUrl' => $tilePreviewUrl,
+                            'previewChain' => $tilePreviewPaths,
+                            'openDetailsId' => $tilePreviewUrl ? (string) $site->id : '',
                         ])
 
                         <div class="catalog-site-stack__body">
@@ -578,16 +593,6 @@
                 {{-- Preview | Description | Pricing | Tags + sample --}}
                 <div class="row align-items-start g-3 catalog-expand-grid">
 
-                    @php
-                        // Full capture → thumb → upload; /media then /storage (Hostinger).
-                        $previewPaths = $site->homepagePreviewUrlChain();
-                        $previewUrl = $previewPaths[0] ?? null;
-                        $expandZoomPaths = $site->zoomPreviewUrlChain();
-                        if ($expandZoomPaths === [] && $previewPaths !== []) {
-                            $expandZoomPaths = $previewPaths;
-                        }
-                        $expandZoomUrl = $expandZoomPaths[0] ?? $previewUrl;
-                    @endphp
                     @if($previewUrl)
                     <div class="col-12 catalog-expand-preview">
                         <p class="small text-muted mb-2 catalog-details-heading">
@@ -1010,6 +1015,15 @@
                 : 'this website';
             $eyeShowLabel = 'Show site name and URL';
             $eyeHideLabel = 'Hide site name and URL';
+            $mobilePreviewPaths = $site->homepagePreviewUrlChain();
+            $mobilePreviewUrl = $mobilePreviewPaths[0] ?? null;
+            $mobileZoomPaths = $site->zoomPreviewUrlChain();
+            if ($mobileZoomPaths === [] && $mobilePreviewPaths !== []) {
+                $mobileZoomPaths = $mobilePreviewPaths;
+            }
+            $mobileZoomUrl = $mobileZoomPaths[0] ?? $mobilePreviewUrl;
+            $tilePreviewPaths = $showsIdentity ? $mobilePreviewPaths : [];
+            $tilePreviewUrl = $showsIdentity ? $mobilePreviewUrl : null;
             $mobileLabels = $site->nicheBadgeLabels();
             $mobileCategory = $mobileLabels[0] ?? '—';
             $mobileSensitivePrices = $site->safeJsonArray('sensitive_prices');
@@ -1048,6 +1062,9 @@
                     @include('advertiser.partials.catalog-site-tile', [
                         'label' => $displayHost,
                         'size' => 'lg',
+                        'previewUrl' => $tilePreviewUrl,
+                        'previewChain' => $tilePreviewPaths,
+                        'openDetailsId' => $tilePreviewUrl ? (string) $site->id : '',
                     ])
 
                     <div class="catalog-mobile-card__main">
@@ -1406,15 +1423,6 @@
             </button>
 
             <dl class="catalog-card-details" id="card-details-{{ $site->id }}" hidden>
-                @php
-                    $mobilePreviewPaths = $site->homepagePreviewUrlChain();
-                    $mobilePreviewUrl = $mobilePreviewPaths[0] ?? null;
-                    $mobileZoomPaths = $site->zoomPreviewUrlChain();
-                    if ($mobileZoomPaths === [] && $mobilePreviewPaths !== []) {
-                        $mobileZoomPaths = $mobilePreviewPaths;
-                    }
-                    $mobileZoomUrl = $mobileZoomPaths[0] ?? $mobilePreviewUrl;
-                @endphp
                 @if($mobilePreviewUrl)
                 <div class="catalog-card-details__row">
                     <dt>

@@ -32,6 +32,16 @@ window.catalogSitePreviewOnError = function (img) {
         return;
     }
     img.onerror = null;
+    var tile = img.closest('.catalog-tile--preview');
+    if (tile) {
+        img.hidden = true;
+        var initials = tile.querySelector('.catalog-tile__initials');
+        if (initials) {
+            initials.hidden = false;
+        }
+        tile.classList.remove('catalog-tile--preview');
+        return;
+    }
     var z = img.closest('.site-preview-zoom');
     if (z) {
         z.classList.add('is-broken');
@@ -46,7 +56,7 @@ window.catalogSitePreviewOnError = function (img) {
 
 /**
  * Floating desktop zoom popover for Site Details / card expand previews.
- * Previews stay out of catalog rows; hover enlarge only on expand.
+ * Closed rows show a small thumbnail; hover enlarge only on the Details panel.
  */
 function initCatalogExpandPreviewZoom(root) {
     const scope = root || document;
@@ -4779,6 +4789,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const id = arrow.id.replace('arrow-', '');
         toggleExpandRow(id, arrow);
+    });
+
+    // Homepage thumbnail on the closed row — same Details toggle as the
+    // labelled button, not a hover or whole-row expand.
+    document.addEventListener('click', function (e) {
+        const thumb = e.target.closest('[data-catalog-open-details]');
+        if (!thumb) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') {
+            e.stopImmediatePropagation();
+        }
+        const id = thumb.getAttribute('data-catalog-open-details');
+        if (!id) return;
+
+        const card = thumb.closest('.catalog-mobile-card');
+        if (card) {
+            const cardToggle = card.querySelector('.catalog-card-details-toggle');
+            if (cardToggle) {
+                toggleCardDetails(cardToggle);
+                return;
+            }
+        }
+
+        const arrow = document.getElementById('arrow-' + id);
+        if (arrow) {
+            toggleExpandRow(id, arrow);
+        }
     });
 
     // Copy example URL

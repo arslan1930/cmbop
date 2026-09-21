@@ -84,7 +84,10 @@ class CatalogHomepagePreviewTest extends TestCase
         $this->assertStringContainsString('Homepage preview', $html);
         $this->assertStringContainsString('col-12 catalog-expand-preview', $html);
         $this->assertStringContainsString('site-preview-zoom', $html);
-        // Previews live in Site Details expand only — not on catalog rows.
+        // Closed rows show a thumbnail tile; the dedicated preview column
+        // classes stay unused so we never reintroduce a preview table column.
+        $this->assertStringContainsString('catalog-tile--preview', $html);
+        $this->assertStringContainsString('data-catalog-open-details', $html);
         $this->assertStringNotContainsString('catalog-th-preview', $html);
         $this->assertStringNotContainsString('site-row-preview', $html);
         $this->assertStringNotContainsString('catalog-preview-cell', $html);
@@ -117,6 +120,10 @@ class CatalogHomepagePreviewTest extends TestCase
             '/site-preview-zoom[\s\S]*?<img[^>]+class="[^"]*catalog-deferred-preview/',
             $html
         );
+        $this->assertMatchesRegularExpression(
+            '/catalog-tile--preview[\s\S]*?<img[^>]+src="[^"]*\/media\/site-screenshots\/home-full\.webp"/',
+            $html
+        );
         // First open still hydrates any deferred data-src imgs (assets must exist).
         $js = (string) file_get_contents(public_path('assets/js/catalog.js'));
         $this->assertStringContainsString('function hydrateExpandScreenshots', $js);
@@ -140,6 +147,8 @@ class CatalogHomepagePreviewTest extends TestCase
         $this->assertStringContainsString('max-width: 300px;', $css);
         $this->assertStringContainsString('width: min(720px, calc(100vw - 32px))', $css);
         $this->assertStringContainsString('object-fit: contain', $css);
+        $this->assertStringContainsString('.catalog-tile--preview', $css);
+        $this->assertStringContainsString('.catalog-tile__img', $css);
         // Hover zoom restored, gated for fine pointers + reduced-motion (Safari-safe).
         $this->assertStringContainsString('@media (hover: hover) and (pointer: fine)', $css);
         $this->assertStringContainsString('.site-preview-zoom:hover img', $css);
@@ -196,6 +205,7 @@ class CatalogHomepagePreviewTest extends TestCase
         $this->assertStringContainsString('window.catalogSitePreviewOnError', $js);
         $this->assertStringNotContainsString('window.catalogRowPreviewOnError', $js);
         $this->assertStringContainsString("f.classList.remove('d-none')", $js);
+        $this->assertStringContainsString("closest('.catalog-tile--preview')", $js);
         $this->assertStringContainsString('data-preview-chain', $blade);
         $this->assertStringContainsString('initCatalogExpandPreviewZoom', $js);
     }
@@ -225,5 +235,34 @@ class CatalogHomepagePreviewTest extends TestCase
             '/data-src="[^"]*\/media\/site-screenshots\/row-full\.webp"/',
             $html
         );
+        $this->assertMatchesRegularExpression(
+            '/catalog-tile--preview[\s\S]*?<img[^>]+src="[^"]*\/media\/site-screenshots\/row-full\.webp"/',
+            $html
+        );
+    }
+
+    public function test_hide_mode_keeps_initials_instead_of_a_screenshot_tile(): void
+    {
+        $this->advertiser->forceFill([
+            'catalog_hide_until' => now()->addDay(),
+        ])->save();
+
+        $this->makeSite([
+            'site_name' => 'Hidden Preview',
+            'site_url' => 'https://hidden-preview.example',
+            'domain' => 'hidden-preview.example',
+            'screenshot_path' => 'site-screenshots/hidden-full.webp',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('catalog-tile--preview', $html);
+        $this->assertStringNotContainsString('data-catalog-open-details', $html);
+        $this->assertStringNotContainsString('hidden-preview.example', $html);
+        $this->assertStringContainsString('Homepage preview', $html);
+        $this->assertStringContainsString('media/site-screenshots/hidden-full.webp', $html);
     }
 }

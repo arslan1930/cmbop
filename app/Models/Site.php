@@ -1834,6 +1834,12 @@ class Site extends Model
             if (! is_string($candidate) || trim($candidate) === '') {
                 continue;
             }
+            $candidate = trim($candidate);
+            // Leftover Hostinger junk ("not-a-path", "???") is not a screenshot.
+            if (! preg_match('#^(https?:)?//#i', $candidate)
+                && ! preg_match('/\.(webp|jpe?g|png|gif|avif)$/i', $candidate)) {
+                continue;
+            }
             if (static::isPlaceholderPreviewPath($candidate)) {
                 $placeholders[] = $candidate;
             } else {
@@ -1855,23 +1861,35 @@ class Site extends Model
     }
 
     /**
+     * Read a string column without 500ing when leftover Hostinger schema
+     * dropped it or the accessor throws. One missing screenshot column must
+     * not hide a still-present cover upload.
+     */
+    public function leftoverStringAttribute(string $attribute): ?string
+    {
+        try {
+            $value = $this->getAttribute($attribute);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    /**
      * Catalog Site Details homepage preview: full → thumb → cover.
      *
      * @return list<string>
      */
     public function homepagePreviewUrlChain(): array
     {
-        try {
-            return $this->previewUrlChainFrom([
-                $this->screenshot_path ?? null,
-                $this->screenshot_thumb_path ?? null,
-                $this->site_image ?? null,
-            ]);
-        } catch (\Throwable $e) {
-            report($e);
-
-            return [];
-        }
+        return $this->previewUrlChainFrom([
+            $this->leftoverStringAttribute('screenshot_path'),
+            $this->leftoverStringAttribute('screenshot_thumb_path'),
+            $this->leftoverStringAttribute('site_image'),
+        ]);
     }
 
     /**
@@ -1883,17 +1901,11 @@ class Site extends Model
      */
     public function listingPreviewUrlChain(): array
     {
-        try {
-            return $this->previewUrlChainFrom([
-                $this->site_image ?? null,
-                $this->screenshot_thumb_path ?? null,
-                $this->screenshot_path ?? null,
-            ]);
-        } catch (\Throwable $e) {
-            report($e);
-
-            return [];
-        }
+        return $this->previewUrlChainFrom([
+            $this->leftoverStringAttribute('site_image'),
+            $this->leftoverStringAttribute('screenshot_thumb_path'),
+            $this->leftoverStringAttribute('screenshot_path'),
+        ]);
     }
 
     /**
@@ -1903,17 +1915,11 @@ class Site extends Model
      */
     public function zoomPreviewUrlChain(): array
     {
-        try {
-            return $this->previewUrlChainFrom([
-                $this->screenshot_path ?? null,
-                $this->site_image ?? null,
-                $this->screenshot_thumb_path ?? null,
-            ]);
-        } catch (\Throwable $e) {
-            report($e);
-
-            return [];
-        }
+        return $this->previewUrlChainFrom([
+            $this->leftoverStringAttribute('screenshot_path'),
+            $this->leftoverStringAttribute('site_image'),
+            $this->leftoverStringAttribute('screenshot_thumb_path'),
+        ]);
     }
 
     /**
