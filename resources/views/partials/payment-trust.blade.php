@@ -3,10 +3,20 @@
     $brief = $brief ?? false;
     $showMethods = $showMethods ?? true;
     $asset = fn (string $file) => asset('assets/img/payments/'.$file);
-    $paypalConfigured = app(\App\Services\PaypalCheckoutService::class)->configured();
-    $refundUrl = function_exists('localized_url')
-        ? localized_url('refund-policy')
-        : url('/refund-policy');
+    $paypalConfigured = false;
+    try {
+        $paypalConfigured = app(\App\Services\PaypalCheckoutService::class)->configured();
+    } catch (\Throwable) {
+        $paypalConfigured = false;
+    }
+    $refundUrl = url('/refund-policy');
+    try {
+        $refundUrl = function_exists('localized_url')
+            ? localized_url('refund-policy')
+            : url('/refund-policy');
+    } catch (\Throwable) {
+        $refundUrl = url('/refund-policy');
+    }
 @endphp
 <div class="payment-trust {{ $compact ? 'payment-trust--compact' : '' }}" role="note" aria-label="Secure payments">
     <div class="payment-trust__secure">

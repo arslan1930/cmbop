@@ -23,13 +23,13 @@ class DashboardController extends Controller
         try {
             $payload = $this->dashboard->build(auth()->user());
         } catch (\Throwable $e) {
-            report($e);
+            $this->reportQuietly($e);
             $this->flashDashboardError($e);
 
             try {
                 $payload = $this->dashboard->emptyPayload();
             } catch (\Throwable $inner) {
-                report($inner);
+                $this->reportQuietly($inner);
                 $payload = PublisherDashboardService::inertPayload();
             }
         }
@@ -48,12 +48,12 @@ class DashboardController extends Controller
                 'data' => $this->dashboard->statisticsPayload(auth()->user()),
             ]);
         } catch (\Throwable $e) {
-            report($e);
+            $this->reportQuietly($e);
 
             try {
                 $data = $this->dashboard->emptyStatisticsPayload();
             } catch (\Throwable $inner) {
-                report($inner);
+                $this->reportQuietly($inner);
                 $data = PublisherDashboardService::inertStatisticsPayload();
             }
 
@@ -80,7 +80,7 @@ class DashboardController extends Controller
                 ),
             ]);
         } catch (\Throwable $e) {
-            report($e);
+            $this->reportQuietly($e);
 
             return response()->json([
                 'success' => true,
@@ -102,7 +102,7 @@ class DashboardController extends Controller
                 ),
             ]);
         } catch (\Throwable $e) {
-            report($e);
+            $this->reportQuietly($e);
 
             return response()->json([
                 'success' => true,
@@ -127,7 +127,7 @@ class DashboardController extends Controller
                 ),
             ]);
         } catch (\Throwable $e) {
-            report($e);
+            $this->reportQuietly($e);
 
             return response()->json([
                 'success' => true,
@@ -152,7 +152,7 @@ class DashboardController extends Controller
                 ),
             ]);
         } catch (\Throwable $e) {
-            report($e);
+            $this->reportQuietly($e);
 
             return response()->json([
                 'success' => true,
@@ -172,7 +172,7 @@ class DashboardController extends Controller
         try {
             return response()->make(view('publisher.dashboard', $payload)->render());
         } catch (\Throwable $e) {
-            report($e);
+            $this->reportQuietly($e);
             $this->flashDashboardError($e);
 
             try {
@@ -180,7 +180,7 @@ class DashboardController extends Controller
                     view('publisher.dashboard', PublisherDashboardService::inertPayload())->render()
                 );
             } catch (\Throwable $inner) {
-                report($inner);
+                $this->reportQuietly($inner);
 
                 return response()->make(PublisherDashboardService::inertHtml(), 200);
             }
@@ -195,7 +195,16 @@ class DashboardController extends Controller
                 UserFacingError::message($e, 'We could not load your dashboard. Please refresh and try again.')
             );
         } catch (\Throwable $flash) {
-            report($flash);
+            $this->reportQuietly($flash);
+        }
+    }
+
+    private function reportQuietly(\Throwable $e): void
+    {
+        try {
+            report($e);
+        } catch (\Throwable) {
+            // Leftover Hostinger: a broken log disk must not 500 the dashboard.
         }
     }
 }

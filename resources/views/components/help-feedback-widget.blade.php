@@ -1,8 +1,8 @@
 {{-- Floating Report a problem + Suggestion box --}}
 @php
     $isAuthed = auth()->check();
-    $userName = auth()->user()->name ?? '';
-    $userEmail = auth()->user()->email ?? '';
+    $userName = auth()->user()?->name ?? '';
+    $userEmail = auth()->user()?->email ?? '';
 @endphp
 
 <style>

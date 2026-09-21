@@ -11,7 +11,9 @@ use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\CheckoutSchemaService;
+use App\Services\PaypalCheckoutService;
 use App\Services\Publisher\PublisherDashboardService;
+use App\Support\CartDisplayFx;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -1579,6 +1581,127 @@ class PublisherDashboardTest extends TestCase
         $this->actingAs($publisher)
             ->getJson(route('publisher.dashboard.statistics'))
             ->assertJsonPath('data.unread_chat', 0);
+    }
+
+    public function test_dashboard_html_stays_ok_when_money_js_throws(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        $this->mock(CartDisplayFx::class, function ($mock) {
+            $mock->shouldReceive('syncWithCart')
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: fx leftover boom'));
+        });
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Publisher Dashboard')
+            ->assertDontSee('SQLSTATE')
+            ->assertDontSee('We could not load your dashboard');
+    }
+
+    public function test_dashboard_html_stays_ok_when_paypal_status_throws(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        $this->mock(PaypalCheckoutService::class, function ($mock) {
+            $mock->shouldReceive('configured')
+                ->andThrow(new \RuntimeException('SQLSTATE[HY000]: paypal leftover boom'));
+        });
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('Publisher Dashboard')
+            ->assertDontSee('SQLSTATE')
+            ->assertDontSee('We could not load your dashboard');
+    }
+
+    public function test_dashboard_survives_orders_schema_without_updated_at(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'payment_status' => 'paid',
+        ]);
+
+        Schema::dropIfExists('orders');
+        Schema::create('orders', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('status')->nullable();
+            $table->string('payment_status')->nullable();
+        });
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.weekly-earnings'))
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_dashboard_survives_order_items_without_created_at(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'pending',
+            'payment_status' => 'paid',
+        ]);
+
+        Schema::dropIfExists('order_items');
+        Schema::create('order_items', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('site_id')->nullable();
+            $table->decimal('price', 10, 2)->nullable();
+        });
+
+        $this->assertDashboardLeftoverSafe($publisher);
+    }
+
+    public function test_dashboard_survives_sites_without_onboarding_status(): void
+    {
+        $publisher = $this->publisherWithWallet();
+
+        Schema::dropIfExists('sites');
+        Schema::create('sites', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('publisher_id')->nullable();
+            $table->boolean('verified')->nullable();
+            $table->boolean('active')->nullable();
+            $table->timestamps();
+        });
+        DB::table('sites')->insert([
+            'publisher_id' => $publisher->id,
+            'verified' => 1,
+            'active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.dashboard.statistics'))
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.siteCount', 1);
+    }
+
+    public function test_dashboard_survives_missing_projects_table(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $this->site($publisher);
+
+        Schema::dropIfExists('projects');
+
+        $this->assertDashboardLeftoverSafe($publisher);
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertSee('Publisher Dashboard');
     }
 
     private function assertDashboardLeftoverSafe(User $publisher): void
