@@ -522,6 +522,7 @@
                             <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
                             <span>Add to cart</span>
                         </button>
+                        <div class="catalog-buy-addon-hint small text-muted mt-1" data-site-id="{{ $site->id }}" hidden></div>
                         @endif
 
                         <div class="catalog-row-actions__secondary">
@@ -1338,6 +1339,7 @@
                     <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
                     <span>Add to cart</span>
                 </button>
+                <div class="catalog-buy-addon-hint small text-muted" data-site-id="{{ $site->id }}" hidden></div>
                 @endif
 
                 @include('advertiser.partials.catalog-price', [
@@ -1538,7 +1540,7 @@
                                     </li>
                                 @endforeach
                             </ul>
-                            <span class="text-muted small">Choose a duration above Buy.</span>
+                            <span class="text-muted small">Choose a duration in this panel, or change it later in the cart.</span>
                     </dd>
                 </div>
                 @endif

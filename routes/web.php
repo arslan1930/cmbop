@@ -1086,6 +1086,7 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
             ->name('cart.assign-article');
         Route::post('/cart/remove', [CatalogController::class, 'removeFromCart'])->name('cart.remove');
         Route::post('/cart/update', [CatalogController::class, 'updateCartQuantity'])->name('cart.update');
+        Route::post('/cart/configure', [CatalogController::class, 'configureCartLine'])->name('cart.configure');
         Route::post('/cart/clear', [CatalogController::class, 'clearCart'])->name('cart.clear');
 
         // Checkout routes

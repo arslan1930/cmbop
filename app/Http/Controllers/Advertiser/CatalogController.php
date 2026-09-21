@@ -1151,8 +1151,73 @@ class CatalogController extends Controller
         $line['da'] = self::cartMetricInt($site->da);
         $line['dr'] = self::cartMetricInt($site->dr);
         $line['domain'] = trim((string) ($site->domain ?: ''));
+        [$line['homepage_options'], $line['sensitive_options']] = $this->cartLineChoiceOptions($site);
 
         return $this->applyCartLineContentIds($line, $this->cartLineContentIds($line));
+    }
+
+    /**
+     * Homepage / sensitive choices the drawer can edit without returning to the catalog.
+     *
+     * @return array{0: list<array{days: int, price: float, free: bool}>, 1: list<array{type: string, price: float}>}
+     */
+    private function cartLineChoiceOptions(Site $site): array
+    {
+        $homepage = [];
+        foreach ($site->homepagePlacementOptions() as $days => $price) {
+            $homepage[] = [
+                'days' => (int) $days,
+                'price' => round((float) $price, 2),
+                'free' => (float) $price <= 0,
+            ];
+        }
+
+        $sensitive = [];
+        $prices = $site->sensitive_prices ?? [];
+        if (is_string($prices)) {
+            $prices = json_decode($prices, true) ?: [];
+        }
+        if (is_array($prices)) {
+            foreach ($prices as $type => $price) {
+                if (! is_numeric($price) || (float) $price <= 0) {
+                    continue;
+                }
+                $label = trim((string) $type);
+                if ($label === '') {
+                    continue;
+                }
+                $sensitive[] = [
+                    'type' => $label,
+                    'price' => round((float) $price, 2),
+                ];
+            }
+        }
+
+        return [$homepage, $sensitive];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $cart
+     * @return array{cart_count: int, placement_count: int, site_count: int}
+     */
+    private function cartCountMeta(array $cart): array
+    {
+        $placements = (int) array_sum(array_map(
+            static fn ($item) => (int) ($item['quantity'] ?? 0),
+            $cart
+        ));
+        $sites = collect($cart)
+            ->pluck('id')
+            ->filter()
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->count();
+
+        return [
+            'cart_count' => $placements,
+            'placement_count' => $placements,
+            'site_count' => $sites,
+        ];
     }
 
     /**
@@ -1414,9 +1479,8 @@ class CatalogController extends Controller
             $cart
         )), 2);
 
-        return [
+        return array_merge($this->cartCountMeta($cart), [
             'cart' => $cart,
-            'cart_count' => (int) array_sum(array_map(fn ($item) => (int) ($item['quantity'] ?? 0), $cart)),
             'cart_total' => $cartTotal,
             'approved_articles' => $articles,
             'ordering_from_library' => (bool) session('ordering_from_library'),
@@ -1429,7 +1493,7 @@ class CatalogController extends Controller
             'require_same_language' => $requireSame,
             'schedule' => $this->checkoutScheduleClientHint(),
             'fx' => app(CartDisplayFx::class)->syncWithCart($cart),
-        ];
+        ]);
     }
 
     /**
@@ -2196,13 +2260,156 @@ class CatalogController extends Controller
     }
 
     /**
+     * Change homepage duration or sensitive topic on an existing cart line.
+     */
+    public function configureCartLine(Request $request)
+    {
+        try {
+            $rawId = $request->input('id');
+            $id = is_numeric($rawId) ? (int) $rawId : 0;
+            $sensitiveType = search_text($request->input('sensitive_type'));
+            $sensitiveType = $sensitiveType !== '' ? $sensitiveType : null;
+            $hasHomepageInput = $request->exists('homepage_days');
+            $homepageDays = $hasHomepageInput ? $request->input('homepage_days') : null;
+
+            $newSensitiveRaw = $request->exists('new_sensitive_type')
+                ? $request->input('new_sensitive_type')
+                : $request->input('sensitive_type');
+            $newSensitive = search_text($newSensitiveRaw);
+            $newSensitive = $newSensitive !== '' ? $newSensitive : null;
+
+            $newHome = $request->exists('new_homepage_days')
+                ? $request->input('new_homepage_days')
+                : $homepageDays;
+
+            $site = Site::query()->catalogVisible()->where('id', $id)->first();
+            if (! $site) {
+                $this->putCatalogVisibleCart(session()->get('cart', []));
+
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Site not found or inactive.',
+                ], 404);
+            }
+
+            try {
+                $resolved = $this->cartPricing()->resolveHomepageSelection($site, $newHome, false);
+            } catch (\InvalidArgumentException $e) {
+                return response()->json([
+                    'success' => false,
+                    'error' => UserFacingError::message($e, 'That homepage promotion option is not available for this site.'),
+                ], 422);
+            }
+
+            try {
+                $this->cartPricing()->resolveSensitiveAdditional($site, $newSensitive);
+            } catch (\InvalidArgumentException $e) {
+                return response()->json([
+                    'success' => false,
+                    'error' => UserFacingError::message($e, 'That sensitive topic is not available for this site.'),
+                ], 422);
+            }
+
+            $cart = session()->get('cart', []);
+            $fromKey = null;
+            foreach ($cart as $key => $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $matches = $hasHomepageInput
+                    ? $this->cartLineMatches($item, $id, $sensitiveType, $homepageDays)
+                    : ((int) ($item['id'] ?? 0) === $id
+                        && (($item['sensitive_type'] ?? null) == ($sensitiveType ?: null)));
+                if ($matches) {
+                    $fromKey = $key;
+                    break;
+                }
+            }
+
+            if ($fromKey === null) {
+                return response()->json(array_merge([
+                    'success' => false,
+                    'error' => 'That cart line is no longer there.',
+                ], $this->cartPayloadForClient()), 404);
+            }
+
+            $line = $cart[$fromKey];
+            $line['sensitive_type'] = $newSensitive;
+            $line['homepage_days'] = $resolved['days'];
+
+            $toKey = null;
+            foreach ($cart as $key => $item) {
+                if ($key === $fromKey || ! is_array($item)) {
+                    continue;
+                }
+                if ($this->cartLineMatches($item, $id, $newSensitive, $resolved['days'])) {
+                    $toKey = $key;
+                    break;
+                }
+            }
+
+            if ($toKey !== null) {
+                $target = $cart[$toKey];
+                $maxBulk = (int) config('site_promotions.bulk.max_qty', 5);
+                $mergedQty = min(
+                    $maxBulk,
+                    max(1, (int) ($target['quantity'] ?? 1)) + max(1, (int) ($line['quantity'] ?? 1))
+                );
+                $assigned = [];
+                foreach (array_merge($this->cartLineContentIds($target), $this->cartLineContentIds($line)) as $submissionId) {
+                    if ((int) $submissionId > 0) {
+                        $assigned[] = (int) $submissionId;
+                    }
+                }
+                $padded = array_fill(0, $mergedQty, 0);
+                foreach ($assigned as $i => $submissionId) {
+                    if ($i >= $mergedQty) {
+                        break;
+                    }
+                    $padded[$i] = $submissionId;
+                }
+                $target['quantity'] = $mergedQty;
+                $target['sensitive_type'] = $newSensitive;
+                $target['homepage_days'] = $resolved['days'];
+                $target = $this->applyCartLineContentIds($target, $padded);
+                $cart[$toKey] = $this->normalizeCartLineForSite($site, $target);
+                unset($cart[$fromKey]);
+            } else {
+                $cart[$fromKey] = $this->normalizeCartLineForSite($site, $line);
+            }
+
+            $this->putCatalogVisibleCart(array_values($cart));
+
+            return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
+        } catch (\InvalidArgumentException $e) {
+            $message = UserFacingError::message($e, 'Those cart options could not be saved.');
+
+            return response()->json([
+                'success' => false,
+                'error' => $message,
+                'message' => $message,
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Error configuring cart line: '.$e->getMessage());
+
+            $message = UserFacingError::message($e, 'Could not update those cart options. Please try again.');
+
+            return response()->json([
+                'success' => false,
+                'error' => $message,
+                'message' => $message,
+            ], 500);
+        }
+    }
+
+    /**
      * Clear cart (SESSION)
      */
     public function clearCart(Request $request)
     {
         session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', 'ordering_from_library', GuestPostWizardController::SESSION_KEY]);
 
-        return response()->json(['success' => true]);
+        return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
     }
 
     /**
@@ -4570,16 +4777,16 @@ class CatalogController extends Controller
             // Keep badge in sync: drop inactive/missing lines before counting.
             $this->syncPrunedSessionCart();
             $cart = session()->get('cart', []);
-            $count = array_sum(array_column($cart, 'quantity'));
+            $counts = $this->cartCountMeta(is_array($cart) ? $cart : []);
             $total = round(array_sum(array_map(
                 fn ($item) => ((float) ($item['price'] ?? 0)) * ((int) ($item['quantity'] ?? 0)),
-                $cart
+                is_array($cart) ? $cart : []
             )), 2);
 
-            return response()->json([
-                'count' => $count,
+            return response()->json(array_merge($counts, [
+                'count' => $counts['cart_count'],
                 'cart_total' => $total,
-            ]);
+            ]));
         } catch (\Throwable $e) {
             report($e);
 

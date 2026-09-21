@@ -344,6 +344,32 @@ class WebsiteLeftoverErrorHardeningTest extends TestCase
         );
     }
 
+    public function test_configure_cart_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)
+                ->withSession([
+                    'cart' => [[
+                        'id' => $site->id,
+                        'name' => $site->site_name,
+                        'quantity' => 1,
+                        'language' => 'en',
+                    ]],
+                ])
+                ->postJson(route('advertiser.cart.configure'), [
+                    'id' => $site->id,
+                    'homepage_days' => 'none',
+                    'new_homepage_days' => 7,
+                ])
+        );
+    }
+
     public function test_checkout_cancel_does_not_crash_when_orders_table_is_gone(): void
     {
         $advertiser = $this->userWithRole('advertiser');
