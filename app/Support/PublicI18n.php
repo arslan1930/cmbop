@@ -11,6 +11,58 @@ use Illuminate\Support\Facades\Schema;
 
 class PublicI18n
 {
+    /**
+     * Country landers and the Europe price index stay English-only.
+     * Prefixed locales 301 these slugs onto the unprefixed English URL.
+     * Kept near the class open so leftover File Manager truncations still keep it.
+     *
+     * @return list<string>
+     */
+    public static function englishOnlyMarketingSlugs(): array
+    {
+        if (class_exists(EnglishOnlyMarketingSlugs::class) && method_exists(EnglishOnlyMarketingSlugs::class, 'all')) {
+            try {
+                $fromHelper = EnglishOnlyMarketingSlugs::all();
+                if (is_array($fromHelper) && $fromHelper !== []) {
+                    return array_values(array_unique(array_filter(
+                        $fromHelper,
+                        static fn ($slug) => is_string($slug) && trim($slug) !== ''
+                    )));
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        $slugs = ['guest-post-prices-europe'];
+
+        try {
+            if (
+                class_exists(GuestPostPriceIndex::class)
+                && defined(GuestPostPriceIndex::class.'::SLUG')
+            ) {
+                $indexSlug = trim((string) GuestPostPriceIndex::SLUG);
+                if ($indexSlug !== '') {
+                    $slugs = [$indexSlug];
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            if (class_exists(CountryLander::class) && method_exists(CountryLander::class, 'slugs')) {
+                foreach (CountryLander::slugs() as $slug) {
+                    $slug = trim((string) $slug);
+                    if ($slug !== '') {
+                        $slugs[] = $slug;
+                    }
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return array_values(array_unique($slugs));
+    }
+
     public static function supported(): array
     {
         return self::configuredLocales('supported', [
@@ -280,57 +332,6 @@ class PublicI18n
         }
 
         return false;
-    }
-
-    /**
-     * Country landers and the Europe price index stay English-only.
-     * Prefixed locales 301 these slugs onto the unprefixed English URL.
-     *
-     * @return list<string>
-     */
-    public static function englishOnlyMarketingSlugs(): array
-    {
-        if (class_exists(EnglishOnlyMarketingSlugs::class) && method_exists(EnglishOnlyMarketingSlugs::class, 'all')) {
-            try {
-                $fromHelper = EnglishOnlyMarketingSlugs::all();
-                if (is_array($fromHelper) && $fromHelper !== []) {
-                    return array_values(array_unique(array_filter(
-                        $fromHelper,
-                        static fn ($slug) => is_string($slug) && trim($slug) !== ''
-                    )));
-                }
-            } catch (\Throwable) {
-            }
-        }
-
-        $slugs = ['guest-post-prices-europe'];
-
-        try {
-            if (
-                class_exists(GuestPostPriceIndex::class)
-                && defined(GuestPostPriceIndex::class.'::SLUG')
-            ) {
-                $indexSlug = trim((string) GuestPostPriceIndex::SLUG);
-                if ($indexSlug !== '') {
-                    $slugs = [$indexSlug];
-                }
-            }
-        } catch (\Throwable) {
-        }
-
-        try {
-            if (class_exists(CountryLander::class) && method_exists(CountryLander::class, 'slugs')) {
-                foreach (CountryLander::slugs() as $slug) {
-                    $slug = trim((string) $slug);
-                    if ($slug !== '') {
-                        $slugs[] = $slug;
-                    }
-                }
-            }
-        } catch (\Throwable) {
-        }
-
-        return array_values(array_unique($slugs));
     }
 
     /**

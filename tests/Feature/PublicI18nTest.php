@@ -175,7 +175,7 @@ class PublicI18nTest extends TestCase
 
         $home = $this->get('/')->assertOk()->getContent();
         $this->assertStringContainsString('Marketplace placements and Digital PR packages', $home);
-        $this->assertStringContainsString('Earn powerful backlinks from trusted websites.', $home);
+        $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $home);
     }
 
     public function test_locale_login_redirects_to_english_auth(): void

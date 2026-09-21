@@ -60,6 +60,12 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
 
     public function test_advertiser_shell_footer_shows_trustpilot(): void
     {
+        config([
+            'services.support_chat.enabled' => false,
+            'services.tawk.property_id' => '',
+            'services.tawk.widget_id' => '',
+        ]);
+
         $html = $this->actingAs($this->advertiser)
             ->get(route('advertiser.catalog'))
             ->assertOk()

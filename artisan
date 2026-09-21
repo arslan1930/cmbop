@@ -1,6 +1,7 @@
 #!/usr/bin/env php
 <?php
 
+use App\Support\LeftoverPublicI18nSlugs;
 use Illuminate\Foundation\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 

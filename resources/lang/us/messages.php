@@ -9,7 +9,7 @@ return [
 
     // Hero Section Translations
     'hero_title' => 'SEOLinkBuildings',
-    'hero_support' => 'Earn powerful backlinks from trusted websites.',
+    'hero_support' => 'The guest post marketplace for verified publisher sites.',
     'get_started' => 'Get Started',
     'hero_tagline' => 'The global link building marketplace for SEO, digital PR, and content distribution.',
     'hero_product_alt' => 'Marketplace catalog preview with publisher metrics and placement prices',
