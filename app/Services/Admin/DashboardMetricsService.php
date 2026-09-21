@@ -2,6 +2,8 @@
 
 namespace App\Services\Admin;
 
+use App\Models\BulkSiteRequest;
+use App\Models\ContentModerationLog;
 use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\OrderItemDispute;
@@ -15,6 +17,9 @@ use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Models\Withdrawal;
 use App\Services\Reminders\StalledOrderQueue;
+use App\Services\Wallet\ManualDepositApproveLink;
+use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
+use App\Support\MarketingOpsQueues;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -42,47 +47,44 @@ class DashboardMetricsService
      */
     public function statistics(): array
     {
-        $advertiserRoleId = Role::where('name', 'advertiser')->value('id');
-        $publisherRoleId = Role::where('name', 'publisher')->value('id');
-        $adminRoleId = Role::where('name', 'admin')->value('id');
-        $marketingRoleId = Role::where('name', 'marketing')->value('id');
+        $advertiserRoleId = $this->roleId('advertiser');
+        $publisherRoleId = $this->roleId('publisher');
+        $adminRoleId = $this->roleId('admin');
+        $marketingRoleId = $this->roleId('marketing');
         $queues = $this->queueCounts();
 
         return [
-            'total_users' => User::count(),
-            'advertisers' => $advertiserRoleId
-                ? (int) DB::table('role_user')->where('role_id', $advertiserRoleId)->distinct()->count('user_id')
-                : 0,
-            'publishers' => $publisherRoleId
-                ? (int) DB::table('role_user')->where('role_id', $publisherRoleId)->distinct()->count('user_id')
-                : 0,
-            'admins' => $adminRoleId
-                ? (int) DB::table('role_user')->where('role_id', $adminRoleId)->distinct()->count('user_id')
-                : 0,
-            'marketers' => $marketingRoleId
-                ? (int) DB::table('role_user')->where('role_id', $marketingRoleId)->distinct()->count('user_id')
-                : 0,
-            'total_sites' => Site::count(),
-            'verified_sites' => Site::where('verified', 1)->count(),
-            'live_sites' => Site::query()->catalogVisible()->count(),
+            'total_users' => $this->safeInt(fn () => User::count()),
+            'advertisers' => $this->roleUserCount($advertiserRoleId),
+            'publishers' => $this->roleUserCount($publisherRoleId),
+            'admins' => $this->roleUserCount($adminRoleId),
+            'marketers' => $this->roleUserCount($marketingRoleId),
+            'total_sites' => $this->safeInt(fn () => Site::count()),
+            'verified_sites' => $this->safeInt(fn () => Site::where('verified', 1)->count()),
+            'live_sites' => $this->liveSitesCount(),
             'unverified_sites' => $queues['unverified_sites'],
-            'total_orders' => Order::count(),
-            'paid_orders' => Order::where('payment_status', 'paid')->count(),
-            'revenue' => (float) Order::where('payment_status', 'paid')->sum('total_amount'),
+            'total_orders' => $this->safeInt(fn () => Order::count()),
+            'paid_orders' => $this->safeInt(fn () => Order::where('payment_status', 'paid')->count()),
+            'revenue' => $this->safeFloat(fn () => Order::where('payment_status', 'paid')->sum('total_amount')),
             'pending_deposits' => $queues['pending_deposits'],
             'pending_withdrawals' => $queues['pending_withdrawals'],
             'pending_payments' => $queues['pending_payments'],
             'pending_community' => $queues['pending_community'],
             'open_disputes' => $queues['open_disputes'],
             'stalled_orders' => $queues['stalled_orders'],
+            'open_bulk_requests' => $queues['open_bulk_requests'],
+            'failed_mail' => $queues['failed_mail'],
+            'moderation_errors' => $queues['moderation_errors'],
+            'enrichment_failed' => $queues['enrichment_failed'],
+            'catalog_hide' => $queues['catalog_hide'],
             'needs_attention' => $queues['needs_attention'],
-            'new_users_7d' => User::where('created_at', '>=', now()->subDays(7))->count(),
-            'orders_7d' => Order::where('payment_status', 'paid')
+            'new_users_7d' => $this->safeInt(fn () => User::where('created_at', '>=', now()->subDays(7))->count()),
+            'orders_7d' => $this->safeInt(fn () => Order::where('payment_status', 'paid')
                 ->whereRaw($this->paidAtSql().' >= ?', [now()->subDays(7)])
-                ->count(),
-            'revenue_7d' => (float) Order::where('payment_status', 'paid')
+                ->count()),
+            'revenue_7d' => $this->safeFloat(fn () => Order::where('payment_status', 'paid')
                 ->whereRaw($this->paidAtSql().' >= ?', [now()->subDays(7)])
-                ->sum('total_amount'),
+                ->sum('total_amount')),
         ];
     }
 
@@ -105,22 +107,28 @@ class DashboardMetricsService
             $labels[] = $start->copy()->addDays($i)->format('Y-m-d');
         }
 
-        $revenueRows = Order::where('payment_status', 'paid')
-            ->whereRaw($paidAt.' >= ?', [$start])
-            ->selectRaw('DATE('.$paidAt.') as day, SUM(total_amount) as total')
-            ->groupBy('day')
-            ->pluck('total', 'day');
+        $revenueRows = $this->safeKeyedRows(function () use ($paidAt, $start) {
+            return Order::where('payment_status', 'paid')
+                ->whereRaw($paidAt.' >= ?', [$start])
+                ->selectRaw('DATE('.$paidAt.') as day, SUM(total_amount) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
+        });
 
-        $signupRows = User::where('created_at', '>=', $start)
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
-            ->groupBy('day')
-            ->pluck('total', 'day');
+        $signupRows = $this->safeKeyedRows(function () use ($start) {
+            return User::where('created_at', '>=', $start)
+                ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
+        });
 
-        $orderRows = Order::where('payment_status', 'paid')
-            ->whereRaw($paidAt.' >= ?', [$start])
-            ->selectRaw('DATE('.$paidAt.') as day, COUNT(*) as total')
-            ->groupBy('day')
-            ->pluck('total', 'day');
+        $orderRows = $this->safeKeyedRows(function () use ($paidAt, $start) {
+            return Order::where('payment_status', 'paid')
+                ->whereRaw($paidAt.' >= ?', [$start])
+                ->selectRaw('DATE('.$paidAt.') as day, COUNT(*) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
+        });
 
         $revenueByDay = $this->indexByDay($revenueRows);
         $signupsByDay = $this->indexByDay($signupRows);
@@ -150,15 +158,19 @@ class DashboardMetricsService
      */
     public function distributions(): array
     {
-        $orderStatus = Order::select('status', DB::raw('COUNT(*) as total'))
-            ->groupBy('status')
-            ->pluck('total', 'status');
+        $orderStatus = $this->safeKeyedRows(function () {
+            return Order::select('status', DB::raw('COUNT(*) as total'))
+                ->groupBy('status')
+                ->pluck('total', 'status');
+        });
 
-        $roleCounts = DB::table('role_user')
-            ->join('roles', 'roles.id', '=', 'role_user.role_id')
-            ->select('roles.name', DB::raw('COUNT(DISTINCT role_user.user_id) as total'))
-            ->groupBy('roles.name')
-            ->pluck('total', 'name');
+        $roleCounts = $this->safeKeyedRows(function () {
+            return DB::table('role_user')
+                ->join('roles', 'roles.id', '=', 'role_user.role_id')
+                ->select('roles.name', DB::raw('COUNT(DISTINCT role_user.user_id) as total'))
+                ->groupBy('roles.name')
+                ->pluck('total', 'name');
+        });
 
         return [
             'orders' => [
@@ -168,6 +180,7 @@ class DashboardMetricsService
             'roles' => [
                 'labels' => $roleCounts->keys()->map(fn ($s) => ucfirst($s))->values(),
                 'values' => $roleCounts->values()->map(fn ($v) => (int) $v)->values(),
+                'note' => 'Users with more than one role appear in more than one slice.',
             ],
         ];
     }
@@ -179,12 +192,8 @@ class DashboardMetricsService
      */
     public function queueCounts(): array
     {
-        $pendingDeposits = DepositRequest::tableAvailable()
-            ? DepositRequest::where('status', 'pending')->count()
-            : 0;
-        $pendingWithdrawals = Withdrawal::tableAvailable()
-            ? Withdrawal::whereIn('status', ['pending', 'processing'])->count()
-            : 0;
+        $pendingDeposits = $this->pendingDepositsCount();
+        $pendingWithdrawals = $this->pendingWithdrawalsCount();
         // Ready-for-admin queue only (exclude unfinished awaiting_details drafts)
         $unverifiedSites = $this->unverifiedSitesCount();
         $pendingPayments = $this->unpaidOrdersCount();
@@ -194,14 +203,24 @@ class DashboardMetricsService
         $pendingWebsites = $this->pendingCount(WebsiteSuggestion::class, 'website_suggestions');
         $pendingCommunity = $pendingClaims + $pendingProblems + $pendingSuggestions + $pendingWebsites;
         $openDisputes = $this->openDisputesCount();
-        $stalledOrders = $this->stalled->count();
+        $stalledOrders = $this->safeInt(fn () => $this->stalled->count());
+        $openBulk = $this->openBulkRequestsCount();
+        $failedMail = $this->failedMailCount();
+        $moderationErrors = $this->moderationErrorsCount();
+        $enrichmentFailed = $this->enrichmentFailedCount();
+        $catalogHide = $this->catalogHideCount();
         $needsAttention = $pendingDeposits
             + $pendingWithdrawals
             + $unverifiedSites
             + $pendingPayments
             + $pendingCommunity
             + $openDisputes
-            + $stalledOrders;
+            + $stalledOrders
+            + $openBulk
+            + $failedMail
+            + $moderationErrors
+            + $enrichmentFailed
+            + $catalogHide;
 
         return [
             'pending_deposits' => $pendingDeposits,
@@ -215,6 +234,11 @@ class DashboardMetricsService
             'pending_community' => $pendingCommunity,
             'open_disputes' => $openDisputes,
             'stalled_orders' => $stalledOrders,
+            'open_bulk_requests' => $openBulk,
+            'failed_mail' => $failedMail,
+            'moderation_errors' => $moderationErrors,
+            'enrichment_failed' => $enrichmentFailed,
+            'catalog_hide' => $catalogHide,
             'needs_attention' => $needsAttention,
         ];
     }
@@ -226,75 +250,65 @@ class DashboardMetricsService
      */
     public function financeStrip(): array
     {
-        $overview = $this->finance->overview($this->finance->resolvePeriod('month'));
-
-        return [
-            'period_label' => $overview['period']['label'],
-            'due_to_pay_now' => (float) $overview['due_to_pay_now'],
-            'in_publisher_wallets' => (float) $overview['in_publisher_wallets'],
-            'total_publisher_liability' => (float) $overview['total_publisher_liability'],
-            'margin' => (float) $overview['platform']['margin'],
-            'url' => route('admin.finance'),
+        $empty = [
+            'period_label' => '',
+            'due_to_pay_now' => 0.0,
+            'in_publisher_wallets' => 0.0,
+            'total_publisher_liability' => 0.0,
+            'margin' => 0.0,
+            'url' => $this->safeRoute('admin.finance') ?? '',
         ];
+
+        try {
+            $overview = $this->finance->overview($this->finance->resolvePeriod('month'));
+
+            return [
+                'period_label' => (string) data_get($overview, 'period.label', ''),
+                'due_to_pay_now' => (float) ($overview['due_to_pay_now'] ?? 0),
+                'in_publisher_wallets' => (float) ($overview['in_publisher_wallets'] ?? 0),
+                'total_publisher_liability' => (float) ($overview['total_publisher_liability'] ?? 0),
+                'margin' => (float) data_get($overview, 'platform.margin', 0),
+                'url' => $this->safeRoute('admin.finance') ?? $empty['url'],
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard finance strip failed', ['error' => $e->getMessage()]);
+
+            return $empty;
+        }
     }
 
     /**
      * Items that need admin attention (top 5 per queue).
      *
-     * @return array{deposits: mixed, withdrawals: mixed, sites: mixed, unpaid: mixed, disputes: mixed, community: mixed, enrichment: mixed}
+     * @return array{deposits: mixed, withdrawals: mixed, sites: mixed, unpaid: mixed, disputes: mixed, community: mixed, enrichment: mixed, bulk: mixed, mail: mixed, moderation: mixed, catalog_hide: mixed}
      */
     public function actionQueue(): array
     {
-        $deposits = DepositRequest::tableAvailable()
-            ? DepositRequest::with('user:id,name,email')
-                ->where('status', 'pending')
-                ->latest()
-                ->take(5)
-                ->get()
-                ->map(fn ($d) => [
-                    'id' => $d->id,
-                    'user' => $d->user?->name ?? 'Unknown',
-                    'email' => $d->user?->email,
-                    'amount' => (float) $d->amount,
-                    'method' => $d->payment_method,
-                    'date' => optional($d->created_at)->format('d M Y H:i'),
-                    // deposits.show is JSON for the list-page modal; the HTML queue is the working page.
-                    'url' => route('admin.deposits', ['status' => 'pending']),
-                ])
-            : collect();
+        $deposits = $this->depositQueue();
+        $withdrawals = $this->withdrawalQueue();
 
-        $withdrawals = Withdrawal::tableAvailable()
-            ? Withdrawal::with('user:id,name,email')
-                ->whereIn('status', ['pending', 'processing'])
-                ->latest()
-                ->take(5)
-                ->get()
-                ->map(fn ($w) => [
-                    'id' => $w->id,
-                    'user' => $w->user?->name ?? 'Unknown',
-                    'email' => $w->user?->email,
-                    'amount' => (float) $w->net_amount,
-                    'method' => $w->payment_method,
-                    'status' => $w->status,
-                    'date' => optional($w->created_at)->format('d M Y H:i'),
-                    // withdrawals.show is JSON for the list-page modal; the HTML queue is the working page.
-                    'url' => route('admin.withdrawals', ['queue' => 'open']),
-                ])
-            : collect();
-
-        $sites = Site::with('publisher:id,name,email')
-            ->needsAdminReview()
-            ->latest()
-            ->take(5)
-            ->get()
-            ->map(fn ($s) => [
-                'id' => $s->id,
-                'site_name' => $s->site_name,
-                'site_url' => $s->site_url,
-                'publisher' => $s->publisher?->name ?? 'Unknown',
-                'date' => optional($s->created_at)->format('d M Y'),
-                'url' => route('admin.sites.edit', $s->id),
-            ]);
+        $sites = collect();
+        try {
+            if (Schema::hasTable('sites')) {
+                $sites = Site::with('publisher:id,name,email')
+                    ->needsAdminReview()
+                    ->latest()
+                    ->take(5)
+                    ->get()
+                    ->map(fn ($s) => [
+                        'id' => $s->id,
+                        'site_name' => $s->site_name,
+                        'site_url' => $s->site_url,
+                        'publisher' => $s->publisher?->name ?? 'Unknown',
+                        'date' => $this->formatDate($s->created_at, 'd M Y'),
+                        'age' => $this->ageLabel($s->created_at),
+                        'url' => route('admin.sites.edit', $s->id),
+                    ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard sites queue failed', ['error' => $e->getMessage()]);
+            $sites = collect();
+        }
 
         return [
             'deposits' => $deposits,
@@ -304,6 +318,10 @@ class DashboardMetricsService
             'disputes' => $this->disputeQueue(),
             'community' => $this->communityQueue(),
             'enrichment' => $this->enrichmentQueue(),
+            'bulk' => $this->bulkQueue(),
+            'mail' => $this->failedMailQueue(),
+            'moderation' => $this->moderationQueue(),
+            'catalog_hide' => $this->catalogHideQueue(),
         ];
     }
 
@@ -315,9 +333,106 @@ class DashboardMetricsService
         return Order::query()->unpaidOps();
     }
 
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function depositQueue(): Collection
+    {
+        try {
+            if (! DepositRequest::tableAvailable()) {
+                return collect();
+            }
+
+            return DepositRequest::with('user:id,name,email')
+                ->where('status', 'pending')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(fn ($d) => [
+                    'id' => $d->id,
+                    'user' => $d->user?->name ?? 'Unknown',
+                    'email' => $d->user?->email,
+                    'amount' => (float) $d->amount,
+                    'method' => $d->payment_method,
+                    'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($d->created_at),
+                    // deposits.show is JSON for the list-page modal; the HTML queue is the working page.
+                    'url' => route('admin.deposits', ['status' => 'pending']),
+                    'action_url' => $this->depositActionUrl((int) $d->id),
+                    'action_label' => 'Review',
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard deposits queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function withdrawalQueue(): Collection
+    {
+        try {
+            if (! Withdrawal::tableAvailable()) {
+                return collect();
+            }
+
+            return Withdrawal::with('user:id,name,email')
+                ->whereIn('status', ['pending', 'processing'])
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(fn ($w) => [
+                    'id' => $w->id,
+                    'user' => $w->user?->name ?? 'Unknown',
+                    'email' => $w->user?->email,
+                    'amount' => (float) $w->net_amount,
+                    'method' => $w->payment_method,
+                    'status' => $w->status,
+                    'date' => $this->formatDate($w->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($w->created_at),
+                    // withdrawals.show is JSON for the list-page modal; the HTML queue is the working page.
+                    'url' => route('admin.withdrawals', ['queue' => 'open']),
+                    'action_url' => $this->withdrawalActionUrl((int) $w->id),
+                    'action_label' => 'Mark paid',
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard withdrawals queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    private function pendingDepositsCount(): int
+    {
+        try {
+            if (! DepositRequest::tableAvailable()) {
+                return 0;
+            }
+
+            return DepositRequest::where('status', 'pending')->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function pendingWithdrawalsCount(): int
+    {
+        try {
+            if (! Withdrawal::tableAvailable()) {
+                return 0;
+            }
+
+            return Withdrawal::whereIn('status', ['pending', 'processing'])->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
     private function unpaidOrdersCount(): int
     {
-        return $this->unpaidOrdersQuery()->count();
+        return $this->safeInt(fn () => $this->unpaidOrdersQuery()->count());
     }
 
     /**
@@ -325,20 +440,27 @@ class DashboardMetricsService
      */
     private function unpaidQueue(): Collection
     {
-        return $this->unpaidOrdersQuery()
-            ->with('user:id,name,email')
-            ->latest()
-            ->take(5)
-            ->get()
-            ->map(fn (Order $o) => [
-                'id' => $o->id,
-                'order_number' => $o->order_number,
-                'user' => $o->user?->name ?? 'Unknown',
-                'email' => $o->user?->email,
-                'amount' => (float) $o->total_amount,
-                'date' => optional($o->created_at)->format('d M Y H:i'),
-                'url' => route('admin.orders.show', $o->id),
-            ]);
+        try {
+            return $this->unpaidOrdersQuery()
+                ->with('user:id,name,email')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(fn (Order $o) => [
+                    'id' => $o->id,
+                    'order_number' => $o->order_number,
+                    'user' => $o->user?->name ?? 'Unknown',
+                    'email' => $o->user?->email,
+                    'amount' => (float) $o->total_amount,
+                    'date' => $this->formatDate($o->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($o->created_at),
+                    'url' => route('admin.orders.show', $o->id),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard unpaid queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
     }
 
     /**
@@ -350,21 +472,28 @@ class DashboardMetricsService
             return collect();
         }
 
-        return OrderItemDispute::query()
-            ->where('status', OrderItemDispute::STATUS_OPEN)
-            ->with(['order:id,order_number,user_id', 'order.user:id,name', 'orderItem:id,site_name'])
-            ->latest()
-            ->take(5)
-            ->get()
-            ->map(fn (OrderItemDispute $d) => [
-                'id' => $d->id,
-                'order_number' => $d->order?->order_number ?? '',
-                'site_name' => $d->orderItem?->site_name ?: '—',
-                'advertiser' => $d->order?->user?->name ?? 'Unknown',
-                'reason' => Str::limit((string) $d->reason, 80),
-                'date' => optional($d->created_at)->format('d M Y H:i'),
-                'url' => $d->order_id ? route('admin.orders.show', $d->order_id) : route('admin.orders.index'),
-            ]);
+        try {
+            return OrderItemDispute::query()
+                ->where('status', OrderItemDispute::STATUS_OPEN)
+                ->with(['order:id,order_number,user_id', 'order.user:id,name', 'orderItem:id,site_name'])
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(fn (OrderItemDispute $d) => [
+                    'id' => $d->id,
+                    'order_number' => $d->order?->order_number ?? '',
+                    'site_name' => $d->orderItem?->site_name ?: '—',
+                    'advertiser' => $d->order?->user?->name ?? 'Unknown',
+                    'reason' => Str::limit((string) $d->reason, 80),
+                    'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($d->created_at),
+                    'url' => $d->order_id ? route('admin.orders.show', $d->order_id) : route('admin.orders.index'),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard dispute queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
     }
 
     /**
@@ -379,7 +508,8 @@ class DashboardMetricsService
                 'type' => 'problem',
                 'label' => $r->subject ?: 'Problem report',
                 'from' => $r->name ?: ($r->email ?: 'Unknown'),
-                'date' => optional($r->created_at)->format('d M Y'),
+                'date' => $this->formatDate($r->created_at, 'd M Y'),
+                'age' => $this->ageLabel($r->created_at),
                 'sort_at' => optional($r->created_at)?->timestamp ?? 0,
                 'url' => route('admin.community.index', ['tab' => 'problems', 'status' => 'pending']),
             ]))
@@ -387,7 +517,8 @@ class DashboardMetricsService
                 'type' => 'suggestion',
                 'label' => Str::limit((string) $r->message, 60) ?: 'Suggestion',
                 'from' => $r->name ?: ($r->email ?: 'Unknown'),
-                'date' => optional($r->created_at)->format('d M Y'),
+                'date' => $this->formatDate($r->created_at, 'd M Y'),
+                'age' => $this->ageLabel($r->created_at),
                 'sort_at' => optional($r->created_at)?->timestamp ?? 0,
                 'url' => route('admin.community.index', ['tab' => 'suggestions', 'status' => 'pending']),
             ]))
@@ -395,7 +526,8 @@ class DashboardMetricsService
                 'type' => 'website',
                 'label' => $r->website_name ?: ($r->website_url ?: 'Website suggestion'),
                 'from' => $r->website_url ?: 'Unknown',
-                'date' => optional($r->created_at)->format('d M Y'),
+                'date' => $this->formatDate($r->created_at, 'd M Y'),
+                'age' => $this->ageLabel($r->created_at),
                 'sort_at' => optional($r->created_at)?->timestamp ?? 0,
                 'url' => route('admin.community.index', ['tab' => 'websites', 'status' => 'pending']),
             ]))
@@ -403,7 +535,8 @@ class DashboardMetricsService
                 'type' => 'claim',
                 'label' => $r->website_name ?: ($r->domain ?: 'Site claim'),
                 'from' => $r->contact_email ?: 'Unknown',
-                'date' => optional($r->created_at)->format('d M Y'),
+                'date' => $this->formatDate($r->created_at, 'd M Y'),
+                'age' => $this->ageLabel($r->created_at),
                 'sort_at' => optional($r->created_at)?->timestamp ?? 0,
                 'url' => route('admin.community.index', ['tab' => 'claims', 'status' => 'pending']),
             ]));
@@ -438,7 +571,8 @@ class DashboardMetricsService
                     'site_name' => $run->site?->site_name ?: 'Unknown site',
                     'status' => $run->status,
                     'error' => Str::limit((string) ($run->error ?: 'Enrichment failed'), 80),
-                    'date' => optional($run->created_at)->format('d M Y'),
+                    'date' => $this->formatDate($run->created_at, 'd M Y'),
+                    'age' => $this->ageLabel($run->created_at),
                     'url' => $run->site_id
                         ? route('admin.sites.edit', $run->site_id)
                         : route('admin.site-enrichment.index'),
@@ -452,18 +586,307 @@ class DashboardMetricsService
         }
     }
 
+    /**
+     * Same predicate as marketing “Waiting on you” so leftover Done rows stay visible.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function bulkQueue(): Collection
+    {
+        try {
+            if (! Schema::hasTable('bulk_site_requests')) {
+                return collect();
+            }
+
+            return MarketingOpsQueues::bulkWaitingOnMarketer()
+                ->with('publisher:id,name,email')
+                ->latest('id')
+                ->take(5)
+                ->get()
+                ->map(fn (BulkSiteRequest $bulk) => [
+                    'id' => $bulk->id,
+                    'publisher' => $bulk->publisher?->name ?? 'Unknown',
+                    'status' => $bulk->status,
+                    'count' => (int) ($bulk->estimated_count ?? 0),
+                    'date' => $this->formatDate($bulk->created_at, 'd M Y'),
+                    'age' => $this->ageLabel($bulk->created_at),
+                    'url' => $this->safeRoute('admin.bulk-site-requests.show', $bulk->id)
+                        ?? $this->safeRoute('admin.bulk-site-requests.index', ['status' => MarketingOpsQueues::FILTER_NEEDS_MARKETER]),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard bulk queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * Retryable SendQueuedMailable rows — same source as Email Center’s failed-mail count.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function failedMailQueue(): Collection
+    {
+        try {
+            if (! Schema::hasTable('failed_jobs')) {
+                return collect();
+            }
+
+            return collect(DB::table('failed_jobs')
+                ->where('payload', 'like', '%SendQueuedMailable%')
+                ->orderByDesc('id')
+                ->take(5)
+                ->get())
+                ->map(function ($row) {
+                    $firstLine = strtok(str_replace(["\r\n", "\r"], "\n", (string) ($row->exception ?? '')), "\n") ?: 'Failed mail job';
+
+                    return [
+                        'id' => $row->id,
+                        'label' => Str::limit(trim((string) $firstLine), 80),
+                        'date' => $this->formatDate($row->failed_at ?? null, 'd M Y H:i'),
+                        'age' => $this->ageLabel($row->failed_at ?? null),
+                        'url' => $this->safeRoute('admin.emails.index'),
+                    ];
+                });
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard failed-mail queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * Scan errors that never produced an approve/reject — same filter as /admin/moderation?status=error.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function moderationQueue(): Collection
+    {
+        try {
+            if (! ContentModerationLog::tableAvailable()) {
+                return collect();
+            }
+
+            return ContentModerationLog::query()
+                ->where('status', ContentModerationLog::STATUS_ERROR)
+                ->latest('id')
+                ->take(5)
+                ->get()
+                ->map(fn (ContentModerationLog $log) => [
+                    'id' => $log->id,
+                    'label' => Str::limit((string) ($log->error_message ?: $log->error_code ?: 'Scan error'), 80),
+                    'date' => $this->formatDate($log->created_at, 'd M Y'),
+                    'age' => $this->ageLabel($log->created_at),
+                    'url' => $this->safeRoute('admin.moderation.show', $log->id)
+                        ?? $this->safeRoute('admin.moderation.index', ['status' => 'error']),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard moderation queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * Advertisers currently in catalog hide mode.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function catalogHideQueue(): Collection
+    {
+        try {
+            if (! Schema::hasTable('users') || ! Schema::hasColumn('users', 'catalog_hide_until')) {
+                return collect();
+            }
+
+            return User::query()
+                ->whereNotNull('catalog_hide_until')
+                ->where('catalog_hide_until', '>', now())
+                ->orderByDesc('catalog_hide_until')
+                ->take(5)
+                ->get(['id', 'name', 'email', 'catalog_hide_until'])
+                ->filter(fn (User $user) => $user->inCatalogHideMode())
+                ->values()
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'user' => $user->name ?: 'Unknown',
+                    'email' => $user->email,
+                    'date' => $this->formatDate($user->catalog_hide_until, 'd M Y H:i'),
+                    'age' => $this->ageLabel($user->catalog_hide_until),
+                    'url' => $this->safeRoute('admin.catalog-activity', ['user' => $user->id]),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard catalog-hide queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    private function openBulkRequestsCount(): int
+    {
+        try {
+            if (! Schema::hasTable('bulk_site_requests')) {
+                return 0;
+            }
+
+            return MarketingOpsQueues::bulkWaitingOnMarketer()->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function failedMailCount(): int
+    {
+        try {
+            if (! Schema::hasTable('failed_jobs')) {
+                return 0;
+            }
+
+            return (int) DB::table('failed_jobs')->where('payload', 'like', '%SendQueuedMailable%')->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function moderationErrorsCount(): int
+    {
+        try {
+            if (! ContentModerationLog::tableAvailable()) {
+                return 0;
+            }
+
+            return ContentModerationLog::where('status', ContentModerationLog::STATUS_ERROR)->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function enrichmentFailedCount(): int
+    {
+        try {
+            if (! Schema::hasTable('site_enrichment_runs')) {
+                return 0;
+            }
+
+            return SiteEnrichmentRun::query()->needsAttention()->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function catalogHideCount(): int
+    {
+        try {
+            if (! Schema::hasTable('users') || ! Schema::hasColumn('users', 'catalog_hide_until')) {
+                return 0;
+            }
+
+            return User::query()
+                ->whereNotNull('catalog_hide_until')
+                ->where('catalog_hide_until', '>', now())
+                ->get(['id', 'catalog_hide_until'])
+                ->filter(fn (User $user) => $user->inCatalogHideMode())
+                ->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
     private function openDisputesCount(): int
     {
         if (! OrderItemDispute::tableAvailable()) {
             return 0;
         }
 
-        return OrderItemDispute::where('status', OrderItemDispute::STATUS_OPEN)->count();
+        return $this->safeInt(fn () => OrderItemDispute::where('status', OrderItemDispute::STATUS_OPEN)->count());
+    }
+
+    private function liveSitesCount(): int
+    {
+        try {
+            if (! Schema::hasTable('sites')) {
+                return 0;
+            }
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        try {
+            return (int) Site::query()->catalogVisible()->count();
+        } catch (\Throwable $e) {
+            // Leftover Hostinger: catalogVisible() joins bulk_site_requests.
+            Log::warning('Dashboard live sites count failed', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            return (int) Site::query()->active()->notArchived()->count();
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard live sites fallback failed', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            return (int) Site::query()->where('active', 1)->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function roleId(string $name): mixed
+    {
+        try {
+            return Role::where('name', $name)->value('id');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function roleUserCount(mixed $roleId): int
+    {
+        if (! $roleId) {
+            return 0;
+        }
+
+        try {
+            return (int) DB::table('role_user')->where('role_id', $roleId)->distinct()->count('user_id');
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function safeInt(callable $resolve): int
+    {
+        try {
+            return (int) $resolve();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function safeFloat(callable $resolve): float
+    {
+        try {
+            return (float) $resolve();
+        } catch (\Throwable) {
+            return 0.0;
+        }
     }
 
     /**
-     * @param  class-string  $model
+     * @return Collection<string, mixed>
      */
+    private function safeKeyedRows(callable $resolve): Collection
+    {
+        try {
+            $rows = $resolve();
+
+            return $rows instanceof Collection ? $rows : collect($rows);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard series query failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
     /**
      * @param  class-string  $model
      * @param  callable(object): array<string, mixed>  $mapper
@@ -509,6 +932,100 @@ class DashboardMetricsService
             return $model::where('status', 'pending')->count();
         } catch (\Throwable) {
             return 0;
+        }
+    }
+
+    private function ageLabel(mixed $value): ?string
+    {
+        $date = $this->parseDate($value);
+        if (! $date) {
+            return null;
+        }
+
+        try {
+            return $date->diffForHumans();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function formatDate(mixed $value, string $format = 'd M Y'): string
+    {
+        $date = $this->parseDate($value);
+        if (! $date) {
+            return '';
+        }
+
+        try {
+            return $date->format($format);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    private function parseDate(mixed $value): ?Carbon
+    {
+        if ($value instanceof Carbon) {
+            return $value;
+        }
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function depositActionUrl(int $id): ?string
+    {
+        try {
+            if ($id > 0 && class_exists(ManualDepositApproveLink::class) && method_exists(ManualDepositApproveLink::class, 'url')) {
+                return $this->sameOriginSignedUrl(ManualDepositApproveLink::url($id))
+                    ?? $this->safeRoute('admin.deposits', ['status' => 'pending']);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard deposit action URL failed', ['error' => $e->getMessage()]);
+        }
+
+        return $this->safeRoute('admin.deposits', ['status' => 'pending']);
+    }
+
+    private function withdrawalActionUrl(int $id): ?string
+    {
+        try {
+            if ($id > 0 && class_exists(ManualWithdrawalMarkPaidLink::class) && method_exists(ManualWithdrawalMarkPaidLink::class, 'url')) {
+                return $this->sameOriginSignedUrl(ManualWithdrawalMarkPaidLink::url($id))
+                    ?? $this->safeRoute('admin.withdrawals', ['queue' => 'open']);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard withdrawal action URL failed', ['error' => $e->getMessage()]);
+        }
+
+        return $this->safeRoute('admin.withdrawals', ['queue' => 'open']);
+    }
+
+    private function sameOriginSignedUrl(string $absolute): ?string
+    {
+        $parts = parse_url($absolute);
+        if (! is_array($parts) || empty($parts['path'])) {
+            return null;
+        }
+
+        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
+
+        return $parts['path'].$query;
+    }
+
+    private function safeRoute(string $name, mixed $parameters = []): ?string
+    {
+        try {
+            return route($name, $parameters);
+        } catch (\Throwable) {
+            return null;
         }
     }
 
