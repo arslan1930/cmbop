@@ -96,7 +96,8 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('slb_cart_drawer_seen', $layout);
         $this->assertStringContainsString('slb_open_cart_on_load', $layout);
         $this->assertStringContainsString('catalogSyncInCartButtons', $layout);
-        $this->assertStringContainsString('opts.openCart || opts.bulk || (Number.isFinite(qty) && qty > 1) || firstAdd', $layout);
+        $this->assertStringContainsString('const cartWasEmpty = !Array.isArray(cart) || cart.length === 0', $layout);
+        $this->assertStringContainsString('opts.openCart || opts.bulk || (Number.isFinite(qty) && qty > 1) || cartWasEmpty', $layout);
         $this->assertStringContainsString("url: '{{ route(\"advertiser.cart.get\") }}'", $layout);
         $this->assertStringContainsString("url: '{{ route(\"advertiser.cart.save\") }}'", $layout);
         $this->assertStringContainsString("'Accept': 'application/json'", $layout);
