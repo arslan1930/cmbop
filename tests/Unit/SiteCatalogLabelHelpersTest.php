@@ -69,6 +69,7 @@ class SiteCatalogLabelHelpersTest extends TestCase
         $this->assertSame('de', $site->primaryCountryCode());
         $this->assertSame([], $site->homepagePlacementOptions());
         $this->assertSame([], $site->enabledSocialChannels());
-        $this->assertSame(['Marketing'], $site->nicheBadgeLabels());
+        $this->assertSame([], $site->safeJsonArray('categories'));
+        $this->assertSame([], $site->safeJsonArray('sensitive_prices'));
     }
 }
