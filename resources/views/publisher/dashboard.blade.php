@@ -225,10 +225,10 @@
         <div class="row g-3 mb-4 row-cols-1 row-cols-md-2 row-cols-xl-4" id="publisherAttentionQueues">
             @foreach($attentionQueues as $queue)
                 <div class="col">
-                    <a href="{{ $queue['href'] }}" class="pub-queue-tile">
+                    <a href="{{ $queue['href'] ?? route('publisher.tasks') }}" class="pub-queue-tile">
                         <div class="d-flex align-items-center gap-2 mb-1">
                             <span class="pub-queue-icon"><i class="fa {{ $queue['icon'] ?? 'fa-circle' }}"></i></span>
-                            <span class="pub-queue-label">{{ $queue['label'] }}</span>
+                            <span class="pub-queue-label">{{ $queue['label'] ?? 'Queue' }}</span>
                             <span class="pub-queue-count ms-auto">{{ (int) ($queue['count'] ?? 0) }}</span>
                         </div>
                         <div class="pub-queue-detail">{{ $queue['detail'] ?? '' }}</div>
@@ -471,11 +471,11 @@
                                             @endphp
                                             <tr>
                                                 <td>
-                                                    <strong>#{{ $task['order_number'] }}</strong>
+                                                    <strong>#{{ $task['order_number'] ?? $task['order_id'] ?? '—' }}</strong>
                                                     <div class="small text-muted">{{ $task['created_at_human'] ?? '' }}</div>
                                                 </td>
                                                 <td>
-                                                    <div>{{ $task['site_name'] }}</div>
+                                                    <div>{{ $task['site_name'] ?? 'Site' }}</div>
                                                     @if(!empty($task['site_url']))
                                                         <div class="small text-muted text-truncate recent-tasks-url">{{ $task['site_url'] }}</div>
                                                     @endif

@@ -256,6 +256,34 @@ class PublisherDashboardService
     }
 
     /**
+     * Last-resort HTML when the dashboard view or publisher layout still throws
+     * (Blade/layout SQLSTATE runs after a normal `return view()`).
+     */
+    public static function inertHtml(): string
+    {
+        $dashboard = '/publisher/dashboard';
+        $sites = '/publisher/websites';
+        $tasks = '/publisher/tasks';
+        try {
+            $dashboard = route('publisher.dashboard');
+            $sites = route('publisher.websites');
+            $tasks = route('publisher.tasks');
+        } catch (\Throwable) {
+            // Keep hardcoded publisher paths.
+        }
+
+        return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+            .'<meta name="viewport" content="width=device-width, initial-scale=1">'
+            .'<meta name="robots" content="noindex, nofollow">'
+            .'<title>Dashboard — SEOLinkBuildings</title></head><body>'
+            .'<p>We could not load your dashboard. Please refresh and try again.</p>'
+            .'<p><a href="'.e($dashboard).'">Refresh</a>'
+            .' · <a href="'.e($sites).'">My Sites</a>'
+            .' · <a href="'.e($tasks).'">Tasks</a></p>'
+            .'</body></html>';
+    }
+
+    /**
      * Last-resort statistics JSON: no DB, no schema, no container.
      *
      * @return array<string, mixed>
@@ -650,7 +678,13 @@ class PublisherDashboardService
             if (! $this->unreadChatReady()) {
                 return null;
             }
-            $row = $this->unreadChatQuery($userId)->orderByDesc('created_at')->first(['order_id']);
+            $query = $this->unreadChatQuery($userId);
+            if ($this->schemaHasColumn('order_chat_messages', 'created_at')) {
+                $query->orderByDesc('created_at');
+            } else {
+                $query->orderByDesc('id');
+            }
+            $row = $query->first(['order_id']);
 
             return $row ? (int) $row->order_id : null;
         } catch (\Throwable) {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Publisher\PublisherDashboardService;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class DashboardController extends Controller
 {
@@ -13,30 +14,27 @@ class DashboardController extends Controller
 
     /**
      * Display publisher dashboard (server-rendered summary + chart payloads).
+     *
+     * Blade/layout queries run after a normal `return view()`, so leftover
+     * SQLSTATE there would still 500. Render inside this method and fall back.
      */
     public function index()
     {
         try {
-            return view('publisher.dashboard', $this->dashboard->build(auth()->user()));
+            $payload = $this->dashboard->build(auth()->user());
         } catch (\Throwable $e) {
             report($e);
-            try {
-                session()->flash(
-                    'error',
-                    UserFacingError::message($e, 'We could not load your dashboard. Please refresh and try again.')
-                );
-            } catch (\Throwable $flash) {
-                report($flash);
-            }
+            $this->flashDashboardError($e);
 
             try {
-                return view('publisher.dashboard', $this->dashboard->emptyPayload());
+                $payload = $this->dashboard->emptyPayload();
             } catch (\Throwable $inner) {
                 report($inner);
-
-                return view('publisher.dashboard', PublisherDashboardService::inertPayload());
+                $payload = PublisherDashboardService::inertPayload();
             }
         }
+
+        return $this->dashboardResponse($payload);
     }
 
     /**
@@ -163,6 +161,41 @@ class DashboardController extends Controller
                     'values' => [0, 0, 0, 0, 0, 0],
                 ],
             ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function dashboardResponse(array $payload): Response
+    {
+        try {
+            return response()->make(view('publisher.dashboard', $payload)->render());
+        } catch (\Throwable $e) {
+            report($e);
+            $this->flashDashboardError($e);
+
+            try {
+                return response()->make(
+                    view('publisher.dashboard', PublisherDashboardService::inertPayload())->render()
+                );
+            } catch (\Throwable $inner) {
+                report($inner);
+
+                return response()->make(PublisherDashboardService::inertHtml(), 200);
+            }
+        }
+    }
+
+    private function flashDashboardError(\Throwable $e): void
+    {
+        try {
+            session()->flash(
+                'error',
+                UserFacingError::message($e, 'We could not load your dashboard. Please refresh and try again.')
+            );
+        } catch (\Throwable $flash) {
+            report($flash);
         }
     }
 }

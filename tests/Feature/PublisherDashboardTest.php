@@ -15,6 +15,7 @@ use App\Services\Publisher\PublisherDashboardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\View;
 use Tests\TestCase;
 
 class PublisherDashboardTest extends TestCase
@@ -1458,6 +1459,22 @@ class PublisherDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('Add your first website')
             ->assertDontSee('SQLSTATE');
+    }
+
+    public function test_dashboard_html_stays_ok_when_view_render_throws(): void
+    {
+        $publisher = $this->publisherWithWallet();
+
+        View::composer('publisher.layouts.app', function () {
+            throw new \RuntimeException('SQLSTATE[HY000]: blade leftover boom');
+        });
+
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE')
+            ->assertSee('We could not load your dashboard')
+            ->assertSee('Refresh');
     }
 
     public function test_dashboard_json_stays_ok_when_empty_statistics_also_throw(): void
