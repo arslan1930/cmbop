@@ -370,6 +370,21 @@
   font-weight: 600;
 }
 
+.cart-item-article-empty a.cart-item-upload-cta,
+.cart-item-article-empty a.btn {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+  color: #fff;
+}
+
+.cart-item-article-empty a.cart-item-upload-cta:hover,
+.cart-item-article-empty a.btn:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
 .cart-item-language-note {
   margin-top: .35rem;
   font-size: .72rem;
