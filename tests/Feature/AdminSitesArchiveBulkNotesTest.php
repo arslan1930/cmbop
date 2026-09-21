@@ -280,7 +280,58 @@ class AdminSitesArchiveBulkNotesTest extends TestCase
             ->assertOk()
             ->assertSee('archived', false)
             ->assertSee('js-site-note', false)
-            ->assertSee('js-site-nudge', false);
+            ->assertSee('js-site-nudge', false)
+            ->assertDontSee('data-bulk-action="verify"', false);
+    }
+
+    public function test_bulk_verify_is_rejected_and_activate_does_not_stamp_verified(): void
+    {
+        Mail::fake();
+        $live = $this->makeSite([
+            'site_name' => 'Already Live Unverified',
+            'domain' => 'live-unverified-bulk.example',
+            'site_url' => 'https://live-unverified-bulk.example',
+            'verified' => false,
+            'active' => true,
+            'onboarding_status' => null,
+        ]);
+        $draft = $this->makeSite([
+            'site_name' => 'Draft Ready To Go Live',
+            'domain' => 'draft-ready-golive.example',
+            'site_url' => 'https://draft-ready-golive.example',
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.bulk'), [
+                'ids' => [$live->id, $draft->id],
+                'action' => 'verify',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertFalse((bool) $live->fresh()->verified);
+        $this->assertFalse((bool) $draft->fresh()->verified);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.active', $draft->id), ['active' => 1])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('active', true)
+            ->assertJsonPath('verified', false);
+
+        $this->assertTrue((bool) $draft->fresh()->active);
+        $this->assertFalse((bool) $draft->fresh()->verified);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.verify', $draft->id), ['verified' => 1])
+            ->assertOk()
+            ->assertJsonPath('verified', true);
+
+        $this->assertTrue((bool) $draft->fresh()->verified);
+        $this->assertTrue((bool) $draft->fresh()->active);
     }
 
     public function test_archived_search_finds_archived_only_with_filter(): void

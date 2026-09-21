@@ -210,7 +210,9 @@ class SiteFileVerificationService
     }
 
     /**
-     * Recheck pending (unverified) sites that already have a verify_token.
+     * Recheck unverified drafts that already have a verify_token.
+     * Live (active) listings are skipped — the Verified badge is an admin
+     * per-site choice once a site is in the catalog.
      *
      * @return array{checked: int, verified: int}
      */
@@ -221,6 +223,9 @@ class SiteFileVerificationService
 
         $sites = Site::query()
             ->where('verified', false)
+            ->where(function ($q) {
+                $q->where('active', 0)->orWhereNull('active');
+            })
             ->whereNotNull('verify_token')
             ->where(function ($q) {
                 $q->whereNull('onboarding_status')

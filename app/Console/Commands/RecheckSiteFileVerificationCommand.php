@@ -9,7 +9,7 @@ class RecheckSiteFileVerificationCommand extends Command
 {
     protected $signature = 'sites:recheck-file-verification {--limit=100 : Max pending sites to recheck}';
 
-    protected $description = 'Auto-check pending publisher verification files and verify matching sites';
+    protected $description = 'Auto-check pending (not live) publisher verification files and verify matching drafts';
 
     public function handle(SiteFileVerificationService $verification): int
     {

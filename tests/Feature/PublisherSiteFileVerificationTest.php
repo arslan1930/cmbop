@@ -479,6 +479,25 @@ class PublisherSiteFileVerificationTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_background_recheck_skips_active_catalog_listings(): void
+    {
+        Mail::fake();
+        $site = $this->makeSite([
+            'active' => true,
+            'verify_token' => 'slb-verify-abcdefghijklmnopqrstuvwx',
+            'verify_token_created_at' => now(),
+        ]);
+
+        Http::fake([
+            '*' => Http::response('slb-verify-abcdefghijklmnopqrstuvwx', 200),
+        ]);
+
+        Artisan::call('sites:recheck-file-verification', ['--limit' => 50]);
+
+        $this->assertFalse((bool) $site->fresh()->verified);
+        Http::assertNothingSent();
+    }
+
     public function test_my_sites_page_includes_verification_dialog_hooks(): void
     {
         $page = $this->actingAs($this->publisher)->get(route('publisher.websites'));

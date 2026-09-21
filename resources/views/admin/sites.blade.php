@@ -258,9 +258,6 @@
                 <input class="form-check-input js-site-bulk-all" type="checkbox" id="flatBulkAll">
                 <label class="form-check-label small" for="flatBulkAll">Select page</label>
             </div>
-            @if(auth()->user()?->isAdmin() && empty($archivedFilterActive) && empty($waitingOnPublisherFilterActive))
-                <button type="button" class="btn btn-sm btn-outline-success js-site-bulk-action" data-bulk-action="verify">Verify</button>
-            @endif
             @if(auth()->user()?->canActivateSites() && empty($archivedFilterActive) && empty($waitingOnPublisherFilterActive))
                 <button type="button" class="btn btn-sm btn-outline-secondary js-site-bulk-action" data-bulk-action="deactivate">Deactivate</button>
             @endif
@@ -560,9 +557,6 @@
                     <input class="form-check-input js-site-bulk-all" type="checkbox" id="publisherBulkAll">
                     <label class="form-check-label small" for="publisherBulkAll">Select page</label>
                 </div>
-                @if(auth()->user()?->isAdmin())
-                    <button type="button" class="btn btn-sm btn-outline-success js-site-bulk-action" data-bulk-action="verify">Verify</button>
-                @endif
                 @if(auth()->user()?->canActivateSites())
                     <button type="button" class="btn btn-sm btn-outline-secondary js-site-bulk-action" data-bulk-action="deactivate">Deactivate</button>
                 @endif
@@ -2438,7 +2432,6 @@ document.addEventListener('click', function (e) {
 
     const needsReason = action === 'archive' || action === 'deactivate';
     const labels = {
-        verify: 'Verify selected sites?',
         deactivate: 'Deactivate selected sites?',
         archive: 'Archive selected live listings?',
         restore: 'Restore selected archived listings?',
