@@ -366,9 +366,11 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('Homepage</span>', $html);
         $this->assertStringNotContainsString('Free homepage', $html);
         $this->assertStringContainsString('site-chip--social', $html);
-        $this->assertStringContainsString('Social: Facebook, Instagram', $html);
+        $this->assertStringContainsString('Facebook, Instagram', $html);
+        $this->assertStringNotContainsString('Social: Facebook', $html);
         $this->assertStringContainsString('data-catalog-open-section="social"', $html);
-        $this->assertStringContainsString('Homepage placement available in Details.', $html);
+        $this->assertStringContainsString('data-catalog-open-section="homepage"', $html);
+        $this->assertStringNotContainsString('Homepage placement available in Details.', $html);
     }
 
     public function test_free_homepage_chip_skips_paid_only_hint(): void

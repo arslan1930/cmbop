@@ -1,5 +1,5 @@
 {{-- Homepage / social discoverability chips for closed catalog rows.
-     Selection stays in Site Details; these only signal the offer exists.
+     Selection stays in Site Details; chips open that section.
      Expects $homepageOptions (array), $defaultHomepageDays (?int), $socialChannels (list),
      optional $socialChannelLabels, and optional $openDetailsId (site id). --}}
 @php
@@ -19,24 +19,32 @@
         ->filter()
         ->values();
     $socialChipLabel = $socialNames->isNotEmpty()
-        ? ('Social: '.$socialNames->implode(', '))
-        : 'Social promotions';
+        ? $socialNames->implode(', ')
+        : 'Social';
     $socialTitle = $showSocialPlacementChip
         ? ('Social promotions included: '.$socialNames->implode(', '))
         : '';
+    $homepageChipLabel = $placementFreeHomepageDays !== null ? 'Free homepage' : 'Homepage';
+    $homepageAria = $placementFreeHomepageDays !== null
+        ? ('Free homepage placement for up to '.$placementFreeHomepageDays.' day'.($placementFreeHomepageDays > 1 ? 's' : '').' — choose duration in Details')
+        : 'Optional homepage placement available — choose duration in Details';
 @endphp
 @if($showHomepagePlacementChip)
-    @if($placementFreeHomepageDays !== null)
-        <span class="site-chip site-chip--homepage site-chip--descriptor"
-              aria-label="Free homepage placement for up to {{ $placementFreeHomepageDays }} day{{ $placementFreeHomepageDays > 1 ? 's' : '' }} — choose duration in Details">
+    @if($placementOpenDetailsId !== '')
+        <button type="button"
+                class="site-chip site-chip--homepage site-chip--descriptor"
+                data-catalog-open-details="{{ $placementOpenDetailsId }}"
+                data-catalog-open-section="homepage"
+                data-no-tip
+                aria-label="{{ $homepageAria }}">
             <i class="fa-solid fa-house" aria-hidden="true"></i>
-            <span>Free homepage</span>
-        </span>
+            <span>{{ $homepageChipLabel }}</span>
+        </button>
     @else
         <span class="site-chip site-chip--homepage site-chip--descriptor"
-              aria-label="Optional homepage placement available — choose duration in Details">
+              aria-label="{{ $homepageAria }}">
             <i class="fa-solid fa-house" aria-hidden="true"></i>
-            <span>Homepage</span>
+            <span>{{ $homepageChipLabel }}</span>
         </span>
     @endif
 @endif

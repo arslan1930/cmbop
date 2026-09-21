@@ -3,15 +3,17 @@
         $bulkPageSize = 6;
         $bulkDealPages = $bulkDeals->values()->chunk($bulkPageSize);
         $bulkPageCount = max(1, $bulkDealPages->count());
+        $bulkStartOpen = request('bulk_deals') == '1' || request('bulk_deals') === 1;
     @endphp
     {{-- Paged batches of 6 with a smooth R→L slide between pages (translateX).
          Autoplay advances slowly; hover/focus pauses. Search beside Hide.
          One section only — under Spendable (never duplicated).
          First page is server-rendered so the rail does not squash all cards
          into one flex row before catalog.js pages them. --}}
-    <section class="card border-0 shadow-sm mb-3 catalog-bulk-section"
+    <section class="card border-0 shadow-sm mb-3 catalog-bulk-section{{ $bulkStartOpen ? '' : ' is-collapsed' }}"
              data-bulk-rail
              data-bulk-page-size="6"
+             data-bulk-start="{{ $bulkStartOpen ? 'open' : 'collapsed' }}"
              aria-labelledby="bulkDealsHeading">
         <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div class="min-w-0">
@@ -48,9 +50,9 @@
                 <button type="button"
                         class="btn btn-sm btn-link catalog-bulk-toggle"
                         data-bulk-toggle
-                        aria-expanded="true"
+                        aria-expanded="{{ $bulkStartOpen ? 'true' : 'false' }}"
                         aria-controls="bulkDealsBody">
-                    <span data-bulk-toggle-label>Hide</span>
+                    <span data-bulk-toggle-label>{{ $bulkStartOpen ? 'Hide' : 'Show' }}</span>
                 </button>
             </div>
         </div>

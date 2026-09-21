@@ -477,11 +477,18 @@ function destroyBulkDealRail() {
 }
 
 function bulkRailReadCollapsed() {
-    try {
-        return window.localStorage.getItem(BULK_RAIL_COLLAPSED_KEY) === '1';
-    } catch (err) {
-        // Private mode / blocked storage: the section simply starts open.
+    const section = document.querySelector('[data-bulk-rail]');
+    if (section && section.getAttribute('data-bulk-start') === 'open') {
         return false;
+    }
+    try {
+        const stored = window.localStorage.getItem(BULK_RAIL_COLLAPSED_KEY);
+        if (stored === '1') return true;
+        if (stored === '0') return false;
+        return true;
+    } catch (err) {
+        // Private mode / blocked storage: start collapsed like a first visit.
+        return true;
     }
 }
 
@@ -2914,6 +2921,7 @@ const CatalogLive = (function () {
         syncFilterChips(params);
         syncMoreFiltersBadge(params);
         syncTagQuick(params);
+        syncFavoritesQuick(params);
         syncSuggestButtons(params);
         if (typeof updateButtonStates === 'function') updateButtonStates();
         if (typeof syncDefaultHomepagePrices === 'function') syncDefaultHomepagePrices();
@@ -2984,6 +2992,7 @@ const CatalogLive = (function () {
             syncFilterChips(params);
             syncMoreFiltersBadge(params);
             syncTagQuick(params);
+            syncFavoritesQuick(params);
             syncSuggestButtons(params);
             return Promise.resolve();
         }
@@ -3282,14 +3291,25 @@ window.scheduleCatalogFilterLive = scheduleCatalogFilterLive;
 
     initCatalogCategoryToggle();
     initCatalogTagQuick();
+    initCatalogFavoritesQuick();
 })();
 
 function syncTagQuick(params) {
     const current = params && params.get
         ? (params.get('tag') || '')
         : ((document.getElementById('catalogTagFilter') || {}).value || '');
-    document.querySelectorAll('.catalog-tag-quick__btn').forEach(function (btn) {
+    document.querySelectorAll('.catalog-tag-quick [data-catalog-tag]').forEach(function (btn) {
         const on = (btn.getAttribute('data-catalog-tag') || '') === current;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+}
+
+function syncFavoritesQuick(params) {
+    const on = params && params.get
+        ? params.get('favorites_filter') === '1'
+        : ((document.querySelector('#filterForm select[name="favorites_filter"]') || {}).value === '1');
+    document.querySelectorAll('[data-catalog-favorites]').forEach(function (btn) {
         btn.classList.toggle('is-active', on);
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
@@ -3308,6 +3328,19 @@ function initCatalogTagQuick() {
             select.dispatchEvent(new Event('change', { bubbles: true }));
         }
         syncTagQuick({ get: function () { return tag; } });
+    });
+}
+
+function initCatalogFavoritesQuick() {
+    const btn = document.querySelector('[data-catalog-favorites]');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        const select = document.querySelector('#filterForm select[name="favorites_filter"]');
+        if (!select) return;
+        const nextOn = select.value !== '1';
+        select.value = nextOn ? '1' : '';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        syncFavoritesQuick({ get: function (key) { return key === 'favorites_filter' && nextOn ? '1' : ''; } });
     });
 }
 
@@ -3782,6 +3815,18 @@ function catalogRoundMoney(value) {
 function catalogVisibleFirst(nodes) {
     const list = Array.prototype.slice.call(nodes);
     return list.find(function (el) { return el.offsetParent !== null; }) || list[0] || null;
+}
+
+function markCatalogSiteInCart(siteId) {
+    const id = String(siteId);
+    document.querySelectorAll('.buy-now[data-id="' + id + '"]').forEach(function (buy) {
+        if (buy.dataset.bulkHint === '1' || buy.hasAttribute('data-bulk-hint')) return;
+        buy.classList.add('is-in-cart');
+        buy.dataset.inCart = '1';
+        buy.innerHTML = '<i class="fa-solid fa-cart-shopping" aria-hidden="true"></i> <span>In cart</span>';
+        const name = buy.dataset.name || 'this site';
+        buy.setAttribute('aria-label', 'Open cart — ' + name + ' is already in your cart');
+    });
 }
 
 /**
@@ -4269,7 +4314,8 @@ function toggleCardDetails(toggle, opts) {
     }
 
     if (opts && opts.scrollTo && !panel.hidden) {
-        const el = panel.querySelector(opts.scrollTo);
+        const article = panel.closest('article');
+        const el = ((article && article.querySelector(opts.scrollTo)) || panel.querySelector(opts.scrollTo));
         if (el && typeof el.scrollIntoView === 'function') {
             el.scrollIntoView({ block: 'nearest' });
         }
@@ -4891,6 +4937,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        if ((button.classList.contains('is-in-cart') || button.dataset.inCart === '1')
+            && button.dataset.bulkHint !== '1'
+            && !button.hasAttribute('data-bulk-hint')) {
+            if (typeof window.openCart === 'function') {
+                window.openCart();
+            }
+            return;
+        }
+
         if (button.closest('[data-own-listing="1"]')
             || (typeof window.catalogIsOwnListing === 'function' && window.catalogIsOwnListing(id))) {
             catalogToast(window.catalogOwnListingMessage || 'This is your listing — you can’t order it.', 'error');
@@ -4947,7 +5002,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Added!';
                 setTimeout(function () {
                     btn.classList.remove('is-added');
-                    btn.innerHTML = originalText;
+                    if (bulkHint) {
+                        btn.innerHTML = originalText;
+                    } else {
+                        markCatalogSiteInCart(id);
+                    }
                     syncSensitiveSelectionUi(id);
                 }, 1400);
             })

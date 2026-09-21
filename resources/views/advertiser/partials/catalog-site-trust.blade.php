@@ -37,7 +37,18 @@
     } catch (\Throwable $e) {
         report($e);
     }
+    $trustVariant = ($variant ?? 'details') === 'chip' ? 'chip' : 'details';
 @endphp
+@if($trustVariant === 'chip')
+    @if($showStars)
+        <span class="site-trust-chip"
+              data-site-id="{{ $site->id }}"
+              title="{{ number_format($avg, 1) }} out of 5 from {{ $count }} {{ $count === 1 ? 'rating' : 'ratings' }} — full trust in Details">
+            <i class="fa-solid fa-star" aria-hidden="true"></i>
+            <span>{{ number_format($avg, 1) }}</span>
+        </span>
+    @endif
+@else
 <div class="site-trust-compact {{ $compactClass ?? 'mt-2' }}"
      data-site-id="{{ $site->id }}"
      role="group"
@@ -82,3 +93,4 @@
         </div>
     @endif
 </div>
+@endif

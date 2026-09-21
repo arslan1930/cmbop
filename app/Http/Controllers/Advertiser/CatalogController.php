@@ -422,6 +422,15 @@ class CatalogController extends Controller
             report($e);
         }
 
+        $cart = [];
+        try {
+            $sessionCart = session()->get('cart', []);
+            $cart = is_array($sessionCart) ? $sessionCart : [];
+        } catch (\Throwable $e) {
+            report($e);
+            $cart = [];
+        }
+
         return response()
             ->view('advertiser.partials.catalog-results', [
                 'sites' => $listing['sites'],
@@ -430,6 +439,7 @@ class CatalogController extends Controller
                 'currentUser' => $currentUser,
                 'urlVisibility' => $urlVisibility,
                 'inventoryFrom' => $listing['inventoryFrom'] ?? null,
+                'cart' => $cart,
             ])
             ->header('Cache-Control', 'no-store, private');
     }

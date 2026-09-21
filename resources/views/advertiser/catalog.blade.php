@@ -89,7 +89,7 @@
         @include('advertiser.partials.ordering-path', [
             'step' => 2,
             'title' => 'Catalog · Publishers',
-            'subtitle' => 'Browse publisher listings and add sites to your cart. Keep browsing with items in your cart — finish payment when ready. Prefer steps? Use Guided.',
+            'subtitle' => 'Browse publisher listings and add sites to your cart. Prefer steps? Use Guided.',
             'linkAll' => true,
             'contentRoute' => route('advertiser.content-library'),
             'actions' => '<button type="button" class="catalog-plain-action" onclick="openCart()"><i class="fa fa-shopping-cart" aria-hidden="true"></i> Open cart</button>'
@@ -98,10 +98,9 @@
     @endif
 
     @if(($approvedArticleCount ?? 0) === 0 && empty($orderingSubmission))
-        <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 catalog-article-banner py-2">
             <div class="small mb-0">
-                Each website needs its own <strong>approved</strong> article. You can still add publishers —
-                readiness chips show what’s missing, and the cart checklist walks you through assignment.
+                Each listing needs its own <strong>approved</strong> article. You can still add publishers — the cart checklist covers assignment.
             </div>
             <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-upload">
                 <i class="fa fa-upload me-1" aria-hidden="true"></i> Upload article
@@ -480,16 +479,26 @@
                         </div>
                     </div>
 
-                    <div class="catalog-tag-quick mt-2" role="group" aria-label="Listing tag">
-                        <span class="small text-muted me-1">Tag</span>
-                        @foreach(\App\Support\SiteTag::catalogFilterOptions() as $value => $label)
+                    <div class="catalog-quick-filters mt-2 d-flex flex-wrap align-items-center gap-2">
+                        <div class="catalog-tag-quick" role="group" aria-label="Listing tag">
+                            <span class="small text-muted me-1">Tag</span>
+                            @foreach(\App\Support\SiteTag::catalogFilterOptions() as $value => $label)
+                                <button type="button"
+                                        class="catalog-tag-quick__btn{{ ($catalogTagFilter === $value || ($value === '' && $catalogTagFilter === null)) ? ' is-active' : '' }}"
+                                        data-catalog-tag="{{ $value }}"
+                                        aria-pressed="{{ ($catalogTagFilter === $value || ($value === '' && $catalogTagFilter === null)) ? 'true' : 'false' }}">
+                                    {{ $label }}
+                                </button>
+                            @endforeach
+                        </div>
+                        <div class="catalog-fav-quick" role="group" aria-label="Favorites">
                             <button type="button"
-                                    class="catalog-tag-quick__btn{{ ($catalogTagFilter === $value || ($value === '' && $catalogTagFilter === null)) ? ' is-active' : '' }}"
-                                    data-catalog-tag="{{ $value }}"
-                                    aria-pressed="{{ ($catalogTagFilter === $value || ($value === '' && $catalogTagFilter === null)) ? 'true' : 'false' }}">
-                                {{ $label }}
+                                    class="catalog-tag-quick__btn{{ request('favorites_filter') == '1' ? ' is-active' : '' }}"
+                                    data-catalog-favorites="1"
+                                    aria-pressed="{{ request('favorites_filter') == '1' ? 'true' : 'false' }}">
+                                <i class="fa-regular fa-heart me-1" aria-hidden="true"></i> Favorites
                             </button>
-                        @endforeach
+                        </div>
                     </div>
 
                     <!-- More filters drawer (teal mist theme) -->
@@ -676,6 +685,10 @@
                 </div>
                 <div id="catalogLiveStatus" class="visually-hidden" aria-live="polite" aria-atomic="true">{{ $catalogResultsCopy['announce'] }}</div>
                 <div class="d-flex flex-wrap align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-success btn-suggest-website"
+                            data-search="{{ $catalogSearchText }}">
+                        <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
+                    </button>
                     <label for="catalogPerPage" class="small text-muted mb-0">Per page</label>
                     <select id="catalogPerPage"
                             name="per_page"
@@ -702,16 +715,6 @@
                         <option value="rating_desc" @selected($sortValue === 'rating_desc')>Rating (high → low)</option>
                     </select>
                 </div>
-            </div>
-
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <p class="small text-muted mb-0">
-                    Searching for a site that isn’t listed yet?
-                </p>
-                <button type="button" class="btn btn-sm btn-outline-success btn-suggest-website"
-                        data-search="{{ $catalogSearchText }}">
-                    <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
-                </button>
             </div>
 
 

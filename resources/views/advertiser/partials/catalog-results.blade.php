@@ -56,6 +56,23 @@
     $favorites = $favorites ?? [];
     $blacklist = $blacklist ?? [];
     $inventoryFrom = $inventoryFrom ?? null;
+    $cartSiteIds = [];
+    try {
+        $catalogCartLines = is_array($cart ?? null) ? $cart : session('cart', []);
+        if (! is_array($catalogCartLines)) {
+            $catalogCartLines = [];
+        }
+        foreach ($catalogCartLines as $line) {
+            $cid = (int) (is_array($line) ? ($line['id'] ?? 0) : 0);
+            if ($cid > 0) {
+                $cartSiteIds[$cid] = $cid;
+            }
+        }
+        $cartSiteIds = array_values($cartSiteIds);
+    } catch (\Throwable $e) {
+        report($e);
+        $cartSiteIds = [];
+    }
 @endphp
             <div class="card border-0 shadow-sm catalog-results-card" id="catalogResults" aria-live="polite"
                  tabindex="-1"
@@ -256,7 +273,8 @@
                              row with the rooted URL so the name stays visible. -->
                         <div class="catalog-site-title-row">
                             <span class="text-dark catalog-site-name"
-                                  data-site-name-label>
+                                  data-site-name-label
+                                  title="{{ $displayName }}">
                                 {{ $displayName }}
                             </span>
 
@@ -345,6 +363,7 @@
                                @endif>{{ $displayRootedUrl }}</a>
                             <span class="catalog-site-status-row">
                                 @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
+                                @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                             </span>
                         </div>
 
@@ -356,7 +375,7 @@
                             $dealSaleChipPct = null;
                             $dealBulkChipPct = null;
                             $showPlacementChips = $homepageOptions !== [] || $socialChannels !== [];
-                            $showPaidHomepageHint = $homepageOptions !== [] && $defaultHomepageDays === null;
+                            $inCart = in_array((int) $site->id, $cartSiteIds, true);
                             try {
                                 // Better-of on pack qty: hide bulk chip when custom is ≥ bulk
                                 // (bulk never wins). If bulk is stronger, keep both — custom
@@ -510,7 +529,7 @@
                     @endphp
                     <div class="catalog-country">
                         <span class="catalog-country__flag" aria-hidden="true">{!! getCountryFlag($countryCode) !!}</span>
-                        <span class="catalog-country__name text-muted small">{{ fullCountry($countryCode) }}</span>
+                        <span class="catalog-country__name text-muted small" title="{{ fullCountry($countryCode) }}">{{ fullCountry($countryCode) }}</span>
                     </div>
                 </td>
 
@@ -523,22 +542,24 @@
                             'align' => 'center',
                         ])
 
-                        @if(! empty($showPaidHomepageHint))
-                            <p class="small text-muted mb-1 catalog-homepage-hint">Homepage placement available in Details.</p>
-                        @endif
-
                         @if($isOwnedByMe)
                             @include('advertiser.partials.catalog-own-listing', ['align' => 'center'])
                         @else
-                        <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
+                        <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2{{ $inCart ? ' is-in-cart' : '' }}"
                                 data-id="{{ $site->id }}"
                                 data-base-price="{{ $catalogListPrice }}"
                                 data-publisher-price="{{ $catalogPublisherPrice }}"
                                 data-discount-percent="{{ $catalogSalePct ?? 0 }}"
                                 data-name="{{ $displayName }}"
-                                aria-label="Buy placement for {{ $identityLabel }}">
-                            <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
-                            <span>Add to cart</span>
+                                @if($inCart) data-in-cart="1" @endif
+                                aria-label="{{ $inCart ? 'Open cart — '.$identityLabel.' is already in your cart' : 'Buy placement for '.$identityLabel }}">
+                            @if($inCart)
+                                <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
+                                <span>In cart</span>
+                            @else
+                                <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
+                                <span>Add to cart</span>
+                            @endif
                         </button>
                         @endif
 
@@ -564,19 +585,6 @@
                                     <i class="fa-solid fa-ban" aria-hidden="true"></i>
                                 </button>
                             </div>
-
-                        @unless($isOwnedByMe)
-                            <button type="button"
-                                    class="btn-claim-site"
-                                    data-site-id="{{ $site->id }}"
-                                    data-site-name="{{ $displayName }}"
-                                    data-site-url="{{ $canSeeUrl ? $site->site_url : '' }}"
-                                    data-glass-tip-placement="left"
-                                    title="Is this your site? Claim it if you own it"
-                                    aria-label="Claim website {{ $identityLabel }}">
-                                Is this your site?
-                            </button>
-                        @endunless
                         </div>
                     </div>
                 </td>
@@ -595,7 +603,7 @@
                 <div class="row align-items-start g-3 catalog-expand-grid">
 
                     @if($previewUrl)
-                    <div class="col-12 catalog-expand-preview">
+                    <div class="col-lg-4 col-md-5 catalog-expand-preview">
                         <p class="small text-muted mb-2 catalog-details-heading">
                             <strong>Homepage preview</strong>
                             <x-glass-tip
@@ -790,6 +798,7 @@
                         @endif
 
                         @if($homepageOptions !== [])
+                        <div data-catalog-section="homepage">
                         <p class="mb-1 catalog-details-heading">
                             <strong>Homepage promotions</strong>
                             <x-glass-tip
@@ -842,6 +851,7 @@
                                     </div>
                                 @endforeach
                             </div>
+                        </div>
                         @endif
 
                         @if($socialChannels !== [])
@@ -951,6 +961,14 @@
                                 {{ $site->publicationDurationLabel() }}
                             </span>
                         @endif
+
+                        @include('advertiser.partials.catalog-claim', [
+                            'site' => $site,
+                            'displayName' => $displayName,
+                            'identityLabel' => $identityLabel,
+                            'canSeeUrl' => $canSeeUrl,
+                            'isOwnedByMe' => $isOwnedByMe,
+                        ])
                     </div>
 
                 </div>
@@ -1053,6 +1071,7 @@
             $catalogSalePrice = $viewPrices['sale'];
             $articlePay = $catalogSalePrice ?? $catalogListPrice;
             $showAdvertiserPay = ! $isOwnedByMe;
+            $inCart = in_array((int) $site->id, $cartSiteIds, true);
         @endphp
         <article class="catalog-mobile-card {{ $isBlacklisted ? 'is-blacklisted' : '' }}"
                  data-id="{{ $site->id }}"
@@ -1071,8 +1090,9 @@
                     ])
 
                     <div class="catalog-mobile-card__main">
-                    <div class="fw-semibold text-dark text-truncate catalog-site-name"
-                         data-site-name-label>{{ $displayName }}</div>
+                    <div class="fw-semibold text-dark catalog-site-name"
+                         data-site-name-label
+                         title="{{ $displayName }}">{{ $displayName }}</div>
                     {{-- Visit sits on the rooted URL, not next to the name. --}}
                     <a href="{{ route('advertiser.catalog.visit', $site->id) }}"
                        target="_blank"
@@ -1093,6 +1113,7 @@
                             <span class="site-chip site-chip--verified site-chip--status"><span class="catalog-verified-lottie" data-lottie="{{ asset('assets/vendor/lottie/verified.json') }}" aria-hidden="true"></span><span class="visually-hidden">Verified</span></span>
                         @endif
                         @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
+                        @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                         @if($isNew)
                             <span class="site-badge-new" aria-label="New listing">NEW</span>
                         @endif
@@ -1202,7 +1223,7 @@
                 </div>
                 <div>
                     <span class="text-muted catalog-mobile-metrics__label">Country</span>
-                    <strong>{!! getCountryFlag($mobileCountry) !!} {{ $mobileCountryName }}</strong>
+                    <strong class="catalog-country__name" title="{{ $mobileCountryName }}">{!! getCountryFlag($mobileCountry) !!} {{ $mobileCountryName }}</strong>
                 </div>
             </div>
             @if(!empty($mobileSensitivePrices))
@@ -1289,6 +1310,7 @@
             @if($homepageOptions !== [])
                 <div class="homepage-placement-group mt-3"
                      data-site-id="{{ $site->id }}"
+                     data-catalog-section="homepage"
                      role="radiogroup"
                      aria-label="Homepage placement duration">
                     <div class="small fw-semibold mb-1 catalog-details-heading">
@@ -1354,15 +1376,21 @@
                 @if($isOwnedByMe)
                     @include('advertiser.partials.catalog-own-listing', ['align' => 'start'])
                 @else
-                <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2"
+                <button type="button" class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2{{ $inCart ? ' is-in-cart' : '' }}"
                         data-id="{{ $site->id }}"
                         data-base-price="{{ $catalogListPrice }}"
                         data-publisher-price="{{ $catalogPublisherPrice }}"
                         data-discount-percent="{{ $catalogSalePct ?? 0 }}"
                         data-name="{{ $displayName }}"
-                        aria-label="Buy placement for {{ $identityLabel }}">
-                    <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
-                    <span>Add to cart</span>
+                        @if($inCart) data-in-cart="1" @endif
+                        aria-label="{{ $inCart ? 'Open cart — '.$identityLabel.' is already in your cart' : 'Buy placement for '.$identityLabel }}">
+                    @if($inCart)
+                        <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
+                        <span>In cart</span>
+                    @else
+                        <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
+                        <span>Add to cart</span>
+                    @endif
                 </button>
                 @endif
 
@@ -1399,18 +1427,6 @@
                             <i class="fa-solid fa-ban" aria-hidden="true"></i>
                         </button>
                     </div>
-                    @unless($isOwnedByMe)
-                        <button type="button"
-                                class="btn-claim-site"
-                                data-site-id="{{ $site->id }}"
-                                data-site-name="{{ $displayName }}"
-                                data-site-url="{{ $canSeeUrl ? $site->site_url : '' }}"
-                                data-glass-tip-placement="left"
-                                title="Is this your site? Claim it if you own it"
-                                aria-label="Claim website {{ $identityLabel }}">
-                            Is this your site?
-                        </button>
-                    @endunless
                 </div>
             </div>
 
@@ -1624,6 +1640,20 @@
                     </dd>
                 </div>
                 @endif
+                @unless($isOwnedByMe)
+                <div class="catalog-card-details__row">
+                    <dt>Claim listing</dt>
+                    <dd>
+                        @include('advertiser.partials.catalog-claim', [
+                            'site' => $site,
+                            'displayName' => $displayName,
+                            'identityLabel' => $identityLabel,
+                            'canSeeUrl' => $canSeeUrl,
+                            'isOwnedByMe' => $isOwnedByMe,
+                        ])
+                    </dd>
+                </div>
+                @endunless
             </dl>
         </article>
     @empty

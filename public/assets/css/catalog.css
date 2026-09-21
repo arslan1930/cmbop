@@ -1278,6 +1278,12 @@ body:has(.catalog-page) {
     border-color: var(--brand-primary, #1a585e);
 }
 
+.catalog-page .buy-now.is-in-cart {
+    background: #fff;
+    color: var(--brand-primary, #1a585e);
+    border-color: var(--brand-primary, #1a585e);
+}
+
 #toggleCart.cart-pop {
     animation: catalog-cart-pop 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -1998,6 +2004,29 @@ body:has(.catalog-page) {
     padding: 0.15rem 0.1rem;
 }
 
+.catalog-results-bar .btn-suggest-website {
+    white-space: nowrap;
+}
+
+.catalog-article-banner {
+    margin-bottom: 0.75rem;
+}
+
+.site-trust-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #b45309;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.site-trust-chip i {
+    font-size: 10px;
+}
+
 .catalog-empty-state {
     max-width: 420px;
     padding: 0.5rem 1rem 1rem;
@@ -2144,8 +2173,11 @@ body:has(.catalog-page) {
     font-size: 13.5px;
     color: var(--brand-ink, #0f172a);
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: 1.25;
+    white-space: normal;
     min-width: 0;
     /* Grow only when the cell is tight — never shove chips to the far right. */
     flex: 0 1 auto;
@@ -2232,7 +2264,7 @@ a.catalog-site-rooted-url.site-open-link::after {
 .catalog-site-title-row {
     display: flex;
     flex-wrap: nowrap;
-    align-items: center;
+    align-items: flex-start;
     justify-content: flex-start;
     gap: 4px;
     min-width: 0;

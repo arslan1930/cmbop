@@ -82,7 +82,7 @@ class CatalogHomepagePreviewTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Homepage preview', $html);
-        $this->assertStringContainsString('col-12 catalog-expand-preview', $html);
+        $this->assertStringContainsString('col-lg-4 col-md-5 catalog-expand-preview', $html);
         $this->assertStringContainsString('site-preview-zoom', $html);
         // Closed rows show a thumbnail tile; the dedicated preview column
         // classes stay unused so we never reintroduce a preview table column.
