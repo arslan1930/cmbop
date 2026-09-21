@@ -70,4 +70,17 @@ class UserMessagesTest extends TestCase
             UserMessages::get('this.key.does.not.exist')
         );
     }
+
+    public function test_user_message_helper_is_leftover_safe(): void
+    {
+        $this->assertTrue(function_exists('user_message'));
+        $this->assertSame(
+            UserMessages::get('login.invalid'),
+            user_message('login.invalid', 'Invalid email or password.')
+        );
+        $this->assertSame(
+            UserMessages::get('generic.retry'),
+            user_message('this.key.does.not.exist', UserMessages::get('generic.retry'))
+        );
+    }
 }

@@ -66,7 +66,9 @@ class ProfileController extends Controller
             return back()->with('error', UserFacingError::message($e, 'We could not change your password. Please try again.'));
         }
 
-        PasswordChangedMail::notify($user);
+        if (class_exists(PasswordChangedMail::class) && method_exists(PasswordChangedMail::class, 'notify')) {
+            PasswordChangedMail::notify($user);
+        }
 
         try {
             Auth::logoutOtherDevices($request->password);

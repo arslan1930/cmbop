@@ -181,12 +181,66 @@ class AuthLoginHardeningTest extends TestCase
             ->assertStatus(419)
             ->assertSee('This page expired', false)
             ->assertDontSee('SQLSTATE', false)
-            ->assertDontSee('vendor/', false);
+            ->assertDontSee('Stack trace', false)
+            ->assertDontSee('vendor/laravel', false);
 
         $this->get('/__hardening/429')
             ->assertStatus(429)
             ->assertSee('Too many attempts', false)
             ->assertDontSee('SQLSTATE', false)
-            ->assertDontSee('vendor/', false);
+            ->assertDontSee('Stack trace', false)
+            ->assertDontSee('vendor/laravel', false);
+    }
+
+    public function test_empty_login_returns_json_validation(): void
+    {
+        $this->postJson(route('login.post'), [])
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'validation')
+            ->assertJsonValidationErrors(['email', 'password']);
+    }
+
+    public function test_array_email_on_login_is_validation_not_a_500(): void
+    {
+        $this->postJson(route('login.post'), [
+            'email' => ['a@example.com'],
+            'password' => 'secret',
+        ])->assertStatus(422)
+            ->assertJsonPath('status', 'validation')
+            ->assertJsonValidationErrors('email');
+    }
+
+    public function test_empty_login_does_not_burn_the_attempt_budget(): void
+    {
+        for ($i = 0; $i < 6; $i++) {
+            $this->postJson(route('login.post'), [])
+                ->assertStatus(422)
+                ->assertJsonPath('status', 'validation');
+        }
+
+        $this->postJson(route('login.post'), [
+            'email' => 'nobody@example.com',
+            'password' => 'wrong-password',
+        ])->assertOk()->assertJsonPath('status', 'error');
+    }
+
+    public function test_json_csrf_mismatch_uses_everyday_language(): void
+    {
+        Route::middleware('web')->post('/__hardening/csrf-json', fn () => abort(419));
+
+        $this->postJson('/__hardening/csrf-json')
+            ->assertStatus(419)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('message', UserMessages::get('session.expired'));
+    }
+
+    public function test_login_resend_asks_for_json(): void
+    {
+        $markup = file_get_contents(resource_path('views/auth/login.blade.php'));
+        $resendPos = strpos($markup, "route('verification.resend");
+        $this->assertNotFalse($resendPos);
+        $resendBlock = substr($markup, $resendPos, 900);
+        $this->assertStringContainsString("'Accept': 'application/json'", $resendBlock);
+        $this->assertStringContainsString("credentials: 'same-origin'", $resendBlock);
     }
 }

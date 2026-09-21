@@ -150,4 +150,34 @@ class AuthPasswordResetHardeningTest extends TestCase
 
         Mail::assertNothingQueued();
     }
+
+    public function test_empty_forgot_password_returns_json_validation(): void
+    {
+        $this->postJson(route('password.email'), [])
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'validation')
+            ->assertJsonValidationErrors('email');
+    }
+
+    public function test_password_field_errors_sit_outside_input_groups(): void
+    {
+        foreach ([
+            resource_path('views/auth/login.blade.php'),
+            resource_path('views/auth/register.blade.php'),
+            resource_path('views/auth/reset-password.blade.php'),
+        ] as $path) {
+            $markup = file_get_contents($path);
+            $this->assertStringContainsString('id="passwordError"', $markup, basename($path));
+            $this->assertStringContainsString("classList.add('d-block')", $markup, basename($path));
+
+            preg_match_all('/<div class="input-group">.*?<\/div>/s', $markup, $groups);
+            foreach ($groups[0] as $group) {
+                $this->assertStringNotContainsString(
+                    'invalid-feedback',
+                    $group,
+                    basename($path).' must not nest invalid-feedback inside input-group'
+                );
+            }
+        }
+    }
 }
