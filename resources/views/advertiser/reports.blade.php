@@ -8,7 +8,7 @@
         <div class="col-md-12">
             <h2 class="mb-1 fw-semibold">Reports</h2>
             <p class="text-muted mb-0">
-                View your campaign performance, funds activity, and order history.
+                Wallet ledger and order history. Spend charts live under Spending.
             </p>
         </div>
     </div>

@@ -19,6 +19,7 @@
     $browseCatalogUrl = route('advertiser.catalog');
     $guidedFlowUrl = route('advertiser.wizard.start');
     $needsAction = (int) ($stats['needs_action'] ?? 0);
+    $needsActionOrders = $needsActionOrders ?? collect();
     $awaitingPayment = (int) ($stats['awaiting_payment'] ?? 0);
     $upcomingScheduledCount = (int) ($upcomingScheduledCount ?? 0);
     $primaryAction = (string) ($primaryAction ?? 'catalog');
@@ -425,6 +426,30 @@
             </div>
         </div>
     </div>
+
+    @if($needsActionOrders->isNotEmpty())
+        <div class="dash-panel mb-4 mx-1" id="dashNeedsYouQueue">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <h5 class="mb-0">Needs you</h5>
+                <a href="{{ route('advertiser.orders', ['status' => 'needs_action']) }}" class="small fw-semibold">Open all</a>
+            </div>
+            <div class="d-flex flex-column gap-2">
+                @foreach($needsActionOrders as $needOrder)
+                    @php
+                        $needItem = $needOrder->items->first();
+                        $needSite = $needItem->site_name ?? ($needItem->site_url ?? 'Placement');
+                    @endphp
+                    <a href="{{ route('advertiser.orders', ['status' => 'needs_action']) }}" class="next-action border-warning">
+                        <div>
+                            <div class="na-title">{{ $needOrder->order_number }} · {{ $needSite }}</div>
+                            <p class="na-desc mb-0">{{ $needOrder->status_label }} — {{ $needOrder->next_action }}</p>
+                        </div>
+                        <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
 
     <div class="row g-4 mb-4">
         <!-- Next actions + recommended -->

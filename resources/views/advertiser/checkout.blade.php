@@ -238,6 +238,56 @@
                         </div>
                     </div>
 
+                    @php
+                        $checkoutProjects = $checkoutProjects ?? collect();
+                        $checkoutSelectedProjectId = $checkoutSelectedProjectId ?? null;
+                        $checkoutSuggestedProjectId = $checkoutSuggestedProjectId ?? null;
+                        $checkoutDuplicateHosts = $checkoutDuplicateHosts ?? [];
+                    @endphp
+                    <div class="card border-0 shadow-sm mb-4" id="checkoutProjectCard">
+                        <div class="card-header bg-white fw-semibold">
+                            <i class="fa fa-folder-open me-2"></i> Assign to a project
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">
+                                Optional. Attach these orders to a client project so Projects counts stay accurate even if the article destination host differs.
+                            </p>
+                            <label class="form-label fw-semibold" for="checkoutProjectId">Project</label>
+                            <select name="project_id" id="checkoutProjectId" class="form-select">
+                                <option value="">No project</option>
+                                @foreach($checkoutProjects as $checkoutProject)
+                                    <option value="{{ $checkoutProject->id }}"
+                                        @selected((int) $checkoutSelectedProjectId === (int) $checkoutProject->id)>
+                                        {{ $checkoutProject->project_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if($checkoutProjects->isEmpty())
+                                <p class="small text-muted mt-2 mb-0">
+                                    No projects yet.
+                                    <a href="{{ route('advertiser.projects.index') }}">Create one</a>
+                                    to group placements by client site.
+                                </p>
+                            @elseif($checkoutSuggestedProjectId && (int) $checkoutSelectedProjectId === (int) $checkoutSuggestedProjectId)
+                                <p class="small text-muted mt-2 mb-0">Preselected from the article destination host.</p>
+                            @endif
+                            @if($checkoutDuplicateHosts !== [])
+                                <div class="alert alert-warning mt-3 mb-0" id="checkoutDuplicateHostWarning" role="status">
+                                    <div class="fw-semibold mb-1">You already have a placement on this destination</div>
+                                    <ul class="small mb-0 ps-3">
+                                        @foreach($checkoutDuplicateHosts as $dup)
+                                            <li>
+                                                {{ $dup['host'] }} · order {{ $dup['order_number'] }}
+                                                ({{ $dup['status'] }}@if(!empty($dup['project_name'])) · {{ $dup['project_name'] }}@endif)
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                    <p class="small mb-0 mt-2">You can still place this order if you want another link on the same site.</p>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
                     @if(!empty($schedulingEnabled))
                         @php
                             $scheduleMode = (($checkoutSchedule['mode'] ?? 'immediate') === 'scheduled') ? 'scheduled' : 'immediate';
@@ -1598,6 +1648,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 scheduled_date: schedule.scheduled_date || null,
                 scheduled_time: schedule.scheduled_time || null,
                 timezone: schedule.timezone || null,
+                project_id: (function () {
+                    const el = document.getElementById('checkoutProjectId');
+                    return el && el.value ? el.value : null;
+                })(),
                 payment_method_id: (function () {
                     const picked = document.querySelector('input[name="saved_card_choice"]:checked');
                     if (selectedMethod !== 'card') return null;

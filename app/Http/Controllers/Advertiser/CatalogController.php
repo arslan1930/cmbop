@@ -24,6 +24,7 @@ use App\Models\UserFavorite;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\Advertiser\AdvertiserOrderSearchQuery;
+use App\Services\Advertiser\AdvertiserProjectCheckout;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\CartPricingService;
 use App\Services\Catalog\CatalogCountryInventory;
@@ -2345,6 +2346,16 @@ class CatalogController extends Controller
         );
         session(['checkout_reference_code' => $checkoutReferenceCode]);
 
+        $checkoutProject = app(AdvertiserProjectCheckout::class)->checkoutContext(
+            (int) auth()->id(),
+            $request->input('project_id', session('checkout_project_id')),
+            $checkoutArticles
+        );
+        $checkoutProjects = $checkoutProject['projects'];
+        $checkoutSelectedProjectId = $checkoutProject['selected_project_id'];
+        $checkoutSuggestedProjectId = $checkoutProject['suggested_project_id'];
+        $checkoutDuplicateHosts = $checkoutProject['duplicate_hosts'];
+
         return view('advertiser.checkout', array_merge(compact(
             'cartItems',
             'deferredItems',
@@ -2365,6 +2376,10 @@ class CatalogController extends Controller
             'stripeConfigured',
             'paypalConfigured',
             'checkoutReferenceCode',
+            'checkoutProjects',
+            'checkoutSelectedProjectId',
+            'checkoutSuggestedProjectId',
+            'checkoutDuplicateHosts',
         ), $scheduleContext));
     }
 
@@ -2502,6 +2517,7 @@ class CatalogController extends Controller
             }
 
             $this->persistCheckoutScheduleSession($checkoutContent['schedule']);
+            $this->rememberCheckoutProject((int) $userId, $request->input('project_id'), $checkoutContent);
 
             // Do not cancel leftovers here. Stripe session create, saved-card
             // charge, and wallet attach can still fail; Pay again must survive
@@ -2643,6 +2659,7 @@ class CatalogController extends Controller
                 'lines' => $packageLines,
                 'payment_method' => 'paypal',
                 'paypal_order_id' => null,
+                'project_id' => $this->checkoutProjectId((int) $userId),
             ]);
 
             if ($bonusApplied > 0) {
@@ -3109,7 +3126,7 @@ class CatalogController extends Controller
                         'sensitive_type' => $orderItem['sensitive_type'],
                         'additional_price' => $orderItem['additional_price'],
                         'paid_at' => now(),
-                    ], $this->scheduleOrderFields($schedule))));
+                    ], $this->scheduleOrderFields($schedule), $this->checkoutProjectFields((int) $userId))));
                     $item = OrderItem::create($schema->filterExistingColumns(
                         'order_items',
                         $this->orderItemPayload($order->id, $site, $orderItem, $submission)
@@ -3197,6 +3214,7 @@ class CatalogController extends Controller
             'schedule' => $schedule,
             'lines' => $packageLines,
             'stripe_session_id' => OrderPaymentService::PENDING_STRIPE_SESSION_ID,
+            'project_id' => $this->checkoutProjectId((int) $userId),
         ]);
 
         if ($bonusApplied > 0) {
@@ -3801,7 +3819,7 @@ class CatalogController extends Controller
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
                     'paid_at' => now(),
-                ], $this->scheduleOrderFields($schedule))));
+                ], $this->scheduleOrderFields($schedule), $this->checkoutProjectFields((int) $userId))));
 
                 $item = OrderItem::create($schema->filterExistingColumns(
                     'order_items',
@@ -3933,7 +3951,7 @@ class CatalogController extends Controller
                     'status' => $this->initialOrderStatus($schedule),
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
-                ], $this->scheduleOrderFields($schedule)));
+                ], $this->scheduleOrderFields($schedule), $this->checkoutProjectFields((int) $userId)));
 
                 $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission));
                 $this->attachSubmissionToOrder($submission, $order, $item);
@@ -4963,7 +4981,7 @@ class CatalogController extends Controller
             }
 
             $query = AdvertiserOrderStatus::needsActionQuery($userId);
-            Project::constrainOrdersByHost($query, (string) $project->project_url);
+            app(AdvertiserProjectCheckout::class)->constrainOrdersToProject($query, $project, 'needs_you');
 
             return $query->count();
         } catch (\Throwable) {
@@ -4987,10 +5005,47 @@ class CatalogController extends Controller
         }
 
         $stage = strtolower(search_text($request->input('project_stage')));
-        Project::constrainOrdersByHost($query, (string) $project->project_url);
-        if (Project::isKnownStageFilter($stage)) {
-            Project::constrainOrdersByStage($query, $stage, (string) $project->project_url);
+        app(AdvertiserProjectCheckout::class)->constrainOrdersToProject(
+            $query,
+            $project,
+            Project::isKnownStageFilter($stage) ? $stage : null
+        );
+    }
+
+    /**
+     * Persist the checkout project so wallet, Stripe, and PayPal creates share it.
+     *
+     * @param  array{lines?: array<int, array{submission?: mixed}>}  $checkoutContent
+     */
+    private function rememberCheckoutProject(int $userId, mixed $raw, array $checkoutContent): ?int
+    {
+        $urls = [];
+        foreach ($checkoutContent['lines'] ?? [] as $line) {
+            $submission = $line['submission'] ?? null;
+            if (is_object($submission) && isset($submission->target_url)) {
+                $urls[] = (string) $submission->target_url;
+            }
         }
+
+        $id = app(AdvertiserProjectCheckout::class)->resolveId($userId, $raw, $urls);
+        session(['checkout_project_id' => $id]);
+
+        return $id;
+    }
+
+    private function checkoutProjectId(int $userId): ?int
+    {
+        return app(AdvertiserProjectCheckout::class)->resolveId($userId, session('checkout_project_id'));
+    }
+
+    /**
+     * @return array{project_id?: int}
+     */
+    private function checkoutProjectFields(int $userId): array
+    {
+        $id = $this->checkoutProjectId($userId);
+
+        return $id ? ['project_id' => $id] : [];
     }
 
     /**
@@ -5198,7 +5253,11 @@ class CatalogController extends Controller
             $loadItems = AdvertiserOrderStatus::itemsTableAvailable();
             $query = Order::where('user_id', $userId);
             if ($loadItems) {
-                $query->with(OrderItemDispute::tableAvailable() ? ['items.latestDispute'] : ['items']);
+                $with = OrderItemDispute::tableAvailable() ? ['items.latestDispute'] : ['items'];
+                if (Schema::hasColumn('orders', 'project_id') && Schema::hasTable('projects')) {
+                    $with[] = 'project:id,project_name';
+                }
+                $query->with($with);
             }
 
             $search = search_text($request->input('search'));
@@ -5934,6 +5993,12 @@ class CatalogController extends Controller
         $payload['policy_note'] = AdvertiserOrderDetails::policyNote($order);
         $payload['has_live_url'] = AdvertiserOrderDetails::hasLiveUrl($order);
         $payload['timeline_steps'] = AdvertiserOrderStatus::timelineSteps($order);
+        $payload['project_id'] = Schema::hasColumn('orders', 'project_id')
+            ? ($order->project_id ? (int) $order->project_id : null)
+            : null;
+        $payload['project_name'] = $order->relationLoaded('project')
+            ? ($order->project?->project_name)
+            : null;
 
         return $payload;
     }

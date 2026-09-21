@@ -43,6 +43,7 @@ class Order extends Model
         'schedule_reminder_sent_at',
         'sensitive_type',
         'additional_price',
+        'project_id',
     ];
 
     protected $casts = [
@@ -264,6 +265,11 @@ class Order extends Model
     public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
     }
 
     /**

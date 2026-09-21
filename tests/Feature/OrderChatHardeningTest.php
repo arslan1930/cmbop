@@ -332,7 +332,9 @@ class OrderChatHardeningTest extends TestCase
             ->getJson(route('chat.messages', $orphan->id))
             ->assertOk()
             ->assertJsonPath('can_send', true)
-            ->assertJsonPath('composer_note', 'This order is completed. You can still message support about it.')
+            ->assertJsonPath('composer_note', 'Placement details are missing for this order. You can still send a message.')
+            ->assertJsonPath('order_details.details_missing', true)
+            ->assertJsonPath('order_details.has_placement', false)
             ->json();
 
         $this->assertStringNotContainsString(

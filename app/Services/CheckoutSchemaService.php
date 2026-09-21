@@ -85,6 +85,8 @@ class CheckoutSchemaService
         $this->addColumn('orders', 'paypal_capture_id', 'varchar(255) NULL');
         $this->addColumn('orders', 'paypal_refund_id', 'varchar(255) NULL');
         $this->addNullableJsonColumn('orders', 'paypal_response');
+        $this->addColumn('orders', 'project_id', 'bigint unsigned NULL');
+        $this->addIndexIfMissing('orders', 'project_id');
         $this->addIndexIfMissing('orders', 'paypal_order_id');
         $this->addUniqueIfMissing('orders', 'paypal_capture_id');
         $this->addUniqueIfMissing('orders', 'paypal_refund_id');
