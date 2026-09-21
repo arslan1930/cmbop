@@ -608,7 +608,11 @@ class Site extends Model
 
     public function isRecentlyCreated(int $days = 30): bool
     {
-        $at = $this->created_at;
+        try {
+            $at = $this->created_at;
+        } catch (\Throwable) {
+            return false;
+        }
 
         return $at instanceof \DateTimeInterface && $at->gt(now()->subDays($days));
     }
@@ -1879,11 +1883,17 @@ class Site extends Model
      */
     public function listingPreviewUrlChain(): array
     {
-        return $this->previewUrlChainFrom([
-            $this->site_image,
-            $this->screenshot_thumb_path,
-            $this->screenshot_path,
-        ]);
+        try {
+            return $this->previewUrlChainFrom([
+                $this->site_image ?? null,
+                $this->screenshot_thumb_path ?? null,
+                $this->screenshot_path ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     /**

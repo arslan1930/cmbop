@@ -334,33 +334,43 @@
                         </div>
 
                         @php
-                            // Better-of on pack qty: hide bulk chip when custom is ≥ bulk
-                            // (bulk never wins). If bulk is stronger, keep both — custom
-                            // still applies on qty 1–2 where bulk does not.
-                            // Chip % labels use effective savings after the payout floor.
-                            $dealCustomPct = $site->activeCustomDiscountPercent();
-                            $dealBulkPct = $site->joinsBulkDiscount()
-                                ? (float) $site->bulk_discount_percent
-                                : null;
-                            $showSaleChip = $dealCustomPct !== null && $catalogSalePctDisplay;
-                            $showBulkChip = $dealBulkPct !== null
-                                && ($dealCustomPct === null || $dealBulkPct > (float) $dealCustomPct);
-                            $dealSaleChipPct = $catalogSalePctDisplay;
-                            $dealBulkChipPct = $dealBulkPct;
-                            if ($showBulkChip) {
-                                // $site->price is already advertiser-facing; reprice from
-                                // the publisher base so the chip % is not fee-on-fee.
-                                $packSite = clone $site;
-                                $packSite->price = $catalogPublisherPrice;
-                                $packPricing = app(\App\Services\CartPricingService::class)
-                                    ->priceForAdvertiser($packSite, null, (int) config('site_promotions.bulk.min_qty', 3));
-                                $dealBulkChipPct = (float) ($packPricing['discount_percent'] ?? $dealBulkPct);
-                                if ($dealBulkChipPct <= 0) {
-                                    $showBulkChip = false;
-                                }
-                            }
+                            $dealCustomPct = null;
+                            $dealBulkPct = null;
+                            $showSaleChip = false;
+                            $showBulkChip = false;
+                            $dealSaleChipPct = null;
+                            $dealBulkChipPct = null;
                             $showPlacementChips = $homepageOptions !== [] || $socialChannels !== [];
                             $showPaidHomepageHint = $homepageOptions !== [] && $defaultHomepageDays === null;
+                            try {
+                                // Better-of on pack qty: hide bulk chip when custom is ≥ bulk
+                                // (bulk never wins). If bulk is stronger, keep both — custom
+                                // still applies on qty 1–2 where bulk does not.
+                                // Chip % labels use effective savings after the payout floor.
+                                $dealCustomPct = $site->activeCustomDiscountPercent();
+                                $dealBulkPct = $site->joinsBulkDiscount()
+                                    ? (float) $site->bulk_discount_percent
+                                    : null;
+                                $showSaleChip = $dealCustomPct !== null && $catalogSalePctDisplay;
+                                $showBulkChip = $dealBulkPct !== null
+                                    && ($dealCustomPct === null || $dealBulkPct > (float) $dealCustomPct);
+                                $dealSaleChipPct = $catalogSalePctDisplay;
+                                $dealBulkChipPct = $dealBulkPct;
+                                if ($showBulkChip) {
+                                    // $site->price is already advertiser-facing; reprice from
+                                    // the publisher base so the chip % is not fee-on-fee.
+                                    $packSite = clone $site;
+                                    $packSite->price = $catalogPublisherPrice;
+                                    $packPricing = app(\App\Services\CartPricingService::class)
+                                        ->priceForAdvertiser($packSite, null, (int) config('site_promotions.bulk.min_qty', 3));
+                                    $dealBulkChipPct = (float) ($packPricing['discount_percent'] ?? $dealBulkPct);
+                                    if ($dealBulkChipPct <= 0) {
+                                        $showBulkChip = false;
+                                    }
+                                }
+                            } catch (\Throwable $e) {
+                                report($e);
+                            }
                         @endphp
                         @if($site->isFeatured() || $showSaleChip || $showBulkChip || $showPlacementChips)
                         <div class="catalog-site-deals">
@@ -1068,26 +1078,36 @@
                         @endif
                     </div>
                     @php
-                        $mobileCustomPct = $site->activeCustomDiscountPercent();
-                        $mobileBulkPct = $site->joinsBulkDiscount()
-                            ? (float) $site->bulk_discount_percent
-                            : null;
-                        $showMobileSaleChip = $mobileCustomPct !== null && $catalogSalePctDisplay;
-                        $showMobileBulkChip = $mobileBulkPct !== null
-                            && ($mobileCustomPct === null || $mobileBulkPct > (float) $mobileCustomPct);
-                        $mobileSaleChipPct = $catalogSalePctDisplay;
-                        $mobileBulkChipPct = $mobileBulkPct;
-                        if ($showMobileBulkChip) {
-                            // $site->price is already advertiser-facing; reprice from
-                            // the publisher base so the chip % is not fee-on-fee.
-                            $mobilePackSite = clone $site;
-                            $mobilePackSite->price = $catalogPublisherPrice;
-                            $mobilePackPricing = app(\App\Services\CartPricingService::class)
-                                ->priceForAdvertiser($mobilePackSite, null, (int) config('site_promotions.bulk.min_qty', 3));
-                            $mobileBulkChipPct = (float) ($mobilePackPricing['discount_percent'] ?? $mobileBulkPct);
-                            if ($mobileBulkChipPct <= 0) {
-                                $showMobileBulkChip = false;
+                        $mobileCustomPct = null;
+                        $mobileBulkPct = null;
+                        $showMobileSaleChip = false;
+                        $showMobileBulkChip = false;
+                        $mobileSaleChipPct = null;
+                        $mobileBulkChipPct = null;
+                        try {
+                            $mobileCustomPct = $site->activeCustomDiscountPercent();
+                            $mobileBulkPct = $site->joinsBulkDiscount()
+                                ? (float) $site->bulk_discount_percent
+                                : null;
+                            $showMobileSaleChip = $mobileCustomPct !== null && $catalogSalePctDisplay;
+                            $showMobileBulkChip = $mobileBulkPct !== null
+                                && ($mobileCustomPct === null || $mobileBulkPct > (float) $mobileCustomPct);
+                            $mobileSaleChipPct = $catalogSalePctDisplay;
+                            $mobileBulkChipPct = $mobileBulkPct;
+                            if ($showMobileBulkChip) {
+                                // $site->price is already advertiser-facing; reprice from
+                                // the publisher base so the chip % is not fee-on-fee.
+                                $mobilePackSite = clone $site;
+                                $mobilePackSite->price = $catalogPublisherPrice;
+                                $mobilePackPricing = app(\App\Services\CartPricingService::class)
+                                    ->priceForAdvertiser($mobilePackSite, null, (int) config('site_promotions.bulk.min_qty', 3));
+                                $mobileBulkChipPct = (float) ($mobilePackPricing['discount_percent'] ?? $mobileBulkPct);
+                                if ($mobileBulkChipPct <= 0) {
+                                    $showMobileBulkChip = false;
+                                }
                             }
+                        } catch (\Throwable $e) {
+                            report($e);
                         }
                     @endphp
                     @if($showMobileSaleChip || $showMobileBulkChip || $homepageOptions !== [] || $socialChannels !== [])

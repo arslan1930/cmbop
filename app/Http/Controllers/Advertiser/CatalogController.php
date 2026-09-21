@@ -909,14 +909,20 @@ class CatalogController extends Controller
             return;
         }
 
-        $cancelledBySite = OrderItem::query()
-            ->whereIn('site_id', $ids)
-            ->whereHas('order', function ($q) {
-                $q->where('status', 'cancelled');
-            })
-            ->selectRaw('site_id, COUNT(*) as cancelled_count')
-            ->groupBy('site_id')
-            ->pluck('cancelled_count', 'site_id');
+        try {
+            $cancelledBySite = OrderItem::query()
+                ->whereIn('site_id', $ids)
+                ->whereHas('order', function ($q) {
+                    $q->where('status', 'cancelled');
+                })
+                ->selectRaw('site_id, COUNT(*) as cancelled_count')
+                ->groupBy('site_id')
+                ->pluck('cancelled_count', 'site_id');
+        } catch (\Throwable $e) {
+            report($e);
+
+            return;
+        }
 
         foreach ($collection as $site) {
             $site->setAttribute(

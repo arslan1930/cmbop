@@ -204,6 +204,12 @@ class CatalogUxHoverTest extends TestCase
             'social_promotion' => 'not-json',
             'turnaround_time' => '???',
             'publication_time' => 'not-a-duration',
+            'featured_until' => 'not-a-date',
+            'custom_discount_percent' => 40,
+            'custom_discount_starts_at' => 'not-a-date',
+            'custom_discount_ends_at' => 'not-a-date',
+            'screenshot_path' => 'not-a-path',
+            'example_url' => 'javascript:alert(1)',
         ]);
 
         $html = $this->actingAs($this->advertiser)
@@ -218,6 +224,9 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringNotContainsString('???', $html);
         $this->assertStringNotContainsString('not-a-duration', $html);
         $this->assertStringNotContainsString('48 hours', $html);
+        $this->assertStringNotContainsString('javascript:alert', $html);
+        $this->assertStringNotContainsString('site-chip--featured', $html);
+        $this->assertStringNotContainsString('site-chip--sale', $html);
 
         $chips = view('advertiser.partials.catalog-meta-chips', [
             'site' => $site->fresh(),

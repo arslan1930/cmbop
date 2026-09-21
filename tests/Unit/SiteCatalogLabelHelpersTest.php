@@ -74,5 +74,7 @@ class SiteCatalogLabelHelpersTest extends TestCase
         $this->assertSame([], $site->enabledSocialChannels());
         $this->assertSame([], $site->safeJsonArray('categories'));
         $this->assertSame([], $site->safeJsonArray('sensitive_prices'));
+        $this->assertFalse((new Site(['featured_until' => 'not-a-date']))->isFeatured());
+        $this->assertFalse((new Site(['created_at' => 'not-a-date']))->isRecentlyCreated());
     }
 }
