@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Support\VisitorChatEmbed;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -133,5 +134,39 @@ class TawkChatWidgetTest extends TestCase
         $this->assertStringContainsString('html.tawk-open iframe[title="chat widget"]', $css);
         $this->assertStringContainsString('div:has(> iframe[title="chat widget"])', $css);
         $this->assertStringNotContainsString('div:has( iframe[src*="tawk.to"])', $css);
+    }
+
+    public function test_leftover_html_without_tawk_include_gets_the_widget(): void
+    {
+        config([
+            'services.support_chat.enabled' => false,
+            'services.tawk.property_id' => '6aa6a3693d02a53444168308',
+            'services.tawk.widget_id' => 'default',
+        ]);
+
+        $html = '<html><body><div class="help-fab" id="helpFeedbackWidget"></div></body></html>';
+        $out = VisitorChatEmbed::inject($html);
+
+        $this->assertStringContainsString('https://embed.tawk.to/6aa6a3693d02a53444168308/default', $out);
+        $this->assertStringContainsString('id="slb-visitor-chat-overflow"', $out);
+        $this->assertStringContainsString('.help-fab { display: none !important; }', $out);
+        $this->assertStringContainsString('overflow-x: clip !important', $out);
+        $this->assertSame($out, VisitorChatEmbed::inject($out));
+    }
+
+    public function test_leftover_html_gets_first_party_chat_when_enabled(): void
+    {
+        config([
+            'services.support_chat.enabled' => true,
+            'services.tawk.property_id' => '6aa6a3693d02a53444168308',
+            'services.tawk.widget_id' => 'default',
+        ]);
+
+        $html = '<html><body><p>Home</p></body></html>';
+        $out = VisitorChatEmbed::inject($html);
+
+        $this->assertStringContainsString('id="slbLiveChat"', $out);
+        $this->assertStringContainsString('aria-label="Open live chat"', $out);
+        $this->assertStringNotContainsString('embed.tawk.to', $out);
     }
 }

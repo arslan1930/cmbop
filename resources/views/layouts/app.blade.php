@@ -150,7 +150,7 @@
     <style>
         html, body {
             font-family: 'Poppins', sans-serif;
-            overflow-x: hidden;
+            overflow-x: clip;
             overflow-y: auto;
             max-width: 100%;
         }
@@ -202,7 +202,10 @@
 </main>
 
 @include('components.footer')
-@unless(\App\Support\VisitorSupportChat::enabled() || \App\Support\TawkChat::enabled())
+@unless(
+    (class_exists(\App\Support\VisitorSupportChat::class) && \App\Support\VisitorSupportChat::enabled() && view()->exists('partials.visitor-support-chat'))
+    || (class_exists(\App\Support\TawkChat::class) && \App\Support\TawkChat::enabled())
+)
     @include('components.help-feedback-widget')
 @endunless
 
