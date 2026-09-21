@@ -255,6 +255,65 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringNotContainsString('not-a-duration', $fragment);
     }
 
+    public function test_leftover_metric_junk_does_not_500_catalog(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Leftover Metric Site',
+            'site_url' => 'https://leftover-metric.example',
+            'domain' => 'leftover-metric.example',
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'da' => '???',
+            'dr' => 'not-json',
+            'traffic' => '???',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog', ['search' => 'Leftover Metric Site']))
+            ->assertOk()
+            ->assertDontSee('Something went wrong')
+            ->getContent();
+
+        $this->assertStringContainsString('Leftover Metric Site', $html);
+        $this->assertStringNotContainsString('???', $html);
+        $this->assertStringNotContainsString('not-json', $html);
+    }
+
+    public function test_leftover_bulk_hostile_url_does_not_paint_in_rail(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Leftover Bulk Hostile',
+            'site_url' => 'https://leftover-bulk-hostile.example',
+            'domain' => 'leftover-bulk-hostile.example',
+            'bulk_discount_enabled' => 1,
+            'bulk_discount_percent' => 10,
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'site_url' => 'javascript:alert(1)',
+            'bulk_discount_percent' => 'not-json',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Leftover Bulk Hostile', $html);
+        $this->assertStringNotContainsString('javascript:alert', $html);
+        $this->assertStringNotContainsString('???', $html);
+    }
+
+    public function test_leftover_cart_junk_does_not_500_wizard_pay(): void
+    {
+        $this->actingAs($this->advertiser)
+            ->withSession([
+                'cart' => 'not-json',
+                'guest_post_wizard' => ['language' => 'en', 'country' => 'de'],
+            ])
+            ->get(route('advertiser.wizard.pay'))
+            ->assertRedirect(route('advertiser.wizard.publishers'));
+    }
+
     public function test_leftover_cart_session_junk_does_not_500_or_mark_in_cart(): void
     {
         $this->makeSite([

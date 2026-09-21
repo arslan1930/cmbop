@@ -1352,8 +1352,7 @@ class CatalogController extends Controller
         $removedInactive = array_values(array_unique($removedInactive));
         $removedOwned = array_values(array_unique($removedOwned));
         $cart = $kept;
-        $rawSessionCart = session()->get('cart', []);
-        $sessionCart = is_array($rawSessionCart) ? array_values($rawSessionCart) : [];
+        $sessionCart = $this->leftoverSessionCart();
         // Repriced lines (sensitive add-ons / live listing) should persist.
         // Compare a canonical fingerprint so key order / 0 vs unset id does not rewrite every load.
         $cartChanged = $removedInactive !== [] || $removedOwned !== []
@@ -1433,8 +1432,7 @@ class CatalogController extends Controller
 
         if ($cartChanged || $removedInactive !== [] || $removedOwned !== []) {
             session()->put('cart', array_values($cart));
-            $rawCart = session()->get('cart', []);
-            $cart = is_array($rawCart) ? array_values($rawCart) : [];
+            $cart = $this->leftoverSessionCart();
         }
 
         $articles = $approved->map(fn (ContentSubmission $s) => [
@@ -6960,7 +6958,7 @@ class CatalogController extends Controller
 
         $paymentService->forgetPendingCheckoutKeepLeftoverHold($referenceCode, $userId);
 
-        $restoredCart = session('cart', []);
+        $restoredCart = $this->leftoverSessionCart();
         $submissionId = session('checkout_content_submission_id');
 
         foreach ($canceled as $order) {
@@ -6969,7 +6967,7 @@ class CatalogController extends Controller
                     continue;
                 }
                 $exists = collect($restoredCart)->contains(
-                    fn ($row) => (int) ($row['id'] ?? 0) === (int) $item->site_id
+                    fn ($row) => is_array($row) && (int) ($row['id'] ?? 0) === (int) $item->site_id
                 );
                 if (! $exists) {
                     $restoredCart[] = [
@@ -6991,6 +6989,9 @@ class CatalogController extends Controller
                 : Site::query()->catalogVisible()->whereIn('id', $siteIds)->get()->keyBy('id');
             $normalized = [];
             foreach ($restoredCart as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
                 $site = $sites->get((int) ($line['id'] ?? 0));
                 if (! $site) {
                     continue;

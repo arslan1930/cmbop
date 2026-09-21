@@ -202,7 +202,15 @@ class GuestPostWizardController extends Controller
             return $state;
         }
 
-        $cart = $this->syncVisibleCart();
+        try {
+            $cart = $this->syncVisibleCart();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('advertiser.wizard.publishers')
+                ->with('error', UserFacingError::message($e, 'Unable to load your cart. Please try again.'));
+        }
         if ($cart === []) {
             return redirect()
                 ->route('advertiser.wizard.publishers')
@@ -337,7 +345,8 @@ class GuestPostWizardController extends Controller
      */
     private function syncVisibleCart(): array
     {
-        $cart = array_values(session('cart', []));
+        $rawCart = session('cart', []);
+        $cart = is_array($rawCart) ? array_values(array_filter($rawCart, 'is_array')) : [];
         $pruned = $this->cartPricing->pruneUnavailableCartItems($cart);
         $cart = array_values($pruned['cart']);
         $this->enrichCartSites($cart);
@@ -360,6 +369,9 @@ class GuestPostWizardController extends Controller
         $sites = Site::query()->catalogVisible()->whereIn('id', $siteIds)->get()->keyBy('id');
         $kept = [];
         foreach ($cart as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
             $site = $sites->get((int) ($line['id'] ?? 0));
             if (! $site || ! $site->isCatalogVisible()) {
                 continue;

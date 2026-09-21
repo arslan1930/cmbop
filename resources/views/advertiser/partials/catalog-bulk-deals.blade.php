@@ -73,30 +73,45 @@
                          @if($pageIndex > 0) inert aria-hidden="true" @endif>
                     @foreach($pageDeals as $deal)
                         @php
-                            $qtyExample = (int) ($deal->bulk_pack_qty ?? 3);
-                            $list = (float) ($deal->bulk_pack_list_total ?? round(((float) $deal->price) * $qtyExample, 2));
-                            $after = (float) ($deal->bulk_pack_now_total ?? $list);
-                            // Better-of % (custom may beat bulk) — never show a bulk badge
-                            // that disagrees with the floored “now” total.
-                            $pct = (float) ($deal->bulk_pack_discount_percent ?? $deal->bulk_discount_percent ?? 0);
-                            $badgeKind = (string) ($deal->bulk_pack_badge_kind ?? 'bulk');
-                            $pctLabel = $pct > 0
-                                ? '−'.rtrim(rtrim(number_format($pct, 1), '0'), '.').'%'
-                                : null;
-                            // Bulk deals never follow catalog hide/mask rules —
-                            // full name + https URL + TLD stay visible (limited rail).
-                            // Rail follows the main Catalog country= filter (Option 1).
-                            // "Search deal by site" matches name / URL / host / TLD.
-                            $dealHost = $urlVisibility->host($deal->site_url);
-                            $dealUrl = $urlVisibility->httpsRootedUrl($deal->site_url);
-                            $dealTld = $urlVisibility->tld($deal->site_url);
-                            $dealName = (string) $deal->site_name;
-                            $dealSearch = mb_strtolower(trim(implode(' ', array_filter([
-                                $dealName,
-                                $dealUrl,
-                                $dealHost,
-                                $dealTld,
-                            ]))));
+                            $qtyExample = 3;
+                            $list = 0.0;
+                            $after = 0.0;
+                            $pct = 0.0;
+                            $badgeKind = 'bulk';
+                            $pctLabel = null;
+                            $dealHost = '';
+                            $dealUrl = '';
+                            $dealTld = '';
+                            $dealName = '';
+                            $dealSearch = '';
+                            try {
+                                $qtyExample = (int) ($deal->bulk_pack_qty ?? 3);
+                                $list = (float) ($deal->bulk_pack_list_total ?? round(((float) $deal->price) * $qtyExample, 2));
+                                $after = (float) ($deal->bulk_pack_now_total ?? $list);
+                                // Better-of % (custom may beat bulk) — never show a bulk badge
+                                // that disagrees with the floored “now” total.
+                                $pct = (float) ($deal->bulk_pack_discount_percent ?? $deal->bulk_discount_percent ?? 0);
+                                $badgeKind = (string) ($deal->bulk_pack_badge_kind ?? 'bulk');
+                                $pctLabel = $pct > 0
+                                    ? '−'.rtrim(rtrim(number_format($pct, 1), '0'), '.').'%'
+                                    : null;
+                                // Bulk deals never follow catalog hide/mask rules —
+                                // full name + https URL + TLD stay visible (limited rail).
+                                // Rail follows the main Catalog country= filter (Option 1).
+                                // "Search deal by site" matches name / URL / host / TLD.
+                                $dealHost = $urlVisibility->host($deal->site_url);
+                                $dealUrl = $urlVisibility->httpsRootedUrl($deal->site_url);
+                                $dealTld = $urlVisibility->tld($deal->site_url);
+                                $dealName = (string) $deal->site_name;
+                                $dealSearch = mb_strtolower(trim(implode(' ', array_filter([
+                                    $dealName,
+                                    $dealUrl,
+                                    $dealHost,
+                                    $dealTld,
+                                ]))));
+                            } catch (\Throwable $e) {
+                                report($e);
+                            }
                         @endphp
                         <article class="bulk-deal-card"
                                  data-bulk-card
