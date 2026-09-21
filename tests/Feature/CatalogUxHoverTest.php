@@ -208,7 +208,14 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringNotContainsString('NOT-JSON', $html);
         $this->assertStringNotContainsString('not-json', $html);
         $this->assertStringNotContainsString('???', $html);
-        $this->assertStringNotContainsString('DoFollow', $html);
+
+        $chips = view('advertiser.partials.catalog-meta-chips', [
+            'site' => $site->fresh(),
+        ])->render();
+        $this->assertStringContainsString('German', $chips);
+        $this->assertStringNotContainsString('DoFollow', $chips);
+        $this->assertStringNotContainsString('NOT-JSON', $chips);
+        $this->assertStringNotContainsString('???', $chips);
 
         $fragment = $this->actingAs($this->advertiser)
             ->get(route('advertiser.catalog.results'))
