@@ -699,12 +699,19 @@
         $.ajax({
             url: '{{ route("advertiser.cart.get") }}',
             method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
             success: function(data) {
                 applyCartPayload(data);
                 updateCartDisplay();
             },
-            error: function() {
+            error: function(xhr) {
                 console.error('Failed to load cart');
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message;
+                if (msg) {
+                    showToast(msg, 'error');
+                }
             }
         });
     }
@@ -715,7 +722,8 @@
             url: '{{ route("advertiser.cart.save") }}',
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
             },
             contentType: 'application/json',
             data: JSON.stringify({ cart: cart }),
@@ -727,8 +735,10 @@
                 }
                 loadCart();
             },
-            error: function() {
+            error: function(xhr) {
                 console.error('Failed to save cart');
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not save your cart.';
+                showToast(msg, 'error');
                 loadCart();
             }
         });

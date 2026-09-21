@@ -1635,10 +1635,12 @@ class CatalogController extends Controller
             ]);
         } catch (ValidationException $e) {
             throw $e;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error saving favorites: '.$e->getMessage());
 
-            return response()->json(['success' => false, 'error' => UserFacingError::message($e, 'Could not update your saved sites. Please try again.')], 500);
+            $message = UserFacingError::message($e, 'Could not update your saved sites. Please try again.');
+
+            return response()->json(['success' => false, 'error' => $message, 'message' => $message], 500);
         }
     }
 
@@ -1673,10 +1675,12 @@ class CatalogController extends Controller
             ]);
         } catch (ValidationException $e) {
             throw $e;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error saving blacklist: '.$e->getMessage());
 
-            return response()->json(['success' => false, 'error' => UserFacingError::message($e, 'Could not update your blocked sites. Please try again.')], 500);
+            $message = UserFacingError::message($e, 'Could not update your blocked sites. Please try again.');
+
+            return response()->json(['success' => false, 'error' => $message, 'message' => $message], 500);
         }
     }
 
@@ -1739,7 +1743,7 @@ class CatalogController extends Controller
 
             $this->putCatalogVisibleCart($merged);
 
-            return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
+            return $this->jsonSuccessfulCartPayload();
         } catch (\Throwable $e) {
             Log::error('Error saving cart: '.$e->getMessage());
 
@@ -2295,7 +2299,7 @@ class CatalogController extends Controller
 
             $this->putCatalogVisibleCart($cart);
 
-            return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
+            return $this->jsonSuccessfulCartPayload();
         } catch (\Throwable $e) {
             Log::error('Error updating cart: '.$e->getMessage());
 

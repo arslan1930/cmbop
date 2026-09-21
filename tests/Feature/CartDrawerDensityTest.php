@@ -97,6 +97,10 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('slb_open_cart_on_load', $layout);
         $this->assertStringContainsString('catalogSyncInCartButtons', $layout);
         $this->assertStringContainsString('opts.openCart || opts.bulk || (Number.isFinite(qty) && qty > 1) || firstAdd', $layout);
+        $this->assertStringContainsString("url: '{{ route(\"advertiser.cart.get\") }}'", $layout);
+        $this->assertStringContainsString("url: '{{ route(\"advertiser.cart.save\") }}'", $layout);
+        $this->assertStringContainsString("'Accept': 'application/json'", $layout);
+        $this->assertStringContainsString('xhr.responseJSON?.error || xhr.responseJSON?.message', $layout);
     }
 
     public function test_cart_css_owns_checklist_and_compact_spacing(): void
