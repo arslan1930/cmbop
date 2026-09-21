@@ -93,6 +93,7 @@ use App\Models\User;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Support\CountryLander;
 use App\Support\EnglishOnlyMarketingSlugs;
+use App\Support\HttpCron;
 use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
