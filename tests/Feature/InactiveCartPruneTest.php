@@ -182,7 +182,7 @@ class InactiveCartPruneTest extends TestCase
             ->get(route('advertiser.catalog'))
             ->assertOk();
 
-        $html->assertSee('You have <strong>1</strong>', false);
+        $html->assertSee('You have <strong>1 site · 2 placements</strong>', false);
         $html->assertSee($inactive->site_name, false);
         $html->assertSee('no longer available and was removed from your cart', false);
 
