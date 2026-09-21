@@ -49,5 +49,17 @@ class SiteCatalogLabelHelpersTest extends TestCase
         $this->assertSame('NoFollow', (new Site(['link_type' => 'nofollow']))->linkTypeLabel());
         $this->assertNull((new Site(['link_type' => null]))->linkTypeLabel());
         $this->assertSame('Not specified', (new Site(['link_type' => '']))->linkTypeLabel('Not specified'));
+        $this->assertNull((new Site(['link_type' => '???']))->linkTypeLabel());
+        $this->assertNull((new Site(['link_type' => 'guest']))->linkTypeLabel());
+    }
+
+    public function test_language_codes_survive_leftover_json_junk(): void
+    {
+        $site = new Site([
+            'language' => 'de',
+            'languages' => 'not-json',
+        ]);
+
+        $this->assertSame(['de'], $site->languageCodes());
     }
 }

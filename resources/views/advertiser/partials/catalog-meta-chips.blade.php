@@ -6,23 +6,29 @@
     @param string|null $turnaround      Fallback raw turnaround code.
 --}}
 @php
-    $chipLinkType = $site?->linkTypeLabel()
-        ?: (trim((string) ($linkType ?? '')) !== ''
-            ? (match (strtolower(trim((string) $linkType))) {
+    $chipLinkType = null;
+    $chipTurnaround = '';
+    $chipLanguageLabels = [];
+    try {
+        $chipLinkType = $site?->linkTypeLabel()
+            ?: (match (strtolower(trim((string) ($linkType ?? '')))) {
                 'dofollow' => 'DoFollow',
                 'nofollow' => 'NoFollow',
-                default => ucfirst(trim((string) $linkType)),
-            })
-            : null);
-    $chipTurnaround = $site?->turnaroundLabel()
-        ?: trim((string) ($turnaround ?? ''));
-    $chipLanguageCodes = $site?->languageCodes() ?? [];
-    $chipLanguageLabels = [];
-    foreach (array_slice($chipLanguageCodes, 0, 2) as $code) {
-        $label = fullLanguage($code);
-        if ($label !== '') {
-            $chipLanguageLabels[] = $label;
+                default => null,
+            });
+        $chipTurnaround = $site?->turnaroundLabel()
+            ?: trim((string) ($turnaround ?? ''));
+        $knownLanguages = marketplace_languages();
+        foreach (array_slice($site?->languageCodes() ?? [], 0, 2) as $code) {
+            $code = strtolower(trim((string) $code));
+            // Leftover Hostinger junk ("not-json", "??") must not paint a chip.
+            if (! isset($knownLanguages[$code])) {
+                continue;
+            }
+            $chipLanguageLabels[] = $knownLanguages[$code];
         }
+    } catch (\Throwable $e) {
+        report($e);
     }
 @endphp
 

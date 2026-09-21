@@ -807,7 +807,8 @@ class Site extends Model
         return match ($raw) {
             'dofollow' => 'DoFollow',
             'nofollow' => 'NoFollow',
-            default => ucfirst($raw),
+            // Leftover Hostinger junk ("???", "guest") is not a link attribute.
+            default => $fallback,
         };
     }
 
@@ -2754,13 +2755,29 @@ class Site extends Model
      */
     public function languageCodes(): array
     {
-        $codes = collect($this->languages ?? [])
+        $raw = [];
+        try {
+            $raw = $this->languages ?? [];
+        } catch (\Throwable $e) {
+            report($e);
+            $raw = [];
+        }
+
+        if (! is_array($raw)) {
+            $raw = [];
+        }
+
+        $codes = collect($raw)
             ->filter()
             ->map(fn ($c) => strtolower(trim((string) $c)))
             ->all();
 
-        if ($this->language) {
-            $codes[] = strtolower(trim((string) $this->language));
+        try {
+            if ($this->language) {
+                $codes[] = strtolower(trim((string) $this->language));
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         $codes = array_values(array_unique(array_filter($codes)));

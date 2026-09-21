@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\PlatformFeeService;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class CatalogUxHoverTest extends TestCase
@@ -182,5 +183,41 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringContainsString('data-inventory-from="'.$fromAttr.'"', $html);
         $this->assertStringContainsString('catalog-inventory-from', $html);
         $this->assertStringNotContainsString('Cheap Listing', $html);
+    }
+
+    public function test_leftover_junk_language_and_link_type_do_not_break_catalog_chips(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Leftover Chip Site',
+            'site_url' => 'https://leftover-chip.example',
+            'domain' => 'leftover-chip.example',
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'languages' => 'not-json',
+            'language' => 'de',
+            'link_type' => '???',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Leftover Chip Site', $html);
+        $this->assertStringContainsString('German', $html);
+        $this->assertStringNotContainsString('NOT-JSON', $html);
+        $this->assertStringNotContainsString('not-json', $html);
+        $this->assertStringNotContainsString('???', $html);
+        $this->assertStringNotContainsString('DoFollow', $html);
+
+        $fragment = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog.results'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Leftover Chip Site', $fragment);
+        $this->assertStringContainsString('German', $fragment);
+        $this->assertStringNotContainsString('NOT-JSON', $fragment);
+        $this->assertStringNotContainsString('???', $fragment);
     }
 }
