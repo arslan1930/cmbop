@@ -1230,6 +1230,7 @@ class CatalogController extends Controller
      */
     private function cartCountMeta(array $cart): array
     {
+        $cart = array_values(array_filter($cart, 'is_array'));
         $placements = (int) array_sum(array_map(
             static fn ($item) => (int) ($item['quantity'] ?? 0),
             $cart
@@ -1274,7 +1275,7 @@ class CatalogController extends Controller
         try {
             return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
         } catch (\Throwable $e) {
-            if (array_values(session()->get('cart', [])) !== []) {
+            if ($this->leftoverSessionCart() !== []) {
                 throw $e;
             }
 
@@ -2381,7 +2382,7 @@ class CatalogController extends Controller
 
             $site = Site::query()->catalogVisible()->where('id', $id)->first();
             if (! $site) {
-                $this->putCatalogVisibleCart(session()->get('cart', []));
+                $this->putCatalogVisibleCart($this->leftoverSessionCart());
 
                 return response()->json([
                     'success' => false,
@@ -2407,7 +2408,7 @@ class CatalogController extends Controller
                 ], 422);
             }
 
-            $cart = session()->get('cart', []);
+            $cart = $this->leftoverSessionCart();
             $fromKey = null;
             foreach ($cart as $key => $item) {
                 if (! is_array($item)) {
@@ -4890,11 +4891,11 @@ class CatalogController extends Controller
         try {
             // Keep badge in sync: drop inactive/missing lines before counting.
             $this->syncPrunedSessionCart();
-            $cart = session()->get('cart', []);
-            $counts = $this->cartCountMeta(is_array($cart) ? $cart : []);
+            $cart = $this->leftoverSessionCart();
+            $counts = $this->cartCountMeta($cart);
             $total = round(array_sum(array_map(
                 fn ($item) => ((float) ($item['price'] ?? 0)) * ((int) ($item['quantity'] ?? 0)),
-                is_array($cart) ? $cart : []
+                $cart
             )), 2);
 
             return response()->json(array_merge($counts, [

@@ -344,6 +344,37 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringNotContainsString('is-in-cart', $fragment);
     }
 
+    public function test_leftover_cart_junk_does_not_500_add_to_cart_or_count(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Leftover Add Cart Site',
+            'site_url' => 'https://leftover-add-cart.example',
+            'domain' => 'leftover-add-cart.example',
+        ]);
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => 'not-json'])
+            ->postJson(route('advertiser.cart.add'), ['id' => $site->id])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => [null, '???', ['name' => 'no-id']]])
+            ->getJson(route('advertiser.cart.count'))
+            ->assertOk()
+            ->assertJsonPath('count', 0)
+            ->assertJsonMissingPath('exception');
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => 'not-json'])
+            ->postJson(route('advertiser.cart.configure'), [
+                'id' => $site->id,
+                'new_homepage_days' => 'none',
+            ])
+            ->assertStatus(404)
+            ->assertJsonPath('success', false);
+    }
+
     public function test_leftover_rating_and_hostile_claim_url_do_not_break_catalog(): void
     {
         $site = $this->makeSite([
