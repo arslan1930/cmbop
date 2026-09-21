@@ -2,7 +2,23 @@
      Included by advertiser.catalog and returned by GET advertiser.catalog.results. --}}
 @php
     use Illuminate\Support\Str;
-    $resultTotal = $sites->total();
+    $resultTotal = 0;
+    $resultFirstItem = null;
+    $resultLastItem = null;
+    try {
+        $resultTotal = method_exists($sites, 'total') ? (int) $sites->total() : 0;
+        $resultFirstItem = method_exists($sites, 'firstItem') ? $sites->firstItem() : null;
+        $resultLastItem = method_exists($sites, 'lastItem') ? $sites->lastItem() : null;
+        $resultCurrentPage = method_exists($sites, 'currentPage') ? (int) $sites->currentPage() : 1;
+        $resultLastPage = method_exists($sites, 'lastPage') ? (int) $sites->lastPage() : 1;
+    } catch (\Throwable $e) {
+        report($e);
+        $resultTotal = 0;
+        $resultFirstItem = null;
+        $resultLastItem = null;
+        $resultCurrentPage = 1;
+        $resultLastPage = 1;
+    }
     $hasActiveFilters = $hasActiveFilters ?? (
         request()->filled('site')
         || request()->filled('search')
@@ -39,8 +55,8 @@
     $catalogResultsStatus = $catalogResultsStatus ?? app(\App\Services\Catalog\CatalogFilterStatus::class)->summarize(
         request(),
         $resultTotal,
-        $sites->firstItem() ?: null,
-        $sites->lastItem() ?: null
+        $resultFirstItem ?: null,
+        $resultLastItem ?: null
     );
     $catalogEmptyHeadline = $catalogEmptyHeadline ?? (
         $resultTotal < 1
@@ -51,7 +67,12 @@
             )
             : null
     );
-    $inCatalogHideMode = (bool) (auth()->user()?->inCatalogHideMode() ?? false);
+    $inCatalogHideMode = false;
+    try {
+        $inCatalogHideMode = (bool) (auth()->user()?->inCatalogHideMode() ?? false);
+    } catch (\Throwable $e) {
+        report($e);
+    }
     $currentUser = $currentUser ?? auth()->user();
     $favorites = $favorites ?? [];
     $blacklist = $blacklist ?? [];
@@ -79,10 +100,10 @@
                  data-effective-query="{{ e(json_encode(\App\Services\Catalog\CatalogUrlQuery::fromRequest(request()))) }}"
                  data-catalog-hide-mode="{{ $inCatalogHideMode ? '1' : '0' }}"
                  data-result-total="{{ (int) $resultTotal }}"
-                 data-first-item="{{ (int) ($sites->firstItem() ?: 0) }}"
-                 data-last-item="{{ (int) ($sites->lastItem() ?: 0) }}"
-                 data-current-page="{{ (int) $sites->currentPage() }}"
-                 data-last-page="{{ (int) $sites->lastPage() }}"
+                 data-first-item="{{ (int) ($resultFirstItem ?: 0) }}"
+                 data-last-item="{{ (int) ($resultLastItem ?: 0) }}"
+                 data-current-page="{{ (int) ($resultCurrentPage ?? 1) }}"
+                 data-last-page="{{ (int) ($resultLastPage ?? 1) }}"
                  data-inventory-from="{{ $inventoryFrom !== null ? e(number_format((float) $inventoryFrom, 2, '.', '')) : '' }}"
                  data-status-text="{{ $catalogResultsStatus['text'] }}"
                  data-status-announce="{{ $catalogResultsStatus['announce'] }}">
@@ -227,11 +248,20 @@
                 $isNew = $site->isRecentlyCreated();
                 // Everyday catalog shows full identity (no eye). Mask + eye only
                 // while copy-strike hide mode is active (one control for name + URL).
-                $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
-                $canSeeUrl = $showsIdentity; // reveal state inside hide mode; always true outside
-                $displayHost = $urlVisibility->hostFor($currentUser, $site);
-                $displayRootedUrl = $urlVisibility->rootedUrlFor($currentUser, $site);
-                $displayName = $urlVisibility->nameFor($currentUser, $site);
+                $showsIdentity = true;
+                $canSeeUrl = true;
+                $displayHost = '';
+                $displayRootedUrl = '';
+                $displayName = (string) ($site->site_name ?? '');
+                try {
+                    $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
+                    $canSeeUrl = $showsIdentity; // reveal state inside hide mode; always true outside
+                    $displayHost = $urlVisibility->hostFor($currentUser, $site);
+                    $displayRootedUrl = $urlVisibility->rootedUrlFor($currentUser, $site);
+                    $displayName = $urlVisibility->nameFor($currentUser, $site);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
                 $identityLabel = $showsIdentity
                     ? (string) $site->site_name
                     : 'this website';
@@ -525,11 +555,18 @@
 
                 <td class="text-center catalog-stat-cell">
                     @php
-                        $countryCode = $site->primaryCountryCode();
+                        $countryCode = null;
+                        $countryName = '';
+                        try {
+                            $countryCode = $site->primaryCountryCode();
+                            $countryName = fullCountry($countryCode);
+                        } catch (\Throwable $e) {
+                            report($e);
+                        }
                     @endphp
                     <div class="catalog-country">
                         <span class="catalog-country__flag" aria-hidden="true">{!! getCountryFlag($countryCode) !!}</span>
-                        <span class="catalog-country__name text-muted small" title="{{ fullCountry($countryCode) }}">{{ fullCountry($countryCode) }}</span>
+                        <span class="catalog-country__name text-muted small"@if($countryName !== '') title="{{ $countryName }}"@endif>{{ $countryName }}</span>
                     </div>
                 </td>
 
@@ -1026,11 +1063,20 @@
             $isBlacklisted = in_array($site->id, $blacklist);
             $isFavorited = in_array($site->id, $favorites);
             $isNew = $site->isRecentlyCreated();
-            $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
-            $canSeeUrl = $showsIdentity;
-            $displayHost = $urlVisibility->hostFor($currentUser, $site);
-            $displayRootedUrl = $urlVisibility->rootedUrlFor($currentUser, $site);
-            $displayName = $urlVisibility->nameFor($currentUser, $site);
+            $showsIdentity = true;
+            $canSeeUrl = true;
+            $displayHost = '';
+            $displayRootedUrl = '';
+            $displayName = (string) ($site->site_name ?? '');
+            try {
+                $showsIdentity = $urlVisibility->showsFullIdentity($currentUser, $site);
+                $canSeeUrl = $showsIdentity;
+                $displayHost = $urlVisibility->hostFor($currentUser, $site);
+                $displayRootedUrl = $urlVisibility->rootedUrlFor($currentUser, $site);
+                $displayName = $urlVisibility->nameFor($currentUser, $site);
+            } catch (\Throwable $e) {
+                report($e);
+            }
             $identityLabel = $showsIdentity
                 ? (string) $site->site_name
                 : 'this website';
@@ -1196,8 +1242,14 @@
                 @endif
             </div>
             @php
-                $mobileCountry = $site->primaryCountryCode();
-                $mobileCountryName = fullCountry($mobileCountry);
+                $mobileCountry = null;
+                $mobileCountryName = '';
+                try {
+                    $mobileCountry = $site->primaryCountryCode();
+                    $mobileCountryName = fullCountry($mobileCountry);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
             @endphp
             <div class="catalog-mobile-metrics">
                 <div>

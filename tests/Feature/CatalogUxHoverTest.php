@@ -254,4 +254,61 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringNotContainsString('???', $fragment);
         $this->assertStringNotContainsString('not-a-duration', $fragment);
     }
+
+    public function test_leftover_cart_session_junk_does_not_500_or_mark_in_cart(): void
+    {
+        $this->makeSite([
+            'site_name' => 'Leftover Cart Site',
+            'site_url' => 'https://leftover-cart.example',
+            'domain' => 'leftover-cart.example',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->withSession(['cart' => 'not-json'])
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->assertDontSee('Something went wrong')
+            ->getContent();
+
+        $this->assertStringContainsString('Leftover Cart Site', $html);
+        $this->assertStringNotContainsString('is-in-cart', $html);
+        $this->assertStringNotContainsString('>In cart</span>', $html);
+
+        $fragment = $this->actingAs($this->advertiser)
+            ->withSession(['cart' => [null, '???', ['id' => 'not-a-id'], ['name' => 'no-id']]])
+            ->get(route('advertiser.catalog.results'))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE')
+            ->getContent();
+
+        $this->assertStringContainsString('Leftover Cart Site', $fragment);
+        $this->assertStringNotContainsString('is-in-cart', $fragment);
+    }
+
+    public function test_leftover_rating_and_hostile_claim_url_do_not_break_catalog(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Leftover Trust Claim',
+            'site_url' => 'https://leftover-trust-claim.example',
+            'domain' => 'leftover-trust-claim.example',
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'site_url' => 'javascript:alert(1)',
+            'rating_avg' => '???',
+            'rating_count' => 'not-json',
+            'completed_orders_count' => '???',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog', ['search' => 'Leftover Trust Claim']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Leftover Trust Claim', $html);
+        $this->assertStringContainsString('btn-claim-site', $html);
+        $this->assertStringNotContainsString('javascript:alert', $html);
+        $this->assertStringNotContainsString('site-trust-chip', $html);
+        $this->assertStringNotContainsString('???', $html);
+        $this->assertStringNotContainsString('not-json', $html);
+    }
 }

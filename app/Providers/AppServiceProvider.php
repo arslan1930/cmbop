@@ -299,8 +299,16 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer('advertiser.layouts.app', function ($view) {
+            $sessionCart = [];
+            try {
+                $rawCart = session('cart', []);
+                $sessionCart = is_array($rawCart) ? array_values($rawCart) : [];
+            } catch (\Throwable $e) {
+                Log::warning('Advertiser header cart session unreadable', ['error' => $e->getMessage()]);
+            }
+
             $pruned = [
-                'cart' => array_values(session('cart', []) ?: []),
+                'cart' => $sessionCart,
                 'removed_inactive' => [],
                 'removed_owned' => [],
             ];
@@ -314,10 +322,12 @@ class AppServiceProvider extends ServiceProvider
                 Log::warning('Advertiser cart prune composer failed', ['error' => $e->getMessage()]);
             }
 
+            $headerCart = is_array($pruned['cart'] ?? null) ? $pruned['cart'] : [];
+
             $view->with([
-                'headerCart' => $pruned['cart'],
-                'ssrCartRemovedInactive' => $pruned['removed_inactive'],
-                'ssrCartRemovedOwned' => $pruned['removed_owned'],
+                'headerCart' => $headerCart,
+                'ssrCartRemovedInactive' => is_array($pruned['removed_inactive'] ?? null) ? $pruned['removed_inactive'] : [],
+                'ssrCartRemovedOwned' => is_array($pruned['removed_owned'] ?? null) ? $pruned['removed_owned'] : [],
             ]);
         });
     }

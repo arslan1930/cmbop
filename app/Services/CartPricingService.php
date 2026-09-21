@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Site;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class CartPricingService
 {
@@ -345,12 +346,45 @@ class CartPricingService
      */
     public function syncAdvertiserSessionCart(?User $buyer = null): array
     {
-        $pruned = $this->pruneAdvertiserCart(session('cart', []) ?: [], $buyer);
-        if ($pruned['changed']) {
-            session()->put('cart', array_values($pruned['cart']));
-        }
+        $empty = [
+            'cart' => [],
+            'removed_inactive' => [],
+            'removed_owned' => [],
+            'changed' => false,
+        ];
 
-        return $pruned;
+        try {
+            $sessionCart = session('cart', []);
+            if (! is_array($sessionCart)) {
+                session()->put('cart', []);
+
+                return [
+                    'cart' => [],
+                    'removed_inactive' => [],
+                    'removed_owned' => [],
+                    'changed' => true,
+                ];
+            }
+
+            $pruned = $this->pruneAdvertiserCart($sessionCart ?: [], $buyer);
+            if ($pruned['changed']) {
+                session()->put('cart', array_values($pruned['cart']));
+            }
+
+            return $pruned;
+        } catch (\Throwable $e) {
+            Log::warning('Advertiser session cart prune failed', ['error' => $e->getMessage()]);
+
+            try {
+                if (! is_array(session('cart', []))) {
+                    session()->put('cart', []);
+                }
+            } catch (\Throwable) {
+                // Leftover Hostinger session bag — header composer already failed closed.
+            }
+
+            return $empty;
+        }
     }
 
     /**
