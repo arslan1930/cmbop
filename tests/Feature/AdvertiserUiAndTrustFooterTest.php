@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\PublicI18n;
+use App\Support\TawkChat;
+use App\Support\VisitorSupportChat;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -28,6 +30,24 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
         $this->advertiser->roles()->attach($role->id);
     }
 
+    private function langPath(string $locale): string
+    {
+        $fileLocale = $locale;
+        if (method_exists(PublicI18n::class, 'messagesFallback')) {
+            $fallback = PublicI18n::messagesFallback($locale);
+            if (is_string($fallback) && $fallback !== '') {
+                $fileLocale = $fallback;
+            }
+        }
+
+        $path = resource_path('lang/'.$fileLocale.'/messages.php');
+        if (! is_file($path)) {
+            $path = resource_path('lang/'.$locale.'/messages.php');
+        }
+
+        return $path;
+    }
+
     public function test_footer_links_the_trustpilot_profile(): void
     {
         $html = $this->get('/')->assertOk()->getContent();
@@ -40,6 +60,12 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
 
     public function test_advertiser_shell_footer_shows_trustpilot(): void
     {
+        config([
+            'services.support_chat.enabled' => false,
+            'services.tawk.property_id' => '',
+            'services.tawk.widget_id' => '',
+        ]);
+
         $html = $this->actingAs($this->advertiser)
             ->get(route('advertiser.catalog'))
             ->assertOk()
@@ -52,8 +78,13 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
         $this->assertStringContainsString('Payments secured by', $html);
         $this->assertStringNotContainsString('Card details never touch our servers.', $html);
         $this->assertStringContainsString(config('services.trustpilot.review_url'), $html);
-        $this->assertStringContainsString('helpFeedbackHide', $html);
-        $this->assertStringContainsString('helpFeedbackShow', $html);
+        if (TawkChat::enabled() || VisitorSupportChat::enabled()) {
+            $this->assertStringNotContainsString('id="helpFeedbackHide"', $html);
+            $this->assertStringNotContainsString('id="helpFeedbackShow"', $html);
+        } else {
+            $this->assertStringContainsString('helpFeedbackHide', $html);
+            $this->assertStringContainsString('helpFeedbackShow', $html);
+        }
         // Pagination markup only renders when lastPage > 1; chrome lives in catalog.css.
         $this->assertStringContainsString(
             '.catalog-pagination',
@@ -115,7 +146,7 @@ class AdvertiserUiAndTrustFooterTest extends TestCase
     public function test_trustpilot_strings_exist_in_every_locale(): void
     {
         foreach (PublicI18n::supported() as $locale) {
-            $messages = require resource_path('lang/'.$locale.'/messages.php');
+            $messages = require $this->langPath($locale);
             foreach (['trustpilot_read_reviews', 'trustpilot_aria'] as $key) {
                 $this->assertArrayHasKey($key, $messages, $locale.' is missing '.$key);
                 $this->assertNotSame('', trim((string) $messages[$key]));

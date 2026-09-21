@@ -1,23 +1,36 @@
 {{-- Visitor chat (public + advertiser/publisher). Order chat is separate. --}}
-@if (\App\Support\VisitorSupportChat::enabled())
-    @include('partials.visitor-support-chat')
 @php
+    $useFirstParty = class_exists(\App\Support\VisitorSupportChat::class)
+        && \App\Support\VisitorSupportChat::enabled()
+        && view()->exists('partials.visitor-support-chat');
     $tawkSrc = null;
-@endphp
-@else
-@php
-    $tawkSrc = \App\Support\TawkChat::embedSrc();
     $tawkVisitor = null;
-    if ($tawkSrc && auth()->check()) {
-        $user = auth()->user();
-        $name = trim((string) ($user->name ?? ''));
-        $email = trim((string) ($user->email ?? ''));
-        if ($name !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $tawkVisitor = ['name' => $name, 'email' => $email];
+    if ($useFirstParty) {
+        $tawkSrc = null;
+    } elseif (class_exists(\App\Support\TawkChat::class)) {
+        $tawkSrc = \App\Support\TawkChat::embedSrc();
+        if ($tawkSrc && auth()->check()) {
+            $user = auth()->user();
+            $name = trim((string) ($user->name ?? ''));
+            $email = trim((string) ($user->email ?? ''));
+            if ($name !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $tawkVisitor = ['name' => $name, 'email' => $email];
+            }
         }
     }
 @endphp
-@if ($tawkSrc)
+@if ($useFirstParty)
+<style id="slb-visitor-chat-overflow">
+/* Leftover html/body overflow-x:hidden traps position:fixed chat launchers. */
+html, body { overflow-x: clip !important; }
+.help-fab { display: none !important; }
+</style>
+    @include('partials.visitor-support-chat')
+@elseif ($tawkSrc)
+<style id="slb-visitor-chat-overflow">
+html, body { overflow-x: clip !important; }
+.help-fab { display: none !important; }
+</style>
 <script>
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
 Tawk_API.customStyle = {
@@ -176,5 +189,4 @@ window.slbOpenSupport = function () {
   if (toggle) toggle.click();
 };
 </script>
-@endif
 @endif

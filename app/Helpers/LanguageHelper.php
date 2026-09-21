@@ -2,11 +2,20 @@
 
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Support\LeftoverPublicI18nSlugs;
 use App\Support\MarketingHistoryDisplay;
 use App\Support\PublicI18n;
 use App\Support\WelcomeBonusCopy;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Request;
+
+$leftoverPublicI18nSlugs = __DIR__.'/../Support/LeftoverPublicI18nSlugs.php';
+if (is_file($leftoverPublicI18nSlugs)) {
+    require_once $leftoverPublicI18nSlugs;
+    if (class_exists(LeftoverPublicI18nSlugs::class)) {
+        LeftoverPublicI18nSlugs::ensureEnglishOnlyMarketingSlugsMethod();
+    }
+}
 
 if (! function_exists('get_language_switcher_url')) {
     function get_language_switcher_url($locale)
@@ -92,11 +101,17 @@ if (! function_exists('get_available_locales')) {
             'bg' => ['name' => 'Български', 'flag' => '🇧🇬', 'code' => 'bg'],
             'hu' => ['name' => 'Magyar', 'flag' => '🇭🇺', 'code' => 'hu'],
             'ee' => ['name' => 'Eesti', 'flag' => '🇪🇪', 'code' => 'ee'],
+            'pl' => ['name' => 'Polski', 'flag' => '🇵🇱', 'code' => 'pl'],
         ];
 
-        $supported = class_exists(PublicI18n::class)
-            ? array_flip(PublicI18n::supported())
-            : ['en' => 0];
+        $supported = array_merge(array_keys($catalog), (array) config('i18n.supported', []));
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
+            try {
+                $supported = array_merge($supported, PublicI18n::supported());
+            } catch (Throwable) {
+            }
+        }
+        $supported = array_flip(array_filter($supported, 'strlen'));
 
         return array_filter($catalog, fn ($code) => isset($supported[$code]), ARRAY_FILTER_USE_KEY);
     }

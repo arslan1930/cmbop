@@ -11,13 +11,13 @@ return [
 
     'supported' => [
         'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
-        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
+        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
     ],
 
     /** Prefixed locales (UK English has no URL prefix). `us` is US English. */
     'prefixed' => [
         'de', 'fr', 'nl', 'es', 'it', 'us',
-        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
+        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
     ],
 
     /**
@@ -57,7 +57,32 @@ return [
         'guest-posts-bulgaria',
         'guest-posts-hungary',
         'guest-posts-estonia',
+        'guest-posts-poland',
         'guest-post-prices-europe',
+    ],
+
+    /**
+     * Brand ccTLDs (DNS aliases) 301 onto seolinkbuildings.com.
+     * Values are public locales; `en` stays unprefixed. .uk and .co.uk are one UK version.
+     */
+    'country_hosts' => [
+        'seolinkbuildings.de' => 'de',
+        'seolinkbuildings.fr' => 'fr',
+        'seolinkbuildings.it' => 'it',
+        'seolinkbuildings.es' => 'es',
+        'seolinkbuildings.nl' => 'nl',
+        'seolinkbuildings.co.uk' => 'en',
+        'seolinkbuildings.uk' => 'en',
+        'seolinkbuildings.ch' => 'ch',
+        'seolinkbuildings.at' => 'at',
+        'seolinkbuildings.se' => 'se',
+        'seolinkbuildings.no' => 'no',
+        'seolinkbuildings.dk' => 'dk',
+        'seolinkbuildings.hu' => 'hu',
+        'seolinkbuildings.bg' => 'bg',
+        'seolinkbuildings.gr' => 'gr',
+        'seolinkbuildings.ro' => 'ro',
+        'seolinkbuildings.pl' => 'pl',
     ],
 
     /** Paths that must always render in English (no locale prefix). */

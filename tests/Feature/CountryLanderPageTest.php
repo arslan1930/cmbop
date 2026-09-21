@@ -182,6 +182,7 @@ class CountryLanderPageTest extends TestCase
             ->assertSee('/guest-posts-switzerland', false)
             ->assertSee('/guest-posts-austria', false)
             ->assertSee('/guest-posts-romania', false)
+            ->assertSee('/guest-posts-poland', false)
             ->assertSee('Germany', false)
             ->assertSee('country-lander-nav__card', false)
             ->assertSee('Guest posts by market', false)

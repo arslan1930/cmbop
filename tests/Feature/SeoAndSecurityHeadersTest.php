@@ -264,7 +264,10 @@ class SeoAndSecurityHeadersTest extends TestCase
         $this->get('/blog?page=2')
             ->assertOk()
             ->assertSee('rel="prev"', false)
-            ->assertSee('rel="canonical" href="'.url('/blog').'?page=2"', false);
+            ->assertSee('rel="canonical" href="'.url('/blog').'?page=2"', false)
+            ->assertSee('name="robots" content="noindex, follow"', false)
+            ->assertSee(' — Page 2', false)
+            ->assertDontSee('hreflang="de"', false);
     }
 
     public function test_static_robots_txt_matches_renderer_for_production_origin(): void

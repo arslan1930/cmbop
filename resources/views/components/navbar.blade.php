@@ -21,7 +21,10 @@
     <a class="navbar-brand fw-bold d-flex align-items-center flex-shrink-0" href="{{ $homeUrl }}" aria-label="SEOLinkBuildings home">
       <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
            alt="SEOLinkBuildings"
-           class="navbar-logo">
+           class="navbar-logo"
+           width="1006"
+           height="280"
+           decoding="async">
     </a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent"
@@ -88,7 +91,7 @@
             <span class="navbar-lang-flag">{!! $currentLanguage['flag'] !!}</span>
             <span>{{ $currentLanguage['name'] }}</span>
           </button>
-          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown" style="min-width: 150px;">
+          <ul class="dropdown-menu dropdown-menu-end navbar-lang-menu" aria-labelledby="languageDropdown">
             @foreach($languages as $code => $language)
               <li>
                 <a class="dropdown-item d-flex align-items-center gap-2 {{ $code == $currentLocale ? 'active' : '' }}"
@@ -132,12 +135,12 @@
   }
 
   html {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   body {
     padding-top: var(--public-navbar-height);
-    overflow-x: hidden;
+    overflow-x: clip;
     overflow-y: auto;
   }
 
@@ -241,6 +244,15 @@
   }
 
   .navbar-lang-flag { font-size: 1.2rem; }
+
+  /* 17+ locales: keep AT/CH/RO/PL reachable instead of clipping under overflow-x:hidden. */
+  #mainNavbar .navbar-lang-menu {
+    min-width: 220px;
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+  }
 
   .navbar-nav .nav-link {
     transition: color 150ms ease, background 150ms ease;

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\LeftoverPublicI18nSlugs;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
@@ -13,6 +14,13 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
 try {
     // Register the Composer autoloader...
     require __DIR__.'/../vendor/autoload.php';
+
+    // Leftover bootstrap/app.php may skip the injector. Heal PublicI18n.php
+    // before routes/web.php boots (unguarded englishOnlyMarketingSlugs()).
+    $leftoverPublicI18nBoot = __DIR__.'/../app/Support/leftover_public_i18n_boot.php';
+    if (is_file($leftoverPublicI18nBoot)) {
+        require_once $leftoverPublicI18nBoot;
+    }
 
     // Bootstrap Laravel and handle the request...
     /** @var Application $app */

@@ -9,7 +9,11 @@
             <div class="col-lg-3 col-md-6">
                 <a href="{{ localized_url('/') }}" class="slb-footer-brand d-inline-block">
                     <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
-                         alt="SEOLinkBuildings">
+                         alt="SEOLinkBuildings"
+                         width="1006"
+                         height="280"
+                         loading="lazy"
+                         decoding="async">
                 </a>
                 <p class="mt-3 small">
                     {{ __('messages.professional_services') }}
@@ -26,6 +30,7 @@
                     <li><a href="{{ localized_url('marketplace') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.nav_marketplace') }}</a></li>
                     <li><a href="{{ localized_url('pricing') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.nav_pricing') }}</a></li>
                     <li><a href="{{ localized_url('how-it-works') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.nav_how_it_works') }}</a></li>
+                    <li><a href="{{ localized_url('why-choose-us') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.why_choose_title') }}</a></li>
                     <li><a href="{{ localized_url('become-a-publisher') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.nav_become_publisher') }}</a></li>
                     <li><a href="{{ localized_url('faq') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.nav_faq') }}</a></li>
                     <li><a href="{{ localized_url('contact') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.contact') }}</a></li>

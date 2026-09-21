@@ -65,7 +65,7 @@ return [
     'meta_home_description' => 'Buy dofollow guest posts from verified publishers on Seolinkbuildings.com. EUR wallet, transparent prices, €20 welcome credit. Scale link building and digital PR.',
     'meta_home_description_off' => 'Buy dofollow guest posts from verified publishers on Seolinkbuildings.com. EUR wallet, transparent prices. Scale link building and digital PR.',
     'meta_about_title' => 'About SEOLinkBuildings — Europe Guest Post Marketplace',
-    'meta_about_description' => 'Learn how SEOLinkBuildings connects advertisers and publishers for ethical guest posts and digital PR across Europe and English-speaking markets. The public site is available in English (UK/US), German, French, Dutch, Spanish, and Italian. Operated by Topurlz Ltd (UK).',
+    'meta_about_description' => 'Learn how SEOLinkBuildings connects advertisers and publishers for ethical guest posts and digital PR across Europe and English-speaking markets. The public site is available in English (UK/US) and several European languages. Operated by Topurlz Ltd (UK).',
     'meta_faq_title' => 'FAQ — Guest Posts, Payments and Publishing | SEOLinkBuildings',
     'meta_faq_description' => 'Answers on wallets, orders, refunds, verification, and publishing. Learn how the Seolinkbuildings.com marketplace works before you buy or sell.',
     'meta_pricing_title' => 'Digital PR Marketplace | Guest Posts and Packages | SEOLinkBuildings',

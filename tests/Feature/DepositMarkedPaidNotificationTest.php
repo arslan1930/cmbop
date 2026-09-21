@@ -75,6 +75,23 @@ class DepositMarkedPaidNotificationTest extends TestCase
         $this->assertSame(InAppNotification::STATUS_UNREAD, $note->status);
     }
 
+    public function test_mark_paid_skips_admin_mail_when_no_mailbox_is_configured(): void
+    {
+        config([
+            'mail.admin_email' => '',
+            'email_notifications.brand.support_email' => '',
+        ]);
+        Mail::fake();
+
+        $user = $this->advertiser();
+        $deposit = $this->pendingDeposit($user);
+
+        $this->markPaid($user, $deposit)->assertOk()->assertJsonPath('success', true);
+
+        Mail::assertNothingSent();
+        $this->assertNotNull($deposit->fresh()->user_marked_paid_at);
+    }
+
     public function test_admins_are_alerted_so_the_transfer_gets_checked(): void
     {
         Mail::fake();
