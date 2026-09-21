@@ -149,11 +149,33 @@
         </div>
     @endif
 
+    <div id="staffIndexSearchWrap">
+        <form method="GET" action="{{ staff_route('sites.index') }}" class="mb-2" style="max-width: 320px;" role="search">
+            @if(!empty($needsReviewFilterActive) || !empty($unverifiedFilter))
+                <input type="hidden" name="needs_review" value="1">
+            @endif
+            @if(!empty($waitingOnPublisherFilterActive))
+                <input type="hidden" name="waiting_on_publisher" value="1">
+            @endif
+            @if(!empty($flatQueue))
+                <input type="hidden" name="flat" value="1">
+            @endif
+            <x-slb-search-field
+                name="q"
+                id="userSearch"
+                :value="$publisherSearch"
+                placeholder="Search publishers or sites…"
+                label="Search publishers or sites"
+                label-class="visually-hidden"
+            />
+        </form>
+    </div>
+
     @if(!empty($flatQueue) && $flatQueueSites)
     <div class="card shadow-sm border-0 mb-3 admin-table-fit" data-flat-queue="1">
         <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
             <span>{{ !empty($waitingOnPublisherFilterActive) ? 'Waiting on publisher' : 'Sites needing review' }}</span>
-            <span class="small text-muted">{{ $flatQueueSites->total() }} in queue</span>
+            <span class="small text-muted" data-flat-queue-count>{{ $flatQueueSites->total() }} in queue</span>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -174,13 +196,29 @@
                             'publisher' => $site->publisher_id,
                             'site' => $site->id,
                         ]));
+                        $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
+                        $hasOrders = $site->orderItemsCount() > 0;
+                        $canDeleteFlat = ! $site->isArchived()
+                            && ! $hasOrders
+                            && ! $site->verified
+                            && ! $site->active
+                            && (auth()->user()?->isAdmin() || $isMarketingEditor);
+                        $canArchiveFlat = (bool) auth()->user()?->isAdmin()
+                            && ! $site->isArchived()
+                            && ! $hasOrders
+                            && ($site->verified || $site->active);
                     @endphp
-                    <tr>
+                    <tr data-flat-site-row="{{ $site->id }}">
                         <td>{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
                             <div class="small text-muted text-break">{{ $site->site_url }}</div>
                             <div class="d-flex flex-wrap gap-1 mt-1">
+                                @if($site->verified)
+                                    <span class="badge rounded-pill bg-success">Verified</span>
+                                @else
+                                    <span class="badge rounded-pill bg-secondary">Unverified</span>
+                                @endif
                                 @if(! $site->hasMarketplaceCountry())
                                     <span class="badge text-bg-danger">Missing market</span>
                                 @endif
@@ -198,9 +236,28 @@
                         <td>
                             <div class="d-flex flex-wrap gap-1">
                                 <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
-                                <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary">{{ auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin() && $site->isLockedForMarketingEdits() && ! $site->marketingCanEditDescription() ? 'View' : 'Edit' }}</a>
+                                <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary">{{ $isMarketingEditor && $site->isLockedForMarketingEdits() && ! $site->marketingCanEditDescription() ? 'View' : 'Edit' }}</a>
                                 @if(empty($waitingOnPublisherFilterActive))
+                                    @if(auth()->user()?->isAdmin() && ! $site->verified)
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-success toggle-verify"
+                                                data-id="{{ $site->id }}"
+                                                data-status="1"
+                                                data-name="{{ $site->site_name }}">Verify</button>
+                                    @endif
                                     @include('partials.staff-site-activate-button', ['site' => $site])
+                                    @if($canDeleteFlat)
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger delete-site"
+                                                data-id="{{ $site->id }}"
+                                                data-name="{{ $site->site_name }}">{{ $isMarketingEditor ? 'Reject' : 'Delete' }}</button>
+                                    @elseif($canArchiveFlat)
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger delete-site"
+                                                data-id="{{ $site->id }}"
+                                                data-name="{{ $site->site_name }}"
+                                                data-archive="1">Archive</button>
+                                    @endif
                                 @endif
                             </div>
                         </td>
@@ -221,26 +278,6 @@
 
     <!-- ================= USERS TABLE ================= -->
     <div id="usersSection" class="{{ !empty($flatQueue) ? 'd-none' : '' }}">
-
-        <form method="GET" action="{{ staff_route('sites.index') }}" class="mb-2" style="max-width: 250px;" role="search">
-            @if(!empty($needsReviewFilterActive) || !empty($unverifiedFilter))
-                <input type="hidden" name="needs_review" value="1">
-            @endif
-            @if(!empty($waitingOnPublisherFilterActive))
-                <input type="hidden" name="waiting_on_publisher" value="1">
-            @endif
-            @if(!empty($flatQueue))
-                <input type="hidden" name="flat" value="1">
-            @endif
-            <x-slb-search-field
-                name="q"
-                id="userSearch"
-                :value="$publisherSearch"
-                placeholder="Search publishers…"
-                label="Search publishers"
-                label-class="visually-hidden"
-            />
-        </form>
 
         <div class="card shadow-sm border-0 mb-3 admin-table-fit">
             <div class="card-header bg-white fw-semibold">
@@ -290,6 +327,11 @@
                                     <span class="badge rounded-pill bg-secondary" title="Total sites: {{ number_format($totalSitesCount) }}">
                                         {{ number_format($totalSitesCount) }} total
                                     </span>
+                                    @if($publisherSearch !== '' && (int) ($user->matched_sites_count ?? 0) > 0)
+                                        <span class="badge rounded-pill text-bg-primary" title="Sites matching this search">
+                                            {{ number_format((int) $user->matched_sites_count) }} matched
+                                        </span>
+                                    @endif
                                 </div>
                             </td>
                             <td>
@@ -455,6 +497,7 @@ function fetchUserSites(id, page){
 
     document.getElementById('usersSection').classList.add('d-none');
     document.getElementById('sitesSection').classList.remove('d-none');
+    document.getElementById('staffIndexSearchWrap')?.classList.add('d-none');
 
     if (userRow) {
         document.getElementById('siteUserName').innerText =
@@ -475,9 +518,19 @@ function fetchUserSites(id, page){
         `<tr><td colspan="6">Loading...</td></tr>`;
 
     const pageNum = Number(page) > 1 ? Number(page) : 1;
-    const sitesUrl = pageNum > 1
-        ? `${STAFF_BASE}/users/${id}/sites?page=${encodeURIComponent(pageNum)}&_=${Date.now()}`
-        : `${STAFF_BASE}/users/${id}/sites?_=${Date.now()}`;
+    const params = new URLSearchParams();
+    params.set('_', String(Date.now()));
+    if (pageNum > 1) {
+        params.set('page', String(pageNum));
+    }
+    const siteQ = (document.getElementById('siteSearch')?.value || '').trim();
+    if (siteQ !== '') {
+        params.set('q', siteQ);
+    }
+    if (document.getElementById('sitesNeedsReviewOnly')?.checked) {
+        params.set('needs_review', '1');
+    }
+    const sitesUrl = `${STAFF_BASE}/users/${id}/sites?${params.toString()}`;
 
     return fetch(sitesUrl, {
         method: 'GET',
@@ -497,6 +550,7 @@ function fetchUserSites(id, page){
                 sessionStorage.removeItem('selected_user');
                 document.getElementById('sitesSection').classList.add('d-none');
                 document.getElementById('usersSection').classList.remove('d-none');
+                document.getElementById('staffIndexSearchWrap')?.classList.remove('d-none');
                 document.getElementById('sitesTable').innerHTML = '';
                 throw new Error('Publisher not found');
             }
@@ -657,6 +711,24 @@ function removeSiteFromTable(id) {
 }
 
 function afterSiteDecision(removedId) {
+    if (FLAT_QUEUE) {
+        if (removedId != null && removedId !== '') {
+            document.querySelector(`[data-flat-site-row="${removedId}"]`)?.remove();
+            const countEl = document.querySelector('[data-flat-queue-count]');
+            if (countEl) {
+                const current = parseInt(String(countEl.textContent || '').replace(/[^\d]/g, ''), 10);
+                if (Number.isFinite(current) && current > 0) {
+                    const next = current - 1;
+                    countEl.textContent = next + (next === 1 ? ' in queue' : ' in queue');
+                }
+            }
+        }
+        refreshSidebarQueueBadges();
+        if (!document.querySelector('[data-flat-site-row]')) {
+            window.location.reload();
+        }
+        return;
+    }
     // Verify/Activate removes needs_review — keep the row visible with updated status.
     if (removedId != null && removedId !== '') {
         removeSiteFromTable(removedId);
@@ -673,21 +745,16 @@ function afterSiteDecision(removedId) {
 }
 
 function applySiteFilters() {
-    const searchEl = document.getElementById('siteSearch');
-    const needsOnlyEl = document.getElementById('sitesNeedsReviewOnly');
-    const val = (searchEl?.value || '').toLowerCase().trim();
-    const needsOnly = !!(needsOnlyEl && needsOnlyEl.checked);
+    renderSites(allSites);
+}
 
-    let filtered = allSites.filter(s => {
-        if (needsOnly && !s.needs_review) return false;
-        if (!val) return true;
-        return (s.site_name||'').toLowerCase().includes(val)
-            || (s.domain||'').toLowerCase().includes(val)
-            || (s.site_url||'').toLowerCase().includes(val)
-            || String(s.id || '').includes(val);
-    });
-
-    renderSites(filtered);
+function refetchOpenPublisherSites() {
+    const userId = sessionStorage.getItem('selected_user');
+    if (userId) {
+        fetchUserSites(userId, 1);
+        return;
+    }
+    applySiteFilters();
 }
 
 /* ================= EDIT WITH FILE UPLOAD ================= */
@@ -1026,7 +1093,7 @@ document.addEventListener('click', function(e){
         let id = btn.dataset.id;
         let site = allSites.find(s => s.id == id);
         const isArchive = canArchiveSiteRow(site) || btn.dataset.archive === '1';
-        const name = site?.site_name || 'this site';
+        const name = site?.site_name || btn.dataset.name || 'this site';
         const title = isArchive
             ? 'Archive this site?'
             : (IS_MARKETING_EDITOR ? 'Reject this site?' : 'Delete this site?');
@@ -1284,7 +1351,7 @@ document.addEventListener('click', function(e){
                 if(data.email_sent) {
                     toast(`Email notification sent to publisher`, 'info');
                 }
-                afterSiteDecision();
+                afterSiteDecision(FLAT_QUEUE ? id : undefined);
             })
             .catch((error) => {
                 toast(error.message || `Failed to ${newStatus} site`, 'error');
@@ -1814,6 +1881,7 @@ document.getElementById('backBtn').addEventListener('click', function(){
     if (usersSection) {
         usersSection.classList.remove('d-none');
     }
+    document.getElementById('staffIndexSearchWrap')?.classList.remove('d-none');
     sessionStorage.removeItem('selected_user');
     // Drop deep-link params so refresh stays on the publisher list (not stuck on sites).
     try {
@@ -1828,20 +1896,28 @@ document.getElementById('backBtn').addEventListener('click', function(){
 
 /* ================= SEARCH (Catalog-parity live search) ================= */
 /* Publisher search is server-side (?q=) via data-slb-live-search="form". */
-/* Site-row search stays client-side against the loaded publisher list. */
+/* Site-row search is server-side against this publisher (?q= on /users/{id}/sites). */
+function queryLooksLikeSiteSearch(q) {
+    const s = String(q || '').trim();
+    if (!s) return false;
+    if (/^\d+$/.test(s)) return true;
+    if (s.includes('@')) return false;
+    return s.includes('.') || s.includes('://');
+}
+
 (function initStaffSitesLiveSearch() {
     function boot() {
         if (typeof window.SlbLiveSearch !== 'undefined') {
             window.SlbLiveSearch.init(document.getElementById('siteSearch'), {
-                mode: 'client',
+                mode: 'event',
                 statusEl: document.getElementById('siteSearchStatus'),
                 clearBtn: document.getElementById('siteSearchClear'),
-                onSearch: function () { applySiteFilters(); },
+                onSearch: function () { refetchOpenPublisherSites(); },
             });
             return;
         }
         document.getElementById('siteSearch')?.addEventListener('keyup', function(){
-            applySiteFilters();
+            refetchOpenPublisherSites();
         });
     }
 
@@ -1853,7 +1929,7 @@ document.getElementById('backBtn').addEventListener('click', function(){
 })();
 
 document.getElementById('sitesNeedsReviewOnly')?.addEventListener('change', function(){
-    applySiteFilters();
+    refetchOpenPublisherSites();
 });
 
 /* ================= RESTORE / DEEP-LINK ================= */
@@ -1886,6 +1962,11 @@ window.addEventListener('DOMContentLoaded',()=>{
 
     if (publisherId) {
         sessionStorage.setItem('selected_user', publisherId);
+        const indexQ = params.get('q') || '';
+        const siteSearch = document.getElementById('siteSearch');
+        if (siteSearch && queryLooksLikeSiteSearch(indexQ) && !siteSearch.value) {
+            siteSearch.value = indexQ;
+        }
         fetchUserSites(publisherId).then(() => {
             if (editSiteId) {
                 window.location.href = `${STAFF_BASE}/sites/${editSiteId}/edit`;
@@ -1948,7 +2029,8 @@ document.addEventListener('click', function (e) {
         .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
         .then(({ ok, data }) => {
             if (ok && data && data.success) {
-                window.location.reload();
+                toast((data && data.message) || 'Site activated successfully');
+                afterSiteDecision(id);
                 return;
             }
             toast((data && data.message) || 'Could not activate site', 'error');
