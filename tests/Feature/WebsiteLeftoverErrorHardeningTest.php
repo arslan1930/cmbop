@@ -370,6 +370,144 @@ class WebsiteLeftoverErrorHardeningTest extends TestCase
         );
     }
 
+    public function test_add_to_cart_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.cart.add'), ['id' => 1])
+        );
+    }
+
+    public function test_save_cart_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.cart.save'), [
+                'cart' => [['id' => 1, 'quantity' => 1]],
+            ])
+        );
+    }
+
+    public function test_update_cart_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)
+                ->withSession([
+                    'cart' => [[
+                        'id' => $site->id,
+                        'name' => $site->site_name,
+                        'quantity' => 1,
+                        'language' => 'en',
+                    ]],
+                ])
+                ->postJson(route('advertiser.cart.update'), [
+                    'id' => $site->id,
+                    'quantity' => 2,
+                ])
+        );
+    }
+
+    public function test_remove_from_cart_stays_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+
+        Schema::dropIfExists('sites');
+
+        $response = $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'language' => 'en',
+                ]],
+            ])
+            ->postJson(route('advertiser.cart.remove'), ['id' => $site->id]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('cart', [])
+            ->assertJsonPath('cart_count', 0)
+            ->assertDontSee('SQLSTATE')
+            ->assertDontSee('<html', false);
+        $this->assertSame([], session('cart', []));
+    }
+
+    public function test_remove_remaining_cart_line_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $keep = $this->siteFor($publisher);
+        $drop = $this->siteFor($publisher, [
+            'site_name' => 'Leftover Second Daily',
+            'site_url' => 'https://leftover-second.example',
+            'domain' => 'leftover-second.example',
+        ]);
+
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)
+                ->withSession([
+                    'cart' => [
+                        [
+                            'id' => $keep->id,
+                            'name' => $keep->site_name,
+                            'quantity' => 1,
+                            'language' => 'en',
+                        ],
+                        [
+                            'id' => $drop->id,
+                            'name' => $drop->site_name,
+                            'quantity' => 1,
+                            'language' => 'en',
+                        ],
+                    ],
+                ])
+                ->postJson(route('advertiser.cart.remove'), ['id' => $drop->id])
+        );
+    }
+
+    public function test_clear_cart_stays_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+
+        Schema::dropIfExists('sites');
+
+        $response = $this->actingAs($advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'language' => 'en',
+                ]],
+            ])
+            ->postJson(route('advertiser.cart.clear'));
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('cart', [])
+            ->assertJsonPath('cart_count', 0)
+            ->assertDontSee('SQLSTATE')
+            ->assertDontSee('<html', false);
+        $this->assertSame([], session('cart', []));
+    }
+
     public function test_checkout_cancel_does_not_crash_when_orders_table_is_gone(): void
     {
         $advertiser = $this->userWithRole('advertiser');

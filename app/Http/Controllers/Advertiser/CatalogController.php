@@ -1221,6 +1221,42 @@ class CatalogController extends Controller
     }
 
     /**
+     * Minimal empty-cart JSON when a leftover DB miss happens after the session cart is already empty.
+     *
+     * @return array<string, mixed>
+     */
+    private function emptyCartClientPayload(): array
+    {
+        return array_merge($this->cartCountMeta([]), [
+            'cart' => [],
+            'cart_total' => 0,
+            'approved_articles' => [],
+            'removed_inactive' => [],
+            'removed_inactive_count' => 0,
+            'removed_owned' => [],
+            'removed_owned_count' => 0,
+        ]);
+    }
+
+    /**
+     * Cart mutations that leave an empty session should still 200 JSON when payload enrichment fails.
+     */
+    private function jsonSuccessfulCartPayload(): JsonResponse
+    {
+        try {
+            return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
+        } catch (\Throwable $e) {
+            if (array_values(session()->get('cart', [])) !== []) {
+                throw $e;
+            }
+
+            report($e);
+
+            return response()->json(array_merge(['success' => true], $this->emptyCartClientPayload()));
+        }
+    }
+
+    /**
      * Stable compare for session cart writes (ignore key order and empty assignment ids).
      *
      * @param  array<int, array<string, mixed>>  $cart
@@ -1704,10 +1740,12 @@ class CatalogController extends Controller
             $this->putCatalogVisibleCart($merged);
 
             return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error saving cart: '.$e->getMessage());
 
-            return response()->json(['success' => false, 'error' => UserFacingError::message($e, 'Could not save your cart. Please try again.')], 500);
+            $message = UserFacingError::message($e, 'Could not save your cart. Please try again.');
+
+            return response()->json(['success' => false, 'error' => $message, 'message' => $message], 500);
         }
     }
 
@@ -2166,11 +2204,15 @@ class CatalogController extends Controller
                 'message' => $message,
             ], $this->cartPayloadForClient()));
         } catch (\InvalidArgumentException $e) {
-            return response()->json(['success' => false, 'error' => UserFacingError::message($e, 'This site could not be added to your cart.')], 422);
-        } catch (\Exception $e) {
+            $message = UserFacingError::message($e, 'This site could not be added to your cart.');
+
+            return response()->json(['success' => false, 'error' => $message, 'message' => $message], 422);
+        } catch (\Throwable $e) {
             Log::error('Error adding to cart: '.$e->getMessage());
 
-            return response()->json(['success' => false, 'error' => UserFacingError::message($e, 'Could not add this site to your cart. Please try again.')], 500);
+            $message = UserFacingError::message($e, 'Could not add this site to your cart. Please try again.');
+
+            return response()->json(['success' => false, 'error' => $message, 'message' => $message], 500);
         }
     }
 
@@ -2201,11 +2243,13 @@ class CatalogController extends Controller
 
             $this->putCatalogVisibleCart(array_values($cart));
 
-            return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
-        } catch (\Exception $e) {
+            return $this->jsonSuccessfulCartPayload();
+        } catch (\Throwable $e) {
             Log::error('Error removing from cart: '.$e->getMessage());
 
-            return response()->json(['success' => false, 'error' => UserFacingError::message($e, 'Could not remove this item from your cart. Please try again.')], 500);
+            $message = UserFacingError::message($e, 'Could not remove this item from your cart. Please try again.');
+
+            return response()->json(['success' => false, 'error' => $message, 'message' => $message], 500);
         }
     }
 
@@ -2252,10 +2296,12 @@ class CatalogController extends Controller
             $this->putCatalogVisibleCart($cart);
 
             return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error updating cart: '.$e->getMessage());
 
-            return response()->json(['success' => false, 'error' => UserFacingError::message($e, 'Could not update your cart. Please try again.')], 500);
+            $message = UserFacingError::message($e, 'Could not update your cart. Please try again.');
+
+            return response()->json(['success' => false, 'error' => $message, 'message' => $message], 500);
         }
     }
 
@@ -2409,7 +2455,7 @@ class CatalogController extends Controller
     {
         session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', 'ordering_from_library', GuestPostWizardController::SESSION_KEY]);
 
-        return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
+        return $this->jsonSuccessfulCartPayload();
     }
 
     /**
