@@ -2017,7 +2017,7 @@ class Site extends Model
     {
         // Scalar sites.country wins (same as catalog inventory / country filter).
         return app(CatalogCountryInventory::class)
-            ->primaryCountryCode($this->country, $this->countries);
+            ->primaryCountryCode($this->country, $this->safeJsonArray('countries'));
     }
 
     public function primaryLanguageCode(): ?string
@@ -2375,12 +2375,8 @@ class Site extends Model
         // Read the cast attribute directly. Do not gate on Schema::hasColumn —
         // Hostinger SQL patches can add columns before Schema cache refreshes,
         // and a false-negative would hide offers in catalog Site Details.
-        $raw = $this->homepage_placement_prices;
-        if (is_string($raw) && $raw !== '') {
-            $decoded = json_decode($raw, true);
-            $raw = is_array($decoded) ? $decoded : null;
-        }
-        if (! is_array($raw) || $raw === []) {
+        $raw = $this->safeJsonArray('homepage_placement_prices');
+        if ($raw === []) {
             return [];
         }
 
@@ -2429,12 +2425,8 @@ class Site extends Model
     public function enabledSocialChannels(): array
     {
         // Same as homepagePlacementOptions(): trust attributes over Schema::hasColumn.
-        $raw = $this->social_promotion;
-        if (is_string($raw) && $raw !== '') {
-            $decoded = json_decode($raw, true);
-            $raw = is_array($decoded) ? $decoded : null;
-        }
-        if (! is_array($raw) || $raw === []) {
+        $raw = $this->safeJsonArray('social_promotion');
+        if ($raw === []) {
             return [];
         }
 
@@ -2602,41 +2594,47 @@ class Site extends Model
      */
     public function getCategoriesArrayAttribute()
     {
-        if (empty($this->categories)) {
-            // Keep a single legacy niche (even with commas) as one entry — never
-            // explode("Marketing, PR & Advertising") into halves.
-            if (! empty($this->category)) {
-                return Category::parseCatalogCategoryParam((string) $this->category);
+        try {
+            if (empty($this->categories)) {
+                // Keep a single legacy niche (even with commas) as one entry — never
+                // explode("Marketing, PR & Advertising") into halves.
+                if (! empty($this->category)) {
+                    return Category::parseCatalogCategoryParam((string) $this->category);
+                }
+
+                return [];
             }
 
-            return [];
-        }
-
-        // If it's already an array — each entry is one niche (do not split on commas).
-        if (is_array($this->categories)) {
-            return array_values(array_filter(array_map(
-                static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
-                $this->categories
-            ), static fn ($c) => $c !== ''));
-        }
-
-        // If it's a JSON string
-        if (is_string($this->categories) && (str_starts_with($this->categories, '[') || str_starts_with($this->categories, '{'))) {
-            $decoded = json_decode($this->categories, true);
-            if (is_array($decoded)) {
+            // If it's already an array — each entry is one niche (do not split on commas).
+            if (is_array($this->categories)) {
                 return array_values(array_filter(array_map(
                     static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
-                    $decoded
+                    $this->categories
                 ), static fn ($c) => $c !== ''));
             }
-        }
 
-        // Legacy string storage — pipe or comma list via shared catalog parser.
-        if (is_string($this->categories)) {
-            return Category::parseCatalogCategoryParam($this->categories);
-        }
+            // If it's a JSON string
+            if (is_string($this->categories) && (str_starts_with($this->categories, '[') || str_starts_with($this->categories, '{'))) {
+                $decoded = json_decode($this->categories, true);
+                if (is_array($decoded)) {
+                    return array_values(array_filter(array_map(
+                        static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
+                        $decoded
+                    ), static fn ($c) => $c !== ''));
+                }
+            }
 
-        return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+            // Legacy string storage — pipe or comma list via shared catalog parser.
+            if (is_string($this->categories)) {
+                return Category::parseCatalogCategoryParam($this->categories);
+            }
+
+            return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+        }
     }
 
     /**
@@ -2646,10 +2644,10 @@ class Site extends Model
      */
     public function nicheBadgeLabels(): array
     {
-        $categories = is_array($this->categories) ? $this->categories : null;
+        $categories = $this->safeJsonArray('categories');
 
         return Category::displayNicheLabels(
-            $categories,
+            $categories !== [] ? $categories : null,
             is_string($this->category) ? $this->category : null
         );
     }
@@ -2669,7 +2667,7 @@ class Site extends Model
      */
     public function countryCodes(): array
     {
-        $codes = collect($this->countries ?? [])
+        $codes = collect($this->safeJsonArray('countries'))
             ->filter()
             ->map(fn ($c) => strtolower(trim((string) $c)))
             ->all();
@@ -2693,7 +2691,7 @@ class Site extends Model
      */
     public function countryCodesForDisplay(): array
     {
-        $codes = collect($this->countries ?? [])
+        $codes = collect($this->safeJsonArray('countries'))
             ->filter()
             ->map(fn ($c) => strtolower(trim((string) $c)))
             ->unique()
@@ -2751,23 +2749,40 @@ class Site extends Model
     }
 
     /**
+     * Array-cast JSON that leftover Hostinger rows may store as junk text.
+     *
+     * @return array<int|string, mixed>
+     */
+    public function safeJsonArray(string $attribute): array
+    {
+        try {
+            $raw = $this->getAttribute($attribute);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+
+        if (is_array($raw)) {
+            return $raw;
+        }
+
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * @return array<int, string>
      */
     public function languageCodes(): array
     {
-        $raw = [];
-        try {
-            $raw = $this->languages ?? [];
-        } catch (\Throwable $e) {
-            report($e);
-            $raw = [];
-        }
-
-        if (! is_array($raw)) {
-            $raw = [];
-        }
-
-        $codes = collect($raw)
+        $codes = collect($this->safeJsonArray('languages'))
             ->filter()
             ->map(fn ($c) => strtolower(trim((string) $c)))
             ->all();

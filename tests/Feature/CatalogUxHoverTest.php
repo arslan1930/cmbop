@@ -196,6 +196,11 @@ class CatalogUxHoverTest extends TestCase
             'languages' => 'not-json',
             'language' => 'de',
             'link_type' => '???',
+            'countries' => 'not-json',
+            'categories' => 'not-json',
+            'sensitive_prices' => 'not-json',
+            'homepage_placement_prices' => 'not-json',
+            'social_promotion' => 'not-json',
         ]);
 
         $html = $this->actingAs($this->advertiser)

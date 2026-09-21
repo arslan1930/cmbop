@@ -166,11 +166,7 @@
                 $isBlacklisted = in_array($site->id, $blacklist);
                 $isFavorited = in_array($site->id, $favorites);
                 // Decode sensitive prices (only positive numeric add-ons are selectable)
-                $sensitivePrices = $site->sensitive_prices;
-                if (is_string($sensitivePrices)) {
-                    $sensitivePrices = json_decode($sensitivePrices, true);
-                }
-                $sensitivePrices = is_array($sensitivePrices) ? $sensitivePrices : [];
+                $sensitivePrices = $site->safeJsonArray('sensitive_prices');
                 $sensitivePrices = collect($sensitivePrices)
                     ->filter(fn ($amount, $type) => is_string($type) && $type !== ''
                         && is_numeric($amount) && (float) $amount > 0)
@@ -1006,11 +1002,7 @@
             $eyeHideLabel = 'Hide site name and URL';
             $mobileLabels = $site->nicheBadgeLabels();
             $mobileCategory = $mobileLabels[0] ?? '—';
-            $mobileSensitivePrices = $site->sensitive_prices;
-            if (is_string($mobileSensitivePrices)) {
-                $mobileSensitivePrices = json_decode($mobileSensitivePrices, true);
-            }
-            $mobileSensitivePrices = is_array($mobileSensitivePrices) ? $mobileSensitivePrices : [];
+            $mobileSensitivePrices = $site->safeJsonArray('sensitive_prices');
             $mobileSensitivePrices = collect($mobileSensitivePrices)
                 ->filter(fn ($amount, $type) => is_string($type) && $type !== ''
                     && is_numeric($amount) && (float) $amount > 0)

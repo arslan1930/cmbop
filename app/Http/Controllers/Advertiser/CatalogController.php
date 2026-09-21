@@ -857,28 +857,27 @@ class CatalogController extends Controller
         $sites->setPath(route('advertiser.catalog', absolute: false));
 
         foreach ($sites as $site) {
-            $site->original_price = $site->price;
-            // Own listings stay at the entered publisher price so leftover
-            // Add-to-cart markup cannot paint a fee-inclusive number.
-            if (! $site->isOwnedBy(auth()->user())) {
-                $site->price = $this->advertiserCatalogListPrice($site->price);
-            }
+            try {
+                $site->original_price = $site->price;
+                // Own listings stay at the entered publisher price so leftover
+                // Add-to-cart markup cannot paint a fee-inclusive number.
+                if (! $site->isOwnedBy(auth()->user())) {
+                    $site->price = $this->advertiserCatalogListPrice($site->price);
+                }
 
-            if ($site->sensitive_prices) {
-                $sensitivePrices = is_string($site->sensitive_prices)
-                    ? json_decode($site->sensitive_prices, true)
-                    : $site->sensitive_prices;
-
-                if (is_array($sensitivePrices)) {
+                $sensitivePrices = $site->safeJsonArray('sensitive_prices');
+                if ($sensitivePrices !== []) {
                     $processedSensitive = [];
                     foreach ($sensitivePrices as $type => $additionalPrice) {
                         $processedSensitive[$type] = $additionalPrice;
                     }
                     $site->sensitive_prices = $processedSensitive;
                 }
-            }
 
-            $site->categories_list = $site->nicheBadgeLabels();
+                $site->categories_list = $site->nicheBadgeLabels();
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         $this->hydrateCatalogTrustCounters($sites);
