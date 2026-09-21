@@ -408,14 +408,16 @@ class CatalogUxHoverTest extends TestCase
             'site_name' => 'Leftover Wizard Chrome Site',
             'site_url' => 'https://leftover-wizard-chrome.example',
             'domain' => 'leftover-wizard-chrome.example',
+            'language' => 'en',
+            'languages' => ['en'],
         ]);
 
         $html = $this->actingAs($this->advertiser)
             ->withSession([
                 'cart' => [null, '???', ['quantity' => 'not-a-qty']],
                 'guest_post_wizard' => [
-                    'language' => ['not-json'],
-                    'country' => 'de',
+                    'language' => 'en',
+                    'country' => ['not-json'],
                     'categories' => 'not-json',
                 ],
             ])
