@@ -89,7 +89,7 @@
     }
 @endphp
 
-<div class="catalog-metric catalog-metric--{{ $metricType }} {{ $isStandout ? 'is-standout' : '' }}" title="{{ $title }}">
+<div class="catalog-metric catalog-metric--{{ $metricType }} {{ $isStandout ? 'is-standout' : '' }}">
     @if($inline)
         <span class="catalog-metric__label" aria-hidden="true">{{ $label }}</span>
     @endif

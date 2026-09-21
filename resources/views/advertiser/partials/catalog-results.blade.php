@@ -55,6 +55,7 @@
     $currentUser = $currentUser ?? auth()->user();
     $favorites = $favorites ?? [];
     $blacklist = $blacklist ?? [];
+    $inventoryFrom = $inventoryFrom ?? null;
 @endphp
             <div class="card border-0 shadow-sm catalog-results-card" id="catalogResults" aria-live="polite"
                  tabindex="-1"
@@ -65,6 +66,7 @@
                  data-last-item="{{ (int) ($sites->lastItem() ?: 0) }}"
                  data-current-page="{{ (int) $sites->currentPage() }}"
                  data-last-page="{{ (int) $sites->lastPage() }}"
+                 data-inventory-from="{{ $inventoryFrom !== null ? e(number_format((float) $inventoryFrom, 2, '.', '')) : '' }}"
                  data-status-text="{{ $catalogResultsStatus['text'] }}"
                  data-status-announce="{{ $catalogResultsStatus['announce'] }}">
                 <div class="catalog-results-busy" hidden aria-hidden="true">
@@ -243,8 +245,7 @@
                              row with the rooted URL so the name stays visible. -->
                         <div class="catalog-site-title-row">
                             <span class="text-dark catalog-site-name"
-                                  data-site-name-label
-                                  @if($showsIdentity) title="{{ $displayName }}" @endif>
+                                  data-site-name-label>
                                 {{ $displayName }}
                             </span>
 
@@ -323,7 +324,6 @@
                                id="url-host-{{ $site->id }}"
                                data-url-open="{{ $site->id }}"
                                data-site-host
-                               title="{{ $displayRootedUrl }} — open in a new tab"
                                aria-label="Open {{ $displayRootedUrl }} in a new tab"
                                @if($showsIdentity) data-host="{{ $displayHost }}" @endif
                                @if($inCatalogHideMode && ! $showsIdentity)
@@ -369,24 +369,21 @@
                         @if($site->isFeatured() || $showSaleChip || $showBulkChip || $showPlacementChips)
                         <div class="catalog-site-deals">
                             @if($site->isFeatured())
-                                <span class="site-chip site-chip--featured site-chip--descriptor"
-                                      title="Featured placement — higher visibility in the catalog">
+                                <span class="site-chip site-chip--featured site-chip--descriptor">
                                     <i class="fa-solid fa-bolt" aria-hidden="true"></i>
                                     <span>Featured</span>
                                 </span>
                             @endif
 
                             @if($showSaleChip)
-                                <span class="site-chip site-chip--sale site-chip--status"
-                                      title="Limited-time publisher discount on each article (after fee floor)">
+                                <span class="site-chip site-chip--sale site-chip--status">
                                     <i class="fa-solid fa-percent" aria-hidden="true"></i>
                                     <span>−{{ rtrim(rtrim(number_format((float) $dealSaleChipPct, 1), '0'), '.') }}%</span>
                                 </span>
                             @endif
 
                             @if($showBulkChip)
-                                <span class="site-chip site-chip--bulk site-chip--status"
-                                      title="Better rate when you buy {{ (int) config('site_promotions.bulk.min_qty', 3) }}–{{ (int) config('site_promotions.bulk.max_qty', 5) }} articles — exclusive better-of with a site sale, not stacked">
+                                <span class="site-chip site-chip--bulk site-chip--status">
                                     <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
                                     <span>Bulk −{{ rtrim(rtrim(number_format((float) $dealBulkChipPct, 1), '0'), '.') }}%</span>
                                 </span>
@@ -491,8 +488,7 @@
                     @endphp
                     <div class="catalog-country">
                         <span class="catalog-country__flag" aria-hidden="true">{!! getCountryFlag($countryCode) !!}</span>
-                        <span class="catalog-country__name text-muted small"
-                              title="{{ fullCountry($countryCode) }}">{{ fullCountry($countryCode) }}</span>
+                        <span class="catalog-country__name text-muted small">{{ fullCountry($countryCode) }}</span>
                     </div>
                 </td>
 
@@ -571,10 +567,10 @@
     <td colspan="7" class="catalog-expand-cell">
         <div class="row">
             <div class="col-md-12">
-                <h6 class="mb-3">Site Details</h6>
+                <h6 class="mb-2 catalog-expand-title">Site Details</h6>
 
                 {{-- Preview | Description | Pricing | Tags + sample --}}
-                <div class="row align-items-start g-4 catalog-expand-grid">
+                <div class="row align-items-start g-3 catalog-expand-grid">
 
                     @php
                         // Full capture → thumb → upload; /media then /storage (Hostinger).
@@ -1054,8 +1050,7 @@
 
                     <div class="catalog-mobile-card__main">
                     <div class="fw-semibold text-dark text-truncate catalog-site-name"
-                         data-site-name-label
-                         @if($showsIdentity) title="{{ $displayName }}" @endif>{{ $displayName }}</div>
+                         data-site-name-label>{{ $displayName }}</div>
                     {{-- Visit sits on the rooted URL, not next to the name. --}}
                     <a href="{{ route('advertiser.catalog.visit', $site->id) }}"
                        target="_blank"
@@ -1063,7 +1058,6 @@
                        class="site-open-link catalog-site-rooted-url catalog-site-url text-truncate"
                        id="url-host-mobile-{{ $site->id }}"
                        data-site-host
-                       title="{{ $displayRootedUrl }} — open in a new tab"
                        aria-label="Open {{ $displayRootedUrl }} in a new tab"
                        @if($showsIdentity) data-host="{{ $displayHost }}" @endif
                        @if($inCatalogHideMode && ! $showsIdentity)
@@ -1107,14 +1101,13 @@
                     @if($showMobileSaleChip || $showMobileBulkChip || $homepageOptions !== [] || $socialChannels !== [])
                     <div class="catalog-site-deals catalog-site-deals--mobile mt-1">
                         @if($showMobileSaleChip)
-                            <span class="site-chip site-chip--sale site-chip--status" title="Limited-time publisher discount on each article (after fee floor)">
+                            <span class="site-chip site-chip--sale site-chip--status">
                                 <i class="fa-solid fa-percent" aria-hidden="true"></i>
                                 <span>−{{ rtrim(rtrim(number_format((float) $mobileSaleChipPct, 1), '0'), '.') }}%</span>
                             </span>
                         @endif
                         @if($showMobileBulkChip)
-                            <span class="site-chip site-chip--bulk site-chip--status"
-                                  title="Better rate when you buy {{ (int) config('site_promotions.bulk.min_qty', 3) }}–{{ (int) config('site_promotions.bulk.max_qty', 5) }} articles — exclusive better-of with a site sale, not stacked">
+                            <span class="site-chip site-chip--bulk site-chip--status">
                                 <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
                                 <span>Bulk −{{ rtrim(rtrim(number_format((float) $mobileBulkChipPct, 1), '0'), '.') }}%</span>
                             </span>
@@ -1176,7 +1169,7 @@
                 </div>
                 <div>
                     <span class="text-muted catalog-mobile-metrics__label">Country</span>
-                    <strong title="{{ $mobileCountryName }}">{!! getCountryFlag($mobileCountry) !!} {{ $mobileCountryName }}</strong>
+                    <strong>{!! getCountryFlag($mobileCountry) !!} {{ $mobileCountryName }}</strong>
                 </div>
             </div>
             @if(!empty($mobileSensitivePrices))

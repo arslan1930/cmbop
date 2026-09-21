@@ -416,16 +416,16 @@ class CatalogBulkDealRailTest extends TestCase
 
         $spendablePos = strpos($html, 'Spendable <strong>');
         $bulkPos = strpos($html, 'data-bulk-rail');
-        $headingPos = strpos($html, 'fw-semibold">Catalog</h2>');
+        $filtersPos = strpos($html, 'id="catalogFiltersPanel"');
         $resultsPos = strpos($html, 'id="catalogResults"');
 
         $this->assertNotFalse($spendablePos);
         $this->assertNotFalse($bulkPos);
-        $this->assertNotFalse($headingPos);
+        $this->assertNotFalse($filtersPos);
         $this->assertNotFalse($resultsPos);
-        // Under Spendable, above Catalog heading + results — never duplicated.
+        // Under Spendable, above filters + results — never duplicated.
         $this->assertLessThan($bulkPos, $spendablePos);
-        $this->assertLessThan($headingPos, $bulkPos);
+        $this->assertLessThan($filtersPos, $bulkPos);
         $this->assertLessThan($resultsPos, $bulkPos);
         $this->assertSame(1, substr_count($html, 'data-bulk-rail'));
         $this->assertSame(1, substr_count($html, 'id="bulkDealsRail"'));

@@ -107,6 +107,7 @@ class TooltipConsistencyTest extends TestCase
         }
 
         $this->assertStringContainsString("hasAttribute('data-no-tip')", $js, 'Views need an opt-out hook.');
+        $this->assertStringContainsString('#catalogResults, .catalog-results-card', $js);
     }
 
     public function test_glass_tip_rebinds_after_dynamic_rendering(): void

@@ -16,18 +16,32 @@
             : null);
     $chipTurnaround = $site?->turnaroundLabel()
         ?: trim((string) ($turnaround ?? ''));
+    $chipLanguageCodes = $site?->languageCodes() ?? [];
+    $chipLanguageLabels = [];
+    foreach (array_slice($chipLanguageCodes, 0, 2) as $code) {
+        $label = fullLanguage($code);
+        if ($label !== '') {
+            $chipLanguageLabels[] = $label;
+        }
+    }
 @endphp
 
-@if($chipLinkType || $chipTurnaround !== '')
+@if($chipLanguageLabels !== [] || $chipLinkType || $chipTurnaround !== '')
 <div class="catalog-meta-chips">
+    @foreach($chipLanguageLabels as $chipLanguage)
+    <span class="catalog-meta-chip catalog-meta-chip--language">
+        <i class="fa-solid fa-language" aria-hidden="true"></i>
+        <span>{{ $chipLanguage }}</span>
+    </span>
+    @endforeach
     @if($chipLinkType)
-    <span class="catalog-meta-chip" title="{{ $chipLinkType }} links on this placement">
+    <span class="catalog-meta-chip">
         <i class="fa-solid fa-link" aria-hidden="true"></i>
         <span>{{ $chipLinkType }}</span>
     </span>
     @endif
     @if($chipTurnaround !== '')
-        <span class="catalog-meta-chip" title="Typical turnaround once the publisher accepts">
+        <span class="catalog-meta-chip">
             <i class="fa-regular fa-clock" aria-hidden="true"></i>
             <span>{{ $chipTurnaround }}</span>
         </span>

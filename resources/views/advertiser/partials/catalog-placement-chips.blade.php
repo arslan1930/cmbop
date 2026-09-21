@@ -22,21 +22,20 @@
 @if($showHomepagePlacementChip)
     @if($placementFreeHomepageDays !== null)
         <span class="site-chip site-chip--homepage site-chip--descriptor"
-              title="Free homepage placement for up to {{ $placementFreeHomepageDays }} day{{ $placementFreeHomepageDays > 1 ? 's' : '' }} — choose duration in Details">
+              aria-label="Free homepage placement for up to {{ $placementFreeHomepageDays }} day{{ $placementFreeHomepageDays > 1 ? 's' : '' }} — choose duration in Details">
             <i class="fa-solid fa-house" aria-hidden="true"></i>
             <span>Free homepage</span>
         </span>
     @else
         <span class="site-chip site-chip--homepage site-chip--descriptor"
-              title="Optional homepage placement available — choose duration in Details">
+              aria-label="Optional homepage placement available — choose duration in Details">
             <i class="fa-solid fa-house" aria-hidden="true"></i>
             <span>Homepage</span>
         </span>
     @endif
 @endif
 @if($showSocialPlacementChip)
-    <span class="site-chip site-chip--social site-chip--descriptor"
-          title="{{ $socialTitle }}">
+    <span class="site-chip site-chip--social site-chip--descriptor"@if($socialTitle !== '') aria-label="{{ $socialTitle }}"@endif>
         <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
         <span>Social</span>
     </span>

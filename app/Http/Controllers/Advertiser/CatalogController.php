@@ -239,6 +239,7 @@ class CatalogController extends Controller
             'favorites' => [],
             'blacklist' => [],
             'showBlacklistedOnly' => search_text($request->input('blacklist_filter')) === '1',
+            'inventoryFrom' => null,
         ];
     }
 
@@ -275,6 +276,7 @@ class CatalogController extends Controller
         $favorites = $listing['favorites'];
         $blacklist = $listing['blacklist'];
         $showBlacklistedOnly = $listing['showBlacklistedOnly'];
+        $inventoryFrom = $listing['inventoryFrom'] ?? null;
 
         // Get predefined countries for filter dropdown (flat map kept for compat).
         $availableCountries = $this->getAvailableCountries();
@@ -389,7 +391,8 @@ class CatalogController extends Controller
             'catalogCashBalance',
             'catalogSpendableBalance',
             'currentUser',
-            'urlVisibility'
+            'urlVisibility',
+            'inventoryFrom'
         ));
     }
 
@@ -426,6 +429,7 @@ class CatalogController extends Controller
                 'blacklist' => $listing['blacklist'],
                 'currentUser' => $currentUser,
                 'urlVisibility' => $urlVisibility,
+                'inventoryFrom' => $listing['inventoryFrom'] ?? null,
             ])
             ->header('Cache-Control', 'no-store, private');
     }
@@ -802,6 +806,17 @@ class CatalogController extends Controller
                 ->where('created_at', '<=', Site::PLAUSIBLE_SQL_DATETIME_CEIL);
         }
 
+        // Filtered-set min (advertiser-facing), not the current page min.
+        $inventoryFrom = null;
+        try {
+            $minRaw = (clone $query)->min(DB::raw($advPriceSql));
+            if ($minRaw !== null && $minRaw !== false && is_numeric($minRaw)) {
+                $inventoryFrom = round((float) $minRaw, 2);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Catalog inventory min price failed', ['error' => $e->getMessage()]);
+        }
+
         if (Schema::hasColumn('sites', 'featured_until')) {
             $query->orderByRaw(
                 '(featured_until IS NOT NULL AND featured_until > ? AND featured_until <= ?) DESC',
@@ -874,6 +889,7 @@ class CatalogController extends Controller
             'favorites' => $favorites,
             'blacklist' => $blacklist,
             'showBlacklistedOnly' => $showBlacklistedOnly,
+            'inventoryFrom' => $inventoryFrom,
         ];
     }
 

@@ -2642,24 +2642,35 @@ const CatalogLive = (function () {
         }
     }
 
+    function catalogMoneyLabel(amount) {
+        const n = Number(amount);
+        if (!Number.isFinite(n)) return '';
+        return (window.slbFormatMoney || function (value) { return '€' + Number(value).toFixed(2); })(n);
+    }
+
+    function inventoryFromHtml(card) {
+        const raw = card && card.getAttribute('data-inventory-from');
+        if (raw === null || raw === '') return '';
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 0) return '';
+        return ' <span class="catalog-inventory-from">· from <strong class="catalog-inventory-teaser__price">'
+            + catalogMoneyLabel(n) + '</strong></span>';
+    }
+
     function syncResultsCount(card) {
         const el = document.getElementById('catalogResultsCount');
         if (!el || !card) return;
         const total = parseInt(card.getAttribute('data-result-total') || '0', 10) || 0;
         const first = parseInt(card.getAttribute('data-first-item') || '0', 10) || 0;
         const last = parseInt(card.getAttribute('data-last-item') || '0', 10) || 0;
+        const fromHtml = inventoryFromHtml(card);
         if (total > 0 && first > 0) {
             el.innerHTML = 'Showing <strong class="text-dark">' + first + '–' + last
                 + '</strong> of <strong class="text-dark">' + total.toLocaleString()
-                + '</strong> ' + (total === 1 ? 'site' : 'sites');
+                + '</strong> ' + (total === 1 ? 'site' : 'sites') + fromHtml;
         } else {
             // Keep Phase 6 empty-status wording after live fragment swap.
             el.textContent = card.getAttribute('data-status-text') || 'No sites match your filters';
-        }
-
-        const countEl = document.querySelector('.catalog-inventory-teaser strong.text-dark');
-        if (countEl) {
-            countEl.textContent = total.toLocaleString();
         }
 
         announceResults(total, first, last, card);
@@ -4553,14 +4564,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function catalogActionClick(e) {
-        // Interactive chrome must not toggle Details — ↗, eye, Buy, favorite,
-        // blacklist, claim, tip chips, Details itself (has its own handler), etc.
-        return !!e.target.closest(
-            'button, a, input, label, select, textarea, .reveal-url, .hide-url, .toggle-url, .catalog-url-eye, .expand-arrow, .catalog-card-details-toggle, .btn-icon-quiet, .site-open-link, .buy-now, .favorite-btn, .blacklist-btn, .btn-claim-site, .copy-example-url, .sensitive-price-checkbox, .homepage-placement-radio, .form-check-label, .site-chip, .site-badge-new, .catalog-site-actions, .catalog-site-controls, .catalog-card-details'
-        );
-    }
-
     const URL_MASK = '•••••••';
 
     /**
@@ -4596,9 +4599,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 delete el.dataset.host;
             }
-            if (el.getAttribute('title') !== null) {
-                el.setAttribute('title', displayText);
-            }
+            el.removeAttribute('title');
         });
         return nodes[0] || null;
     }
@@ -4615,11 +4616,7 @@ document.addEventListener('DOMContentLoaded', function() {
         roots.forEach(function (root) {
             root.querySelectorAll('.catalog-site-name, [data-site-name-label]').forEach(function (el) {
                 el.textContent = displayName;
-                if (setTitle) {
-                    el.setAttribute('title', displayName);
-                } else {
-                    el.removeAttribute('title');
-                }
+                el.removeAttribute('title');
             });
             root.setAttribute('data-name', displayName);
             root.querySelectorAll('[data-name]').forEach(function (el) {
@@ -4769,7 +4766,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Details button — dedicated control (also excluded from whole-row handler).
+    // Details button only — row / card body clicks must not expand. Hovering a
+    // metric or name must not feel like a second page. Delegated so live-fetched
+    // rows stay interactive. Multi-open: opening one does not close others.
     document.addEventListener('click', function (e) {
         const arrow = e.target.closest('.expand-arrow');
         if (!arrow) return;
@@ -4780,33 +4779,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const id = arrow.id.replace('arrow-', '');
         toggleExpandRow(id, arrow);
-    });
-
-    // Whole-row click toggles Details (name, URL text, tile, metrics, empty space).
-    // ↗ stays external-only; interactive chrome is filtered via catalogActionClick.
-    // Delegated so live-fetched rows stay interactive. Multi-open: opening one
-    // does not close others; second click on the same row collapses it.
-    document.addEventListener('click', function (e) {
-        const row = e.target.closest('tr.site-row');
-        if (!row) return;
-        if (catalogActionClick(e)) return;
-
-        const id = row.getAttribute('data-id');
-        if (!id) return;
-
-        toggleExpandRow(id, document.getElementById('arrow-' + id));
-    });
-
-    // Mobile cards: same body-click toggle parity with the table.
-    document.addEventListener('click', function (e) {
-        const card = e.target.closest('.catalog-mobile-card');
-        if (!card) return;
-        if (catalogActionClick(e)) return;
-
-        const toggle = card.querySelector('.catalog-card-details-toggle');
-        if (!toggle) return;
-
-        toggleCardDetails(toggle);
     });
 
     // Copy example URL

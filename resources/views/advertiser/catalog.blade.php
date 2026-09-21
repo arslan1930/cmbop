@@ -67,7 +67,7 @@
 
 {{-- catalog-page scopes this page's stylesheet. Without it, rules for .table,
      .badge and .form-control reached the cart drawer and the shell chrome. --}}
-<div class="container-fluid catalog-page">
+<div class="container-fluid catalog-page{{ config('catalog.live_search.enabled', true) ? ' is-live-search' : '' }}">
     <div id="catalogCartLive" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
     @include('components.ad-banners', ['placement' => 'marketplace', 'audience' => 'advertiser'])
 
@@ -78,7 +78,7 @@
             'step' => 2,
             'title' => 'Place a guest post · Publishers',
             'subtitle' => 'Ordering “'.($orderingSubmission->title ?: $orderingSubmission->original_filename).'” ('
-                .strtoupper((string) $orderingSubmission->language).'). Browse any sites — language does not have to match — then assign in your cart.',
+                .strtoupper((string) $orderingSubmission->language).'). Browse any listings — language does not have to match — then assign in your cart.',
             'linkAll' => true,
             'contentRoute' => route('advertiser.content-library'),
             'actions' => '<button type="button" class="btn btn-sm btn-primary" onclick="openCart()">Review cart</button>'
@@ -89,7 +89,7 @@
         @include('advertiser.partials.ordering-path', [
             'step' => 2,
             'title' => 'Catalog · Publishers',
-            'subtitle' => 'One job here: pick publishers. Keep browsing with items in your cart — finish payment when ready. Prefer steps? Use Guided.',
+            'subtitle' => 'Browse publisher listings and add sites to your cart. Keep browsing with items in your cart — finish payment when ready. Prefer steps? Use Guided.',
             'linkAll' => true,
             'contentRoute' => route('advertiser.content-library'),
             'actions' => '<button type="button" class="catalog-plain-action" onclick="openCart()"><i class="fa fa-shopping-cart" aria-hidden="true"></i> Open cart</button>'
@@ -134,14 +134,11 @@
         </div>
     @endif
     @if($catalogCartCount > 0)
-        <div class="alert alert-light border shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="alert alert-light border shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 catalog-cart-status" role="status">
             <div class="small mb-0">
                 You have <strong>{{ $catalogCartCount }}</strong> {{ Str::plural('site', $catalogCartCount) }} in your cart.
-                Keep browsing anytime — open the cart when you are ready to assign articles and pay.
+                Keep browsing — open the cart from the header when you are ready to assign articles and pay.
             </div>
-            <button type="button" class="catalog-plain-action" onclick="openCart()">
-                <i class="fa fa-shopping-cart" aria-hidden="true"></i> Open cart
-            </button>
         </div>
     @endif
 
@@ -179,20 +176,6 @@
 @include('advertiser.partials.catalog-bulk-deals')
     </div>
 
-
-    <!-- HEADER -->
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <h2 class="mb-1 fw-semibold">Catalog</h2>
-            <p class="text-muted mb-0">
-                @if(!empty($orderingSubmission))
-                    Browse any verified publishers for “{{ $orderingSubmission->title ?: $orderingSubmission->original_filename }}”. Filters stay optional — language does not have to match.
-                @else
-                    Browse verified publishers and add sites to your cart.
-                @endif
-            </p>
-        </div>
-    </div>
 
     <!-- FILTERS SECTION -->
 @php
@@ -249,27 +232,9 @@
     if ($catalogPerPage !== \App\Services\Catalog\CatalogUrlQuery::DEFAULT_PER_PAGE) {
         $activeFilterChips[] = ['label' => $catalogPerPage.' per page', 'key' => 'per_page', 'params' => ['per_page']];
     }
-    $inventoryTotal = $sites->total();
-    $inventoryFrom = $sites->getCollection()->min(fn ($s) => (float) $s->price);
+    $catalogLiveSearch = (bool) config('catalog.live_search.enabled', true);
+    $inventoryFrom = $inventoryFrom ?? null;
 @endphp
-
-{{-- Result-first teaser (CV2): inventory + price under the Catalog title.
-     Filters live just above the results table (no Hide/Show toggle). --}}
-<div class="catalog-inventory-teaser d-flex flex-wrap align-items-center gap-2 mb-3">
-    <div class="small">
-        @if($inventoryTotal > 0)
-            <strong class="text-dark">{{ number_format($inventoryTotal) }}</strong>
-            {{ Str::plural('placement', $inventoryTotal) }} available
-            @if($inventoryFrom !== null)
-                · from <strong class="catalog-inventory-teaser__price">{{ format_money($inventoryFrom) }}</strong>
-            @endif
-        @else
-            <span class="text-muted">No placements match yet — broaden filters below</span>
-        @endif
-    </div>
-</div>
-
-
 
 <!-- CONTENT AREA -->
     <div class="row">
@@ -492,10 +457,13 @@
                         <!-- Actions -->
                         <div class="col-12 col-lg-2">
                             <label class="form-label fw-semibold small text-muted mb-1 d-none d-md-block">&nbsp;</label>
-                            <div class="d-flex flex-wrap gap-2">
-                                <button type="submit" class="btn btn-sm btn-primary px-3" id="applyFiltersBtn">
-                                    <i class="fa-solid fa-filter me-1" aria-hidden="true"></i> Filter
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <button type="submit" class="btn btn-sm {{ $catalogLiveSearch ? 'btn-cta-secondary' : 'btn-primary' }} px-3" id="applyFiltersBtn">
+                                    <i class="fa-solid fa-filter me-1" aria-hidden="true"></i> {{ $catalogLiveSearch ? 'Apply' : 'Filter' }}
                                 </button>
+                                @if($catalogLiveSearch)
+                                    <span class="small text-muted catalog-live-apply-hint">Applies as you type</span>
+                                @endif
                                 <button type="button" class="btn btn-sm btn-cta-secondary px-2" id="toggleMoreFiltersBtn" aria-controls="moreFiltersDrawer" aria-expanded="{{ $moreFiltersOpen ? 'true' : 'false' }}">
                                     More
                                     @if($moreFiltersOpen)
@@ -702,6 +670,9 @@
             <div class="catalog-results-bar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                 <div class="text-muted small" id="catalogResultsCount" data-catalog-results-count>
                     {{ $catalogResultsCopy['text'] }}
+                    @if($resultTotal > 0 && $inventoryFrom !== null)
+                        <span class="catalog-inventory-from">· from <strong class="catalog-inventory-teaser__price">{{ format_money($inventoryFrom) }}</strong></span>
+                    @endif
                 </div>
                 <div id="catalogLiveStatus" class="visually-hidden" aria-live="polite" aria-atomic="true">{{ $catalogResultsCopy['announce'] }}</div>
                 <div class="d-flex flex-wrap align-items-center gap-2">

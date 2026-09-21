@@ -528,6 +528,14 @@
     opacity: 0.75;
 }
 
+.catalog-live-apply-hint {
+    white-space: nowrap;
+}
+
+.catalog-inventory-from {
+    white-space: nowrap;
+}
+
 /* Country: flag over name (previous catalog layout), clamped so a long
    country cannot widen the table. Full name stays in title for truncation. */
 .catalog-country {
@@ -642,7 +650,12 @@
 
 .catalog-expand-cell {
     background-color: var(--surface-2, #f7fafb);
-    padding: 20px;
+    padding: 12px 16px;
+}
+
+.catalog-expand-title {
+    font-size: 0.875rem;
+    font-weight: 600;
 }
 
 .catalog-expand-grid > [class*="col-"] {
@@ -1968,7 +1981,7 @@ body:has(.catalog-page) {
     display: none;
     pointer-events: none;
     border-radius: inherit;
-    background: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.12);
 }
 
 /* Belt-and-suspenders: without catalog.css a plain div is display:block and
@@ -1989,12 +2002,12 @@ body:has(.catalog-page) {
 .catalog-results-card.is-busy > .card-body {
     pointer-events: none;
     user-select: none;
-    opacity: 0.55;
+    opacity: 0.92;
 }
 
 @media (prefers-reduced-motion: reduce) {
     .catalog-results-card.is-busy > .card-body {
-        opacity: 0.7;
+        opacity: 1;
     }
 }
 
