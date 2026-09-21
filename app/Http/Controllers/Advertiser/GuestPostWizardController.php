@@ -241,9 +241,46 @@ class GuestPostWizardController extends Controller
      */
     public static function stateFromSession(): array
     {
-        $raw = session(self::SESSION_KEY, []);
+        try {
+            $raw = session(self::SESSION_KEY, []);
+            if (! is_array($raw)) {
+                return [];
+            }
 
-        return is_array($raw) ? $raw : [];
+            $state = [];
+            foreach (['language', 'country'] as $key) {
+                $value = $raw[$key] ?? null;
+                if (! is_scalar($value)) {
+                    continue;
+                }
+                $value = strtolower(trim((string) $value));
+                if ($value === '' || strlen($value) > 16) {
+                    continue;
+                }
+                $state[$key] = $value;
+            }
+
+            $cats = $raw['categories'] ?? null;
+            if (is_array($cats)) {
+                $state['categories'] = array_values(array_filter(
+                    array_map(
+                        static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
+                        $cats
+                    ),
+                    static fn ($c) => $c !== '' && strlen($c) <= 120
+                ));
+            }
+
+            if (isset($raw['started_at']) && is_scalar($raw['started_at'])) {
+                $state['started_at'] = (string) $raw['started_at'];
+            }
+
+            return $state;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     public static function clear(): void
