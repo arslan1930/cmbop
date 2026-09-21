@@ -17,9 +17,20 @@ class PublicCopyIntegrityTest extends TestCase
 
     private function langPath(string $locale): string
     {
-        $lang = PublicI18n::messagesFallback($locale) ?? $locale;
+        $fileLocale = $locale;
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'messagesFallback')) {
+            $fallback = PublicI18n::messagesFallback($locale);
+            if (is_string($fallback) && $fallback !== '') {
+                $fileLocale = $fallback;
+            }
+        }
 
-        return resource_path('lang/'.$lang.'/messages.php');
+        $path = resource_path('lang/'.$fileLocale.'/messages.php');
+        if (! is_file($path)) {
+            $path = resource_path('lang/'.$locale.'/messages.php');
+        }
+
+        return $path;
     }
 
     /**

@@ -108,7 +108,7 @@ use Illuminate\Support\Facades\Route;
 /*
 |--------------------------------------------------------------------------
 | Public marketing routes (multilingual: en unprefixed UK English,
-| de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee prefixed). Authenticated SaaS + login/register stay English-only.
+| de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee|pl prefixed). Authenticated SaaS + login/register stay English-only.
 |--------------------------------------------------------------------------
 */
 
@@ -147,10 +147,10 @@ if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'support
 $prefixedLocalePattern = implode('|', array_values(array_filter($prefixedLocales, 'strlen')));
 $supportedLocalePattern = implode('|', array_values(array_filter($supportedLocales, 'strlen')));
 if ($prefixedLocalePattern === '') {
-    $prefixedLocalePattern = 'de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee';
+    $prefixedLocalePattern = 'de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee|pl';
 }
 if ($supportedLocalePattern === '') {
-    $supportedLocalePattern = 'en|de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee';
+    $supportedLocalePattern = 'en|de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee|pl';
 }
 
 // Stacked locale cleanup: /nl/fr → /nl
@@ -220,35 +220,22 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
 };
 
 $englishOnlyMarketingSlugs = ['guest-post-prices-europe'];
-try {
-    // Leftover PublicI18n.php can exist without this method. Call it when present.
-    if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')) {
-        $resolved = PublicI18n::englishOnlyMarketingSlugs();
-        if (is_array($resolved) && $resolved !== []) {
-            $englishOnlyMarketingSlugs = array_values(array_unique(array_filter(
-                $resolved,
-                static fn ($slug) => is_string($slug) && trim($slug) !== ''
-            )));
+if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')) {
+    try {
+        $fromPublic = PublicI18n::englishOnlyMarketingSlugs();
+        if (is_array($fromPublic) && $fromPublic !== []) {
+            $englishOnlyMarketingSlugs = $fromPublic;
         }
-    } elseif (class_exists(EnglishOnlyMarketingSlugs::class) && method_exists(EnglishOnlyMarketingSlugs::class, 'all')) {
+    } catch (Throwable) {
+    }
+} elseif (class_exists(EnglishOnlyMarketingSlugs::class) && method_exists(EnglishOnlyMarketingSlugs::class, 'all')) {
+    try {
         $fromHelper = EnglishOnlyMarketingSlugs::all();
         if (is_array($fromHelper) && $fromHelper !== []) {
-            $englishOnlyMarketingSlugs = array_values(array_unique(array_filter(
-                $fromHelper,
-                static fn ($slug) => is_string($slug) && trim($slug) !== ''
-            )));
+            $englishOnlyMarketingSlugs = $fromHelper;
         }
-    } elseif (class_exists(CountryLander::class) && method_exists(CountryLander::class, 'slugs')) {
-        $englishOnlyMarketingSlugs = array_values(array_unique(array_merge(
-            $englishOnlyMarketingSlugs,
-            CountryLander::slugs()
-        )));
+    } catch (Throwable) {
     }
-} catch (Throwable) {
-    $englishOnlyMarketingSlugs = ['guest-post-prices-europe'];
-}
-if ($englishOnlyMarketingSlugs === []) {
-    $englishOnlyMarketingSlugs = ['guest-post-prices-europe'];
 }
 
 $registerEnglishOnlyMarketingRoutes = function () {

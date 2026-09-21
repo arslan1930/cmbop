@@ -14,6 +14,12 @@
 
 <!-- ==================== CONTACT CONTENT ==================== -->
 <div class="container py-5" style="max-width:900px;">
+    @include('components.breadcrumbs', [
+        'items' => [
+            ['name' => __('messages.home'), 'url' => localized_url('/')],
+            ['name' => __('messages.contact'), 'url' => localized_url('contact')],
+        ],
+    ])
 
     <!-- ===== CEO SECTION ===== -->
     <div class="mb-5 p-4 p-md-5 rounded-4 shadow-sm" style="background:white; border:1px solid #eef0f3;">
@@ -21,6 +27,8 @@
             <div style="width:90px; height:90px; border-radius:50%; overflow:hidden; flex-shrink:0; border:3px solid #5bc4c7; box-shadow:0 4px 12px rgba(63, 174, 178,0.25);">
                 <img src="{{ asset('assets/img/support-avatar.jpg') }}?v={{ @filemtime(public_path('assets/img/support-avatar.jpg')) ?: '1' }}"
                      alt="M Arslan - Founder & CEO"
+                     width="90"
+                     height="90"
                      style="width:100%; height:100%; object-fit:cover;">
             </div>
             <div>

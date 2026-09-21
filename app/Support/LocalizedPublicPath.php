@@ -202,6 +202,20 @@ class LocalizedPublicPath
                 'cookie-policy' => 'kupsised',
                 'refund-policy' => 'tagastus',
             ],
+            'pl' => [
+                'about' => 'o-nas',
+                'faq' => 'faq',
+                'pricing' => 'cennik',
+                'marketplace' => 'rynek',
+                'how-it-works' => 'jak-to-dziala',
+                'become-a-publisher' => 'zostan-wydawca',
+                'why-choose-us' => 'dlaczego-my',
+                'contact' => 'kontakt',
+                'privacy-policy' => 'polityka-prywatnosci',
+                'terms-of-services' => 'regulamin',
+                'cookie-policy' => 'polityka-cookies',
+                'refund-policy' => 'zwroty',
+            ],
         ];
 
         $maps['at'] = $maps['de'];

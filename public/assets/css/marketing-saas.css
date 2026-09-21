@@ -95,6 +95,15 @@ body.slb-marketing .h3 {
   background: #fff;
 }
 
+#mainNavbar.slb-nav .navbar-lang-menu,
+#mainNavbar .navbar-lang-menu {
+  min-width: 220px;
+  max-height: min(70vh, 28rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
 /* —— Footer —— */
 footer.slb-footer {
   background: var(--grad-panel, linear-gradient(160deg, #e6f5f5 0%, #f0faf9 100%)) !important;

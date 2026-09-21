@@ -16,9 +16,16 @@ final class LeftoverPublicI18nSlugs
     {
         try {
             $sourceFile ??= __DIR__.DIRECTORY_SEPARATOR.'PublicI18n.php';
+            self::persistMissingMethod($sourceFile);
 
             if (class_exists(PublicI18n::class, false)
                 && method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')) {
+                return;
+            }
+
+            // Already loaded without the method — PHP cannot add it after the fact.
+            // persistMissingMethod() rewrote the leftover file for the next request.
+            if (class_exists(PublicI18n::class, false)) {
                 return;
             }
 
@@ -70,6 +77,41 @@ final class LeftoverPublicI18nSlugs
 
             require_once $loadPath;
         } catch (\Throwable) {
+        }
+    }
+
+    /**
+     * Write englishOnlyMarketingSlugs() onto leftover PublicI18n.php.
+     * Returns true when the file was changed.
+     */
+    public static function persistMissingMethod(string $sourceFile): bool
+    {
+        try {
+            if (! is_file($sourceFile) || ! is_readable($sourceFile)) {
+                return false;
+            }
+
+            $src = (string) file_get_contents($sourceFile);
+            if ($src === '' || self::sourceDefinesMethod($src)) {
+                return false;
+            }
+
+            $patched = self::injectMethodSource($src);
+            if ($patched === null || $patched === $src) {
+                return false;
+            }
+
+            if (file_put_contents($sourceFile, $patched) === false) {
+                return false;
+            }
+
+            if (function_exists('opcache_invalidate')) {
+                @opcache_invalidate($sourceFile, true);
+            }
+
+            return true;
+        } catch (\Throwable) {
+            return false;
         }
     }
 

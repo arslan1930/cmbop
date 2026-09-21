@@ -62,6 +62,7 @@
             ?: ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'robotsContent'))
                 ? \App\Support\PublicI18n::robotsContent(request())
                 : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
+        $skipHreflang = trim($__env->yieldContent('skip_hreflang')) === '1';
     @endphp
     @include('components.favicon')
     <title>{{ $pageTitle }}</title>
@@ -73,9 +74,11 @@
         <meta name="google-site-verification" content="{{ $googleSiteVerification }}">
     @endif
     <link rel="canonical" href="{{ $pageCanonical }}">
+    @if(empty($skipHreflang))
     @foreach($hreflangTags as $tag)
         <link rel="alternate" hreflang="{{ $tag['hreflang'] }}" href="{{ $tag['href'] }}">
     @endforeach
+    @endif
     @if(class_exists(\App\Support\BrandOrganization::class))
         @php
             $organizationJsonLd = '';
@@ -150,7 +153,7 @@
     <style>
         html, body {
             font-family: 'Poppins', sans-serif;
-            overflow-x: hidden;
+            overflow-x: clip;
             overflow-y: auto;
             max-width: 100%;
         }
