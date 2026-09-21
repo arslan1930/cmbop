@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\CountryHost;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,11 +29,11 @@ class CanonicalHost
             return redirect()->to($target, 301);
         }
 
-        if (class_exists(\App\Support\CountryHost::class)) {
+        if (class_exists(CountryHost::class)) {
             try {
-                $locale = \App\Support\CountryHost::localeForHost($host);
+                $locale = CountryHost::localeForHost($host);
                 if (is_string($locale) && $locale !== '') {
-                    $target = \App\Support\CountryHost::apexUrl($request, $locale);
+                    $target = CountryHost::apexUrl($request, $locale);
                     $targetHost = strtolower((string) parse_url($target, PHP_URL_HOST));
                     if ($targetHost !== '' && $targetHost !== $host) {
                         return redirect()->to($target, 301);

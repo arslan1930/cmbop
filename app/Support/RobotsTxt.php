@@ -72,6 +72,7 @@ class RobotsTxt
             '/reset-password',
             '/email/',
             '/auth/',
+            '/cron/',
         ];
     }
 

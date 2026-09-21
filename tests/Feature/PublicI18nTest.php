@@ -237,6 +237,8 @@ class PublicI18nTest extends TestCase
         $this->get('/ch/marketplace')->assertRedirect('/ch/marktplatz');
         $this->get('/ro/about')->assertRedirect('/ro/despre-noi');
         $this->get('/se/pricing')->assertRedirect('/se/priser');
+        $this->get('/pl/about')->assertRedirect('/pl/o-nas');
+        $this->get('/pl/marketplace')->assertRedirect('/pl/rynek');
     }
 
     public function test_language_switcher_uses_localized_page_paths(): void
@@ -256,7 +258,8 @@ class PublicI18nTest extends TestCase
             ->assertSee('sitemap-de.xml', false)
             ->assertSee('sitemap-es.xml', false)
             ->assertSee('sitemap-it.xml', false)
-            ->assertSee('sitemap-us.xml', false);
+            ->assertSee('sitemap-us.xml', false)
+            ->assertSee('sitemap-pl.xml', false);
 
         $this->get('/sitemap-de.xml')
             ->assertOk()

@@ -63,7 +63,7 @@ return [
 
     /**
      * Brand ccTLDs (DNS aliases) 301 onto seolinkbuildings.com.
-     * Values are public locales; `en` stays unprefixed.
+     * Values are public locales; `en` stays unprefixed. .uk and .co.uk are one UK version.
      */
     'country_hosts' => [
         'seolinkbuildings.de' => 'de',

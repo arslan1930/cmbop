@@ -11,7 +11,9 @@
 ## Product
 SEOLinkBuildings (seolinkbuildings.com) is a two-sided marketplace for buying and selling editorial guest-post placements. Advertisers browse a catalog of publisher sites, fund a EUR wallet, assign approved articles, and track orders to live URL. Publishers list sites, fulfil placement tasks, and withdraw earnings.
 
-Public marketing site languages: English UK (default, unprefixed), English US (/us), German (/de), French (/fr), Dutch (/nl), Spanish (/es), Italian (/it). Logged-in SaaS dashboard is English.
+Public marketing site languages: English UK (default, unprefixed), English US (/us), German (/de), French (/fr), Dutch (/nl), Spanish (/es), Italian (/it), Polish (/pl), plus additional European locale prefixes (/at, /ch, /ro, /gr, /dk, /se, /no, /bg, /hu, /ee). Logged-in SaaS dashboard is English. Country guest-post landers (English URLs only) include Germany, UK, Italy, Spain, France, Netherlands, Switzerland, Austria, Romania, Greece, Denmark, Sweden, Norway, Bulgaria, Hungary, Estonia, and Poland.
+
+The live canonical host is https://seolinkbuildings.com (www redirects to apex). Brand country-code domains 301 onto seolinkbuildings.com locale paths; they are not separate indexable sites.
 
 ## Key URLs
 - Home: https://seolinkbuildings.com/
@@ -24,12 +26,15 @@ Public marketing site languages: English UK (default, unprefixed), English US (/
 - Contact: https://seolinkbuildings.com/contact
 - Blog: https://seolinkbuildings.com/blog
 - Become a publisher: https://seolinkbuildings.com/become-a-publisher
+- Guest posts by market: https://seolinkbuildings.com/marketplace
+- Guest posts in Poland: https://seolinkbuildings.com/guest-posts-poland
+- EU guest-post prices: https://seolinkbuildings.com/guest-post-prices-europe
 - Register: https://seolinkbuildings.com/register
 - Login: https://seolinkbuildings.com/login
 - Sitemap: https://seolinkbuildings.com/sitemap.xml
 - Robots: https://seolinkbuildings.com/robots.txt
 
-Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/it/`, `/us/` prefixes for the same public pages.
+Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/it/`, `/us/`, `/pl/` prefixes for the same public pages.
 
 ## Pricing (snapshot)
 - Marketplace placements: priced per publisher listing; public pages state placements start from a low EUR amount (catalog after login).
