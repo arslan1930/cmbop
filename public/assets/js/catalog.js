@@ -3943,6 +3943,11 @@ window.catalogSyncBuyAddonHints = function catalogSyncBuyAddonHints() {
     document.querySelectorAll('.catalog-buy-addon-hint[data-site-id]').forEach(function (el) {
         const siteId = el.getAttribute('data-site-id');
         if (!siteId) return;
+        if (document.querySelector('.buy-now.is-in-cart[data-id="' + siteId + '"]')) {
+            el.hidden = true;
+            el.textContent = '';
+            return;
+        }
         const homepage = getSelectedHomepageForSite(siteId);
         const sensitive = getSelectedSensitiveForSite(siteId);
         const bits = [];

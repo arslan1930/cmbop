@@ -484,6 +484,7 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('<span>In cart</span>', $js);
         $this->assertStringContainsString("button.classList.contains('is-in-cart')", $js);
         $this->assertStringContainsString('window.catalogSyncBuyAddonHints', $js);
+        $this->assertStringContainsString('.buy-now.is-in-cart[data-id=', $js);
         $this->assertStringContainsString("Incl. ' + homepage.days + '-day homepage'", $js);
         $this->assertStringNotContainsString('readiness chips', $js);
     }
