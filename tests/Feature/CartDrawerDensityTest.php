@@ -120,6 +120,7 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('.cart-item-upload-cta', $css);
         $this->assertStringContainsString('.cart-item-article-empty a.btn', $css);
         $this->assertStringContainsString('color: #fff', $css);
+        $this->assertStringContainsString('background-color: var(--brand-primary-deep, #123f42)', $css);
         $this->assertStringContainsString('width: min(420px, 94vw)', $css);
         $this->assertStringContainsString('max-height: 100vh', $css);
         $this->assertStringContainsString('max-height: 100dvh', $css);

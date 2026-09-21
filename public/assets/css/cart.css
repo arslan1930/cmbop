@@ -380,8 +380,12 @@
 }
 
 .cart-item-article-empty a.cart-item-upload-cta:hover,
-.cart-item-article-empty a.btn:hover {
+.cart-item-article-empty a.cart-item-upload-cta:focus,
+.cart-item-article-empty a.btn:hover,
+.cart-item-article-empty a.btn:focus {
   color: #fff;
+  background-color: var(--brand-primary-deep, #123f42);
+  border-color: var(--brand-primary-deep, #123f42);
   text-decoration: none;
 }
 
