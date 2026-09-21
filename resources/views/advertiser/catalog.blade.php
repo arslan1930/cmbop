@@ -110,8 +110,17 @@
     @endif
 
     @php
-        $catalogCart = is_array($cart ?? null) ? $cart : session('cart', []);
-        $catalogCartCount = collect(is_array($catalogCart) ? $catalogCart : [])
+        try {
+            $catalogCart = is_array($cart ?? null) ? $cart : session('cart', []);
+            if (! is_array($catalogCart)) {
+                $catalogCart = [];
+            }
+            $catalogCart = array_values(array_filter($catalogCart, 'is_array'));
+        } catch (\Throwable $e) {
+            report($e);
+            $catalogCart = [];
+        }
+        $catalogCartCount = collect($catalogCart)
             ->pluck('id')
             ->filter()
             ->unique()
@@ -135,8 +144,8 @@
     @endif
     @if($catalogCartCount > 0)
         @php
-            $catalogPlacementCount = collect(is_array($catalogCart) ? $catalogCart : [])
-                ->sum(fn ($row) => (int) ($row['quantity'] ?? 0));
+            $catalogPlacementCount = collect($catalogCart)
+                ->sum(fn ($row) => is_array($row) ? (int) ($row['quantity'] ?? 0) : 0);
             $catalogCartCountLabel = $catalogCartCount.' '.($catalogCartCount === 1 ? 'site' : 'sites');
             if ($catalogPlacementCount > $catalogCartCount) {
                 $catalogCartCountLabel .= ' · '.$catalogPlacementCount.' placements';

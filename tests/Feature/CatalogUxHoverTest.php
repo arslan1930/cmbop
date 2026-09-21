@@ -147,11 +147,13 @@ class CatalogUxHoverTest extends TestCase
     {
         $blade = (string) file_get_contents(resource_path('views/advertiser/catalog.blade.php'));
 
-        $statusStart = strpos($blade, 'catalog-cart-status');
+        $statusStart = strpos($blade, 'id="catalogCartBanner"');
         $this->assertNotFalse($statusStart);
-        $chunk = substr($blade, $statusStart, 700);
-        $this->assertStringContainsString('in your cart', $chunk);
-        $this->assertStringNotContainsString('openCart()', $chunk);
+        $elseAt = strpos($blade, '@else', $statusStart);
+        $this->assertNotFalse($elseAt);
+        $filled = substr($blade, $statusStart, $elseAt - $statusStart);
+        $this->assertStringContainsString('in your cart', $filled);
+        $this->assertStringNotContainsString('openCart()', $filled);
         $this->assertStringContainsString('onclick="openCart()"', $blade);
     }
 
