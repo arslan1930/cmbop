@@ -286,6 +286,66 @@ class WebsiteLeftoverErrorHardeningTest extends TestCase
         );
     }
 
+    public function test_saved_sites_still_render_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $response = $this->actingAs($advertiser)->get(route('advertiser.saved-sites'));
+
+        $this->assertNotSame(500, $response->status());
+        $response->assertOk()->assertDontSee('SQLSTATE');
+        $this->assertStringNotContainsString('SQLSTATE', (string) session('error'));
+    }
+
+    public function test_saved_sites_remove_favorite_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.saved-sites.favorites.remove'), [
+                'site_id' => 1,
+            ])
+        );
+    }
+
+    public function test_saved_sites_remove_blacklist_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.saved-sites.blacklist.remove'), [
+                'site_id' => 1,
+            ])
+        );
+    }
+
+    public function test_saved_sites_move_to_blacklist_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.saved-sites.move.blacklist'), [
+                'site_id' => 1,
+            ])
+        );
+    }
+
+    public function test_saved_sites_move_to_favorites_returns_json_when_sites_table_is_gone(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+        Schema::dropIfExists('sites');
+
+        $this->assertSafeJsonFailure(
+            $this->actingAs($advertiser)->postJson(route('advertiser.saved-sites.move.favorites'), [
+                'site_id' => 1,
+            ])
+        );
+    }
+
     public function test_catalog_suggest_returns_json_when_sites_table_is_gone(): void
     {
         $advertiser = $this->userWithRole('advertiser');

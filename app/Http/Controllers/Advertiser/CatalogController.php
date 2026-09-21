@@ -2430,7 +2430,7 @@ class CatalogController extends Controller
 
             $this->putCatalogVisibleCart(array_values($cart));
 
-            return response()->json(array_merge(['success' => true], $this->cartPayloadForClient()));
+            return $this->jsonSuccessfulCartPayload();
         } catch (\InvalidArgumentException $e) {
             $message = UserFacingError::message($e, 'Those cart options could not be saved.');
 
