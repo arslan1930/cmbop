@@ -63,7 +63,7 @@ class ThinBlogRedirects
             // Fall through to the catalog path.
         }
 
-        if (class_exists(PublicI18n::class)) {
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'urlForLocale')) {
             return PublicI18n::urlForLocale('blog/'.$catalog, $locale);
         }
 

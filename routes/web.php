@@ -117,27 +117,33 @@ use Illuminate\Support\Facades\Validator;
 
 $prefixedLocales = (array) config('i18n.prefixed', [
     'de', 'fr', 'nl', 'es', 'it', 'us',
-    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
+    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
 ]);
 if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'prefixed')) {
     try {
-        $prefixedLocales = array_values(array_unique(array_filter(
-            array_merge($prefixedLocales, PublicI18n::prefixed()),
-            'strlen'
-        )));
+        $fromPrefixed = PublicI18n::prefixed();
+        if (is_array($fromPrefixed) && $fromPrefixed !== []) {
+            $prefixedLocales = array_values(array_unique(array_filter(
+                array_merge($prefixedLocales, $fromPrefixed),
+                'strlen'
+            )));
+        }
     } catch (Throwable) {
     }
 }
 $supportedLocales = (array) config('i18n.supported', [
     'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
-    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
+    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
 ]);
 if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
     try {
-        $supportedLocales = array_values(array_unique(array_filter(
-            array_merge($supportedLocales, PublicI18n::supported()),
-            'strlen'
-        )));
+        $fromSupported = PublicI18n::supported();
+        if (is_array($fromSupported) && $fromSupported !== []) {
+            $supportedLocales = array_values(array_unique(array_filter(
+                array_merge($supportedLocales, $fromSupported),
+                'strlen'
+            )));
+        }
     } catch (Throwable) {
     }
 }
@@ -183,7 +189,8 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
         $catalogPreview = collect();
         if (class_exists(CatalogTeaserService::class)) {
             try {
-                $teaserCountries = class_exists(PublicI18n::class)
+                $teaserCountries = (class_exists(PublicI18n::class)
+                    && method_exists(PublicI18n::class, 'catalogTeaserCountries'))
                     ? PublicI18n::catalogTeaserCountries((string) app()->getLocale())
                     : ['de'];
                 $catalogPreview = app(CatalogTeaserService::class)->teasersForCountries($teaserCountries, 8);
@@ -295,7 +302,7 @@ Route::get('/sitemap-{locale}.xml', [SitemapController::class, 'locale'])
     ->where('locale', $supportedLocalePattern)
     ->name('sitemap.locale');
 Route::get('/robots.txt', function () {
-    $body = class_exists(RobotsTxt::class)
+    $body = (class_exists(RobotsTxt::class) && method_exists(RobotsTxt::class, 'render'))
         ? RobotsTxt::render()
         : (is_file(public_path('robots.txt'))
             ? (string) file_get_contents(public_path('robots.txt'))
@@ -313,7 +320,7 @@ Route::get('/llms.txt', function () {
     abort_unless(is_file($path), 404);
 
     $body = (string) file_get_contents($path);
-    if (class_exists(WelcomeBonusCopy::class)) {
+    if (class_exists(WelcomeBonusCopy::class) && method_exists(WelcomeBonusCopy::class, 'applyToLlmsTxt')) {
         $body = WelcomeBonusCopy::applyToLlmsTxt($body);
     }
 

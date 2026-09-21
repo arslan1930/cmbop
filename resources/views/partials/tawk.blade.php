@@ -1,13 +1,15 @@
 {{-- Visitor chat (public + advertiser/publisher). Order chat is separate. --}}
 @php
     $useFirstParty = class_exists(\App\Support\VisitorSupportChat::class)
+        && method_exists(\App\Support\VisitorSupportChat::class, 'enabled')
         && \App\Support\VisitorSupportChat::enabled()
         && view()->exists('partials.visitor-support-chat');
     $tawkSrc = null;
     $tawkVisitor = null;
     if ($useFirstParty) {
         $tawkSrc = null;
-    } elseif (class_exists(\App\Support\TawkChat::class)) {
+    } elseif (class_exists(\App\Support\TawkChat::class)
+        && method_exists(\App\Support\TawkChat::class, 'embedSrc')) {
         $tawkSrc = \App\Support\TawkChat::embedSrc();
         if ($tawkSrc && auth()->check()) {
             $user = auth()->user();
@@ -20,17 +22,8 @@
     }
 @endphp
 @if ($useFirstParty)
-<style id="slb-visitor-chat-overflow">
-/* Leftover html/body overflow-x:hidden traps position:fixed chat launchers. */
-html, body { overflow-x: clip !important; }
-.help-fab { display: none !important; }
-</style>
     @include('partials.visitor-support-chat')
 @elseif ($tawkSrc)
-<style id="slb-visitor-chat-overflow">
-html, body { overflow-x: clip !important; }
-.help-fab { display: none !important; }
-</style>
 <script>
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
 Tawk_API.customStyle = {

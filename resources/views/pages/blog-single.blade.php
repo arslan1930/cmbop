@@ -5,15 +5,22 @@
     $resolvedTitle = $activeTranslation?->title ?: $blog->title;
     $resolvedSlug = $activeTranslation?->slug ?: $blog->slug;
     $resolvedExcerpt = $activeTranslation?->excerpt ?: $blog->excerpt;
-    $resolvedContent = \App\Support\WelcomeBonusCopy::scrubGrantAdvertisingHtml(
-        \App\Support\CuratedBlogCatalog::rewriteCatalogLinks(
-            $activeTranslation?->content ?: $blog->content
-        )
-    );
+    $resolvedContent = $activeTranslation?->content ?: $blog->content;
+    if (class_exists(\App\Support\CuratedBlogCatalog::class)
+        && method_exists(\App\Support\CuratedBlogCatalog::class, 'rewriteCatalogLinks')) {
+        $resolvedContent = \App\Support\CuratedBlogCatalog::rewriteCatalogLinks($resolvedContent);
+    }
+    if (class_exists(\App\Support\WelcomeBonusCopy::class)
+        && method_exists(\App\Support\WelcomeBonusCopy::class, 'scrubGrantAdvertisingHtml')) {
+        $resolvedContent = \App\Support\WelcomeBonusCopy::scrubGrantAdvertisingHtml($resolvedContent);
+    }
     $blogCanonical = $canonicalUrl ?? $blog->canonicalUrl($activeTranslation?->locale ?: app()->getLocale(), 'en');
     $blogDescription = $activeTranslation?->meta_description ?: ($resolvedExcerpt ?: \Illuminate\Support\Str::limit(strip_tags($resolvedContent ?? ''), 160));
     $blogPageTitle = $activeTranslation?->meta_title ?: ($resolvedTitle ?? 'Blog');
-    $blogFaq = \App\Support\CuratedBlogCatalog::faqForBlog($blog, $resolvedSlug);
+    $blogFaq = (class_exists(\App\Support\CuratedBlogCatalog::class)
+        && method_exists(\App\Support\CuratedBlogCatalog::class, 'faqForBlog'))
+        ? \App\Support\CuratedBlogCatalog::faqForBlog($blog, $resolvedSlug)
+        : [];
 @endphp
 
 @section('title', $blogPageTitle.' — SEOLinkBuildings')
@@ -41,7 +48,7 @@
         '@type' => 'BlogPosting',
         'headline' => $resolvedTitle,
         'description' => $blogDescription,
-        'inLanguage' => class_exists(\App\Support\PublicI18n::class)
+        'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
             ? \App\Support\PublicI18n::htmlLang($activeTranslation?->locale ?: ($blog->primary_locale ?: app()->getLocale()))
             : 'en-GB',
         'datePublished' => optional($blog->published_at)?->toIso8601String(),
@@ -141,7 +148,7 @@
             </div>
             @if(($fallbackUsed ?? false) === true)
                 <div class="alert alert-info mt-3 mb-0">
-                    This article is currently shown in {{ class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::shortLabel($activeTranslation?->locale ?? 'en') : strtoupper((string) ($activeTranslation?->locale ?? 'en')) }} because a {{ class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::shortLabel($requestedLocale ?? public_locale()) : strtoupper((string) ($requestedLocale ?? public_locale())) }} translation is not yet available.
+                    This article is currently shown in {{ (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'shortLabel')) ? \App\Support\PublicI18n::shortLabel($activeTranslation?->locale ?? 'en') : strtoupper((string) ($activeTranslation?->locale ?? 'en')) }} because a {{ (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'shortLabel')) ? \App\Support\PublicI18n::shortLabel($requestedLocale ?? public_locale()) : strtoupper((string) ($requestedLocale ?? public_locale())) }} translation is not yet available.
                 </div>
             @endif
             

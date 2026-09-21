@@ -96,10 +96,14 @@ class CuratedBlogCatalog
                     if (! is_array($item)) {
                         return $item;
                     }
-                    if (isset($item['answer']) && is_string($item['answer'])) {
+                    if (isset($item['answer']) && is_string($item['answer'])
+                        && class_exists(WelcomeBonusCopy::class)
+                        && method_exists(WelcomeBonusCopy::class, 'scrubGrantAdvertisingHtml')) {
                         $item['answer'] = WelcomeBonusCopy::scrubGrantAdvertisingHtml($item['answer']);
                     }
-                    if (isset($item['text']) && is_string($item['text'])) {
+                    if (isset($item['text']) && is_string($item['text'])
+                        && class_exists(WelcomeBonusCopy::class)
+                        && method_exists(WelcomeBonusCopy::class, 'scrubGrantAdvertisingHtml')) {
                         $item['text'] = WelcomeBonusCopy::scrubGrantAdvertisingHtml($item['text']);
                     }
 
@@ -196,7 +200,9 @@ class CuratedBlogCatalog
             return $html;
         }
 
-        $prefixed = class_exists(PublicI18n::class) ? PublicI18n::prefixed() : [];
+        $prefixed = (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'prefixed'))
+            ? PublicI18n::prefixed()
+            : [];
         $locales = implode('|', array_map(
             static fn (string $locale): string => preg_quote($locale, '~'),
             $prefixed

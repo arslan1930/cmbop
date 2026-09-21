@@ -34,7 +34,7 @@
                 <div class="row">
                     <div class="col-md-8">
                         <ul class="nav nav-tabs mb-3" role="tablist">
-                            @foreach(($locales ?? (class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::supported() : ['en'])) as $index => $locale)
+                            @foreach(($locales ?? ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en'])) as $index => $locale)
                                 <li class="nav-item" role="presentation">
                                     <button
                                         class="nav-link {{ $index === 0 ? 'active' : '' }}"
@@ -43,14 +43,14 @@
                                         type="button"
                                         role="tab"
                                     >
-                                        {{ class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::shortLabel($locale) : strtoupper($locale) }} {!! $locale === 'en' ? '<span class="text-danger">*</span>' : '' !!}
+                                        {{ (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'shortLabel')) ? \App\Support\PublicI18n::shortLabel($locale) : strtoupper($locale) }} {!! $locale === 'en' ? '<span class="text-danger">*</span>' : '' !!}
                                     </button>
                                 </li>
                             @endforeach
                         </ul>
 
                         <div class="tab-content border rounded p-3 bg-white">
-                            @foreach(($locales ?? (class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::supported() : ['en'])) as $index => $locale)
+                            @foreach(($locales ?? ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en'])) as $index => $locale)
                                 @php($prefix = "translations.$locale")
                                 <div class="tab-pane fade {{ $index === 0 ? 'show active' : '' }}" id="locale-pane-{{ $locale }}" role="tabpanel">
                                     <div class="mb-3">
@@ -199,7 +199,7 @@
                             <label class="form-label fw-semibold">Primary locale</label>
                             <select name="primary_locale" class="form-select @error('primary_locale') is-invalid @enderror">
                                 <option value="">Auto (current URL locale)</option>
-                                @foreach(($locales ?? (class_exists(\App\Support\PublicI18n::class) ? \App\Support\PublicI18n::supported() : ['en'])) as $code)
+                                @foreach(($locales ?? ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en'])) as $code)
                                     <option value="{{ $code }}" {{ old_text('primary_locale') === $code ? 'selected' : '' }}>{{ strtoupper($code) }}</option>
                                 @endforeach
                             </select>

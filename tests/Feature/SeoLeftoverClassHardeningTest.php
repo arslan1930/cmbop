@@ -37,18 +37,27 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $web);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $web);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')", $web);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'prefixed')", $web);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $web);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'catalogTeaserCountries')", $web);
         $this->assertStringContainsString('PublicI18n::englishOnlyMarketingSlugs()', $web);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')", $web);
         $this->assertStringContainsString('class_exists(EnglishOnlyMarketingSlugs::class)', $web);
         $this->assertStringContainsString('class_exists(RobotsTxt::class)', $web);
+        $this->assertStringContainsString("method_exists(RobotsTxt::class, 'render')", $web);
 
         $composer = (string) file_get_contents(base_path('composer.json'));
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', $composer);
         $this->assertStringContainsString('leftover_public_i18n_slugs_boot.php', $composer);
+        $this->assertFileExists(base_path('app/Support/leftover_public_i18n_boot.php'));
+        $this->assertFileExists(base_path('app/Support/leftover_public_i18n_slugs_boot.php'));
 
         $artisan = (string) file_get_contents(base_path('artisan'));
         $index = (string) file_get_contents(base_path('public/index.php'));
         $helper = (string) file_get_contents(base_path('app/Helpers/LanguageHelper.php'));
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', $artisan);
         $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $artisan);
+        $this->assertStringContainsString('leftover_public_i18n_boot.php', $index);
         $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $index);
         $this->assertStringContainsString('ensureEnglishOnlyMarketingSlugsMethod', $helper);
 
@@ -65,6 +74,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(CountryLander::class)', $sitemap);
         $this->assertStringContainsString('class_exists(GuestPostPriceIndex::class)', $sitemap);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $sitemap);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $sitemap);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $sitemap);
         $this->assertStringContainsString('class_exists(ThinBlogRedirects::class)', $sitemap);
         $this->assertStringContainsString('method_exists(Blog::class, \'scopeWithoutLegacyRedirects\')', $sitemap);
 
@@ -91,8 +102,9 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $prices = (string) file_get_contents(base_path('resources/views/pages/guest-post-prices-europe.blade.php'));
         $layout = (string) file_get_contents(base_path('resources/views/layouts/app.blade.php'));
         $helper = (string) file_get_contents(base_path('app/Helpers/LanguageHelper.php'));
-        $this->assertStringContainsString('class_exists(\\App\\Support\\BrandOrganization::class)', $about);
-        $this->assertStringContainsString('class_exists(\\App\\Support\\BrandOrganization::class)', $prices);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\BrandOrganization::class, 'schema')", $about);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\BrandOrganization::class, 'schema')", $prices);
+        $this->assertStringContainsString("view()->exists('components.language-suggestion')", $layout);
         $this->assertStringContainsString('class_exists(\\App\\Support\\BrandOrganization::class)', $layout);
         $this->assertStringContainsString('class_exists(\\App\\Support\\MarketingCssBundle::class)', $layout);
         $this->assertStringContainsString("method_exists(\\App\\Support\\BrandOrganization::class, 'pageGraphJson')", $layout);
@@ -110,10 +122,25 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('JSON_HEX_TAG', (string) file_get_contents(resource_path('views/pages/about.blade.php')));
         $this->assertStringContainsString('JSON_HEX_TAG', (string) file_get_contents(resource_path('views/components/breadcrumbs.blade.php')));
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $helper);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $helper);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'switchUrl')", $helper);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $helper);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'shouldShowLanguageSwitcher')", $helper);
+        $this->assertStringContainsString("method_exists(WelcomeBonusCopy::class, 'message')", $helper);
+
+        $navbar = (string) file_get_contents(base_path('resources/views/components/navbar.blade.php'));
+        $suggestion = (string) file_get_contents(base_path('resources/views/components/language-suggestion.blade.php'));
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'rememberedPublicLocale')", $navbar);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'htmlLang')", $navbar);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'preferredFromBrowser')", $suggestion);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'htmlLang')", $suggestion);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'htmlLang')", (string) file_get_contents(resource_path('views/home.blade.php')));
 
         $marketplace = (string) file_get_contents(base_path('resources/views/pages/marketplace.blade.php'));
         $lander = (string) file_get_contents(base_path('resources/views/pages/guest-posts-country.blade.php'));
         $this->assertStringContainsString("view()->exists('advertiser.partials.metric-source')", (string) file_get_contents(base_path('resources/views/components/hero-catalog-preview.blade.php')));
+        $this->assertStringContainsString("view()->exists('components.hero-catalog-preview')", (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
+        $this->assertStringContainsString("view()->exists('components.hero')", (string) file_get_contents(base_path('resources/views/home.blade.php')));
         $this->assertStringContainsString('slb-hero-catalog-clone', (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
         $this->assertStringContainsString("@include('components.hero')", (string) file_get_contents(base_path('resources/views/home.blade.php')));
         $this->assertStringNotContainsString('dashboard.png', (string) file_get_contents(base_path('resources/views/components/hero.blade.php')));
@@ -134,10 +161,19 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $writer = (string) file_get_contents(base_path('app/Services/CuratedBlogWriter.php'));
         $validates = (string) file_get_contents(base_path('app/Http/Requests/Admin/Concerns/ValidatesBlogPost.php'));
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $blogModel);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'isSupported')", $blogModel);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $blogModel);
         $this->assertStringContainsString('class_exists(ThinBlogRedirects::class)', $blogModel);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $catalog);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'prefixed')", $catalog);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $writer);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'isSupported')", $writer);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $validates);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $validates);
+
+        $localizedPath = (string) file_get_contents(base_path('app/Support/LocalizedPublicPath.php'));
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'isSupported')", $localizedPath);
+        $this->assertStringContainsString("method_exists(PublicI18n::class, 'isPrefixed')", $localizedPath);
     }
 
     public function test_public_money_pages_and_admin_login_stay_up(): void

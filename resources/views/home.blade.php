@@ -35,7 +35,7 @@
     'name' => 'SEOLinkBuildings',
     'alternateName' => ['SEO Link Buildings', 'Seolink Buildings'],
     'url' => url('/'),
-    'inLanguage' => class_exists(\App\Support\PublicI18n::class)
+    'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
         ? \App\Support\PublicI18n::htmlLang()
         : 'en-GB',
     'publisher' => [
@@ -55,7 +55,9 @@
 @endpush
 
 @section('content')
-    @include('components.hero')
+    @if (view()->exists('components.hero'))
+        @include('components.hero')
+    @endif
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')

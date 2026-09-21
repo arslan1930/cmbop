@@ -176,6 +176,7 @@ class HomepageCatalogPreviewTest extends TestCase
 
         $hero = (string) file_get_contents(resource_path('views/components/hero.blade.php'));
         $this->assertStringContainsString('overflow-x: visible', $hero);
+        $this->assertStringContainsString("view()->exists('components.hero-catalog-preview')", $hero);
         $this->assertDoesNotMatchRegularExpression(
             '/#main-content[^{;]*\{[^}]*overflow-x:\s*clip/',
             $hero

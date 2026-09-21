@@ -28,7 +28,7 @@ Changes made:
 @break
 
 @case('activated')
-@if($site->isCatalogVisible())
+@if(method_exists($site, 'isCatalogVisible') ? $site->isCatalogVisible() : (bool) $site->active)
 Your site <strong>{{ $site->site_name }}</strong> has been approved and is now live on our platform.
 
 Next steps:
@@ -120,7 +120,7 @@ There has been a status change for your site <strong>{{ $site->site_name }}</str
 - DA/DR: {{ $site->da }}/{{ $site->dr }}
 - Traffic: {{ number_format($site->traffic) }} monthly visitors
 
-@component('mail::button', ['url' => route('publisher.websites')])
+@component('mail::button', ['url' => \Illuminate\Support\Facades\Route::has('publisher.websites') ? route('publisher.websites') : url('/publisher/websites')])
 View Your Sites
 @endcomponent
 

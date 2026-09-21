@@ -8,7 +8,8 @@
   // On English-only auth pages, send logo back to the visitor's remembered public locale
   $homeLocale = $showSwitcher
       ? $currentLocale
-      : (class_exists(PublicI18n::class) ? PublicI18n::rememberedPublicLocale(request()) : 'en');
+      : (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'rememberedPublicLocale')
+          ? PublicI18n::rememberedPublicLocale(request()) : 'en');
   $homeUrl = localized_url('/', $homeLocale);
   // Auth always English
   $loginUrl = url('/login');
@@ -96,7 +97,7 @@
               <li>
                 <a class="dropdown-item d-flex align-items-center gap-2 {{ $code == $currentLocale ? 'active' : '' }}"
                    href="{{ get_language_switcher_url($code) }}"
-                   lang="{{ \App\Support\PublicI18n::htmlLang($code) }}">
+                   lang="{{ (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang')) ? \App\Support\PublicI18n::htmlLang($code) : $code }}">
                   <span class="navbar-lang-flag">{!! $language['flag'] !!}</span>
                   <span>{{ $language['name'] }}</span>
                   @if($code == $currentLocale)

@@ -38,7 +38,9 @@
       </a>
     </div>
 
-    @include('components.hero-catalog-preview')
+    @if (view()->exists('components.hero-catalog-preview'))
+      @include('components.hero-catalog-preview')
+    @endif
   </div>
 </section>
 

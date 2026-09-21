@@ -78,7 +78,7 @@ class BlogController extends Controller
             }
 
             $locale = (string) $request->input('locale', '');
-            if (class_exists(PublicI18n::class) && PublicI18n::isSupported($locale)) {
+            if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'isSupported') && PublicI18n::isSupported($locale)) {
                 $query->where('primary_locale', $locale);
             }
 
@@ -852,7 +852,7 @@ class BlogController extends Controller
      */
     private function publicLocales(): array
     {
-        if (class_exists(PublicI18n::class)) {
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
             return PublicI18n::supported();
         }
 
@@ -863,7 +863,7 @@ class BlogController extends Controller
     {
         $locale = (string) $request->input('primary_locale');
 
-        return (class_exists(PublicI18n::class) && PublicI18n::isSupported($locale)) ? $locale : 'en';
+        return (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'isSupported') && PublicI18n::isSupported($locale)) ? $locale : 'en';
     }
 
     /**

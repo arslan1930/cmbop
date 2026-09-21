@@ -6,8 +6,9 @@ namespace App\Support;
  * Leftover local/Hostinger PublicI18n.php often lacks englishOnlyMarketingSlugs().
  * Leftover routes/web.php still calls that method at boot and 500s the whole site.
  *
- * Heal the on-disk class first (so the next Composer autoload is safe), then
- * eval a patched copy for this request if the leftover file could not be written.
+ * When the on-disk class is missing the method, define a patched copy first so
+ * Composer never loads the leftover file. Also persist the method onto disk
+ * when writable so leftover artisan/web.php keep working on the next request.
  */
 final class LeftoverPublicI18nSlugs
 {

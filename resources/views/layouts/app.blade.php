@@ -183,7 +183,9 @@
 <a href="#main-content" class="skip-to-content">Skip to main content</a>
 
 @include('components.navbar')
-@include('components.language-suggestion')
+@if (view()->exists('components.language-suggestion'))
+    @include('components.language-suggestion')
+@endif
 
 <main id="main-content" tabindex="-1">
     <div class="container-fluid px-3 px-md-4">
@@ -206,10 +208,12 @@
 
 @include('components.footer')
 @unless(
-    (class_exists(\App\Support\VisitorSupportChat::class) && \App\Support\VisitorSupportChat::enabled() && view()->exists('partials.visitor-support-chat'))
-    || (class_exists(\App\Support\TawkChat::class) && \App\Support\TawkChat::enabled())
+    (class_exists(\App\Support\VisitorSupportChat::class) && method_exists(\App\Support\VisitorSupportChat::class, 'enabled') && \App\Support\VisitorSupportChat::enabled() && view()->exists('partials.visitor-support-chat'))
+    || (class_exists(\App\Support\TawkChat::class) && method_exists(\App\Support\TawkChat::class, 'enabled') && \App\Support\TawkChat::enabled())
 )
-    @include('components.help-feedback-widget')
+    @if (view()->exists('components.help-feedback-widget'))
+        @include('components.help-feedback-widget')
+    @endif
 @endunless
 
 <!-- Back to Top Button -->
@@ -244,7 +248,9 @@ $(document).ready(function() {
     });
 });
 </script>
-@include('partials.tawk')
+@if (view()->exists('partials.tawk'))
+    @include('partials.tawk')
+@endif
 
 </body>
 </html>

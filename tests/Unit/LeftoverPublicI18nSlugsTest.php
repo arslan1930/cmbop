@@ -75,16 +75,52 @@ class PublicI18n
     }
 }
 
-PHP;
-        file_put_contents($tmp, $src);
+    public function test_leftover_language_helper_does_not_fatal_when_supported_is_missing(): void
+    {
+        $script = <<<'PHP'
+<?php
+namespace App\Support {
+    class PublicI18n
+    {
+    }
+}
 
-        try {
-            $this->assertTrue(LeftoverPublicI18nSlugs::persistMissingMethod($tmp));
-            $healed = (string) file_get_contents($tmp);
-            $this->assertTrue(LeftoverPublicI18nSlugs::sourceDefinesMethod($healed));
-            $this->assertFalse(LeftoverPublicI18nSlugs::persistMissingMethod($tmp));
-        } finally {
-            @unlink($tmp);
+namespace {
+    $catalog = [
+        'en' => ['name' => 'English (UK)'],
+        'de' => ['name' => 'Deutsch'],
+    ];
+    $supported = ['en' => 0];
+    try {
+        if (class_exists(\App\Support\PublicI18n::class)
+            && method_exists(\App\Support\PublicI18n::class, 'supported')) {
+            $fromSupported = \App\Support\PublicI18n::supported();
+            if (is_array($fromSupported) && $fromSupported !== []) {
+                $supported = array_flip($fromSupported);
+            }
         }
+    } catch (Throwable $e) {
+        fwrite(STDERR, $e->getMessage());
+        exit(1);
+    }
+    $locales = array_filter($catalog, fn ($code) => isset($supported[$code]), ARRAY_FILTER_USE_KEY);
+    echo json_encode(array_keys($locales));
+}
+PHP;
+
+        $tmp = tempnam(sys_get_temp_dir(), 'slb_i18n_locales_');
+        file_put_contents($tmp, $script);
+        $output = [];
+        $exit = 0;
+        exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($tmp).' 2>&1', $output, $exit);
+        @unlink($tmp);
+
+        $this->assertSame(0, $exit, implode("\n", $output));
+        $this->assertSame(['en'], json_decode(implode('', $output), true));
+    }
+
+    private function phpString(string $value): string
+    {
+        return var_export($value, true);
     }
 }
