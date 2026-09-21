@@ -160,6 +160,15 @@ class SiteStatusReasonTest extends TestCase
                 && $mail->reason === $reason;
         });
 
+        $html = (new SiteStatusNotification($site->fresh('publisher'), 'unverified', null, $reason))->render();
+        $this->assertMatchesRegularExpression('/<strong[^>]*>'.preg_quote($site->site_name, '/').'<\/strong>/', $html);
+        $this->assertMatchesRegularExpression('/<strong[^>]*>unverified<\/strong>/', $html);
+        $this->assertMatchesRegularExpression('/<strong[^>]*>Reason:<\/strong>/', $html);
+        $this->assertStringContainsString($reason, $html);
+        $this->assertStringNotContainsString('**'.$site->site_name.'**', $html);
+        $this->assertStringNotContainsString('**unverified**', $html);
+        $this->assertStringNotContainsString('**Reason:**', $html);
+
         $bell = InAppNotification::where('user_id', $publisher->id)
             ->where('audience', InAppNotification::AUDIENCE_PUBLISHER)
             ->latest('id')
@@ -192,8 +201,11 @@ class SiteStatusReasonTest extends TestCase
         });
 
         $html = (new SiteStatusNotification($site, 'deactivated', null, $reason))->render();
-        $this->assertStringContainsString('Reason:', $html);
+        $this->assertMatchesRegularExpression('/<strong[^>]*>Reason:<\/strong>/', $html);
+        $this->assertMatchesRegularExpression('/<strong[^>]*>deactivated<\/strong>/', $html);
         $this->assertStringContainsString($reason, $html);
+        $this->assertStringNotContainsString('**Reason:**', $html);
+        $this->assertStringNotContainsString('**deactivated**', $html);
         $this->assertStringContainsString(
             parse_url(route('publisher.websites'), PHP_URL_PATH),
             $html
