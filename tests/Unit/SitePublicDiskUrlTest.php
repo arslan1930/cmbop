@@ -92,4 +92,19 @@ class SitePublicDiskUrlTest extends TestCase
             '/storage/sites/real-cover.webp',
         ], $site->homepagePreviewUrlChain());
     }
+
+    #[Test]
+    public function preview_chains_skip_leftover_junk_paths(): void
+    {
+        $site = new Site([
+            'screenshot_path' => 'not-a-path',
+            'screenshot_thumb_path' => '???',
+            'site_image' => 'sites/cover.webp',
+        ]);
+
+        $this->assertSame([
+            '/media/sites/cover.webp',
+            '/storage/sites/cover.webp',
+        ], $site->homepagePreviewUrlChain());
+    }
 }

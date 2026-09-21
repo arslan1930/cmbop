@@ -1,30 +1,54 @@
 {{-- Catalog trust: score + rating count + completion %; last published on the next row. --}}
 @php
-    $avg = (float) ($site->rating_avg ?? 0);
-    $count = (int) ($site->rating_count ?? 0);
-    $hasRatings = $count >= 1;
-    $completionRate = $site->completionRatePercent();
-    $lastPublished = $site->lastPublicationLabel();
-    $completedCount = (int) ($site->completionOutcomeCounts()['completed'] ?? 0);
-    // Stars only after completed placements — leftover rating_count, or
-    // cancelled-only history, must not look like a proven 5.0.
-    $showStars = $hasRatings && $completedCount > 0;
-    $showCompletionRate = $completionRate !== null && $completedCount > 0;
-    $ariaParts = [];
-    if ($showStars) {
-        $ariaParts[] = number_format($avg, 1).' out of 5 from '.$count.' '.($count === 1 ? 'rating' : 'ratings');
-    } else {
-        $ariaParts[] = 'Awaiting first ratings';
+    $avg = 0.0;
+    $count = 0;
+    $hasRatings = false;
+    $completionRate = null;
+    $lastPublished = null;
+    $completedCount = 0;
+    $showStars = false;
+    $showCompletionRate = false;
+    $ariaParts = ['Awaiting first ratings', 'No completed orders yet'];
+    try {
+        $avg = (float) ($site->rating_avg ?? 0);
+        $count = (int) ($site->rating_count ?? 0);
+        $hasRatings = $count >= 1;
+        $completionRate = $site->completionRatePercent();
+        $lastPublished = $site->lastPublicationLabel();
+        $completedCount = (int) ($site->completionOutcomeCounts()['completed'] ?? 0);
+        // Stars only after completed placements — leftover rating_count, or
+        // cancelled-only history, must not look like a proven 5.0.
+        $showStars = $hasRatings && $completedCount > 0;
+        $showCompletionRate = $completionRate !== null && $completedCount > 0;
+        $ariaParts = [];
+        if ($showStars) {
+            $ariaParts[] = number_format($avg, 1).' out of 5 from '.$count.' '.($count === 1 ? 'rating' : 'ratings');
+        } else {
+            $ariaParts[] = 'Awaiting first ratings';
+        }
+        if ($showCompletionRate) {
+            $ariaParts[] = $completionRate.' percent completed';
+        } else {
+            $ariaParts[] = 'No completed orders yet';
+        }
+        if ($lastPublished) {
+            $ariaParts[] = $lastPublished;
+        }
+    } catch (\Throwable $e) {
+        report($e);
     }
-    if ($showCompletionRate) {
-        $ariaParts[] = $completionRate.' percent completed';
-    } else {
-        $ariaParts[] = 'No completed orders yet';
-    }
-    if ($lastPublished) {
-        $ariaParts[] = $lastPublished;
-    }
+    $trustVariant = ($variant ?? 'details') === 'chip' ? 'chip' : 'details';
 @endphp
+@if($trustVariant === 'chip')
+    @if($showStars)
+        <span class="site-trust-chip"
+              data-site-id="{{ $site->id }}"
+              title="{{ number_format($avg, 1) }} out of 5 from {{ $count }} {{ $count === 1 ? 'rating' : 'ratings' }} — full trust in Details">
+            <i class="fa-solid fa-star" aria-hidden="true"></i>
+            <span>{{ number_format($avg, 1) }}</span>
+        </span>
+    @endif
+@else
 <div class="site-trust-compact {{ $compactClass ?? 'mt-2' }}"
      data-site-id="{{ $site->id }}"
      role="group"
@@ -69,3 +93,4 @@
         </div>
     @endif
 </div>
+@endif

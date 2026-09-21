@@ -263,7 +263,7 @@ class CommunityFeedbackTest extends TestCase
     {
         $publisher = $this->userWithRole('publisher');
         $site = $this->siteFor($publisher);
-        $site->update(['verified' => false]);
+        $site->update(['verified' => false, 'active' => 0]);
         $advertiser = $this->userWithRole('advertiser');
 
         $this->actingAs($advertiser)->postJson(route('advertiser.website-suggestions.store'), [

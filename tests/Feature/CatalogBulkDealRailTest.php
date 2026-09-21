@@ -97,6 +97,8 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertStringContainsString('data-bulk-page-size="6"', $html);
         $this->assertStringContainsString('data-bulk-pager', $html);
         $this->assertStringContainsString('data-bulk-page-label', $html);
+        $this->assertStringContainsString('catalog-bulk-section is-collapsed', $html);
+        $this->assertStringContainsString('data-bulk-start="collapsed"', $html);
 
         // The grid columns are what let the section wrap onto extra rows.
         $this->assertStringNotContainsString('<div class="col-md-4 col-lg-3">', $html);
@@ -318,6 +320,7 @@ class CatalogBulkDealRailTest extends TestCase
 
         // Blocked localStorage must not take the toggle down with it.
         $this->assertStringContainsString('function bulkRailReadCollapsed(', $js);
+        $this->assertStringContainsString("getAttribute('data-bulk-start') === 'open'", $js);
         $this->assertStringContainsString('return false;', $js);
 
         // Bulk CTAs pass a fixed pack (data-bulk-qty) into addToCart.
@@ -416,16 +419,16 @@ class CatalogBulkDealRailTest extends TestCase
 
         $spendablePos = strpos($html, 'Spendable <strong>');
         $bulkPos = strpos($html, 'data-bulk-rail');
-        $headingPos = strpos($html, 'fw-semibold">Catalog</h2>');
+        $filtersPos = strpos($html, 'id="catalogFiltersPanel"');
         $resultsPos = strpos($html, 'id="catalogResults"');
 
         $this->assertNotFalse($spendablePos);
         $this->assertNotFalse($bulkPos);
-        $this->assertNotFalse($headingPos);
+        $this->assertNotFalse($filtersPos);
         $this->assertNotFalse($resultsPos);
-        // Under Spendable, above Catalog heading + results — never duplicated.
+        // Under Spendable, above filters + results — never duplicated.
         $this->assertLessThan($bulkPos, $spendablePos);
-        $this->assertLessThan($headingPos, $bulkPos);
+        $this->assertLessThan($filtersPos, $bulkPos);
         $this->assertLessThan($resultsPos, $bulkPos);
         $this->assertSame(1, substr_count($html, 'data-bulk-rail'));
         $this->assertSame(1, substr_count($html, 'id="bulkDealsRail"'));

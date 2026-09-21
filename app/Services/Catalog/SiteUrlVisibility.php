@@ -82,10 +82,26 @@ class SiteUrlVisibility
 
     public function host(?string $url): string
     {
-        return (string) Str::of((string) $url)
-            ->replaceMatches('/^(https?:\/\/)?(www\.)?/', '')
-            ->before('/')
-            ->trim();
+        try {
+            $raw = trim((string) $url);
+            if ($raw === '') {
+                return '';
+            }
+            // Leftover javascript:/data:/vbscript: must not paint as a host.
+            if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $raw) === 1
+                && preg_match('#^https?:#i', $raw) !== 1) {
+                return '';
+            }
+
+            return (string) Str::of($raw)
+                ->replaceMatches('/^(https?:\/\/)?(www\.)?/', '')
+                ->before('/')
+                ->trim();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return '';
+        }
     }
 
     /**
@@ -131,31 +147,41 @@ class SiteUrlVisibility
      */
     public function rootedUrl(?string $url): string
     {
-        $raw = trim((string) $url);
-        if ($raw === '') {
+        try {
+            $raw = trim((string) $url);
+            if ($raw === '') {
+                return '';
+            }
+            if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $raw) === 1
+                && preg_match('#^https?://#i', $raw) !== 1) {
+                return '';
+            }
+
+            $candidate = preg_match('#^https?://#i', $raw) === 1
+                ? $raw
+                : 'https://'.$raw;
+
+            $parts = parse_url($candidate);
+            if (! is_array($parts) || empty($parts['host'])) {
+                return '';
+            }
+
+            $scheme = strtolower((string) ($parts['scheme'] ?? 'https'));
+            if ($scheme !== 'http' && $scheme !== 'https') {
+                return '';
+            }
+
+            $host = strtolower(rtrim((string) $parts['host'], '.'));
+            if ($host === '') {
+                return '';
+            }
+
+            return $scheme.'://'.$host;
+        } catch (\Throwable $e) {
+            report($e);
+
             return '';
         }
-
-        $candidate = preg_match('#^https?://#i', $raw) === 1
-            ? $raw
-            : 'https://'.$raw;
-
-        $parts = parse_url($candidate);
-        if (! is_array($parts) || empty($parts['host'])) {
-            return '';
-        }
-
-        $scheme = strtolower((string) ($parts['scheme'] ?? 'https'));
-        if ($scheme !== 'http' && $scheme !== 'https') {
-            $scheme = 'https';
-        }
-
-        $host = strtolower(rtrim((string) $parts['host'], '.'));
-        if ($host === '') {
-            return '';
-        }
-
-        return $scheme.'://'.$host;
     }
 
     /**
@@ -166,24 +192,31 @@ class SiteUrlVisibility
      */
     public function rootedUrlFor(?User $user, Site $site): string
     {
-        $scheme = 'https';
-        $raw = trim((string) $site->site_url);
-        if (preg_match('#^(https?):#i', $raw, $m) === 1) {
-            $scheme = strtolower($m[1]);
+        try {
+            $raw = $this->leftoverSiteUrl($site);
+            $rooted = $this->rootedUrl($raw);
+
+            if ($this->showsFullIdentity($user, $site)) {
+                // Fail closed: leftover javascript:/data: must not fall back to host() paint.
+                return $rooted;
+            }
+
+            $scheme = 'https';
+            if (preg_match('#^(https?):#i', $raw, $m) === 1) {
+                $scheme = strtolower($m[1]);
+            }
+
+            $maskedHost = $this->mask($raw);
+            if ($maskedHost === '' || $maskedHost === '••••••') {
+                return $rooted !== '' ? $scheme.'://••••••' : '';
+            }
+
+            return $scheme.'://'.$maskedHost;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return '';
         }
-
-        if ($this->showsFullIdentity($user, $site)) {
-            $rooted = $this->rootedUrl($site->site_url);
-
-            return $rooted !== '' ? $rooted : ($scheme.'://'.$this->host($site->site_url));
-        }
-
-        $maskedHost = $this->mask($site->site_url);
-        if ($maskedHost === '' || $maskedHost === '••••••') {
-            return $scheme.'://••••••';
-        }
-
-        return $scheme.'://'.$maskedHost;
     }
 
     /**
@@ -194,9 +227,17 @@ class SiteUrlVisibility
      */
     public function hostFor(?User $user, Site $site): string
     {
-        return $this->showsFullIdentity($user, $site)
-            ? $this->host($site->site_url)
-            : $this->mask($site->site_url);
+        try {
+            $raw = $this->leftoverSiteUrl($site);
+
+            return $this->showsFullIdentity($user, $site)
+                ? $this->host($raw)
+                : $this->mask($raw);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return '';
+        }
     }
 
     /**
@@ -553,5 +594,23 @@ class SiteUrlVisibility
     {
         $this->revealCache = [];
         self::forgetSchemaCache();
+    }
+
+    /**
+     * Leftover Hostinger site_url without 500ing when the column/accessor throws.
+     */
+    private function leftoverSiteUrl(Site $site): string
+    {
+        try {
+            if (method_exists($site, 'leftoverStringAttribute')) {
+                return (string) ($site->leftoverStringAttribute('site_url') ?? '');
+            }
+
+            return trim((string) ($site->site_url ?? ''));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return '';
+        }
     }
 }

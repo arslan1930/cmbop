@@ -345,7 +345,19 @@ class CartPricingService
      */
     public function syncAdvertiserSessionCart(?User $buyer = null): array
     {
-        $pruned = $this->pruneAdvertiserCart(session('cart', []) ?: [], $buyer);
+        $sessionCart = session('cart', []);
+        if (! is_array($sessionCart)) {
+            session()->put('cart', []);
+
+            return [
+                'cart' => [],
+                'removed_inactive' => [],
+                'removed_owned' => [],
+                'changed' => true,
+            ];
+        }
+
+        $pruned = $this->pruneAdvertiserCart($sessionCart ?: [], $buyer);
         if ($pruned['changed']) {
             session()->put('cart', array_values($pruned['cart']));
         }

@@ -240,6 +240,7 @@ class CatalogController extends Controller
             'favorites' => [],
             'blacklist' => [],
             'showBlacklistedOnly' => search_text($request->input('blacklist_filter')) === '1',
+            'inventoryFrom' => null,
         ];
     }
 
@@ -276,6 +277,7 @@ class CatalogController extends Controller
         $favorites = $listing['favorites'];
         $blacklist = $listing['blacklist'];
         $showBlacklistedOnly = $listing['showBlacklistedOnly'];
+        $inventoryFrom = $listing['inventoryFrom'] ?? null;
 
         // Get predefined countries for filter dropdown (flat map kept for compat).
         $availableCountries = $this->getAvailableCountries();
@@ -309,12 +311,11 @@ class CatalogController extends Controller
         // Drop hidden/owned lines before the banner, wizard chrome, and header badge render.
         try {
             $cartRemovedInactive = $this->syncPrunedSessionCart();
-            $cart = session()->get('cart', []);
         } catch (\Throwable $e) {
             report($e);
             $cartRemovedInactive = false;
-            $cart = session()->get('cart', []);
         }
+        $cart = $this->leftoverSessionCart();
 
         // Bulk discount marketplace section — follows Catalog country= (Option 1).
         // Option 2: hide the Spendable rail when More → Bulk deals only is on
@@ -390,7 +391,8 @@ class CatalogController extends Controller
             'catalogCashBalance',
             'catalogSpendableBalance',
             'currentUser',
-            'urlVisibility'
+            'urlVisibility',
+            'inventoryFrom'
         ));
     }
 
@@ -420,6 +422,8 @@ class CatalogController extends Controller
             report($e);
         }
 
+        $cart = $this->leftoverSessionCart();
+
         return response()
             ->view('advertiser.partials.catalog-results', [
                 'sites' => $listing['sites'],
@@ -427,6 +431,8 @@ class CatalogController extends Controller
                 'blacklist' => $listing['blacklist'],
                 'currentUser' => $currentUser,
                 'urlVisibility' => $urlVisibility,
+                'inventoryFrom' => $listing['inventoryFrom'] ?? null,
+                'cart' => $cart,
             ])
             ->header('Cache-Control', 'no-store, private');
     }
@@ -550,22 +556,26 @@ class CatalogController extends Controller
             ->values();
 
         foreach ($bulkDeals as $dealSite) {
-            // Pack totals use CartPricingService so the rail “now” price floors
-            // at publisher payout the same way checkout does.
-            $packQty = (int) config('site_promotions.bulk.min_qty', 3);
-            $packPricing = $this->cartPricing()->priceForAdvertiser($dealSite, null, $packQty);
-            $dealSite->bulk_pack_qty = $packQty;
-            $dealSite->bulk_pack_list_total = round($packPricing['list_total'] * $packQty, 2);
-            $dealSite->bulk_pack_now_total = round($packPricing['total'] * $packQty, 2);
-            // Badge % must match better-of pricing (custom can beat bulk on the pack).
-            $dealSite->bulk_pack_discount_percent = (float) ($packPricing['discount_percent'] ?? 0);
-            $customPct = $dealSite->activeCustomDiscountPercent();
-            $bulkPct = (float) ($dealSite->bulk_discount_percent ?? 0);
-            $dealSite->bulk_pack_badge_kind = ($customPct !== null && (float) $customPct >= $bulkPct)
-                ? 'sale'
-                : 'bulk';
-            $dealSite->original_price = $dealSite->price;
-            $dealSite->price = $this->advertiserCatalogListPrice($dealSite->price);
+            try {
+                // Pack totals use CartPricingService so the rail “now” price floors
+                // at publisher payout the same way checkout does.
+                $packQty = (int) config('site_promotions.bulk.min_qty', 3);
+                $packPricing = $this->cartPricing()->priceForAdvertiser($dealSite, null, $packQty);
+                $dealSite->bulk_pack_qty = $packQty;
+                $dealSite->bulk_pack_list_total = round($packPricing['list_total'] * $packQty, 2);
+                $dealSite->bulk_pack_now_total = round($packPricing['total'] * $packQty, 2);
+                // Badge % must match better-of pricing (custom can beat bulk on the pack).
+                $dealSite->bulk_pack_discount_percent = (float) ($packPricing['discount_percent'] ?? 0);
+                $customPct = $dealSite->activeCustomDiscountPercent();
+                $bulkPct = (float) ($dealSite->bulk_discount_percent ?? 0);
+                $dealSite->bulk_pack_badge_kind = ($customPct !== null && (float) $customPct >= $bulkPct)
+                    ? 'sale'
+                    : 'bulk';
+                $dealSite->original_price = $dealSite->price;
+                $dealSite->price = $this->advertiserCatalogListPrice($dealSite->price);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return $bulkDeals;
@@ -803,6 +813,17 @@ class CatalogController extends Controller
                 ->where('created_at', '<=', Site::PLAUSIBLE_SQL_DATETIME_CEIL);
         }
 
+        // Filtered-set min (advertiser-facing), not the current page min.
+        $inventoryFrom = null;
+        try {
+            $minRaw = (clone $query)->min(DB::raw($advPriceSql));
+            if ($minRaw !== null && $minRaw !== false && is_numeric($minRaw)) {
+                $inventoryFrom = round((float) $minRaw, 2);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Catalog inventory min price failed', ['error' => $e->getMessage()]);
+        }
+
         if (Schema::hasColumn('sites', 'featured_until')) {
             $query->orderByRaw(
                 '(featured_until IS NOT NULL AND featured_until > ? AND featured_until <= ?) DESC',
@@ -843,28 +864,27 @@ class CatalogController extends Controller
         $sites->setPath(route('advertiser.catalog', absolute: false));
 
         foreach ($sites as $site) {
-            $site->original_price = $site->price;
-            // Own listings stay at the entered publisher price so leftover
-            // Add-to-cart markup cannot paint a fee-inclusive number.
-            if (! $site->isOwnedBy(auth()->user())) {
-                $site->price = $this->advertiserCatalogListPrice($site->price);
-            }
+            try {
+                $site->original_price = $site->price;
+                // Own listings stay at the entered publisher price so leftover
+                // Add-to-cart markup cannot paint a fee-inclusive number.
+                if (! $site->isOwnedBy(auth()->user())) {
+                    $site->price = $this->advertiserCatalogListPrice($site->price);
+                }
 
-            if ($site->sensitive_prices) {
-                $sensitivePrices = is_string($site->sensitive_prices)
-                    ? json_decode($site->sensitive_prices, true)
-                    : $site->sensitive_prices;
-
-                if (is_array($sensitivePrices)) {
+                $sensitivePrices = $site->safeJsonArray('sensitive_prices');
+                if ($sensitivePrices !== []) {
                     $processedSensitive = [];
                     foreach ($sensitivePrices as $type => $additionalPrice) {
                         $processedSensitive[$type] = $additionalPrice;
                     }
                     $site->sensitive_prices = $processedSensitive;
                 }
-            }
 
-            $site->categories_list = $site->nicheBadgeLabels();
+                $site->categories_list = $site->nicheBadgeLabels();
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         $this->hydrateCatalogTrustCounters($sites);
@@ -875,6 +895,7 @@ class CatalogController extends Controller
             'favorites' => $favorites,
             'blacklist' => $blacklist,
             'showBlacklistedOnly' => $showBlacklistedOnly,
+            'inventoryFrom' => $inventoryFrom,
         ];
     }
 
@@ -895,14 +916,20 @@ class CatalogController extends Controller
             return;
         }
 
-        $cancelledBySite = OrderItem::query()
-            ->whereIn('site_id', $ids)
-            ->whereHas('order', function ($q) {
-                $q->where('status', 'cancelled');
-            })
-            ->selectRaw('site_id, COUNT(*) as cancelled_count')
-            ->groupBy('site_id')
-            ->pluck('cancelled_count', 'site_id');
+        try {
+            $cancelledBySite = OrderItem::query()
+                ->whereIn('site_id', $ids)
+                ->whereHas('order', function ($q) {
+                    $q->where('status', 'cancelled');
+                })
+                ->selectRaw('site_id, COUNT(*) as cancelled_count')
+                ->groupBy('site_id')
+                ->pluck('cancelled_count', 'site_id');
+        } catch (\Throwable $e) {
+            report($e);
+
+            return;
+        }
 
         foreach ($collection as $site) {
             $site->setAttribute(
@@ -1263,6 +1290,25 @@ class CatalogController extends Controller
     }
 
     /**
+     * @return list<array<string, mixed>>
+     */
+    private function leftoverSessionCart(): array
+    {
+        try {
+            $cart = session()->get('cart', []);
+            if (! is_array($cart)) {
+                return [];
+            }
+
+            return array_values(array_filter($cart, 'is_array'));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $cart
      */
     private function putCatalogVisibleCart(array $cart): void
@@ -1273,7 +1319,7 @@ class CatalogController extends Controller
 
     private function cartPayloadForClient(): array
     {
-        $cart = array_values(session()->get('cart', []));
+        $cart = $this->leftoverSessionCart();
         $removedInactive = [];
         $removedOwned = [];
         $buyer = auth()->user();
@@ -1307,7 +1353,7 @@ class CatalogController extends Controller
         $removedInactive = array_values(array_unique($removedInactive));
         $removedOwned = array_values(array_unique($removedOwned));
         $cart = $kept;
-        $sessionCart = array_values(session()->get('cart', []));
+        $sessionCart = $this->leftoverSessionCart();
         // Repriced lines (sensitive add-ons / live listing) should persist.
         // Compare a canonical fingerprint so key order / 0 vs unset id does not rewrite every load.
         $cartChanged = $removedInactive !== [] || $removedOwned !== []
@@ -1387,7 +1433,7 @@ class CatalogController extends Controller
 
         if ($cartChanged || $removedInactive !== [] || $removedOwned !== []) {
             session()->put('cart', array_values($cart));
-            $cart = array_values(session()->get('cart', []));
+            $cart = $this->leftoverSessionCart();
         }
 
         $articles = $approved->map(fn (ContentSubmission $s) => [
@@ -1594,7 +1640,7 @@ class CatalogController extends Controller
 
             // Preserve article assignments when the client omits them.
             $existingByKey = [];
-            foreach (session()->get('cart', []) as $row) {
+            foreach ($this->leftoverSessionCart() as $row) {
                 if (! is_array($row)) {
                     continue;
                 }
@@ -1710,7 +1756,7 @@ class CatalogController extends Controller
         $submissionId = isset($data['content_submission_id']) ? (int) $data['content_submission_id'] : 0;
         $copyIndex = max(0, (int) ($data['copy_index'] ?? 0));
 
-        $cart = session()->get('cart', []);
+        $cart = $this->leftoverSessionCart();
         $lineKey = null;
         foreach ($cart as $key => $item) {
             $matches = $hasHomepageInput
@@ -1848,7 +1894,7 @@ class CatalogController extends Controller
 
             $site = Site::query()->catalogVisible()->where('id', $id)->first();
             if (! $site) {
-                $this->putCatalogVisibleCart(session()->get('cart', []));
+                $this->putCatalogVisibleCart($this->leftoverSessionCart());
 
                 return response()->json([
                     'success' => false,
@@ -1878,7 +1924,7 @@ class CatalogController extends Controller
             }
             $resolvedHomepageDays = $homepageResolved['days'];
 
-            $cart = session()->get('cart', []);
+            $cart = $this->leftoverSessionCart();
             $attachArticleId = null;
             $librarySubmission = null;
 
@@ -2123,7 +2169,7 @@ class CatalogController extends Controller
             $sensitiveType = $sensitiveType !== '' ? $sensitiveType : null;
             $hasHomepageInput = $request->exists('homepage_days');
             $homepageDays = $hasHomepageInput ? $request->input('homepage_days') : null;
-            $cart = session()->get('cart', []);
+            $cart = $this->leftoverSessionCart();
 
             foreach ($cart as $key => $item) {
                 $matches = $hasHomepageInput
@@ -2159,7 +2205,7 @@ class CatalogController extends Controller
             $sensitiveType = $sensitiveType !== '' ? $sensitiveType : null;
             $hasHomepageInput = $request->exists('homepage_days');
             $homepageDays = $hasHomepageInput ? $request->input('homepage_days') : null;
-            $cart = session()->get('cart', []);
+            $cart = $this->leftoverSessionCart();
 
             foreach ($cart as $key => $item) {
                 $matches = $hasHomepageInput
@@ -2236,7 +2282,7 @@ class CatalogController extends Controller
     private function renderCheckoutPage(Request $request)
     {
         $this->syncPrunedSessionCart();
-        $cart = session()->get('cart', []);
+        $cart = $this->leftoverSessionCart();
 
         if (empty($cart)) {
             return redirect()->route('advertiser.catalog')->with('error', 'Your cart is empty or contains sites you can’t order.');
@@ -2395,7 +2441,7 @@ class CatalogController extends Controller
 
         try {
             $prunedCart = $this->cartPricing()->syncAdvertiserSessionCart(auth()->user());
-            $cart = session()->get('cart', []);
+            $cart = $this->leftoverSessionCart();
 
             if (empty($cart)) {
                 if (($prunedCart['removed_owned'] ?? []) !== []) {
@@ -2970,7 +3016,7 @@ class CatalogController extends Controller
         try {
             $orderNumbers = $paidOrders->pluck('order_number')->implode(', ');
             $paidCount = $paidOrders->count();
-            $remaining = count(session('cart', []));
+            $remaining = count($this->leftoverSessionCart());
             $scheduledOrders = $paidOrders->filter(fn (Order $order) => ($order->publication_mode ?? '') === 'scheduled');
             $successMsg = $paidCount.' order(s) paid successfully! Order numbers: '.$orderNumbers;
             if ($scheduledOrders->isNotEmpty()) {
@@ -4189,7 +4235,7 @@ class CatalogController extends Controller
 
             $orderNumbers = $paidOrders->pluck('order_number')->implode(', ');
             $paidCount = $paidOrders->count();
-            $remaining = count(session('cart', []));
+            $remaining = count($this->leftoverSessionCart());
             $scheduledOrders = $paidOrders->filter(fn (Order $order) => ($order->publication_mode ?? '') === 'scheduled');
             $successMsg = $paidCount.' order(s) paid successfully! Order numbers: '.$orderNumbers;
             if ($scheduledOrders->isNotEmpty()) {
@@ -4587,7 +4633,7 @@ class CatalogController extends Controller
         try {
             // Keep badge in sync: drop inactive/missing lines before counting.
             $this->syncPrunedSessionCart();
-            $cart = session()->get('cart', []);
+            $cart = $this->leftoverSessionCart();
             $count = array_sum(array_column($cart, 'quantity'));
             $total = round(array_sum(array_map(
                 fn ($item) => ((float) ($item['price'] ?? 0)) * ((int) ($item['quantity'] ?? 0)),
@@ -6977,7 +7023,7 @@ class CatalogController extends Controller
 
         $paymentService->forgetPendingCheckoutKeepLeftoverHold($referenceCode, $userId);
 
-        $restoredCart = session('cart', []);
+        $restoredCart = $this->leftoverSessionCart();
         $submissionId = session('checkout_content_submission_id');
 
         foreach ($canceled as $order) {
@@ -6986,7 +7032,7 @@ class CatalogController extends Controller
                     continue;
                 }
                 $exists = collect($restoredCart)->contains(
-                    fn ($row) => (int) ($row['id'] ?? 0) === (int) $item->site_id
+                    fn ($row) => is_array($row) && (int) ($row['id'] ?? 0) === (int) $item->site_id
                 );
                 if (! $exists) {
                     $restoredCart[] = [
@@ -7008,6 +7054,9 @@ class CatalogController extends Controller
                 : Site::query()->catalogVisible()->whereIn('id', $siteIds)->get()->keyBy('id');
             $normalized = [];
             foreach ($restoredCart as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
                 $site = $sites->get((int) ($line['id'] ?? 0));
                 if (! $site) {
                     continue;

@@ -179,7 +179,16 @@
 
         <!-- Cart — count + estimated total while browsing -->
         @php
-            $headerCart = is_array($headerCart ?? null) ? $headerCart : session('cart', []);
+            try {
+                $headerCart = is_array($headerCart ?? null) ? $headerCart : session('cart', []);
+                if (! is_array($headerCart)) {
+                    $headerCart = [];
+                }
+                $headerCart = array_values(array_filter($headerCart, 'is_array'));
+            } catch (\Throwable $e) {
+                report($e);
+                $headerCart = [];
+            }
             $headerCartCount = (int) array_sum(array_map(fn ($row) => (int) ($row['quantity'] ?? 0), $headerCart));
             $headerCartTotal = round(array_sum(array_map(
                 fn ($row) => ((float) ($row['price'] ?? 0)) * ((int) ($row['quantity'] ?? 0)),
