@@ -8,6 +8,19 @@ if (!window.CatalogConfig) { window.CatalogConfig = { favorites: [], blacklist: 
  * before showing the empty-state fallback. Hostinger often 404s /storage when the
  * public/storage symlink is missing; /media streams from the public disk.
  */
+window.catalogSiteFaviconOnError = function (img) {
+    if (!img) return;
+    img.onerror = null;
+    img.hidden = true;
+    var tile = img.closest('.catalog-tile');
+    if (!tile) return;
+    var initials = tile.querySelector('.catalog-tile__initials');
+    if (initials) {
+        initials.hidden = false;
+    }
+    tile.classList.remove('catalog-tile--favicon');
+};
+
 window.catalogSitePreviewOnError = function (img) {
     if (!img) return;
     // Ignore errors on the 1x1 deferred placeholder — hydrateExpandScreenshots
@@ -361,10 +374,21 @@ document.addEventListener('DOMContentLoaded', function () {
 /** Prevents double form.submit() while a navigation is already in flight. */
 let catalogFilterSubmitInFlight = false;
 
+let catalogSlbLoaderOn = false;
+
 function setCatalogBusyLottie(busy, play) {
     if (!window.SlbLoader) return;
-    if (play) window.SlbLoader.show();
-    else window.SlbLoader.hide();
+    // Pair show/hide once. Live apply() plus form submit both mark busy, and
+    // two show() calls leave the overlay up after a single hide().
+    if (play) {
+        if (catalogSlbLoaderOn) return;
+        catalogSlbLoaderOn = true;
+        window.SlbLoader.show();
+        return;
+    }
+    if (!catalogSlbLoaderOn) return;
+    catalogSlbLoaderOn = false;
+    window.SlbLoader.hide();
 }
 
 /**
@@ -4915,19 +4939,48 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Details button only — row / card body clicks must not expand. Hovering a
-    // metric or name must not feel like a second page. Delegated so live-fetched
-    // rows stay interactive. Multi-open: opening one does not close others.
+    // Whole row / card opens Details. Buy, visit, eye, and other controls stay
+    // their own actions. Delegated so live-fetched rows stay interactive.
     document.addEventListener('click', function (e) {
-        const arrow = e.target.closest('.expand-arrow');
-        if (!arrow) return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof e.stopImmediatePropagation === 'function') {
-            e.stopImmediatePropagation();
+        const onControl = e.target.closest('a, button, input, select, textarea, label, .catalog-url-eye');
+        const onDetails = e.target.closest('.expand-arrow, .catalog-card-details-toggle, [data-catalog-open-details], .catalog-new-ribbon');
+        if (onControl && !onDetails) {
+            return;
         }
-        const id = arrow.id.replace('arrow-', '');
-        toggleExpandRow(id, arrow);
+        // Dedicated thumbnail / social-chip handler opens a section.
+        if (e.target.closest('[data-catalog-open-details]')) {
+            return;
+        }
+        if (e.target.closest('.catalog-card-details, .catalog-expand-cell')) {
+            return;
+        }
+
+        const card = e.target.closest('.catalog-mobile-card[data-id]');
+        if (card) {
+            const cardToggle = card.querySelector('.catalog-card-details-toggle');
+            if (!cardToggle) return;
+            e.preventDefault();
+            const section = onDetails && onDetails.getAttribute
+                ? onDetails.getAttribute('data-catalog-open-section')
+                : null;
+            toggleCardDetails(cardToggle, section
+                ? { open: true, scrollTo: '[data-catalog-section="' + section + '"]' }
+                : undefined);
+            return;
+        }
+
+        const row = e.target.closest('.site-row[data-id]');
+        if (!row) return;
+        const id = row.getAttribute('data-id');
+        if (!id) return;
+        e.preventDefault();
+        const arrow = document.getElementById('arrow-' + id) || (onDetails && onDetails.classList.contains('expand-arrow') ? onDetails : null);
+        const section = onDetails && onDetails.getAttribute
+            ? onDetails.getAttribute('data-catalog-open-section')
+            : null;
+        toggleExpandRow(id, arrow, section
+            ? { open: true, scrollTo: '[data-catalog-section="' + section + '"]' }
+            : undefined);
     });
 
     // Homepage thumbnail / Social chip on the closed row — dedicated Details
@@ -4981,7 +5034,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             catalogToast('URL copied to clipboard!', 'success');
             const originalText = button.innerHTML;
-            button.innerHTML = '<i class="fa-regular fa-check"></i> Copied!';
+            button.innerHTML = '<i class="fa-regular fa-check" aria-hidden="true"></i>';
             setTimeout(function () {
                 button.innerHTML = originalText;
             }, 1500);

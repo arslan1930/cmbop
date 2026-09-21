@@ -43,7 +43,7 @@ class SavedCardAndPaymentTrustTest extends TestCase
             ->assertDontSee('assets/img/payments/apple-pay.svg', false)
             ->assertDontSee('assets/img/payments/amex.svg', false)
             ->assertSee('assets/img/payments/wise.png', false)
-            ->assertSee('assets/img/payments/paypal.svg', false)
+            ->assertSee('assets/img/payments/paypal.png', false)
             ->assertSee('alt="PayPal"', false)
             ->assertSee('assets/img/payments/bitcoin.svg', false)
             ->assertDontSee('assets/img/payments/usdt.svg', false)
@@ -60,7 +60,7 @@ class SavedCardAndPaymentTrustTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('assets/img/payments/paypal.svg', false)
+            ->assertSee('assets/img/payments/paypal.png', false)
             ->assertSee('alt="PayPal"', false)
             ->assertSee('Stripe', false);
     }

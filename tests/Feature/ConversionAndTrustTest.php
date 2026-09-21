@@ -69,7 +69,7 @@ class ConversionAndTrustTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('alt="PayPal"', $html);
-        $this->assertStringContainsString('paypal.svg', $html);
+        $this->assertStringContainsString('paypal.png', $html);
     }
 
     public function test_catalog_cart_includes_buy_confidence_strip(): void
@@ -111,7 +111,7 @@ class ConversionAndTrustTest extends TestCase
             ->assertSee('Price shown is what you pay', false)
             ->assertSee('See refund policy', false)
             ->assertSee('data-method="paypal"', false)
-            ->assertSee('assets/img/payments/paypal.svg', false)
+            ->assertSee('assets/img/payments/paypal.png', false)
             ->assertSee('assets/img/payments/visa.svg', false)
             ->assertSee('assets/img/payments/mastercard.svg', false)
             ->assertDontSee('fab fa-stripe', false)
@@ -195,7 +195,7 @@ class ConversionAndTrustTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('assets/img/payments/paypal.svg', false)
+            ->assertSee('assets/img/payments/paypal.png', false)
             ->assertSee('alt="PayPal"', false);
     }
 }

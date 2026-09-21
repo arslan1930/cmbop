@@ -498,6 +498,34 @@
     justify-content: center;
 }
 
+.catalog-tile--favicon,
+.catalog-tile--open {
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(11, 98, 102, 0.18);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    color: inherit;
+}
+
+.catalog-tile--favicon {
+    background: #fff;
+}
+
+.catalog-tile--open:hover,
+.catalog-tile--open:focus-visible {
+    outline: 2px solid #0b6266;
+    outline-offset: 1px;
+}
+
+.catalog-tile__favicon {
+    object-fit: contain;
+    object-position: center;
+    padding: 4px;
+    background: #fff;
+}
+
 /* --------------------------------------------------------------- price block */
 
 .catalog-price {
@@ -653,7 +681,6 @@
 }
 
 .catalog-page .table tbody tr.site-row {
-    /* Whole-row click toggles Details (interactive chrome is excluded in JS). */
     cursor: pointer;
     /* Explicit surface so blacklist / hover washes paint every cell the same. */
     background-color: var(--surface-1, #fff);
@@ -889,6 +916,7 @@ body:has(.catalog-page) {
     padding: 14px;
     margin-bottom: 12px;
     max-width: 100%;
+    overflow: hidden;
 }
 
 .catalog-mobile-card.is-blacklisted {
@@ -910,6 +938,14 @@ body:has(.catalog-page) {
 .catalog-mobile-card__host {
     flex: 1 1 auto;
     min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding-left: 18px;
+}
+
+.catalog-mobile-card__host .catalog-tile {
+    flex: 0 0 40px;
 }
 
 /* Truncation only works if every flex ancestor can shrink below its content, so
@@ -917,6 +953,10 @@ body:has(.catalog-page) {
 .catalog-mobile-card__main {
     flex: 1 1 auto;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
 }
 
 .catalog-mobile-card__main .catalog-site-name {
@@ -1987,6 +2027,50 @@ body:has(.catalog-page) {
     border: 1px solid #e2e8f0;
 }
 
+.catalog-expand-cell .site-chip--sponsored,
+.catalog-expand-cell .site-chip--partner,
+.catalog-expand-cell .site-chip--prefer,
+.catalog-expand-cell .site-chip--none,
+.catalog-card-details .site-chip--sponsored,
+.catalog-card-details .site-chip--partner,
+.catalog-card-details .site-chip--prefer,
+.catalog-card-details .site-chip--none {
+    background: transparent;
+    border-color: transparent;
+    border-style: none;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.catalog-expand-cell .site-chip--sponsored,
+.catalog-card-details .site-chip--sponsored {
+    color: var(--brand-warning-ink, #9a3412);
+}
+
+.catalog-expand-cell .site-chip--partner,
+.catalog-card-details .site-chip--partner {
+    color: var(--brand-success, #0f766e);
+}
+
+.catalog-expand-cell .site-chip--prefer,
+.catalog-card-details .site-chip--prefer {
+    color: var(--brand-primary-deep, #134347);
+}
+
+.catalog-expand-cell .site-chip--none,
+.catalog-card-details .site-chip--none {
+    color: var(--brand-ink-muted, #697078);
+}
+
+.catalog-sample-copy {
+    line-height: 1;
+    color: var(--brand-ink-muted, #697078);
+}
+
+.catalog-sample-copy:hover {
+    color: var(--brand-ink, #1e293b);
+}
+
 /* Two chip families: status (listing state) vs descriptors (what the offer is). */
 .site-chip--status {
     font-weight: 700;
@@ -1996,6 +2080,7 @@ body:has(.catalog-page) {
 .site-chip--descriptor {
     font-weight: 600;
     border-style: dashed;
+    cursor: default;
 }
 
 .catalog-homepage-hint {
@@ -2093,6 +2178,7 @@ body:has(.catalog-page) {
 
 .catalog-site-cell {
     position: relative;
+    overflow: visible;
 }
 
 /* Floating enlarge for Site Details / card expand previews (fine pointer). */
@@ -2156,6 +2242,8 @@ body:has(.catalog-page) {
     flex-direction: column;
     gap: 6px;
     min-width: 0;
+    width: 100%;
+    max-width: 100%;
 }
 
 /* The tile sits beside the stack rather than above it, so the domain, chips and
@@ -2164,6 +2252,11 @@ body:has(.catalog-page) {
     flex-direction: row;
     align-items: flex-start;
     gap: 10px;
+    padding-left: 32px;
+}
+
+.catalog-site-stack--tiled > .catalog-tile {
+    flex: 0 0 34px;
 }
 
 .catalog-site-stack__body {
@@ -2172,38 +2265,43 @@ body:has(.catalog-page) {
     gap: 5px;
     min-width: 0;
     flex: 1 1 auto;
+    width: auto;
+    max-width: 100%;
 }
 
 .catalog-site-name {
+    font-family: var(--font-sans, 'Poppins', system-ui, sans-serif);
     font-weight: 600;
     font-size: 13.5px;
-    color: var(--brand-ink, #0f172a);
+    color: var(--brand-ink, var(--type-color, #0f172a));
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     line-height: 1.25;
     white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     min-width: 0;
-    /* Grow only when the cell is tight — never shove chips to the far right. */
     flex: 0 1 auto;
     max-width: 100%;
 }
 
-/* Rooted URL under the listing name (https://host, incl. subdomain). */
+/* Rooted URL under the listing name — same face as the rest of the catalog. */
 .catalog-site-url,
 .catalog-site-rooted-url {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--font-sans, 'Poppins', system-ui, sans-serif);
     font-weight: 500;
-    font-size: 12px;
+    font-size: var(--type-meta, 0.75rem);
     line-height: 1.35;
-    color: var(--brand-ink-muted, #697078);
+    color: var(--type-muted, var(--brand-ink-muted, #697078));
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
     flex: 0 1 auto;
     max-width: 100%;
+    width: auto;
 }
 
 .catalog-site-rooted-url {
@@ -2213,12 +2311,15 @@ body:has(.catalog-page) {
 /* Visit lives on the rooted URL (↗ via ::after) so paintHostElements can
    rewrite textContent without dropping the icon. */
 a.catalog-site-rooted-url.site-open-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35em;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: auto;
     max-width: 100%;
+    min-width: 0;
     text-decoration: none;
-    color: var(--brand-ink-muted, #697078);
+    color: var(--type-muted, var(--brand-ink-muted, #697078));
     cursor: pointer;
 }
 
@@ -2238,19 +2339,28 @@ a.catalog-site-rooted-url.site-open-link::after {
 
 .catalog-site-identity {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 8px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 6px;
     min-width: 0;
     width: 100%;
+    max-width: 100%;
 }
 
-.catalog-site-status-row {
-    display: inline-flex;
+.catalog-site-status-row,
+.catalog-site-tag-slot {
+    display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 4px;
     min-width: 0;
+    width: auto;
+    max-width: 100%;
+}
+
+.catalog-site-tag-slot:empty {
+    display: none;
 }
 
 .catalog-site-badges--mobile,
@@ -2270,15 +2380,65 @@ a.catalog-site-rooted-url.site-open-link::after {
 .catalog-site-title-row {
     display: flex;
     flex-wrap: nowrap;
-    align-items: flex-start;
+    align-items: center;
     justify-content: flex-start;
     gap: 4px;
     min-width: 0;
-    width: 100%;
+    width: max-content;
+    max-width: 100%;
+}
+
+.catalog-site-cell,
+.catalog-expand-cell,
+.catalog-mobile-card,
+.catalog-card-details {
+    position: relative;
+}
+
+.catalog-page button.site-badge-new.catalog-new-ribbon,
+button.site-badge-new.catalog-new-ribbon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 3;
+    display: block;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    overflow: visible;
+    line-height: 0;
+    animation: none !important;
+}
+
+.catalog-page button.site-badge-new.catalog-new-ribbon:hover,
+.catalog-page button.site-badge-new.catalog-new-ribbon:focus-visible,
+.catalog-page button.site-badge-new.catalog-new-ribbon.is-open,
+.catalog-page button.site-badge-new.catalog-new-ribbon.is-alerting,
+button.site-badge-new.catalog-new-ribbon:hover,
+button.site-badge-new.catalog-new-ribbon:focus-visible,
+button.site-badge-new.catalog-new-ribbon.is-open,
+button.site-badge-new.catalog-new-ribbon.is-alerting {
+    background: transparent !important;
+    transform: none;
+}
+
+.catalog-new-ribbon img {
+    display: block;
+    width: 32px;
+    height: 32px;
+    pointer-events: none;
 }
 
 .catalog-table .catalog-site-title-row + .catalog-site-identity {
-    margin-top: 8px;
+    margin-top: 0;
 }
 
 /* NEW · Verified · eye — snug cluster immediately after the name. */

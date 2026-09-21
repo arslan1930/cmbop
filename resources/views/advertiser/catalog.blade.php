@@ -9,6 +9,7 @@
         .catalog-results-busy[hidden]{display:none!important}
         .catalog-page button.site-badge-new,
         .catalog-page .site-badge-new{background:#ef4444!important;background-image:none!important;color:#fff!important;border:0!important}
+        .catalog-page button.site-badge-new.catalog-new-ribbon{background:transparent!important;width:32px!important;height:32px!important;padding:0!important;min-width:0!important;border-radius:0!important;box-shadow:none!important}
         .catalog-page .metric-source{width:var(--metric-source-size,20px);height:var(--metric-source-size,20px);max-width:var(--metric-source-size,20px);max-height:var(--metric-source-size,20px);overflow:hidden}
         .catalog-page .metric-source img{width:var(--metric-source-size,20px);height:var(--metric-source-size,20px);max-width:var(--metric-source-size,20px);max-height:var(--metric-source-size,20px)}
         /* Category clamps — must survive a stale CDN catalog.css (chips otherwise

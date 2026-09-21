@@ -1,25 +1,21 @@
 {{--
     Identity tile for a listing.
 
-    Rows were a wall of monospace domains with nothing to fix the eye on.
-    When a homepage capture exists and the row is allowed to show identity,
-    the tile is that screenshot (click opens Details). Otherwise the initials
-    come from the label already on screen — for a masked listing that is the
-    masked label, so this never discloses a host the row is hiding.
+    Closed rows show the site favicon (stored, or fetched by host). Initials
+    stay on screen when the row is masked or the icon fails. Click opens Details.
 
     @param string $label          The displayed host (may be masked)
     @param string $size           md (table) | lg (card)
-    @param string|null $previewUrl First usable /media or /storage URL
-    @param array  $previewChain   Fallback URL chain for onerror
+    @param string|null $faviconUrl Public favicon URL when identity is shown
     @param string $openDetailsId  Site id — click opens that listing’s Details
 --}}
 @php
     $tileLabel = (string) ($label ?? '');
     $tileSize = ($size ?? 'md') === 'lg' ? 'lg' : 'md';
-    $previewUrl = trim((string) ($previewUrl ?? ''));
-    $previewChain = is_array($previewChain ?? null) ? $previewChain : [];
+    $faviconUrl = trim((string) ($faviconUrl ?? ''));
     $openDetailsId = trim((string) ($openDetailsId ?? ''));
-    $hasPreview = $previewUrl !== '' && $openDetailsId !== '';
+    $hasFavicon = $faviconUrl !== '';
+    $isButton = $openDetailsId !== '';
 
     // First domain segment, split on separators and masking characters.
     $firstSegment = explode('.', $tileLabel)[0] ?? '';
@@ -38,28 +34,34 @@
 
     // Stable per listing so the same site keeps the same colour between pages.
     $tileTone = (crc32(strtolower($tileLabel)) % 6) + 1;
+    $tileClass = 'catalog-tile catalog-tile--'.$tileSize.' catalog-tile--tone'.$tileTone
+        .($hasFavicon ? ' catalog-tile--favicon' : '')
+        .($isButton ? ' catalog-tile--open' : '');
 @endphp
 
-@if($hasPreview)
+@if($isButton)
     <button type="button"
-            class="catalog-tile catalog-tile--{{ $tileSize }} catalog-tile--preview catalog-tile--tone{{ $tileTone }}"
+            class="{{ $tileClass }}"
             data-catalog-open-details="{{ $openDetailsId }}"
             data-no-tip
-            aria-label="Homepage preview — open Details">
-        <img src="{{ $previewUrl }}"
-             alt=""
-             decoding="async"
-             class="catalog-tile__img"
-             data-preview-chain="{{ json_encode($previewChain !== [] ? $previewChain : [$previewUrl], JSON_UNESCAPED_SLASHES) }}"
-             data-preview-i="0"
-             onerror="window.catalogSitePreviewOnError && window.catalogSitePreviewOnError(this)">
+            aria-label="Open Details">
+        @if($hasFavicon)
+            <img src="{{ $faviconUrl }}"
+                 alt=""
+                 width="32"
+                 height="32"
+                 decoding="async"
+                 referrerpolicy="no-referrer"
+                 class="catalog-tile__img catalog-tile__favicon"
+                 onerror="window.catalogSiteFaviconOnError && window.catalogSiteFaviconOnError(this)">
+        @endif
         <span class="catalog-tile__initials"
               title="Initials from the site host — not a country code"
               aria-hidden="true"
-              hidden>{{ $initials }}</span>
+              @if($hasFavicon) hidden @endif>{{ $initials }}</span>
     </button>
 @else
-    <span class="catalog-tile catalog-tile--{{ $tileSize }} catalog-tile--tone{{ $tileTone }}"
+    <span class="{{ $tileClass }}"
           title="Initials from the site host — not a country code"
           aria-hidden="true">{{ $initials }}</span>
 @endif

@@ -277,8 +277,15 @@
                     $expandZoomPaths = $previewPaths;
                 }
                 $expandZoomUrl = $expandZoomPaths[0] ?? $previewUrl;
-                $tilePreviewPaths = $showsIdentity ? $previewPaths : [];
-                $tilePreviewUrl = $showsIdentity ? $previewUrl : null;
+                $tileFaviconUrl = null;
+                if ($showsIdentity) {
+                    if (filled($site->favicon_path)) {
+                        $tileFaviconUrl = $site->logo_url;
+                    }
+                    if (! filled($tileFaviconUrl) && $displayHost !== '') {
+                        $tileFaviconUrl = 'https://www.google.com/s2/favicons?sz=64&domain='.rawurlencode($displayHost);
+                    }
+                }
             @endphp
             <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}"
                 data-id="{{ $site->id }}"
@@ -287,20 +294,26 @@
                 @if((int) ($site->getAttribute('owner_id') ?? 0) > 0) data-owner-id="{{ (int) $site->getAttribute('owner_id') }}" @endif
                 @if($isOwnedByMe) data-own-listing="1" @endif>
                 <td class="catalog-site-cell">
+                    @include('advertiser.partials.catalog-new-ribbon', ['isNew' => $isNew])
 
                     <div class="catalog-site-stack catalog-site-stack--tiled">
+                        <button type="button"
+                                class="expand-arrow visually-hidden"
+                                id="arrow-{{ $site->id }}"
+                                aria-label="Show details for {{ $identityLabel }}"
+                                aria-expanded="false"
+                                aria-controls="site-details-{{ $site->id }}"></button>
                         @include('advertiser.partials.catalog-site-tile', [
                             'label' => $displayHost,
                             'size' => 'md',
-                            'previewUrl' => $tilePreviewUrl,
-                            'previewChain' => $tilePreviewPaths,
-                            'openDetailsId' => $tilePreviewUrl ? (string) $site->id : '',
+                            'faviconUrl' => $tileFaviconUrl,
+                            'openDetailsId' => (string) $site->id,
                         ])
 
                         <div class="catalog-site-stack__body">
-                        <!-- Name + NEW/Verified + Details stay on one nowrap row.
-                             Listing tags and visit live on the wrapping identity
-                             row with the rooted URL so the name stays visible. -->
+                        <!-- Name + Verified + Details stay on one nowrap row.
+                             NEW is the corner ribbon. Listing tags and visit live
+                             on the wrapping identity row with the rooted URL. -->
                         <div class="catalog-site-title-row">
                             <span class="text-dark catalog-site-name"
                                   data-site-name-label
@@ -335,18 +348,6 @@
                                 @endif
 
                                 <span class="catalog-site-badges">
-                                    @if($isNew)
-                                        <button type="button"
-                                                class="site-badge-new"
-                                                data-glass-tip
-                                                data-glass-tip-title="New Listing"
-                                                data-glass-tip-body="Added in the last 30 days — fresh inventory worth reviewing early."
-                                                data-glass-tip-placement="top"
-                                                aria-label="New listing">
-                                            NEW
-                                        </button>
-                                    @endif
-
                                     @if($site->verified)
                                         <button type="button"
                                                 class="site-chip site-chip--verified site-chip--status"
@@ -361,17 +362,6 @@
                                     @endif
                                 </span>
 
-                                <span class="catalog-site-actions">
-                                    <button type="button"
-                                            class="btn btn-sm btn-link text-secondary p-0 expand-arrow catalog-details-toggle"
-                                            id="arrow-{{ $site->id }}"
-                                            aria-label="Show details for {{ $identityLabel }}"
-                                            aria-expanded="false"
-                                            aria-controls="site-details-{{ $site->id }}">
-                                        <span class="catalog-details-toggle__label">Details</span>
-                                        <i class="fa-solid fa-chevron-down ms-1" aria-hidden="true"></i>
-                                    </button>
-                                </span>
                             </span>
                         </div>
 
@@ -391,10 +381,10 @@
                                    data-glass-tip-body="Site name and URL are hidden for 24 hours after repeated domain copying. Open the eye to reveal both for this listing — metrics and price stay visible."
                                    data-glass-tip-placement="top"
                                @endif>{{ $displayRootedUrl }}</a>
-                            <span class="catalog-site-status-row">
+                            <div class="catalog-site-tag-slot">
                                 @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
                                 @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
-                            </span>
+                            </div>
                         </div>
 
                         @php
@@ -946,6 +936,13 @@
                                            style="word-break: break-all;">
                                             {{ Str::limit($site->example_url, 50) }}
                                         </a>
+                                        <button type="button"
+                                                class="btn btn-link p-0 copy-example-url catalog-sample-copy"
+                                                data-url="{{ $sampleVisit }}"
+                                                data-site-id="{{ $site->id }}"
+                                                aria-label="Copy the sample article URL for {{ $identityLabel }}">
+                                            <i class="fa-regular fa-copy" aria-hidden="true"></i>
+                                        </button>
                                         <a href="{{ $sampleVisit }}"
                                            target="_blank"
                                            rel="noopener noreferrer"
@@ -956,14 +953,6 @@
                                                style="font-size: 13px;" aria-hidden="true"></i>
                                         </a>
                                     </div>
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-secondary copy-example-url"
-                                            data-url="{{ $sampleVisit }}"
-                                            data-site-id="{{ $site->id }}"
-                                            aria-label="Copy the sample article URL for {{ $identityLabel }}"
-                                            style="width: fit-content;">
-                                        <i class="fa-regular fa-copy" aria-hidden="true"></i> Copy URL
-                                    </button>
                             @endif
                         </div>
                         @endif
@@ -1090,8 +1079,15 @@
                 $mobileZoomPaths = $mobilePreviewPaths;
             }
             $mobileZoomUrl = $mobileZoomPaths[0] ?? $mobilePreviewUrl;
-            $tilePreviewPaths = $showsIdentity ? $mobilePreviewPaths : [];
-            $tilePreviewUrl = $showsIdentity ? $mobilePreviewUrl : null;
+            $tileFaviconUrl = null;
+            if ($showsIdentity) {
+                if (filled($site->favicon_path)) {
+                    $tileFaviconUrl = $site->logo_url;
+                }
+                if (! filled($tileFaviconUrl) && $displayHost !== '') {
+                    $tileFaviconUrl = 'https://www.google.com/s2/favicons?sz=64&domain='.rawurlencode($displayHost);
+                }
+            }
             $mobileLabels = $site->nicheBadgeLabels();
             $mobileCategory = $mobileLabels[0] ?? '—';
             $mobileSensitivePrices = $site->safeJsonArray('sensitive_prices');
@@ -1126,20 +1122,27 @@
                  data-publisher-id="{{ (int) $site->publisher_id }}"
                  @if((int) ($site->getAttribute('owner_id') ?? 0) > 0) data-owner-id="{{ (int) $site->getAttribute('owner_id') }}" @endif
                  @if($isOwnedByMe) data-own-listing="1" @endif>
+            @include('advertiser.partials.catalog-new-ribbon', ['isNew' => $isNew])
             <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                 <div class="catalog-mobile-card__host d-flex align-items-start gap-2">
                     @include('advertiser.partials.catalog-site-tile', [
                         'label' => $displayHost,
                         'size' => 'lg',
-                        'previewUrl' => $tilePreviewUrl,
-                        'previewChain' => $tilePreviewPaths,
-                        'openDetailsId' => $tilePreviewUrl ? (string) $site->id : '',
+                        'faviconUrl' => $tileFaviconUrl,
+                        'openDetailsId' => (string) $site->id,
                     ])
 
                     <div class="catalog-mobile-card__main">
+                    <div class="catalog-site-title-row">
                     <div class="fw-semibold text-dark catalog-site-name"
                          data-site-name-label
                          title="{{ $displayName }}">{{ $displayName }}</div>
+                    @if($site->verified)
+                    <span class="catalog-site-badges">
+                        <span class="site-chip site-chip--verified site-chip--status"><span class="catalog-verified-lottie" data-lottie="{{ asset('assets/vendor/lottie/verified.json') }}" aria-hidden="true"></span><span class="visually-hidden">Verified</span></span>
+                    </span>
+                    @endif
+                    </div>
                     {{-- Visit sits on the rooted URL, not next to the name. --}}
                     <a href="{{ route('advertiser.catalog.visit', $site->id) }}"
                        target="_blank"
@@ -1155,15 +1158,9 @@
                            data-glass-tip-body="Site name and URL are hidden for 24 hours after repeated domain copying. Open the eye to reveal both for this listing — metrics and price stay visible."
                            data-glass-tip-placement="top"
                        @endif>{{ $displayRootedUrl }}</a>
-                    <div class="catalog-site-badges catalog-site-badges--mobile mt-1">
-                        @if($site->verified)
-                            <span class="site-chip site-chip--verified site-chip--status"><span class="catalog-verified-lottie" data-lottie="{{ asset('assets/vendor/lottie/verified.json') }}" aria-hidden="true"></span><span class="visually-hidden">Verified</span></span>
-                        @endif
+                    <div class="catalog-site-tag-slot">
                         @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
                         @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
-                        @if($isNew)
-                            <span class="site-badge-new" aria-label="New listing">NEW</span>
-                        @endif
                     </div>
                     @php
                         $mobileCustomPct = null;

@@ -32,7 +32,7 @@ class AddFundsPaymentUxTest extends TestCase
             ->assertOk()
             ->assertSee('assets/img/payments/visa.svg', false)
             ->assertSee('assets/img/payments/mastercard.svg', false)
-            ->assertSee('assets/img/payments/paypal.svg', false)
+            ->assertSee('assets/img/payments/paypal.png', false)
             ->assertDontSee('fab fa-stripe', false)
             ->getContent();
 

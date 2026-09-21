@@ -61,22 +61,21 @@
                 $sparkYs = array_fill(0, $sparkCount, 0.2);
             } else {
                 $seed = ($sparkId * 2654435761 + ((int) $metricRaw) * 97) & 0x7fffffff;
-                $y = 0.38 + (($seed % 40) / 100);
+                $phase = ($seed % 628) / 100;
+                $y = 0.48 + (($seed % 18) / 100);
                 for ($i = 0; $i < $sparkCount; $i++) {
                     $seed = ($seed * 1103515245 + 12345) & 0x7fffffff;
-                    $step = ((($seed % 1000) / 1000) - 0.48) * 0.32;
-                    $y = max(0.08, min(0.96, $y + $step));
+                    $wave = sin($i * 0.95 + $phase) * 0.16;
+                    $step = ((($seed % 1000) / 1000) - 0.5) * 0.22;
+                    $y = max(0.28, min(0.72, $y + $step + $wave * 0.35));
                     $sparkYs[] = $y;
                 }
             }
-            $sparkMin = min($sparkYs);
-            $sparkMax = max($sparkYs);
-            $sparkSpan = max(0.18, $sparkMax - $sparkMin);
             $sparkPts = [];
             foreach ($sparkYs as $i => $y) {
                 $x = $sparkCount === 1 ? 0.0 : ($i / ($sparkCount - 1)) * $sparkW;
-                $ny = 1 - (($y - $sparkMin) / $sparkSpan);
-                $sparkPts[] = [$x, 1.2 + $ny * ($sparkH - 2.6)];
+                $ny = 1 - $y;
+                $sparkPts[] = [$x, 7 + $ny * ($sparkH - 14)];
             }
             $sparkLine = '';
             foreach ($sparkPts as $i => [$x, $py]) {

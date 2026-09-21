@@ -420,7 +420,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return '<i class="fa fa-credit-card me-2"></i> Pay ' + formatted + ' with card';
         }
         if (selectedMethod === 'paypal') {
-            return '<i class="fab fa-paypal me-2"></i> Pay ' + formatted + ' with PayPal';
+            const logo = boot.paypalLogo || '/assets/img/payments/paypal.png';
+            return '<img src="' + logo + '" alt="" width="28" height="28" class="me-2" style="width:28px;height:28px;vertical-align:middle"> Pay ' + formatted + ' with PayPal';
         }
         if (selectedMethod) {
             return '<i class="fa fa-file-invoice me-2"></i> Get invoice & pay ' + formatted;

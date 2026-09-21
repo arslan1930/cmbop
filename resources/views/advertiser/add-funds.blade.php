@@ -294,13 +294,13 @@
                                             @if($methodReady && ! empty($meta['new_key']))
                                                 <x-feature-new :badge-key="$meta['new_key']" class="payment-option-new" />
                                             @endif
-                                            <div class="payment-option-icon" style="background: {{ $meta['icon_bg'] }};">
+                                            <div class="payment-option-icon{{ $methodKey === 'paypal' ? ' payment-option-icon--paypal' : '' }}" style="background: {{ $meta['icon_bg'] }};">
                                                 @if($methodKey === 'card')
                                                     @include('partials.payment-card-brands')
                                                 @elseif($methodKey === 'bank')
                                                     <i class="fas fa-university" style="font-size: 28px; color: var(--brand-primary, #1a585e);"></i>
                                                 @elseif($methodKey === 'paypal')
-                                                    <img src="{{ asset('assets/img/payments/paypal.svg') }}" alt="" width="40" height="11" style="width:40px;height:auto;" decoding="async">
+                                                    <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="PayPal" width="104" height="103" style="width:104px;height:auto;" decoding="async">
                                                 @elseif($methodKey === 'wise')
                                                     <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="Wise Logo" style="width: 32px; height: 32px; object-fit: contain;">
                                                 @else
@@ -508,8 +508,8 @@
                         <div id="paypalPaymentDetails" class="card border-0 shadow-sm mb-4" style="display: none;">
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
-                                    <div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                                        <img src="{{ asset('assets/img/payments/paypal.svg') }}" alt="" width="32" height="9" style="width:32px;height:auto;" decoding="async">
+                                    <div style="width: 88px; height: 88px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                                        <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="PayPal" width="80" height="79" style="width:80px;height:auto;" decoding="async">
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">PayPal</h3>
@@ -1584,6 +1584,7 @@ window.AddFundsBoot = {
     prefillAmount: @json($prefillAmount ?? null),
     prefillMethod: @json($prefillMethod ?? null),
     lastUsedMethod: @json($lastUsedMethod ?? null),
+    paypalLogo: @json(asset('assets/img/payments/paypal.png')),
     openCardsTab: @json((bool) ($openCardsTab ?? false)),
     routes: {
         store: @json(route('advertiser.add-funds.store', absolute: false)),

@@ -151,9 +151,10 @@ class CatalogUiRegressionTest extends TestCase
             '/inCatalogHideMode\)\s*\{[\s\S]*?addEventListener\(\s*[\'"]click[\'"]\s*,\s*function\s*\([^)]*\)\s*\{[\s\S]*?reveal-url[\s\S]*?\}\s*,\s*true\s*\)/',
             $js
         );
-        // Details expands only from the dedicated .expand-arrow / card toggle.
-        $this->assertStringContainsString("closest('.expand-arrow')", $js);
-        $this->assertStringNotContainsString('Whole-row click toggles Details', $js);
+        // Details expands from the row / card, or the dedicated Details control.
+        $this->assertStringContainsString('.site-row[data-id]', $js);
+        $this->assertStringContainsString('.catalog-mobile-card[data-id]', $js);
+        $this->assertStringContainsString('.expand-arrow, .catalog-card-details-toggle', $js);
         $this->assertStringNotContainsString('function catalogActionClick', $js);
         $this->assertDoesNotMatchRegularExpression(
             '/querySelectorAll\(\s*[\'"]\.site-row[\'"]\s*\)\.forEach\([^)]*toggleExpandRow/s',
@@ -213,9 +214,9 @@ class CatalogUiRegressionTest extends TestCase
             $css
         );
         $this->assertStringContainsString('a.catalog-site-rooted-url.site-open-link', $css);
-        // Order: eye immediately after the domain, then NEW, then Verified chip.
+        // NEW is the corner ribbon; eye + Verified stay on the name row.
         $this->assertMatchesRegularExpression(
-            '/catalog-site-controls[\s\S]*?catalog-url-eye[\s\S]*?site-badge-new[\s\S]*?site-chip--verified/s',
+            '/catalog-new-ribbon[\s\S]*?catalog-site-controls[\s\S]*?catalog-url-eye[\s\S]*?site-chip--verified/s',
             $hideHtml
         );
         $this->assertStringContainsString('Verified Publisher', $hideHtml);

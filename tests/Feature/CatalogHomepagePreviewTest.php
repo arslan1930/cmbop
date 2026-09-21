@@ -86,7 +86,8 @@ class CatalogHomepagePreviewTest extends TestCase
         $this->assertStringContainsString('site-preview-zoom', $html);
         // Closed rows show a thumbnail tile; the dedicated preview column
         // classes stay unused so we never reintroduce a preview table column.
-        $this->assertStringContainsString('catalog-tile--preview', $html);
+        $this->assertStringContainsString('catalog-tile--favicon', $html);
+        $this->assertStringContainsString('google.com/s2/favicons', $html);
         $this->assertStringContainsString('data-catalog-open-details', $html);
         $this->assertStringNotContainsString('catalog-th-preview', $html);
         $this->assertStringNotContainsString('site-row-preview', $html);
@@ -120,7 +121,7 @@ class CatalogHomepagePreviewTest extends TestCase
             '/site-preview-zoom[\s\S]*?<img[^>]+class="[^"]*catalog-deferred-preview/',
             $html
         );
-        $this->assertMatchesRegularExpression(
+        $this->assertDoesNotMatchRegularExpression(
             '/catalog-tile--preview[\s\S]*?<img[^>]+src="[^"]*\/media\/site-screenshots\/home-full\.webp"/',
             $html
         );
@@ -147,7 +148,7 @@ class CatalogHomepagePreviewTest extends TestCase
         $this->assertStringContainsString('max-width: 300px;', $css);
         $this->assertStringContainsString('width: min(720px, calc(100vw - 32px))', $css);
         $this->assertStringContainsString('object-fit: contain', $css);
-        $this->assertStringContainsString('.catalog-tile--preview', $css);
+        $this->assertStringContainsString('.catalog-tile--favicon', $css);
         $this->assertStringContainsString('.catalog-tile__img', $css);
         // Hover zoom restored, gated for fine pointers + reduced-motion (Safari-safe).
         $this->assertStringContainsString('@media (hover: hover) and (pointer: fine)', $css);
@@ -235,7 +236,8 @@ class CatalogHomepagePreviewTest extends TestCase
             '/data-src="[^"]*\/media\/site-screenshots\/row-full\.webp"/',
             $html
         );
-        $this->assertMatchesRegularExpression(
+        $this->assertStringContainsString('catalog-tile--favicon', $html);
+        $this->assertDoesNotMatchRegularExpression(
             '/catalog-tile--preview[\s\S]*?<img[^>]+src="[^"]*\/media\/site-screenshots\/row-full\.webp"/',
             $html
         );
@@ -260,8 +262,9 @@ class CatalogHomepagePreviewTest extends TestCase
             ->getContent();
 
         $this->assertStringNotContainsString('catalog-tile--preview', $html);
-        $this->assertStringNotContainsString('data-catalog-open-details', $html);
+        $this->assertStringNotContainsString('catalog-tile--favicon', $html);
         $this->assertStringNotContainsString('hidden-preview.example', $html);
+        $this->assertStringContainsString('data-catalog-open-details', $html);
         $this->assertStringContainsString('Homepage preview', $html);
         $this->assertStringContainsString('media/site-screenshots/hidden-full.webp', $html);
     }

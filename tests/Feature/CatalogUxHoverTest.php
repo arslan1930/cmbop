@@ -67,11 +67,12 @@ class CatalogUxHoverTest extends TestCase
         ], $overrides));
     }
 
-    public function test_details_opens_only_from_the_dedicated_control(): void
+    public function test_details_opens_from_the_row_or_the_dedicated_control(): void
     {
         $js = (string) file_get_contents(public_path('assets/js/catalog.js'));
 
-        $this->assertStringContainsString("closest('.expand-arrow')", $js);
+        $this->assertStringContainsString('.site-row[data-id]', $js);
+        $this->assertStringContainsString('.expand-arrow, .catalog-card-details-toggle', $js);
         $this->assertStringContainsString('function toggleExpandRow', $js);
         $this->assertStringContainsString('function toggleCardDetails', $js);
         $this->assertStringContainsString('.catalog-card-details-toggle', $js);
@@ -83,8 +84,6 @@ class CatalogUxHoverTest extends TestCase
             '/max-width:\s*1499\.98px[\s\S]{0,400}catalog-details-toggle__label/',
             $css
         );
-        $this->assertStringNotContainsString('Whole-row click toggles Details', $js);
-        $this->assertStringNotContainsString('Mobile cards: same body-click toggle', $js);
         $this->assertStringNotContainsString('function catalogActionClick', $js);
         $this->assertStringNotContainsString("closest('tr.site-row')", $js);
     }
@@ -115,7 +114,7 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringNotContainsString('Browse verified publishers', $html);
         $this->assertStringNotContainsString('fw-semibold">Catalog</h2>', $html);
         $this->assertStringContainsString('Browse publisher listings', $html);
-        $this->assertStringContainsString('expand-arrow catalog-details-toggle', $html);
+        $this->assertStringContainsString('class="expand-arrow visually-hidden"', $html);
         $this->assertStringContainsString('catalog-card-details-toggle', $html);
     }
 

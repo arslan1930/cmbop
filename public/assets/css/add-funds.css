@@ -369,6 +369,11 @@
     margin: 0 auto 8px;
 }
 
+.payment-option-icon--paypal {
+    width: 112px;
+    height: 112px;
+}
+
 .payment-option-name {
     display: block;
     font-weight: 600;

@@ -78,11 +78,10 @@ class CatalogLiveClientTest extends TestCase
         $this->assertStringContainsString("e.target.closest('.buy-now')", $js);
         $this->assertStringContainsString("e.target.closest('.favorite-btn')", $js);
         $this->assertStringContainsString("e.target.closest('.blacklist-btn')", $js);
-        $this->assertStringContainsString("e.target.closest('.expand-arrow')", $js);
+        $this->assertStringContainsString('.expand-arrow, .catalog-card-details-toggle', $js);
         $this->assertStringContainsString('function hydrateExpandScreenshots', $js);
-        // Details opens only from the dedicated control — not whole-row / card-body clicks.
-        $this->assertStringNotContainsString('Whole-row click toggles Details', $js);
-        $this->assertStringNotContainsString('Mobile cards: same body-click toggle', $js);
+        $this->assertStringContainsString('.site-row[data-id]', $js);
+        $this->assertStringContainsString('.catalog-mobile-card[data-id]', $js);
         $this->assertStringNotContainsString('function catalogActionClick', $js);
         $this->assertStringNotContainsString("closest('tr.site-row')", $js);
         // Filter submit goes through live apply (full navigate is fallback only).

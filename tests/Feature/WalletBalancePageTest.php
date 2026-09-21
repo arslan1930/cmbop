@@ -91,7 +91,7 @@ class WalletBalancePageTest extends TestCase
         $this->assertStringContainsString('af-spendable__chip--bonus', $html);
         $this->assertStringContainsString('PayPal', $html);
         $this->assertStringNotContainsString('PayPal coming soon', $html);
-        $this->assertStringContainsString('paypal.svg', $html);
+        $this->assertStringContainsString('paypal.png', $html);
         $this->assertStringContainsString('ref-code', $html);
         $this->assertStringContainsString('Recent activity', $html);
         $this->assertStringContainsString('id="publisherRoleStrip"', $html);
