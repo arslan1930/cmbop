@@ -377,6 +377,59 @@ class CatalogUxHoverTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
+    public function test_leftover_hostile_site_url_is_not_put_in_cart_json(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Leftover Hostile Cart Url',
+            'site_url' => 'https://leftover-hostile-cart.example',
+            'domain' => 'leftover-hostile-cart.example',
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'site_url' => 'javascript:alert(1)',
+            'homepage_placement_prices' => 'not-json',
+            'sensitive_prices' => '???',
+        ]);
+
+        $payload = $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.add'), ['id' => $site->id])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json();
+
+        $json = json_encode($payload);
+        $this->assertStringNotContainsString('javascript:alert', (string) $json);
+        $this->assertStringNotContainsString('???', (string) $json);
+        $this->assertStringNotContainsString('not-json', (string) $json);
+    }
+
+    public function test_leftover_cart_junk_does_not_500_wizard_catalog_chrome(): void
+    {
+        $this->makeSite([
+            'site_name' => 'Leftover Wizard Chrome Site',
+            'site_url' => 'https://leftover-wizard-chrome.example',
+            'domain' => 'leftover-wizard-chrome.example',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->withSession([
+                'cart' => [null, '???', ['quantity' => 'not-a-qty']],
+                'guest_post_wizard' => [
+                    'language' => ['not-json'],
+                    'country' => 'de',
+                    'categories' => 'not-json',
+                ],
+            ])
+            ->get(route('advertiser.catalog', ['wizard' => 1, 'language' => 'en']))
+            ->assertOk()
+            ->assertDontSee('Something went wrong')
+            ->getContent();
+
+        $this->assertStringContainsString('Place a guest post', $html);
+        $this->assertStringContainsString('Leftover Wizard Chrome Site', $html);
+        $this->assertStringNotContainsString('not-json', $html);
+        $this->assertStringNotContainsString('???', $html);
+    }
+
     public function test_leftover_rating_and_hostile_claim_url_do_not_break_catalog(): void
     {
         $site = $this->makeSite([

@@ -1,9 +1,30 @@
 @php
-    $wizardState = \App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession();
-    $cart = is_array($cart ?? null) ? $cart : session('cart', []);
-    $cartCount = (int) array_sum(array_map(fn ($row) => (int) ($row['quantity'] ?? 0), $cart));
-    $lang = strtoupper((string) ($wizardState['language'] ?? ''));
-    $cats = $wizardState['categories'] ?? [];
+    $cartCount = 0;
+    $lang = '';
+    $cats = [];
+    try {
+        $wizardState = \App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession();
+        $cart = is_array($cart ?? null) ? $cart : session('cart', []);
+        if (! is_array($cart)) {
+            $cart = [];
+        }
+        $cart = array_values(array_filter($cart, 'is_array'));
+        $cartCount = (int) array_sum(array_map(fn ($row) => (int) ($row['quantity'] ?? 0), $cart));
+        $langRaw = $wizardState['language'] ?? '';
+        $lang = is_scalar($langRaw) ? strtoupper(trim((string) $langRaw)) : '';
+        $cats = is_array($wizardState['categories'] ?? null) ? $wizardState['categories'] : [];
+        $cats = array_values(array_filter(
+            $cats,
+            static fn ($c) => is_scalar($c) && trim((string) $c) !== ''
+        ));
+        $cats = array_map(static fn ($c) => (string) $c, $cats);
+    } catch (\Throwable $e) {
+        report($e);
+        $cart = [];
+        $cartCount = 0;
+        $lang = '';
+        $cats = [];
+    }
 @endphp
 <div class="wizard-chrome">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">

@@ -1168,7 +1168,7 @@ class CatalogController extends Controller
         $line['list_total'] = $pricing['list_total'];
         $line['discount_percent'] = $pricing['discount_percent'];
         $line['name'] = $line['name'] ?? $site->site_name;
-        $line['url'] = $line['url'] ?? $site->site_url;
+        $line['url'] = $this->leftoverSafeCartUrl($line['url'] ?? $site->site_url ?? '');
         // Always refresh market codes from the live listing so the drawer
         // matches ContentSubmission::languageFitsSiteLanguages() (not only primary).
         $line['language'] = $site->language;
@@ -1184,6 +1184,24 @@ class CatalogController extends Controller
         return $this->applyCartLineContentIds($line, $this->cartLineContentIds($line));
     }
 
+    private function leftoverSafeCartUrl(mixed $url): string
+    {
+        try {
+            $raw = trim((string) $url);
+            if ($raw === '') {
+                return '';
+            }
+
+            return function_exists('safe_external_url') && safe_external_url($raw) !== '#'
+                ? $raw
+                : '';
+        } catch (\Throwable $e) {
+            report($e);
+
+            return '';
+        }
+    }
+
     /**
      * Homepage / sensitive choices the drawer can edit without returning to the catalog.
      *
@@ -1192,33 +1210,37 @@ class CatalogController extends Controller
     private function cartLineChoiceOptions(Site $site): array
     {
         $homepage = [];
-        foreach ($site->homepagePlacementOptions() as $days => $price) {
-            $homepage[] = [
-                'days' => (int) $days,
-                'price' => round((float) $price, 2),
-                'free' => (float) $price <= 0,
-            ];
-        }
-
         $sensitive = [];
-        $prices = $site->sensitive_prices ?? [];
-        if (is_string($prices)) {
-            $prices = json_decode($prices, true) ?: [];
-        }
-        if (is_array($prices)) {
-            foreach ($prices as $type => $price) {
-                if (! is_numeric($price) || (float) $price <= 0) {
-                    continue;
-                }
-                $label = trim((string) $type);
-                if ($label === '') {
-                    continue;
-                }
-                $sensitive[] = [
-                    'type' => $label,
+        try {
+            foreach ($site->homepagePlacementOptions() as $days => $price) {
+                $homepage[] = [
+                    'days' => (int) $days,
                     'price' => round((float) $price, 2),
+                    'free' => (float) $price <= 0,
                 ];
             }
+
+            $prices = $site->sensitive_prices ?? [];
+            if (is_string($prices)) {
+                $prices = json_decode($prices, true) ?: [];
+            }
+            if (is_array($prices)) {
+                foreach ($prices as $type => $price) {
+                    if (! is_numeric($price) || (float) $price <= 0) {
+                        continue;
+                    }
+                    $label = trim((string) $type);
+                    if ($label === '') {
+                        continue;
+                    }
+                    $sensitive[] = [
+                        'type' => $label,
+                        'price' => round((float) $price, 2),
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return [$homepage, $sensitive];
