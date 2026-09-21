@@ -1273,15 +1273,21 @@ body:has(.catalog-page) {
         0 14px 28px -12px rgba(26, 88, 94, 0.28);
 }
 
-.catalog-page .buy-now.is-added {
+.catalog-page .buy-now.is-added,
+.catalog-page .buy-now.is-in-cart {
     background: var(--brand-primary, #1a585e);
     border-color: var(--brand-primary, #1a585e);
 }
 
-.catalog-page .buy-now.is-in-cart {
-    background: #fff;
-    color: var(--brand-primary, #1a585e);
-    border-color: var(--brand-primary, #1a585e);
+.catalog-buy-addon-hint {
+    font-size: 0.72rem;
+    line-height: 1.3;
+    max-width: 12rem;
+    color: var(--brand-ink-muted, #697078);
+}
+
+.catalog-card-buy .catalog-buy-addon-hint {
+    max-width: 100%;
 }
 
 #toggleCart.cart-pop {

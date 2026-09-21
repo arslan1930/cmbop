@@ -254,7 +254,8 @@ class AdminPromotionsCrudTest extends TestCase
             ]))
             ->assertOk()
             ->getContent();
-        $this->assertMatchesRegularExpression('/value="both"[^>]*selected/', $campaignHtml);
+        $this->assertMatchesRegularExpression('/id="campaignAudience"[^>]*value="both"/', $campaignHtml);
+        $this->assertMatchesRegularExpression('/single-select-option selected[^>]*data-value="both"/', $campaignHtml);
         $this->assertStringContainsString('Save 20% this week.', $campaignHtml);
     }
 

@@ -174,7 +174,7 @@ class ChatController extends Controller
             try {
                 $order->loadMissing(['user']);
             } catch (\Throwable $e) {
-                // Leftover users must not hide the thread.
+                // Leftover users table must not hide the thread.
             }
             $this->loadOrderItemsForChat($order);
             $details = $this->buildOrderChatDetails($order, $user);
@@ -568,12 +568,20 @@ class ChatController extends Controller
         if ($isAdvertiser) {
             $other = $site?->publisher;
             if (! $other) {
-                foreach ($order->items as $item) {
-                    $candidate = $item->site?->publisher;
-                    if ($candidate) {
-                        $other = $candidate;
-                        break;
+                try {
+                    foreach ($order->items as $item) {
+                        try {
+                            $candidate = $item->site?->publisher;
+                        } catch (\Throwable $e) {
+                            $candidate = null;
+                        }
+                        if ($candidate) {
+                            $other = $candidate;
+                            break;
+                        }
                     }
+                } catch (\Throwable $e) {
+                    $other = null;
                 }
             }
             $role = 'publisher';
@@ -586,7 +594,15 @@ class ChatController extends Controller
             return null;
         }
 
-        $presence = $other->presencePayload();
+        try {
+            $presence = $other->presencePayload();
+        } catch (\Throwable $e) {
+            $presence = [
+                'online' => false,
+                'last_seen_at' => null,
+                'label' => null,
+            ];
+        }
 
         return [
             'name' => (string) $other->name,
@@ -611,7 +627,7 @@ class ChatController extends Controller
             try {
                 $order->unsetRelation('items');
                 $order->loadMissing(['items.site']);
-            } catch (\Throwable $siteMissing) {
+            } catch (\Throwable $siteGone) {
                 try {
                     $order->unsetRelation('items');
                     $order->loadMissing(['items']);

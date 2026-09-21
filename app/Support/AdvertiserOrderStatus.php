@@ -233,18 +233,16 @@ class AdvertiserOrderStatus
         } catch (\Throwable $e) {
             $item = null;
         }
-        $hasLiveUrl = $item && filled($item->live_url);
-        if (! $itemScoped) {
+        if ($itemScoped) {
+            $hasLiveUrl = $item && filled($item->live_url);
+        } else {
             try {
                 $hasLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
-                if ($hasLiveUrl && ! ($item && filled($item->live_url))) {
-                    $withUrl = $order->items->first(fn ($line) => filled($line->live_url));
-                    if ($withUrl) {
-                        $item = $withUrl;
-                    }
-                }
             } catch (\Throwable $e) {
                 $hasLiveUrl = $item && filled($item->live_url);
+            }
+            if (! $hasLiveUrl && $item) {
+                $hasLiveUrl = filled($item->live_url);
             }
         }
         $modRequested = false;

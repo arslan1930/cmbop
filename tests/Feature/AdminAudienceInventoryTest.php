@@ -257,7 +257,7 @@ class AdminAudienceInventoryTest extends TestCase
             ->assertSee($draftOnly->email, false)
             ->assertSee($empty->email, false)
             ->assertSee($archivedOnly->email, false)
-            ->assertSee($unverifiedActive->email, false)
+            ->assertDontSee($unverifiedActive->email, false)
             ->assertDontSee($live->email, false)
             ->assertSee('no catalog-visible listing', false)
             ->assertDontSee('never paid or were refunded', false);

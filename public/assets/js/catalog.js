@@ -2925,6 +2925,9 @@ const CatalogLive = (function () {
         syncSuggestButtons(params);
         if (typeof updateButtonStates === 'function') updateButtonStates();
         if (typeof syncDefaultHomepagePrices === 'function') syncDefaultHomepagePrices();
+        if (typeof window.catalogSyncInCartButtons === 'function') {
+            window.catalogSyncInCartButtons(window.advertiserCart || []);
+        }
         if (typeof initCatalogExpandPreviewZoom === 'function') {
             initCatalogExpandPreviewZoom(card || document.getElementById('catalogResults'));
         }
@@ -4002,6 +4005,64 @@ function getSelectedHomepageForSite(siteId) {
     };
 }
 
+window.catalogSyncBuyAddonHints = function catalogSyncBuyAddonHints() {
+    document.querySelectorAll('.catalog-buy-addon-hint[data-site-id]').forEach(function (el) {
+        const siteId = el.getAttribute('data-site-id');
+        if (!siteId) return;
+        if (document.querySelector('.buy-now.is-in-cart[data-id="' + siteId + '"]')) {
+            el.hidden = true;
+            el.textContent = '';
+            return;
+        }
+        const homepage = getSelectedHomepageForSite(siteId);
+        const sensitive = getSelectedSensitiveForSite(siteId);
+        const bits = [];
+        if (homepage.days) {
+            bits.push('Incl. ' + homepage.days + '-day homepage'
+                + (homepage.price > 0 ? '' : ' (free)'));
+        }
+        if (sensitive.type) {
+            bits.push(sensitive.type);
+        }
+        if (bits.length === 0) {
+            el.hidden = true;
+            el.textContent = '';
+            return;
+        }
+        el.hidden = false;
+        el.textContent = bits.join(' · ');
+    });
+};
+
+window.catalogSyncInCartButtons = function catalogSyncInCartButtons(cartItems) {
+    const ids = {};
+    (cartItems || []).forEach(function (item) {
+        if (item && item.id) {
+            ids[String(item.id)] = true;
+        }
+    });
+    document.querySelectorAll('.buy-now').forEach(function (btn) {
+        if (!btn.dataset.defaultHtml) {
+            btn.dataset.defaultHtml = btn.innerHTML;
+        }
+        const inCart = !!ids[String(btn.dataset.id)];
+        btn.classList.toggle('is-in-cart', inCart);
+        if (inCart) {
+            btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> <span>In cart</span>';
+            btn.setAttribute('aria-label', 'Open cart');
+            btn.title = 'Already in cart — open to assign an article or change options';
+        } else if (btn.dataset.busy !== '1') {
+            btn.innerHTML = btn.dataset.defaultHtml;
+            const name = btn.dataset.name || 'this site';
+            btn.setAttribute('aria-label', 'Buy placement for ' + name);
+            btn.removeAttribute('title');
+        }
+    });
+    if (typeof window.catalogSyncBuyAddonHints === 'function') {
+        window.catalogSyncBuyAddonHints();
+    }
+};
+
 // Update UI for favorites and blacklist (quiet icon actions)
 function updateButtonStates() {
     document.querySelectorAll('.favorite-btn').forEach(btn => {
@@ -4212,6 +4273,9 @@ function syncSensitiveSelectionUi(siteId) {
             priceInfoDiv.innerHTML = infoHtml;
         }
     });
+    if (typeof window.catalogSyncBuyAddonHints === 'function') {
+        window.catalogSyncBuyAddonHints();
+    }
 }
 
 /**
@@ -4424,6 +4488,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Default free homepage can be pre-checked in Blade; sync Buy totals before
     // the first radio change so expand/header prices match the selection.
     syncDefaultHomepagePrices();
+    if (typeof window.catalogSyncBuyAddonHints === 'function') {
+        window.catalogSyncBuyAddonHints();
+    }
+    if (typeof window.catalogSyncInCartButtons === 'function') {
+        window.catalogSyncInCartButtons(window.advertiserCart || []);
+    }
 
     // Sensitive topic + homepage radios: delegate so late/expanded markup still works.
     document.addEventListener('change', function (e) {
@@ -4925,6 +4995,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function (e) {
         const button = e.target.closest('.buy-now');
         if (!button) return;
+        if (button.classList.contains('is-in-cart')) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.openCart === 'function') {
+                window.openCart();
+            }
+            return;
+        }
         e.preventDefault();
         e.stopPropagation();
         if (button.disabled || button.dataset.busy === '1') return;
@@ -5002,12 +5080,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Added!';
                 setTimeout(function () {
                     btn.classList.remove('is-added');
-                    if (bulkHint) {
+                    if (!btn.classList.contains('is-in-cart')) {
                         btn.innerHTML = originalText;
-                    } else {
-                        markCatalogSiteInCart(id);
                     }
                     syncSensitiveSelectionUi(id);
+                    if (typeof window.catalogSyncInCartButtons === 'function' && Array.isArray(window.advertiserCart)) {
+                        window.catalogSyncInCartButtons(window.advertiserCart);
+                    }
                 }, 1400);
             })
             .finally(function () {

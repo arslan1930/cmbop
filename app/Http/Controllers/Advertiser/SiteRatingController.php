@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
 use App\Models\Site;
 use App\Models\SiteRating;
+use App\Support\UserFacingError;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class SiteRatingController extends Controller
 {
@@ -15,19 +17,33 @@ class SiteRatingController extends Controller
      */
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'order_item_id' => 'required|integer|exists:order_items,id',
-            'rating' => 'required|integer|min:1|max:5',
-            'comment' => 'nullable|string|max:500',
-        ]);
+        try {
+            $data = $request->validate([
+                'order_item_id' => 'required|integer|exists:order_items,id',
+                'rating' => 'required|integer|min:1|max:5',
+                'comment' => 'nullable|string|max:500',
+            ]);
 
-        $result = $this->saveRatingForAdvertiser(
-            (int) $data['order_item_id'],
-            (int) $data['rating'],
-            $data['comment'] ?? null
-        );
+            $result = $this->saveRatingForAdvertiser(
+                (int) $data['order_item_id'],
+                (int) $data['rating'],
+                $data['comment'] ?? null
+            );
 
-        return response()->json($result['body'], $result['status']);
+            return response()->json($result['body'], $result['status']);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            $message = UserFacingError::message($e, 'Could not save that rating. Please try again.');
+
+            return response()->json([
+                'success' => false,
+                'error' => $message,
+                'message' => $message,
+            ], 500);
+        }
     }
 
     /**
@@ -35,31 +51,45 @@ class SiteRatingController extends Controller
      */
     public function storeBatch(Request $request)
     {
-        $data = $request->validate([
-            'ratings' => 'required|array|min:1',
-            'ratings.*.order_item_id' => 'required|integer|exists:order_items,id',
-            'ratings.*.rating' => 'required|integer|min:1|max:5',
-            'ratings.*.comment' => 'nullable|string|max:500',
-        ]);
+        try {
+            $data = $request->validate([
+                'ratings' => 'required|array|min:1',
+                'ratings.*.order_item_id' => 'required|integer|exists:order_items,id',
+                'ratings.*.rating' => 'required|integer|min:1|max:5',
+                'ratings.*.comment' => 'nullable|string|max:500',
+            ]);
 
-        $saved = [];
-        foreach ($data['ratings'] as $row) {
-            $result = $this->saveRatingForAdvertiser(
-                (int) $row['order_item_id'],
-                (int) $row['rating'],
-                $row['comment'] ?? null
-            );
-            if (($result['status'] ?? 500) >= 400) {
-                return response()->json($result['body'], $result['status']);
+            $saved = [];
+            foreach ($data['ratings'] as $row) {
+                $result = $this->saveRatingForAdvertiser(
+                    (int) $row['order_item_id'],
+                    (int) $row['rating'],
+                    $row['comment'] ?? null
+                );
+                if (($result['status'] ?? 500) >= 400) {
+                    return response()->json($result['body'], $result['status']);
+                }
+                $saved[] = $result['body']['rating'] ?? null;
             }
-            $saved[] = $result['body']['rating'] ?? null;
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Ratings saved. Thank you!',
-            'ratings' => $saved,
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Ratings saved. Thank you!',
+                'ratings' => $saved,
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            $message = UserFacingError::message($e, 'Could not save those ratings. Please try again.');
+
+            return response()->json([
+                'success' => false,
+                'error' => $message,
+                'message' => $message,
+            ], 500);
+        }
     }
 
     /**

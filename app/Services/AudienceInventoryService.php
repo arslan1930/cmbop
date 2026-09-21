@@ -323,8 +323,8 @@ class AudienceInventoryService
      *
      * Publisher archive keeps active=1 (so restore does not force a site live).
      * Counting only active=1 therefore missed archived-only publishers.
-     * Match the advertiser catalog: active + verified + not archived + not
-     * leftover from a cancelled bulk.
+     * Match the advertiser catalog: active + not archived + not leftover
+     * from a cancelled bulk. Verified is a staff badge, not a catalog gate.
      */
     public function queryPublishersNoActiveSites(): Builder
     {

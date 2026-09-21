@@ -315,12 +315,15 @@
         <div id="cartProceedHint" class="small text-muted mt-2 d-none">
             Assign an article to at least one website to checkout. Sites without articles stay in your cart.
         </div>
-        <details class="cart-after-pay">
+        <details class="cart-after-pay d-none" id="cartAfterPay">
             <summary>What happens after you pay</summary>
             @include('partials.buy-confidence')
         </details>
         <button id="keepBrowsingCatalog" class="cart-keep-browsing" type="button">
             Keep browsing publishers
+        </button>
+        <button id="clearCart" class="cart-clear" type="button">
+            Clear cart
         </button>
     </div>
 </div>
@@ -466,9 +469,11 @@
     function applyCartPayload(data) {
         if (Array.isArray(data)) {
             cart = data;
+            window.advertiserCart = cart;
             return;
         }
         cart = Array.isArray(data?.cart) ? data.cart : [];
+        window.advertiserCart = cart;
         approvedArticles = Array.isArray(data?.approved_articles) ? data.approved_articles : [];
         requireSameLanguage = !!data?.require_same_language;
         cartSchedule = data?.schedule && data.schedule.mode === 'scheduled' ? data.schedule : null;
@@ -489,6 +494,81 @@
             Array.isArray(data?.removed_inactive) ? data.removed_inactive : [],
             Array.isArray(data?.removed_owned) ? data.removed_owned : []
         );
+        if (typeof window.catalogSyncInCartButtons === 'function') {
+            window.catalogSyncInCartButtons(cart);
+        }
+        syncCatalogCartBanner();
+    }
+
+    function cartCountSummary(items) {
+        const list = Array.isArray(items) ? items : [];
+        const placements = list.reduce((sum, item) => sum + (parseInt(item.quantity, 10) || 0), 0);
+        const sites = new Set(list.map((item) => String(item.id || '')).filter(Boolean)).size;
+        return { placements: placements, sites: sites };
+    }
+
+    function cartCountLabel(sites, placements) {
+        const siteBit = sites + ' site' + (sites === 1 ? '' : 's');
+        if (placements <= sites) {
+            return siteBit;
+        }
+        return siteBit + ' · ' + placements + ' placement' + (placements === 1 ? '' : 's');
+    }
+
+    function syncCatalogCartBanner() {
+        const banner = document.getElementById('catalogCartBanner');
+        if (!banner) return;
+        const counts = cartCountSummary(cart);
+        const text = banner.querySelector('[data-cart-banner-text]');
+        if (counts.sites <= 0) {
+            banner.classList.add('d-none');
+            return;
+        }
+        banner.classList.remove('d-none');
+        if (text) {
+            text.innerHTML = 'You have <strong>' + escapeHtml(cartCountLabel(counts.sites, counts.placements)) + '</strong> in your cart. Keep browsing anytime — open the cart when you are ready to assign articles and pay.';
+        }
+    }
+
+    function markReturnToCart() {
+        try { sessionStorage.setItem('slb_open_cart_on_load', '1'); } catch (_) {}
+    }
+
+    function configureCartLine(item, changes) {
+        const data = {
+            id: item.id,
+            sensitive_type: item.sensitive_type || '',
+            homepage_days: cartHomepageParam(item),
+            new_sensitive_type: Object.prototype.hasOwnProperty.call(changes, 'sensitive_type')
+                ? (changes.sensitive_type || '')
+                : (item.sensitive_type || ''),
+            new_homepage_days: Object.prototype.hasOwnProperty.call(changes, 'homepage_days')
+                ? changes.homepage_days
+                : cartHomepageParam(item),
+        };
+        $.ajax({
+            url: @json(route('advertiser.cart.configure')),
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            data: data,
+            success: function (payload) {
+                if (!payload.success) {
+                    showToast(payload.error || 'Could not update cart options.', 'error');
+                    loadCart();
+                    return;
+                }
+                applyCartPayload(payload);
+                updateCartDisplay();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not update cart options.';
+                showToast(msg, 'error');
+                loadCart();
+            }
+        });
     }
 
     function toastRemovedCartNames(removed, removedOwned) {
@@ -633,12 +713,19 @@
         $.ajax({
             url: '{{ route("advertiser.cart.get") }}',
             method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
             success: function(data) {
                 applyCartPayload(data);
                 updateCartDisplay();
             },
-            error: function() {
+            error: function(xhr) {
                 console.error('Failed to load cart');
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message;
+                if (msg) {
+                    showToast(msg, 'error');
+                }
             }
         });
     }
@@ -649,7 +736,8 @@
             url: '{{ route("advertiser.cart.save") }}',
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
             },
             contentType: 'application/json',
             data: JSON.stringify({ cart: cart }),
@@ -661,8 +749,10 @@
                 }
                 loadCart();
             },
-            error: function() {
+            error: function(xhr) {
                 console.error('Failed to save cart');
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not save your cart.';
+                showToast(msg, 'error');
                 loadCart();
             }
         });
@@ -705,17 +795,26 @@
     
     // Update cart display
     function updateCartDisplay() {
-        const cartCount = cart.reduce((sum, item) => sum + (parseInt(item.quantity, 10) || 0), 0);
+        const counts = cartCountSummary(cart);
+        const cartCount = counts.placements;
         const cartTotal = cart.reduce((sum, item) => sum + ((parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0)), 0);
         
         const badge = document.getElementById('cartBadge');
         if (badge) {
             if (cartCount > 0) {
                 badge.style.display = 'flex';
-                badge.innerText = cartCount;
+                badge.innerText = String(cartCount);
+                badge.title = cartCountLabel(counts.sites, counts.placements);
             } else {
                 badge.style.display = 'none';
+                badge.title = '';
             }
+        }
+        const toggleCart = document.getElementById('toggleCart');
+        if (toggleCart) {
+            toggleCart.setAttribute('aria-label', cartCount > 0
+                ? ('Open cart, ' + cartCountLabel(counts.sites, counts.placements))
+                : 'Open cart');
         }
 
         const totalBadge = document.getElementById('cartTotalBadge');
@@ -740,6 +839,11 @@
         const heldNote = document.getElementById('cartHeldNote');
         const totalsEl = document.getElementById('cartTotals');
         const scheduleHint = document.getElementById('cartScheduleHint');
+        const afterPay = document.getElementById('cartAfterPay');
+        const clearBtn = document.getElementById('clearCart');
+        if (clearBtn) {
+            clearBtn.classList.toggle('d-none', cart.length === 0);
+        }
         if (cart.length === 0) {
             container.innerHTML = `
                 <div class="text-center text-muted px-2">
@@ -782,9 +886,12 @@
                 scheduleHint.hidden = true;
                 scheduleHint.textContent = '';
             }
+            if (afterPay) {
+                afterPay.classList.add('d-none');
+            }
         } else {
             let html = '';
-            const sortedCart = [...cart].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+            const listedCart = [...cart].reverse();
             const missingLines = cartLinesMissingArticles();
             const missing = missingLines.length;
             const readyCount = Math.max(0, cart.length - missing);
@@ -799,7 +906,7 @@
                 totalsEl.classList.remove('d-none');
             }
             if (headerMeta) {
-                headerMeta.textContent = cart.length + ' site' + (cart.length === 1 ? '' : 's')
+                headerMeta.textContent = cartCountLabel(counts.sites, counts.placements)
                     + ' · ' + readyCount + ' ready to pay';
             }
             if (checklistEl) {
@@ -810,7 +917,9 @@
                     const status = readyCount === 0
                         ? (missingSlots === 1 ? '1 article still needed' : missingSlots + ' articles still needed')
                         : (readyCount + ' ready · ' + missingSlots + ' article' + (missingSlots === 1 ? '' : 's') + ' still needed');
-                    checklistEl.innerHTML = '<div class="cart-checklist__status">' + escapeHtml(status) + '</div>';
+                    const siteList = missingLines.map((item) => '<li>' + escapeHtml(item.name || 'Website') + '</li>').join('');
+                    checklistEl.innerHTML = '<div class="cart-checklist__status">' + escapeHtml(status) + '</div>'
+                        + (siteList ? '<ul class="cart-checklist__sites">' + siteList + '</ul>' : '');
                     checklistEl.classList.remove('d-none');
                 }
             }
@@ -863,8 +972,11 @@
                     heldNote.textContent = '';
                 }
             }
+            if (afterPay) {
+                afterPay.classList.toggle('d-none', readyCount === 0);
+            }
             
-            sortedCart.forEach((item) => {
+            listedCart.forEach((item) => {
                 const itemKey = getCartItemKey(item);
                 const itemKeyAttr = escapeHtml(itemKey);
                 const sensitiveAttr = escapeHtml(item.sensitive_type || '');
@@ -895,13 +1007,41 @@
                 const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
                 const unitPrice = (parseFloat(item.price) || 0).toFixed(2);
                 const priceLabel = qty > 1 ? (slbFormatPay(unitPrice) + ' × ' + qty) : slbFormatPay(unitPrice);
-                const sensitiveDisplay = item.sensitive_type ? 
-                    `<div class="cart-item-sensitive"><small>+ ${escapeHtml(item.sensitive_type)} (${slbFormatPay(item.additional_price)})</small></div>` : '';
+                const homepageOptions = Array.isArray(item.homepage_options) ? item.homepage_options : [];
+                const sensitiveOptions = Array.isArray(item.sensitive_options) ? item.sensitive_options : [];
                 const homepageDays = item.homepage_days != null && item.homepage_days !== '' ? parseInt(item.homepage_days, 10) : null;
-                const homepageFee = parseFloat(item.homepage_price) || 0;
-                const homepageDisplay = homepageDays
-                    ? `<div class="cart-item-homepage"><small>Homepage ${homepageDays} day${homepageDays === 1 ? '' : 's'}${homepageFee > 0 ? ' (' + slbFormatPay(homepageFee, { signed: true }) + ')' : ' (Free)'}</small></div>`
-                    : '';
+                const homepageSelectId = 'cart-home-' + itemKey.replace(/[^a-zA-Z0-9_-]/g, '-');
+                const sensitiveSelectId = 'cart-sens-' + itemKey.replace(/[^a-zA-Z0-9_-]/g, '-');
+                let homepageDisplay = '';
+                if (homepageOptions.length > 0) {
+                    let homeOpts = `<option value="none"${homepageDays ? '' : ' selected'}>No homepage</option>`;
+                    homepageOptions.forEach((opt) => {
+                        const days = parseInt(opt.days, 10);
+                        const selected = homepageDays === days ? ' selected' : '';
+                        const fee = parseFloat(opt.price) || 0;
+                        const feeLabel = opt.free || fee <= 0 ? 'Free' : slbFormatPay(fee, { signed: true });
+                        homeOpts += `<option value="${days}"${selected}>Homepage ${days} day${days === 1 ? '' : 's'} (${feeLabel})</option>`;
+                    });
+                    homepageDisplay = `<div class="cart-item-option">
+                        <label class="visually-hidden" for="${homepageSelectId}">Homepage placement for ${escapeHtml(siteName)}</label>
+                        <select id="${homepageSelectId}" class="cart-option-select cart-homepage-select" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">${homeOpts}</select>
+                    </div>`;
+                }
+                let sensitiveDisplay = '';
+                if (sensitiveOptions.length > 0) {
+                    let sensOpts = `<option value=""${!item.sensitive_type ? ' selected' : ''}>No sensitive topic</option>`;
+                    sensitiveOptions.forEach((opt) => {
+                        const type = String(opt.type || '');
+                        const selected = (item.sensitive_type || '') === type ? ' selected' : '';
+                        sensOpts += `<option value="${escapeHtml(type)}"${selected}>${escapeHtml(type)} (${slbFormatPay(opt.price, { signed: true })})</option>`;
+                    });
+                    sensitiveDisplay = `<div class="cart-item-option">
+                        <label class="visually-hidden" for="${sensitiveSelectId}">Sensitive topic for ${escapeHtml(siteName)}</label>
+                        <select id="${sensitiveSelectId}" class="cart-option-select cart-sensitive-select" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">${sensOpts}</select>
+                    </div>`;
+                } else if (item.sensitive_type) {
+                    sensitiveDisplay = `<div class="cart-item-sensitive"><small>+ ${escapeHtml(item.sensitive_type)} (${slbFormatPay(item.additional_price)})</small></div>`;
+                }
                 const socialList = Array.isArray(item.social_channels) ? item.social_channels : [];
                 const socialDisplay = socialList.length
                     ? `<div class="cart-item-social"><small>Social: ${escapeHtml(socialList.map((c) => c === 'x' ? 'X' : (c.charAt(0).toUpperCase() + c.slice(1))).join(', '))}</small></div>`
@@ -911,8 +1051,8 @@
                     articleBlock = `
                         <div class="cart-item-article needs-document">
                             <div class="cart-item-article-empty">
-                                No approved article.
-                                <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">Upload article</a>
+                                Each placement needs an approved article before you can pay.
+                                <a class="btn btn-sm btn-primary cart-item-upload-cta" href="${contentLibraryUploadUrl}">Upload article</a>
                             </div>
                         </div>`;
                 } else {
@@ -977,6 +1117,9 @@
                 const qtyNote = qty > 1
                     ? `<div class="cart-item-qty-note">${qty} placements · ${qty} articles</div>`
                     : '';
+                const minBulk = parseInt(item.bulk_min_qty, 10) || 3;
+                const isBulkPack = !!item.bulk_pack || (!!item.bulk_eligible && qty >= minBulk);
+                const minQty = isBulkPack ? minBulk : 1;
                 
                 html += `
                     <div class="cart-item" data-key="${itemKeyAttr}">
@@ -990,10 +1133,11 @@
                                 <div class="cart-item-price">${priceLabel}</div>
                                 ${qtyNote}
                             </div>
-                            <div class="cart-item-quantity">
-                                ${qty > 1 ? `<button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Decrease placements" title="Placements — each needs its own article">
+                            <div class="cart-item-quantity" role="group" aria-label="Placements">
+                                <span class="cart-item-qty-label">Placements</span>
+                                <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Decrease placements" title="Placements — each needs its own article" ${qty <= minQty ? 'disabled' : ''}>
                                     <i class="fa fa-minus" aria-hidden="true"></i>
-                                </button>` : ''}
+                                </button>
                                 <span class="quantity-number" aria-label="Placements ${item.quantity}">${item.quantity}</span>
                                 <button type="button" class="increase-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Increase placements — each needs its own article" title="Placements — each needs its own article">
                                     <i class="fa fa-plus" aria-hidden="true"></i>
@@ -1016,6 +1160,10 @@
                 .filter((item) => lineFullyAssigned(item))
                 .reduce((sum, item) => sum + ((parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0)), 0);
             payEl.innerHTML = slbFormatPay(payNow);
+        }
+        syncCatalogCartBanner();
+        if (typeof window.catalogSyncInCartButtons === 'function') {
+            window.catalogSyncInCartButtons(cart);
         }
     }
     
@@ -1114,8 +1262,11 @@
                 window.catalogAnnounceCart(label);
             }
             updateCartDisplay();
-            if (opts.openCart || opts.bulk || (Number.isFinite(qty) && qty > 1)) {
+            let firstAdd = false;
+            try { firstAdd = sessionStorage.getItem('slb_cart_drawer_seen') !== '1'; } catch (_) { firstAdd = true; }
+            if (opts.openCart || opts.bulk || (Number.isFinite(qty) && qty > 1) || firstAdd) {
                 try { openCart(); } catch (_) { /* cart chrome may not be ready */ }
+                try { sessionStorage.setItem('slb_cart_drawer_seen', '1'); } catch (_) {}
             }
             return { ok: true, data: data };
         }).catch(function () {
@@ -1144,6 +1295,7 @@
         cartOverlay.classList.add('show');
         document.body.classList.add('cart-open');
         cartSidebar.setAttribute('aria-hidden', 'false');
+        try { sessionStorage.setItem('slb_cart_drawer_seen', '1'); } catch (_) {}
         updateCartDisplay();
         (closeCartBtn || getCartFocusable()[0])?.focus();
     }
@@ -1196,12 +1348,71 @@
             window.location.href = catalogUrl;
         }
     });
+
+    document.getElementById('clearCart')?.addEventListener('click', function () {
+        if (cart.length === 0) return;
+        window.slbConfirm({
+            title: 'Clear cart?',
+            text: 'Remove every website from this cart. Assigned articles stay in Content Library.',
+            confirmText: 'Clear cart',
+            cancelText: 'Keep items',
+            icon: 'warning',
+        }).then(function (ok) {
+            if (!ok) return;
+            $.ajax({
+                url: @json(route('advertiser.cart.clear')),
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                success: function (payload) {
+                    applyCartPayload(payload && payload.cart ? payload : { cart: [] });
+                    updateCartDisplay();
+                    showToast('Cart cleared.', 'success');
+                },
+                error: function () {
+                    showToast('Could not clear the cart. Please try again.', 'error');
+                }
+            });
+        });
+    });
+
+    document.getElementById('cartItemsContainer').addEventListener('change', function (e) {
+        const select = e.target.closest('.cart-homepage-select, .cart-sensitive-select');
+        if (!select) return;
+        const id = parseInt(select.dataset.id, 10);
+        const sensitiveType = select.dataset.sensitiveType || null;
+        const homepageDays = Object.prototype.hasOwnProperty.call(select.dataset, 'homepageDays')
+            ? select.dataset.homepageDays
+            : null;
+        const item = cart.find((row) => {
+            if (row.id !== id || (row.sensitive_type || null) !== sensitiveType) {
+                return false;
+            }
+            if (homepageDays === null) return true;
+            return cartHomepageParam(row) === String(homepageDays);
+        });
+        if (!item) return;
+        if (select.classList.contains('cart-homepage-select')) {
+            configureCartLine(item, { homepage_days: select.value || 'none' });
+            return;
+        }
+        configureCartLine(item, { sensitive_type: select.value || '' });
+    });
+
+    document.getElementById('cartItemsContainer').addEventListener('click', function (e) {
+        const upload = e.target.closest('.cart-item-upload-link, .cart-item-upload-cta');
+        if (upload) {
+            markReturnToCart();
+        }
+    });
     
     // Cart item actions (event delegation)
     document.getElementById('cartItemsContainer').addEventListener('click', function(e) {
         const target = e.target;
         const btn = target.closest('.decrease-qty, .increase-qty, .cart-item-remove');
-        if (!btn) return;
+        if (!btn || btn.disabled) return;
         
         const id = parseInt(btn.dataset.id);
         const sensitiveType = btn.dataset.sensitiveType || null;
@@ -1343,6 +1554,12 @@
     
     // Load cart on page load
     loadCart();
+    try {
+        if (sessionStorage.getItem('slb_open_cart_on_load') === '1') {
+            sessionStorage.removeItem('slb_open_cart_on_load');
+            openCart();
+        }
+    } catch (_) {}
     // Catalog shows its own banner; other pages toast names already dropped during render.
     const onCatalogPage = {{ request()->routeIs('advertiser.catalog') ? 'true' : 'false' }};
     if (!onCatalogPage) {

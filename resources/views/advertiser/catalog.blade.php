@@ -100,7 +100,8 @@
     @if(($approvedArticleCount ?? 0) === 0 && empty($orderingSubmission))
         <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 catalog-article-banner py-2">
             <div class="small mb-0">
-                Each listing needs its own <strong>approved</strong> article. You can still add publishers — the cart checklist covers assignment.
+                Each website needs its own <strong>approved</strong> article. You can still add publishers —
+                the cart lists which sites still need an article, then you upload or assign before you pay.
             </div>
             <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-upload">
                 <i class="fa fa-upload me-1" aria-hidden="true"></i> Upload article
@@ -133,11 +134,26 @@
         </div>
     @endif
     @if($catalogCartCount > 0)
-        <div class="alert alert-light border shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 catalog-cart-status" role="status">
-            <div class="small mb-0">
-                You have <strong>{{ $catalogCartCount }}</strong> {{ Str::plural('site', $catalogCartCount) }} in your cart.
-                Keep browsing — open the cart from the header when you are ready to assign articles and pay.
+        @php
+            $catalogPlacementCount = collect(is_array($catalogCart) ? $catalogCart : [])
+                ->sum(fn ($row) => (int) ($row['quantity'] ?? 0));
+            $catalogCartCountLabel = $catalogCartCount.' '.($catalogCartCount === 1 ? 'site' : 'sites');
+            if ($catalogPlacementCount > $catalogCartCount) {
+                $catalogCartCountLabel .= ' · '.$catalogPlacementCount.' placements';
+            }
+        @endphp
+        <div id="catalogCartBanner" class="alert alert-light border shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="small mb-0" data-cart-banner-text>
+                You have <strong>{{ $catalogCartCountLabel }}</strong> in your cart.
+                Keep browsing anytime — open the cart when you are ready to assign articles and pay.
             </div>
+        </div>
+    @else
+        <div id="catalogCartBanner" class="alert alert-light border shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 d-none">
+            <div class="small mb-0" data-cart-banner-text></div>
+            <button type="button" class="catalog-plain-action" onclick="openCart()">
+                <i class="fa fa-shopping-cart" aria-hidden="true"></i> Open cart
+            </button>
         </div>
     @endif
 

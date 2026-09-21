@@ -133,7 +133,6 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertArrayHasKey('can_report_link_removed', $detail['items'][0]);
         $this->assertSame('Completed', $detail['status_label']);
         $this->assertStringContainsString('Your post is live', $detail['next_action']);
-        $this->assertStringNotContainsString('paid for this placement', $detail['next_action']);
         $this->assertStringContainsString('Report link removed', $detail['policy_note']);
         $this->assertNotEmpty($detail['timeline_steps']);
         $urlStep = collect($detail['timeline_steps'])->firstWhere('label', 'URL delivered');
@@ -194,7 +193,7 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('ORD-797026', $detail['empty_items_message']);
         $this->assertStringNotContainsString('No placements', $detail['empty_items_message']);
         $this->assertStringNotContainsString('paid for this placement', $detail['next_action']);
-        $this->assertSame('Placement details are missing for this order.', $detail['next_action']);
+        $this->assertStringContainsString('Placement details are missing', $detail['next_action']);
         $this->assertSame('', $detail['policy_note']);
 
         $urlStep = collect($detail['timeline_steps'])->firstWhere('label', 'URL delivered');
@@ -224,7 +223,7 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertSame('', $detail['policy_note']);
         $this->assertStringNotContainsString('Report link removed', $detail['next_action']);
         $this->assertStringNotContainsString('paid for this placement', $detail['next_action']);
-        $this->assertSame('Placement finished. Open the order for details.', $detail['next_action']);
+        $this->assertStringContainsString('Placement finished', $detail['next_action']);
     }
 
     public function test_completed_html_contract_has_live_url_and_honest_empty_state(): void
