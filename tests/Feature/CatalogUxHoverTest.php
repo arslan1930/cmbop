@@ -75,6 +75,11 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringContainsString('function toggleCardDetails', $js);
         $this->assertStringContainsString('.catalog-card-details-toggle', $js);
         $this->assertStringContainsString('function inventoryFromHtml', $js);
+        $css = (string) file_get_contents(public_path('assets/css/catalog.css'));
+        $this->assertDoesNotMatchRegularExpression(
+            '/max-width:\s*1499\.98px[\s\S]{0,400}catalog-details-toggle__label/',
+            $css
+        );
         $this->assertStringNotContainsString('Whole-row click toggles Details', $js);
         $this->assertStringNotContainsString('Mobile cards: same body-click toggle', $js);
         $this->assertStringNotContainsString('function catalogActionClick', $js);

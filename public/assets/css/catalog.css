@@ -1001,11 +1001,9 @@ body:has(.catalog-page) {
     transition: transform 160ms ease;
 }
 
-/* Narrow desktops: drop the words, keep the icons (and the accessible names),
-   so the host row still fits its cell instead of printing over Category and
-   the domain keeps a readable width. */
+/* Narrow desktops: hide Verified chip copy (icon stays). Details stays labelled
+   because it is now the only way to expand a row. */
 @media (max-width: 1499.98px) {
-    .catalog-table .catalog-details-toggle__label,
     .catalog-table .site-chip--verified > span {
         position: absolute;
         width: 1px;
