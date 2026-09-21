@@ -5283,10 +5283,7 @@ class CatalogController extends Controller
             return null;
         }
 
-        return Project::query()
-            ->where('user_id', $userId)
-            ->whereKey($projectId)
-            ->first();
+        return app(AdvertiserProjectCheckout::class)->owned($userId, $projectId);
     }
 
     /**
