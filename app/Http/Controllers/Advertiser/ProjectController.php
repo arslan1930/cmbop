@@ -28,13 +28,26 @@ class ProjectController extends Controller
             ->with($itemWith)
             ->get();
 
-        $countsByHost = Project::stageCountsByHost($orders);
+        $assigned = $orders;
+        $unassigned = $orders;
+        if (Schema::hasColumn('orders', 'project_id')) {
+            $assigned = $orders->filter(fn (Order $order) => (int) ($order->project_id ?? 0) > 0);
+            $unassigned = $orders->filter(fn (Order $order) => (int) ($order->project_id ?? 0) <= 0);
+        } else {
+            $assigned = collect();
+        }
+
+        $countsByProject = Project::stageCountsByAssignedProject($assigned);
+        $countsByHost = Project::stageCountsByHost($unassigned);
 
         foreach ($projects as $project) {
             $host = Project::hostFromUrl($project->project_url);
             $project->setAttribute(
                 'stage_counts',
-                $countsByHost[$host] ?? Project::emptyStageCounts()
+                Project::mergeStageCounts(
+                    $countsByProject[$project->id] ?? Project::emptyStageCounts(),
+                    $countsByHost[$host] ?? Project::emptyStageCounts()
+                )
             );
         }
 

@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\BulkSiteRequest;
+use App\Models\BulkSiteRequestItem;
+use App\Models\ContentModerationLog;
 use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -20,6 +23,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AdminDashboardTest extends TestCase
@@ -88,7 +92,27 @@ class AdminDashboardTest extends TestCase
             ->assertSee('kpiAdmins')
             ->assertSee('kpiMarketers')
             ->assertSee('kpiStalled')
+            ->assertSee('kpiBulk')
+            ->assertSee('kpiMail')
+            ->assertSee('kpiModeration')
+            ->assertSee('kpiEnrichment')
+            ->assertSee('kpiCatalogHide')
             ->assertSee("row.classList.add('d-none')", false)
+            ->assertSee('setQueuePanel')
+            ->assertSee('setText')
+            ->assertSee('queuesAllClear')
+            ->assertSee('All queues are clear.')
+            ->assertSee('Users with more than one role appear in more than one slice.')
+            ->assertSee('js-queue-panel')
+            ->assertSee('Failed mail')
+            ->assertSee('Moderation errors')
+            ->assertSee('Catalog hide-mode')
+            ->assertSee('Bulk requests')
+            ->assertSee(route('admin.bulk-site-requests.index', ['status' => 'needs_marketer']), false)
+            ->assertSee(route('admin.moderation.index', ['status' => 'error']), false)
+            ->assertSee(route('admin.catalog-activity'), false)
+            ->assertSee(route('admin.emails.index'), false)
+            ->assertSee('Live announcements')
             ->assertSee('js-chart-range')
             ->assertSee('js-chart-range-label')
             ->assertSee('id="dashboardActionQueues"', false)
@@ -121,6 +145,11 @@ class AdminDashboardTest extends TestCase
                 'pending_community' => 0,
                 'open_disputes' => 0,
                 'stalled_orders' => 0,
+                'open_bulk_requests' => 0,
+                'failed_mail' => 0,
+                'moderation_errors' => 0,
+                'enrichment_failed' => 0,
+                'catalog_hide' => 0,
                 'needs_attention' => 0,
             ]);
     }
@@ -189,6 +218,10 @@ class AdminDashboardTest extends TestCase
                 'disputes' => [],
                 'community' => [],
                 'enrichment' => [],
+                'bulk' => [],
+                'mail' => [],
+                'moderation' => [],
+                'catalog_hide' => [],
             ]);
     }
 
@@ -371,7 +404,7 @@ class AdminDashboardTest extends TestCase
         ]);
         $publisher->roles()->attach($publisherRole->id);
 
-        DepositRequest::create([
+        $deposit = DepositRequest::create([
             'user_id' => $admin->id,
             'reference_code' => '555444',
             'amount' => 25,
@@ -409,13 +442,34 @@ class AdminDashboardTest extends TestCase
             'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
         ]);
 
-        $this->actingAs($admin)
+        $queue = $this->actingAs($admin)
             ->getJson(route('admin.dashboard.action-queue'))
             ->assertOk()
             ->assertJsonPath('deposits.0.url', route('admin.deposits', ['status' => 'pending']))
+            ->assertJsonPath('deposits.0.action_label', 'Review')
             ->assertJsonPath('withdrawals.0.url', route('admin.withdrawals', ['queue' => 'open']))
+            ->assertJsonPath('withdrawals.0.action_label', 'Mark paid')
             ->assertJsonPath('withdrawals.0.id', $withdrawal->id)
-            ->assertJsonPath('sites.0.url', route('admin.sites.edit', $site->id));
+            ->assertJsonPath('sites.0.url', route('admin.sites.edit', $site->id))
+            ->json();
+
+        $depositAction = (string) ($queue['deposits'][0]['action_url'] ?? '');
+        $this->assertStringContainsString('/admin/deposits/'.$deposit->id.'/approve-confirm', $depositAction);
+        $this->assertStringContainsString('signature=', $depositAction);
+        $this->actingAs($admin)
+            ->get($depositAction)
+            ->assertOk()
+            ->assertSee('Confirm deposit approval', false);
+
+        $withdrawalAction = (string) ($queue['withdrawals'][0]['action_url'] ?? '');
+        $this->assertStringContainsString('/admin/withdrawals/'.$withdrawal->id.'/mark-paid-confirm', $withdrawalAction);
+        $this->assertStringContainsString('signature=', $withdrawalAction);
+        $this->actingAs($admin)
+            ->get($withdrawalAction)
+            ->assertOk()
+            ->assertSee('Confirm marked paid', false);
+
+        $this->assertNotEmpty($queue['deposits'][0]['age'] ?? null);
     }
 
     public function test_finance_strip_matches_overview_service(): void
@@ -785,5 +839,110 @@ class AdminDashboardTest extends TestCase
                 });
             }
         }
+    }
+
+    public function test_needs_attention_includes_bulk_mail_moderation_enrichment_and_hide_mode(): void
+    {
+        $admin = $this->makeAdmin();
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $publisher = User::factory()->create([
+            'active_role_id' => $publisherRole->id,
+            'email_verified_at' => now(),
+        ]);
+        $publisher->roles()->attach($publisherRole->id);
+
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://bulk-queue.example',
+            'domain' => 'bulk-queue.example',
+            'price' => 40,
+            'site_id' => null,
+        ]);
+
+        DB::table('failed_jobs')->insert([
+            'uuid' => (string) Str::uuid(),
+            'connection' => 'database',
+            'queue' => 'emails',
+            'payload' => json_encode([
+                'displayName' => 'App\\Mail\\WelcomeEmail',
+                'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
+                'data' => ['commandName' => 'Illuminate\\Mail\\SendQueuedMailable'],
+            ]),
+            'exception' => 'SMTP timeout while sending welcome mail',
+            'failed_at' => now()->subHours(3),
+        ]);
+
+        $modLog = ContentModerationLog::create([
+            'user_id' => $admin->id,
+            'document_url' => 'upload:dashboard-mod',
+            'status' => ContentModerationLog::STATUS_ERROR,
+            'passed' => false,
+            'error_code' => 'provider_timeout',
+            'error_message' => 'Scanner timed out',
+            'scan_token' => 'scan-dashboard',
+            'word_count' => 12,
+        ]);
+
+        $site = Site::create([
+            'publisher_id' => $publisher->id,
+            'site_name' => 'Dashboard enrich fail',
+            'site_url' => 'https://dashboard-enrich.example',
+            'domain' => 'dashboard-enrich.example',
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'us',
+            'language' => 'en',
+            'category' => 'marketing',
+            'price' => 40,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Enrichment failure for dashboard queue',
+            'verified' => 1,
+            'active' => 1,
+        ]);
+        SiteEnrichmentRun::create([
+            'site_id' => $site->id,
+            'type' => 'metrics',
+            'provider' => 'manual',
+            'status' => 'failed',
+            'error' => 'Provider timed out',
+            'triggered_by' => 'admin',
+        ]);
+
+        $hidden = User::factory()->create([
+            'email_verified_at' => now(),
+            'catalog_hide_until' => now()->addHours(6),
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJsonPath('open_bulk_requests', 1)
+            ->assertJsonPath('failed_mail', 1)
+            ->assertJsonPath('moderation_errors', 1)
+            ->assertJsonPath('enrichment_failed', 1)
+            ->assertJsonPath('catalog_hide', 1)
+            ->assertJsonPath('needs_attention', 5);
+
+        $queue = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue'))
+            ->assertOk()
+            ->assertJsonPath('bulk.0.id', $bulk->id)
+            ->assertJsonPath('bulk.0.url', route('admin.bulk-site-requests.show', $bulk->id))
+            ->assertJsonPath('mail.0.url', route('admin.emails.index'))
+            ->assertJsonPath('moderation.0.id', $modLog->id)
+            ->assertJsonPath('moderation.0.url', route('admin.moderation.show', $modLog->id))
+            ->assertJsonPath('enrichment.0.site_name', 'Dashboard enrich fail')
+            ->assertJsonPath('catalog_hide.0.id', $hidden->id)
+            ->json();
+
+        $this->assertNotEmpty($queue['bulk'][0]['age'] ?? null);
+        $this->assertStringContainsString('SMTP', (string) ($queue['mail'][0]['label'] ?? ''));
     }
 }

@@ -83,6 +83,24 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('What happens after you pay', $layout);
         $this->assertStringContainsString('buy-confidence', $layout);
         $this->assertStringNotContainsString('btn-outline-secondary w-100 mt-2', $layout);
+        $this->assertStringContainsString('id="clearCart"', $layout);
+        $this->assertStringContainsString('class="cart-clear"', $layout);
+        $this->assertStringContainsString('cart-option-select', $layout);
+        $this->assertStringContainsString('cart-homepage-select', $layout);
+        $this->assertStringContainsString('cart-sensitive-select', $layout);
+        $this->assertStringContainsString('cart-item-qty-label', $layout);
+        $this->assertStringContainsString('cart-item-upload-cta', $layout);
+        $this->assertStringContainsString('cart-checklist__sites', $layout);
+        $this->assertStringContainsString('function configureCartLine', $layout);
+        $this->assertStringContainsString('function cartCountLabel', $layout);
+        $this->assertStringContainsString('slb_cart_drawer_seen', $layout);
+        $this->assertStringContainsString('slb_open_cart_on_load', $layout);
+        $this->assertStringContainsString('catalogSyncInCartButtons', $layout);
+        $this->assertStringContainsString('opts.openCart || opts.bulk || (Number.isFinite(qty) && qty > 1) || firstAdd', $layout);
+        $this->assertStringContainsString("url: '{{ route(\"advertiser.cart.get\") }}'", $layout);
+        $this->assertStringContainsString("url: '{{ route(\"advertiser.cart.save\") }}'", $layout);
+        $this->assertStringContainsString("'Accept': 'application/json'", $layout);
+        $this->assertStringContainsString('xhr.responseJSON?.error || xhr.responseJSON?.message', $layout);
     }
 
     public function test_cart_css_owns_checklist_and_compact_spacing(): void
@@ -99,6 +117,14 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('bottom: auto', $css);
         $this->assertStringContainsString('.cart-totals__held', $css);
         $this->assertStringContainsString('.cart-schedule-hint', $css);
+        $this->assertStringContainsString('.cart-clear', $css);
+        $this->assertStringContainsString('.cart-option-select', $css);
+        $this->assertStringContainsString('.cart-item-qty-label', $css);
+        $this->assertStringContainsString('.cart-checklist__sites', $css);
+        $this->assertStringContainsString('.cart-item-upload-cta', $css);
+        $this->assertStringContainsString('.cart-item-article-empty a.btn', $css);
+        $this->assertStringContainsString('color: #fff', $css);
+        $this->assertStringContainsString('background-color: var(--brand-primary-deep, #123f42)', $css);
         $this->assertStringContainsString('width: min(420px, 94vw)', $css);
         $this->assertStringContainsString('max-height: 100vh', $css);
         $this->assertStringContainsString('max-height: 100dvh', $css);
@@ -122,6 +148,8 @@ class CartDrawerDensityTest extends TestCase
             ->assertSee('buy-confidence', false)
             ->assertSee('What happens after you pay', false)
             ->assertDontSee('Assign a document to each website', false)
-            ->assertDontSee('Before Pay', false);
+            ->assertDontSee('Before Pay', false)
+            ->assertSee('id="clearCart"', false)
+            ->assertSee('cart-option-select', false);
     }
 }

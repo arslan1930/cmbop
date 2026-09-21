@@ -8,12 +8,33 @@ use App\Models\WebsiteSuggestion;
 use App\Services\ActivityLogger;
 use App\Services\CommunityInboxNotifier;
 use App\Support\CommunityInbox;
+use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class WebsiteSuggestionController extends Controller
 {
     public function store(Request $request)
+    {
+        try {
+            return $this->storeSuggestion($request);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Website suggestion failed: '.$e->getMessage());
+
+            $message = UserFacingError::message($e, 'Could not send that website suggestion. Please try again.');
+
+            return response()->json([
+                'success' => false,
+                'error' => $message,
+                'message' => $message,
+            ], 500);
+        }
+    }
+
+    private function storeSuggestion(Request $request)
     {
         $data = $request->validate([
             'website_name' => 'required|string|max:190',

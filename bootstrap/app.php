@@ -22,6 +22,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 // Leftover PublicI18n.php + leftover web.php: define englishOnlyMarketingSlugs()
@@ -110,6 +111,24 @@ return Application::configure(basePath: dirname(__DIR__))
         // Production uses branded resources/views/errors/* pages (APP_DEBUG=false).
         $exceptions->shouldRenderJsonWhen(function ($request, Throwable $e) {
             return $request->expectsJson();
+        });
+
+        // Login / signup / forgot / reset post as fetch JSON. Laravel maps
+        // TokenMismatchException to HttpException 419 before renderers run,
+        // and the branded 419 HTML page is unparseable as JSON.
+        $exceptions->render(function (HttpException $e, $request) {
+            if ($e->getStatusCode() !== 419 || ! $request->expectsJson()) {
+                return null;
+            }
+
+            $message = function_exists('user_message')
+                ? user_message('session.expired', 'Your session expired. Refresh the page and try again.')
+                : 'Your session expired. Refresh the page and try again.';
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $message,
+            ], 419);
         });
 
         // ValidatePostSize runs before routing. A 5 MB .docx with PHP still at
@@ -277,6 +296,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Auto-complete file verification when publishers uploaded the txt but forgot to click Check
         $schedule->command('sites:recheck-file-verification --limit=100')
             ->dailyAt('05:10')
+            ->withoutOverlapping();
+
+        $schedule->command('orders:recheck-completed-live-urls --limit='.(int) config('orders.live_url_recheck_limit', 40))
+            ->dailyAt('05:40')
             ->withoutOverlapping();
 
         // Queued mail sits on the "emails" queue until a worker consumes it. Hosts

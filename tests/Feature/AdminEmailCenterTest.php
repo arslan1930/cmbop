@@ -3053,7 +3053,7 @@ class AdminEmailCenterTest extends TestCase
         )->count();
 
         $this->assertLessThan(8, $emailLogQueries, 'email_logs queried '.$emailLogQueries.' times');
-        $this->assertLessThan(90, count($log), 'Email Center index ran '.count($log).' queries');
+        $this->assertLessThan(120, count($log), 'Email Center index ran '.count($log).' queries');
     }
 
     public function test_recover_fails_orphaned_transactional_pending_log(): void

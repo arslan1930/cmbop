@@ -7,6 +7,7 @@ use App\Models\Site;
 use App\Models\SiteUrlReveal;
 use App\Services\Catalog\RevealPaceGuard;
 use App\Services\Catalog\SiteUrlVisibility;
+use App\Support\UserFacingError;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -29,74 +30,82 @@ class SiteVisitController extends Controller
         SiteUrlVisibility $visibility,
         RevealPaceGuard $pace,
     ): RedirectResponse {
-        $model = Site::query()->catalogVisible()->find($site);
+        try {
+            $model = Site::query()->catalogVisible()->find($site);
 
-        if (! $model || blank($model->site_url)) {
+            if (! $model || blank($model->site_url)) {
+                return redirect()
+                    ->route('advertiser.catalog')
+                    ->with('error', 'That website is no longer listed.');
+            }
+
+            $user = auth()->user();
+
+            // Pace + visit disclosure only matter while copy-strike hide mode masks
+            // the row. Outside that, identity is already open — do not invent a
+            // "reveal first" gate or burn pace on a normal open.
+            //
+            // Open site / ?sample=1 / ?path= must use the same SLOW + FROZEN
+            // rules as the eye. Skipping SLOW let a script walk /go/{id} and
+            // unlock hosts while the eye was being told to wait.
+            if ($user && $visibility->inHideMode($user)) {
+                try {
+                    if (! $visibility->canSee($user, $model)) {
+                        if (! $visibility->hasEverSeen($user, $model)) {
+                            $verdict = $pace->assess($user);
+                            if ($verdict['state'] === RevealPaceGuard::FROZEN) {
+                                return redirect()
+                                    ->route('advertiser.catalog')
+                                    ->with('error', RevealPaceGuard::freezeUserMessage());
+                            }
+                            if ($verdict['state'] === RevealPaceGuard::SLOW) {
+                                return redirect()
+                                    ->route('advertiser.catalog')
+                                    ->with('error', RevealPaceGuard::slowUserMessage((int) ($verdict['retry_after'] ?? 3)));
+                            }
+                        }
+
+                        $visibility->reveal($user, $model, SiteUrlReveal::SOURCE_VISIT);
+                    }
+                } catch (\Throwable $e) {
+                    // Never strand someone on a blank page over bookkeeping.
+                    Log::warning('Could not record site visit', [
+                        'site_id' => $site,
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            $url = $model->site_url;
+            // Description / sample links must not put the publisher URL in href —
+            // "Copy link address" would bypass copy-track. Click still lands
+            // on the article via ?sample=1 or a same-host ?path=.
+            $path = $request->query('path');
+            if (is_string($path) && $this->isSafeRelativePath($path)) {
+                $origin = $this->listingOrigin($model->site_url);
+                if ($origin !== '') {
+                    $url = $origin.$path;
+                }
+            } elseif ($request->boolean('sample')) {
+                $sample = safe_external_url($model->example_url, '');
+                if (str_starts_with($sample, 'http://') || str_starts_with($sample, 'https://')) {
+                    $url = $sample;
+                }
+            }
+
+            if (! str_starts_with($url, 'http://') && ! str_starts_with($url, 'https://')) {
+                $url = 'https://'.ltrim($url, '/');
+            }
+
+            return redirect()->away($url);
+        } catch (\Throwable $e) {
+            report($e);
+
             return redirect()
                 ->route('advertiser.catalog')
-                ->with('error', 'That website is no longer listed.');
+                ->with('error', UserFacingError::message($e, 'That website is no longer listed.'));
         }
-
-        $user = auth()->user();
-
-        // Pace + visit disclosure only matter while copy-strike hide mode masks
-        // the row. Outside that, identity is already open — do not invent a
-        // "reveal first" gate or burn pace on a normal open.
-        //
-        // Open site / ?sample=1 / ?path= must use the same SLOW + FROZEN
-        // rules as the eye. Skipping SLOW let a script walk /go/{id} and
-        // unlock hosts while the eye was being told to wait.
-        if ($user && $visibility->inHideMode($user)) {
-            try {
-                if (! $visibility->canSee($user, $model)) {
-                    if (! $visibility->hasEverSeen($user, $model)) {
-                        $verdict = $pace->assess($user);
-                        if ($verdict['state'] === RevealPaceGuard::FROZEN) {
-                            return redirect()
-                                ->route('advertiser.catalog')
-                                ->with('error', RevealPaceGuard::freezeUserMessage());
-                        }
-                        if ($verdict['state'] === RevealPaceGuard::SLOW) {
-                            return redirect()
-                                ->route('advertiser.catalog')
-                                ->with('error', RevealPaceGuard::slowUserMessage((int) ($verdict['retry_after'] ?? 3)));
-                        }
-                    }
-
-                    $visibility->reveal($user, $model, SiteUrlReveal::SOURCE_VISIT);
-                }
-            } catch (\Throwable $e) {
-                // Never strand someone on a blank page over bookkeeping.
-                Log::warning('Could not record site visit', [
-                    'site_id' => $site,
-                    'user_id' => $user->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        $url = $model->site_url;
-        // Description / sample links must not put the publisher URL in href —
-        // "Copy link address" would bypass copy-track. Click still lands
-        // on the article via ?sample=1 or a same-host ?path=.
-        $path = $request->query('path');
-        if (is_string($path) && $this->isSafeRelativePath($path)) {
-            $origin = $this->listingOrigin($model->site_url);
-            if ($origin !== '') {
-                $url = $origin.$path;
-            }
-        } elseif ($request->boolean('sample')) {
-            $sample = safe_external_url($model->example_url, '');
-            if (str_starts_with($sample, 'http://') || str_starts_with($sample, 'https://')) {
-                $url = $sample;
-            }
-        }
-
-        if (! str_starts_with($url, 'http://') && ! str_starts_with($url, 'https://')) {
-            $url = 'https://'.ltrim($url, '/');
-        }
-
-        return redirect()->away($url);
     }
 
     /**

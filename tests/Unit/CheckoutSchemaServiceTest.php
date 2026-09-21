@@ -27,6 +27,7 @@ class CheckoutSchemaServiceTest extends TestCase
         $this->assertTrue(Schema::hasColumn('orders', 'paypal_capture_id'));
         $this->assertTrue(Schema::hasColumn('orders', 'paypal_refund_id'));
         $this->assertTrue(Schema::hasColumn('orders', 'paypal_response'));
+        $this->assertTrue(Schema::hasColumn('orders', 'project_id'));
         $this->assertTrue(Schema::hasTable('paypal_webhook_logs'));
         $this->assertTrue(Schema::hasColumn('sites', 'homepage_placement_prices'));
         $this->assertTrue(Schema::hasColumn('sites', 'social_promotion'));

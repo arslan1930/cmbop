@@ -50,6 +50,25 @@ class AdvertiserOrderStatus
                             });
                     });
                 }
+
+                if (Schema::hasColumn('order_items', 'live_url_check_ok')) {
+                    $windowDays = max(1, (int) config('orders.live_url_down_window_days', 90));
+                    $q->orWhere(function ($linkDown) use ($windowDays) {
+                        $linkDown->where('status', 'completed')
+                            ->where('payment_status', 'paid')
+                            ->whereHas('items', function ($iq) use ($windowDays) {
+                                $iq->whereNotNull('live_url')
+                                    ->where('live_url', '!=', '')
+                                    ->where('live_url_check_ok', false)
+                                    ->where(function ($recent) use ($windowDays) {
+                                        $recent->where('live_url_checked_at', '>=', now()->subDays($windowDays));
+                                        if (Schema::hasColumn('order_items', 'completed_at')) {
+                                            $recent->orWhere('completed_at', '>=', now()->subDays($windowDays));
+                                        }
+                                    });
+                            });
+                    });
+                }
             });
         static::constrainWithoutFailedPayment($query);
 
@@ -214,7 +233,18 @@ class AdvertiserOrderStatus
         } catch (\Throwable $e) {
             $item = null;
         }
-        $hasLiveUrl = $item && filled($item->live_url);
+        if ($itemScoped) {
+            $hasLiveUrl = $item && filled($item->live_url);
+        } else {
+            try {
+                $hasLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
+            } catch (\Throwable $e) {
+                $hasLiveUrl = $item && filled($item->live_url);
+            }
+            if (! $hasLiveUrl && $item) {
+                $hasLiveUrl = filled($item->live_url);
+            }
+        }
         $modRequested = false;
         if ($item) {
             $modRequested = method_exists($item, 'isModificationRequested')
@@ -397,6 +427,17 @@ class AdvertiserOrderStatus
                 ];
             }
 
+            $linkDown = $hasLiveUrl && $item->live_url_check_ok === false;
+            if ($linkDown) {
+                return [
+                    'label' => 'Completed · link may be down',
+                    'next' => 'The live URL did not respond. Recheck it, or open the published page.',
+                    'cls' => 'status-review',
+                    'stage' => 'completed',
+                    'auto_approve_hint' => null,
+                ];
+            }
+
             return [
                 'label' => 'Completed',
                 'next' => $hasLiveUrl
@@ -428,8 +469,13 @@ class AdvertiserOrderStatus
             $item = $item ?? null;
         }
         $status = (string) $order->status;
-        $hasItems = $order->items->isNotEmpty();
-        $hasLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
+        try {
+            $hasItems = $order->items->isNotEmpty();
+            $hasLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
+        } catch (\Throwable $e) {
+            $hasItems = false;
+            $hasLiveUrl = false;
+        }
         $paid = in_array($order->payment_status, ['paid', 'completed', 'refunded'], true)
             || in_array($status, ['processing', 'review', 'completed'], true);
         $acceptedOrLater = $hasItems && (

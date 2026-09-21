@@ -9,9 +9,11 @@ use App\Models\UserBlacklist;
 use App\Models\UserFavorite;
 use App\Services\Catalog\SiteUrlVisibility;
 use App\Services\PlatformFeeService;
+use App\Support\UserFacingError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class SavedSitesController extends Controller
@@ -27,15 +29,25 @@ class SavedSitesController extends Controller
             ? $request->get('tab')
             : 'favorites';
 
-        $favoriteIds = UserFavorite::where('user_id', $userId)->pluck('site_id');
-        $blacklistIds = UserBlacklist::where('user_id', $userId)->pluck('site_id');
+        try {
+            $favoriteIds = UserFavorite::where('user_id', $userId)->pluck('site_id');
+            $blacklistIds = UserBlacklist::where('user_id', $userId)->pluck('site_id');
 
-        $favorites = $this->visibleSavedSites($favoriteIds);
-        $blacklist = $this->visibleSavedSites($blacklistIds);
-        $visibility->warmFor($user, $favorites->merge($blacklist));
+            $favorites = $this->visibleSavedSites($favoriteIds);
+            $blacklist = $this->visibleSavedSites($blacklistIds);
+            $visibility->warmFor($user, $favorites->merge($blacklist));
 
-        $favorites->each(fn (Site $site) => $this->applyIdentity($site, $user, $visibility));
-        $blacklist->each(fn (Site $site) => $this->applyIdentity($site, $user, $visibility));
+            $favorites->each(fn (Site $site) => $this->applyIdentity($site, $user, $visibility));
+            $blacklist->each(fn (Site $site) => $this->applyIdentity($site, $user, $visibility));
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash(
+                'error',
+                UserFacingError::message($e, 'Unable to load saved sites. Please refresh and try again.')
+            );
+            $favorites = collect();
+            $blacklist = collect();
+        }
 
         return view('advertiser.saved-sites', [
             'tab' => $tab,
@@ -51,19 +63,21 @@ class SavedSitesController extends Controller
      */
     public function removeFavorite(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'site_id' => 'required|integer|exists:sites,id',
-        ]);
+        return $this->jsonSavedSitesAction(function () use ($request) {
+            $data = $request->validate([
+                'site_id' => 'required|integer|exists:sites,id',
+            ]);
 
-        $userId = auth()->id();
-        UserFavorite::where('user_id', $userId)
-            ->where('site_id', $data['site_id'])
-            ->delete();
+            $userId = auth()->id();
+            UserFavorite::where('user_id', $userId)
+                ->where('site_id', $data['site_id'])
+                ->delete();
 
-        return response()->json([
-            'success' => true,
-            'count' => $this->visibleSavedCount(UserFavorite::class, $userId),
-        ]);
+            return response()->json([
+                'success' => true,
+                'count' => $this->visibleSavedCount(UserFavorite::class, $userId),
+            ]);
+        }, 'Could not update your saved sites. Please try again.');
     }
 
     /**
@@ -71,19 +85,21 @@ class SavedSitesController extends Controller
      */
     public function removeBlacklist(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'site_id' => 'required|integer|exists:sites,id',
-        ]);
+        return $this->jsonSavedSitesAction(function () use ($request) {
+            $data = $request->validate([
+                'site_id' => 'required|integer|exists:sites,id',
+            ]);
 
-        $userId = auth()->id();
-        UserBlacklist::where('user_id', $userId)
-            ->where('site_id', $data['site_id'])
-            ->delete();
+            $userId = auth()->id();
+            UserBlacklist::where('user_id', $userId)
+                ->where('site_id', $data['site_id'])
+                ->delete();
 
-        return response()->json([
-            'success' => true,
-            'count' => $this->visibleSavedCount(UserBlacklist::class, $userId),
-        ]);
+            return response()->json([
+                'success' => true,
+                'count' => $this->visibleSavedCount(UserBlacklist::class, $userId),
+            ]);
+        }, 'Could not update your blocked sites. Please try again.');
     }
 
     /**
@@ -91,25 +107,27 @@ class SavedSitesController extends Controller
      */
     public function moveToBlacklist(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'site_id' => 'required|integer|exists:sites,id',
-        ]);
+        return $this->jsonSavedSitesAction(function () use ($request) {
+            $data = $request->validate([
+                'site_id' => 'required|integer|exists:sites,id',
+            ]);
 
-        $userId = auth()->id();
-        $siteId = (int) $data['site_id'];
+            $userId = auth()->id();
+            $siteId = (int) $data['site_id'];
 
-        UserFavorite::where('user_id', $userId)->where('site_id', $siteId)->delete();
+            UserFavorite::where('user_id', $userId)->where('site_id', $siteId)->delete();
 
-        UserBlacklist::firstOrCreate([
-            'user_id' => $userId,
-            'site_id' => $siteId,
-        ]);
+            UserBlacklist::firstOrCreate([
+                'user_id' => $userId,
+                'site_id' => $siteId,
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'favorites_count' => $this->visibleSavedCount(UserFavorite::class, $userId),
-            'blacklist_count' => $this->visibleSavedCount(UserBlacklist::class, $userId),
-        ]);
+            return response()->json([
+                'success' => true,
+                'favorites_count' => $this->visibleSavedCount(UserFavorite::class, $userId),
+                'blacklist_count' => $this->visibleSavedCount(UserBlacklist::class, $userId),
+            ]);
+        }, 'Could not update your saved sites. Please try again.');
     }
 
     /**
@@ -117,25 +135,49 @@ class SavedSitesController extends Controller
      */
     public function moveToFavorites(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'site_id' => 'required|integer|exists:sites,id',
-        ]);
+        return $this->jsonSavedSitesAction(function () use ($request) {
+            $data = $request->validate([
+                'site_id' => 'required|integer|exists:sites,id',
+            ]);
 
-        $userId = auth()->id();
-        $siteId = (int) $data['site_id'];
+            $userId = auth()->id();
+            $siteId = (int) $data['site_id'];
 
-        UserBlacklist::where('user_id', $userId)->where('site_id', $siteId)->delete();
+            UserBlacklist::where('user_id', $userId)->where('site_id', $siteId)->delete();
 
-        UserFavorite::firstOrCreate([
-            'user_id' => $userId,
-            'site_id' => $siteId,
-        ]);
+            UserFavorite::firstOrCreate([
+                'user_id' => $userId,
+                'site_id' => $siteId,
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'favorites_count' => $this->visibleSavedCount(UserFavorite::class, $userId),
-            'blacklist_count' => $this->visibleSavedCount(UserBlacklist::class, $userId),
-        ]);
+            return response()->json([
+                'success' => true,
+                'favorites_count' => $this->visibleSavedCount(UserFavorite::class, $userId),
+                'blacklist_count' => $this->visibleSavedCount(UserBlacklist::class, $userId),
+            ]);
+        }, 'Could not update your saved sites. Please try again.');
+    }
+
+    /**
+     * @param  callable(): JsonResponse  $action
+     */
+    private function jsonSavedSitesAction(callable $action, string $fallback): JsonResponse
+    {
+        try {
+            return $action();
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            $message = UserFacingError::message($e, $fallback);
+
+            return response()->json([
+                'success' => false,
+                'error' => $message,
+                'message' => $message,
+            ], 500);
+        }
     }
 
     private function decorateSite(Site $site): Site

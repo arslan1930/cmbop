@@ -25,7 +25,17 @@ class SiteUrlVisibilityRootedUrlTest extends TestCase
             'keeps shop subdomain' => ['https://shop.brand.co.uk/products/1', 'https://shop.brand.co.uk'],
             'strips query' => ['http://blog.example.org/2024/post?id=9', 'http://blog.example.org'],
             'bare host defaults https' => ['example.com/path', 'https://example.com'],
+            'leftover javascript scheme' => ['javascript:alert(1)', ''],
+            'leftover data scheme' => ['data:text/html,hi', ''],
+            'leftover vbscript scheme' => ['vbscript:msgbox(1)', ''],
         ];
+    }
+
+    public function test_host_refuses_leftover_non_http_schemes(): void
+    {
+        $this->assertSame('', $this->visibility->host('javascript:alert(1)'));
+        $this->assertSame('', $this->visibility->host('data:text/html,hi'));
+        $this->assertSame('example.com', $this->visibility->host('https://www.example.com/path'));
     }
 
     #[DataProvider('rootedUrlProvider')]

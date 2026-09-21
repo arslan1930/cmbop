@@ -49,5 +49,32 @@ class SiteCatalogLabelHelpersTest extends TestCase
         $this->assertSame('NoFollow', (new Site(['link_type' => 'nofollow']))->linkTypeLabel());
         $this->assertNull((new Site(['link_type' => null]))->linkTypeLabel());
         $this->assertSame('Not specified', (new Site(['link_type' => '']))->linkTypeLabel('Not specified'));
+        $this->assertNull((new Site(['link_type' => '???']))->linkTypeLabel());
+        $this->assertNull((new Site(['link_type' => 'guest']))->linkTypeLabel());
+        $this->assertNull((new Site(['turnaround_time' => '???']))->turnaroundLabel());
+        $this->assertNull((new Site(['publication_time' => 'not-json']))->publicationDurationLabel());
+        $this->assertNull((new Site(['country' => '??', 'countries' => 'not-json']))->primaryCountryCode());
+    }
+
+    public function test_language_codes_survive_leftover_json_junk(): void
+    {
+        $site = new Site([
+            'language' => 'de',
+            'languages' => 'not-json',
+            'country' => 'de',
+            'countries' => 'not-json',
+            'category' => 'Marketing',
+            'categories' => 'not-json',
+        ]);
+
+        $this->assertSame(['de'], $site->languageCodes());
+        $this->assertSame(['de'], $site->countryCodes());
+        $this->assertSame('de', $site->primaryCountryCode());
+        $this->assertSame([], $site->homepagePlacementOptions());
+        $this->assertSame([], $site->enabledSocialChannels());
+        $this->assertSame([], $site->safeJsonArray('categories'));
+        $this->assertSame([], $site->safeJsonArray('sensitive_prices'));
+        $this->assertFalse((new Site(['featured_until' => 'not-a-date']))->isFeatured());
+        $this->assertFalse((new Site(['created_at' => 'not-a-date']))->isRecentlyCreated());
     }
 }

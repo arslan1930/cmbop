@@ -1567,6 +1567,9 @@ function bootAdvertiserOrdersPage() {
             const disputeHtml = order.dispute_status
                 ? `<div class="mt-1"><span class="badge text-bg-${order.dispute_status === 'upheld' ? 'danger' : (order.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(order.dispute_status)}</span></div>`
                 : '';
+            const projectHtml = order.project_name
+                ? `<div class="small text-muted">${escapeHtml(order.project_name)}</div>`
+                : '';
             const totalHtml = orderPaymentRefunded(order)
                 ? `<td data-label="Total" class="fw-semibold orders-col-total orders-total--refunded"><s>${totalLabel}</s> <span class="small">Refunded</span></td>`
                 : `<td data-label="Total" class="fw-semibold text-primary orders-col-total">${totalLabel}</td>`;
@@ -1576,6 +1579,7 @@ function bootAdvertiserOrdersPage() {
                 <tr class="orders-row">
                     <td data-label="Order #" class="orders-col-id">
                         <button type="button" class="btn btn-link p-0 fw-semibold orders-order-number" onclick="viewOrder(${order.id})">${escapeHtml(order.order_number)}</button>
+                        ${projectHtml}
                     </td>
                     <td data-label="Site" class="orders-col-site">
                         <div class="fw-semibold orders-site-name" title="${escapeHtml(siteName)}">${escapeHtml(siteName)}</div>

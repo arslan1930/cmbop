@@ -414,6 +414,13 @@
     if (el.hasAttribute('data-no-tip')) return false;
     // A declared glass tip already owns its copy.
     if (el.hasAttribute('data-glass-tip') && !isAutoAdopted(el)) return false;
+    // Catalog listing cells: names, metrics, chips, and empty space used to
+    // fire a glass tip on every hover and sit on top of Buy / Details.
+    // Column headers and status chips declare data-glass-tip; action buttons
+    // (heart, blacklist, claim, eye) still adopt their titles.
+    if (el.closest('#catalogResults, .catalog-results-card') && !NATIVELY_INTERACTIVE[el.tagName]) {
+      return false;
+    }
 
     return (el.getAttribute('title') || '').trim() !== '';
   }

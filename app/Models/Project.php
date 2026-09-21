@@ -134,6 +134,11 @@ class Project extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
     /**
      * Registrable host used to match a project URL to placement target URLs.
      */
@@ -267,6 +272,62 @@ class Project extends Model
         }
 
         return $byHost;
+    }
+
+    /**
+     * Count placements that are assigned to a project via orders.project_id.
+     *
+     * @param  Collection<int, Order>  $orders
+     * @return array<int, array{not_started: int, in_progress: int, in_review: int, waiting_approval: int, needs_improvements: int, completed: int, rejected: int, content_revision?: int}>
+     */
+    public static function stageCountsByAssignedProject(Collection $orders): array
+    {
+        $byId = [];
+
+        foreach ($orders as $order) {
+            $projectId = (int) ($order->project_id ?? 0);
+            if ($projectId <= 0) {
+                continue;
+            }
+
+            foreach ($order->items as $item) {
+                $rawStage = (string) (AdvertiserOrderStatus::meta($order, $item, true)['stage'] ?? '');
+                $bucket = self::stageBucket($rawStage);
+                if ($bucket === null) {
+                    continue;
+                }
+
+                if (! isset($byId[$projectId])) {
+                    $byId[$projectId] = self::emptyStageCounts();
+                }
+
+                $byId[$projectId][$bucket]++;
+                if ($rawStage === 'content_revision') {
+                    $byId[$projectId]['content_revision'] = (int) ($byId[$projectId]['content_revision'] ?? 0) + 1;
+                }
+            }
+        }
+
+        return $byId;
+    }
+
+    /**
+     * @param  array<string, int>  $left
+     * @param  array<string, int>  $right
+     * @return array<string, int>
+     */
+    public static function mergeStageCounts(array $left, array $right): array
+    {
+        $merged = self::emptyStageCounts();
+        foreach (array_keys($merged) as $key) {
+            $merged[$key] = (int) ($left[$key] ?? 0) + (int) ($right[$key] ?? 0);
+        }
+        $revision = (int) ($left['content_revision'] ?? 0) + (int) ($right['content_revision'] ?? 0);
+        if ($revision > 0) {
+            $merged['content_revision'] = $revision;
+        }
+
+        return $merged;
     }
 
     /**
@@ -471,6 +532,29 @@ class Project extends Model
                             if ($host !== '') {
                                 self::constrainItemsByHost($items, $host);
                             }
+                        });
+                })->orWhere(function ($linkDown) use ($host) {
+                    if (! Schema::hasColumn('order_items', 'live_url_check_ok')) {
+                        $linkDown->whereRaw('0 = 1');
+
+                        return;
+                    }
+                    $windowDays = max(1, (int) config('orders.live_url_down_window_days', 90));
+                    $linkDown->where('status', 'completed')
+                        ->where('payment_status', 'paid')
+                        ->whereHas('items', function ($items) use ($host, $windowDays) {
+                            if ($host !== '') {
+                                self::constrainItemsByHost($items, $host);
+                            }
+                            $items->whereNotNull('live_url')
+                                ->where('live_url', '!=', '')
+                                ->where('live_url_check_ok', false)
+                                ->where(function ($recent) use ($windowDays) {
+                                    $recent->where('live_url_checked_at', '>=', now()->subDays($windowDays));
+                                    if (Schema::hasColumn('order_items', 'completed_at')) {
+                                        $recent->orWhere('completed_at', '>=', now()->subDays($windowDays));
+                                    }
+                                });
                         });
                 });
             }), [self::class, 'constrainWithoutFailedPayment']),

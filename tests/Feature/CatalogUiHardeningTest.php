@@ -459,7 +459,7 @@ class CatalogUiHardeningTest extends TestCase
     {
         $site = $this->makeSite([
             'description' => 'A short description that only the table used to show.',
-            'publication_time' => '12 months',
+            'publication_time' => '1year',
         ]);
 
         $html = $this->actingAs($this->advertiser)
@@ -470,7 +470,7 @@ class CatalogUiHardeningTest extends TestCase
         $this->assertStringContainsString('id="card-details-'.$site->id.'"', $html);
         $this->assertStringContainsString('aria-controls="card-details-'.$site->id.'"', $html);
         $this->assertStringContainsString('A short description that only the table used to show.', $html);
-        $this->assertStringContainsString('12 months', $html);
+        $this->assertStringContainsString('1 year', $html);
 
         // Eye controls only exist in copy-strike hide mode — normals see full
         // identity with no toggle on the card.

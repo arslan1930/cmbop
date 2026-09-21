@@ -348,11 +348,23 @@ class SiteClaimHardeningTest extends TestCase
         $this->assertTrue($visible);
     }
 
-    public function test_advertiser_shell_links_to_my_claims(): void
+    public function test_advertiser_only_shell_hides_my_claims(): void
     {
         $claimer = $this->userWithRole('advertiser');
 
         $this->actingAs($claimer)
+            ->get(route('advertiser.dashboard'))
+            ->assertOk()
+            ->assertDontSee('>My Claims</span>', false);
+    }
+
+    public function test_dual_role_advertiser_shell_links_to_my_claims(): void
+    {
+        $user = $this->userWithRole('advertiser');
+        $publisher = Role::firstOrCreate(['name' => 'publisher']);
+        $user->roles()->syncWithoutDetaching([$publisher->id]);
+
+        $this->actingAs($user->fresh())
             ->get(route('advertiser.dashboard'))
             ->assertOk()
             ->assertSee('My Claims', false)

@@ -10,7 +10,6 @@ use App\Models\User;
 use App\Services\CheckoutSchemaService;
 use App\Services\InAppNotificationService;
 use App\Services\OrderChatContactGuard;
-use App\Support\AdvertiserOrderDetails;
 use App\Support\AdvertiserOrderStatus;
 use App\Support\CatalogVisitUrl;
 use App\Support\PublisherNeedsAction;
@@ -172,7 +171,12 @@ class ChatController extends Controller
                 // Leftover is_read / read_at must not hide the thread.
             }
 
-            $order->loadMissing(['items.site.publisher', 'user']);
+            try {
+                $order->loadMissing(['user']);
+            } catch (\Throwable $e) {
+                // Leftover users table must not hide the thread.
+            }
+            $this->loadOrderItemsForChat($order);
             $details = $this->buildOrderChatDetails($order, $user);
 
             return response()->json([
@@ -564,12 +568,20 @@ class ChatController extends Controller
         if ($isAdvertiser) {
             $other = $site?->publisher;
             if (! $other) {
-                foreach ($order->items as $item) {
-                    $candidate = $item->site?->publisher;
-                    if ($candidate) {
-                        $other = $candidate;
-                        break;
+                try {
+                    foreach ($order->items as $item) {
+                        try {
+                            $candidate = $item->site?->publisher;
+                        } catch (\Throwable $e) {
+                            $candidate = null;
+                        }
+                        if ($candidate) {
+                            $other = $candidate;
+                            break;
+                        }
                     }
+                } catch (\Throwable $e) {
+                    $other = null;
                 }
             }
             $role = 'publisher';
@@ -582,7 +594,15 @@ class ChatController extends Controller
             return null;
         }
 
-        $presence = $other->presencePayload();
+        try {
+            $presence = $other->presencePayload();
+        } catch (\Throwable $e) {
+            $presence = [
+                'online' => false,
+                'last_seen_at' => null,
+                'label' => null,
+            ];
+        }
 
         return [
             'name' => (string) $other->name,
@@ -602,18 +622,23 @@ class ChatController extends Controller
         }
 
         try {
-            $order->loadMissing(['items.site']);
+            $order->loadMissing(['items.site.publisher']);
         } catch (\Throwable $e) {
             try {
                 $order->unsetRelation('items');
-                $order->loadMissing(['items']);
-                foreach ($order->items as $loaded) {
-                    if ($loaded instanceof OrderItem) {
-                        $loaded->setRelation('site', null);
+                $order->loadMissing(['items.site']);
+            } catch (\Throwable $siteGone) {
+                try {
+                    $order->unsetRelation('items');
+                    $order->loadMissing(['items']);
+                    foreach ($order->items as $loaded) {
+                        if ($loaded instanceof OrderItem) {
+                            $loaded->setRelation('site', null);
+                        }
                     }
+                } catch (\Throwable $inner) {
+                    $order->setRelation('items', collect());
                 }
-            } catch (\Throwable $inner) {
-                $order->setRelation('items', collect());
             }
         }
     }

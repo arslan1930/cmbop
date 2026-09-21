@@ -267,7 +267,7 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('Homepage promotions', $html);
         $this->assertStringContainsString('homepage-placement-group', $html);
         $this->assertMatchesRegularExpression(
-            '/catalog-expand-meta[\s\S]*?Homepage promotions[\s\S]*?<strong>Social<\/strong>/u',
+            '/catalog-expand-meta[\s\S]*?Homepage promotions[\s\S]*?<strong>Social promotions<\/strong>/u',
             $html
         );
         $this->assertStringContainsString('Facebook', $html);
@@ -304,7 +304,7 @@ class CatalogExpandCorrectnessTest extends TestCase
         // Homepage promotions is omitted when the listing has no homepage offer.
         $this->assertStringNotContainsString('Homepage promotions', $html);
         $this->assertStringNotContainsString('Not offered on this listing.', $html);
-        $this->assertStringNotContainsString('<strong>Social</strong>', $html);
+        $this->assertStringNotContainsString('<strong>Social promotions</strong>', $html);
         $this->assertStringNotContainsString('No social sharing included on this listing.', $html);
         $this->assertStringNotContainsString('No description yet', $html);
         $this->assertStringContainsString('Turnaround', $html);
@@ -324,9 +324,11 @@ class CatalogExpandCorrectnessTest extends TestCase
 
         $this->assertStringContainsString('site-chip--social', $html);
         $this->assertStringContainsString('Facebook', $html);
-        $this->assertStringContainsString('Social', $html);
+        $this->assertStringContainsString('Social promotions', $html);
         $this->assertStringContainsString('Homepage promotions', $html);
-        $this->assertStringContainsString('Choose a duration above Buy.', $html);
+        $this->assertStringContainsString('Choose a duration in this panel, or change it later in the cart.', $html);
+        $this->assertStringNotContainsString('Choose a duration above Buy.', $html);
+        $this->assertStringContainsString('catalog-buy-addon-hint', $html);
     }
 
     public function test_you_pay_copy_is_aligned_across_desktop_and_mobile(): void
@@ -366,7 +368,11 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('Homepage</span>', $html);
         $this->assertStringNotContainsString('Free homepage', $html);
         $this->assertStringContainsString('site-chip--social', $html);
-        $this->assertStringContainsString('Homepage placement available in Details.', $html);
+        $this->assertStringContainsString('Facebook, Instagram', $html);
+        $this->assertStringNotContainsString('Social: Facebook', $html);
+        $this->assertStringContainsString('data-catalog-open-section="social"', $html);
+        $this->assertStringContainsString('data-catalog-open-section="homepage"', $html);
+        $this->assertStringNotContainsString('Homepage placement available in Details.', $html);
     }
 
     public function test_free_homepage_chip_skips_paid_only_hint(): void
@@ -471,5 +477,34 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringNotContainsString('Sample article', $html);
         $this->assertStringContainsString('catalog-deferred-preview', $html);
         $this->assertStringContainsString('Publisher trust', $html);
+    }
+
+    public function test_catalog_buy_js_treats_reclick_as_already_in_cart(): void
+    {
+        $js = (string) file_get_contents(public_path('assets/js/catalog.js'));
+
+        $this->assertStringContainsString('window.catalogSyncInCartButtons', $js);
+        $this->assertStringContainsString("btn.classList.toggle('is-in-cart', inCart)", $js);
+        $this->assertStringContainsString('<span>In cart</span>', $js);
+        $this->assertStringContainsString("button.classList.contains('is-in-cart')", $js);
+        $this->assertStringContainsString('window.catalogSyncBuyAddonHints', $js);
+        $this->assertStringContainsString('.buy-now.is-in-cart[data-id=', $js);
+        $this->assertStringContainsString("Incl. ' + homepage.days + '-day homepage'", $js);
+        $this->assertStringNotContainsString('readiness chips', $js);
+    }
+
+    public function test_catalog_empty_library_copy_does_not_mention_readiness_chips(): void
+    {
+        $this->makeSite();
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('readiness chips', $html);
+        $this->assertStringContainsString('the cart lists which sites still need an article', $html);
+        $this->assertStringContainsString('id="catalogCartBanner"', $html);
+        $this->assertStringContainsString('catalog-buy-addon-hint', $html);
     }
 }

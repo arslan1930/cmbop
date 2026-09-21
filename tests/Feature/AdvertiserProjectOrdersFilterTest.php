@@ -590,6 +590,40 @@ class AdvertiserProjectOrdersFilterTest extends TestCase
             'project' => $project->id,
             'project_stage' => 'in_progress',
         ]));
+
+        $scoped = $this->actingAs($user)
+            ->getJson(route('advertiser.orders.list', ['project' => $project->id]))
+            ->assertOk()
+            ->json('needs_action');
+        $this->assertSame(0, (int) $scoped);
+    }
+
+    public function test_assigned_order_matches_stage_even_when_host_differs(): void
+    {
+        $user = $this->advertiser();
+        $site = $this->siteFor($this->publisher());
+
+        $project = Project::create([
+            'user_id' => $user->id,
+            'project_name' => 'Acme Client',
+            'project_url' => 'https://acme.example',
+        ]);
+
+        $order = $this->makeOrder($user, $site, [
+            'status' => 'processing',
+            'project_id' => $project->id,
+        ], [
+            'target_url' => 'https://other-client.example/page',
+        ]);
+
+        $this->assertSame([$order->id], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'in_progress',
+        ]));
+        $this->assertSame([], $this->listIds($user, [
+            'project' => $project->id,
+            'project_stage' => 'needs_improvements',
+        ]));
     }
 
     public function test_revision_requested_is_needs_improvements_not_in_progress(): void

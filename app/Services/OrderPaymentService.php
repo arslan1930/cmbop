@@ -1927,6 +1927,7 @@ class OrderPaymentService
                         ? json_encode($session->toArray())
                         : json_encode($session),
                     'paid_at' => now(),
+                    'project_id' => ((int) ($package['project_id'] ?? 0)) ?: null,
                 ]);
 
                 if ($order === null) {
@@ -2269,6 +2270,7 @@ class OrderPaymentService
                     'paypal_capture_id' => $storedCaptureOnFirst ? null : $captureId,
                     'paypal_response' => $captured['raw'] ?? $captured,
                     'paid_at' => now(),
+                    'project_id' => ((int) ($package['project_id'] ?? 0)) ?: null,
                 ]);
                 if ($order === null) {
                     continue;

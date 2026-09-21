@@ -608,7 +608,11 @@ class Site extends Model
 
     public function isRecentlyCreated(int $days = 30): bool
     {
-        $at = $this->created_at;
+        try {
+            $at = $this->created_at;
+        } catch (\Throwable) {
+            return false;
+        }
 
         return $at instanceof \DateTimeInterface && $at->gt(now()->subDays($days));
     }
@@ -740,7 +744,7 @@ class Site extends Model
             'permanent' => 'Permanent',
             default => preg_match('/^(\d+)\s*days?$/i', $raw, $m)
                 ? ((int) $m[1] === 1 ? '1 day' : ((int) $m[1]).' days')
-                : $raw,
+                : $fallback,
         };
     }
 
@@ -760,7 +764,8 @@ class Site extends Model
             '3days', '3 days' => '3 days',
             '5days', '5 days' => '5 days',
             '7days', '7 days' => '7 days',
-            default => $raw,
+            // Leftover Hostinger junk ("???", "not-json") is not a turnaround.
+            default => $this->turnaroundHours() !== null ? $raw : $fallback,
         };
     }
 
@@ -807,7 +812,8 @@ class Site extends Model
         return match ($raw) {
             'dofollow' => 'DoFollow',
             'nofollow' => 'NoFollow',
-            default => ucfirst($raw),
+            // Leftover Hostinger junk ("???", "guest") is not a link attribute.
+            default => $fallback,
         };
     }
 
@@ -1828,6 +1834,12 @@ class Site extends Model
             if (! is_string($candidate) || trim($candidate) === '') {
                 continue;
             }
+            $candidate = trim($candidate);
+            // Leftover Hostinger junk ("not-a-path", "???") is not a screenshot.
+            if (! preg_match('#^(https?:)?//#i', $candidate)
+                && ! preg_match('/\.(webp|jpe?g|png|gif|avif)$/i', $candidate)) {
+                continue;
+            }
             if (static::isPlaceholderPreviewPath($candidate)) {
                 $placeholders[] = $candidate;
             } else {
@@ -1849,6 +1861,24 @@ class Site extends Model
     }
 
     /**
+     * Read a string column without 500ing when leftover Hostinger schema
+     * dropped it or the accessor throws. One missing screenshot column must
+     * not hide a still-present cover upload.
+     */
+    public function leftoverStringAttribute(string $attribute): ?string
+    {
+        try {
+            $value = $this->getAttribute($attribute);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    /**
      * Catalog Site Details homepage preview: full → thumb → cover.
      *
      * @return list<string>
@@ -1856,9 +1886,9 @@ class Site extends Model
     public function homepagePreviewUrlChain(): array
     {
         return $this->previewUrlChainFrom([
-            $this->screenshot_path,
-            $this->screenshot_thumb_path,
-            $this->site_image,
+            $this->leftoverStringAttribute('screenshot_path'),
+            $this->leftoverStringAttribute('screenshot_thumb_path'),
+            $this->leftoverStringAttribute('site_image'),
         ]);
     }
 
@@ -1872,9 +1902,9 @@ class Site extends Model
     public function listingPreviewUrlChain(): array
     {
         return $this->previewUrlChainFrom([
-            $this->site_image,
-            $this->screenshot_thumb_path,
-            $this->screenshot_path,
+            $this->leftoverStringAttribute('site_image'),
+            $this->leftoverStringAttribute('screenshot_thumb_path'),
+            $this->leftoverStringAttribute('screenshot_path'),
         ]);
     }
 
@@ -1886,9 +1916,9 @@ class Site extends Model
     public function zoomPreviewUrlChain(): array
     {
         return $this->previewUrlChainFrom([
-            $this->screenshot_path,
-            $this->site_image,
-            $this->screenshot_thumb_path,
+            $this->leftoverStringAttribute('screenshot_path'),
+            $this->leftoverStringAttribute('site_image'),
+            $this->leftoverStringAttribute('screenshot_thumb_path'),
         ]);
     }
 
@@ -2015,15 +2045,27 @@ class Site extends Model
     public function primaryCountryCode(): ?string
     {
         // Scalar sites.country wins (same as catalog inventory / country filter).
-        return app(CatalogCountryInventory::class)
-            ->primaryCountryCode($this->country, $this->countries);
+        $code = app(CatalogCountryInventory::class)
+            ->primaryCountryCode($this->country, $this->safeJsonArray('countries'));
+        $code = strtolower(trim((string) ($code ?? '')));
+        if ($code === '' || $code === 'xx') {
+            return null;
+        }
+
+        // Leftover Hostinger junk ("??", "not-json") must not paint a flag.
+        return isset(marketplace_countries()[$code]) ? $code : null;
     }
 
     public function primaryLanguageCode(): ?string
     {
-        $codes = $this->languageCodes();
+        $known = marketplace_languages();
+        foreach ($this->languageCodes() as $code) {
+            if (isset($known[$code])) {
+                return $code;
+            }
+        }
 
-        return $codes[0] ?? null;
+        return null;
     }
 
     /**
@@ -2177,46 +2219,52 @@ class Site extends Model
      */
     public function catalogDescriptionHtml(): string
     {
-        $html = $this->safeDescriptionHtml();
-        if ($html === '' || ! str_contains($html, '<a ')) {
-            return $html;
+        try {
+            $html = $this->safeDescriptionHtml();
+            if ($html === '' || ! str_contains($html, '<a ')) {
+                return $html;
+            }
+
+            $visibility = app(SiteUrlVisibility::class);
+            $allowed = array_values(array_unique(array_filter([
+                strtolower($visibility->host($this->site_url)),
+                strtolower($visibility->host((string) $this->example_url)),
+            ])));
+            if ($allowed === []) {
+                return $html;
+            }
+
+            $visit = route('advertiser.catalog.visit', $this->id);
+
+            return preg_replace_callback(
+                '/<a\s+href="([^"]*)"/i',
+                function (array $m) use ($visibility, $allowed, $visit) {
+                    $href = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $host = strtolower($visibility->host($href));
+                    if ($host === '' || ! in_array($host, $allowed, true)) {
+                        return $m[0];
+                    }
+
+                    $path = (string) (parse_url($href, PHP_URL_PATH) ?: '/');
+                    if (! str_starts_with($path, '/') || str_starts_with($path, '//')) {
+                        return '<a href="'.e($visit).'"';
+                    }
+
+                    $query = parse_url($href, PHP_URL_QUERY);
+                    $rel = $path.($query ? '?'.$query : '');
+                    if (strlen($rel) > 500 || str_contains($rel, '\\') || str_contains($rel, '://')) {
+                        return '<a href="'.e($visit).'"';
+                    }
+
+                    return '<a href="'.e($visit.'?path='.rawurlencode($rel)).'"';
+                },
+                $html
+            ) ?? $html;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return '';
         }
-
-        $visibility = app(SiteUrlVisibility::class);
-        $allowed = array_values(array_unique(array_filter([
-            strtolower($visibility->host($this->site_url)),
-            strtolower($visibility->host((string) $this->example_url)),
-        ])));
-        if ($allowed === []) {
-            return $html;
-        }
-
-        $visit = route('advertiser.catalog.visit', $this->id);
-
-        return preg_replace_callback(
-            '/<a\s+href="([^"]*)"/i',
-            function (array $m) use ($visibility, $allowed, $visit) {
-                $href = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $host = strtolower($visibility->host($href));
-                if ($host === '' || ! in_array($host, $allowed, true)) {
-                    return $m[0];
-                }
-
-                $path = (string) (parse_url($href, PHP_URL_PATH) ?: '/');
-                if (! str_starts_with($path, '/') || str_starts_with($path, '//')) {
-                    return '<a href="'.e($visit).'"';
-                }
-
-                $query = parse_url($href, PHP_URL_QUERY);
-                $rel = $path.($query ? '?'.$query : '');
-                if (strlen($rel) > 500 || str_contains($rel, '\\') || str_contains($rel, '://')) {
-                    return '<a href="'.e($visit).'"';
-                }
-
-                return '<a href="'.e($visit.'?path='.rawurlencode($rel)).'"';
-            },
-            $html
-        ) ?? $html;
     }
 
     /**
@@ -2328,40 +2376,58 @@ class Site extends Model
      */
     public function catalogPricesForViewer(?User $user): array
     {
-        $owned = $this->isOwnedBy($user);
-        $nominal = $this->activeCustomDiscountPercent();
+        try {
+            $owned = $this->isOwnedBy($user);
+            $nominal = $this->activeCustomDiscountPercent();
 
-        if ($owned) {
-            $base = $this->publisherBasePrice();
+            if ($owned) {
+                $base = $this->publisherBasePrice();
+
+                return [
+                    'owned' => true,
+                    'list' => $base,
+                    'publisher' => $base,
+                    'sale' => null,
+                    'sale_percent' => null,
+                    'sale_percent_nominal' => $nominal,
+                ];
+            }
+
+            $pricing = $this->advertiserCatalogPricing();
+            $list = (float) $pricing['base'];
+            $sale = null;
+            $salePercent = null;
+            if (($pricing['discount_amount'] ?? 0) > 0
+                && (float) $pricing['article_total'] < $list) {
+                $sale = (float) $pricing['article_total'];
+                $salePercent = (float) $pricing['discount_percent'];
+            }
 
             return [
-                'owned' => true,
+                'owned' => false,
+                'list' => $list,
+                'publisher' => (float) $pricing['publisher_price'],
+                'sale' => $sale,
+                'sale_percent' => $salePercent,
+                'sale_percent_nominal' => $nominal,
+            ];
+        } catch (\Throwable $e) {
+            report($e);
+            $base = 0.0;
+            try {
+                $base = $this->publisherBasePrice();
+            } catch (\Throwable) {
+            }
+
+            return [
+                'owned' => false,
                 'list' => $base,
                 'publisher' => $base,
                 'sale' => null,
                 'sale_percent' => null,
-                'sale_percent_nominal' => $nominal,
+                'sale_percent_nominal' => null,
             ];
         }
-
-        $pricing = $this->advertiserCatalogPricing();
-        $list = (float) $pricing['base'];
-        $sale = null;
-        $salePercent = null;
-        if (($pricing['discount_amount'] ?? 0) > 0
-            && (float) $pricing['article_total'] < $list) {
-            $sale = (float) $pricing['article_total'];
-            $salePercent = (float) $pricing['discount_percent'];
-        }
-
-        return [
-            'owned' => false,
-            'list' => $list,
-            'publisher' => (float) $pricing['publisher_price'],
-            'sale' => $sale,
-            'sale_percent' => $salePercent,
-            'sale_percent_nominal' => $nominal,
-        ];
     }
 
     /**
@@ -2374,12 +2440,8 @@ class Site extends Model
         // Read the cast attribute directly. Do not gate on Schema::hasColumn —
         // Hostinger SQL patches can add columns before Schema cache refreshes,
         // and a false-negative would hide offers in catalog Site Details.
-        $raw = $this->homepage_placement_prices;
-        if (is_string($raw) && $raw !== '') {
-            $decoded = json_decode($raw, true);
-            $raw = is_array($decoded) ? $decoded : null;
-        }
-        if (! is_array($raw) || $raw === []) {
+        $raw = $this->safeJsonArray('homepage_placement_prices');
+        if ($raw === []) {
             return [];
         }
 
@@ -2428,12 +2490,8 @@ class Site extends Model
     public function enabledSocialChannels(): array
     {
         // Same as homepagePlacementOptions(): trust attributes over Schema::hasColumn.
-        $raw = $this->social_promotion;
-        if (is_string($raw) && $raw !== '') {
-            $decoded = json_decode($raw, true);
-            $raw = is_array($decoded) ? $decoded : null;
-        }
-        if (! is_array($raw) || $raw === []) {
+        $raw = $this->safeJsonArray('social_promotion');
+        if ($raw === []) {
             return [];
         }
 
@@ -2601,41 +2659,47 @@ class Site extends Model
      */
     public function getCategoriesArrayAttribute()
     {
-        if (empty($this->categories)) {
-            // Keep a single legacy niche (even with commas) as one entry — never
-            // explode("Marketing, PR & Advertising") into halves.
-            if (! empty($this->category)) {
-                return Category::parseCatalogCategoryParam((string) $this->category);
+        try {
+            if (empty($this->categories)) {
+                // Keep a single legacy niche (even with commas) as one entry — never
+                // explode("Marketing, PR & Advertising") into halves.
+                if (! empty($this->category)) {
+                    return Category::parseCatalogCategoryParam((string) $this->category);
+                }
+
+                return [];
             }
 
-            return [];
-        }
-
-        // If it's already an array — each entry is one niche (do not split on commas).
-        if (is_array($this->categories)) {
-            return array_values(array_filter(array_map(
-                static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
-                $this->categories
-            ), static fn ($c) => $c !== ''));
-        }
-
-        // If it's a JSON string
-        if (is_string($this->categories) && (str_starts_with($this->categories, '[') || str_starts_with($this->categories, '{'))) {
-            $decoded = json_decode($this->categories, true);
-            if (is_array($decoded)) {
+            // If it's already an array — each entry is one niche (do not split on commas).
+            if (is_array($this->categories)) {
                 return array_values(array_filter(array_map(
                     static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
-                    $decoded
+                    $this->categories
                 ), static fn ($c) => $c !== ''));
             }
-        }
 
-        // Legacy string storage — pipe or comma list via shared catalog parser.
-        if (is_string($this->categories)) {
-            return Category::parseCatalogCategoryParam($this->categories);
-        }
+            // If it's a JSON string
+            if (is_string($this->categories) && (str_starts_with($this->categories, '[') || str_starts_with($this->categories, '{'))) {
+                $decoded = json_decode($this->categories, true);
+                if (is_array($decoded)) {
+                    return array_values(array_filter(array_map(
+                        static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
+                        $decoded
+                    ), static fn ($c) => $c !== ''));
+                }
+            }
 
-        return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+            // Legacy string storage — pipe or comma list via shared catalog parser.
+            if (is_string($this->categories)) {
+                return Category::parseCatalogCategoryParam($this->categories);
+            }
+
+            return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+        }
     }
 
     /**
@@ -2645,10 +2709,10 @@ class Site extends Model
      */
     public function nicheBadgeLabels(): array
     {
-        $categories = is_array($this->categories) ? $this->categories : null;
+        $categories = $this->safeJsonArray('categories');
 
         return Category::displayNicheLabels(
-            $categories,
+            $categories !== [] ? $categories : null,
             is_string($this->category) ? $this->category : null
         );
     }
@@ -2668,7 +2732,7 @@ class Site extends Model
      */
     public function countryCodes(): array
     {
-        $codes = collect($this->countries ?? [])
+        $codes = collect($this->safeJsonArray('countries'))
             ->filter()
             ->map(fn ($c) => strtolower(trim((string) $c)))
             ->all();
@@ -2692,7 +2756,7 @@ class Site extends Model
      */
     public function countryCodesForDisplay(): array
     {
-        $codes = collect($this->countries ?? [])
+        $codes = collect($this->safeJsonArray('countries'))
             ->filter()
             ->map(fn ($c) => strtolower(trim((string) $c)))
             ->unique()
@@ -2750,17 +2814,50 @@ class Site extends Model
     }
 
     /**
+     * Array-cast JSON that leftover Hostinger rows may store as junk text.
+     *
+     * @return array<int|string, mixed>
+     */
+    public function safeJsonArray(string $attribute): array
+    {
+        try {
+            $raw = $this->getAttribute($attribute);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+
+        if (is_array($raw)) {
+            return $raw;
+        }
+
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * @return array<int, string>
      */
     public function languageCodes(): array
     {
-        $codes = collect($this->languages ?? [])
+        $codes = collect($this->safeJsonArray('languages'))
             ->filter()
             ->map(fn ($c) => strtolower(trim((string) $c)))
             ->all();
 
-        if ($this->language) {
-            $codes[] = strtolower(trim((string) $this->language));
+        try {
+            if ($this->language) {
+                $codes[] = strtolower(trim((string) $this->language));
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         $codes = array_values(array_unique(array_filter($codes)));
