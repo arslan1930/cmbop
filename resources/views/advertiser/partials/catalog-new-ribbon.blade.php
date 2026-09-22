@@ -8,8 +8,8 @@
             aria-label="New listing">
         <img src="{{ asset('assets/img/catalog-new-ribbon.svg') }}"
              alt=""
-             width="32"
-             height="32"
+             width="56"
+             height="56"
              decoding="async">
         <span class="visually-hidden">NEW</span>
     </button>
