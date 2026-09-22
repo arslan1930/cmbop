@@ -321,6 +321,7 @@ class SiteController extends Controller
         $suffix = $healthFilter !== null
             ? '-'.$healthFilter
             : (($liveFilter ? '-live' : '').($countryFilter !== '' ? '-'.$countryFilter : ''));
+        $suffix = preg_replace('/[^a-z0-9_-]+/i', '', (string) $suffix) ?? '';
         $filename = 'websites-records'.$suffix.'-'.now()->format('Y-m-d').'.csv';
 
         try {
@@ -489,6 +490,16 @@ class SiteController extends Controller
     private function constrainRecordsLive($query): void
     {
         try {
+            if (! Site::hasSitesColumn('active')) {
+                return;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return;
+        }
+
+        try {
             if (Schema::hasTable('bulk_site_requests')) {
                 $query->catalogVisible();
 
@@ -502,20 +513,21 @@ class SiteController extends Controller
             $query->active()->notArchived();
         } catch (\Throwable $e) {
             report($e);
-            $query->where('active', 1);
+            try {
+                $query->where('active', 1);
+            } catch (\Throwable $inner) {
+                report($inner);
+            }
         }
     }
 
     private function recordsLiveCount(): int
     {
         try {
-            return (int) Site::query()->catalogVisible()->count();
-        } catch (\Throwable $e) {
-            report($e);
-        }
+            $query = Site::query();
+            $this->constrainRecordsLive($query);
 
-        try {
-            return (int) Site::query()->active()->notArchived()->count();
+            return (int) $query->count();
         } catch (\Throwable $e) {
             report($e);
 
@@ -532,9 +544,21 @@ class SiteController extends Controller
     private function recordsCountryCounts(): array
     {
         $counts = [];
-        $select = ['id', 'country'];
-        if (Site::hasSitesColumn('countries')) {
-            $select[] = 'countries';
+        $select = ['id'];
+        try {
+            if (Site::hasSitesColumn('country')) {
+                $select[] = 'country';
+            }
+            if (Site::hasSitesColumn('countries')) {
+                $select[] = 'countries';
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+        if ($select === ['id']) {
+            return [];
         }
 
         try {
@@ -3280,7 +3304,7 @@ class SiteController extends Controller
             return (int) $value === 1;
         }
 
-        $raw = strtolower(trim((string) $value));
+        $raw = strtolower(trim(scalar_text($value)));
 
         return in_array($raw, ['1', 'true', 'on', 'yes'], true);
     }

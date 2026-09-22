@@ -21,7 +21,7 @@ class CatalogPlaceholderListing
 
     public static function descriptionLooksPlaceholder(mixed $description): bool
     {
-        $haystack = strtolower(trim(strip_tags((string) $description)));
+        $haystack = strtolower(trim(strip_tags(scalar_text($description))));
         if ($haystack === '') {
             return false;
         }
@@ -32,13 +32,13 @@ class CatalogPlaceholderListing
 
     public static function hostLooksPlaceholder(mixed $urlOrHost): bool
     {
-        $raw = strtolower(trim((string) $urlOrHost));
+        $raw = strtolower(trim(scalar_text($urlOrHost)));
         if ($raw === '') {
             return false;
         }
 
         $host = parse_url(str_contains($raw, '://') ? $raw : 'https://'.$raw, PHP_URL_HOST);
-        $host = strtolower((string) ($host ?: $raw));
+        $host = strtolower(trim(scalar_text($host ?: $raw)));
         $host = preg_replace('/^www\./', '', $host) ?? $host;
 
         if ($host === 'example.com' || $host === 'localhost') {
@@ -58,8 +58,14 @@ class CatalogPlaceholderListing
     public static function constrainQuery(Builder $query): Builder
     {
         return $query->where(function (Builder $q) {
-            $q->where('description', 'like', '%lorem ipsum%')
-                ->orWhere('description', 'like', '%replace this placeholder with a real site description%');
+            // Dummy false so leftover Hostinger can drop description without
+            // TypeError/SQLSTATE on the first WHERE clause.
+            $q->whereRaw('1 = 0');
+
+            if (Site::hasSitesColumn('description')) {
+                $q->orWhere('description', 'like', '%lorem ipsum%')
+                    ->orWhere('description', 'like', '%replace this placeholder with a real site description%');
+            }
 
             if (Site::hasSitesColumn('domain')) {
                 $q->orWhere('domain', 'example.com')

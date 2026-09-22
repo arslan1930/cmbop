@@ -77,6 +77,12 @@
 
 @if(is_object($sites) && method_exists($sites, 'hasPages') && $sites->hasPages())
     <div class="d-flex justify-content-center mt-3" data-records-pagination>
-        {{ $sites->links() }}
+        @php
+            try {
+                echo $sites->links();
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        @endphp
     </div>
 @endif

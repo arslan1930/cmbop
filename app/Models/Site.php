@@ -2752,13 +2752,18 @@ class Site extends Model
      */
     public function countryCodes(): array
     {
-        $codes = collect($this->safeJsonArray('countries'))
-            ->filter()
-            ->map(fn ($c) => strtolower(trim((string) $c)))
-            ->all();
+        $codes = array_map(
+            static fn (string $c) => strtolower(trim($c)),
+            scalar_list($this->safeJsonArray('countries'))
+        );
 
-        if ($this->country) {
-            $codes[] = strtolower(trim((string) $this->country));
+        try {
+            $primary = strtolower(trim(scalar_text($this->country ?? '')));
+            if ($primary !== '') {
+                $codes[] = $primary;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         $codes = array_values(array_unique(array_filter($codes)));
@@ -2776,18 +2781,18 @@ class Site extends Model
      */
     public function countryCodesForDisplay(): array
     {
-        $codes = collect($this->safeJsonArray('countries'))
-            ->filter()
-            ->map(fn ($c) => strtolower(trim((string) $c)))
-            ->unique()
-            ->values()
-            ->all();
+        $codes = array_values(array_unique(array_map(
+            static fn (string $c) => strtolower(trim($c)),
+            scalar_list($this->safeJsonArray('countries'))
+        )));
 
-        if ($this->country) {
-            $primary = strtolower(trim((string) $this->country));
+        try {
+            $primary = strtolower(trim(scalar_text($this->country ?? '')));
             if ($primary !== '' && ! in_array($primary, $codes, true)) {
                 array_unshift($codes, $primary);
             }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return array_values(array_filter($codes));
@@ -2806,11 +2811,19 @@ class Site extends Model
      */
     public function scopeMissingMarketplaceCountry($query)
     {
-        $query->where(function ($q) {
-            $q->whereNull('country')->orWhere('country', '');
-        });
+        $hasCountry = static::hasSitesColumn('country');
+        $hasCountries = static::hasSitesColumn('countries');
+        if (! $hasCountry && ! $hasCountries) {
+            return $query->whereRaw('1 = 0');
+        }
 
-        if (static::hasSitesColumn('countries')) {
+        if ($hasCountry) {
+            $query->where(function ($q) {
+                $q->whereNull('country')->orWhere('country', '');
+            });
+        }
+
+        if ($hasCountries) {
             $query->where(function ($q) {
                 $q->whereNull('countries')
                     ->orWhere('countries', '')
@@ -2830,7 +2843,11 @@ class Site extends Model
      */
     public function scopeActiveMissingMarketplaceCountry($query)
     {
-        return $query->where('active', 1)->missingMarketplaceCountry();
+        if (static::hasSitesColumn('active')) {
+            $query->where('active', 1);
+        }
+
+        return $query->missingMarketplaceCountry();
     }
 
     /**

@@ -95,6 +95,16 @@ class CatalogHealthQueue
             return $query;
         }
 
+        try {
+            if ($normalized !== self::MISSING_MARKET && ! Site::hasSitesColumn('active')) {
+                return $query->whereRaw('1 = 0');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $query->whereRaw('1 = 0');
+        }
+
         return match ($normalized) {
             self::MISSING_MARKET => $query->activeMissingMarketplaceCountry(),
             self::BELOW_QUALITY => self::constrainBelowQuality($query->catalogVisible()),

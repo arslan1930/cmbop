@@ -65,6 +65,31 @@ class AdminWebsiteRecordsSheetTest extends TestCase
         ], $overrides));
     }
 
+    private function dropSitesColumn(string $column): void
+    {
+        foreach (Schema::getIndexes('sites') as $index) {
+            $columns = $index['columns'] ?? [];
+            if (! in_array($column, $columns, true)) {
+                continue;
+            }
+            $name = $index['name'] ?? null;
+            if (! is_string($name) || $name === '') {
+                continue;
+            }
+            try {
+                Schema::table('sites', function ($table) use ($name) {
+                    $table->dropIndex($name);
+                });
+            } catch (\Throwable) {
+                // SQLite leftover composite indexes; keep dropping the rest.
+            }
+        }
+
+        Schema::table('sites', function ($table) use ($column) {
+            $table->dropColumn($column);
+        });
+    }
+
     public function test_admin_can_view_websites_records_sheet(): void
     {
         $admin = $this->userWithRoles(['admin'], 'admin');
@@ -816,6 +841,160 @@ class AdminWebsiteRecordsSheetTest extends TestCase
 
         $this->actingAs($admin)
             ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_live_filter_survives_missing_active_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-active-col.example',
+            'domain' => 'live-no-active-col.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('active');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-active-col.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.sites.records.export', ['live' => 1]));
+        $csv->assertOk();
+        $this->assertStringContainsString('https://live-no-active-col.example', $csv->streamedContent());
+    }
+
+    public function test_missing_market_survives_missing_active_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://missing-market-no-active.example',
+            'domain' => 'missing-market-no-active.example',
+            'active' => true,
+            'country' => '',
+            'countries' => [],
+        ]);
+
+        $this->dropSitesColumn('active');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['missing_market' => 1]))
+            ->assertOk()
+            ->assertSee('https://missing-market-no-active.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_placeholder_queue_survives_missing_description_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://demo86.com/guest',
+            'domain' => 'demo86.com',
+            'active' => true,
+            'verified' => true,
+            'description' => 'Lorem ipsum leftover placeholder.',
+        ]);
+
+        $this->dropSitesColumn('description');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => 'placeholder']))
+            ->assertOk()
+            ->assertSee('https://demo86.com/guest', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['health' => 'placeholder', 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('health', 'placeholder');
+    }
+
+    public function test_unverified_queue_survives_missing_verified_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://unverified-no-col.example',
+            'domain' => 'unverified-no-col.example',
+            'active' => true,
+            'verified' => false,
+        ]);
+
+        $this->dropSitesColumn('verified');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => 'unverified']))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('must be of type', false);
+    }
+
+    public function test_live_filter_survives_missing_country_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-country-col.example',
+            'domain' => 'live-no-country-col.example',
+            'active' => true,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+
+        $this->dropSitesColumn('country');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1, 'country' => 'de']))
+            ->assertOk()
+            ->assertSee('https://live-no-country-col.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true);
+    }
+
+    public function test_leftover_nested_countries_json_does_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_url' => 'https://nested-countries.example',
+            'domain' => 'nested-countries.example',
+            'active' => true,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'countries' => json_encode([['de'], ['at']]),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records'))
+            ->assertOk()
+            ->assertSee('https://nested-countries.example', false)
+            ->assertSee('de|at', false)
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('must be of type', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['partial' => 1]))
             ->assertOk()
             ->assertJsonPath('success', true);
     }
