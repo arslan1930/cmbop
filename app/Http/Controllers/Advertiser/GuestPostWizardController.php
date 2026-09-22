@@ -331,7 +331,7 @@ class GuestPostWizardController extends Controller
         }
 
         foreach ($cart as $line) {
-            if (! $this->lineFullyAssigned($line)) {
+            if (! is_array($line) || ! $this->lineFullyAssigned($line)) {
                 return false;
             }
         }
@@ -347,7 +347,7 @@ class GuestPostWizardController extends Controller
     private function cartHasReadyLine(array $cart): bool
     {
         foreach ($cart as $line) {
-            if ($this->lineFullyAssigned($line)) {
+            if (is_array($line) && $this->lineFullyAssigned($line)) {
                 return true;
             }
         }

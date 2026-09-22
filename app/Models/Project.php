@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ToleratesMissingSchema;
+use App\Models\Concerns\ToleratesUnparseableDates;
 use App\Support\AdvertiserOrderStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +15,8 @@ use Illuminate\Support\Str;
 class Project extends Model
 {
     use HasFactory;
+    use ToleratesMissingSchema;
+    use ToleratesUnparseableDates;
 
     /**
      * Placement-stage buckets shown on the advertiser projects page.
@@ -101,15 +105,23 @@ class Project extends Model
     public static function uniqueSlug(string $name, $userId = null, ?int $ignoreId = null): string
     {
         $owned = self::generateSlug($name, $userId);
+        if (! static::tableAvailable()) {
+            return $owned;
+        }
+
         $candidate = $owned;
         $n = 2;
 
-        while (self::query()
-            ->where('slug', $candidate)
-            ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
-            ->exists()) {
-            $candidate = $owned.'-'.$n;
-            $n++;
+        try {
+            while (self::query()
+                ->where('slug', $candidate)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()) {
+                $candidate = $owned.'-'.$n;
+                $n++;
+            }
+        } catch (\Throwable) {
+            return $owned;
         }
 
         return $candidate;
@@ -118,15 +130,19 @@ class Project extends Model
     public static function hostTakenByUser(int $userId, string $url, ?int $ignoreId = null): bool
     {
         $host = self::hostFromUrl($url);
-        if ($host === '') {
+        if ($host === '' || ! static::tableAvailable()) {
             return false;
         }
 
-        return self::query()
-            ->where('user_id', $userId)
-            ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
-            ->get(['id', 'project_url'])
-            ->contains(fn (self $project) => self::hostFromUrl($project->project_url) === $host);
+        try {
+            return self::query()
+                ->where('user_id', $userId)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->get(['id', 'project_url'])
+                ->contains(fn (self $project) => self::hostFromUrl($project->project_url) === $host);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function user()

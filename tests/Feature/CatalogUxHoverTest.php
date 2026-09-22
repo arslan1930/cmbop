@@ -376,6 +376,63 @@ class CatalogUxHoverTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
+    public function test_leftover_cart_junk_does_not_500_get_update_remove_clear_or_assign(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Leftover Cart Mutate Site',
+            'site_url' => 'https://leftover-cart-mutate.example',
+            'domain' => 'leftover-cart-mutate.example',
+        ]);
+        $junk = [null, '???', ['name' => 'no-id']];
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => $junk])
+            ->getJson(route('advertiser.cart.get'))
+            ->assertOk()
+            ->assertJsonMissingPath('exception')
+            ->assertDontSee('SQLSTATE');
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => 'not-json'])
+            ->postJson(route('advertiser.cart.update'), ['id' => $site->id, 'quantity' => 2])
+            ->assertOk()
+            ->assertJsonMissingPath('exception');
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => $junk])
+            ->postJson(route('advertiser.cart.remove'), ['id' => $site->id])
+            ->assertOk()
+            ->assertJsonMissingPath('exception');
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => 'not-json'])
+            ->postJson(route('advertiser.cart.clear'))
+            ->assertOk()
+            ->assertJsonMissingPath('exception');
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => $junk])
+            ->postJson(route('advertiser.cart.assign-article'), [
+                'id' => $site->id,
+                'content_submission_id' => 0,
+            ])
+            ->assertStatus(404)
+            ->assertJsonPath('success', false)
+            ->assertJsonMissingPath('exception');
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => 'not-json'])
+            ->postJson(route('advertiser.cart.save'), ['cart' => $junk])
+            ->assertOk()
+            ->assertJsonMissingPath('exception');
+
+        $this->actingAs($this->advertiser)
+            ->withSession(['cart' => 'not-json'])
+            ->get(route('advertiser.checkout'))
+            ->assertRedirect(route('advertiser.catalog'))
+            ->assertDontSee('SQLSTATE');
+    }
+
     public function test_leftover_hostile_site_url_is_not_put_in_cart_json(): void
     {
         $site = $this->makeSite([
