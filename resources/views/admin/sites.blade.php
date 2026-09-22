@@ -7,6 +7,7 @@
     $flatQueue = $flatQueue ?? false;
     $healthFilter = \App\Support\CatalogHealthQueue::normalize($healthFilter ?? null);
     $healthFilterActive = ! empty($healthFilterActive) || $healthFilter !== null;
+    $archivedFilterActive = ! empty($archivedFilterActive);
     $healthLabels = \App\Support\CatalogHealthQueue::LABELS;
     $healthRecordsUrl = $healthFilter === \App\Support\CatalogHealthQueue::MISSING_MARKET
         ? route('admin.sites.records', ['missing_market' => 1])
@@ -54,9 +55,21 @@
                     @endif
                 </small>
             @endif
+            @if(($archivedCount ?? 0) > 0)
+                <small class="text-muted d-block mt-1">
+                    <a href="{{ staff_route('sites.index', ['archived' => 1, 'flat' => 1]) }}" class="link-secondary">
+                        <span class="badge text-bg-secondary">{{ $archivedCount }}</span>
+                        archived
+                    </a>
+                </small>
+            @endif
         </div>
         <div class="d-flex flex-wrap gap-2">
-            @if(!empty($healthFilterActive))
+            @if(!empty($archivedFilterActive))
+                <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">
+                    Show all publishers
+                </a>
+            @elseif(!empty($healthFilterActive))
                 <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">
                     Show all publishers
                 </a>
@@ -107,6 +120,12 @@
                         <span class="badge text-bg-dark ms-1">{{ $waitingOnPublisherCount }}</span>
                     @endif
                 </a>
+                @if(($archivedCount ?? 0) > 0)
+                    <a href="{{ staff_route('sites.index', array_filter(['archived' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-secondary">
+                        Archived
+                        <span class="badge text-bg-dark ms-1">{{ $archivedCount }}</span>
+                    </a>
+                @endif
             @endif
             @if(auth()->user()?->isAdmin())
                 <a href="{{ route('admin.sites.records', array_filter(['missing_market' => ($missingMarketCount ?? 0) > 0 ? 1 : null])) }}"
@@ -141,6 +160,16 @@
                         CSV export stays on the records sheet.
                     @endif
                 </span>
+            </div>
+            <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">Show all publishers</a>
+        </div>
+    @endif
+
+    @if(!empty($archivedFilterActive))
+        <div class="alert alert-secondary border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <strong>Archived listings</strong>
+                <span class="ms-1">Hidden from the catalog. Restore does not auto-activate. A live duplicate on the same domain blocks restore.</span>
             </div>
             <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">Show all publishers</a>
         </div>
@@ -186,6 +215,10 @@
 
     <div id="staffIndexSearchWrap">
         <form method="GET" action="{{ staff_route('sites.index') }}" class="mb-2" style="max-width: 320px;" role="search">
+            @if(!empty($archivedFilterActive))
+                <input type="hidden" name="archived" value="1">
+                <input type="hidden" name="flat" value="1">
+            @endif
             @if(!empty($healthFilterActive) && $healthFilter)
                 <input type="hidden" name="health" value="{{ $healthFilter }}">
                 <input type="hidden" name="flat" value="1">
@@ -213,10 +246,34 @@
     @if(!empty($flatQueue) && $flatQueueSites)
     <div class="card shadow-sm border-0 mb-3 admin-table-fit" data-flat-queue="1">
         <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
-            <span>{{ !empty($healthFilterActive)
-                ? ($healthLabels[$healthFilter] ?? 'Catalog health')
-                : (!empty($waitingOnPublisherFilterActive) ? 'Waiting on publisher' : 'Sites needing review') }}</span>
+            <span>{{ !empty($archivedFilterActive)
+                ? 'Archived listings'
+                : (!empty($healthFilterActive)
+                    ? ($healthLabels[$healthFilter] ?? 'Catalog health')
+                    : (!empty($waitingOnPublisherFilterActive) ? 'Waiting on publisher' : 'Sites needing review')) }}</span>
             <span class="small text-muted" data-flat-queue-count>{{ $flatQueueSites->total() }} in queue</span>
+        </div>
+        <div class="px-3 py-2 border-bottom d-flex flex-wrap align-items-center gap-2 js-site-bulk-bar" data-bulk-context="flat">
+            <div class="form-check m-0">
+                <input class="form-check-input js-site-bulk-all" type="checkbox" id="flatBulkAll">
+                <label class="form-check-label small" for="flatBulkAll">Select page</label>
+            </div>
+            @if(auth()->user()?->isAdmin() && empty($archivedFilterActive) && empty($waitingOnPublisherFilterActive))
+                <button type="button" class="btn btn-sm btn-outline-success js-site-bulk-action" data-bulk-action="verify">Verify</button>
+            @endif
+            @if(auth()->user()?->canActivateSites() && empty($archivedFilterActive) && empty($waitingOnPublisherFilterActive))
+                <button type="button" class="btn btn-sm btn-outline-secondary js-site-bulk-action" data-bulk-action="deactivate">Deactivate</button>
+            @endif
+            @if(auth()->user()?->isAdmin() && empty($archivedFilterActive) && empty($waitingOnPublisherFilterActive))
+                <button type="button" class="btn btn-sm btn-outline-danger js-site-bulk-action" data-bulk-action="archive">Archive</button>
+            @endif
+            @if(auth()->user()?->isAdmin() && !empty($archivedFilterActive))
+                <button type="button" class="btn btn-sm btn-outline-primary js-site-bulk-action" data-bulk-action="restore">Restore</button>
+            @endif
+            @if(!empty($waitingOnPublisherFilterActive) || empty($archivedFilterActive))
+                <button type="button" class="btn btn-sm btn-outline-secondary js-site-bulk-action" data-bulk-action="nudge">Nudge</button>
+            @endif
+            <span class="small text-muted js-site-bulk-status"></span>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -239,6 +296,7 @@
                         $openUrl = staff_route('sites.index', array_filter([
                             'publisher' => $site->publisher_id,
                             'site' => $site->id,
+                            'archived' => $site->isArchived() ? 1 : null,
                         ]));
                         $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
                         $hasOrders = $site->orderItemsCount() > 0;
@@ -262,7 +320,12 @@
                             : '';
                     @endphp
                     <tr data-flat-site-row="{{ $site->id }}">
-                        <td>{{ $flatQueueSites->firstItem() + $index }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <input class="form-check-input js-site-bulk-id m-0" type="checkbox" value="{{ $site->id }}" aria-label="Select {{ $site->site_name }}">
+                                <span>{{ $flatQueueSites->firstItem() + $index }}</span>
+                            </div>
+                        </td>
                         <td>
                             <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
                             <div class="small text-muted text-break">{{ $site->site_url }}</div>
@@ -287,6 +350,16 @@
                                 @if($site->descriptionLooksLikeEnglish())
                                     <span class="badge text-bg-info">English brief</span>
                                 @endif
+                                @if($site->isArchived())
+                                    <span class="badge text-bg-secondary">Archived</span>
+                                @endif
+                                @if($site->getAttribute('staff_duplicate'))
+                                    @php $dup = $site->getAttribute('staff_duplicate'); @endphp
+                                    <span class="badge text-bg-danger" title="Another live listing uses this domain">Duplicate · #{{ $dup['id'] }}</span>
+                                @endif
+                                @if((int) ($site->getAttribute('staff_notes_count') ?? 0) > 0)
+                                    <span class="badge text-bg-light border">{{ (int) $site->getAttribute('staff_notes_count') }} note{{ (int) $site->getAttribute('staff_notes_count') === 1 ? '' : 's' }}</span>
+                                @endif
                             </div>
                         </td>
                         <td class="small">
@@ -308,7 +381,12 @@
                             <div class="d-flex flex-wrap gap-1">
                                 <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
                                 <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary">{{ $isMarketingEditor && $site->isLockedForMarketingEdits() && ! $site->marketingCanEditDescription() ? 'View' : 'Edit' }}</a>
-                                @if(empty($waitingOnPublisherFilterActive))
+                                <button type="button" class="btn btn-sm btn-outline-secondary js-site-note" data-id="{{ $site->id }}" data-name="{{ $site->site_name }}">Note</button>
+                                @if($site->isArchived())
+                                    @if(auth()->user()?->isAdmin())
+                                        <button type="button" class="btn btn-sm btn-outline-primary js-site-restore" data-id="{{ $site->id }}" data-name="{{ $site->site_name }}">Restore</button>
+                                    @endif
+                                @elseif(empty($waitingOnPublisherFilterActive))
                                     @if(auth()->user()?->isAdmin() && ! $site->verified)
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-success toggle-verify"
@@ -338,12 +416,15 @@
                                                 data-archive="1">Archive</button>
                                     @endif
                                 @endif
+                                @if(! $site->isArchived() && ($site->awaitsPublisherDetails() || $site->hasDetailsComplete() || $site->isPendingPublisherAcceptance()) && ! $site->verified && ! $site->active)
+                                    <button type="button" class="btn btn-sm btn-outline-secondary js-site-nudge" data-id="{{ $site->id }}" data-name="{{ $site->site_name }}">Nudge</button>
+                                @endif
                             </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-4">{{ !empty($healthFilterActive) ? 'No sites in this health queue.' : (!empty($waitingOnPublisherFilterActive) ? 'No listings waiting on a publisher.' : 'No sites in the review queue.') }}</td>
+                        <td colspan="9" class="text-center text-muted py-4">{{ !empty($archivedFilterActive) ? 'No archived listings.' : (!empty($healthFilterActive) ? 'No sites in this health queue.' : (!empty($waitingOnPublisherFilterActive) ? 'No listings waiting on a publisher.' : 'No sites in the review queue.')) }}</td>
                     </tr>
                 @endforelse
                 </tbody>
@@ -467,9 +548,31 @@
                 <input class="form-check-input" type="checkbox" id="sitesNeedsReviewOnly">
                 <label class="form-check-label small" for="sitesNeedsReviewOnly">Needs review only</label>
             </div>
+            <div class="form-check form-check-inline m-0">
+                <input class="form-check-input" type="checkbox" id="sitesArchivedOnly">
+                <label class="form-check-label small" for="sitesArchivedOnly">Archived only</label>
+            </div>
         </div>
 
         <div class="card shadow-sm border-0 admin-table-fit">
+            <div class="px-3 py-2 border-bottom d-flex flex-wrap align-items-center gap-2 js-site-bulk-bar" data-bulk-context="publisher">
+                <div class="form-check m-0">
+                    <input class="form-check-input js-site-bulk-all" type="checkbox" id="publisherBulkAll">
+                    <label class="form-check-label small" for="publisherBulkAll">Select page</label>
+                </div>
+                @if(auth()->user()?->isAdmin())
+                    <button type="button" class="btn btn-sm btn-outline-success js-site-bulk-action" data-bulk-action="verify">Verify</button>
+                @endif
+                @if(auth()->user()?->canActivateSites())
+                    <button type="button" class="btn btn-sm btn-outline-secondary js-site-bulk-action" data-bulk-action="deactivate">Deactivate</button>
+                @endif
+                @if(auth()->user()?->isAdmin())
+                    <button type="button" class="btn btn-sm btn-outline-danger js-site-bulk-action" data-bulk-action="archive">Archive</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary js-site-bulk-action" data-bulk-action="restore">Restore</button>
+                @endif
+                <button type="button" class="btn btn-sm btn-outline-secondary js-site-bulk-action" data-bulk-action="nudge">Nudge</button>
+                <span class="small text-muted js-site-bulk-status"></span>
+            </div>
 
             <div class="table-responsive">
                 <table class="table table-striped align-middle mb-0">
@@ -630,6 +733,9 @@ function fetchUserSites(id, page){
     }
     if (document.getElementById('sitesNeedsReviewOnly')?.checked) {
         params.set('needs_review', '1');
+    }
+    if (document.getElementById('sitesArchivedOnly')?.checked) {
+        params.set('archived', '1');
     }
     const sitesUrl = `${STAFF_BASE}/users/${id}/sites?${params.toString()}`;
 
@@ -1815,6 +1921,15 @@ function renderSites(data){
             const englishBriefBadge = site.description_looks_english
                 ? `<span class="badge text-bg-info badge-needs-review ms-1" title="Advertiser brief looks English">English brief</span>`
                 : '';
+            const archivedBadge = site.archived
+                ? `<span class="badge text-bg-secondary badge-needs-review ms-1">Archived</span>`
+                : '';
+            const duplicateBadge = site.duplicate
+                ? `<span class="badge text-bg-danger badge-needs-review ms-1" title="Another live listing uses this domain">Duplicate · #${escapeHtml(String(site.duplicate.id || ''))}</span>`
+                : '';
+            const notesBadge = (Number(site.notes_count) || 0) > 0
+                ? `<span class="badge text-bg-light border badge-needs-review ms-1">${Number(site.notes_count)} note${Number(site.notes_count) === 1 ? '' : 's'}</span>`
+                : '';
             const reasonTitle = site.status_reason ? ` title="${escapeHtml(site.status_reason)}"` : '';
 
             // Publisher-style 16:10 preview + site identity
@@ -1833,6 +1948,9 @@ function renderSites(data){
                             ${placeholderBadge}
                             ${missingCoverBadge}
                             ${englishBriefBadge}
+                            ${archivedBadge}
+                            ${duplicateBadge}
+                            ${notesBadge}
                         </div>
                         <a href="${escapeHtml(site.site_url ?? '#')}" target="_blank" class="site-url" title="${escapeHtml(site.site_url ?? '')}">
                             ${escapeHtml(site.site_url ?? '-')}
@@ -1861,6 +1979,13 @@ function renderSites(data){
                 || !!site.listing_locked
             );
             const editLabel = (IS_MARKETING_EDITOR && !!site.archived) ? 'View' : 'Edit';
+            const noteItem = `<li><button type="button" class="dropdown-item js-site-note" data-id="${site.id}" data-name="${escapeHtml(site.site_name ?? '')}"><i class="fa fa-sticky-note me-2"></i>Note</button></li>`;
+            const restoreItem = (CAN_DELETE_ANY_SITE && site.archived)
+                ? `<li><button type="button" class="dropdown-item js-site-restore" data-id="${site.id}" data-name="${escapeHtml(site.site_name ?? '')}"><i class="fa fa-undo me-2"></i>Restore</button></li>`
+                : '';
+            const nudgeItem = site.can_nudge
+                ? `<li><button type="button" class="dropdown-item js-site-nudge" data-id="${site.id}" data-name="${escapeHtml(site.site_name ?? '')}"><i class="fa fa-bell me-2"></i>Nudge</button></li>`
+                : '';
             const editItem = `<li><a class="dropdown-item" href="${STAFF_BASE}/sites/${site.id}/edit"><i class="fa fa-edit me-2"></i>${editLabel}</a></li>`
                 + (IS_MARKETING_EDITOR
                     ? ''
@@ -1889,19 +2014,19 @@ function renderSites(data){
             );
             const activateBlocked = site.can_activate === false || marketingActivateBlocked;
             const activateBlockReason = site.activate_block_reason || 'Cannot activate this listing yet.';
-            const activeItem = CAN_TOGGLE_ACTIVE
+            const activeItem = site.archived ? '' : (CAN_TOGGLE_ACTIVE
                 ? (isActive
                     ? `<li><button type="button" class="dropdown-item toggle-active" data-id="${site.id}" data-status="0"><i class="fa fa-pause me-2"></i>Deactivate</button></li>`
                     : (activateBlocked
                         ? `<li><button type="button" class="dropdown-item disabled" disabled title="${escapeHtml(activateBlockReason)}"><i class="fa fa-ban me-2"></i>Cannot activate</button></li>`
                         : `<li><button type="button" class="dropdown-item toggle-active" data-id="${site.id}" data-status="1"><i class="fa fa-play me-2"></i>Activate</button></li>`))
-                : '';
+                : '');
 
-            const verifyItem = CAN_VERIFY_SITES
-                ? (isVerified
+            const verifyItem = (site.archived || !CAN_VERIFY_SITES)
+                ? ''
+                : (isVerified
                     ? `<li><button type="button" class="dropdown-item toggle-verify" data-id="${site.id}" data-status="0"><i class="fa fa-times me-2"></i>Unverify</button></li>`
-                    : `<li><button type="button" class="dropdown-item toggle-verify" data-id="${site.id}" data-status="1"><i class="fa fa-check me-2"></i>Verify</button></li>`)
-                : '';
+                    : `<li><button type="button" class="dropdown-item toggle-verify" data-id="${site.id}" data-status="1"><i class="fa fa-check me-2"></i>Verify</button></li>`);
 
             const managePopperConfig = JSON.stringify({
                 strategy: 'fixed',
@@ -1923,6 +2048,9 @@ function renderSites(data){
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end admin-manage-menu">
                         ${editItem}
+                        ${noteItem}
+                        ${nudgeItem}
+                        ${restoreItem}
                         ${deleteItem}
                         ${(activeItem || verifyItem) ? '<li><hr class="dropdown-divider"></li>' : ''}
                         ${activeItem}
@@ -1936,7 +2064,12 @@ function renderSites(data){
 
             html += `
                 <tr class="${needsReview ? 'site-needs-review-row' : ''}" data-site-row="${site.id}">
-                    <td>${i+1}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <input class="form-check-input js-site-bulk-id m-0" type="checkbox" value="${site.id}" aria-label="Select ${escapeHtml(site.site_name ?? '')}">
+                            <span>${i+1}</span>
+                        </div>
+                    </td>
                     <td>${siteInfoHtml}</td>
                     <td>${site.da ?? '—'} / ${site.dr ?? '—'}</td>
                     <td>${escapeHtml(siteCountriesLabel(site))}</td>
@@ -2049,6 +2182,15 @@ function queryLooksLikeSiteSearch(q) {
 })();
 
 document.getElementById('sitesNeedsReviewOnly')?.addEventListener('change', function(){
+    if (this.checked) {
+        document.getElementById('sitesArchivedOnly') && (document.getElementById('sitesArchivedOnly').checked = false);
+    }
+    refetchOpenPublisherSites();
+});
+document.getElementById('sitesArchivedOnly')?.addEventListener('change', function(){
+    if (this.checked) {
+        document.getElementById('sitesNeedsReviewOnly') && (document.getElementById('sitesNeedsReviewOnly').checked = false);
+    }
     refetchOpenPublisherSites();
 });
 
@@ -2063,9 +2205,13 @@ window.addEventListener('DOMContentLoaded',()=>{
     // memory was also restored here — so clicking "Needs review" fetched the
     // queue, then immediately covered it with whichever publisher you happened
     // to open last, and the button looked dead.
-    const wantsReviewQueue = params.has('needs_review') || params.get('verified') === '0' || params.has('waiting_on_publisher') || params.has('health');
+    const wantsReviewQueue = params.has('needs_review') || params.get('verified') === '0' || params.has('waiting_on_publisher') || params.has('health') || params.has('archived');
     if (wantsReviewQueue && !params.get('publisher') && !siteId) {
         sessionStorage.removeItem('selected_user');
+    }
+
+    if (params.has('archived') && document.getElementById('sitesArchivedOnly')) {
+        document.getElementById('sitesArchivedOnly').checked = true;
     }
 
     const publisherId = params.get('publisher') || sessionStorage.getItem('selected_user');
@@ -2156,6 +2302,196 @@ document.addEventListener('click', function (e) {
             toast((data && data.message) || 'Could not activate site', 'error');
         })
         .catch(() => toast('Could not activate site', 'error'));
+    });
+});
+
+function staffJsonHeaders() {
+    return {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': CSRF_TOKEN,
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+    };
+}
+
+function selectedBulkIds(scope) {
+    const root = scope || document;
+    return [...root.querySelectorAll('.js-site-bulk-id:checked')].map((el) => Number(el.value)).filter((id) => id > 0);
+}
+
+document.addEventListener('change', function (e) {
+    const all = e.target.closest('.js-site-bulk-all');
+    if (!all) return;
+    const bar = all.closest('.js-site-bulk-bar');
+    const root = bar?.dataset.bulkContext === 'publisher'
+        ? document.getElementById('sitesSection')
+        : bar?.closest('[data-flat-queue]');
+    (root || document).querySelectorAll('.js-site-bulk-id').forEach((box) => {
+        box.checked = all.checked;
+    });
+});
+
+document.addEventListener('click', function (e) {
+    const restoreBtn = e.target.closest('.js-site-restore');
+    if (restoreBtn) {
+        e.preventDefault();
+        const id = restoreBtn.dataset.id;
+        const name = restoreBtn.dataset.name || 'this site';
+        const go = (typeof Swal !== 'undefined' && Swal.fire)
+            ? Swal.fire({
+                title: 'Restore this site?',
+                text: `"${name}" will leave archive. It stays off the catalog until it is active again.`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Restore',
+            }).then((r) => !!(r && r.isConfirmed))
+            : Promise.resolve(window.confirm('Restore this site?'));
+        go.then((ok) => {
+            if (!ok) return;
+            fetch(`${STAFF_BASE}/sites/${id}/restore`, {
+                method: 'POST',
+                headers: staffJsonHeaders(),
+                credentials: 'same-origin',
+            }).then(async (res) => {
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.success) throw new Error(data.message || 'Could not restore site');
+                toast(data.message || 'Site restored');
+                afterSiteDecision(id);
+            }).catch((err) => toast(err.message || 'Could not restore site', 'error'));
+        });
+        return;
+    }
+
+    const nudgeBtn = e.target.closest('.js-site-nudge');
+    if (nudgeBtn) {
+        e.preventDefault();
+        const id = nudgeBtn.dataset.id;
+        fetch(`${STAFF_BASE}/sites/${id}/nudge`, {
+            method: 'POST',
+            headers: staffJsonHeaders(),
+            credentials: 'same-origin',
+        }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) throw new Error(data.message || 'Could not send reminder');
+            toast(data.message || 'Reminder sent');
+        }).catch((err) => toast(err.message || 'Could not send reminder', 'error'));
+        return;
+    }
+
+    const noteBtn = e.target.closest('.js-site-note');
+    if (noteBtn) {
+        e.preventDefault();
+        const id = noteBtn.dataset.id;
+        const name = noteBtn.dataset.name || 'this site';
+        const site = allSites.find((s) => String(s.id) === String(id));
+        const latest = site?.latest_note?.body ? `\n\nLatest: ${site.latest_note.body}` : '';
+        if (typeof Swal === 'undefined' || !Swal.fire) return;
+        Swal.fire({
+            title: 'Internal note',
+            html: `<p class="small text-muted mb-2">Staff-only. The publisher does not see this.${latest ? '' : ''}</p>`,
+            input: 'textarea',
+            inputLabel: name,
+            inputPlaceholder: 'Add a note (min. 3 characters)',
+            inputAttributes: { maxlength: '2000' },
+            showCancelButton: true,
+            confirmButtonText: 'Save note',
+            preConfirm: (value) => {
+                const body = String(value || '').trim();
+                if (body.length < 3) {
+                    Swal.showValidationMessage('Please enter a note (at least 3 characters).');
+                    return false;
+                }
+                return body;
+            },
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            fetch(`${STAFF_BASE}/sites/${id}/notes`, {
+                method: 'POST',
+                headers: staffJsonHeaders(),
+                credentials: 'same-origin',
+                body: JSON.stringify({ body: String(result.value || '').trim() }),
+            }).then(async (res) => {
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.success) throw new Error(data.message || 'Could not save note');
+                toast(data.message || 'Note saved');
+                const userId = sessionStorage.getItem('selected_user');
+                if (userId && !FLAT_QUEUE) fetchUserSites(userId);
+            }).catch((err) => toast(err.message || 'Could not save note', 'error'));
+        });
+        return;
+    }
+
+    const bulkBtn = e.target.closest('.js-site-bulk-action');
+    if (!bulkBtn) return;
+    e.preventDefault();
+    const action = bulkBtn.dataset.bulkAction;
+    const bar = bulkBtn.closest('.js-site-bulk-bar');
+    const root = bar?.dataset.bulkContext === 'publisher'
+        ? document.getElementById('sitesSection')
+        : bar?.closest('[data-flat-queue]');
+    const ids = selectedBulkIds(root || document);
+    const statusEl = bar?.querySelector('.js-site-bulk-status');
+    if (ids.length < 1) {
+        toast('Select at least one site.', 'warning');
+        return;
+    }
+
+    const needsReason = action === 'archive' || action === 'deactivate';
+    const labels = {
+        verify: 'Verify selected sites?',
+        deactivate: 'Deactivate selected sites?',
+        archive: 'Archive selected live listings?',
+        restore: 'Restore selected archived listings?',
+        nudge: 'Email the publisher a reminder for each selected listing?',
+    };
+    const run = (reason) => {
+        if (statusEl) statusEl.textContent = 'Working…';
+        fetch(`${STAFF_BASE}/sites/bulk`, {
+            method: 'POST',
+            headers: staffJsonHeaders(),
+            credentials: 'same-origin',
+            body: JSON.stringify({ ids, action, reason: reason || undefined }),
+        }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok && !(data.done || []).length) {
+                throw new Error(data.message || 'Bulk update failed');
+            }
+            (data.done || []).forEach((id) => afterSiteDecision(id));
+            const skipped = (data.skipped || []).length;
+            const msg = data.message || 'Updated.';
+            toast(skipped ? `${msg} ${skipped} skipped.` : msg, skipped ? 'warning' : 'success');
+            if (statusEl) statusEl.textContent = skipped ? `${(data.done || []).length} done, ${skipped} skipped` : '';
+        }).catch((err) => {
+            if (statusEl) statusEl.textContent = '';
+            toast(err.message || 'Bulk update failed', 'error');
+        });
+    };
+
+    if (typeof Swal === 'undefined' || !Swal.fire) {
+        if (needsReason) return;
+        run();
+        return;
+    }
+    Swal.fire({
+        title: labels[action] || 'Update selected sites?',
+        icon: 'question',
+        input: needsReason ? 'textarea' : undefined,
+        inputLabel: needsReason ? 'Reason for the publisher' : undefined,
+        inputPlaceholder: needsReason ? 'Reason (min. 10 characters)' : undefined,
+        showCancelButton: true,
+        confirmButtonText: 'Apply',
+        preConfirm: (value) => {
+            if (!needsReason) return true;
+            const reason = String(value || '').trim();
+            if (reason.length < 10) {
+                Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
+                return false;
+            }
+            return reason;
+        },
+    }).then((result) => {
+        if (!result.isConfirmed) return;
+        run(needsReason ? String(result.value || '').trim() : undefined);
     });
 });
 </script>

@@ -1231,6 +1231,32 @@ class Site extends Model
     }
 
     /**
+     * Staff restore: clear archive. Does not auto-activate; catalog visibility
+     * still requires active + not cancelled bulk.
+     */
+    public function restoreFromArchive(): bool
+    {
+        if (! static::hasSitesColumn('archived_at') || ! $this->isArchived()) {
+            return false;
+        }
+
+        $this->archived_at = null;
+        $this->save();
+
+        return true;
+    }
+
+    public function adminNotes()
+    {
+        return $this->hasMany(SiteAdminNote::class);
+    }
+
+    public function latestAdminNote()
+    {
+        return $this->hasOne(SiteAdminNote::class)->latestOfMany();
+    }
+
+    /**
      * Promote stale bulk drafts to ready_for_review when details are already filled.
      */
     public function promoteFromAwaitingDetailsIfComplete(): bool

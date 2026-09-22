@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\CaptureSiteScreenshotJob;
 use App\Jobs\EnrichSiteJob;
 use App\Mail\AdminAssignedSiteNotification;
+use App\Mail\PublisherListingNudge;
 use App\Mail\SiteStatusNotification;
 use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
@@ -13,6 +14,7 @@ use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
+use App\Models\SiteAdminNote;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\CheckoutSchemaService;
@@ -38,6 +40,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -93,10 +96,18 @@ class SiteController extends Controller
             $needsReviewFilter = false;
         }
 
+        $archivedFilter = $request->boolean('archived');
         $publisherSearch = trim(scalar_text($request->query('q', '')));
         $healthFilter = CatalogHealthQueue::fromRequest($request);
         $healthFilterActive = $healthFilter !== null;
-        $flatQueue = $request->boolean('flat') || $healthFilterActive;
+        $flatQueue = $request->boolean('flat') || $healthFilterActive || $archivedFilter;
+
+        if ($archivedFilter) {
+            $healthFilter = null;
+            $healthFilterActive = false;
+            $needsReviewFilter = false;
+            $waitingOnPublisherFilter = false;
+        }
 
         if ($healthFilterActive) {
             $needsReviewFilter = false;
@@ -107,7 +118,7 @@ class SiteController extends Controller
             && ! $request->filled('publisher')
             && ! $request->filled('site')
         ) {
-            $exactSite = $this->uniqueStaffSiteForExactSearch($publisherSearch);
+            $exactSite = $this->uniqueStaffSiteForExactSearch($publisherSearch, $archivedFilter);
             if ($exactSite) {
                 return redirect()->to(staff_route('sites.index', array_filter([
                     'q' => $publisherSearch,
@@ -115,6 +126,7 @@ class SiteController extends Controller
                     'site' => $exactSite->id,
                     'needs_review' => $needsReviewFilter ? 1 : null,
                     'waiting_on_publisher' => $waitingOnPublisherFilter ? 1 : null,
+                    'archived' => $archivedFilter ? 1 : null,
                 ], static fn ($value) => $value !== null && $value !== '')));
             }
         }
@@ -130,9 +142,28 @@ class SiteController extends Controller
         $waitingOnPublisherCount = MarketingOpsQueues::sitesWaitingOnPublisherCount();
         $healthCounts = CatalogHealthQueue::counts();
         $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
+        $archivedCount = Site::hasSitesColumn('archived_at')
+            ? (int) Site::query()->archived()->count()
+            : 0;
+        $archivedFilterActive = $archivedFilter;
         $flatQueueSites = null;
 
-        if ($healthFilterActive) {
+        if ($archivedFilterActive) {
+            $users = new LengthAwarePaginator([], 0, 20, 1, [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]);
+            $flatQueueSites = Site::query()
+                ->archived()
+                ->with('publisher:id,name,email')
+                ->when(Schema::hasTable('order_items'), fn ($q) => $q->withCount('orderItems'))
+                ->orderByDesc('archived_at')
+                ->orderByDesc('id');
+            $this->applyStaffIndexSiteOrPublisherSearch($flatQueueSites, $publisherSearch);
+            $flatQueueSites = $flatQueueSites
+                ->paginate(30)
+                ->appends($request->query());
+        } elseif ($healthFilterActive) {
             $users = new LengthAwarePaginator([], 0, 20, 1, [
                 'path' => $request->url(),
                 'query' => $request->query(),
@@ -212,11 +243,17 @@ class SiteController extends Controller
                 ->appends($request->query());
         }
 
+        if ($flatQueueSites) {
+            $this->hydrateStaffQueueMeta($flatQueueSites->getCollection());
+        }
+
         return view('admin.sites', compact(
             'users',
             'unverifiedFilter',
             'needsReviewFilterActive',
             'waitingOnPublisherFilterActive',
+            'archivedFilterActive',
+            'archivedCount',
             'openReviewCount',
             'waitingOnPublisherCount',
             'missingMarketCount',
@@ -709,6 +746,10 @@ class SiteController extends Controller
             'health_flags' => CatalogHealthQueue::flags($site),
             'placeholder' => CatalogPlaceholderListing::matches($site),
             'missing_cover' => ! $site->hasCatalogCover(),
+            'can_nudge' => $this->staffCanNudgeSite($site),
+            'notes_count' => (int) ($site->getAttribute('staff_notes_count') ?? 0),
+            'latest_note' => $site->getAttribute('staff_latest_note'),
+            'duplicate' => $site->getAttribute('staff_duplicate'),
             'preview_thumb_url' => $preview['thumb'],
             'preview_full_url' => $preview['full'],
             'preview_fallback_urls' => $preview['fallbacks'],
@@ -855,17 +896,18 @@ class SiteController extends Controller
         $perPage = 50;
         $siteSearch = trim(scalar_text($request->query('q', '')));
         $needsReviewOnly = $request->boolean('needs_review');
+        $archivedOnly = $request->boolean('archived');
 
         $sitesQuery = Site::query()
             ->where('publisher_id', $user->id)
-            ->notArchived()
+            ->when($archivedOnly, fn ($q) => $q->archived(), fn ($q) => $q->notArchived())
             ->latest();
 
         if ($siteSearch !== '') {
             $this->constrainStaffSiteSearch($sitesQuery, $siteSearch);
         }
 
-        if ($needsReviewOnly) {
+        if ($needsReviewOnly && ! $archivedOnly) {
             $sitesQuery->needsAdminReview();
         }
 
@@ -874,6 +916,8 @@ class SiteController extends Controller
         }
 
         $paginator = $sitesQuery->paginate($perPage, $select);
+
+        $this->hydrateStaffQueueMeta($paginator->getCollection());
 
         $sites = $paginator->getCollection()
             ->map(fn (Site $site) => $this->staffSiteListRow($site))
@@ -895,6 +939,7 @@ class SiteController extends Controller
                 'per_page' => $paginator->perPage(),
                 'q' => $siteSearch,
                 'needs_review' => $needsReviewOnly,
+                'archived' => $archivedOnly,
             ],
         ]);
     }
@@ -966,9 +1011,9 @@ class SiteController extends Controller
     /**
      * Exact site-id or canonical domain hit — used to deep-link a unique result.
      */
-    private function uniqueStaffSiteForExactSearch(string $search): ?Site
+    private function uniqueStaffSiteForExactSearch(string $search, bool $archived = false): ?Site
     {
-        $query = Site::query()->notArchived();
+        $query = $archived ? Site::query()->archived() : Site::query()->notArchived();
 
         if (ctype_digit($search)) {
             $matches = $query->where('id', (int) $search)->limit(2)->get();
@@ -3830,6 +3875,389 @@ class SiteController extends Controller
             ->where('domain', $domain)
             ->whereNull('site_id')
             ->exists();
+    }
+
+    /**
+     * @param  Collection<int, Site>  $sites
+     */
+    private function hydrateStaffQueueMeta($sites): void
+    {
+        $list = collect($sites)->filter(fn ($site) => $site instanceof Site)->values();
+        if ($list->isEmpty()) {
+            return;
+        }
+
+        $ids = $list->map(fn (Site $site) => (int) $site->id)->filter()->all();
+        $notesBySite = [];
+        if ($ids !== [] && SiteAdminNote::tableAvailable()) {
+            $notes = SiteAdminNote::query()
+                ->with('admin:id,name')
+                ->whereIn('site_id', $ids)
+                ->orderByDesc('id')
+                ->get();
+            foreach ($notes as $note) {
+                $siteId = (int) $note->site_id;
+                if (! isset($notesBySite[$siteId])) {
+                    $notesBySite[$siteId] = [
+                        'count' => 0,
+                        'latest' => [
+                            'body' => (string) $note->body,
+                            'admin_name' => $note->admin?->name,
+                            'created_at' => optional($note->created_at)?->toIso8601String(),
+                        ],
+                    ];
+                }
+                $notesBySite[$siteId]['count']++;
+            }
+        }
+
+        $duplicates = $this->staffDuplicateMap($list);
+
+        foreach ($list as $site) {
+            $siteId = (int) $site->id;
+            $noteMeta = $notesBySite[$siteId] ?? ['count' => 0, 'latest' => null];
+            $site->setAttribute('staff_notes_count', (int) $noteMeta['count']);
+            $site->setAttribute('staff_latest_note', $noteMeta['latest']);
+            $site->setAttribute('staff_duplicate', $duplicates[$siteId] ?? null);
+        }
+    }
+
+    /**
+     * @param  Collection<int, Site>  $sites
+     * @return array<int, array{id:int,domain:?string,site_name:?string,publisher_id:?int}>
+     */
+    private function staffDuplicateMap($sites): array
+    {
+        $list = collect($sites)->filter(fn ($site) => $site instanceof Site);
+        $ids = $list->map(fn (Site $site) => (int) $site->id)->all();
+        $candidateToIds = [];
+        foreach ($list as $site) {
+            $host = (string) ($site->domain ?: '');
+            if ($host === '') {
+                continue;
+            }
+            foreach (Site::domainLookupCandidates($host) as $candidate) {
+                $candidateToIds[$candidate][] = (int) $site->id;
+            }
+        }
+        if ($candidateToIds === []) {
+            return [];
+        }
+
+        $others = Site::query()
+            ->notArchived()
+            ->whereIn('domain', array_keys($candidateToIds))
+            ->whereNotIn('id', $ids)
+            ->get(['id', 'domain', 'site_name', 'publisher_id']);
+
+        $map = [];
+        foreach ($others as $other) {
+            $candidates = Site::domainLookupCandidates((string) $other->domain);
+            $hitIds = [];
+            foreach ($candidates as $candidate) {
+                foreach ($candidateToIds[$candidate] ?? [] as $siteId) {
+                    $hitIds[$siteId] = true;
+                }
+            }
+            $payload = [
+                'id' => (int) $other->id,
+                'domain' => $other->domain,
+                'site_name' => $other->site_name,
+                'publisher_id' => $other->publisher_id ? (int) $other->publisher_id : null,
+            ];
+            foreach (array_keys($hitIds) as $siteId) {
+                if (! isset($map[$siteId])) {
+                    $map[$siteId] = $payload;
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    private function staffCanNudgeSite(Site $site): bool
+    {
+        if ($site->isArchived()) {
+            return false;
+        }
+        if ((bool) $site->verified || (bool) $site->active) {
+            return false;
+        }
+
+        return $site->awaitsPublisherDetails()
+            || $site->hasDetailsComplete()
+            || $site->isPendingPublisherAcceptance();
+    }
+
+    private function staffNudgeKind(Site $site): string
+    {
+        return $site->isPendingPublisherAcceptance() ? 'accept' : 'details';
+    }
+
+    public function restore(Request $request, $id)
+    {
+        if (! auth()->user()?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can restore archived sites.',
+            ], 403);
+        }
+
+        if (! Site::hasSitesColumn('archived_at')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Archive is not available yet.',
+            ], 503);
+        }
+
+        $site = Site::query()->findOrFail($id);
+        if (! $site->isArchived()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This site is not archived.',
+            ], 422);
+        }
+
+        $occupier = $site->domain ? Site::findOccupyingDomain((string) $site->domain, (int) $site->id) : null;
+        if ($occupier && ! $occupier->isArchived()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Another listing already occupies '.$occupier->domain.'. Restore is blocked until that row is archived.',
+                'duplicate_id' => (int) $occupier->id,
+            ], 422);
+        }
+
+        if (! $site->restoreFromArchive()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not restore this site.',
+            ], 422);
+        }
+
+        $site->refresh();
+
+        ActivityLogger::tryLog(
+            'site.unarchived',
+            (auth()->user()?->name ?? 'Staff').' restored site "'.$site->site_name.'" from archive',
+            $site,
+            [
+                'site_id' => $site->id,
+                'domain' => $site->domain,
+                'by_role' => auth()->user()?->activeRole(),
+            ],
+            $site->site_name
+        );
+
+        try {
+            $publisher = $site->publisher;
+            if ($publisher?->email) {
+                Mail::to($publisher->email)->send(new SiteStatusNotification($site, 'restored'));
+            }
+            if ($publisher) {
+                app(InAppNotificationService::class)->notifySiteStatusChanged($site, 'restored');
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to notify publisher after site restore: '.$e->getMessage());
+        }
+
+        $message = 'Site restored. It remains inactive until it is active again.';
+        if ($site->isCatalogVisible()) {
+            $message = 'Site restored to the catalog.';
+        }
+
+        return response()->json([
+            'success' => true,
+            'archived' => false,
+            'message' => $message,
+        ]);
+    }
+
+    public function storeNote(Request $request, $id)
+    {
+        $data = $request->validate([
+            'body' => ['required', 'string', 'min:3', 'max:2000'],
+        ]);
+
+        if (! SiteAdminNote::tableAvailable()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Site notes cannot be saved on this database.',
+            ], 503);
+        }
+
+        $site = Site::query()->findOrFail($id);
+        $note = SiteAdminNote::create([
+            'site_id' => $site->id,
+            'admin_id' => $request->user()?->id,
+            'body' => trim($data['body']),
+            'created_at' => now(),
+        ]);
+
+        ActivityLogger::tryLog(
+            'site.note_added',
+            ($request->user()?->name ?? 'Staff').' added an internal note on site "'.$site->site_name.'"',
+            $site,
+            ['note_id' => $note->id],
+            $site->site_name
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Note saved.',
+            'note' => [
+                'id' => (int) $note->id,
+                'body' => (string) $note->body,
+                'admin_name' => $request->user()?->name,
+                'created_at' => optional($note->created_at)?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    public function nudgePublisher(Request $request, $id)
+    {
+        $site = Site::query()->with('publisher:id,name,email')->findOrFail($id);
+        if (! $this->staffCanNudgeSite($site)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This listing is not waiting on the publisher.',
+            ], 422);
+        }
+
+        $publisher = $site->publisher;
+        if (! $publisher?->email) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This publisher has no email address.',
+            ], 422);
+        }
+
+        $kind = $this->staffNudgeKind($site);
+        Mail::to($publisher->email)->send(new PublisherListingNudge($site, $kind, $publisher));
+        try {
+            app(InAppNotificationService::class)->notifyPublisherListingNudge($site, $kind);
+        } catch (\Throwable $e) {
+            Log::warning('Could not create listing nudge bell: '.$e->getMessage());
+        }
+
+        ActivityLogger::tryLog(
+            'site.nudged',
+            ($request->user()?->name ?? 'Staff').' nudged publisher about "'.$site->site_name.'"',
+            $site,
+            ['kind' => $kind],
+            $site->site_name
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => $kind === 'accept'
+                ? 'Reminder sent to accept this listing.'
+                : 'Reminder sent to finish listing details.',
+            'kind' => $kind,
+        ]);
+    }
+
+    public function bulk(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:50'],
+            'ids.*' => ['integer', 'distinct'],
+            'action' => ['required', 'in:verify,deactivate,archive,restore,nudge'],
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $action = $data['action'];
+        $reason = isset($data['reason']) ? trim((string) $data['reason']) : '';
+        if (in_array($action, ['archive', 'deactivate'], true) && strlen($reason) < 10) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please enter a reason (at least 10 characters).',
+                'errors' => ['reason' => ['Please enter a reason (at least 10 characters).']],
+            ], 422);
+        }
+
+        $done = [];
+        $skipped = [];
+
+        foreach ($data['ids'] as $id) {
+            $id = (int) $id;
+
+            if ($action === 'archive') {
+                $candidate = Site::query()->find($id);
+                if (! $candidate) {
+                    $skipped[] = ['id' => $id, 'message' => 'Site not found.'];
+
+                    continue;
+                }
+                if ($candidate->isArchived()) {
+                    $skipped[] = ['id' => $id, 'message' => 'This site is already archived.'];
+
+                    continue;
+                }
+                if (! $candidate->verified && ! $candidate->active) {
+                    $skipped[] = ['id' => $id, 'message' => 'Pending listings are deleted one at a time, not archived in bulk.'];
+
+                    continue;
+                }
+            }
+
+            $inner = Request::create($request->url(), 'POST', array_filter([
+                'verified' => $action === 'verify' ? 1 : null,
+                'active' => $action === 'deactivate' ? 0 : null,
+                'reason' => in_array($action, ['archive', 'deactivate'], true) ? $reason : null,
+            ], static fn ($value) => $value !== null));
+            $inner->headers->set('Accept', 'application/json');
+            $inner->headers->set('X-Requested-With', 'XMLHttpRequest');
+            $inner->setUserResolver(fn () => $request->user());
+            if ($request->hasSession()) {
+                $inner->setLaravelSession($request->session());
+            }
+
+            try {
+                $response = match ($action) {
+                    'verify' => $this->verify($inner, $id),
+                    'deactivate' => $this->toggleActive($inner, $id),
+                    'archive' => $this->destroy($inner, $id),
+                    'restore' => $this->restore($inner, $id),
+                    'nudge' => $this->nudgePublisher($inner, $id),
+                };
+            } catch (ModelNotFoundException $e) {
+                $skipped[] = ['id' => $id, 'message' => 'Site not found.'];
+
+                continue;
+            } catch (ValidationException $e) {
+                $skipped[] = ['id' => $id, 'message' => collect($e->errors())->flatten()->first() ?: $e->getMessage()];
+
+                continue;
+            } catch (\Throwable $e) {
+                $skipped[] = ['id' => $id, 'message' => UserFacingError::message($e, 'Could not update this site.')];
+
+                continue;
+            }
+
+            $payload = json_decode($response->getContent(), true);
+            if (! is_array($payload)) {
+                $payload = [];
+            }
+            if ($response->getStatusCode() >= 400 || empty($payload['success'])) {
+                $skipped[] = [
+                    'id' => $id,
+                    'message' => (string) ($payload['message'] ?? 'Could not update this site.'),
+                ];
+
+                continue;
+            }
+
+            $done[] = $id;
+        }
+
+        return response()->json([
+            'success' => $done !== [],
+            'message' => $done === []
+                ? 'No sites were updated.'
+                : count($done).' site'.(count($done) === 1 ? '' : 's').' updated.',
+            'done' => $done,
+            'skipped' => $skipped,
+        ], $done === [] ? 422 : 200);
     }
 
     private function notifyPublisherSiteRemoved(

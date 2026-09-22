@@ -772,6 +772,7 @@ class InAppNotificationService
             'deactivated' => ['Site deactivated', 'Your site was deactivated and is hidden from the catalog.'],
             'removed' => ['Site submission removed', 'Your site submission was removed and will not be listed.'],
             'archived' => ['Site archived', 'Your site was archived and is hidden from the catalog. Existing orders are unchanged.'],
+            'restored' => ['Site restored', 'Your site was restored from archive. It stays off the catalog until it is active again.'],
         ];
 
         [$title, $defaultMessage] = $labels[$status] ?? ['Site status updated', 'Your site status was updated.'];
@@ -2420,6 +2421,44 @@ class InAppNotificationService
                 'meta' => [
                     'site_id' => $site->id,
                     'domain' => $domain,
+                ],
+            ]
+        );
+    }
+
+    public function notifyPublisherListingNudge(Site $site, string $kind = 'details'): void
+    {
+        $publisherId = (int) ($site->publisher_id ?? 0);
+        if ($publisherId <= 0) {
+            return;
+        }
+
+        $domain = $site->domain ?: $site->site_name ?: 'a listing';
+        $accept = $kind === 'accept';
+
+        $this->notify(
+            $publisherId,
+            self::TYPE_SITE_STATUS,
+            $accept
+                ? 'Reminder: accept your listing'
+                : 'Reminder: finish listing details',
+            $accept
+                ? "Our team added {$domain}. Accept it so it appears in My Sites."
+                : "{$domain} is still waiting on listing details. Finish them so staff can review.",
+            [
+                'category' => self::CATEGORY_ACCOUNT,
+                'icon' => 'bell',
+                'priority' => InAppNotification::PRIORITY_NORMAL,
+                'related' => $site,
+                'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                'action_label' => $accept ? 'Review & accept' : 'Open Pending sites',
+                'action_url' => $accept
+                    ? route('publisher.websites', ['status' => 'invites'], false)
+                    : route('publisher.websites', [], false),
+                'meta' => [
+                    'site_id' => $site->id,
+                    'domain' => $domain,
+                    'kind' => $accept ? 'accept' : 'details',
                 ],
             ]
         );

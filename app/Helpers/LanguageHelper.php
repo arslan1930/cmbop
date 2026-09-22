@@ -741,6 +741,8 @@ if (! function_exists('activity_action_labels')) {
             'site.verified_manual' => 'Verified site (manual)',
             'site.archived' => 'Archived site',
             'site.unarchived' => 'Restored archived site',
+            'site.note_added' => 'Added internal site note',
+            'site.nudged' => 'Nudged publisher about listing',
             'site.rereview_requested' => 'Requested site re-review',
             'site.deleted' => 'Deleted site',
             'site.claim_submitted' => 'Submitted site claim',

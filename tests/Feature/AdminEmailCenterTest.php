@@ -491,6 +491,7 @@ class AdminEmailCenterTest extends TestCase
             'bulk_site_request_submitted',
             'bulk_sites_seeded',
             'admin_assigned_site',
+            'publisher_listing_nudge',
             'audience_campaign',
             'bulk_request_cancelled',
             'bulk_request_items_rejected',
@@ -519,6 +520,7 @@ class AdminEmailCenterTest extends TestCase
             ->assertSee('Bulk Site Request Submitted', false)
             ->assertSee('Bulk Sites Seeded', false)
             ->assertSee('Admin Assigned Site', false)
+            ->assertSee('Publisher Listing Nudge', false)
             ->assertSee('Updates & Campaigns')
             ->assertSee('Bulk Website Request Cancelled', false)
             ->assertSee('Bulk Request Sites Not Added', false);
@@ -551,6 +553,7 @@ class AdminEmailCenterTest extends TestCase
             'Bulk site request from Sample User' => 'bulk_site_request_submitted',
             'Your sites were added to Pending sites' => 'bulk_sites_seeded',
             'Please accept a website we added for you' => 'admin_assigned_site',
+            'Reminder — finish your listing: example.com' => 'publisher_listing_nudge',
             'Your bulk website request was cancelled' => 'bulk_request_cancelled',
             'We did not add a site from bulk request #0' => 'bulk_request_items_rejected',
             'Spend budget warning' => 'spend_budget_alert',
