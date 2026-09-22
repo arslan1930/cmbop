@@ -93,6 +93,22 @@ class SiteController extends Controller
         $publisherSearch = trim(scalar_text($request->query('q', '')));
         $flatQueue = $request->boolean('flat');
 
+        if ($publisherSearch !== ''
+            && ! $request->filled('publisher')
+            && ! $request->filled('site')
+        ) {
+            $exactSite = $this->uniqueStaffSiteForExactSearch($publisherSearch);
+            if ($exactSite) {
+                return redirect()->to(staff_route('sites.index', array_filter([
+                    'q' => $publisherSearch,
+                    'publisher' => $exactSite->publisher_id,
+                    'site' => $exactSite->id,
+                    'needs_review' => $needsReviewFilter ? 1 : null,
+                    'waiting_on_publisher' => $waitingOnPublisherFilter ? 1 : null,
+                ], static fn ($value) => $value !== null && $value !== '')));
+            }
+        }
+
         $reviewQueue = function ($q) {
             $q->needsAdminReview()->notArchived();
         };
@@ -113,8 +129,11 @@ class SiteController extends Controller
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesWaitingOnPublisher()
                 ->with('publisher:id,name,email')
+                ->when(Schema::hasTable('order_items'), fn ($q) => $q->withCount('orderItems'))
                 ->orderBy('created_at')
-                ->orderBy('id')
+                ->orderBy('id');
+            $this->applyStaffIndexSiteOrPublisherSearch($flatQueueSites, $publisherSearch);
+            $flatQueueSites = $flatQueueSites
                 ->paginate(30)
                 ->appends($request->query());
         } elseif ($flatQueue && $needsReviewFilter) {
@@ -124,8 +143,11 @@ class SiteController extends Controller
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesReadyForStaff()
                 ->with('publisher:id,name,email')
+                ->when(Schema::hasTable('order_items'), fn ($q) => $q->withCount('orderItems'))
                 ->orderBy('created_at')
-                ->orderBy('id')
+                ->orderBy('id');
+            $this->applyStaffIndexSiteOrPublisherSearch($flatQueueSites, $publisherSearch);
+            $flatQueueSites = $flatQueueSites
                 ->paginate(30)
                 ->appends($request->query());
         } else {
@@ -139,10 +161,11 @@ class SiteController extends Controller
                 }]);
 
             if ($publisherSearch !== '') {
-                $query->where(function ($q) use ($publisherSearch) {
-                    $q->where('name', 'like', '%'.$publisherSearch.'%')
-                        ->orWhere('email', 'like', '%'.$publisherSearch.'%');
-                });
+                $query->withCount(['sites as matched_sites_count' => function ($q) use ($publisherSearch) {
+                    $q->notArchived();
+                    $this->constrainStaffSiteSearch($q, $publisherSearch);
+                }]);
+                $this->applyStaffPublisherSearch($query, $publisherSearch);
             }
 
             // Ops queue: publishers with sites ready for admin decision (not unfinished drafts)
@@ -795,10 +818,21 @@ class SiteController extends Controller
         ));
 
         $perPage = 50;
+        $siteSearch = trim(scalar_text($request->query('q', '')));
+        $needsReviewOnly = $request->boolean('needs_review');
+
         $sitesQuery = Site::query()
             ->where('publisher_id', $user->id)
             ->notArchived()
             ->latest();
+
+        if ($siteSearch !== '') {
+            $this->constrainStaffSiteSearch($sitesQuery, $siteSearch);
+        }
+
+        if ($needsReviewOnly) {
+            $sitesQuery->needsAdminReview();
+        }
 
         if (Schema::hasTable('order_items')) {
             $sitesQuery->withCount('orderItems');
@@ -824,8 +858,122 @@ class SiteController extends Controller
                 'last_page' => $paginator->lastPage(),
                 'total' => $paginator->total(),
                 'per_page' => $paginator->perPage(),
+                'q' => $siteSearch,
+                'needs_review' => $needsReviewOnly,
             ],
         ]);
+    }
+
+    /**
+     * Publishers whose name/email match, or who own a matching not-archived site.
+     */
+    private function applyStaffPublisherSearch($query, string $search): void
+    {
+        if ($search === '') {
+            return;
+        }
+
+        $like = like_contains($search);
+        $query->where(function ($q) use ($search, $like) {
+            $q->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
+                ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\']);
+            if (ctype_digit($search)) {
+                $q->orWhere('users.id', (int) $search);
+            }
+            $q->orWhereHas('sites', function ($sites) use ($search) {
+                $sites->notArchived();
+                $this->constrainStaffSiteSearch($sites, $search);
+            });
+        });
+    }
+
+    /**
+     * Flat queues: match the site itself or its publisher name/email.
+     */
+    private function applyStaffIndexSiteOrPublisherSearch($query, string $search): void
+    {
+        if ($search === '') {
+            return;
+        }
+
+        $like = like_contains($search);
+        $query->where(function ($q) use ($search, $like) {
+            $this->constrainStaffSiteSearch($q, $search);
+            $q->orWhereHas('publisher', function ($publisher) use ($like) {
+                $publisher->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
+                    ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\']);
+            });
+        });
+    }
+
+    /**
+     * Match site name, domain, URL, or numeric id.
+     */
+    private function constrainStaffSiteSearch($sites, string $search): void
+    {
+        $like = like_contains($search);
+        $host = $this->staffSearchHost($search);
+        $candidates = $host !== null ? Site::domainLookupCandidates($host) : [];
+
+        $sites->where(function ($q) use ($search, $like, $candidates) {
+            $q->whereRaw('site_name LIKE ? ESCAPE ?', [$like, '\\'])
+                ->orWhereRaw('domain LIKE ? ESCAPE ?', [$like, '\\'])
+                ->orWhereRaw('site_url LIKE ? ESCAPE ?', [$like, '\\']);
+            if (ctype_digit($search)) {
+                $q->orWhere('id', (int) $search);
+            }
+            if ($candidates !== []) {
+                $q->orWhereIn('domain', $candidates);
+            }
+        });
+    }
+
+    /**
+     * Exact site-id or canonical domain hit — used to deep-link a unique result.
+     */
+    private function uniqueStaffSiteForExactSearch(string $search): ?Site
+    {
+        $query = Site::query()->notArchived();
+
+        if (ctype_digit($search)) {
+            $matches = $query->where('id', (int) $search)->limit(2)->get();
+        } else {
+            $host = $this->staffSearchHost($search);
+            if ($host === null) {
+                return null;
+            }
+            $candidates = Site::domainLookupCandidates($host);
+            if ($candidates === []) {
+                return null;
+            }
+            $matches = $query->whereIn('domain', $candidates)->limit(2)->get();
+        }
+
+        return $matches->count() === 1 ? $matches->first() : null;
+    }
+
+    private function staffSearchHost(string $search): ?string
+    {
+        $raw = trim($search);
+        if ($raw === '' || str_contains($raw, ' ') || str_contains($raw, '@')) {
+            return null;
+        }
+        if (! str_contains($raw, '.') && ! str_contains($raw, '://')) {
+            return null;
+        }
+
+        if (! str_contains($raw, '://')) {
+            $raw = 'https://'.$raw;
+        }
+
+        $host = parse_url($raw, PHP_URL_HOST);
+        if (! is_string($host) || $host === '') {
+            return null;
+        }
+
+        $normalized = Site::normalizeMarketplaceDomain($host);
+
+        return $normalized !== '' ? $normalized : null;
     }
 
     /**
