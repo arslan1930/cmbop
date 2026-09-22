@@ -20,7 +20,7 @@ class AdvertiserProjectCheckout
      */
     public function resolveId(int $userId, mixed $raw, array $targetUrls = []): ?int
     {
-        $id = (int) $raw;
+        $id = is_numeric($raw) ? (int) $raw : 0;
         if ($id > 0) {
             return $this->owned($userId, $id)?->id;
         }
@@ -30,14 +30,18 @@ class AdvertiserProjectCheckout
 
     public function owned(int $userId, int $projectId): ?Project
     {
-        if ($userId <= 0 || $projectId <= 0) {
+        if ($userId <= 0 || $projectId <= 0 || ! Project::tableAvailable()) {
             return null;
         }
 
-        return Project::query()
-            ->where('user_id', $userId)
-            ->whereKey($projectId)
-            ->first();
+        try {
+            return Project::query()
+                ->where('user_id', $userId)
+                ->whereKey($projectId)
+                ->first();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -48,13 +52,17 @@ class AdvertiserProjectCheckout
     public function suggestId(int $userId, array $targetUrls): ?int
     {
         $hosts = $this->uniqueHosts($targetUrls);
-        if ($hosts === []) {
+        if ($hosts === [] || ! Project::tableAvailable()) {
             return null;
         }
 
-        $projects = Project::query()
-            ->where('user_id', $userId)
-            ->get(['id', 'project_url']);
+        try {
+            $projects = Project::query()
+                ->where('user_id', $userId)
+                ->get(['id', 'project_url']);
+        } catch (\Throwable) {
+            return null;
+        }
 
         $matched = [];
         foreach ($hosts as $host) {
@@ -85,21 +93,22 @@ class AdvertiserProjectCheckout
             return [];
         }
 
-        $orders = Order::query()
-            ->where('user_id', $userId)
-            ->whereNotIn('status', ['cancelled'])
-            ->where(function ($q) {
-                $q->whereNull('payment_status')
-                    ->orWhere('payment_status', '!=', 'failed');
-            })
-            ->with(
-                Schema::hasColumn('orders', 'project_id') && Schema::hasTable('projects')
-                    ? ['items', 'project:id,project_name']
-                    : ['items']
-            )
-            ->latest('id')
-            ->limit(80)
-            ->get();
+        try {
+            $withProject = Schema::hasColumn('orders', 'project_id') && Project::tableAvailable();
+            $orders = Order::query()
+                ->where('user_id', $userId)
+                ->whereNotIn('status', ['cancelled'])
+                ->where(function ($q) {
+                    $q->whereNull('payment_status')
+                        ->orWhere('payment_status', '!=', 'failed');
+                })
+                ->with($withProject ? ['items', 'project:id,project_name'] : ['items'])
+                ->latest('id')
+                ->limit(80)
+                ->get();
+        } catch (\Throwable) {
+            return [];
+        }
 
         $seen = [];
         $warnings = [];
@@ -139,10 +148,17 @@ class AdvertiserProjectCheckout
      */
     public function checkoutContext(int $userId, mixed $requestedId, Collection|array $checkoutArticles): array
     {
-        $projects = Project::query()
-            ->where('user_id', $userId)
-            ->orderBy('project_name')
-            ->get();
+        $projects = collect();
+        if (Project::tableAvailable()) {
+            try {
+                $projects = Project::query()
+                    ->where('user_id', $userId)
+                    ->orderBy('project_name')
+                    ->get();
+            } catch (\Throwable) {
+                $projects = collect();
+            }
+        }
 
         $targetUrls = $this->targetUrlsFromArticles($checkoutArticles);
         $suggested = $this->suggestId($userId, $targetUrls);

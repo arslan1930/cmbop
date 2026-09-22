@@ -486,6 +486,11 @@ class AdvertiserOrderDetailsModalTest extends TestCase
             'live_url_submitted_at' => now(),
         ]);
 
+        $meta = AdvertiserOrderStatus::meta($order->fresh('items'));
+        $this->assertSame('URL delivered · your review', $meta['label']);
+        $this->assertStringContainsString('Auto-approves', (string) $meta['auto_approve_hint']);
+        $this->assertStringNotContainsString('Ready for auto-approve', (string) $meta['auto_approve_hint']);
+
         $detail = $this->actingAs($advertiser)
             ->getJson(route('advertiser.orders.get', $order->id))
             ->assertOk()
@@ -494,9 +499,44 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertSame('URL delivered · your review', $detail['status_label']);
         $this->assertTrue($detail['has_live_url']);
         $this->assertTrue($detail['can_approve']);
+        $this->assertNotEmpty($detail['auto_approve_hint']);
+        $this->assertStringContainsString('Auto-approves', (string) $detail['auto_approve_hint']);
+        $this->assertStringNotContainsString('Ready for auto-approve', (string) $detail['auto_approve_hint']);
         $urlStep = collect($detail['timeline_steps'])->firstWhere('label', 'URL delivered');
         $this->assertTrue($urlStep['current']);
         $this->assertFalse($urlStep['done']);
+    }
+
+    public function test_completed_status_does_not_use_first_line_link_down_when_sibling_url_is_healthy(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $siteA = $this->siteFor($publisher, 'First Check Failed');
+        $siteB = $this->siteFor($publisher, 'Second Healthy Url');
+        $order = $this->makeOrder($advertiser, $siteA, [
+            'status' => 'completed',
+            'completed_at' => now()->subHour(),
+        ], [
+            'live_url' => null,
+            'live_url_check_ok' => false,
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $siteB->id,
+            'site_name' => $siteB->site_name,
+            'site_url' => $siteB->site_url,
+            'price' => 50,
+            'content_link' => 'https://example.com/article-2.docx',
+            'live_url' => 'https://live.example/healthy-second',
+            'live_url_check_ok' => true,
+            'completed_at' => now()->subHour(),
+        ]);
+
+        $meta = AdvertiserOrderStatus::meta($order->fresh('items'));
+        $this->assertSame('Completed', $meta['label']);
+        $this->assertStringContainsString('Your post is live', $meta['next']);
+        $this->assertStringNotContainsString('link may be down', $meta['label']);
+        $this->assertStringNotContainsString('link may be down', $meta['next']);
     }
 
     /**

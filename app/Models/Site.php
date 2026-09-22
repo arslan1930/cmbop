@@ -1053,6 +1053,19 @@ class Site extends Model
             return $query;
         }
 
+        try {
+            if (! Schema::hasTable('bulk_site_requests')) {
+                return $query;
+            }
+            if (! Schema::hasColumn('bulk_site_requests', 'status')) {
+                return $query;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $query;
+        }
+
         return $query->where(function ($q) {
             $q->whereNull('bulk_site_request_id')
                 ->orWhereHas('bulkSiteRequest', function ($bulk) {
@@ -1546,11 +1559,22 @@ class Site extends Model
             return false;
         }
 
-        $bulk = $this->relationLoaded('bulkSiteRequest')
-            ? $this->bulkSiteRequest
-            : $this->bulkSiteRequest()->first();
+        try {
+            if (! Schema::hasTable('bulk_site_requests')
+                || ! Schema::hasColumn('bulk_site_requests', 'status')) {
+                return false;
+            }
 
-        return (bool) $bulk?->isCancelled();
+            $bulk = $this->relationLoaded('bulkSiteRequest')
+                ? $this->bulkSiteRequest
+                : $this->bulkSiteRequest()->first();
+
+            return (bool) $bulk?->isCancelled();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     public function canBeActivated(): bool
@@ -2197,9 +2221,17 @@ class Site extends Model
      */
     public function hasGoodMetrics(): bool
     {
-        return (int) $this->da >= self::GOOD_MIN_DA
-            && (int) $this->dr >= self::GOOD_MIN_DR
-            && (int) $this->traffic >= self::GOOD_MIN_TRAFFIC;
+        try {
+            $da = static::hasSitesColumn('da') ? (int) $this->da : 0;
+            $dr = static::hasSitesColumn('dr') ? (int) $this->dr : 0;
+            $traffic = static::hasSitesColumn('traffic') ? (int) $this->traffic : 0;
+
+            return $da >= self::GOOD_MIN_DA
+                && $dr >= self::GOOD_MIN_DR
+                && $traffic >= self::GOOD_MIN_TRAFFIC;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
@@ -2714,6 +2746,49 @@ class Site extends Model
     }
 
     /**
+     * Leftover Hostinger stores junk in decimal columns (price = "not-json").
+     * Laravel's decimal cast MathExceptions and 500s staff records hydration.
+     *
+     * @param  mixed  $value
+     * @param  int  $decimals
+     */
+    protected function asDecimal($value, $decimals)
+    {
+        try {
+            if (is_array($value) || (is_object($value) && ! $value instanceof \Stringable)) {
+                $value = 0;
+            }
+
+            return parent::asDecimal($value, $decimals);
+        } catch (\Throwable) {
+            try {
+                return parent::asDecimal(0, $decimals);
+            } catch (\Throwable) {
+                return number_format(0, (int) $decimals, '.', '');
+            }
+        }
+    }
+
+    /**
+     * Leftover Hostinger may store JSON arrays in float columns (rating_avg).
+     * Laravel's fromFloat() TypeErrors on (string) array and 500s records hydration.
+     *
+     * @param  mixed  $value
+     */
+    public function fromFloat($value)
+    {
+        try {
+            if (is_array($value) || (is_object($value) && ! $value instanceof \Stringable)) {
+                return 0.0;
+            }
+
+            return parent::fromFloat($value);
+        } catch (\Throwable) {
+            return 0.0;
+        }
+    }
+
+    /**
      * Count listings that offer homepage placement.
      * Returns 0 when Hostinger skipped the placement migration (do not WHERE a missing column).
      */
@@ -2773,9 +2848,13 @@ class Site extends Model
      */
     public function getCategoriesStringAttribute(): string
     {
-        $categories = $this->categories ?? [$this->category];
+        try {
+            return implode(', ', scalar_list($this->categories ?? [$this->category]));
+        } catch (\Throwable $e) {
+            report($e);
 
-        return implode(', ', $categories);
+            return trim(scalar_text($this->category ?? ''));
+        }
     }
 
     /**
@@ -2787,8 +2866,9 @@ class Site extends Model
             if (empty($this->categories)) {
                 // Keep a single legacy niche (even with commas) as one entry — never
                 // explode("Marketing, PR & Advertising") into halves.
-                if (! empty($this->category)) {
-                    return Category::parseCatalogCategoryParam((string) $this->category);
+                $legacy = trim(scalar_text($this->category ?? ''));
+                if ($legacy !== '') {
+                    return Category::parseCatalogCategoryParam($legacy);
                 }
 
                 return [];
@@ -2797,7 +2877,7 @@ class Site extends Model
             // If it's already an array — each entry is one niche (do not split on commas).
             if (is_array($this->categories)) {
                 return array_values(array_filter(array_map(
-                    static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
+                    static fn ($c) => trim(scalar_text($c)),
                     $this->categories
                 ), static fn ($c) => $c !== ''));
             }
@@ -2807,7 +2887,7 @@ class Site extends Model
                 $decoded = json_decode($this->categories, true);
                 if (is_array($decoded)) {
                     return array_values(array_filter(array_map(
-                        static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
+                        static fn ($c) => trim(scalar_text($c)),
                         $decoded
                     ), static fn ($c) => $c !== ''));
                 }
@@ -2818,11 +2898,19 @@ class Site extends Model
                 return Category::parseCatalogCategoryParam($this->categories);
             }
 
-            return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+            $legacy = trim(scalar_text($this->category ?? ''));
+
+            return $legacy !== '' ? Category::parseCatalogCategoryParam($legacy) : [];
         } catch (\Throwable $e) {
             report($e);
 
-            return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+            try {
+                $legacy = trim(scalar_text($this->category ?? ''));
+
+                return $legacy !== '' ? Category::parseCatalogCategoryParam($legacy) : [];
+            } catch (\Throwable) {
+                return [];
+            }
         }
     }
 
@@ -2856,13 +2944,18 @@ class Site extends Model
      */
     public function countryCodes(): array
     {
-        $codes = collect($this->safeJsonArray('countries'))
-            ->filter()
-            ->map(fn ($c) => strtolower(trim((string) $c)))
-            ->all();
+        $codes = array_map(
+            static fn (string $c) => strtolower(trim($c)),
+            scalar_list($this->safeJsonArray('countries'))
+        );
 
-        if ($this->country) {
-            $codes[] = strtolower(trim((string) $this->country));
+        try {
+            $primary = strtolower(trim(scalar_text($this->country ?? '')));
+            if ($primary !== '') {
+                $codes[] = $primary;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         $codes = array_values(array_unique(array_filter($codes)));
@@ -2880,18 +2973,18 @@ class Site extends Model
      */
     public function countryCodesForDisplay(): array
     {
-        $codes = collect($this->safeJsonArray('countries'))
-            ->filter()
-            ->map(fn ($c) => strtolower(trim((string) $c)))
-            ->unique()
-            ->values()
-            ->all();
+        $codes = array_values(array_unique(array_map(
+            static fn (string $c) => strtolower(trim($c)),
+            scalar_list($this->safeJsonArray('countries'))
+        )));
 
-        if ($this->country) {
-            $primary = strtolower(trim((string) $this->country));
+        try {
+            $primary = strtolower(trim(scalar_text($this->country ?? '')));
             if ($primary !== '' && ! in_array($primary, $codes, true)) {
                 array_unshift($codes, $primary);
             }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return array_values(array_filter($codes));
@@ -2910,11 +3003,19 @@ class Site extends Model
      */
     public function scopeMissingMarketplaceCountry($query)
     {
-        $query->where(function ($q) {
-            $q->whereNull('country')->orWhere('country', '');
-        });
+        $hasCountry = static::hasSitesColumn('country');
+        $hasCountries = static::hasSitesColumn('countries');
+        if (! $hasCountry && ! $hasCountries) {
+            return $query->whereRaw('1 = 0');
+        }
 
-        if (static::hasSitesColumn('countries')) {
+        if ($hasCountry) {
+            $query->where(function ($q) {
+                $q->whereNull('country')->orWhere('country', '');
+            });
+        }
+
+        if ($hasCountries) {
             $query->where(function ($q) {
                 $q->whereNull('countries')
                     ->orWhere('countries', '')
@@ -2934,7 +3035,11 @@ class Site extends Model
      */
     public function scopeActiveMissingMarketplaceCountry($query)
     {
-        return $query->where('active', 1)->missingMarketplaceCountry();
+        if (static::hasSitesColumn('active')) {
+            $query->where('active', 1);
+        }
+
+        return $query->missingMarketplaceCountry();
     }
 
     /**
@@ -2973,7 +3078,7 @@ class Site extends Model
     {
         $codes = collect($this->safeJsonArray('languages'))
             ->filter()
-            ->map(fn ($c) => strtolower(trim((string) $c)))
+            ->map(fn ($c) => strtolower(trim(scalar_text($c))))
             ->all();
 
         try {

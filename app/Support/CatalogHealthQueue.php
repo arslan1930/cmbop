@@ -41,14 +41,11 @@ class CatalogHealthQueue
 
     public static function normalize(mixed $health): ?string
     {
-        if (is_array($health)) {
-            $health = reset($health);
-        }
-        if (! is_scalar($health) || is_bool($health)) {
+        if (is_bool($health)) {
             return null;
         }
 
-        $value = strtolower(trim((string) $health));
+        $value = strtolower(trim(scalar_text($health)));
         if ($value === '' || $value === 'all') {
             return null;
         }
@@ -58,11 +55,18 @@ class CatalogHealthQueue
 
     public static function fromRequest(Request $request): ?string
     {
-        if ($request->boolean('missing_market')) {
-            return self::MISSING_MARKET;
-        }
+        try {
+            // Leftover ?missing_market[]=1 TypeErrors $request->boolean().
+            if (filter_var(scalar_text($request->query('missing_market')), FILTER_VALIDATE_BOOLEAN)) {
+                return self::MISSING_MARKET;
+            }
 
-        return self::normalize($request->query('health'));
+            return self::normalize($request->query('health'));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     public static function label(?string $filter): ?string
@@ -91,14 +95,30 @@ class CatalogHealthQueue
             return $query;
         }
 
-        return match ($normalized) {
-            self::MISSING_MARKET => $query->activeMissingMarketplaceCountry(),
-            self::BELOW_QUALITY => self::constrainBelowQuality($query->catalogVisible()),
-            self::UNVERIFIED => self::constrainUnverified($query->catalogVisible()),
-            self::PLACEHOLDER => CatalogPlaceholderListing::constrainQuery($query->catalogVisible()),
-            self::MISSING_COVER => self::constrainMissingCover($query->catalogVisible()),
-            default => $query,
-        };
+        try {
+            if ($normalized !== self::MISSING_MARKET && ! Site::hasSitesColumn('active')) {
+                return $query->whereRaw('1 = 0');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $query->whereRaw('1 = 0');
+        }
+
+        try {
+            return match ($normalized) {
+                self::MISSING_MARKET => $query->activeMissingMarketplaceCountry(),
+                self::BELOW_QUALITY => self::constrainBelowQuality($query->catalogVisible()),
+                self::UNVERIFIED => self::constrainUnverified($query->catalogVisible()),
+                self::PLACEHOLDER => CatalogPlaceholderListing::constrainQuery($query->catalogVisible()),
+                self::MISSING_COVER => self::constrainMissingCover($query->catalogVisible()),
+                default => $query,
+            };
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $query->whereRaw('1 = 0');
+        }
     }
 
     /**
@@ -127,20 +147,53 @@ class CatalogHealthQueue
     {
         $flags = [];
 
-        if ((bool) $site->active && ! $site->hasMarketplaceCountry()) {
-            $flags[] = self::MISSING_MARKET;
+        try {
+            if ((bool) $site->active && ! $site->hasMarketplaceCountry()) {
+                $flags[] = self::MISSING_MARKET;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
-        if ($site->isCatalogVisible() && ! $site->hasGoodMetrics()) {
-            $flags[] = self::BELOW_QUALITY;
+
+        $live = false;
+        try {
+            $live = $site->isCatalogVisible();
+        } catch (\Throwable $e) {
+            report($e);
+            try {
+                $live = (bool) $site->active && ! $site->isArchived();
+            } catch (\Throwable) {
+                $live = (bool) ($site->active ?? false);
+            }
         }
-        if ($site->isCatalogVisible() && ! (bool) $site->verified) {
-            $flags[] = self::UNVERIFIED;
+
+        try {
+            if ($live && ! $site->hasGoodMetrics()) {
+                $flags[] = self::BELOW_QUALITY;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
-        if ($site->isCatalogVisible() && CatalogPlaceholderListing::matches($site)) {
-            $flags[] = self::PLACEHOLDER;
+        try {
+            if ($live && ! (bool) $site->verified) {
+                $flags[] = self::UNVERIFIED;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
-        if ($site->isCatalogVisible() && ! $site->hasCatalogCover()) {
-            $flags[] = self::MISSING_COVER;
+        try {
+            if ($live && CatalogPlaceholderListing::matches($site)) {
+                $flags[] = self::PLACEHOLDER;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+        try {
+            if ($live && ! $site->hasCatalogCover()) {
+                $flags[] = self::MISSING_COVER;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return $flags;
@@ -152,13 +205,33 @@ class CatalogHealthQueue
      */
     private static function constrainBelowQuality(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
-            $q->where('da', '<', Site::GOOD_MIN_DA)
-                ->orWhere('dr', '<', Site::GOOD_MIN_DR)
-                ->orWhere('traffic', '<', Site::GOOD_MIN_TRAFFIC)
-                ->orWhereNull('da')
-                ->orWhereNull('dr')
-                ->orWhereNull('traffic');
+        $checks = [];
+        if (Site::hasSitesColumn('da')) {
+            $checks[] = 'da';
+        }
+        if (Site::hasSitesColumn('dr')) {
+            $checks[] = 'dr';
+        }
+        if (Site::hasSitesColumn('traffic')) {
+            $checks[] = 'traffic';
+        }
+
+        if ($checks === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $mins = [
+            'da' => Site::GOOD_MIN_DA,
+            'dr' => Site::GOOD_MIN_DR,
+            'traffic' => Site::GOOD_MIN_TRAFFIC,
+        ];
+
+        return $query->where(function (Builder $q) use ($checks, $mins) {
+            $first = array_shift($checks);
+            $q->where($first, '<', $mins[$first])->orWhereNull($first);
+            foreach ($checks as $column) {
+                $q->orWhere($column, '<', $mins[$column])->orWhereNull($column);
+            }
         });
     }
 
@@ -168,6 +241,10 @@ class CatalogHealthQueue
      */
     private static function constrainUnverified(Builder $query): Builder
     {
+        if (! Site::hasSitesColumn('verified')) {
+            return $query->whereRaw('1 = 0');
+        }
+
         return $query->where(function (Builder $q) {
             $q->where('verified', 0)->orWhereNull('verified');
         });
