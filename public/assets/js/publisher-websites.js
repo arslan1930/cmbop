@@ -1228,7 +1228,7 @@ function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteC
                 ? '1 site is with our marketer; others below may need your details or admin review.'
                 : bulkWaiting + ' sites are with our marketer; others below may need your details or admin review.';
         } else if (openBulk) {
-            hint.textContent = 'Your bulk request is open — drafts appear here as the marketer adds them, then you finish details.';
+            hint.textContent = 'Your bulk request is open. Our team publishes the sites they accept, and you’ll be notified when those sites are active.';
         } else {
             hint.textContent = 'Drafts that need your details, plus sites waiting for admin approval.';
         }

@@ -84,6 +84,8 @@
                             $dealTld = '';
                             $dealName = '';
                             $dealSearch = '';
+                            $dealFaviconChain = [];
+                            $dealFaviconUrl = null;
                             try {
                                 $qtyExample = (int) ($deal->bulk_pack_qty ?? 3);
                                 $list = (float) ($deal->bulk_pack_list_total ?? round(((float) $deal->price) * $qtyExample, 2));
@@ -109,6 +111,10 @@
                                     $dealHost,
                                     $dealTld,
                                 ]))));
+                                if ($deal instanceof \App\Models\Site) {
+                                    $dealFaviconUrl = $deal->catalogTileFaviconUrl();
+                                    $dealFaviconChain = $dealFaviconUrl ? [$dealFaviconUrl] : [];
+                                }
                             } catch (\Throwable $e) {
                                 report($e);
                             }
@@ -121,6 +127,8 @@
                                 @include('advertiser.partials.catalog-site-tile', [
                                     'label' => $dealHost !== '' ? $dealHost : $dealName,
                                     'size' => 'md',
+                                    'faviconUrl' => $dealFaviconUrl,
+                                    'faviconChain' => $dealFaviconChain,
                                 ])
                                 <div class="bulk-deal-card__identity min-w-0 flex-grow-1">
                                     <span class="bulk-deal-card__name" title="{{ $dealName }}">{{ $dealName }}</span>

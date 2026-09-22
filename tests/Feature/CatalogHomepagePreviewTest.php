@@ -87,7 +87,17 @@ class CatalogHomepagePreviewTest extends TestCase
         // Closed rows show a thumbnail tile; the dedicated preview column
         // classes stay unused so we never reintroduce a preview table column.
         $this->assertStringContainsString('catalog-tile--favicon', $html);
-        $this->assertStringContainsString('google.com/s2/favicons', $html);
+        $this->assertStringContainsString('/advertiser/catalog/sites/', $html);
+        $this->assertStringContainsString('/favicon', $html);
+        $this->assertStringNotContainsString('https://preview-blog.example/favicon.ico', $html);
+        $this->assertStringNotContainsString('https://preview-blog.example/apple-touch-icon.png', $html);
+        $this->assertStringNotContainsString('icons.duckduckgo.com', $html);
+        $this->assertStringNotContainsString('google.com/s2/favicons', $html);
+        $this->assertStringContainsString('data-favicon-chain', $html);
+        $this->assertStringContainsString('data-favicon-fallback', $html);
+        $this->assertStringContainsString('catalog-tile__fallback', $html);
+        $this->assertStringContainsString('assets/img/catalog-site-fallback.svg', $html);
+        $this->assertFileExists(public_path('assets/img/catalog-site-fallback.svg'));
         $this->assertStringContainsString('data-catalog-open-details', $html);
         $this->assertStringNotContainsString('catalog-th-preview', $html);
         $this->assertStringNotContainsString('site-row-preview', $html);
@@ -130,6 +140,11 @@ class CatalogHomepagePreviewTest extends TestCase
         $this->assertStringContainsString('function hydrateExpandScreenshots', $js);
         $this->assertStringContainsString('img.catalog-deferred-preview[data-src]', $js);
         $this->assertStringContainsString('window.catalogSitePreviewOnError', $js);
+        $this->assertStringContainsString('window.catalogSiteFaviconOnError', $js);
+        $this->assertStringContainsString("img.getAttribute('data-favicon-chain')", $js);
+        $this->assertStringContainsString("img.getAttribute('data-favicon-fallback')", $js);
+        $this->assertStringContainsString('catalog-site-fallback.svg', $js);
+        $this->assertStringContainsString("tile.classList.add('catalog-tile--fallback')", $js);
         $this->assertStringNotContainsString('window.catalogRowPreviewOnError', $js);
         $this->assertStringContainsString('function initCatalogExpandPreviewZoom', $js);
         $this->assertStringContainsString('.site-preview-zoom[data-zoom-src]', $js);
@@ -149,6 +164,8 @@ class CatalogHomepagePreviewTest extends TestCase
         $this->assertStringContainsString('width: min(720px, calc(100vw - 32px))', $css);
         $this->assertStringContainsString('object-fit: contain', $css);
         $this->assertStringContainsString('.catalog-tile--favicon', $css);
+        $this->assertStringContainsString('.catalog-tile--fallback', $css);
+        $this->assertStringContainsString('.catalog-tile__fallback', $css);
         $this->assertStringContainsString('.catalog-tile__img', $css);
         // Hover zoom restored, gated for fine pointers + reduced-motion (Safari-safe).
         $this->assertStringContainsString('@media (hover: hover) and (pointer: fine)', $css);
@@ -263,6 +280,7 @@ class CatalogHomepagePreviewTest extends TestCase
 
         $this->assertStringNotContainsString('catalog-tile--preview', $html);
         $this->assertStringNotContainsString('catalog-tile--favicon', $html);
+        $this->assertStringNotContainsString('catalog-tile--fallback', $html);
         $this->assertStringNotContainsString('hidden-preview.example', $html);
         $this->assertStringContainsString('data-catalog-open-details', $html);
         $this->assertStringContainsString('Homepage preview', $html);

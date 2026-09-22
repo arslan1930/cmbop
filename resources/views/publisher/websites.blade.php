@@ -700,7 +700,7 @@
 
     @if(!empty($openBulkRequest))
         @php
-            $bulkNextStep = 'Next: our marketer adds DA/DR/traffic/language/country/niches → you add descriptions & listing details → we approve.';
+            $bulkNextStep = 'Next: our team fills in the sites they accept and publishes them. You’ll be notified when those sites are active.';
             if (($awaitingDetailsCount ?? 0) > 0) {
                 $bulkNextStep = 'Next: add descriptions and listing details with Complete details, then we approve.';
             } elseif (($detailsCompleteCount ?? 0) > 0) {
@@ -2654,7 +2654,7 @@ function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteC
                 ? '1 site is with our marketer; others below may need your details or admin review.'
                 : bulkWaiting + ' sites are with our marketer; others below may need your details or admin review.';
         } else if (openBulk) {
-            hint.textContent = 'Your bulk request is open — drafts appear here as the marketer adds them, then you finish details.';
+                hint.textContent = 'Your bulk request is open. Our team publishes the sites they accept, and you’ll be notified when those sites are active.';
         } else {
             hint.textContent = 'Drafts that need your details, plus sites waiting for admin approval.';
         }

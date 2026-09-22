@@ -14,6 +14,7 @@ use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\CreatesBlogUploads;
 use Tests\TestCase;
@@ -166,6 +167,13 @@ class MarketingNicheGroupAndImageFixTest extends TestCase
                         'dr' => 40,
                         'traffic' => 12000,
                         'categories' => 'Technology|Business & Finance',
+                        'example_url' => 'https://bulk-tech.example/sample-article',
+                        'turnaround_time' => '3days',
+                        'publication_time' => 'permanent',
+                        'link_type' => 'dofollow',
+                        'site_tag' => 'as_you_prefer',
+                        'description' => 'Guest posts on this website stay published and the link remains dofollow for advertisers.',
+                        'site_image' => UploadedFile::fake()->image('cover.jpg', 80, 80),
                     ],
                 ],
             ])

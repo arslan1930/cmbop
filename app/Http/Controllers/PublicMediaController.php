@@ -15,6 +15,7 @@ class PublicMediaController extends Controller
     // chat_images/ is intentionally absent — that upload route is unused.
     private const ALLOWED_PREFIXES = [
         'sites/',
+        'site-favicons/',
         'site-screenshots/',
         'banners/',
         'blogs/',

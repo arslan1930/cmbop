@@ -2376,17 +2376,17 @@ class InAppNotificationService
             $publisherId,
             self::TYPE_SITE_STATUS,
             $createdCount === 1
-                ? 'Your site was added to Pending sites'
-                : "{$createdCount} sites were added to Pending sites",
-            'We’ve added your sites to Pending sites — open them and finish any remaining details. They stay hidden from advertisers until we approve.',
+                ? 'Your site is active on the platform'
+                : "{$createdCount} sites are active on the platform",
+            'These sites from your bulk request are live for advertisers. They are not verified yet. You do not need to add more details or submit them again.',
             [
                 'category' => self::CATEGORY_ACCOUNT,
                 'icon' => 'check-circle',
                 'priority' => InAppNotification::PRIORITY_HIGH,
                 'related' => $bulk,
                 'audience' => InAppNotification::AUDIENCE_PUBLISHER,
-                'action_label' => 'Open Pending sites',
-                'action_url' => route('publisher.websites', ['status' => 'pending'], false),
+                'action_label' => 'Open My Sites',
+                'action_url' => route('publisher.websites', ['status' => 'active'], false),
                 'meta' => [
                     'bulk_site_request_id' => $bulk->id,
                     'created_count' => $createdCount,

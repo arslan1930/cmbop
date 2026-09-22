@@ -462,7 +462,9 @@
     max-width: 18rem;
   }
 
-  .bulk-done-field--niches {
+  .bulk-done-field--niches,
+  .bulk-done-field--description,
+  .bulk-done-field--wide {
     grid-column: 1 / -1;
     max-width: none;
   }
@@ -477,12 +479,91 @@
     grid-column: auto;
     max-width: none;
   }
+
+  .bulk-done-field--description,
+  .bulk-done-field--wide {
+    grid-column: 1 / -1;
+  }
 }
 
 .bulk-done-field .form-label {
   margin-bottom: 0.3rem;
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.bulk-request-show .form-control,
+.bulk-request-show .form-select {
+  min-height: 38px;
+  border: 1px solid var(--border-default, #e2e8f0);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface-1, #fff);
+  color: var(--brand-ink, #1e293b);
+  font-family: var(--font-sans, inherit);
+  box-shadow: none;
+}
+
+.bulk-request-show textarea.form-control {
+  min-height: 0;
+  height: auto;
+}
+
+.bulk-request-show .form-control::placeholder {
+  color: var(--brand-ink-muted, #697078);
+}
+
+.bulk-request-show .form-control:hover,
+.bulk-request-show .form-select:hover {
+  border-color: var(--brand-primary, #1a585e);
+}
+
+.bulk-request-show .form-control:focus,
+.bulk-request-show .form-select:focus {
+  border-color: var(--brand-primary-soft, #3faeb2);
+  box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
+  background: #fff;
+}
+
+.bulk-request-show input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--brand-primary, #1a585e);
+}
+
+.bulk-request-show input[type="file"].form-control::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.25rem 0.7rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--brand-primary-bg, #e6f5f5);
+  color: var(--brand-primary, #1a585e);
+  font-weight: 600;
+}
+
+.bulk-request-show .bulk-theme-select {
+  width: 100%;
+}
+
+.bulk-request-show .bulk-theme-select .single-select-input {
+  width: 100%;
+}
+
+.bulk-request-show .bulk-theme-select .single-select-input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: var(--surface-2, #f8fafc);
+}
+
+.bulk-request-show .bulk-theme-select .single-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+.bulk-request-show .bulk-theme-select .single-select-dropdown {
+  z-index: var(--shell-z-dropdown, 1070);
 }
 
 .bulk-done-field--niches .multi-select-wrapper,

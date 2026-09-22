@@ -277,15 +277,8 @@
                     $expandZoomPaths = $previewPaths;
                 }
                 $expandZoomUrl = $expandZoomPaths[0] ?? $previewUrl;
-                $tileFaviconUrl = null;
-                if ($showsIdentity) {
-                    if (filled($site->favicon_path)) {
-                        $tileFaviconUrl = $site->logo_url;
-                    }
-                    if (! filled($tileFaviconUrl) && $displayHost !== '') {
-                        $tileFaviconUrl = 'https://www.google.com/s2/favicons?sz=64&domain='.rawurlencode($displayHost);
-                    }
-                }
+                $tileFaviconUrl = $showsIdentity ? $site->catalogTileFaviconUrl() : null;
+                $tileFaviconChain = $tileFaviconUrl ? [$tileFaviconUrl] : [];
             @endphp
             <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}"
                 data-id="{{ $site->id }}"
@@ -307,6 +300,8 @@
                             'label' => $displayHost,
                             'size' => 'md',
                             'faviconUrl' => $tileFaviconUrl,
+                            'faviconChain' => $tileFaviconChain,
+                            'masked' => ! $showsIdentity,
                             'openDetailsId' => (string) $site->id,
                         ])
 
@@ -1076,15 +1071,8 @@
                 $mobileZoomPaths = $mobilePreviewPaths;
             }
             $mobileZoomUrl = $mobileZoomPaths[0] ?? $mobilePreviewUrl;
-            $tileFaviconUrl = null;
-            if ($showsIdentity) {
-                if (filled($site->favicon_path)) {
-                    $tileFaviconUrl = $site->logo_url;
-                }
-                if (! filled($tileFaviconUrl) && $displayHost !== '') {
-                    $tileFaviconUrl = 'https://www.google.com/s2/favicons?sz=64&domain='.rawurlencode($displayHost);
-                }
-            }
+            $tileFaviconUrl = $showsIdentity ? $site->catalogTileFaviconUrl() : null;
+            $tileFaviconChain = $tileFaviconUrl ? [$tileFaviconUrl] : [];
             $mobileLabels = $site->nicheBadgeLabels();
             $mobileCategory = $mobileLabels[0] ?? '—';
             $mobileSensitivePrices = $site->safeJsonArray('sensitive_prices');
@@ -1126,6 +1114,8 @@
                         'label' => $displayHost,
                         'size' => 'lg',
                         'faviconUrl' => $tileFaviconUrl,
+                        'faviconChain' => $tileFaviconChain,
+                        'masked' => ! $showsIdentity,
                         'openDetailsId' => (string) $site->id,
                     ])
 

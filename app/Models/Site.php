@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class Site extends Model
 {
@@ -1807,6 +1808,34 @@ class Site extends Model
     }
 
     /**
+     * True when the public disk still has this relative path.
+     * Leftover Hostinger site_image / favicon rows often point at deleted files.
+     */
+    public function publicDiskHasFile(?string $path): bool
+    {
+        $trimmed = is_string($path) ? trim($path) : '';
+        if ($trimmed === '' || preg_match('#^(https?:)?//#i', $trimmed) === 1) {
+            return false;
+        }
+
+        $normalized = ltrim(str_replace('\\', '/', $trimmed), '/');
+        foreach (['storage/', 'media/'] as $prefix) {
+            if (str_starts_with($normalized, $prefix)) {
+                $normalized = ltrim(substr($normalized, strlen($prefix)), '/');
+            }
+        }
+        if ($normalized === '') {
+            return false;
+        }
+
+        try {
+            return Storage::disk('public')->exists($normalized);
+        } catch (\Throwable $e) {
+            return is_file(storage_path('app/public/'.$normalized));
+        }
+    }
+
+    /**
      * Failed screenshot captures store gray *-placeholder.webp files that still
      * HTTP 200 — prefer real uploads/captures over those when building chains.
      */
@@ -1959,6 +1988,101 @@ class Site extends Model
         }
 
         return $this->image_url;
+    }
+
+    /**
+    /**
+     * Same-origin tile URL. The resolver fetches a real icon when the host
+     * is reachable and otherwise returns catalog-site-fallback.svg.
+     */
+    public function catalogTileFaviconUrl(): ?string
+    {
+        $id = (int) $this->getKey();
+        if ($id < 1) {
+            return null;
+        }
+
+        try {
+            return route('advertiser.catalog.favicon', ['site' => $id], false);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Closed-row catalog favicon candidates for this listing.
+     * Same-origin resolver only — never the publisher host in the page.
+     *
+     * @return list<string>
+     */
+    public function catalogFaviconUrlChain(?string $visibleHost = null): array
+    {
+        $urls = [];
+        $tile = $this->catalogTileFaviconUrl();
+        if (is_string($tile) && $tile !== '') {
+            $urls[] = $tile;
+        }
+
+        $unique = [];
+        foreach ($urls as $url) {
+            if (! is_string($url) || $url === '' || isset($unique[$url])) {
+                continue;
+            }
+            $unique[$url] = true;
+        }
+
+        return array_keys($unique);
+    }
+
+    /**
+     * Hostname used to look up the publisher site’s own favicon.
+     */
+    public function catalogFaviconHost(?string $visibleHost = null): string
+    {
+        return $this->catalogFaviconHosts($visibleHost)[0] ?? '';
+    }
+
+    /**
+     * Hosts from the listing row: domain, site_url, then the visible host.
+     *
+     * @return list<string>
+     */
+    public function catalogFaviconHosts(?string $visibleHost = null): array
+    {
+        $candidates = [
+            $this->leftoverStringAttribute('domain'),
+            parse_url((string) $this->leftoverStringAttribute('site_url'), PHP_URL_HOST),
+            $visibleHost,
+        ];
+
+        $hosts = [];
+        foreach ($candidates as $raw) {
+            $host = $this->normalizeCatalogFaviconHost($raw);
+            if ($host === '' || isset($hosts[$host])) {
+                continue;
+            }
+            $hosts[$host] = true;
+        }
+
+        return array_keys($hosts);
+    }
+
+    private function normalizeCatalogFaviconHost(mixed $raw): string
+    {
+        $host = strtolower(trim((string) $raw));
+        $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+        $host = trim($host, '.');
+        if ($host === '' || str_contains($host, '/') || str_contains($host, '\\') || str_contains($host, ' ')) {
+            return '';
+        }
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return '';
+        }
+        if (preg_match('/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i', $host) !== 1) {
+            return '';
+        }
+
+        return $host;
     }
 
     /**

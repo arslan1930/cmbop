@@ -10,10 +10,59 @@ if (!window.CatalogConfig) { window.CatalogConfig = { favorites: [], blacklist: 
  */
 window.catalogSiteFaviconOnError = function (img) {
     if (!img) return;
+    var chain = [];
+    try {
+        chain = JSON.parse(img.getAttribute('data-favicon-chain') || '[]');
+    } catch (e) {
+        chain = [];
+    }
+    if (!Array.isArray(chain)) chain = [];
+    var i = parseInt(img.getAttribute('data-favicon-i') || '0', 10);
+    if (isNaN(i) || i < 0) i = 0;
+    var next = i + 1;
+    var fallbackSrc = img.getAttribute('data-favicon-fallback') || '';
+    var current = img.getAttribute('src') || '';
+    var alreadyFallback = current.indexOf('catalog-site-fallback.svg') !== -1;
+    if (next < chain.length && chain[next]) {
+        img.setAttribute('data-favicon-i', String(next));
+        img.hidden = false;
+        img.src = chain[next];
+        if (String(chain[next]).indexOf('catalog-site-fallback.svg') !== -1) {
+            var stepping = img.closest('.catalog-tile');
+            if (stepping) {
+                stepping.classList.add('catalog-tile--fallback');
+                stepping.classList.remove('catalog-tile--favicon');
+            }
+        }
+        return;
+    }
+    if (fallbackSrc && !alreadyFallback) {
+        img.setAttribute('data-favicon-i', String(Math.max(chain.length - 1, 0)));
+        img.hidden = false;
+        img.src = fallbackSrc;
+        var viaAttr = img.closest('.catalog-tile');
+        if (viaAttr) {
+            viaAttr.classList.add('catalog-tile--fallback');
+            viaAttr.classList.remove('catalog-tile--favicon');
+        }
+        return;
+    }
     img.onerror = null;
     img.hidden = true;
+    img.removeAttribute('src');
     var tile = img.closest('.catalog-tile');
     if (!tile) return;
+    var fallback = tile.querySelector('.catalog-tile__fallback');
+    if (fallback) {
+        fallback.hidden = false;
+        tile.classList.add('catalog-tile--fallback');
+        tile.classList.remove('catalog-tile--favicon');
+        var initials = tile.querySelector('.catalog-tile__initials');
+        if (initials) {
+            initials.hidden = true;
+        }
+        return;
+    }
     var initials = tile.querySelector('.catalog-tile__initials');
     if (initials) {
         initials.hidden = false;

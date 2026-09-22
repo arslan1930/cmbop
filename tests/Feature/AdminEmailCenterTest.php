@@ -549,7 +549,7 @@ class AdminEmailCenterTest extends TestCase
             'Your article was approved for publication' => 'content_evaluation_result',
             'Article evaluation update: action needed' => 'content_evaluation_result',
             'Bulk site request from Sample User' => 'bulk_site_request_submitted',
-            'Your sites were added to Pending sites' => 'bulk_sites_seeded',
+            'Your bulk sites are active' => 'bulk_sites_seeded',
             'Please accept a website we added for you' => 'admin_assigned_site',
             'Your bulk website request was cancelled' => 'bulk_request_cancelled',
             'We did not add a site from bulk request #0' => 'bulk_request_items_rejected',

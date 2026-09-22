@@ -36,6 +36,7 @@ use App\Http\Controllers\Advertiser\AnalyticsController;
 use App\Http\Controllers\Advertiser\BillingController as AdvertiserBillingController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\CatalogCopyTrackController;
+use App\Http\Controllers\Advertiser\CatalogFaviconController;
 use App\Http\Controllers\Advertiser\CatalogListingController;
 use App\Http\Controllers\Advertiser\ContentLibraryController;
 use App\Http\Controllers\Advertiser\ContentModerationController as AdvertiserContentModerationController;
@@ -1051,6 +1052,11 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         // One publisher domain per request. Throttled on top of the daily
         // allowance so a script cannot burn a funded account's unlimited quota
         // faster than a person could click.
+        Route::get('/catalog/sites/{site}/favicon', CatalogFaviconController::class)
+            ->middleware('throttle:180,1')
+            ->whereNumber('site')
+            ->name('catalog.favicon');
+
         Route::post('/catalog/sites/{site}/reveal-url', SiteUrlRevealController::class)
             ->middleware('throttle:120,1')
             ->name('catalog.reveal-url');

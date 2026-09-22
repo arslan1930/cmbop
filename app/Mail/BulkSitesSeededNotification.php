@@ -33,13 +33,13 @@ class BulkSitesSeededNotification extends PlatformMailable
 
     public function build()
     {
-        return $this->subject('Your sites were added to Pending sites')
+        return $this->subject('Your bulk sites are active')
             ->markdown('emails.bulk-sites-seeded')
             ->with([
                 'bulkRequest' => $this->bulkRequest,
                 'createdCount' => $this->createdCount,
                 'publisherName' => $this->bulkRequest->publisher?->name ?? 'Publisher',
-                'completeUrl' => route('publisher.websites'),
+                'completeUrl' => route('publisher.websites', ['status' => 'active']),
             ]);
     }
 }

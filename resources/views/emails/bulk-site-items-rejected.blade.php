@@ -13,7 +13,7 @@ We did not add {{ $count === 1 ? 'this website' : 'these websites' }} from bulk 
 Note from our team: {{ $note }}
 @endif
 
-Nothing else on your account is affected. Websites we already added stay on Pending sites, and you can submit these URLs again at any time.
+Nothing else on your account is affected. Websites we already published stay on your account, and you can submit these URLs again at any time.
 
 @component('mail::button', ['url' => $websitesUrl])
 Open My Sites

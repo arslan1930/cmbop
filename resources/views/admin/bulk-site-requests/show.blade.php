@@ -100,7 +100,7 @@
                     <h6 class="fw-semibold mb-1">Publisher submitted (URL + price only)</h6>
                     <p class="small text-muted mb-3">
                         Review each website, then fill <strong>Language, Country, DA, DR, Traffic, and Niches</strong> per row before Done.
-                        Sites are added to the publisher’s Pending sites as drafts — still inactive until they finish details and you verify.
+                        Finished rows go <strong>active</strong> on the publisher’s account and stay <strong>unverified</strong>. The publisher is notified. They do not fill details again.
                     </p>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
@@ -149,14 +149,15 @@
 
     <div class="card border-0 shadow-sm border-primary-subtle bulk-request-done">
                 <div class="card-body">
-                    <h6 class="fw-semibold mb-1">Done — add sites &amp; notify publisher</h6>
+                    <h6 class="fw-semibold mb-1">Done — publish sites &amp; notify publisher</h6>
                     <p class="small text-muted mb-3">
                         <strong>{{ $pendingItems->count() }}</strong> website(s) still pending
                         (publisher + marketer share a {{ \App\Models\BulkSiteRequest::MAX_SITES_PER_REQUEST }}-site batch limit).
-                        Fill a complete block (Language, Country, DA, DR, Traffic, Niches) and click Done — one row, several, or all at once.
-                        Finished rows become drafts and notify the publisher; the rest stay here until you fill them.
+                        Fill every required field on a row — language, country, DA, DR, traffic, niches, sample article, turnaround, publication time, link type, listing tag, description, and site image — and click Done, one row, several, or all at once.
+                        Finished rows go live (active, not verified) and the publisher is notified, and the rest stay here until you fill them.
+                        Sensitive-topic prices are required only when that topic is offered.
                         Delete a row you will not add — those sites leave this batch and the publisher gets one note for all removed sites.
-                        Marketing Activate needs DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Done below this is allowed.
+                        The quality bar is DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Done below this is allowed and the site still goes live.
                     </p>
 
                     @if($errors->any())
@@ -232,8 +233,9 @@
                                         $oldCountry = strtolower((string) ($old['country'] ?? ''));
                                         $oldLanguage = strtolower((string) ($old['language'] ?? ''));
                                         $isRejected = in_array((int) $item->id, $oldRejectedIds, true);
+                                        $doneTrack = ['country', 'language', 'da', 'dr', 'traffic', 'example_url', 'turnaround_time', 'publication_time', 'link_type', 'site_tag', 'description'];
                                         $filledCount = 0;
-                                        foreach (['country', 'language', 'da', 'dr', 'traffic'] as $doneField) {
+                                        foreach ($doneTrack as $doneField) {
                                             if (trim((string) ($old[$doneField] ?? '')) !== '') {
                                                 $filledCount++;
                                             }
@@ -241,6 +243,7 @@
                                         if (trim((string) $oldCategories) !== '') {
                                             $filledCount++;
                                         }
+                                        $doneTrackTotal = count($doneTrack) + 2;
                                         $itemErrorPrefix = 'items.'.$item->id.'.';
                                         $rowHasErrors = collect($errors->keys())->contains(
                                             fn ($key) => $key === 'items.'.$item->id || str_starts_with((string) $key, $itemErrorPrefix)
@@ -252,10 +255,10 @@
                                         }
                                         $chipLabel = $filledCount === 0
                                             ? 'Empty'
-                                            : ($filledCount === 6 ? 'Ready' : $filledCount.'/6 filled');
+                                            : ($filledCount >= $doneTrackTotal ? 'Ready' : $filledCount.'/'.$doneTrackTotal.' filled');
                                         $chipClass = $filledCount === 0
                                             ? 'is-empty'
-                                            : ($filledCount === 6 ? 'is-ready' : 'is-partial');
+                                            : ($filledCount >= $doneTrackTotal ? 'is-ready' : 'is-partial');
                                         $oldDa = trim((string) ($old['da'] ?? ''));
                                         $oldDr = trim((string) ($old['dr'] ?? ''));
                                         $oldTraffic = trim((string) ($old['traffic'] ?? ''));
@@ -424,11 +427,151 @@
                                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                                     @enderror
                                                 </div>
+                                                <div class="bulk-done-field">
+                                                    <label class="form-label" for="bulk-done-example-{{ $item->id }}">Sample article <span class="text-danger">*</span></label>
+                                                    <input id="bulk-done-example-{{ $item->id }}"
+                                                           type="url"
+                                                           name="items[{{ $item->id }}][example_url]"
+                                                           class="form-control @error('items.'.$item->id.'.example_url') is-invalid @enderror"
+                                                           value="{{ old('items.'.$item->id.'.example_url') }}"
+                                                           placeholder="https://…/sample-post"
+                                                           required
+                                                           data-bulk-required
+                                                           @disabled($isRejected)>
+                                                    @error('items.'.$item->id.'.example_url')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                                <div class="bulk-done-field">
+                                                    <label class="form-label" for="bulk-done-turnaround-{{ $item->id }}">Turnaround <span class="text-danger">*</span></label>
+                                                    <select id="bulk-done-turnaround-{{ $item->id }}"
+                                                            name="items[{{ $item->id }}][turnaround_time]"
+                                                            class="form-select @error('items.'.$item->id.'.turnaround_time') is-invalid @enderror"
+                                                            required
+                                                            data-bulk-required
+                                                            @disabled($isRejected)>
+                                                        <option value="">Select…</option>
+                                                        @foreach(['24h' => '24 Hours', '48h' => '48 Hours', '3days' => '3 Days', '5days' => '5 Days', '7days' => '7 Days'] as $val => $label)
+                                                            <option value="{{ $val }}" @selected(old('items.'.$item->id.'.turnaround_time') === $val)>{{ $label }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('items.'.$item->id.'.turnaround_time')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                                <div class="bulk-done-field">
+                                                    <label class="form-label" for="bulk-done-publication-{{ $item->id }}">Publication <span class="text-danger">*</span></label>
+                                                    <select id="bulk-done-publication-{{ $item->id }}"
+                                                            name="items[{{ $item->id }}][publication_time]"
+                                                            class="form-select @error('items.'.$item->id.'.publication_time') is-invalid @enderror"
+                                                            required
+                                                            data-bulk-required
+                                                            @disabled($isRejected)>
+                                                        <option value="">Select…</option>
+                                                        @foreach(['6months' => '6 Months', '1year' => '1 Year', 'permanent' => 'Permanent'] as $val => $label)
+                                                            <option value="{{ $val }}" @selected(old('items.'.$item->id.'.publication_time') === $val)>{{ $label }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('items.'.$item->id.'.publication_time')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                                <div class="bulk-done-field">
+                                                    <label class="form-label" for="bulk-done-link-{{ $item->id }}">Link type <span class="text-danger">*</span></label>
+                                                    <select id="bulk-done-link-{{ $item->id }}"
+                                                            name="items[{{ $item->id }}][link_type]"
+                                                            class="form-select @error('items.'.$item->id.'.link_type') is-invalid @enderror"
+                                                            required
+                                                            data-bulk-required
+                                                            @disabled($isRejected)>
+                                                        <option value="">Select…</option>
+                                                        <option value="dofollow" @selected(old('items.'.$item->id.'.link_type') === 'dofollow')>DoFollow</option>
+                                                        <option value="nofollow" @selected(old('items.'.$item->id.'.link_type') === 'nofollow')>NoFollow</option>
+                                                    </select>
+                                                    @error('items.'.$item->id.'.link_type')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                                <div class="bulk-done-field">
+                                                    <label class="form-label" for="bulk-done-tag-{{ $item->id }}">Listing tag <span class="text-danger">*</span></label>
+                                                    <select id="bulk-done-tag-{{ $item->id }}"
+                                                            name="items[{{ $item->id }}][site_tag]"
+                                                            class="form-select @error('items.'.$item->id.'.site_tag') is-invalid @enderror"
+                                                            required
+                                                            data-bulk-required
+                                                            @disabled($isRejected)>
+                                                        <option value="">Select…</option>
+                                                        <option value="none" @selected(old('items.'.$item->id.'.site_tag') === 'none')>No tags</option>
+                                                        @foreach(\App\Support\SiteTag::LABELS as $value => $label)
+                                                            <option value="{{ $value }}" @selected(old('items.'.$item->id.'.site_tag') === $value)>{{ $label }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('items.'.$item->id.'.site_tag')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                                <div class="bulk-done-field bulk-done-field--description">
+                                                    <label class="form-label" for="bulk-done-description-{{ $item->id }}">Description <span class="text-danger">*</span></label>
+                                                    <textarea id="bulk-done-description-{{ $item->id }}"
+                                                              name="items[{{ $item->id }}][description]"
+                                                              class="form-control @error('items.'.$item->id.'.description') is-invalid @enderror"
+                                                              rows="3"
+                                                              maxlength="5000"
+                                                              minlength="50"
+                                                              placeholder="Shown to advertisers. At least 50 characters."
+                                                              required
+                                                              data-bulk-required
+                                                              @disabled($isRejected)>{{ old('items.'.$item->id.'.description') }}</textarea>
+                                                    @error('items.'.$item->id.'.description')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                                <div class="bulk-done-field bulk-done-field--wide">
+                                                    <label class="form-label" for="bulk-done-image-{{ $item->id }}">Site image <span class="text-danger">*</span></label>
+                                                    <input id="bulk-done-image-{{ $item->id }}"
+                                                           type="file"
+                                                           name="items[{{ $item->id }}][site_image]"
+                                                           class="form-control @error('items.'.$item->id.'.site_image') is-invalid @enderror"
+                                                           accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+                                                           required
+                                                           data-bulk-required
+                                                           @disabled($isRejected)>
+                                                    <div class="form-text">JPEG, PNG, GIF, or WebP, up to {{ \App\Support\SiteImageUpload::maxMegabytesLabel() }} MB. This cover is saved when the site goes live.</div>
+                                                    @error('items.'.$item->id.'.site_image')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                                <div class="bulk-done-field bulk-done-field--wide">
+                                                    <span class="form-label">Sensitive topics</span>
+                                                    <div class="d-flex flex-wrap gap-3">
+                                                        @foreach(['crypto' => 'Crypto', 'trading' => 'Trading', 'CBD' => 'CBD', 'forex' => 'Forex'] as $topic => $label)
+                                                            <label class="small mb-0">
+                                                                <input type="checkbox"
+                                                                       name="items[{{ $item->id }}][sensitive][{{ $topic }}]"
+                                                                       value="1"
+                                                                       @checked(old('items.'.$item->id.'.sensitive.'.$topic))
+                                                                       @disabled($isRejected)>
+                                                                {{ $label }}
+                                                                <input type="number"
+                                                                       name="items[{{ $item->id }}][price_sensitive][{{ $topic }}]"
+                                                                       class="form-control form-control-sm mt-1 @error('items.'.$item->id.'.price_sensitive.'.$topic) is-invalid @enderror"
+                                                                       value="{{ old('items.'.$item->id.'.price_sensitive.'.$topic) }}"
+                                                                       min="0"
+                                                                       step="0.01"
+                                                                       placeholder="Extra price"
+                                                                       @disabled($isRejected)>
+                                                                @error('items.'.$item->id.'.price_sensitive.'.$topic)
+                                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                                @enderror
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div class="alert alert-warning border-0 py-2 px-3 small mb-0{{ $belowQuality ? '' : ' d-none' }}"
                                                  data-bulk-quality-warn
                                                  role="status">
-                                                These metrics are below the marketing Activate bar. You can still Done this row — the draft stays inactive until the publisher finishes details and staff Activate after the bar is met.
+                                                These metrics are below the quality bar. You can still Done this row — the site goes live and stays unverified.
                                             </div>
                                             <div class="bulk-done-row__actions">
                                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-clear-row @disabled($isRejected)>
@@ -476,7 +619,7 @@
                             class="btn btn-primary"
                             data-open="{{ $bulkRequest->canAddDraftSites() ? '1' : '0' }}"
                             disabled>
-                        Done — add filled sites &amp; notify publisher
+                        Done — publish filled sites &amp; notify publisher
                     </button>
                 </form>
             @endif
@@ -489,15 +632,21 @@
                 <div class="card-body">
                     <h6 class="fw-semibold mb-1">Advanced: seed with per-row metrics</h6>
                     <p class="small text-muted mb-3">
-                        Optional. Paste custom rows when metrics differ per site.
-                        Columns: <code>url,price,da,dr,traffic,country,language[,site_name]</code>
+                        Optional paste when the listing details differ per site.
+                        A cover image cannot be pasted, so these rows are not published from here. Upload the image on Done and publish from that form.
+                        Columns: <code>url,price,da,dr,traffic,country,language,site_name,example_url,turnaround,publication,link_type,tag,niches,description</code>
+                        Niches use <code>|</code> inside that column. The description is the rest of the line.
+                        Turnaround is <code>24h</code>, <code>48h</code>, <code>3days</code>, <code>5days</code>, or <code>7days</code>.
+                        Publication is <code>6months</code>, <code>1year</code>, or <code>permanent</code>.
+                        Link type is <code>dofollow</code> or <code>nofollow</code>.
+                        Tag is <code>none</code>, <code>sponsored</code>, <code>partner_material</code>, or <code>as_you_prefer</code>.
                         @if($pendingItems->isNotEmpty())
                             Only pending URL + price domains from this request can be seeded here.
                         @endif
                     </p>
                     @php
                         $seedStarter = $pendingItems->map(function ($item) {
-                            return $item->site_url.','.$item->price.',0,0,0,country,lang';
+                            return $item->site_url.','.$item->price.',0,0,0,country,lang,Site name,https://example.com/sample,3days,permanent,dofollow,as_you_prefer,Niche,Description of at least 50 characters about guest posts on this site.';
                         })->implode("\n");
                     @endphp
                     @if($seedStarter !== '')
@@ -510,10 +659,10 @@
                     <form method="POST" action="{{ staff_route('bulk-site-requests.seed', $bulkRequest, false) }}">
                         @csrf
                         <textarea name="rows" id="bulkSeedRows" class="form-control font-monospace small @error('rows') is-invalid @enderror" rows="8"
-                                  placeholder="https://example.com,99,40,45,12000,de,de,Example Blog">{{ old_text('rows', $seedStarter) }}</textarea>
+                                  placeholder="https://example.com,99,40,45,12000,de,de,Example Blog,https://example.com/sample,3days,permanent,dofollow,as_you_prefer,Business &amp; Finance,Guest posts on this website stay published and the link remains dofollow for advertisers.">{{ old_text('rows', $seedStarter) }}</textarea>
                         @error('rows')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         <button type="submit" class="btn btn-outline-primary btn-sm mt-2" @disabled(! $bulkRequest->canAddDraftSites())>
-                            Seed from pasted rows &amp; notify publisher
+                            Check pasted rows
                         </button>
                     </form>
                 </div>
@@ -576,8 +725,10 @@
 </div>
 
 <link href="{{ asset('assets/css/multi-select.css') }}?v={{ @filemtime(public_path('assets/css/multi-select.css')) ?: '1' }}" rel="stylesheet">
+<link href="{{ asset('assets/css/single-select.css') }}?v={{ @filemtime(public_path('assets/css/single-select.css')) ?: '1' }}" rel="stylesheet">
 <script src="{{ asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 <script src="{{ asset('js/multi-select.js') }}?v={{ @filemtime(public_path('js/multi-select.js')) ?: '1' }}"></script>
+<script src="{{ asset('assets/js/single-select.js') }}?v={{ @filemtime(public_path('assets/js/single-select.js')) ?: '1' }}"></script>
 <script>
 document.getElementById('bulkCopySeedStarter')?.addEventListener('click', function () {
     const starter = document.getElementById('bulkSeedStarter');
@@ -613,6 +764,151 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
     const qualityMinDr = parseInt(form.getAttribute('data-min-dr') || '30', 10);
     const qualityMinTraffic = parseInt(form.getAttribute('data-min-traffic') || '10000', 10);
 
+    function syncBulkThemeSelect(select) {
+        if (select && typeof select._bulkThemeSync === 'function') {
+            select._bulkThemeSync();
+        }
+    }
+
+    function syncBulkThemeSelects(root) {
+        if (!root) return;
+        root.querySelectorAll('select').forEach(syncBulkThemeSelect);
+    }
+
+    function mountBulkThemeSelect(select) {
+        if (!select || select.closest('.bulk-theme-select')) return;
+        const parent = select.parentNode;
+        if (!parent) return;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'single-select-wrapper bulk-theme-select';
+        parent.insertBefore(wrap, select);
+        wrap.appendChild(select);
+        select.classList.add('visually-hidden');
+        select.tabIndex = -1;
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'single-select-input';
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('aria-expanded', 'false');
+        const labelled = select.id ? document.querySelector('label[for="' + select.id + '"]') : null;
+        const aria = (labelled ? labelled.textContent : select.getAttribute('aria-label') || 'Choose').replace(/\s+/g, ' ').trim();
+        trigger.setAttribute('aria-label', aria);
+
+        const valueEl = document.createElement('span');
+        valueEl.className = 'single-select-value';
+        const arrow = document.createElement('i');
+        arrow.className = 'fa fa-chevron-down single-select-arrow';
+        arrow.setAttribute('aria-hidden', 'true');
+        trigger.appendChild(valueEl);
+        trigger.appendChild(arrow);
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'single-select-dropdown';
+        const searchWrap = document.createElement('div');
+        searchWrap.className = 'single-select-search';
+        const search = document.createElement('input');
+        search.type = 'search';
+        search.placeholder = 'Search…';
+        search.autocomplete = 'off';
+        search.setAttribute('aria-label', 'Search ' + aria);
+        searchWrap.appendChild(search);
+        const options = document.createElement('div');
+        options.className = 'single-select-options';
+        options.setAttribute('role', 'listbox');
+        dropdown.appendChild(searchWrap);
+        dropdown.appendChild(options);
+        wrap.appendChild(trigger);
+        wrap.appendChild(dropdown);
+
+        function rebuild() {
+            const current = String(select.value || '');
+            options.innerHTML = '';
+            Array.from(select.options).forEach(function (opt) {
+                const el = document.createElement('div');
+                const on = opt.value === current;
+                el.className = 'single-select-option' + (on ? ' selected' : '');
+                el.setAttribute('role', 'option');
+                el.setAttribute('data-value', opt.value);
+                el.setAttribute('data-label', opt.textContent || '');
+                el.setAttribute('aria-selected', on ? 'true' : 'false');
+                el.textContent = opt.textContent || '';
+                options.appendChild(el);
+            });
+            const selected = select.options[select.selectedIndex];
+            const label = selected ? String(selected.textContent || '').trim() : 'Select…';
+            valueEl.textContent = label || 'Select…';
+            valueEl.classList.toggle('single-select-placeholder', current === '');
+            trigger.disabled = !!select.disabled;
+            trigger.classList.toggle('is-invalid', select.classList.contains('is-invalid'));
+            searchWrap.hidden = select.options.length <= 8;
+            search.value = '';
+        }
+
+        select._bulkThemeSync = rebuild;
+
+        const observer = new MutationObserver(rebuild);
+        observer.observe(select, { childList: true, attributes: true, attributeFilter: ['disabled', 'class'] });
+        select.addEventListener('change', rebuild);
+        select.addEventListener('focus', function () {
+            if (!trigger.disabled) trigger.focus();
+        });
+
+        trigger.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (select.disabled) return;
+            const willOpen = !dropdown.classList.contains('show');
+            document.querySelectorAll('.single-select-dropdown.show').forEach(function (dd) {
+                if (dd === dropdown) return;
+                dd.classList.remove('show');
+                const other = dd.parentElement && dd.parentElement.querySelector('.single-select-input');
+                if (other) other.setAttribute('aria-expanded', 'false');
+            });
+            form.querySelectorAll('.multi-select-dropdown.show').forEach(function (dd) {
+                dd.classList.remove('show');
+            });
+            dropdown.classList.toggle('show', willOpen);
+            trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            if (willOpen && !searchWrap.hidden) search.focus();
+        });
+
+        search.addEventListener('click', function (e) {
+            e.stopPropagation();
+        });
+        search.addEventListener('input', function () {
+            const term = String(search.value || '').toLowerCase();
+            options.querySelectorAll('.single-select-option').forEach(function (el) {
+                const text = String(el.textContent || '').toLowerCase();
+                el.classList.toggle('hidden', term !== '' && text.indexOf(term) === -1);
+            });
+        });
+        search.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') e.preventDefault();
+        });
+
+        dropdown.addEventListener('click', function (e) {
+            const opt = e.target.closest('.single-select-option');
+            if (!opt || opt.classList.contains('hidden')) return;
+            e.stopPropagation();
+            const next = opt.getAttribute('data-value') || '';
+            if (select.value !== next) {
+                select.value = next;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            dropdown.classList.remove('show');
+            trigger.setAttribute('aria-expanded', 'false');
+            rebuild();
+        });
+
+        rebuild();
+    }
+
+    function mountBulkThemeSelects() {
+        form.querySelectorAll('.bulk-done-field select').forEach(mountBulkThemeSelect);
+    }
+
     function refreshBulkDoneLanguages(row, preferredLanguage) {
         const countryEl = row.querySelector('[data-bulk-country]');
         const langEl = row.querySelector('[data-bulk-language]');
@@ -624,6 +920,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         if (!code) {
             langEl.disabled = true;
             langEl.innerHTML = '<option value="">Select country first</option>';
+            syncBulkThemeSelect(langEl);
             return;
         }
         langEl.disabled = false;
@@ -643,6 +940,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         if (list.length === 1) {
             langEl.value = list[0].code;
         }
+        syncBulkThemeSelect(langEl);
     }
 
     form.querySelectorAll('[data-bulk-done-row]').forEach(function (row) {
@@ -725,14 +1023,20 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             const match = name.match(/items\[(\d+)\]/);
             if (!match) return;
             const itemId = match[1];
-            items[itemId] = {
+            const draftFields = ['example_url', 'turnaround_time', 'publication_time', 'link_type', 'site_tag', 'description'];
+            const extra = {};
+            draftFields.forEach(function (field) {
+                const el = row.querySelector('[name*="[' + field + ']"]');
+                extra[field] = el ? el.value : '';
+            });
+            items[itemId] = Object.assign({
                 language: language ? language.value : '',
                 country: country ? country.value : '',
                 da: da ? da.value : '',
                 dr: dr ? dr.value : '',
                 traffic: traffic ? traffic.value : '',
                 categories: categories ? categories.value : '',
-            };
+            }, extra);
         });
         return items;
     }
@@ -781,6 +1085,10 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             if (da && data.da !== undefined && data.da !== null) da.value = data.da;
             if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
             if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
+            ['example_url', 'turnaround_time', 'publication_time', 'link_type', 'site_tag', 'description'].forEach(function (field) {
+                const el = form.querySelector('[name="items[' + itemId + '][' + field + ']"]');
+                if (el && data[field] !== undefined && data[field] !== null) el.value = data[field];
+            });
 
             const nicheValues = String(data.categories || '')
                 .split('|')
@@ -796,12 +1104,19 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             if (row && rowStarted(row)) {
                 row.open = true;
             }
+            if (row) syncBulkThemeSelects(row);
         });
     }
 
     function fieldFilled(el) {
+        if (el.type === 'file') {
+            return !!(el.files && el.files.length > 0);
+        }
         const value = String(el.value ?? '').trim();
         if (value === '') return false;
+        if (el.tagName === 'TEXTAREA' && el.name && el.name.indexOf('[description]') !== -1 && value.length < 50) {
+            return false;
+        }
         if (el.type === 'number') {
             const n = Number(value);
             if (Number.isNaN(n)) return false;
@@ -934,9 +1249,16 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         if (id && multiSelects[id]) {
             multiSelects[id].setSelectedItems([], []);
         }
+        row.querySelectorAll('input[type="checkbox"][name*="[sensitive]"]').forEach(function (el) {
+            el.checked = false;
+        });
+        row.querySelectorAll('input[name*="[price_sensitive]"]').forEach(function (el) {
+            el.value = '';
+        });
         row.querySelectorAll('.is-invalid').forEach(function (el) {
             el.classList.remove('is-invalid');
         });
+        syncBulkThemeSelects(row);
         scheduleDraftSave();
         syncDoneState();
     }
@@ -961,11 +1283,20 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             destLang.value = srcLang.value;
         }
 
-        ['da', 'dr', 'traffic'].forEach(function (field) {
-            const src = prev.querySelector('input[name*="[' + field + ']"]');
-            const dest = row.querySelector('input[name*="[' + field + ']"]');
+        ['da', 'dr', 'traffic', 'example_url', 'turnaround_time', 'publication_time', 'link_type', 'site_tag', 'description'].forEach(function (field) {
+            const src = prev.querySelector('[name*="[' + field + ']"]');
+            const dest = row.querySelector('[name*="[' + field + ']"]');
             if (src && dest) dest.value = src.value;
         });
+        ['crypto', 'trading', 'CBD', 'forex'].forEach(function (topic) {
+            const srcCheck = prev.querySelector('input[name*="[sensitive][' + topic + ']"]');
+            const destCheck = row.querySelector('input[name*="[sensitive][' + topic + ']"]');
+            if (srcCheck && destCheck) destCheck.checked = srcCheck.checked;
+            const srcPrice = prev.querySelector('input[name*="[price_sensitive][' + topic + ']"]');
+            const destPrice = row.querySelector('input[name*="[price_sensitive][' + topic + ']"]');
+            if (srcPrice && destPrice) destPrice.value = srcPrice.value;
+        });
+        syncBulkThemeSelects(row);
 
         const srcCats = prev.querySelector('input[name*="[categories]"]');
         const nicheValues = String((srcCats && srcCats.value) || '')
@@ -987,6 +1318,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         doneRows().forEach(function (row) {
             if (rowFilled(row)) return;
             row.querySelectorAll('select, input, textarea, button').forEach(function (el) {
+                if (el.closest('.bulk-theme-select') && el.tagName === 'BUTTON') return;
                 if (!disabled && el.hasAttribute('data-bulk-language')) {
                     const country = row.querySelector('[data-bulk-country]');
                     el.disabled = !country || String(country.value || '').trim() === '';
@@ -994,6 +1326,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
                 }
                 el.disabled = !!disabled;
             });
+            syncBulkThemeSelects(row);
         });
     }
 
@@ -1223,7 +1556,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
                 slbAlert({
                     icon: 'warning',
                     title: 'Fill at least one block',
-                    text: 'Fill Language, Country, DA, DR, Traffic and Niches for at least one website, then click Done. Other rows can stay empty for later.',
+                    text: 'Fill every required field, including the site image, on at least one website, then click Done. Other rows can stay empty for later.',
                 });
             }
             return false;
@@ -1233,14 +1566,14 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         const remaining = doneRows().length - count;
         const submittedIds = complete.map(rowItemId).filter(Boolean).concat(rejected);
         e.preventDefault();
-        let confirmTitle = 'Seed draft sites?';
+        let confirmTitle = 'Publish these sites?';
         let confirmText = remaining > 0
-            ? ('Add ' + count + ' complete draft site(s) now and notify the publisher? ' + remaining + ' unfinished row(s) will stay pending.')
-            : ('Add ' + count + ' draft site(s) to this publisher’s Pending sites and notify them?');
-        let confirmTextBtn = 'Add drafts';
+            ? ('Publish ' + count + ' complete site(s) now and notify the publisher? They go live and stay unverified. ' + remaining + ' unfinished row(s) will stay pending.')
+            : ('Publish ' + count + ' site(s) on the publisher’s account and notify them? They go live and stay unverified.');
+        let confirmTextBtn = 'Publish sites';
         if (count > 0 && rejected.length > 0) {
-            confirmTitle = 'Add drafts and remove sites?';
-            confirmText = 'Add ' + count + ' draft site(s) and remove ' + rejected.length
+            confirmTitle = 'Publish sites and remove others?';
+            confirmText = 'Publish ' + count + ' site(s) and remove ' + rejected.length
                 + ' site(s)? The publisher gets both notices.'
                 + (remaining > 0 ? (' ' + remaining + ' unfinished row(s) will stay pending.') : '');
             confirmTextBtn = 'Done';
@@ -1294,6 +1627,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         }
     }
 
+    mountBulkThemeSelects();
     syncDoneState();
     focusFirstInvalidDoneField();
 })();

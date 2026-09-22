@@ -16,10 +16,16 @@ use App\Services\ActivityLogger;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\SiteClaimTransferService;
+use App\Services\SiteDescriptionSanitizer;
+use App\Services\SiteEnrichment\ImageOptimizationService;
 use App\Support\MarketingOpsQueues;
+use App\Support\SiteDescriptionRules;
+use App\Support\SiteImageUpload;
+use App\Support\SiteTag;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -391,6 +397,7 @@ class BulkSiteRequestController extends Controller
         if (! is_array($inputItems)) {
             $inputItems = [];
         }
+        $inputItems = $this->attachDoneRowImages($inputItems, $request);
 
         $maxSites = BulkSiteRequest::MAX_SITES_PER_REQUEST;
         if (count($inputItems) > $maxSites) {
@@ -492,6 +499,12 @@ class BulkSiteRequestController extends Controller
                     // Monthly visitors — not a 0–100 score. Cap at MySQL UNSIGNED INT.
                     'traffic' => 'required|integer|min:0|max:4294967295',
                     'categories' => 'required',
+                    'example_url' => 'required|url|max:255',
+                    'turnaround_time' => 'required|in:24h,48h,3days,5days,7days',
+                    'publication_time' => 'required|in:6months,1year,permanent',
+                    'link_type' => 'required|in:dofollow,nofollow',
+                    'site_tag' => 'required|in:none,sponsored,partner_material,as_you_prefer',
+                    'description' => 'required|string',
                 ], [
                     'country.required' => 'Country is required.',
                     'language.required' => 'Language is required.',
@@ -502,6 +515,13 @@ class BulkSiteRequestController extends Controller
                     'da.max' => 'DA must be between 0 and 100.',
                     'dr.max' => 'DR must be between 0 and 100.',
                     'traffic.max' => 'Traffic must be a monthly visitor count (0–4,294,967,295).',
+                    'example_url.required' => 'Sample article URL is required.',
+                    'example_url.url' => 'Sample article URL must be a valid URL.',
+                    'turnaround_time.required' => 'Turnaround is required.',
+                    'publication_time.required' => 'Publication time is required.',
+                    'link_type.required' => 'Link type is required.',
+                    'site_tag.required' => 'Listing tag is required.',
+                    'description.required' => 'Description is required.',
                 ]);
                 foreach ($rules->errors()->messages() as $field => $messages) {
                     foreach ($messages as $message) {
@@ -533,6 +553,49 @@ class BulkSiteRequestController extends Controller
                 }
                 foreach ($resolved['unknown'] as $cat) {
                     $validator->errors()->add('items.'.$itemId.'.categories', 'Unknown niche: '.$cat);
+                }
+
+                $description = trim((string) ($row['description'] ?? ''));
+                foreach (SiteDescriptionRules::errors($description) as $message) {
+                    $validator->errors()->add('items.'.$itemId.'.description', $message);
+                }
+
+                $image = $row['site_image'] ?? null;
+                if (! $image instanceof UploadedFile || ! $image->isValid()) {
+                    $validator->errors()->add(
+                        'items.'.$itemId.'.site_image',
+                        'Upload a site image (JPEG, PNG, GIF, or WebP, up to '.SiteImageUpload::maxMegabytesLabel().' MB).'
+                    );
+                } else {
+                    $extension = strtolower($image->getClientOriginalExtension());
+                    if (! in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+                        $validator->errors()->add(
+                            'items.'.$itemId.'.site_image',
+                            'Site image must be a JPEG, PNG, GIF, or WebP file.'
+                        );
+                    } elseif ($image->getSize() > SiteImageUpload::maxKilobytes() * 1024) {
+                        $validator->errors()->add(
+                            'items.'.$itemId.'.site_image',
+                            'Site image must be '.SiteImageUpload::maxMegabytesLabel().' MB or smaller.'
+                        );
+                    }
+                }
+
+                foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
+                    $flags = is_array($row['sensitive'] ?? null) ? $row['sensitive'] : [];
+                    $amounts = is_array($row['price_sensitive'] ?? null) ? $row['price_sensitive'] : [];
+                    $flag = $flags[$topic] ?? null;
+                    $offered = ! in_array($flag, [null, '', '0', 0, false], true);
+                    if (! $offered) {
+                        continue;
+                    }
+                    $price = $amounts[$topic] ?? null;
+                    if ($price === null || $price === '' || ! is_numeric($price) || (float) $price < 0 || (float) $price > 999999.99) {
+                        $validator->errors()->add(
+                            'items.'.$itemId.'.price_sensitive.'.$topic,
+                            'Enter a price for '.$topic.' when that topic is offered.'
+                        );
+                    }
                 }
             }
 
@@ -596,6 +659,14 @@ class BulkSiteRequestController extends Controller
                 'country' => strtolower(trim((string) $row['country'])),
                 'categories' => $categories,
                 'category' => implode('|', $categories),
+                'description' => trim((string) ($row['description'] ?? '')),
+                'example_url' => $this->normalizeHttpUrl((string) ($row['example_url'] ?? '')),
+                'turnaround_time' => (string) ($row['turnaround_time'] ?? ''),
+                'publication_time' => (string) ($row['publication_time'] ?? ''),
+                'link_type' => (string) ($row['link_type'] ?? ''),
+                'site_tag' => (string) ($row['site_tag'] ?? ''),
+                'sensitive_prices' => $this->doneSensitivePrices($row),
+                'site_image_file' => $row['site_image'] ?? null,
             ];
         }
 
@@ -627,8 +698,9 @@ class BulkSiteRequestController extends Controller
     }
 
     /**
-     * Seed draft sites from pasted rows:
-     * url,price,da,dr,traffic,country,language[,site_name]
+     * Check pasted listing rows. A cover image cannot be pasted, so these rows
+     * are not published — staff upload the image and publish from Done.
+     * url,price,da,dr,traffic,country,language,site_name,example_url,turnaround,publication,link_type,tag,niches,description
      */
     public function seed(Request $request, int $id)
     {
@@ -655,7 +727,7 @@ class BulkSiteRequestController extends Controller
 
         $parsed = $this->parseSeedRows((string) $request->input('rows'), $allowedCountries, $allowedLanguages);
         if ($parsed['rows'] === [] && $parsed['failures'] === []) {
-            return back()->with('error', 'No rows found. Paste one site per line: url,price,da,dr,traffic,country,language')->withInput();
+            return back()->with('error', 'No rows found. Paste one site per line: url,price,da,dr,traffic,country,language,site_name,example_url,turnaround,publication,link_type,tag,niches,description')->withInput();
         }
 
         if ($parsed['rows'] === []) {
@@ -698,10 +770,19 @@ class BulkSiteRequestController extends Controller
             $parsed['rows'] = $allowed;
         }
 
+        foreach ($parsed['rows'] as $row) {
+            $parsed['failures'][] = [
+                'line' => $row['line'] ?? 0,
+                'url' => $row['site_url'] ?? ($row['domain'] ?? ''),
+                'errors' => ['Upload the site image on Done. A pasted row cannot include the cover, so this website was not published.'],
+            ];
+        }
+        $parsed['rows'] = [];
+
         if ($parsed['rows'] === []) {
             return back()
                 ->with('error', $parsed['failures'] === []
-                    ? 'No rows found. Paste one site per line: url,price,da,dr,traffic,country,language'
+                    ? 'No rows found. Paste one site per line: url,price,da,dr,traffic,country,language,site_name,example_url,turnaround,publication,link_type,tag,niches,description'
                     : 'All rows failed validation.')
                 ->with('seed_failures', $parsed['failures'])
                 ->withInput();
@@ -766,8 +847,46 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
+                $description = app(SiteDescriptionSanitizer::class)->sanitize(
+                    SiteDescriptionRules::forTextarea((string) ($row['description'] ?? ''))
+                );
+                if (! SiteDescriptionRules::isValid($description)) {
+                    $failures[] = [
+                        'line' => $row['line'],
+                        'url' => $row['site_url'],
+                        'errors' => ['A description of at least '.SiteDescriptionRules::MIN_CHARS.' characters is required.'],
+                    ];
+
+                    continue;
+                }
+
+                $imageFile = $row['site_image_file'] ?? null;
+                $imagePath = $imageFile instanceof UploadedFile
+                    ? app(ImageOptimizationService::class)->storeSafePublicImage($imageFile, 'sites')
+                    : null;
+                if (! is_string($imagePath) || $imagePath === '') {
+                    $failures[] = [
+                        'line' => $row['line'],
+                        'url' => $row['site_url'],
+                        'errors' => ['Upload a site image before this website goes live.'],
+                    ];
+
+                    continue;
+                }
+
+                $categories = $row['categories'] ?? [];
+                if (! is_array($categories) || $categories === []) {
+                    $failures[] = [
+                        'line' => $row['line'],
+                        'url' => $row['site_url'],
+                        'errors' => ['Select at least one niche.'],
+                    ];
+
+                    continue;
+                }
+
                 $site = new Site;
-                $site->applyMarketplaceListing([
+                $site->applyMarketplaceListing(array_merge([
                     'publisher_id' => $bulkRequest->publisher_id,
                     'bulk_site_request_id' => $bulkRequest->id,
                     'publisher_accepted_at' => now(),
@@ -775,7 +894,7 @@ class BulkSiteRequestController extends Controller
                     'site_name' => $row['site_name'],
                     'site_url' => $row['site_url'],
                     'domain' => $domain,
-                    'example_url' => $row['site_url'],
+                    'example_url' => (string) ($row['example_url'] ?? ''),
                     'da' => $row['da'],
                     'dr' => $row['dr'],
                     'traffic' => $row['traffic'],
@@ -786,21 +905,20 @@ class BulkSiteRequestController extends Controller
                     'countries' => [$row['country']],
                     'language' => $row['language'],
                     'languages' => [$row['language']],
-                    'category' => $row['category'] ?? 'Pending',
-                    'categories' => $row['categories'] ?? null,
+                    'category' => $row['category'] ?? implode('|', $categories),
+                    'categories' => $categories,
                     'price' => $row['price'],
-                    'turnaround_time' => '3days',
-                    'publication_time' => 'permanent',
-                    'link_type' => 'dofollow',
-                    'description' => 'Please replace this placeholder with a real site description (at least 50 characters) before submitting for review.',
-                    'sponsored' => false,
-                    'partner_material' => false,
-                    'as_you_prefer' => true,
+                    'turnaround_time' => (string) ($row['turnaround_time'] ?? ''),
+                    'publication_time' => (string) ($row['publication_time'] ?? ''),
+                    'link_type' => (string) ($row['link_type'] ?? ''),
+                    'description' => $description,
+                    'sensitive_prices' => $row['sensitive_prices'] ?? null,
+                    'site_image' => $imagePath,
                     'verified' => false,
-                    'active' => false,
+                    'active' => true,
                     'enrichment_status' => 'pending',
-                    'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
-                ]);
+                    'onboarding_status' => null,
+                ], SiteTag::flags(SiteTag::normalize($row['site_tag'] ?? null))));
                 $site->save();
 
                 $candidates = Site::domainLookupCandidates($domain);
@@ -854,11 +972,10 @@ class BulkSiteRequestController extends Controller
 
             if ($created > 0) {
                 $bulkRequest->forceFill([
-                    'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
                     'seeded_at' => $bulkRequest->seeded_at ?? now(),
                     'handled_by' => auth()->id(),
-                    'completed_at' => null,
                 ])->save();
+                $bulkRequest->refreshProgressStatus();
             }
         });
 
@@ -867,12 +984,12 @@ class BulkSiteRequestController extends Controller
 
         if ($created > 0) {
             $verb = $action === 'bulk_request.done'
-                ? 'marked Done and added'
-                : 'seeded';
+                ? 'marked Done and published'
+                : 'published';
 
             ActivityLogger::tryLog(
                 $action,
-                (auth()->user()->name ?? 'Staff').' '.$verb.' '.$created.' draft site(s) to publisher panel on bulk request #'.$bulkRequest->id,
+                (auth()->user()->name ?? 'Staff').' '.$verb.' '.$created.' active site(s) on bulk request #'.$bulkRequest->id,
                 $bulkRequest,
                 [
                     'bulk_site_request_id' => $bulkRequest->id,
@@ -944,7 +1061,7 @@ class BulkSiteRequestController extends Controller
         $headline = $action === 'bulk_request.done' ? 'Done' : 'Seed';
         $parts = [];
         if ($created > 0) {
-            $parts[] = "{$headline} — {$created} site(s) added to the publisher’s Pending sites. Publisher notified (email + in-app). Still inactive until they finish details and you verify.";
+            $parts[] = "{$headline} — {$created} site(s) are now active on the publisher’s account (not verified). Publisher notified (email + in-app).";
         }
         if ($deletedCount > 0) {
             $parts[] = $deletedCount === 1
@@ -1023,15 +1140,7 @@ class BulkSiteRequestController extends Controller
             return 'complete';
         }
 
-        $started = false;
-        foreach (['language', 'country', 'da', 'dr', 'traffic', 'categories'] as $field) {
-            if ($this->doneRowFieldFilled($row, $field)) {
-                $started = true;
-                break;
-            }
-        }
-
-        return $started ? 'partial' : 'empty';
+        return $this->doneRowStarted($row) ? 'partial' : 'empty';
     }
 
     /**
@@ -1041,7 +1150,7 @@ class BulkSiteRequestController extends Controller
     private function missingDoneRowFields(array $row): array
     {
         $missing = [];
-        foreach (['language', 'country', 'da', 'dr', 'traffic', 'categories'] as $field) {
+        foreach ($this->doneRowFields() as $field) {
             if (! $this->doneRowFieldFilled($row, $field)) {
                 $missing[] = $field;
             }
@@ -1051,12 +1160,69 @@ class BulkSiteRequestController extends Controller
     }
 
     /**
+     * @return list<string>
+     */
+    private function doneRowFields(): array
+    {
+        return [
+            'language',
+            'country',
+            'da',
+            'dr',
+            'traffic',
+            'categories',
+            'example_url',
+            'turnaround_time',
+            'publication_time',
+            'link_type',
+            'site_tag',
+            'description',
+            'site_image',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function doneRowStarted(array $row): bool
+    {
+        if (trim((string) ($row['description'] ?? '')) !== '') {
+            return true;
+        }
+
+        foreach ($this->doneRowFields() as $field) {
+            if ($field === 'description') {
+                continue;
+            }
+            if ($this->doneRowFieldFilled($row, $field)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param  array<string, mixed>  $row
      */
     private function doneRowFieldFilled(array $row, string $field): bool
     {
         if ($field === 'categories') {
             return $this->parseCategoryList($row['categories'] ?? []) !== [];
+        }
+
+        if ($field === 'site_image') {
+            $file = $row['site_image'] ?? null;
+
+            return $file instanceof UploadedFile && $file->isValid();
+        }
+
+        if ($field === 'description') {
+            return SiteDescriptionRules::isValid(trim((string) ($row['description'] ?? '')));
+        }
+
+        if ($field === 'site_tag') {
+            return in_array(strtolower(trim((string) ($row['site_tag'] ?? ''))), ['none', 'sponsored', 'partner_material', 'as_you_prefer'], true);
         }
 
         if (in_array($field, ['da', 'dr', 'traffic'], true)) {
@@ -1096,7 +1262,7 @@ class BulkSiteRequestController extends Controller
                 $failures[] = [
                     'line' => $lineNum,
                     'url' => $parts[0] ?? '',
-                    'errors' => ['Need 7 columns: url,price,da,dr,traffic,country,language'],
+                    'errors' => ['Need url, price, DA, DR, traffic, country, language, site name, example URL, turnaround, publication, link type, tag, niches, and description.'],
                 ];
 
                 continue;
@@ -1104,6 +1270,15 @@ class BulkSiteRequestController extends Controller
 
             [$urlRaw, $priceRaw, $daRaw, $drRaw, $trafficRaw, $countryRaw, $langRaw] = array_slice($parts, 0, 7);
             $siteName = isset($parts[7]) && $parts[7] !== '' ? $parts[7] : null;
+            $exampleRaw = $parts[8] ?? '';
+            $turnaroundRaw = strtolower($parts[9] ?? '');
+            $publicationRaw = strtolower($parts[10] ?? '');
+            $linkTypeRaw = strtolower($parts[11] ?? '');
+            $tagRaw = strtolower($parts[12] ?? '');
+            $nichesRaw = $parts[13] ?? '';
+            $descriptionRaw = count($parts) >= 15
+                ? trim(implode(',', array_slice($parts, 14)))
+                : '';
 
             $siteUrl = $this->normalizeHttpUrl($urlRaw);
             $host = parse_url($siteUrl, PHP_URL_HOST);
@@ -1151,6 +1326,42 @@ class BulkSiteRequestController extends Controller
                 $errors[] = 'Language not allowed for country';
             }
 
+            $categories = [];
+            $exampleUrl = '';
+            if (count($parts) < 15) {
+                $errors[] = 'Add site name, example URL, turnaround (24h, 48h, 3days, 5days, or 7days), publication (6months, 1year, or permanent), link type (dofollow or nofollow), tag (none, sponsored, partner_material, or as_you_prefer), niches separated by |, and a description of at least '.SiteDescriptionRules::MIN_CHARS.' characters.';
+            } else {
+                $exampleUrl = $this->normalizeHttpUrl($exampleRaw);
+                if (filter_var($exampleUrl, FILTER_VALIDATE_URL) === false || strlen($exampleUrl) > 255) {
+                    $errors[] = 'Invalid example URL';
+                }
+                if (! in_array($turnaroundRaw, ['24h', '48h', '3days', '5days', '7days'], true)) {
+                    $errors[] = 'Invalid turnaround';
+                }
+                if (! in_array($publicationRaw, ['6months', '1year', 'permanent'], true)) {
+                    $errors[] = 'Invalid publication time';
+                }
+                if (! in_array($linkTypeRaw, ['dofollow', 'nofollow'], true)) {
+                    $errors[] = 'Invalid link type';
+                }
+                if (! in_array($tagRaw, ['none', 'sponsored', 'partner_material', 'as_you_prefer'], true)) {
+                    $errors[] = 'Invalid listing tag';
+                }
+                $resolved = Category::resolveNicheNames($nichesRaw);
+                $categories = $resolved['resolved'];
+                if ($categories === [] && $resolved['unknown'] === []) {
+                    $errors[] = 'Select at least one niche';
+                } elseif (count($categories) > 7) {
+                    $errors[] = 'Select at most 7 niches';
+                }
+                foreach ($resolved['unknown'] as $cat) {
+                    $errors[] = 'Unknown niche: '.$cat;
+                }
+                if (! SiteDescriptionRules::isValid($descriptionRaw)) {
+                    $errors[] = 'Description must be at least '.SiteDescriptionRules::MIN_CHARS.' characters';
+                }
+            }
+
             if ($errors !== []) {
                 $failures[] = ['line' => $lineNum, 'url' => $siteUrl, 'errors' => $errors];
 
@@ -1179,10 +1390,71 @@ class BulkSiteRequestController extends Controller
                 'traffic' => $traffic,
                 'language' => $language,
                 'country' => $country,
+                'example_url' => $exampleUrl,
+                'turnaround_time' => $turnaroundRaw,
+                'publication_time' => $publicationRaw,
+                'link_type' => $linkTypeRaw,
+                'site_tag' => $tagRaw,
+                'categories' => $categories,
+                'category' => implode('|', $categories),
+                'description' => $descriptionRaw,
             ];
         }
 
         return compact('rows', 'failures');
+    }
+
+    /**
+     * File inputs are not in request input. Attach a valid cover upload onto its row.
+     *
+     * @param  array<mixed>  $inputItems
+     * @return array<mixed>
+     */
+    private function attachDoneRowImages(array $inputItems, Request $request): array
+    {
+        $files = $request->file('items');
+        if (! is_array($files)) {
+            return $inputItems;
+        }
+
+        foreach ($files as $itemId => $fileRow) {
+            if (! is_array($fileRow)) {
+                continue;
+            }
+            $image = $fileRow['site_image'] ?? null;
+            if (! $image instanceof UploadedFile) {
+                continue;
+            }
+            $key = array_key_exists($itemId, $inputItems)
+                ? $itemId
+                : (array_key_exists((string) $itemId, $inputItems) ? (string) $itemId : $itemId);
+            if (! isset($inputItems[$key]) || ! is_array($inputItems[$key])) {
+                $inputItems[$key] = [];
+            }
+            $inputItems[$key]['site_image'] = $image;
+        }
+
+        return $inputItems;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>|null
+     */
+    private function doneSensitivePrices(array $row): ?array
+    {
+        $flags = is_array($row['sensitive'] ?? null) ? $row['sensitive'] : [];
+        $amounts = is_array($row['price_sensitive'] ?? null) ? $row['price_sensitive'] : [];
+        $prices = [];
+        foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
+            $flag = $flags[$topic] ?? null;
+            if (in_array($flag, [null, '', '0', 0, false], true)) {
+                continue;
+            }
+            $prices[$topic] = $amounts[$topic] ?? null;
+        }
+
+        return $prices === [] ? null : $prices;
     }
 
     private function normalizeHttpUrl(string $url): string

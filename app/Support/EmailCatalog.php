@@ -390,8 +390,8 @@ class EmailCatalog
                 'status' => 'active',
             ],
             'bulk_sites_seeded' => [
-                'name' => 'Bulk Sites Seeded — Complete Details',
-                'description' => 'Publisher asked to finish details after staff seed a bulk request.',
+                'name' => 'Bulk Sites Active',
+                'description' => 'Publisher told their bulk sites are active after staff publish them.',
                 'category' => 'Publishers',
                 'mailable' => BulkSitesSeededNotification::class,
                 'status' => 'active',

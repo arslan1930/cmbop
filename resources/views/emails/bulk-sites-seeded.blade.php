@@ -1,14 +1,12 @@
 @component('mail::message')
-# Your sites were added to Pending sites
+# Your bulk sites are active
 
 Hi {{ $publisherName }},
 
-We’ve added {{ $createdCount }} website(s) to your Pending sites from your bulk request.
-
-Open them and finish any remaining details (description, niches, link type, turnaround, publication time, example URL). They stay hidden from advertisers until you finish and our team approves.
+{{ $createdCount === 1 ? '1 website' : $createdCount.' websites' }} from bulk request #{{ $bulkRequest->id }} {{ $createdCount === 1 ? 'is' : 'are' }} now active on your account.
 
 @component('mail::button', ['url' => $completeUrl])
-Open Pending sites
+Open My Sites
 @endcomponent
 
 Thanks,<br>
