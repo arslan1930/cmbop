@@ -22,6 +22,7 @@ use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
 use App\Support\CatalogHealthQueue;
+use App\Support\CatalogPlaceholderListing;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
 use App\Support\PublicStorageLink;
@@ -75,6 +76,8 @@ class SiteController extends Controller
                 'publisherSearch' => trim(scalar_text($request->query('q', ''))),
                 'flatQueue' => $request->boolean('flat'),
                 'flatQueueSites' => null,
+                'healthFilter' => CatalogHealthQueue::fromRequest($request),
+                'healthFilterActive' => CatalogHealthQueue::fromRequest($request) !== null,
             ]);
         }
     }
@@ -91,7 +94,14 @@ class SiteController extends Controller
         }
 
         $publisherSearch = trim(scalar_text($request->query('q', '')));
-        $flatQueue = $request->boolean('flat');
+        $healthFilter = CatalogHealthQueue::fromRequest($request);
+        $healthFilterActive = $healthFilter !== null;
+        $flatQueue = $request->boolean('flat') || $healthFilterActive;
+
+        if ($healthFilterActive) {
+            $needsReviewFilter = false;
+            $waitingOnPublisherFilter = false;
+        }
 
         if ($publisherSearch !== ''
             && ! $request->filled('publisher')
@@ -122,7 +132,21 @@ class SiteController extends Controller
         $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
         $flatQueueSites = null;
 
-        if ($flatQueue && $waitingOnPublisherFilter) {
+        if ($healthFilterActive) {
+            $users = new LengthAwarePaginator([], 0, 20, 1, [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]);
+            $flatQueueSites = CatalogHealthQueue::apply(Site::query(), $healthFilter)
+                ->with('publisher:id,name,email')
+                ->when(Schema::hasTable('order_items'), fn ($q) => $q->withCount('orderItems'))
+                ->orderBy('created_at')
+                ->orderBy('id');
+            $this->applyStaffIndexSiteOrPublisherSearch($flatQueueSites, $publisherSearch);
+            $flatQueueSites = $flatQueueSites
+                ->paginate(30)
+                ->appends($request->query());
+        } elseif ($flatQueue && $waitingOnPublisherFilter) {
             $users = new LengthAwarePaginator([], 0, 20, 1, [
                 'path' => $request->url(),
                 'query' => $request->query(),
@@ -199,7 +223,9 @@ class SiteController extends Controller
             'healthCounts',
             'publisherSearch',
             'flatQueue',
-            'flatQueueSites'
+            'flatQueueSites',
+            'healthFilter',
+            'healthFilterActive'
         ));
     }
 
@@ -675,6 +701,14 @@ class SiteController extends Controller
             'can_activate' => $this->staffCanActivateSite($site),
             'activate_block_reason' => $this->staffActivateBlockReason($site),
             'orders_count' => $site->orderItemsCount(),
+            'created_at' => optional($site->created_at)?->toIso8601String(),
+            'updated_at' => optional($site->updated_at)?->toIso8601String(),
+            'status_reason' => Site::hasSitesColumn('status_reason')
+                ? (filled($site->status_reason) ? (string) $site->status_reason : null)
+                : null,
+            'health_flags' => CatalogHealthQueue::flags($site),
+            'placeholder' => CatalogPlaceholderListing::matches($site),
+            'missing_cover' => ! $site->hasCatalogCover(),
             'preview_thumb_url' => $preview['thumb'],
             'preview_full_url' => $preview['full'],
             'preview_fallback_urls' => $preview['fallbacks'],
@@ -792,6 +826,7 @@ class SiteController extends Controller
             'metrics_manual',
             'created_at',
             'updated_at',
+            'status_reason',
         ];
 
         $select = array_values(array_filter(

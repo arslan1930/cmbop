@@ -96,6 +96,13 @@ class MarketingSitesLoadTest extends TestCase
                     'preview_thumb_url',
                     'preview_full_url',
                     'preview_fallback_urls',
+                    'created_at',
+                    'orders_count',
+                    'health_flags',
+                    'placeholder',
+                    'missing_cover',
+                    'status_reason',
+                    'description_looks_english',
                 ]],
                 'meta' => ['current_page', 'last_page', 'total', 'per_page'],
             ])

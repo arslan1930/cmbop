@@ -5,6 +5,12 @@
     $publisherSearch = trim((string) ($publisherSearch ?? ''));
     $publisherSearchQuery = array_filter(['q' => $publisherSearch !== '' ? $publisherSearch : null]);
     $flatQueue = $flatQueue ?? false;
+    $healthFilter = \App\Support\CatalogHealthQueue::normalize($healthFilter ?? null);
+    $healthFilterActive = ! empty($healthFilterActive) || $healthFilter !== null;
+    $healthLabels = \App\Support\CatalogHealthQueue::LABELS;
+    $healthRecordsUrl = $healthFilter === \App\Support\CatalogHealthQueue::MISSING_MARKET
+        ? route('admin.sites.records', ['missing_market' => 1])
+        : ($healthFilter !== null ? route('admin.sites.records', ['health' => $healthFilter]) : route('admin.sites.records'));
 @endphp
 <div class="container-fluid py-3">
 
@@ -19,8 +25,10 @@
             @endif
             @if(($missingMarketCount ?? 0) > 0)
                 <small class="text-muted d-block mt-1">
-                    <span class="badge text-bg-danger">{{ $missingMarketCount }}</span>
-                    active site{{ $missingMarketCount === 1 ? '' : 's' }} missing market country
+                    <a href="{{ staff_route('sites.index', ['health' => 'missing_market', 'flat' => 1]) }}" class="link-secondary">
+                        <span class="badge text-bg-danger">{{ $missingMarketCount }}</span>
+                        active site{{ $missingMarketCount === 1 ? '' : 's' }} missing market country
+                    </a>
                 </small>
             @endif
             @php
@@ -32,20 +40,32 @@
                     'missing_cover' => 'missing cover',
                 ])->filter(fn ($label, $key) => (int) ($healthCounts[$key] ?? 0) > 0);
             @endphp
-            @if($healthPreview->isNotEmpty() && auth()->user()?->isAdmin())
+            @if($healthPreview->isNotEmpty())
                 <small class="text-muted d-block mt-1">
                     Catalog health:
                     @foreach($healthPreview as $healthKey => $healthLabel)
-                        <a href="{{ route('admin.sites.records', ['health' => $healthKey]) }}" class="link-secondary">
+                        <a href="{{ staff_route('sites.index', ['health' => $healthKey, 'flat' => 1]) }}" class="link-secondary">
                             <span class="badge text-bg-warning">{{ (int) $healthCounts[$healthKey] }}</span>
                             {{ $healthLabel }}
                         </a>@if(! $loop->last), @endif
                     @endforeach
+                    @if(auth()->user()?->isAdmin())
+                        <a href="{{ route('admin.sites.records') }}" class="link-secondary ms-1">Open in records sheet</a>
+                    @endif
                 </small>
             @endif
         </div>
         <div class="d-flex flex-wrap gap-2">
-            @if(!empty($needsReviewFilterActive))
+            @if(!empty($healthFilterActive))
+                <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">
+                    Show all publishers
+                </a>
+                @if(auth()->user()?->isAdmin())
+                    <a href="{{ $healthRecordsUrl }}" class="btn btn-sm btn-outline-secondary">
+                        Open in records sheet
+                    </a>
+                @endif
+            @elseif(!empty($needsReviewFilterActive))
                 <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">
                     Show all publishers
                 </a>
@@ -111,6 +131,21 @@
         </div>
     </div>
 
+    @if(!empty($healthFilterActive))
+        <div class="alert alert-warning border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <strong>Catalog health</strong>
+                <span class="ms-1">
+                    {{ $healthLabels[$healthFilter] ?? 'Health queue' }} — live listings. Verify, edit cover/metrics, or hide from the catalog.
+                    @if(auth()->user()?->isAdmin())
+                        CSV export stays on the records sheet.
+                    @endif
+                </span>
+            </div>
+            <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">Show all publishers</a>
+        </div>
+    @endif
+
     @if(!empty($waitingOnPublisherFilterActive))
         <div class="alert alert-secondary border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
@@ -151,6 +186,10 @@
 
     <div id="staffIndexSearchWrap">
         <form method="GET" action="{{ staff_route('sites.index') }}" class="mb-2" style="max-width: 320px;" role="search">
+            @if(!empty($healthFilterActive) && $healthFilter)
+                <input type="hidden" name="health" value="{{ $healthFilter }}">
+                <input type="hidden" name="flat" value="1">
+            @endif
             @if(!empty($needsReviewFilterActive) || !empty($unverifiedFilter))
                 <input type="hidden" name="needs_review" value="1">
             @endif
@@ -174,7 +213,9 @@
     @if(!empty($flatQueue) && $flatQueueSites)
     <div class="card shadow-sm border-0 mb-3 admin-table-fit" data-flat-queue="1">
         <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
-            <span>{{ !empty($waitingOnPublisherFilterActive) ? 'Waiting on publisher' : 'Sites needing review' }}</span>
+            <span>{{ !empty($healthFilterActive)
+                ? ($healthLabels[$healthFilter] ?? 'Catalog health')
+                : (!empty($waitingOnPublisherFilterActive) ? 'Waiting on publisher' : 'Sites needing review') }}</span>
             <span class="small text-muted" data-flat-queue-count>{{ $flatQueueSites->total() }} in queue</span>
         </div>
         <div class="table-responsive">
@@ -184,8 +225,11 @@
                         <th class="admin-num-col">#</th>
                         <th>Site</th>
                         <th>Publisher</th>
+                        <th class="admin-narrow-col">DA/DR</th>
+                        <th class="admin-narrow-col">Country</th>
                         <th class="admin-narrow-col">Traffic</th>
                         <th class="admin-narrow-col">Price</th>
+                        <th class="admin-narrow-col">Orders</th>
                         <th class="admin-actions-col">Actions</th>
                     </tr>
                 </thead>
@@ -207,6 +251,15 @@
                             && ! $site->isArchived()
                             && ! $hasOrders
                             && ($site->verified || $site->active);
+                        $countryLabel = collect($site->countryCodesForDisplay())
+                            ->map(fn ($code) => strtoupper((string) $code))
+                            ->filter()
+                            ->implode(', ');
+                        $isPlaceholder = \App\Support\CatalogPlaceholderListing::matches($site);
+                        $missingCover = ! $site->hasCatalogCover();
+                        $statusReason = \App\Models\Site::hasSitesColumn('status_reason')
+                            ? trim((string) ($site->status_reason ?? ''))
+                            : '';
                     @endphp
                     <tr data-flat-site-row="{{ $site->id }}">
                         <td>{{ $flatQueueSites->firstItem() + $index }}</td>
@@ -217,7 +270,7 @@
                                 @if($site->verified)
                                     <span class="badge rounded-pill bg-success">Verified</span>
                                 @else
-                                    <span class="badge rounded-pill bg-secondary">Unverified</span>
+                                    <span class="badge rounded-pill bg-secondary" @if($statusReason !== '') title="{{ $statusReason }}" @endif>Unverified</span>
                                 @endif
                                 @if(! $site->hasMarketplaceCountry())
                                     <span class="badge text-bg-danger">Missing market</span>
@@ -225,14 +278,32 @@
                                 @if(! $site->hasGoodMetrics())
                                     <span class="badge text-bg-warning text-dark">Below quality bar</span>
                                 @endif
+                                @if($isPlaceholder)
+                                    <span class="badge text-bg-warning text-dark">Placeholder</span>
+                                @endif
+                                @if($missingCover)
+                                    <span class="badge text-bg-warning text-dark">Missing cover</span>
+                                @endif
+                                @if($site->descriptionLooksLikeEnglish())
+                                    <span class="badge text-bg-info">English brief</span>
+                                @endif
                             </div>
                         </td>
                         <td class="small">
                             <div>{{ $site->publisher?->name ?? 'Unknown' }}</div>
                             <div class="text-muted">{{ $site->publisher?->email }}</div>
                         </td>
+                        <td>{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
+                        <td>{{ $countryLabel !== '' ? $countryLabel : '—' }}</td>
                         <td>{{ number_format((int) $site->traffic) }}</td>
                         <td>€{{ number_format((float) $site->price, 2) }}</td>
+                        <td>
+                            @if($hasOrders && auth()->user()?->isAdmin())
+                                <a href="{{ route('admin.orders.index', ['search' => $site->domain ?: $site->site_name]) }}">{{ $site->orderItemsCount() }}</a>
+                            @else
+                                {{ $site->orderItemsCount() }}
+                            @endif
+                        </td>
                         <td>
                             <div class="d-flex flex-wrap gap-1">
                                 <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
@@ -245,7 +316,15 @@
                                                 data-status="1"
                                                 data-name="{{ $site->site_name }}">Verify</button>
                                     @endif
-                                    @include('partials.staff-site-activate-button', ['site' => $site])
+                                    @if($site->active && auth()->user()?->canActivateSites())
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-secondary toggle-active"
+                                                data-id="{{ $site->id }}"
+                                                data-status="0"
+                                                data-name="{{ $site->site_name }}">Deactivate</button>
+                                    @else
+                                        @include('partials.staff-site-activate-button', ['site' => $site])
+                                    @endif
                                     @if($canDeleteFlat)
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-danger delete-site"
@@ -264,7 +343,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">{{ !empty($waitingOnPublisherFilterActive) ? 'No listings waiting on a publisher.' : 'No sites in the review queue.' }}</td>
+                        <td colspan="9" class="text-center text-muted py-4">{{ !empty($healthFilterActive) ? 'No sites in this health queue.' : (!empty($waitingOnPublisherFilterActive) ? 'No listings waiting on a publisher.' : 'No sites in the review queue.') }}</td>
                     </tr>
                 @endforelse
                 </tbody>
@@ -399,8 +478,11 @@
                         <tr>
                             <th class="admin-num-col">#</th>
                             <th>Site Information</th>
+                            <th class="admin-narrow-col">DA/DR</th>
+                            <th class="admin-narrow-col">Country</th>
                             <th class="admin-narrow-col">Traffic</th>
                             <th class="admin-narrow-col">Price</th>
+                            <th class="admin-narrow-col">Orders</th>
                             <th class="admin-status-col">Status</th>
                             <th class="admin-actions-col">Actions</th>
                         </tr>
@@ -432,6 +514,8 @@ const CAN_VERIFY_SITES = @json(auth()->user()->isAdmin());
 const CAN_TOGGLE_ACTIVE = @json(auth()->user()->canActivateSites());
 const IS_MARKETING_EDITOR = @json(auth()->user()->isMarketing() && ! auth()->user()->isAdmin());
 const FLAT_QUEUE = @json(! empty($flatQueue));
+const ADMIN_ORDERS_URL = @json(auth()->user()?->isAdmin() ? route('admin.orders.index') : null);
+const SITES_TABLE_COLS = 9;
 const QUALITY_MIN_DA = {{ (int) \App\Models\Site::GOOD_MIN_DA }};
 const QUALITY_MIN_DR = {{ (int) \App\Models\Site::GOOD_MIN_DR }};
 const QUALITY_MIN_TRAFFIC = {{ (int) \App\Models\Site::GOOD_MIN_TRAFFIC }};
@@ -448,6 +532,23 @@ function siteIsActive(site) {
 
 function siteHasOrders(site) {
     return (Number(site?.orders_count) || 0) > 0;
+}
+
+function siteCountriesLabel(site) {
+    const list = (Array.isArray(site?.countries) && site.countries.length)
+        ? site.countries
+        : (site?.country ? [site.country] : []);
+    const label = list.filter(Boolean).map((c) => String(c).toUpperCase()).join(', ');
+    return label || '—';
+}
+
+function siteOrdersHtml(site) {
+    const count = Number(site?.orders_count) || 0;
+    if (count < 1 || !ADMIN_ORDERS_URL) {
+        return String(count);
+    }
+    const q = encodeURIComponent(site.domain || site.site_name || '');
+    return `<a href="${ADMIN_ORDERS_URL}?search=${q}">${count}</a>`;
 }
 
 function canDeleteSiteRow(site) {
@@ -515,7 +616,7 @@ function fetchUserSites(id, page){
     }
 
     document.getElementById('sitesTable').innerHTML =
-        `<tr><td colspan="6">Loading...</td></tr>`;
+        `<tr><td colspan="${SITES_TABLE_COLS}">Loading...</td></tr>`;
 
     const pageNum = Number(page) > 1 ? Number(page) : 1;
     const params = new URLSearchParams();
@@ -1209,7 +1310,7 @@ document.addEventListener('click', function(e){
                 if(data.email_sent) {
                     toast('Email notification sent to publisher', 'info');
                 }
-                afterSiteDecision();
+                afterSiteDecision(FLAT_QUEUE ? id : undefined);
             })
             .catch((error) => {
                 toast(error.message || `Failed to ${newStatus} site`, 'error');
@@ -1680,7 +1781,7 @@ function renderSites(data){
     let html = '';
 
     if(!data.length){
-        html = `<tr><td colspan="6" class="text-center text-muted">No sites found</td></tr>`;
+        html = `<tr><td colspan="${SITES_TABLE_COLS}" class="text-center text-muted">No sites found</td></tr>`;
     } else {
 
         data.forEach((site,i) => {
@@ -1705,6 +1806,16 @@ function renderSites(data){
             const belowQualityBadge = site.below_quality_bar
                 ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="DA ≥ ${QUALITY_MIN_DA}, DR ≥ ${QUALITY_MIN_DR}, traffic ≥ ${QUALITY_MIN_TRAFFIC.toLocaleString('en-US')}">Below quality bar</span>`
                 : '';
+            const placeholderBadge = site.placeholder
+                ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="Demo host or placeholder copy">Placeholder</span>`
+                : '';
+            const missingCoverBadge = site.missing_cover
+                ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="No cover image or screenshot">Missing cover</span>`
+                : '';
+            const englishBriefBadge = site.description_looks_english
+                ? `<span class="badge text-bg-info badge-needs-review ms-1" title="Advertiser brief looks English">English brief</span>`
+                : '';
+            const reasonTitle = site.status_reason ? ` title="${escapeHtml(site.status_reason)}"` : '';
 
             // Publisher-style 16:10 preview + site identity
             let siteInfoHtml = `
@@ -1719,6 +1830,9 @@ function renderSites(data){
                             ${csvMetricsBadge}
                             ${missingMarketBadge}
                             ${belowQualityBadge}
+                            ${placeholderBadge}
+                            ${missingCoverBadge}
+                            ${englishBriefBadge}
                         </div>
                         <a href="${escapeHtml(site.site_url ?? '#')}" target="_blank" class="site-url" title="${escapeHtml(site.site_url ?? '')}">
                             ${escapeHtml(site.site_url ?? '-')}
@@ -1735,7 +1849,7 @@ function renderSites(data){
                     <span>${isActive
                         ? '<span class="pulse-dot pulse-green"></span>Active'
                         : '<span class="pulse-dot pulse-red"></span>Inactive'}</span>
-                    <span class="badge rounded-pill ${isVerified ? 'bg-success' : 'bg-secondary'}">
+                    <span class="badge rounded-pill ${isVerified ? 'bg-success' : 'bg-secondary'}"${isVerified ? '' : reasonTitle}>
                         ${isVerified ? 'Verified' : 'Unverified'}
                     </span>
                 </div>
@@ -1824,24 +1938,30 @@ function renderSites(data){
                 <tr class="${needsReview ? 'site-needs-review-row' : ''}" data-site-row="${site.id}">
                     <td>${i+1}</td>
                     <td>${siteInfoHtml}</td>
+                    <td>${site.da ?? '—'} / ${site.dr ?? '—'}</td>
+                    <td>${escapeHtml(siteCountriesLabel(site))}</td>
                     <td>${site.traffic ?? '-'}</td>
                     <td>€${site.price ?? '-'}</td>
+                    <td>${siteOrdersHtml(site)}</td>
                     <td>${statusHtml}</td>
                     <td>${manageHtml}</td>
                 </tr>
 
                 <tr id="details-${site.id}" class="admin-expand-row">
-                    <td colspan="6">
+                    <td colspan="${SITES_TABLE_COLS}">
                         <div class="admin-expand-box">
                             <div class="border rounded bg-white shadow-sm p-3">
                                 <div class="row g-3">
                                     <div class="col-md-4"><strong>Domain</strong><div class="slb-text-break">${escapeHtml(site.domain ?? '-')}</div></div>
                                     <div class="col-md-4"><strong>DA/DR</strong><div>${site.da ?? '-'} / ${site.dr ?? '-'}</div></div>
                                     <div class="col-md-4"><strong>Traffic</strong><div>${site.traffic ?? '-'}</div></div>
+                                    <div class="col-md-4"><strong>Orders</strong><div>${siteOrdersHtml(site)}</div></div>
+                                    <div class="col-md-4"><strong>Added</strong><div>${site.created_at ? new Date(site.created_at).toLocaleString() : '—'}</div></div>
                                     <div class="col-md-4"><strong>Enrichment</strong><div>${escapeHtml(site.enrichment_status ?? 'pending')}${site.metrics_fetched_at ? ' · metrics ' + new Date(site.metrics_fetched_at).toLocaleString() : ''}</div></div>
                                     <div class="col-md-4"><strong>Screenshot</strong><div>${(paths.full || paths.thumb) ? `<div class="site-preview-detail"><img data-detail-src="${escapeHtml(paths.full || paths.thumb)}" alt="Site preview" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'"></div>` : '—'}</div></div>
                                     ${site.enrichment_error ? `<div class="col-12"><strong>Last scan error</strong><div class="text-danger small slb-text-break">${escapeHtml(site.enrichment_error)}</div></div>` : ''}
-                                    <div class="col-md-4"><strong>Countries</strong><div>${(site.countries && site.countries.length ? site.countries : [site.country]).filter(Boolean).map(c => String(c).toUpperCase()).join(', ') || '-'}</div></div>
+                                    ${site.status_reason ? `<div class="col-12"><strong>Last staff reason</strong><div class="small slb-text-break">${escapeHtml(site.status_reason)}</div></div>` : ''}
+                                    <div class="col-md-4"><strong>Countries</strong><div>${escapeHtml(siteCountriesLabel(site))}</div></div>
                                     <div class="col-md-4"><strong>Languages</strong><div>${(site.languages && site.languages.length ? site.languages : [site.language]).filter(Boolean).map(l => String(l).toUpperCase()).join(', ') || '-'}</div></div>
                                     <div class="col-md-4"><strong>Category</strong><div>${escapeHtml(site.category ?? '-')}</div></div>
                                     <div class="col-md-4"><strong>Link Type</strong><div>${site.link_type ?? '-'}</div></div>
@@ -1943,7 +2063,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     // memory was also restored here — so clicking "Needs review" fetched the
     // queue, then immediately covered it with whichever publisher you happened
     // to open last, and the button looked dead.
-    const wantsReviewQueue = params.has('needs_review') || params.get('verified') === '0' || params.has('waiting_on_publisher');
+    const wantsReviewQueue = params.has('needs_review') || params.get('verified') === '0' || params.has('waiting_on_publisher') || params.has('health');
     if (wantsReviewQueue && !params.get('publisher') && !siteId) {
         sessionStorage.removeItem('selected_user');
     }
