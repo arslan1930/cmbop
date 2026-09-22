@@ -472,7 +472,15 @@ class SiteController extends Controller
             report($e);
         }
 
-        return $query->orderBy('id');
+        try {
+            if (Site::hasSitesColumn('id')) {
+                $query->orderBy('id');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $query;
     }
 
     /**

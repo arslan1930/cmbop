@@ -67,7 +67,12 @@ class AdminWebsiteRecordsSheetTest extends TestCase
 
     private function dropSitesColumn(string $column): void
     {
-        foreach (Schema::getIndexes('sites') as $index) {
+        $this->dropTableColumn('sites', $column);
+    }
+
+    private function dropTableColumn(string $table, string $column): void
+    {
+        foreach (Schema::getIndexes($table) as $index) {
             $columns = $index['columns'] ?? [];
             if (! in_array($column, $columns, true)) {
                 continue;
@@ -77,16 +82,16 @@ class AdminWebsiteRecordsSheetTest extends TestCase
                 continue;
             }
             try {
-                Schema::table('sites', function ($table) use ($name) {
-                    $table->dropIndex($name);
+                Schema::table($table, function ($blueprint) use ($name) {
+                    $blueprint->dropIndex($name);
                 });
             } catch (\Throwable) {
                 // SQLite leftover composite indexes; keep dropping the rest.
             }
         }
 
-        Schema::table('sites', function ($table) use ($column) {
-            $table->dropColumn($column);
+        Schema::table($table, function ($blueprint) use ($column) {
+            $blueprint->dropColumn($column);
         });
     }
 
@@ -1167,5 +1172,151 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->getJson(route('admin.sites.records', ['partial' => 1]))
             ->assertOk()
             ->assertJsonPath('success', true);
+    }
+
+    public function test_live_filter_survives_missing_bulk_status_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-bulk-status.example',
+            'domain' => 'live-no-bulk-status.example',
+            'active' => true,
+        ]);
+
+        $this->dropTableColumn('bulk_site_requests', 'status');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-bulk-status.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true);
+    }
+
+    public function test_live_filter_survives_missing_domain_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-domain-col.example',
+            'domain' => 'live-no-domain-col.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('domain');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-domain-col.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_live_filter_survives_missing_archived_at_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-archived-col.example',
+            'domain' => 'live-no-archived-col.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('archived_at');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-archived-col.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_live_filter_survives_missing_bulk_site_request_id_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-bulk-id.example',
+            'domain' => 'live-no-bulk-id.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('bulk_site_request_id');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-bulk-id.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_placeholder_queue_survives_missing_example_url_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://demo86.com/guest',
+            'domain' => 'demo86.com',
+            'active' => true,
+            'verified' => true,
+            'example_url' => 'https://demo86.com/sample',
+        ]);
+
+        $this->dropSitesColumn('example_url');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => 'placeholder']))
+            ->assertOk()
+            ->assertSee('https://demo86.com/guest', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_live_csv_survives_missing_activity_logs_table(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-csv-no-logs.example',
+            'domain' => 'live-csv-no-logs.example',
+            'active' => true,
+        ]);
+
+        Schema::dropIfExists('activity_logs');
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.sites.records.export', ['live' => 1]));
+        $csv->assertOk();
+        $this->assertStringContainsString('https://live-csv-no-logs.example', $csv->streamedContent());
+        $this->assertStringNotContainsString('SQLSTATE', $csv->streamedContent());
+    }
+
+    public function test_leftover_unparseable_dates_do_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_url' => 'https://leftover-dates.example',
+            'domain' => 'leftover-dates.example',
+            'active' => true,
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'archived_at' => 'not-a-date',
+            'featured_until' => 'not-a-date',
+            'custom_discount_starts_at' => 'not-a-date',
+            'custom_discount_ends_at' => 'not-a-date',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://leftover-dates.example', false)
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('must be of type', false);
     }
 }

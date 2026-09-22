@@ -1056,6 +1056,9 @@ class Site extends Model
             if (! Schema::hasTable('bulk_site_requests')) {
                 return $query;
             }
+            if (! Schema::hasColumn('bulk_site_requests', 'status')) {
+                return $query;
+            }
         } catch (\Throwable $e) {
             report($e);
 
@@ -1556,7 +1559,8 @@ class Site extends Model
         }
 
         try {
-            if (! Schema::hasTable('bulk_site_requests')) {
+            if (! Schema::hasTable('bulk_site_requests')
+                || ! Schema::hasColumn('bulk_site_requests', 'status')) {
                 return false;
             }
 

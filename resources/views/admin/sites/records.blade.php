@@ -8,7 +8,9 @@
     $healthFilter = \App\Support\CatalogHealthQueue::normalize($healthFilter ?? ($missingMarket ? \App\Support\CatalogHealthQueue::MISSING_MARKET : null));
     $liveFilter = (bool) ($liveFilter ?? false);
     $liveCount = (int) ($liveCount ?? 0);
-    $healthCounts = $healthCounts ?? \App\Support\CatalogHealthQueue::emptyCounts();
+    $healthCounts = is_array($healthCounts ?? null)
+        ? $healthCounts
+        : \App\Support\CatalogHealthQueue::emptyCounts();
     $healthLabels = \App\Support\CatalogHealthQueue::LABELS;
     $countries = collect($countries ?? []);
     $totalSites = (int) ($totalSites ?? 0);
