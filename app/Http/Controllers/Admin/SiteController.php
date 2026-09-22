@@ -37,6 +37,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -198,10 +199,11 @@ class SiteController extends Controller
 
         $wantsPartial = $this->requestFlag($request, 'partial')
             || $request->expectsJson()
-            || str_contains(strtolower((string) $request->header('Accept', '')), 'application/json');
+            || str_contains(strtolower(scalar_text($request->header('Accept', ''))), 'application/json');
 
+        $sites = null;
         try {
-            $query = Site::query()->orderBy('domain')->orderBy('id');
+            $query = $this->recordsBaseQuery();
             $this->applyRecordsFilters($query, $filter);
 
             $page = $this->recordsPage($request);
@@ -209,28 +211,6 @@ class SiteController extends Controller
                 ->paginate(100, ['*'], 'page', $page)
                 ->appends($filter['query_params'])
                 ->through(fn (Site $site) => $this->leftoverSafeSiteRecordRow($site));
-
-            $countryCounts = $this->recordsCountryCounts();
-            $totalSites = (int) Site::query()->count();
-            $healthCounts = CatalogHealthQueue::counts();
-            $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
-            $liveCount = $this->recordsLiveCount();
-            $countries = Country::marketplace()
-                ->orderBy('name')
-                ->get(['code', 'name'])
-                ->map(function (Country $country) use ($countryCounts) {
-                    $code = strtolower(trim((string) $country->code));
-
-                    return [
-                        'code' => $code,
-                        'name' => (string) $country->name,
-                        'count' => (int) ($countryCounts[$code] ?? 0),
-                    ];
-                })
-                ->values();
-
-            $selectedCountry = $countryFilter;
-            $exportUrl = route('admin.sites.records.export', $filter['query_params']);
         } catch (\Throwable $e) {
             report($e);
 
@@ -250,28 +230,17 @@ class SiteController extends Controller
                 'path' => $request->url(),
                 'query' => $filter['query_params'],
             ]);
-            $countries = collect();
-            $selectedCountry = $countryFilter;
-            $totalSites = 0;
-            $healthCounts = CatalogHealthQueue::emptyCounts();
-            $missingMarketCount = 0;
-            $liveCount = 0;
-            $exportUrl = route('admin.sites.records.export', $filter['query_params']);
-
-            return view('admin.sites.records', compact(
-                'sites',
-                'countries',
-                'selectedCountry',
-                'totalSites',
-                'exportUrl',
-                'missingMarket',
-                'missingMarketCount',
-                'healthFilter',
-                'healthCounts',
-                'liveFilter',
-                'liveCount'
-            ));
         }
+
+        // Country combobox / health chips must not empty a sheet that already loaded.
+        $countryCounts = $this->recordsCountryCounts();
+        $totalSites = $this->recordsTotalCount($sites);
+        $healthCounts = CatalogHealthQueue::counts();
+        $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
+        $liveCount = $this->recordsLiveCount();
+        $countries = $this->recordsCountryOptions($countryCounts);
+        $selectedCountry = $countryFilter;
+        $exportUrl = $this->recordsExportUrl($filter['query_params']);
 
         if ($wantsPartial) {
             try {
@@ -292,7 +261,9 @@ class SiteController extends Controller
                     'health_counts' => $healthCounts,
                     'live' => $liveFilter,
                     'live_count' => $liveCount,
-                    'total' => $sites->total(),
+                    'total' => is_object($sites) && method_exists($sites, 'total')
+                        ? (int) $sites->total()
+                        : 0,
                     'export_url' => $exportUrl,
                     'table_html' => $tableHtml,
                 ]);
@@ -338,7 +309,7 @@ class SiteController extends Controller
         $filename = 'websites-records'.$suffix.'-'.now()->format('Y-m-d').'.csv';
 
         try {
-            $query = Site::query()->orderBy('domain')->orderBy('id');
+            $query = $this->recordsBaseQuery();
             $this->applyRecordsFilters($query, $filter);
             $matchCount = (clone $query)->count();
         } catch (\Throwable $e) {
@@ -363,22 +334,29 @@ class SiteController extends Controller
         );
 
         return response()->streamDownload(function () use ($query) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['url', 'countries', 'categories', 'active', 'health', 'listing_state']);
+            try {
+                $out = fopen('php://output', 'w');
+                if ($out === false) {
+                    return;
+                }
+                fputcsv($out, ['url', 'countries', 'categories', 'active', 'health', 'listing_state']);
 
-            foreach ($query->cursor() as $site) {
-                $row = $this->leftoverSafeSiteRecordRow($site);
-                fputcsv($out, [
-                    $row['url'],
-                    $row['countries'],
-                    $row['categories'],
-                    ! empty($row['active']) ? '1' : '0',
-                    $row['health'],
-                    $row['listing_state'],
-                ]);
+                foreach ($query->cursor() as $site) {
+                    $row = $this->leftoverSafeSiteRecordRow($site);
+                    fputcsv($out, [
+                        $row['url'],
+                        $row['countries'],
+                        $row['categories'],
+                        ! empty($row['active']) ? '1' : '0',
+                        $row['health'],
+                        $row['listing_state'],
+                    ]);
+                }
+
+                fclose($out);
+            } catch (\Throwable $e) {
+                report($e);
             }
-
-            fclose($out);
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
@@ -456,6 +434,23 @@ class SiteController extends Controller
     }
 
     /**
+     * @return Builder<Site>
+     */
+    private function recordsBaseQuery()
+    {
+        $query = Site::query();
+        try {
+            if (Site::hasSitesColumn('domain')) {
+                $query->orderBy('domain');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $query->orderBy('id');
+    }
+
+    /**
      * Leftover ?page[]=2 TypeErrors Laravel's paginator filter_var().
      * Arrays are junk — stay on page 1 instead of flattening to an empty page.
      */
@@ -530,7 +525,7 @@ class SiteController extends Controller
         try {
             foreach (Site::query()->select($select)->cursor() as $site) {
                 foreach ($site->countryCodes() as $code) {
-                    $code = strtolower(trim((string) $code));
+                    $code = strtolower(trim(scalar_text($code)));
                     if ($code === '') {
                         continue;
                     }
@@ -544,6 +539,65 @@ class SiteController extends Controller
         }
 
         return $counts;
+    }
+
+    /**
+     * @param  array<string, int>  $countryCounts
+     * @return Collection<int, array{code: string, name: string, count: int}>
+     */
+    private function recordsCountryOptions(array $countryCounts)
+    {
+        try {
+            return Country::marketplace()
+                ->orderBy('name')
+                ->get(['code', 'name'])
+                ->map(function (Country $country) use ($countryCounts) {
+                    $code = strtolower(trim(scalar_text($country->code ?? '')));
+
+                    return [
+                        'code' => $code,
+                        'name' => scalar_text($country->name ?? ''),
+                        'count' => (int) ($countryCounts[$code] ?? 0),
+                    ];
+                })
+                ->filter(fn ($row) => $row['code'] !== '')
+                ->values();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return collect();
+        }
+    }
+
+    private function recordsTotalCount($sites): int
+    {
+        try {
+            return (int) Site::query()->count();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            return is_object($sites) && method_exists($sites, 'total')
+                ? (int) $sites->total()
+                : 0;
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /**
+     * @param  array<string, int|string>  $queryParams
+     */
+    private function recordsExportUrl(array $queryParams): string
+    {
+        try {
+            return route('admin.sites.records.export', $queryParams);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return route('admin.sites.records.export');
+        }
     }
 
     /**
@@ -797,9 +851,9 @@ class SiteController extends Controller
 
     private function siteRecordRow(Site $site): array
     {
-        $rawUrl = trim((string) ($site->site_url ?: ''));
+        $rawUrl = trim(scalar_text($site->site_url ?? ''));
         if ($rawUrl === '') {
-            $domain = trim((string) ($site->domain ?: ''));
+            $domain = trim(scalar_text($site->domain ?? ''));
             $rawUrl = $domain !== '' ? 'https://'.$domain : '';
         }
         $href = $this->leftoverSafeRecordsUrl($rawUrl);
@@ -833,7 +887,7 @@ class SiteController extends Controller
 
         $healthFlags = [];
         try {
-            $healthFlags = CatalogHealthQueue::flags($site);
+            $healthFlags = scalar_list(CatalogHealthQueue::flags($site));
         } catch (\Throwable $e) {
             report($e);
         }
@@ -877,7 +931,7 @@ class SiteController extends Controller
     private function leftoverSafeRecordsUrl(mixed $url): string
     {
         try {
-            $raw = trim((string) $url);
+            $raw = trim(scalar_text($url));
             if ($raw === '') {
                 return '';
             }

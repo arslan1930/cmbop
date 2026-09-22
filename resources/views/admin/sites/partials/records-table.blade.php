@@ -4,6 +4,9 @@
     $healthFilter = \App\Support\CatalogHealthQueue::normalize($healthFilter ?? ($missingMarket ? \App\Support\CatalogHealthQueue::MISSING_MARKET : null));
     $liveFilter = (bool) ($liveFilter ?? false);
     $healthLabels = \App\Support\CatalogHealthQueue::LABELS;
+    if (! is_iterable($sites ?? null)) {
+        $sites = collect();
+    }
 @endphp
 <div class="card border-0 shadow-sm">
     <div class="table-responsive">
@@ -18,6 +21,7 @@
             </thead>
             <tbody>
                 @forelse($sites as $site)
+                    @php $site = is_array($site) ? $site : []; @endphp
                     <tr>
                         <td class="text-break">
                             @if(($href = scalar_text($site['href'] ?? '')) !== '')

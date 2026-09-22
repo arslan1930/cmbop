@@ -675,4 +675,63 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('health', 'below_quality');
     }
+
+    public function test_live_filter_survives_missing_countries_table(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-countries.example',
+            'domain' => 'live-no-countries.example',
+            'active' => true,
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://off-no-countries.example',
+            'domain' => 'off-no-countries.example',
+            'active' => false,
+        ]);
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('countries');
+        Schema::enableForeignKeyConstraints();
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-countries.example', false)
+            ->assertDontSee('https://off-no-countries.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true);
+    }
+
+    public function test_records_leftover_junk_queries_do_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://junk-combo.example',
+            'domain' => 'junk-combo.example',
+            'active' => true,
+        ]);
+
+        $queries = [
+            ['live' => 1, 'health' => ['not-json'], 'page' => 'not-json'],
+            ['live' => ['on'], 'country' => ['not-json']],
+            ['partial' => ['yes'], 'live' => ['1'], 'country' => [['de']]],
+            ['missing_market' => ['false'], 'live' => 1],
+        ];
+
+        foreach ($queries as $query) {
+            $this->actingAs($admin)
+                ->get(route('admin.sites.records', $query))
+                ->assertOk()
+                ->assertDontSee('SQLSTATE', false)
+                ->assertDontSee('must be of type', false);
+        }
+    }
 }
