@@ -197,9 +197,14 @@ class SiteController extends Controller
         $missingMarket = $filter['missing_market'];
         $liveFilter = $filter['live'];
 
-        $wantsPartial = $this->requestFlag($request, 'partial')
-            || $request->expectsJson()
-            || str_contains(strtolower(scalar_text($request->header('Accept', ''))), 'application/json');
+        try {
+            $wantsPartial = $this->requestFlag($request, 'partial')
+                || $request->expectsJson()
+                || str_contains(strtolower(scalar_text($request->header('Accept', ''))), 'application/json');
+        } catch (\Throwable $e) {
+            report($e);
+            $wantsPartial = $request->expectsJson();
+        }
 
         $sites = null;
         try {
@@ -360,12 +365,12 @@ class SiteController extends Controller
                 foreach ($query->cursor() as $site) {
                     $row = $this->leftoverSafeSiteRecordRow($site);
                     fputcsv($out, [
-                        $row['url'],
-                        $row['countries'],
-                        $row['categories'],
+                        scalar_text($row['url'] ?? ''),
+                        scalar_text($row['countries'] ?? ''),
+                        scalar_text($row['categories'] ?? ''),
                         ! empty($row['active']) ? '1' : '0',
-                        $row['health'],
-                        $row['listing_state'],
+                        scalar_text($row['health'] ?? ''),
+                        scalar_text($row['listing_state'] ?? ''),
                     ]);
                 }
 
@@ -436,17 +441,21 @@ class SiteController extends Controller
      */
     private function applyRecordsFilters($query, array $filter): void
     {
-        if (is_string($filter['health'] ?? null) && $filter['health'] !== '') {
-            CatalogHealthQueue::apply($query, $filter['health']);
+        try {
+            if (is_string($filter['health'] ?? null) && $filter['health'] !== '') {
+                CatalogHealthQueue::apply($query, $filter['health']);
 
-            return;
+                return;
+            }
+
+            if (! empty($filter['live'])) {
+                $this->constrainRecordsLive($query);
+            }
+
+            $this->applyRecordsCountryFilter($query, scalar_text($filter['country'] ?? ''));
+        } catch (\Throwable $e) {
+            report($e);
         }
-
-        if (! empty($filter['live'])) {
-            $this->constrainRecordsLive($query);
-        }
-
-        $this->applyRecordsCountryFilter($query, (string) ($filter['country'] ?? ''));
     }
 
     /**
@@ -472,12 +481,23 @@ class SiteController extends Controller
      */
     private function recordsPage(Request $request): int
     {
-        $raw = $request->query('page', 1);
-        if (is_array($raw)) {
+        try {
+            $raw = $request->query('page', 1);
+            if (is_array($raw) || is_object($raw)) {
+                return 1;
+            }
+
+            $page = (int) scalar_text($raw);
+            if ($page < 1) {
+                return 1;
+            }
+
+            return min($page, 10000);
+        } catch (\Throwable $e) {
+            report($e);
+
             return 1;
         }
-
-        return max(1, (int) scalar_text($raw));
     }
 
     /**
@@ -644,26 +664,39 @@ class SiteController extends Controller
      */
     private function applyRecordsCountryFilter($query, string $countryCode): void
     {
-        $code = strtolower(trim($countryCode));
+        $code = strtolower(trim(scalar_text($countryCode)));
         if ($code === '') {
             return;
         }
 
-        $hasCountry = Site::hasSitesColumn('country');
-        $hasCountriesJson = Site::hasSitesColumn('countries');
+        try {
+            $hasCountry = Site::hasSitesColumn('country');
+            $hasCountriesJson = Site::hasSitesColumn('countries');
+        } catch (\Throwable $e) {
+            report($e);
+
+            return;
+        }
         if (! $hasCountry && ! $hasCountriesJson) {
             return;
         }
 
+        // LIKE on CAST text — leftover Hostinger stores junk TEXT, not JSON, and
+        // whereJsonContains() 500s. Quoted needle still matches ["de","at"].
         $query->where(function ($q) use ($code, $hasCountry, $hasCountriesJson) {
             if ($hasCountry) {
                 $q->whereRaw('LOWER(country) = ?', [$code]);
             }
             if ($hasCountriesJson) {
+                $like = like_contains('"'.$code.'"');
+                $jsonClause = function ($inner) use ($code, $like) {
+                    $inner->whereRaw('LOWER(CAST(countries AS CHAR)) LIKE ? ESCAPE ?', [$like, '\\'])
+                        ->orWhereRaw('LOWER(CAST(countries AS CHAR)) = ?', [$code]);
+                };
                 if ($hasCountry) {
-                    $q->orWhereJsonContains('countries', $code);
+                    $q->orWhere($jsonClause);
                 } else {
-                    $q->whereJsonContains('countries', $code);
+                    $q->where($jsonClause);
                 }
             }
         });
@@ -963,19 +996,47 @@ class SiteController extends Controller
             report($e);
         }
 
+        $active = false;
+        try {
+            $active = (bool) $site->active;
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return [
-            'id' => (int) $site->id,
-            'url' => $url,
-            'href' => $href,
-            'admin_url' => $adminUrl,
-            'countries' => $countries,
-            'categories' => $categories,
+            'id' => (int) ($site->id ?? 0),
+            'url' => $this->leftoverSafeUtf8($url),
+            'href' => $this->leftoverSafeUtf8($href),
+            'admin_url' => $this->leftoverSafeUtf8($adminUrl),
+            'countries' => $this->leftoverSafeUtf8($countries),
+            'categories' => $this->leftoverSafeUtf8($categories),
             'missing_market' => $missingMarket,
-            'active' => (bool) $site->active,
-            'listing_state' => $listingState,
-            'health_flags' => $healthFlags,
-            'health' => implode('|', $healthFlags),
+            'active' => $active,
+            'listing_state' => $this->leftoverSafeUtf8($listingState),
+            'health_flags' => array_map(fn ($flag) => $this->leftoverSafeUtf8(scalar_text($flag)), $healthFlags),
+            'health' => $this->leftoverSafeUtf8(implode('|', $healthFlags)),
         ];
+    }
+
+    private function leftoverSafeUtf8(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        try {
+            if (function_exists('mb_scrub')) {
+                return mb_scrub($value, 'UTF-8');
+            }
+
+            $converted = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+
+            return is_string($converted) ? $converted : '';
+        } catch (\Throwable $e) {
+            report($e);
+
+            return preg_replace('/[^\x09\x0A\x0D\x20-\x7E]/', '', $value) ?? '';
+        }
     }
 
     private function leftoverSafeRecordsUrl(mixed $url): string

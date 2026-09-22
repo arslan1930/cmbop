@@ -998,4 +998,174 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true);
     }
+
+    public function test_leftover_not_json_countries_and_categories_do_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_url' => 'https://not-json-records.example',
+            'domain' => 'not-json-records.example',
+            'active' => true,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'countries' => 'not-json',
+            'categories' => 'not-json',
+            'languages' => 'not-json',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1, 'country' => 'de']))
+            ->assertOk()
+            ->assertSee('https://not-json-records.example', false)
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('must be of type', false);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.sites.records.export', ['live' => 1, 'country' => 'de']));
+        $csv->assertOk();
+        $this->assertStringContainsString('https://not-json-records.example', $csv->streamedContent());
+        $this->assertStringNotContainsString('SQLSTATE', $csv->streamedContent());
+    }
+
+    public function test_live_filter_survives_missing_site_url_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-url-col.example',
+            'domain' => 'live-no-url-col.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('site_url');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('live-no-url-col.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_records_sheet_survives_missing_categories_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://no-categories-col.example',
+            'domain' => 'no-categories-col.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('categories');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records'))
+            ->assertOk()
+            ->assertSee('https://no-categories-col.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_missing_market_survives_missing_country_columns(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://no-country-cols.example',
+            'domain' => 'no-country-cols.example',
+            'active' => true,
+            'country' => '',
+            'countries' => [],
+        ]);
+
+        $this->dropSitesColumn('country');
+        $this->dropSitesColumn('countries');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['missing_market' => 1]))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('must be of type', false);
+    }
+
+    public function test_below_quality_survives_missing_all_metric_columns(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://no-metrics-cols.example',
+            'domain' => 'no-metrics-cols.example',
+            'active' => true,
+            'verified' => true,
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+        ]);
+
+        $this->dropSitesColumn('da');
+        $this->dropSitesColumn('dr');
+        $this->dropSitesColumn('traffic');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => 'below_quality']))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('must be of type', false);
+    }
+
+    public function test_missing_cover_survives_missing_site_image_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://no-cover-col.example',
+            'domain' => 'no-cover-col.example',
+            'active' => true,
+            'verified' => true,
+            'site_image' => null,
+            'screenshot_path' => null,
+            'screenshot_thumb_path' => null,
+        ]);
+
+        $this->dropSitesColumn('site_image');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => 'missing_cover']))
+            ->assertOk()
+            ->assertSee('https://no-cover-col.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_leftover_invalid_utf8_categories_do_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_url' => 'https://utf8-categories.example',
+            'domain' => 'utf8-categories.example',
+            'active' => true,
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'categories' => "Tech\xB1",
+            'category' => "News\xB1",
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records'))
+            ->assertOk()
+            ->assertSee('https://utf8-categories.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
 }

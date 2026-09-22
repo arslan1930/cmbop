@@ -2093,9 +2093,17 @@ class Site extends Model
      */
     public function hasGoodMetrics(): bool
     {
-        return (int) $this->da >= self::GOOD_MIN_DA
-            && (int) $this->dr >= self::GOOD_MIN_DR
-            && (int) $this->traffic >= self::GOOD_MIN_TRAFFIC;
+        try {
+            $da = static::hasSitesColumn('da') ? (int) $this->da : 0;
+            $dr = static::hasSitesColumn('dr') ? (int) $this->dr : 0;
+            $traffic = static::hasSitesColumn('traffic') ? (int) $this->traffic : 0;
+
+            return $da >= self::GOOD_MIN_DA
+                && $dr >= self::GOOD_MIN_DR
+                && $traffic >= self::GOOD_MIN_TRAFFIC;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
@@ -2683,8 +2691,9 @@ class Site extends Model
             if (empty($this->categories)) {
                 // Keep a single legacy niche (even with commas) as one entry — never
                 // explode("Marketing, PR & Advertising") into halves.
-                if (! empty($this->category)) {
-                    return Category::parseCatalogCategoryParam((string) $this->category);
+                $legacy = trim(scalar_text($this->category ?? ''));
+                if ($legacy !== '') {
+                    return Category::parseCatalogCategoryParam($legacy);
                 }
 
                 return [];
@@ -2693,7 +2702,7 @@ class Site extends Model
             // If it's already an array — each entry is one niche (do not split on commas).
             if (is_array($this->categories)) {
                 return array_values(array_filter(array_map(
-                    static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
+                    static fn ($c) => trim(scalar_text($c)),
                     $this->categories
                 ), static fn ($c) => $c !== ''));
             }
@@ -2703,7 +2712,7 @@ class Site extends Model
                 $decoded = json_decode($this->categories, true);
                 if (is_array($decoded)) {
                     return array_values(array_filter(array_map(
-                        static fn ($c) => is_scalar($c) ? trim((string) $c) : '',
+                        static fn ($c) => trim(scalar_text($c)),
                         $decoded
                     ), static fn ($c) => $c !== ''));
                 }
@@ -2714,11 +2723,19 @@ class Site extends Model
                 return Category::parseCatalogCategoryParam($this->categories);
             }
 
-            return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+            $legacy = trim(scalar_text($this->category ?? ''));
+
+            return $legacy !== '' ? Category::parseCatalogCategoryParam($legacy) : [];
         } catch (\Throwable $e) {
             report($e);
 
-            return ! empty($this->category) ? Category::parseCatalogCategoryParam((string) $this->category) : [];
+            try {
+                $legacy = trim(scalar_text($this->category ?? ''));
+
+                return $legacy !== '' ? Category::parseCatalogCategoryParam($legacy) : [];
+            } catch (\Throwable) {
+                return [];
+            }
         }
     }
 
