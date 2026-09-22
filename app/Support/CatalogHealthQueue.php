@@ -58,11 +58,18 @@ class CatalogHealthQueue
 
     public static function fromRequest(Request $request): ?string
     {
-        if ($request->boolean('missing_market')) {
-            return self::MISSING_MARKET;
-        }
+        try {
+            // Leftover ?missing_market[]=1 TypeErrors $request->boolean().
+            if (filter_var(scalar_text($request->query('missing_market')), FILTER_VALIDATE_BOOLEAN)) {
+                return self::MISSING_MARKET;
+            }
 
-        return self::normalize($request->query('health'));
+            return self::normalize($request->query('health'));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     public static function label(?string $filter): ?string

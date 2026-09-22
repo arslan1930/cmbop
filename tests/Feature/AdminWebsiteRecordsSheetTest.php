@@ -12,6 +12,7 @@ use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AdminWebsiteRecordsSheetTest extends TestCase
@@ -457,5 +458,126 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertOk()
             ->assertSee('No live websites.', false)
             ->assertDontSee('https://records-sheet.example', false);
+    }
+
+    public function test_records_sheet_array_live_does_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-array.example',
+            'domain' => 'live-array.example',
+            'active' => true,
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://off-array.example',
+            'domain' => 'off-array.example',
+            'active' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => ['1']]))
+            ->assertOk()
+            ->assertSee('https://live-array.example', false)
+            ->assertDontSee('https://off-array.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $partial = $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => ['1'], 'partial' => ['1']]));
+        $partial->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true);
+        $this->assertStringContainsString('https://live-array.example', (string) $partial->json('table_html'));
+        $this->assertStringNotContainsString('https://off-array.example', (string) $partial->json('table_html'));
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.sites.records.export', ['live' => ['1']]));
+        $csv->assertOk();
+        $body = $csv->streamedContent();
+        $this->assertStringContainsString('https://live-array.example', $body);
+        $this->assertStringNotContainsString('https://off-array.example', $body);
+    }
+
+    public function test_junk_live_query_shows_all_records(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://junk-live-off.example',
+            'domain' => 'junk-live-off.example',
+            'active' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => ['not-json']]))
+            ->assertOk()
+            ->assertSee('https://junk-live-off.example', false)
+            ->assertDontSee('No live websites.', false);
+    }
+
+    public function test_array_missing_market_does_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://missing-market-array.example',
+            'domain' => 'missing-market-array.example',
+            'active' => true,
+            'country' => '',
+            'countries' => [],
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://has-market-array.example',
+            'domain' => 'has-market-array.example',
+            'active' => true,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['missing_market' => ['1']]))
+            ->assertOk()
+            ->assertSee('https://missing-market-array.example', false)
+            ->assertDontSee('https://has-market-array.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_live_filter_survives_missing_bulk_table(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-bulk.example',
+            'domain' => 'live-no-bulk.example',
+            'active' => true,
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://off-no-bulk.example',
+            'domain' => 'off-no-bulk.example',
+            'active' => false,
+        ]);
+
+        Schema::dropIfExists('bulk_site_requests');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-bulk.example', false)
+            ->assertDontSee('https://off-no-bulk.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.sites.records.export', ['live' => 1]));
+        $csv->assertOk();
+        $body = $csv->streamedContent();
+        $this->assertStringContainsString('https://live-no-bulk.example', $body);
+        $this->assertStringNotContainsString('https://off-no-bulk.example', $body);
     }
 }
