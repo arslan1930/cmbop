@@ -15,7 +15,23 @@
     $recordsShowing = is_object($sites ?? null) && method_exists($sites, 'total')
         ? (int) $sites->total()
         : (is_countable($sites ?? null) ? count($sites) : 0);
-    $exportUrl = $exportUrl ?? route('admin.sites.records.export');
+    $recordsCountriesJson = json_encode(
+        $countries->values(),
+        JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE
+    );
+    if (! is_string($recordsCountriesJson) || $recordsCountriesJson === '') {
+        $recordsCountriesJson = '[]';
+    }
+    $recordsHealthCountsJson = json_encode(
+        $healthCounts,
+        JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE
+    );
+    if (! is_string($recordsHealthCountsJson) || $recordsHealthCountsJson === '') {
+        $recordsHealthCountsJson = '{}';
+    }
+    $exportUrl = scalar_text($exportUrl ?? '') !== ''
+        ? scalar_text($exportUrl)
+        : route('admin.sites.records.export');
     $selectedLabel = '';
     if ($selectedCountry !== '') {
         $match = $countries->first(fn ($c) => strtolower(trim(scalar_text(data_get($c, 'code')))) === $selectedCountry);
@@ -184,12 +200,12 @@
     const RECORDS_URL = @json(route('admin.sites.records'));
     const EXPORT_BASE = @json(route('admin.sites.records.export'));
     const TOTAL_SITES = @json($totalSites);
-    const COUNTRIES = @json($countries->values());
+    const COUNTRIES = {!! $recordsCountriesJson !!};
     let selectedCountry = @json($selectedCountry);
     let missingMarket = @json((bool) $missingMarket);
     let missingMarketCount = @json((int) $missingMarketCount);
     let healthFilter = @json($healthFilter);
-    let healthCounts = @json($healthCounts);
+    let healthCounts = {!! $recordsHealthCountsJson !!};
     let liveFilter = @json((bool) $liveFilter);
     let liveCount = @json((int) $liveCount);
     const HEALTH_LABELS = @json($healthLabels);

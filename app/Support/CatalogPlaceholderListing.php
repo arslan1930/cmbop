@@ -59,10 +59,13 @@ class CatalogPlaceholderListing
     {
         return $query->where(function (Builder $q) {
             $q->where('description', 'like', '%lorem ipsum%')
-                ->orWhere('description', 'like', '%replace this placeholder with a real site description%')
-                ->orWhere('domain', 'example.com')
-                ->orWhere('domain', 'localhost')
-                ->orWhere('domain', 'like', 'demo%.com');
+                ->orWhere('description', 'like', '%replace this placeholder with a real site description%');
+
+            if (Site::hasSitesColumn('domain')) {
+                $q->orWhere('domain', 'example.com')
+                    ->orWhere('domain', 'localhost')
+                    ->orWhere('domain', 'like', 'demo%.com');
+            }
 
             foreach (['site_url', 'example_url'] as $column) {
                 if (! Site::hasSitesColumn($column)) {

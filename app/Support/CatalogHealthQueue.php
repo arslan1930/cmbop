@@ -189,13 +189,33 @@ class CatalogHealthQueue
      */
     private static function constrainBelowQuality(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
-            $q->where('da', '<', Site::GOOD_MIN_DA)
-                ->orWhere('dr', '<', Site::GOOD_MIN_DR)
-                ->orWhere('traffic', '<', Site::GOOD_MIN_TRAFFIC)
-                ->orWhereNull('da')
-                ->orWhereNull('dr')
-                ->orWhereNull('traffic');
+        $checks = [];
+        if (Site::hasSitesColumn('da')) {
+            $checks[] = 'da';
+        }
+        if (Site::hasSitesColumn('dr')) {
+            $checks[] = 'dr';
+        }
+        if (Site::hasSitesColumn('traffic')) {
+            $checks[] = 'traffic';
+        }
+
+        if ($checks === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $mins = [
+            'da' => Site::GOOD_MIN_DA,
+            'dr' => Site::GOOD_MIN_DR,
+            'traffic' => Site::GOOD_MIN_TRAFFIC,
+        ];
+
+        return $query->where(function (Builder $q) use ($checks, $mins) {
+            $first = array_shift($checks);
+            $q->where($first, '<', $mins[$first])->orWhereNull($first);
+            foreach ($checks as $column) {
+                $q->orWhere($column, '<', $mins[$column])->orWhereNull($column);
+            }
         });
     }
 
@@ -205,6 +225,10 @@ class CatalogHealthQueue
      */
     private static function constrainUnverified(Builder $query): Builder
     {
+        if (! Site::hasSitesColumn('verified')) {
+            return $query->whereRaw('1 = 0');
+        }
+
         return $query->where(function (Builder $q) {
             $q->where('verified', 0)->orWhereNull('verified');
         });

@@ -218,7 +218,7 @@ class SiteController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => UserFacingError::message($e, 'We could not filter records. Please try again.'),
-                ], 500);
+                ], 500, [], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
             }
 
             session()->flash(
@@ -266,30 +266,45 @@ class SiteController extends Controller
                         : 0,
                     'export_url' => $exportUrl,
                     'table_html' => $tableHtml,
-                ]);
+                ], 200, [], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
             } catch (\Throwable $e) {
                 report($e);
 
                 return response()->json([
                     'success' => false,
                     'message' => UserFacingError::message($e, 'We could not filter records. Please try again.'),
-                ], 500);
+                ], 500, [], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
             }
         }
 
-        return view('admin.sites.records', compact(
-            'sites',
-            'countries',
-            'selectedCountry',
-            'totalSites',
-            'exportUrl',
-            'missingMarket',
-            'missingMarketCount',
-            'healthFilter',
-            'healthCounts',
-            'liveFilter',
-            'liveCount'
-        ));
+        try {
+            return view('admin.sites.records', compact(
+                'sites',
+                'countries',
+                'selectedCountry',
+                'totalSites',
+                'exportUrl',
+                'missingMarket',
+                'missingMarketCount',
+                'healthFilter',
+                'healthCounts',
+                'liveFilter',
+                'liveCount'
+            ));
+        } catch (\Throwable $e) {
+            report($e);
+
+            session()->flash(
+                'error',
+                UserFacingError::message($e, 'We could not load site records. Please refresh and try again.')
+            );
+
+            return response(
+                'We could not load site records. Please refresh and try again.',
+                200,
+                ['Content-Type' => 'text/plain; charset=UTF-8']
+            );
+        }
     }
 
     /**
@@ -610,11 +625,22 @@ class SiteController extends Controller
             return;
         }
 
+        $hasCountry = Site::hasSitesColumn('country');
         $hasCountriesJson = Site::hasSitesColumn('countries');
-        $query->where(function ($q) use ($code, $hasCountriesJson) {
-            $q->whereRaw('LOWER(country) = ?', [$code]);
+        if (! $hasCountry && ! $hasCountriesJson) {
+            return;
+        }
+
+        $query->where(function ($q) use ($code, $hasCountry, $hasCountriesJson) {
+            if ($hasCountry) {
+                $q->whereRaw('LOWER(country) = ?', [$code]);
+            }
             if ($hasCountriesJson) {
-                $q->orWhereJsonContains('countries', $code);
+                if ($hasCountry) {
+                    $q->orWhereJsonContains('countries', $code);
+                } else {
+                    $q->whereJsonContains('countries', $code);
+                }
             }
         });
     }

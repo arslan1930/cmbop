@@ -734,4 +734,89 @@ class AdminWebsiteRecordsSheetTest extends TestCase
                 ->assertDontSee('must be of type', false);
         }
     }
+
+    public function test_live_csv_survives_missing_countries_table(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-csv-no-countries.example',
+            'domain' => 'live-csv-no-countries.example',
+            'active' => true,
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://off-csv-no-countries.example',
+            'domain' => 'off-csv-no-countries.example',
+            'active' => false,
+        ]);
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('countries');
+        Schema::enableForeignKeyConstraints();
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.sites.records.export', ['live' => ['1']]));
+        $csv->assertOk();
+        $body = $csv->streamedContent();
+        $this->assertStringContainsString('https://live-csv-no-countries.example', $body);
+        $this->assertStringNotContainsString('https://off-csv-no-countries.example', $body);
+        $this->assertStringNotContainsString('SQLSTATE', $body);
+    }
+
+    public function test_below_quality_survives_missing_da_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://below-no-da.example',
+            'domain' => 'below-no-da.example',
+            'active' => true,
+            'verified' => true,
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+
+        Schema::table('sites', function ($table) {
+            $table->dropColumn('da');
+        });
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => 'below_quality']))
+            ->assertOk()
+            ->assertSee('https://below-no-da.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['health' => 'below_quality', 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_leftover_invalid_utf8_url_does_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_url' => 'https://utf8-records.example',
+            'domain' => 'utf8-records.example',
+            'active' => true,
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'site_url' => "https://utf8-records.example/\xB1",
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE', false)
+            ->assertSee('Open in admin', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
 }
