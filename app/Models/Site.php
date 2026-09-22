@@ -2646,6 +2646,25 @@ class Site extends Model
     }
 
     /**
+     * Leftover Hostinger may store JSON arrays in float columns (rating_avg).
+     * Laravel's fromFloat() TypeErrors on (string) array and 500s records hydration.
+     *
+     * @param  mixed  $value
+     */
+    public function fromFloat($value)
+    {
+        try {
+            if (is_array($value) || (is_object($value) && ! $value instanceof \Stringable)) {
+                return 0.0;
+            }
+
+            return parent::fromFloat($value);
+        } catch (\Throwable) {
+            return 0.0;
+        }
+    }
+
+    /**
      * Count listings that offer homepage placement.
      * Returns 0 when Hostinger skipped the placement migration (do not WHERE a missing column).
      */
@@ -2935,7 +2954,7 @@ class Site extends Model
     {
         $codes = collect($this->safeJsonArray('languages'))
             ->filter()
-            ->map(fn ($c) => strtolower(trim((string) $c)))
+            ->map(fn ($c) => strtolower(trim(scalar_text($c))))
             ->all();
 
         try {

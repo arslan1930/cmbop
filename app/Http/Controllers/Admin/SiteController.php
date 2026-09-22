@@ -395,7 +395,7 @@ class SiteController extends Controller
     private function recordsFilterState(Request $request): array
     {
         try {
-            $countryFilter = strtolower(trim(scalar_text($request->query('country', ''))));
+            $countryFilter = strtolower(trim($this->leftoverSafeUtf8(scalar_text($request->query('country', '')))));
             if ($countryFilter === 'all') {
                 $countryFilter = '';
             }
@@ -572,7 +572,7 @@ class SiteController extends Controller
     private function recordsCountryCounts(): array
     {
         $counts = [];
-        $select = ['id'];
+        $select = [];
         try {
             if (Site::hasSitesColumn('country')) {
                 $select[] = 'country';
@@ -585,7 +585,7 @@ class SiteController extends Controller
 
             return [];
         }
-        if ($select === ['id']) {
+        if ($select === []) {
             return [];
         }
 
@@ -633,7 +633,10 @@ class SiteController extends Controller
 
             $query = Country::query();
             try {
-                if ($hasCode) {
+                $allowedCodes = config('markets.allowed_country_codes', []);
+                if ($hasCode && is_array($allowedCodes) && $allowedCodes !== []) {
+                    $query->whereIn('code', $allowedCodes);
+                } elseif (Schema::hasColumn($table, 'region')) {
                     $query = Country::marketplace();
                 }
             } catch (\Throwable $e) {
@@ -654,15 +657,16 @@ class SiteController extends Controller
             return $query
                 ->get($select)
                 ->map(function (Country $country) use ($countryCounts, $hasCode, $hasName) {
-                    $code = strtolower(trim(scalar_text(
+                    $code = strtolower(trim($this->leftoverSafeUtf8(scalar_text(
                         $hasCode ? ($country->code ?? '') : ($country->name ?? '')
-                    )));
+                    ))));
+                    $name = $hasName
+                        ? $this->leftoverSafeUtf8(scalar_text($country->name ?? ''))
+                        : strtoupper($code);
 
                     return [
                         'code' => $code,
-                        'name' => $hasName
-                            ? scalar_text($country->name ?? '')
-                            : strtoupper($code),
+                        'name' => $name,
                         'count' => (int) ($countryCounts[$code] ?? 0),
                     ];
                 })

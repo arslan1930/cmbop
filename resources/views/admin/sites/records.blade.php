@@ -203,10 +203,10 @@
     const EXPORT_BASE = @json(route('admin.sites.records.export'));
     const TOTAL_SITES = @json($totalSites);
     const COUNTRIES = {!! $recordsCountriesJson !!};
-    let selectedCountry = @json($selectedCountry);
+    let selectedCountry = @json($selectedCountry, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE);
     let missingMarket = @json((bool) $missingMarket);
     let missingMarketCount = @json((int) $missingMarketCount);
-    let healthFilter = @json($healthFilter);
+    let healthFilter = @json($healthFilter, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE);
     let healthCounts = {!! $recordsHealthCountsJson !!};
     let liveFilter = @json((bool) $liveFilter);
     let liveCount = @json((int) $liveCount);

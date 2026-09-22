@@ -1492,4 +1492,246 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertSee('https://live-no-onboarding-col.example', false)
             ->assertDontSee('SQLSTATE', false);
     }
+
+    public function test_leftover_invalid_utf8_country_query_does_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://utf8-country-query.example',
+            'domain' => 'utf8-country-query.example',
+            'active' => true,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1, 'country' => "de\xB1"]))
+            ->assertOk()
+            ->assertSee('Websites records sheet', false)
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('Malformed UTF-8', false)
+            ->assertDontSee('must be of type', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'country' => "de\xB1", 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.sites.records.export', ['live' => 1, 'country' => "de\xB1"]));
+        $csv->assertOk();
+        $this->assertStringNotContainsString('SQLSTATE', $csv->streamedContent());
+    }
+
+    public function test_leftover_invalid_utf8_country_name_does_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://utf8-country-name.example',
+            'domain' => 'utf8-country-name.example',
+            'active' => true,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+
+        DB::table('countries')->where('code', 'de')->update([
+            'name' => "Germany\xB1",
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1, 'country' => 'de']))
+            ->assertOk()
+            ->assertSee('Websites records sheet', false)
+            ->assertSee('https://utf8-country-name.example', false)
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('Malformed UTF-8', false);
+    }
+
+    public function test_live_filter_survives_missing_countries_code_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-country-code.example',
+            'domain' => 'live-no-country-code.example',
+            'active' => true,
+        ]);
+
+        $this->dropTableColumn('countries', 'code');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-country-code.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true);
+    }
+
+    public function test_live_filter_survives_missing_countries_region_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-country-region.example',
+            'domain' => 'live-no-country-region.example',
+            'active' => true,
+        ]);
+
+        $this->dropTableColumn('countries', 'region');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-country-region.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_live_filter_survives_missing_site_name_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-site-name.example',
+            'domain' => 'live-no-site-name.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('site_name');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-site-name.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_live_filter_survives_missing_publisher_id_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-publisher-id.example',
+            'domain' => 'live-no-publisher-id.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('publisher_id');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-publisher-id.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_live_filter_survives_missing_language_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-language-col.example',
+            'domain' => 'live-no-language-col.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('language');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-language-col.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_live_filter_survives_missing_created_at_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-created-at.example',
+            'domain' => 'live-no-created-at.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('created_at');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-created-at.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_live_filter_survives_missing_categories_table(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-categories-table.example',
+            'domain' => 'live-no-categories-table.example',
+            'active' => true,
+        ]);
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('categories');
+        Schema::enableForeignKeyConstraints();
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-categories-table.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_live_filter_survives_missing_link_type_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-link-type.example',
+            'domain' => 'live-no-link-type.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('link_type');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-link-type.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_placeholder_queue_survives_missing_site_url_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://demo86.com/guest',
+            'domain' => 'demo86.com',
+            'active' => true,
+            'verified' => true,
+            'description' => 'Lorem ipsum leftover placeholder.',
+        ]);
+
+        $this->dropSitesColumn('site_url');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => 'placeholder']))
+            ->assertOk()
+            ->assertSee('demo86.com', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
 }
