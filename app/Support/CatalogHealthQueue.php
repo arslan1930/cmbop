@@ -105,14 +105,20 @@ class CatalogHealthQueue
             return $query->whereRaw('1 = 0');
         }
 
-        return match ($normalized) {
-            self::MISSING_MARKET => $query->activeMissingMarketplaceCountry(),
-            self::BELOW_QUALITY => self::constrainBelowQuality($query->catalogVisible()),
-            self::UNVERIFIED => self::constrainUnverified($query->catalogVisible()),
-            self::PLACEHOLDER => CatalogPlaceholderListing::constrainQuery($query->catalogVisible()),
-            self::MISSING_COVER => self::constrainMissingCover($query->catalogVisible()),
-            default => $query,
-        };
+        try {
+            return match ($normalized) {
+                self::MISSING_MARKET => $query->activeMissingMarketplaceCountry(),
+                self::BELOW_QUALITY => self::constrainBelowQuality($query->catalogVisible()),
+                self::UNVERIFIED => self::constrainUnverified($query->catalogVisible()),
+                self::PLACEHOLDER => CatalogPlaceholderListing::constrainQuery($query->catalogVisible()),
+                self::MISSING_COVER => self::constrainMissingCover($query->catalogVisible()),
+                default => $query,
+            };
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $query->whereRaw('1 = 0');
+        }
     }
 
     /**

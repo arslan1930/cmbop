@@ -2622,6 +2622,30 @@ class Site extends Model
     }
 
     /**
+     * Leftover Hostinger stores junk in decimal columns (price = "not-json").
+     * Laravel's decimal cast MathExceptions and 500s staff records hydration.
+     *
+     * @param  mixed  $value
+     * @param  int  $decimals
+     */
+    protected function asDecimal($value, $decimals)
+    {
+        try {
+            if (is_array($value) || (is_object($value) && ! $value instanceof \Stringable)) {
+                $value = 0;
+            }
+
+            return parent::asDecimal($value, $decimals);
+        } catch (\Throwable) {
+            try {
+                return parent::asDecimal(0, $decimals);
+            } catch (\Throwable) {
+                return number_format(0, (int) $decimals, '.', '');
+            }
+        }
+    }
+
+    /**
      * Count listings that offer homepage placement.
      * Returns 0 when Hostinger skipped the placement migration (do not WHERE a missing column).
      */
@@ -2681,9 +2705,13 @@ class Site extends Model
      */
     public function getCategoriesStringAttribute(): string
     {
-        $categories = $this->categories ?? [$this->category];
+        try {
+            return implode(', ', scalar_list($this->categories ?? [$this->category]));
+        } catch (\Throwable $e) {
+            report($e);
 
-        return implode(', ', $categories);
+            return trim(scalar_text($this->category ?? ''));
+        }
     }
 
     /**

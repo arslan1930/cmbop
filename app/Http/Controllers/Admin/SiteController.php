@@ -591,12 +591,16 @@ class SiteController extends Controller
 
         try {
             foreach (Site::query()->select($select)->cursor() as $site) {
-                foreach ($site->countryCodes() as $code) {
-                    $code = strtolower(trim(scalar_text($code)));
-                    if ($code === '') {
-                        continue;
+                try {
+                    foreach ($site->countryCodes() as $code) {
+                        $code = strtolower(trim(scalar_text($code)));
+                        if ($code === '') {
+                            continue;
+                        }
+                        $counts[$code] = ($counts[$code] ?? 0) + 1;
                     }
-                    $counts[$code] = ($counts[$code] ?? 0) + 1;
+                } catch (\Throwable $rowError) {
+                    report($rowError);
                 }
             }
         } catch (\Throwable $e) {

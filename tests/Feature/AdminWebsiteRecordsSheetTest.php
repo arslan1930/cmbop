@@ -1338,4 +1338,94 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertDontSee('SQLSTATE', false)
             ->assertDontSee('must be of type', false);
     }
+
+    public function test_leftover_junk_price_and_json_columns_do_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_url' => 'https://leftover-price-json.example',
+            'domain' => 'leftover-price-json.example',
+            'active' => true,
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'price' => 'not-json',
+            'da' => 'not-json',
+            'dr' => 'not-json',
+            'traffic' => 'not-json',
+            'rating_avg' => 'not-json',
+            'bulk_discount_percent' => 'not-json',
+            'custom_discount_percent' => 'not-json',
+            'languages' => 'not-json',
+            'sensitive_prices' => 'not-json',
+            'homepage_placement_prices' => 'not-json',
+            'social_promotion' => 'not-json',
+            'publication_time' => 'not-a-duration',
+            'onboarding_status' => 'not-a-status',
+            'turnaround_time' => '???',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://leftover-price-json.example', false)
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('must be of type', false)
+            ->assertDontSee('Unable to cast value to a decimal', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.sites.records.export', ['live' => 1]));
+        $csv->assertOk();
+        $this->assertStringContainsString('https://leftover-price-json.example', $csv->streamedContent());
+    }
+
+    public function test_records_sheet_survives_missing_languages_and_category_columns(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://no-lang-category.example',
+            'domain' => 'no-lang-category.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('languages');
+        $this->dropSitesColumn('category');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://no-lang-category.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_missing_cover_survives_missing_all_image_columns(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://no-image-cols.example',
+            'domain' => 'no-image-cols.example',
+            'active' => true,
+            'verified' => true,
+            'site_image' => null,
+            'screenshot_path' => null,
+            'screenshot_thumb_path' => null,
+        ]);
+
+        $this->dropSitesColumn('site_image');
+        $this->dropSitesColumn('screenshot_path');
+        $this->dropSitesColumn('screenshot_thumb_path');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => 'missing_cover']))
+            ->assertOk()
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('must be of type', false);
+    }
 }
