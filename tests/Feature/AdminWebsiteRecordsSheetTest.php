@@ -580,4 +580,99 @@ class AdminWebsiteRecordsSheetTest extends TestCase
         $this->assertStringContainsString('https://live-no-bulk.example', $body);
         $this->assertStringNotContainsString('https://off-no-bulk.example', $body);
     }
+
+    public function test_records_sheet_array_page_does_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://page-array.example',
+            'domain' => 'page-array.example',
+            'active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1, 'page' => ['2']]))
+            ->assertOk()
+            ->assertSee('https://page-array.example', false)
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('must be of type', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', [
+                'live' => ['1'],
+                'partial' => ['1'],
+                'page' => ['2'],
+            ]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true);
+    }
+
+    public function test_records_sheet_array_health_does_not_500(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://below-array.example',
+            'domain' => 'below-array.example',
+            'active' => true,
+            'verified' => true,
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://clean-array.example',
+            'domain' => 'clean-array.example',
+            'active' => true,
+            'verified' => true,
+            'da' => 40,
+            'dr' => 45,
+            'traffic' => 12000,
+            'country' => 'de',
+            'countries' => ['de'],
+            'site_image' => 'sites/cover.webp',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => ['below_quality']]))
+            ->assertOk()
+            ->assertSee('https://below-array.example', false)
+            ->assertDontSee('https://clean-array.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
+
+    public function test_health_filter_survives_missing_bulk_table(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://below-no-bulk.example',
+            'domain' => 'below-no-bulk.example',
+            'active' => true,
+            'verified' => true,
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+
+        Schema::dropIfExists('bulk_site_requests');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['health' => 'below_quality']))
+            ->assertOk()
+            ->assertSee('https://below-no-bulk.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['health' => 'below_quality', 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('health', 'below_quality');
+    }
 }

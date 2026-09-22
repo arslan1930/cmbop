@@ -1052,6 +1052,16 @@ class Site extends Model
             return $query;
         }
 
+        try {
+            if (! Schema::hasTable('bulk_site_requests')) {
+                return $query;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $query;
+        }
+
         return $query->where(function ($q) {
             $q->whereNull('bulk_site_request_id')
                 ->orWhereHas('bulkSiteRequest', function ($bulk) {
@@ -1545,11 +1555,21 @@ class Site extends Model
             return false;
         }
 
-        $bulk = $this->relationLoaded('bulkSiteRequest')
-            ? $this->bulkSiteRequest
-            : $this->bulkSiteRequest()->first();
+        try {
+            if (! Schema::hasTable('bulk_site_requests')) {
+                return false;
+            }
 
-        return (bool) $bulk?->isCancelled();
+            $bulk = $this->relationLoaded('bulkSiteRequest')
+                ? $this->bulkSiteRequest
+                : $this->bulkSiteRequest()->first();
+
+            return (bool) $bulk?->isCancelled();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     public function canBeActivated(): bool

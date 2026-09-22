@@ -41,14 +41,11 @@ class CatalogHealthQueue
 
     public static function normalize(mixed $health): ?string
     {
-        if (is_array($health)) {
-            $health = reset($health);
-        }
-        if (! is_scalar($health) || is_bool($health)) {
+        if (is_bool($health)) {
             return null;
         }
 
-        $value = strtolower(trim((string) $health));
+        $value = strtolower(trim(scalar_text($health)));
         if ($value === '' || $value === 'all') {
             return null;
         }
@@ -134,20 +131,53 @@ class CatalogHealthQueue
     {
         $flags = [];
 
-        if ((bool) $site->active && ! $site->hasMarketplaceCountry()) {
-            $flags[] = self::MISSING_MARKET;
+        try {
+            if ((bool) $site->active && ! $site->hasMarketplaceCountry()) {
+                $flags[] = self::MISSING_MARKET;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
-        if ($site->isCatalogVisible() && ! $site->hasGoodMetrics()) {
-            $flags[] = self::BELOW_QUALITY;
+
+        $live = false;
+        try {
+            $live = $site->isCatalogVisible();
+        } catch (\Throwable $e) {
+            report($e);
+            try {
+                $live = (bool) $site->active && ! $site->isArchived();
+            } catch (\Throwable) {
+                $live = (bool) ($site->active ?? false);
+            }
         }
-        if ($site->isCatalogVisible() && ! (bool) $site->verified) {
-            $flags[] = self::UNVERIFIED;
+
+        try {
+            if ($live && ! $site->hasGoodMetrics()) {
+                $flags[] = self::BELOW_QUALITY;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
-        if ($site->isCatalogVisible() && CatalogPlaceholderListing::matches($site)) {
-            $flags[] = self::PLACEHOLDER;
+        try {
+            if ($live && ! (bool) $site->verified) {
+                $flags[] = self::UNVERIFIED;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
-        if ($site->isCatalogVisible() && ! $site->hasCatalogCover()) {
-            $flags[] = self::MISSING_COVER;
+        try {
+            if ($live && CatalogPlaceholderListing::matches($site)) {
+                $flags[] = self::PLACEHOLDER;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+        try {
+            if ($live && ! $site->hasCatalogCover()) {
+                $flags[] = self::MISSING_COVER;
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return $flags;

@@ -1,7 +1,7 @@
 @php
-    $selectedCountry = $selectedCountry ?? '';
+    $selectedCountry = strtolower(trim(scalar_text($selectedCountry ?? '')));
     $missingMarket = (bool) ($missingMarket ?? false);
-    $healthFilter = $healthFilter ?? ($missingMarket ? \App\Support\CatalogHealthQueue::MISSING_MARKET : null);
+    $healthFilter = \App\Support\CatalogHealthQueue::normalize($healthFilter ?? ($missingMarket ? \App\Support\CatalogHealthQueue::MISSING_MARKET : null));
     $liveFilter = (bool) ($liveFilter ?? false);
     $healthLabels = \App\Support\CatalogHealthQueue::LABELS;
 @endphp
@@ -20,19 +20,19 @@
                 @forelse($sites as $site)
                     <tr>
                         <td class="text-break">
-                            @if(($site['href'] ?? '') !== '')
-                                <a href="{{ $site['href'] }}" target="_blank" rel="noopener noreferrer">{{ $site['url'] }}</a>
-                            @elseif(($site['url'] ?? '') !== '')
-                                <span>{{ $site['url'] }}</span>
+                            @if(($href = scalar_text($site['href'] ?? '')) !== '')
+                                <a href="{{ $href }}" target="_blank" rel="noopener noreferrer">{{ scalar_text($site['url'] ?? $href) }}</a>
+                            @elseif(($url = scalar_text($site['url'] ?? '')) !== '')
+                                <span>{{ $url }}</span>
                             @else
                                 <span class="text-muted">—</span>
                             @endif
-                            @if(($site['admin_url'] ?? '') !== '')
+                            @if(($adminUrl = scalar_text($site['admin_url'] ?? '')) !== '')
                                 <div class="small mt-1">
-                                    <a href="{{ $site['admin_url'] }}" class="link-secondary">Open in admin</a>
+                                    <a href="{{ $adminUrl }}" class="link-secondary">Open in admin</a>
                                 </div>
                             @endif
-                            @foreach(($site['health_flags'] ?? []) as $flag)
+                            @foreach(scalar_list($site['health_flags'] ?? []) as $flag)
                                 <span class="badge {{ $flag === 'missing_market' ? 'text-bg-danger' : 'text-bg-warning' }} ms-1">{{ $healthLabels[$flag] ?? $flag }}</span>
                             @endforeach
                             @if(empty($site['health_flags']) && !empty($site['missing_market']))
@@ -46,8 +46,8 @@
                                 <span class="badge text-bg-secondary">Off</span>
                             @endif
                         </td>
-                        <td class="text-uppercase small">{{ $site['countries'] !== '' ? $site['countries'] : '—' }}</td>
-                        <td class="small">{{ $site['categories'] !== '' ? $site['categories'] : '—' }}</td>
+                        <td class="text-uppercase small">{{ ($countriesCell = scalar_text($site['countries'] ?? '')) !== '' ? $countriesCell : '—' }}</td>
+                        <td class="small">{{ ($categoriesCell = scalar_text($site['categories'] ?? '')) !== '' ? $categoriesCell : '—' }}</td>
                     </tr>
                 @empty
                     <tr>
@@ -71,7 +71,7 @@
     </div>
 </div>
 
-@if($sites->hasPages())
+@if(is_object($sites) && method_exists($sites, 'hasPages') && $sites->hasPages())
     <div class="d-flex justify-content-center mt-3" data-records-pagination>
         {{ $sites->links() }}
     </div>

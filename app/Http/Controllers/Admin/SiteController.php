@@ -204,8 +204,9 @@ class SiteController extends Controller
             $query = Site::query()->orderBy('domain')->orderBy('id');
             $this->applyRecordsFilters($query, $filter);
 
+            $page = $this->recordsPage($request);
             $sites = $query
-                ->paginate(100)
+                ->paginate(100, ['*'], 'page', $page)
                 ->appends($filter['query_params'])
                 ->through(fn (Site $site) => $this->leftoverSafeSiteRecordRow($site));
 
@@ -245,7 +246,7 @@ class SiteController extends Controller
                 UserFacingError::message($e, 'We could not load site records. Please refresh and try again.')
             );
 
-            $sites = new LengthAwarePaginator([], 0, 100, 1, [
+            $sites = new LengthAwarePaginator([], 0, 100, $this->recordsPage($request), [
                 'path' => $request->url(),
                 'query' => $filter['query_params'],
             ]);
@@ -452,6 +453,14 @@ class SiteController extends Controller
         }
 
         $this->applyRecordsCountryFilter($query, (string) ($filter['country'] ?? ''));
+    }
+
+    /**
+     * Leftover ?page[]=2 TypeErrors Laravel's paginator filter_var().
+     */
+    private function recordsPage(Request $request): int
+    {
+        return max(1, (int) scalar_text($request->query('page', 1)));
     }
 
     /**

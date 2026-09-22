@@ -2,22 +2,25 @@
 
 @section('content')
 @php
-    $selectedCountry = $selectedCountry ?? '';
+    $selectedCountry = strtolower(trim(scalar_text($selectedCountry ?? '')));
     $missingMarket = (bool) ($missingMarket ?? false);
     $missingMarketCount = (int) ($missingMarketCount ?? 0);
-    $healthFilter = $healthFilter ?? ($missingMarket ? \App\Support\CatalogHealthQueue::MISSING_MARKET : null);
+    $healthFilter = \App\Support\CatalogHealthQueue::normalize($healthFilter ?? ($missingMarket ? \App\Support\CatalogHealthQueue::MISSING_MARKET : null));
     $liveFilter = (bool) ($liveFilter ?? false);
     $liveCount = (int) ($liveCount ?? 0);
     $healthCounts = $healthCounts ?? \App\Support\CatalogHealthQueue::emptyCounts();
     $healthLabels = \App\Support\CatalogHealthQueue::LABELS;
     $countries = collect($countries ?? []);
     $totalSites = (int) ($totalSites ?? 0);
+    $recordsShowing = is_object($sites ?? null) && method_exists($sites, 'total')
+        ? (int) $sites->total()
+        : (is_countable($sites ?? null) ? count($sites) : 0);
     $exportUrl = $exportUrl ?? route('admin.sites.records.export');
     $selectedLabel = '';
     if ($selectedCountry !== '') {
-        $match = $countries->first(fn ($c) => strtolower((string) ($c['code'] ?? '')) === $selectedCountry);
+        $match = $countries->first(fn ($c) => strtolower(trim(scalar_text(data_get($c, 'code')))) === $selectedCountry);
         $selectedLabel = $match
-            ? (($match['name'] ?? strtoupper($selectedCountry)).' ('.strtoupper($selectedCountry).')')
+            ? ((scalar_text(data_get($match, 'name')) ?: strtoupper($selectedCountry)).' ('.strtoupper($selectedCountry).')')
             : strtoupper($selectedCountry);
     }
 @endphp
@@ -148,7 +151,7 @@
                 </div>
                 <div class="col-12 text-md-end">
                     <span class="small text-muted" id="recordsShowingLabel">
-                        Showing {{ $sites->total() }} site{{ $sites->total() === 1 ? '' : 's' }}
+                        Showing {{ $recordsShowing }} site{{ $recordsShowing === 1 ? '' : 's' }}
                         @if($healthFilter)
                             in <strong>{{ $healthLabels[$healthFilter] ?? $healthFilter }}</strong>
                         @elseif($liveFilter && $selectedCountry !== '')
