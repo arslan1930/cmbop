@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ActivityLog;
+use App\Models\BulkSiteRequest;
 use App\Models\Country;
 use App\Models\Role;
 use App\Models\Site;
@@ -10,6 +11,7 @@ use App\Models\User;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AdminWebsiteRecordsSheetTest extends TestCase
@@ -73,11 +75,15 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertOk()
             ->assertSee('Websites records sheet', false)
             ->assertSee('Live from database', false)
+            ->assertSee('Live on portal', false)
+            ->assertSee('All records', false)
             ->assertSee('Filter by country', false)
             ->assertSee('Search countries', false)
             ->assertSee('recordsCountrySearch', false)
             ->assertDontSee('>Apply<', false)
             ->assertSee('https://records-sheet.example', false)
+            ->assertSee('Open in admin', false)
+            ->assertSee('>Off</span>', false)
             ->assertSee('de|at', false)
             ->assertSee('Technology|Business &amp; Finance', false)
             ->assertDontSee('€99', false);
@@ -277,9 +283,11 @@ class AdminWebsiteRecordsSheetTest extends TestCase
 
         $csv = $response->streamedContent();
         $this->assertStringContainsString('url,countries,categories', $csv);
+        $this->assertStringContainsString('listing_state', $csv);
         $this->assertStringContainsString('https://records-sheet.example', $csv);
         $this->assertStringContainsString('de|at', $csv);
         $this->assertStringContainsString('Technology|Business & Finance', $csv);
+        $this->assertStringContainsString('not_live', $csv);
         $this->assertStringNotContainsString('Records Sheet Site', $csv);
 
         $log = ActivityLog::query()->where('action', 'sites.records_exported')->first();
@@ -324,5 +332,130 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertOk()
             ->assertSee('Websites records sheet', false)
             ->assertSee(route('admin.sites.records'), false);
+    }
+
+    public function test_live_filter_keeps_catalog_visible_sites_only(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-portal.example',
+            'domain' => 'live-portal.example',
+            'active' => true,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://off-portal.example',
+            'domain' => 'off-portal.example',
+            'active' => false,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://archived-portal.example',
+            'domain' => 'archived-portal.example',
+            'active' => true,
+            'archived_at' => now(),
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+        $bulk = BulkSiteRequest::create([
+            'publisher_id' => $publisher->id,
+            'status' => BulkSiteRequest::STATUS_CANCELLED,
+            'estimated_count' => 1,
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://cancelled-bulk-portal.example',
+            'domain' => 'cancelled-bulk-portal.example',
+            'active' => true,
+            'bulk_site_request_id' => $bulk->id,
+            'country' => 'de',
+            'countries' => ['de'],
+        ]);
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-fr-portal.example',
+            'domain' => 'live-fr-portal.example',
+            'active' => true,
+            'country' => 'fr',
+            'countries' => ['fr'],
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('Live on portal', false)
+            ->assertSee('https://live-portal.example', false)
+            ->assertSee('https://live-fr-portal.example', false)
+            ->assertDontSee('https://off-portal.example', false)
+            ->assertDontSee('https://archived-portal.example', false)
+            ->assertDontSee('https://cancelled-bulk-portal.example', false)
+            ->assertSee('>Live</span>', false)
+            ->getContent();
+
+        $this->assertStringContainsString(route('admin.sites.edit', Site::query()->where('domain', 'live-portal.example')->value('id')), $html);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1, 'country' => 'de']))
+            ->assertOk()
+            ->assertSee('https://live-portal.example', false)
+            ->assertDontSee('https://live-fr-portal.example', false)
+            ->assertDontSee('https://off-portal.example', false);
+
+        $partial = $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'country' => 'de', 'partial' => 1]));
+        $partial->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true)
+            ->assertJsonPath('selected_country', 'de')
+            ->assertJsonPath('total', 1);
+        $this->assertStringContainsString('live=1', (string) $partial->json('export_url'));
+        $this->assertStringContainsString('country=de', (string) $partial->json('export_url'));
+
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.sites.records.export', ['live' => 1, 'country' => 'de']));
+        $csv->assertOk();
+        $this->assertStringContainsString('live', (string) $csv->headers->get('Content-Disposition'));
+        $body = $csv->streamedContent();
+        $this->assertStringContainsString('https://live-portal.example', $body);
+        $this->assertStringContainsString(',live', $body);
+        $this->assertStringNotContainsString('https://live-fr-portal.example', $body);
+        $this->assertStringNotContainsString('https://off-portal.example', $body);
+    }
+
+    public function test_leftover_hostile_records_url_is_not_linked(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $site = $this->makeSite($publisher, [
+            'site_url' => 'https://leftover-records.example',
+            'domain' => 'leftover-records.example',
+        ]);
+        DB::table('sites')->where('id', $site->id)->update([
+            'site_url' => 'javascript:alert(1)',
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.sites.records'))
+            ->assertOk()
+            ->assertSee('Open in admin', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('javascript:alert', $html);
+        $this->assertStringContainsString(route('admin.sites.edit', $site->id), $html);
+    }
+
+    public function test_live_filter_empty_state(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, ['active' => false]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('No live websites.', false)
+            ->assertDontSee('https://records-sheet.example', false);
     }
 }

@@ -6,6 +6,8 @@
     $missingMarket = (bool) ($missingMarket ?? false);
     $missingMarketCount = (int) ($missingMarketCount ?? 0);
     $healthFilter = $healthFilter ?? ($missingMarket ? \App\Support\CatalogHealthQueue::MISSING_MARKET : null);
+    $liveFilter = (bool) ($liveFilter ?? false);
+    $liveCount = (int) ($liveCount ?? 0);
     $healthCounts = $healthCounts ?? \App\Support\CatalogHealthQueue::emptyCounts();
     $healthLabels = \App\Support\CatalogHealthQueue::LABELS;
     $countries = collect($countries ?? []);
@@ -24,7 +26,7 @@
         <div>
             <h4 class="mb-1 fw-bold">Websites records sheet</h4>
             <p class="text-muted mb-0 small">
-                Live from database — refreshes on every load. Columns: URL, countries, categories, catalog health.
+                Live from database — refreshes on every load. Columns: URL, active, countries, categories, catalog health.
             </p>
             @if($missingMarketCount > 0)
                 <p class="mb-0 mt-1 small" id="recordsMissingMarketNote">
@@ -79,18 +81,47 @@
                                     {{ $healthLabels[$healthFilter] ?? $healthFilter }}
                                     <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.55rem;" id="recordsChipClear" aria-label="Clear health filter"></button>
                                 </span>
-                            @elseif($selectedCountry !== '')
-                                <span class="badge text-bg-dark records-country-chip">
-                                    {{ $selectedLabel }}
-                                    <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.55rem;" id="recordsChipClear" aria-label="Clear country filter"></button>
-                                </span>
                             @else
-                                <span class="text-muted">All countries</span>
+                                @if($liveFilter)
+                                    <span class="badge text-bg-success records-country-chip me-1">Live on portal</span>
+                                @endif
+                                @if($selectedCountry !== '')
+                                    <span class="badge text-bg-dark records-country-chip">
+                                        {{ $selectedLabel }}
+                                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.55rem;" id="recordsChipClear" aria-label="Clear country filter"></button>
+                                    </span>
+                                @else
+                                    <span class="text-muted">All countries</span>
+                                @endif
                             @endif
                         </div>
                     </div>
                 </div>
                 <div class="col-12">
+                    <div class="d-flex flex-wrap gap-2 mb-2" data-records-listing-filters>
+                        @php
+                            $allRecordsUrl = route('admin.sites.records', array_filter([
+                                'country' => $selectedCountry !== '' ? $selectedCountry : null,
+                            ]));
+                            $liveRecordsUrl = route('admin.sites.records', array_filter([
+                                'live' => 1,
+                                'country' => $selectedCountry !== '' ? $selectedCountry : null,
+                            ]));
+                        @endphp
+                        <a href="{{ $allRecordsUrl }}"
+                           class="btn btn-sm {{ ! $liveFilter && ! $healthFilter ? 'btn-dark' : 'btn-outline-secondary' }}"
+                           data-listing="all">
+                            All records
+                        </a>
+                        <a href="{{ $liveRecordsUrl }}"
+                           class="btn btn-sm {{ $liveFilter ? 'btn-success' : 'btn-outline-success' }}"
+                           data-listing="live"
+                           id="recordsLiveBtn">
+                            Live on portal
+                            <span class="badge text-bg-light text-success ms-1 {{ $liveCount < 1 ? 'd-none' : '' }}"
+                                  id="recordsLiveBtnCount">{{ $liveCount }}</span>
+                        </a>
+                    </div>
                     <div class="d-flex flex-wrap gap-2" data-records-health-filters>
                         @foreach($healthLabels as $healthKey => $healthLabel)
                             @php
@@ -120,6 +151,10 @@
                         Showing {{ $sites->total() }} site{{ $sites->total() === 1 ? '' : 's' }}
                         @if($healthFilter)
                             in <strong>{{ $healthLabels[$healthFilter] ?? $healthFilter }}</strong>
+                        @elseif($liveFilter && $selectedCountry !== '')
+                            in <strong>Live on portal</strong> · <strong class="text-uppercase">{{ $selectedCountry }}</strong>
+                        @elseif($liveFilter)
+                            in <strong>Live on portal</strong>
                         @elseif($selectedCountry !== '')
                             in <strong class="text-uppercase">{{ $selectedCountry }}</strong>
                         @endif
@@ -135,6 +170,7 @@
             'selectedCountry' => $selectedCountry,
             'missingMarket' => $missingMarket,
             'healthFilter' => $healthFilter,
+            'liveFilter' => $liveFilter,
         ])
     </div>
 </div>
@@ -151,6 +187,8 @@
     let missingMarketCount = @json((int) $missingMarketCount);
     let healthFilter = @json($healthFilter);
     let healthCounts = @json($healthCounts);
+    let liveFilter = @json((bool) $liveFilter);
+    let liveCount = @json((int) $liveCount);
     const HEALTH_LABELS = @json($healthLabels);
 
     const searchInput = document.getElementById('recordsCountrySearch');
@@ -231,6 +269,10 @@
         selectedCountry = meta.selected_country || '';
         missingMarket = !!meta.missing_market;
         healthFilter = meta.health || (missingMarket ? 'missing_market' : null);
+        liveFilter = !!meta.live;
+        if (typeof meta.live_count === 'number') {
+            liveCount = meta.live_count;
+        }
         if (meta.health_counts && typeof meta.health_counts === 'object') {
             healthCounts = meta.health_counts;
         }
@@ -253,11 +295,30 @@
             const plural = total === 1 ? 'site' : 'sites';
             if (healthOn) {
                 showingLabel.innerHTML = `Showing ${total} ${plural} in <strong>${escapeHtml(HEALTH_LABELS[healthFilter] || healthFilter)}</strong>`;
+            } else if (liveFilter && selectedCountry) {
+                showingLabel.innerHTML = `Showing ${total} ${plural} in <strong>Live on portal</strong> · <strong class="text-uppercase">${escapeHtml(selectedCountry)}</strong>`;
+            } else if (liveFilter) {
+                showingLabel.innerHTML = `Showing ${total} ${plural} in <strong>Live on portal</strong>`;
             } else if (selectedCountry) {
                 showingLabel.innerHTML = `Showing ${total} ${plural} in <strong class="text-uppercase">${escapeHtml(selectedCountry)}</strong>`;
             } else {
                 showingLabel.innerHTML = `Showing ${total} ${plural}`;
             }
+        }
+
+        document.querySelectorAll('[data-records-listing-filters] [data-listing]').forEach((btn) => {
+            const key = btn.getAttribute('data-listing');
+            const isLive = key === 'live';
+            const isAll = key === 'all';
+            btn.classList.toggle('btn-success', isLive && liveFilter);
+            btn.classList.toggle('btn-outline-success', isLive && !liveFilter);
+            btn.classList.toggle('btn-dark', isAll && !liveFilter && !healthOn);
+            btn.classList.toggle('btn-outline-secondary', isAll && (liveFilter || healthOn));
+        });
+        const liveCountEl = document.getElementById('recordsLiveBtnCount');
+        if (liveCountEl) {
+            liveCountEl.textContent = String(liveCount);
+            liveCountEl.classList.toggle('d-none', liveCount < 1);
         }
 
         if (chipWrap) {
@@ -269,17 +330,24 @@
                         <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.55rem;" data-chip-clear aria-label="Clear health filter"></button>
                     </span>
                 `;
-            } else if (selectedCountry) {
-                const match = COUNTRIES.find((c) => c.code === selectedCountry);
-                const label = match ? countryLabel(match) : selectedCountry.toUpperCase();
-                chipWrap.innerHTML = `
+            } else {
+                let html = '';
+                if (liveFilter) {
+                    html += '<span class="badge text-bg-success records-country-chip me-1">Live on portal</span>';
+                }
+                if (selectedCountry) {
+                    const match = COUNTRIES.find((c) => c.code === selectedCountry);
+                    const label = match ? countryLabel(match) : selectedCountry.toUpperCase();
+                    html += `
                     <span class="badge text-bg-dark records-country-chip">
                         ${escapeHtml(label)}
                         <button type="button" class="btn-close btn-close-white ms-1" style="font-size:0.55rem;" data-chip-clear aria-label="Clear country filter"></button>
                     </span>
-                `;
-            } else {
-                chipWrap.innerHTML = '<span class="text-muted">All countries</span>';
+                    `;
+                } else {
+                    html += '<span class="text-muted">All countries</span>';
+                }
+                chipWrap.innerHTML = html;
             }
         }
 
@@ -314,8 +382,15 @@
             params.set('missing_market', '1');
         } else if (options.health) {
             params.set('health', options.health);
-        } else if (options.country) {
-            params.set('country', options.country);
+        } else {
+            const nextLive = Object.prototype.hasOwnProperty.call(options, 'live')
+                ? !!options.live
+                : liveFilter;
+            const nextCountry = Object.prototype.hasOwnProperty.call(options, 'country')
+                ? String(options.country || '')
+                : selectedCountry;
+            if (nextLive) params.set('live', '1');
+            if (nextCountry) params.set('country', nextCountry);
         }
 
         const url = `${RECORDS_URL}?${params.toString()}`;
@@ -341,7 +416,10 @@
             const nextParams = new URLSearchParams();
             if (data.health === 'missing_market' || data.missing_market) nextParams.set('missing_market', '1');
             else if (data.health) nextParams.set('health', data.health);
-            else if (data.selected_country) nextParams.set('country', data.selected_country);
+            else {
+                if (data.live) nextParams.set('live', '1');
+                if (data.selected_country) nextParams.set('country', data.selected_country);
+            }
             const nextUrl = nextParams.toString() ? `${RECORDS_URL}?${nextParams}` : RECORDS_URL;
             window.history.replaceState({}, '', nextUrl);
         } catch (err) {
@@ -350,9 +428,10 @@
                 showAppToast('Could not filter records', 'error');
             }
         } finally {
-            if (token === fetchToken) {
-                tableWrap.dataset.loading = '0';
+            if (token !== fetchToken) {
+                return;
             }
+            tableWrap.dataset.loading = '0';
         }
     }
 
@@ -405,14 +484,31 @@
     });
 
     clearBtn?.addEventListener('click', () => {
-        loadRecords({});
+        loadRecords({ country: '' });
         setOpen(false);
     });
 
     chipWrap?.addEventListener('click', (e) => {
         if (e.target.closest('[data-chip-clear], #recordsChipClear, .btn-close')) {
-            loadRecords({});
+            if (healthFilter) {
+                loadRecords({ live: false, country: '' });
+            } else {
+                loadRecords({ country: '' });
+            }
         }
+    });
+
+    document.querySelector('[data-records-listing-filters]')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-listing]');
+        if (!btn) return;
+        e.preventDefault();
+        const key = btn.getAttribute('data-listing');
+        if (key === 'live') {
+            loadRecords({ live: true });
+        } else {
+            loadRecords({ live: false });
+        }
+        setOpen(false);
     });
 
     document.querySelector('[data-records-health-filters]')?.addEventListener('click', (e) => {

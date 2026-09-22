@@ -2,6 +2,7 @@
     $selectedCountry = $selectedCountry ?? '';
     $missingMarket = (bool) ($missingMarket ?? false);
     $healthFilter = $healthFilter ?? ($missingMarket ? \App\Support\CatalogHealthQueue::MISSING_MARKET : null);
+    $liveFilter = (bool) ($liveFilter ?? false);
     $healthLabels = \App\Support\CatalogHealthQueue::LABELS;
 @endphp
 <div class="card border-0 shadow-sm">
@@ -10,6 +11,7 @@
             <thead class="table-light">
                 <tr>
                     <th style="min-width:16rem;">URL</th>
+                    <th style="min-width:6rem;">Active</th>
                     <th style="min-width:8rem;">Countries</th>
                     <th style="min-width:12rem;">Categories</th>
                 </tr>
@@ -18,10 +20,17 @@
                 @forelse($sites as $site)
                     <tr>
                         <td class="text-break">
-                            @if($site['url'] !== '')
-                                <a href="{{ $site['url'] }}" target="_blank" rel="noopener noreferrer">{{ $site['url'] }}</a>
+                            @if(($site['href'] ?? '') !== '')
+                                <a href="{{ $site['href'] }}" target="_blank" rel="noopener noreferrer">{{ $site['url'] }}</a>
+                            @elseif(($site['url'] ?? '') !== '')
+                                <span>{{ $site['url'] }}</span>
                             @else
                                 <span class="text-muted">—</span>
+                            @endif
+                            @if(($site['admin_url'] ?? '') !== '')
+                                <div class="small mt-1">
+                                    <a href="{{ $site['admin_url'] }}" class="link-secondary">Open in admin</a>
+                                </div>
                             @endif
                             @foreach(($site['health_flags'] ?? []) as $flag)
                                 <span class="badge {{ $flag === 'missing_market' ? 'text-bg-danger' : 'text-bg-warning' }} ms-1">{{ $healthLabels[$flag] ?? $flag }}</span>
@@ -30,14 +39,25 @@
                                 <span class="badge text-bg-secondary ms-1">No country</span>
                             @endif
                         </td>
+                        <td>
+                            @if(!empty($site['active']))
+                                <span class="badge text-bg-success">Live</span>
+                            @else
+                                <span class="badge text-bg-secondary">Off</span>
+                            @endif
+                        </td>
                         <td class="text-uppercase small">{{ $site['countries'] !== '' ? $site['countries'] : '—' }}</td>
                         <td class="small">{{ $site['categories'] !== '' ? $site['categories'] : '—' }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="3" class="text-center text-muted py-4">
+                        <td colspan="4" class="text-center text-muted py-4">
                             @if($healthFilter)
                                 No websites match the {{ strtolower($healthLabels[$healthFilter] ?? 'health') }} queue.
+                            @elseif($liveFilter && $selectedCountry !== '')
+                                No live websites found for country <span class="text-uppercase">{{ $selectedCountry }}</span>.
+                            @elseif($liveFilter)
+                                No live websites.
                             @elseif($selectedCountry !== '')
                                 No websites found for country <span class="text-uppercase">{{ $selectedCountry }}</span>.
                             @else
