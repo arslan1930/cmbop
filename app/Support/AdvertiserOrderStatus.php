@@ -238,6 +238,14 @@ class AdvertiserOrderStatus
         } else {
             try {
                 $hasLiveUrl = $order->items->contains(fn ($line) => filled($line->live_url));
+                // Auto-approve / link-down copy must follow the published line, not
+                // leftover first-item identity when a sibling already has the URL.
+                if ($hasLiveUrl && ! ($item && filled($item->live_url))) {
+                    $withUrl = $order->items->first(fn ($line) => filled($line->live_url));
+                    if ($withUrl) {
+                        $item = $withUrl;
+                    }
+                }
             } catch (\Throwable $e) {
                 $hasLiveUrl = $item && filled($item->live_url);
             }
