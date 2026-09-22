@@ -37,6 +37,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -207,6 +208,8 @@ class SiteController extends Controller
      * Admin records sheet: all websites with URL, countries, categories only.
      * Always reads live from the sites table.
      * Optional ?country=de (or other ISO code) filters to that market.
+     * Optional ?live=1 keeps catalog-visible listings (active, not archived,
+     * not cancelled-bulk leftover). Country still applies; health queues win.
      * ?partial=1 or Accept: application/json returns table HTML for live filter swaps.
      */
     public function records(Request $request)
@@ -215,40 +218,27 @@ class SiteController extends Controller
         $countryFilter = $filter['country'];
         $healthFilter = $filter['health'];
         $missingMarket = $filter['missing_market'];
-
-        $wantsPartial = $request->boolean('partial')
-            || $request->expectsJson()
-            || str_contains(strtolower((string) $request->header('Accept', '')), 'application/json');
+        $liveFilter = $filter['live'];
 
         try {
-            $query = Site::query()->orderBy('domain')->orderBy('id');
+            $wantsPartial = $this->requestFlag($request, 'partial')
+                || $request->expectsJson()
+                || str_contains(strtolower(scalar_text($request->header('Accept', ''))), 'application/json');
+        } catch (\Throwable $e) {
+            report($e);
+            $wantsPartial = $request->expectsJson();
+        }
+
+        $sites = null;
+        try {
+            $query = $this->recordsBaseQuery();
             $this->applyRecordsFilters($query, $filter);
 
+            $page = $this->recordsPage($request);
             $sites = $query
-                ->paginate(100)
+                ->paginate(100, ['*'], 'page', $page)
                 ->appends($filter['query_params'])
-                ->through(fn (Site $site) => $this->siteRecordRow($site));
-
-            $countryCounts = $this->recordsCountryCounts();
-            $totalSites = (int) Site::query()->count();
-            $healthCounts = CatalogHealthQueue::counts();
-            $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
-            $countries = Country::marketplace()
-                ->orderBy('name')
-                ->get(['code', 'name'])
-                ->map(function (Country $country) use ($countryCounts) {
-                    $code = strtolower(trim((string) $country->code));
-
-                    return [
-                        'code' => $code,
-                        'name' => (string) $country->name,
-                        'count' => (int) ($countryCounts[$code] ?? 0),
-                    ];
-                })
-                ->values();
-
-            $selectedCountry = $countryFilter;
-            $exportUrl = route('admin.sites.records.export', $filter['query_params']);
+                ->through(fn (Site $site) => $this->leftoverSafeSiteRecordRow($site));
         } catch (\Throwable $e) {
             report($e);
 
@@ -256,7 +246,7 @@ class SiteController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => UserFacingError::message($e, 'We could not filter records. Please try again.'),
-                ], 500);
+                ], 500, [], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
             }
 
             session()->flash(
@@ -264,29 +254,21 @@ class SiteController extends Controller
                 UserFacingError::message($e, 'We could not load site records. Please refresh and try again.')
             );
 
-            $sites = new LengthAwarePaginator([], 0, 100, 1, [
+            $sites = new LengthAwarePaginator([], 0, 100, $this->recordsPage($request), [
                 'path' => $request->url(),
-                'query' => $request->query(),
+                'query' => $filter['query_params'],
             ]);
-            $countries = collect();
-            $selectedCountry = $countryFilter;
-            $totalSites = 0;
-            $healthCounts = CatalogHealthQueue::emptyCounts();
-            $missingMarketCount = 0;
-            $exportUrl = route('admin.sites.records.export', $filter['query_params']);
-
-            return view('admin.sites.records', compact(
-                'sites',
-                'countries',
-                'selectedCountry',
-                'totalSites',
-                'exportUrl',
-                'missingMarket',
-                'missingMarketCount',
-                'healthFilter',
-                'healthCounts'
-            ));
         }
+
+        // Country combobox / health chips must not empty a sheet that already loaded.
+        $countryCounts = $this->recordsCountryCounts();
+        $totalSites = $this->recordsTotalCount($sites);
+        $healthCounts = CatalogHealthQueue::counts();
+        $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
+        $liveCount = $this->recordsLiveCount();
+        $countries = $this->recordsCountryOptions($countryCounts);
+        $selectedCountry = $countryFilter;
+        $exportUrl = $this->recordsExportUrl($filter['query_params']);
 
         if ($wantsPartial) {
             try {
@@ -295,6 +277,7 @@ class SiteController extends Controller
                     'selectedCountry' => $selectedCountry,
                     'missingMarket' => $missingMarket,
                     'healthFilter' => $healthFilter,
+                    'liveFilter' => $liveFilter,
                 ])->render();
 
                 return response()->json([
@@ -304,35 +287,56 @@ class SiteController extends Controller
                     'missing_market_count' => $missingMarketCount,
                     'health' => $healthFilter,
                     'health_counts' => $healthCounts,
-                    'total' => $sites->total(),
+                    'live' => $liveFilter,
+                    'live_count' => $liveCount,
+                    'total' => is_object($sites) && method_exists($sites, 'total')
+                        ? (int) $sites->total()
+                        : 0,
                     'export_url' => $exportUrl,
                     'table_html' => $tableHtml,
-                ]);
+                ], 200, [], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
             } catch (\Throwable $e) {
                 report($e);
 
                 return response()->json([
                     'success' => false,
                     'message' => UserFacingError::message($e, 'We could not filter records. Please try again.'),
-                ], 500);
+                ], 500, [], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
             }
         }
 
-        return view('admin.sites.records', compact(
-            'sites',
-            'countries',
-            'selectedCountry',
-            'totalSites',
-            'exportUrl',
-            'missingMarket',
-            'missingMarketCount',
-            'healthFilter',
-            'healthCounts'
-        ));
+        try {
+            return view('admin.sites.records', compact(
+                'sites',
+                'countries',
+                'selectedCountry',
+                'totalSites',
+                'exportUrl',
+                'missingMarket',
+                'missingMarketCount',
+                'healthFilter',
+                'healthCounts',
+                'liveFilter',
+                'liveCount'
+            ));
+        } catch (\Throwable $e) {
+            report($e);
+
+            session()->flash(
+                'error',
+                UserFacingError::message($e, 'We could not load site records. Please refresh and try again.')
+            );
+
+            return response(
+                'We could not load site records. Please refresh and try again.',
+                200,
+                ['Content-Type' => 'text/plain; charset=UTF-8']
+            );
+        }
     }
 
     /**
-     * CSV download of the same live records sheet (honours country / missing-market filter).
+     * CSV download of the same live records sheet (honours country / live / health filter).
      */
     public function exportRecords(Request $request): StreamedResponse|RedirectResponse
     {
@@ -340,14 +344,16 @@ class SiteController extends Controller
         $countryFilter = $filter['country'];
         $healthFilter = $filter['health'];
         $missingMarket = $filter['missing_market'];
+        $liveFilter = $filter['live'];
 
         $suffix = $healthFilter !== null
             ? '-'.$healthFilter
-            : ($countryFilter !== '' ? '-'.$countryFilter : '');
+            : (($liveFilter ? '-live' : '').($countryFilter !== '' ? '-'.$countryFilter : ''));
+        $suffix = preg_replace('/[^a-z0-9_-]+/i', '', (string) $suffix) ?? '';
         $filename = 'websites-records'.$suffix.'-'.now()->format('Y-m-d').'.csv';
 
         try {
-            $query = Site::query()->orderBy('domain')->orderBy('id');
+            $query = $this->recordsBaseQuery();
             $this->applyRecordsFilters($query, $filter);
             $matchCount = (clone $query)->count();
         } catch (\Throwable $e) {
@@ -366,26 +372,35 @@ class SiteController extends Controller
                 'country' => $countryFilter,
                 'health' => $healthFilter,
                 'missing_market' => $missingMarket,
+                'live' => $liveFilter,
                 'rows_exported' => $matchCount,
             ]
         );
 
         return response()->streamDownload(function () use ($query) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['url', 'countries', 'categories', 'active', 'health']);
+            try {
+                $out = fopen('php://output', 'w');
+                if ($out === false) {
+                    return;
+                }
+                fputcsv($out, ['url', 'countries', 'categories', 'active', 'health', 'listing_state']);
 
-            foreach ($query->cursor() as $site) {
-                $row = $this->siteRecordRow($site);
-                fputcsv($out, [
-                    $row['url'],
-                    $row['countries'],
-                    $row['categories'],
-                    $site->active ? '1' : '0',
-                    $row['health'],
-                ]);
+                foreach ($query->cursor() as $site) {
+                    $row = $this->leftoverSafeSiteRecordRow($site);
+                    fputcsv($out, [
+                        scalar_text($row['url'] ?? ''),
+                        scalar_text($row['countries'] ?? ''),
+                        scalar_text($row['categories'] ?? ''),
+                        ! empty($row['active']) ? '1' : '0',
+                        scalar_text($row['health'] ?? ''),
+                        scalar_text($row['listing_state'] ?? ''),
+                    ]);
+                }
+
+                fclose($out);
+            } catch (\Throwable $e) {
+                report($e);
             }
-
-            fclose($out);
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
@@ -396,48 +411,179 @@ class SiteController extends Controller
      *     country: string,
      *     health: ?string,
      *     missing_market: bool,
+     *     live: bool,
      *     query_params: array<string, int|string>
      * }
      */
     private function recordsFilterState(Request $request): array
     {
-        $countryFilter = strtolower(trim(scalar_text($request->query('country', ''))));
-        if ($countryFilter === 'all') {
-            $countryFilter = '';
-        }
+        try {
+            $countryFilter = strtolower(trim($this->leftoverSafeUtf8(scalar_text($request->query('country', '')))));
+            if ($countryFilter === 'all') {
+                $countryFilter = '';
+            }
 
-        $health = CatalogHealthQueue::fromRequest($request);
-        if ($health !== null) {
-            $countryFilter = '';
-        }
+            $health = CatalogHealthQueue::fromRequest($request);
+            if ($health !== null) {
+                $countryFilter = '';
+            }
 
-        return [
-            'country' => $countryFilter,
-            'health' => $health,
-            'missing_market' => $health === CatalogHealthQueue::MISSING_MARKET,
-            'query_params' => array_filter([
-                'country' => $countryFilter !== '' ? $countryFilter : null,
-                'health' => ($health !== null && $health !== CatalogHealthQueue::MISSING_MARKET)
-                    ? $health
-                    : null,
-                'missing_market' => $health === CatalogHealthQueue::MISSING_MARKET ? 1 : null,
-            ]),
-        ];
+            // Leftover ?live[]=1 TypeErrors $request->boolean(); flatten first.
+            $live = $health === null && $this->requestFlag($request, 'live');
+
+            return [
+                'country' => $countryFilter,
+                'health' => $health,
+                'missing_market' => $health === CatalogHealthQueue::MISSING_MARKET,
+                'live' => $live,
+                'query_params' => array_filter([
+                    'country' => $countryFilter !== '' ? $countryFilter : null,
+                    'health' => ($health !== null && $health !== CatalogHealthQueue::MISSING_MARKET)
+                        ? $health
+                        : null,
+                    'missing_market' => $health === CatalogHealthQueue::MISSING_MARKET ? 1 : null,
+                    'live' => $live ? 1 : null,
+                ]),
+            ];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [
+                'country' => '',
+                'health' => null,
+                'missing_market' => false,
+                'live' => false,
+                'query_params' => [],
+            ];
+        }
     }
 
     /**
      * @param  Builder<Site>  $query
-     * @param  array{country: string, health: ?string}  $filter
+     * @param  array{country: string, health: ?string, live?: bool}  $filter
      */
     private function applyRecordsFilters($query, array $filter): void
     {
-        if (is_string($filter['health'] ?? null) && $filter['health'] !== '') {
-            CatalogHealthQueue::apply($query, $filter['health']);
+        try {
+            if (is_string($filter['health'] ?? null) && $filter['health'] !== '') {
+                CatalogHealthQueue::apply($query, $filter['health']);
+
+                return;
+            }
+
+            if (! empty($filter['live'])) {
+                $this->constrainRecordsLive($query);
+            }
+
+            $this->applyRecordsCountryFilter($query, scalar_text($filter['country'] ?? ''));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * @return Builder<Site>
+     */
+    private function recordsBaseQuery()
+    {
+        $query = Site::query();
+        try {
+            if (Site::hasSitesColumn('domain')) {
+                $query->orderBy('domain');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            if (Site::hasSitesColumn('id')) {
+                $query->orderBy('id');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Leftover ?page[]=2 TypeErrors Laravel's paginator filter_var().
+     * Arrays are junk — stay on page 1 instead of flattening to an empty page.
+     */
+    private function recordsPage(Request $request): int
+    {
+        try {
+            $raw = $request->query('page', 1);
+            if (is_array($raw) || is_object($raw)) {
+                return 1;
+            }
+
+            $page = (int) scalar_text($raw);
+            if ($page < 1) {
+                return 1;
+            }
+
+            return min($page, 10000);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return 1;
+        }
+    }
+
+    /**
+     * Live-on-portal = catalogVisible(). Leftover Hostinger can drop
+     * bulk_site_requests while sites.bulk_site_request_id remains, and
+     * catalogVisible() then 500s on orWhereHas.
+     *
+     * @param  Builder<Site>  $query
+     */
+    private function constrainRecordsLive($query): void
+    {
+        try {
+            if (! Site::hasSitesColumn('active')) {
+                return;
+            }
+        } catch (\Throwable $e) {
+            report($e);
 
             return;
         }
 
-        $this->applyRecordsCountryFilter($query, (string) ($filter['country'] ?? ''));
+        try {
+            if (Schema::hasTable('bulk_site_requests')) {
+                $query->catalogVisible();
+
+                return;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            $query->active()->notArchived();
+        } catch (\Throwable $e) {
+            report($e);
+            try {
+                $query->where('active', 1);
+            } catch (\Throwable $inner) {
+                report($inner);
+            }
+        }
+    }
+
+    private function recordsLiveCount(): int
+    {
+        try {
+            $query = Site::query();
+            $this->constrainRecordsLive($query);
+
+            return (int) $query->count();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return 0;
+        }
     }
 
     /**
@@ -449,19 +595,35 @@ class SiteController extends Controller
     private function recordsCountryCounts(): array
     {
         $counts = [];
-        $select = ['id', 'country'];
-        if (Site::hasSitesColumn('countries')) {
-            $select[] = 'countries';
+        $select = [];
+        try {
+            if (Site::hasSitesColumn('country')) {
+                $select[] = 'country';
+            }
+            if (Site::hasSitesColumn('countries')) {
+                $select[] = 'countries';
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+        if ($select === []) {
+            return [];
         }
 
         try {
             foreach (Site::query()->select($select)->cursor() as $site) {
-                foreach ($site->countryCodes() as $code) {
-                    $code = strtolower(trim((string) $code));
-                    if ($code === '') {
-                        continue;
+                try {
+                    foreach ($site->countryCodes() as $code) {
+                        $code = strtolower(trim(scalar_text($code)));
+                        if ($code === '') {
+                            continue;
+                        }
+                        $counts[$code] = ($counts[$code] ?? 0) + 1;
                     }
-                    $counts[$code] = ($counts[$code] ?? 0) + 1;
+                } catch (\Throwable $rowError) {
+                    report($rowError);
                 }
             }
         } catch (\Throwable $e) {
@@ -474,20 +636,142 @@ class SiteController extends Controller
     }
 
     /**
+     * @param  array<string, int>  $countryCounts
+     * @return Collection<int, array{code: string, name: string, count: int}>
+     */
+    private function recordsCountryOptions(array $countryCounts)
+    {
+        try {
+            $table = (new Country)->getTable();
+            $hasCode = Schema::hasColumn($table, 'code');
+            $hasName = Schema::hasColumn($table, 'name');
+            if (! $hasCode && ! $hasName) {
+                return collect();
+            }
+
+            $select = array_values(array_filter([
+                $hasCode ? 'code' : null,
+                $hasName ? 'name' : null,
+            ]));
+
+            $query = Country::query();
+            try {
+                $allowedCodes = config('markets.allowed_country_codes', []);
+                if ($hasCode && is_array($allowedCodes) && $allowedCodes !== []) {
+                    $query->whereIn('code', $allowedCodes);
+                } elseif (Schema::hasColumn($table, 'region')) {
+                    $query = Country::marketplace();
+                }
+            } catch (\Throwable $e) {
+                report($e);
+                $query = Country::query();
+            }
+
+            try {
+                if ($hasName) {
+                    $query->orderBy('name');
+                } elseif ($hasCode) {
+                    $query->orderBy('code');
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
+            return $query
+                ->get($select)
+                ->map(function (Country $country) use ($countryCounts, $hasCode, $hasName) {
+                    $code = strtolower(trim($this->leftoverSafeUtf8(scalar_text(
+                        $hasCode ? ($country->code ?? '') : ($country->name ?? '')
+                    ))));
+                    $name = $hasName
+                        ? $this->leftoverSafeUtf8(scalar_text($country->name ?? ''))
+                        : strtoupper($code);
+
+                    return [
+                        'code' => $code,
+                        'name' => $name,
+                        'count' => (int) ($countryCounts[$code] ?? 0),
+                    ];
+                })
+                ->filter(fn ($row) => $row['code'] !== '')
+                ->values();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return collect();
+        }
+    }
+
+    private function recordsTotalCount($sites): int
+    {
+        try {
+            return (int) Site::query()->count();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            return is_object($sites) && method_exists($sites, 'total')
+                ? (int) $sites->total()
+                : 0;
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /**
+     * @param  array<string, int|string>  $queryParams
+     */
+    private function recordsExportUrl(array $queryParams): string
+    {
+        try {
+            return route('admin.sites.records.export', $queryParams);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return route('admin.sites.records.export');
+        }
+    }
+
+    /**
      * @param  Builder<Site>  $query
      */
     private function applyRecordsCountryFilter($query, string $countryCode): void
     {
-        $code = strtolower(trim($countryCode));
+        $code = strtolower(trim(scalar_text($countryCode)));
         if ($code === '') {
             return;
         }
 
-        $hasCountriesJson = Site::hasSitesColumn('countries');
-        $query->where(function ($q) use ($code, $hasCountriesJson) {
-            $q->whereRaw('LOWER(country) = ?', [$code]);
+        try {
+            $hasCountry = Site::hasSitesColumn('country');
+            $hasCountriesJson = Site::hasSitesColumn('countries');
+        } catch (\Throwable $e) {
+            report($e);
+
+            return;
+        }
+        if (! $hasCountry && ! $hasCountriesJson) {
+            return;
+        }
+
+        // LIKE on CAST text — leftover Hostinger stores junk TEXT, not JSON, and
+        // whereJsonContains() 500s. Quoted needle still matches ["de","at"].
+        $query->where(function ($q) use ($code, $hasCountry, $hasCountriesJson) {
+            if ($hasCountry) {
+                $q->whereRaw('LOWER(country) = ?', [$code]);
+            }
             if ($hasCountriesJson) {
-                $q->orWhereJsonContains('countries', $code);
+                $like = like_contains('"'.$code.'"');
+                $jsonClause = function ($inner) use ($code, $like) {
+                    $inner->whereRaw('LOWER(CAST(countries AS CHAR)) LIKE ? ESCAPE ?', [$like, '\\'])
+                        ->orWhereRaw('LOWER(CAST(countries AS CHAR)) = ?', [$code]);
+                };
+                if ($hasCountry) {
+                    $q->orWhere($jsonClause);
+                } else {
+                    $q->where($jsonClause);
+                }
             }
         });
     }
@@ -685,42 +969,166 @@ class SiteController extends Controller
     }
 
     /**
-     * @return array{url: string, countries: string, categories: string}
+     * @return array{
+     *     id: int,
+     *     url: string,
+     *     href: string,
+     *     admin_url: string,
+     *     countries: string,
+     *     categories: string,
+     *     missing_market: bool,
+     *     active: bool,
+     *     listing_state: string,
+     *     health_flags: list<string>,
+     *     health: string
+     * }
      */
+    private function leftoverSafeSiteRecordRow(Site $site): array
+    {
+        try {
+            return $this->siteRecordRow($site);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [
+                'id' => (int) ($site->id ?? 0),
+                'url' => '',
+                'href' => '',
+                'admin_url' => '',
+                'countries' => '',
+                'categories' => '',
+                'missing_market' => false,
+                'active' => false,
+                'listing_state' => 'not_live',
+                'health_flags' => [],
+                'health' => '',
+            ];
+        }
+    }
+
     private function siteRecordRow(Site $site): array
     {
-        $url = trim((string) ($site->site_url ?: ''));
-        if ($url === '') {
-            $domain = trim((string) ($site->domain ?: ''));
-            $url = $domain !== '' ? 'https://'.$domain : '';
+        $rawUrl = trim(scalar_text($site->site_url ?? ''));
+        if ($rawUrl === '') {
+            $domain = trim(scalar_text($site->domain ?? ''));
+            $rawUrl = $domain !== '' ? 'https://'.$domain : '';
+        }
+        $href = $this->leftoverSafeRecordsUrl($rawUrl);
+        $url = $href !== '' ? $href : '';
+
+        $countries = '';
+        try {
+            $countries = collect($site->countryCodesForDisplay())
+                ->filter()
+                ->map(fn ($code) => strtolower(trim(scalar_text($code))))
+                ->filter()
+                ->unique()
+                ->values()
+                ->implode('|');
+        } catch (\Throwable $e) {
+            report($e);
         }
 
-        $countries = collect($site->countryCodesForDisplay())
-            ->filter()
-            ->map(fn ($code) => strtolower(trim((string) $code)))
-            ->unique()
-            ->values()
-            ->implode('|');
+        $categories = '';
+        try {
+            $categories = collect($site->categories_array)
+                ->filter()
+                ->map(fn ($cat) => trim(scalar_text($cat)))
+                ->filter()
+                ->unique()
+                ->values()
+                ->implode('|');
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
-        $categories = collect($site->categories_array)
-            ->filter()
-            ->map(fn ($cat) => trim((string) $cat))
-            ->filter()
-            ->unique()
-            ->values()
-            ->implode('|');
+        $healthFlags = [];
+        try {
+            $healthFlags = scalar_list(CatalogHealthQueue::flags($site));
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
-        $healthFlags = CatalogHealthQueue::flags($site);
+        $listingState = 'not_live';
+        try {
+            $listingState = $site->isCatalogVisible() ? 'live' : 'not_live';
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $adminUrl = '';
+        try {
+            $adminUrl = route('admin.sites.edit', $site->id);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $missingMarket = false;
+        try {
+            $missingMarket = ! $site->hasMarketplaceCountry();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $active = false;
+        try {
+            $active = (bool) $site->active;
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return [
-            'url' => $url,
-            'countries' => $countries,
-            'categories' => $categories,
-            'missing_market' => ! $site->hasMarketplaceCountry(),
-            'active' => (bool) $site->active,
-            'health_flags' => $healthFlags,
-            'health' => implode('|', $healthFlags),
+            'id' => (int) ($site->id ?? 0),
+            'url' => $this->leftoverSafeUtf8($url),
+            'href' => $this->leftoverSafeUtf8($href),
+            'admin_url' => $this->leftoverSafeUtf8($adminUrl),
+            'countries' => $this->leftoverSafeUtf8($countries),
+            'categories' => $this->leftoverSafeUtf8($categories),
+            'missing_market' => $missingMarket,
+            'active' => $active,
+            'listing_state' => $this->leftoverSafeUtf8($listingState),
+            'health_flags' => array_map(fn ($flag) => $this->leftoverSafeUtf8(scalar_text($flag)), $healthFlags),
+            'health' => $this->leftoverSafeUtf8(implode('|', $healthFlags)),
         ];
+    }
+
+    private function leftoverSafeUtf8(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        try {
+            if (function_exists('mb_scrub')) {
+                return mb_scrub($value, 'UTF-8');
+            }
+
+            $converted = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+
+            return is_string($converted) ? $converted : '';
+        } catch (\Throwable $e) {
+            report($e);
+
+            return preg_replace('/[^\x09\x0A\x0D\x20-\x7E]/', '', $value) ?? '';
+        }
+    }
+
+    private function leftoverSafeRecordsUrl(mixed $url): string
+    {
+        try {
+            $raw = trim(scalar_text($url));
+            if ($raw === '') {
+                return '';
+            }
+
+            return function_exists('safe_external_url') && safe_external_url($raw) !== '#'
+                ? $raw
+                : '';
+        } catch (\Throwable $e) {
+            report($e);
+
+            return '';
+        }
     }
 
     // Get sites of a user (AJAX, paginated)
@@ -3156,7 +3564,7 @@ class SiteController extends Controller
             return (int) $value === 1;
         }
 
-        $raw = strtolower(trim((string) $value));
+        $raw = strtolower(trim(scalar_text($value)));
 
         return in_array($raw, ['1', 'true', 'on', 'yes'], true);
     }

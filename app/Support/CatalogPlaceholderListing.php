@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Detect demo / lorem catalog rows so Site Details can warn buyers.
@@ -21,7 +22,7 @@ class CatalogPlaceholderListing
 
     public static function descriptionLooksPlaceholder(mixed $description): bool
     {
-        $haystack = strtolower(trim(strip_tags((string) $description)));
+        $haystack = strtolower(trim(strip_tags(scalar_text($description))));
         if ($haystack === '') {
             return false;
         }
@@ -32,13 +33,13 @@ class CatalogPlaceholderListing
 
     public static function hostLooksPlaceholder(mixed $urlOrHost): bool
     {
-        $raw = strtolower(trim((string) $urlOrHost));
+        $raw = strtolower(trim(scalar_text($urlOrHost)));
         if ($raw === '') {
             return false;
         }
 
         $host = parse_url(str_contains($raw, '://') ? $raw : 'https://'.$raw, PHP_URL_HOST);
-        $host = strtolower((string) ($host ?: $raw));
+        $host = strtolower(trim(scalar_text($host ?: $raw)));
         $host = preg_replace('/^www\./', '', $host) ?? $host;
 
         if ($host === 'example.com' || $host === 'localhost') {
@@ -58,14 +59,23 @@ class CatalogPlaceholderListing
     public static function constrainQuery(Builder $query): Builder
     {
         return $query->where(function (Builder $q) {
-            $q->where('description', 'like', '%lorem ipsum%')
-                ->orWhere('description', 'like', '%replace this placeholder with a real site description%')
-                ->orWhere('domain', 'example.com')
-                ->orWhere('domain', 'localhost')
-                ->orWhere('domain', 'like', 'demo%.com');
+            // Dummy false so leftover Hostinger can drop description without
+            // TypeError/SQLSTATE on the first WHERE clause.
+            $q->whereRaw('1 = 0');
+
+            if (self::sitesColumnPresent('description')) {
+                $q->orWhere('description', 'like', '%lorem ipsum%')
+                    ->orWhere('description', 'like', '%replace this placeholder with a real site description%');
+            }
+
+            if (self::sitesColumnPresent('domain')) {
+                $q->orWhere('domain', 'example.com')
+                    ->orWhere('domain', 'localhost')
+                    ->orWhere('domain', 'like', 'demo%.com');
+            }
 
             foreach (['site_url', 'example_url'] as $column) {
-                if (! Site::hasSitesColumn($column)) {
+                if (! self::sitesColumnPresent($column)) {
                     continue;
                 }
                 $q->orWhere($column, 'like', '%example.com%')
@@ -73,5 +83,25 @@ class CatalogPlaceholderListing
                     ->orWhere($column, 'like', '%demo%.com%');
             }
         });
+    }
+
+    /**
+     * When leftover Hostinger dropped the sites table, assume the shipped
+     * columns so SQL generation (and unit toSql() checks) still describe the
+     * real queue. When the table exists, skip columns Hostinger actually dropped.
+     */
+    private static function sitesColumnPresent(string $column): bool
+    {
+        try {
+            if (! Schema::hasTable((new Site)->getTable())) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return true;
+        }
+
+        return Site::hasSitesColumn($column);
     }
 }
