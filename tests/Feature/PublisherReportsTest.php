@@ -126,6 +126,11 @@ class PublisherReportsTest extends TestCase
             ->assertSee('You earned', false)
             ->assertSee('Homepage', false)
             ->assertSee('Open placements:', false)
+            ->assertSee('id="ordersSearch"', false)
+            ->assertSee('id="withdrawalsSearch"', false)
+            ->assertSee('data-theme-select="ordersStatus"', false)
+            ->assertSee('data-theme-select="withdrawalsStatus"', false)
+            ->assertSee('SlbLiveSearch.init', false)
             ->assertDontSee('Pending:', false)
             ->assertDontSee('>Total Earned</th>', false);
 
@@ -221,6 +226,73 @@ class PublisherReportsTest extends TestCase
             ->getJson(route('publisher.reports.orders', ['status' => 'all']))
             ->assertOk()
             ->assertJsonCount(2, 'data');
+    }
+
+    public function test_orders_list_live_search_matches_order_number_or_site(): void
+    {
+        $publisher = $this->publisher();
+        $advertiser = $this->advertiser();
+        $site = $this->site($publisher);
+
+        $keep = $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'order_number' => '882211',
+            'reference_code' => 'REF-KEEP',
+        ]);
+        $this->createOrderItem($advertiser, $site, [
+            'status' => 'completed',
+            'order_number' => '110099',
+            'reference_code' => 'REF-OTHER',
+        ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.orders', ['status' => 'completed', 'search' => '882211']))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $keep->id);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.orders', ['status' => 'completed', 'search' => 'reports-site']))
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
+
+    public function test_withdrawals_list_live_search_matches_reference(): void
+    {
+        $publisher = $this->publisher();
+
+        $keep = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 40,
+            'fee' => 2,
+            'net_amount' => 38,
+            'payment_method' => 'paypal',
+            'payment_details' => ['paypal_email' => 'pay@example.com'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+        Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 20,
+            'fee' => 1,
+            'net_amount' => 19,
+            'payment_method' => 'bank',
+            'payment_details' => ['iban' => 'DE00'],
+            'status' => 'completed',
+            'processed_at' => now(),
+        ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.withdrawals', ['status' => 'completed', 'search' => 'WD-'.$keep->id]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $keep->id);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.reports.withdrawals', ['status' => 'completed', 'search' => 'paypal']))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $keep->id);
     }
 
     public function test_orders_list_filters_checkout_scheduled_rows(): void

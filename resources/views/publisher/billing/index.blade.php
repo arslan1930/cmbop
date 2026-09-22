@@ -14,19 +14,19 @@
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
-            <form method="GET" action="{{ route('publisher.billing.index') }}" class="row g-3 align-items-end">
-                <div class="col-md-4">
+            <form method="GET" action="{{ route('publisher.billing.index') }}" class="row g-3 align-items-end flex-md-nowrap">
+                <div class="col-auto" style="width: 22rem; max-width: 100%;">
                     <x-slb-search-field name="search" id="publisherBillingSearch" :value="request('search')" placeholder="Statement #, WD reference…" />
                 </div>
-                <div class="col-md-2">
+                <div class="col-auto">
                     <label class="form-label fw-semibold small text-muted mb-1">From</label>
                     <input type="date" name="from" value="{{ $filterFrom }}" class="form-control form-control-sm">
                 </div>
-                <div class="col-md-2">
+                <div class="col-auto">
                     <label class="form-label fw-semibold small text-muted mb-1">To</label>
                     <input type="date" name="to" value="{{ $filterTo }}" class="form-control form-control-sm">
                 </div>
-                <div class="col-12 d-flex gap-2">
+                <div class="col-auto d-flex gap-2">
                     <button type="submit" class="btn btn-sm btn-primary">Filter</button>
                     <a href="{{ route('publisher.billing.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
                 </div>

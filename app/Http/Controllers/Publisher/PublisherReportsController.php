@@ -131,6 +131,7 @@ class PublisherReportsController extends Controller
                 ->orderBy('created_at', 'desc');
 
             $this->applyDateFilters($query, $request);
+            $this->applyOrderSearch($query, $request);
 
             $status = search_text($request->input('status'));
             if ($status === '') {
@@ -210,6 +211,7 @@ class PublisherReportsController extends Controller
                 ->orderBy('created_at', 'desc');
 
             $this->applyDateFilters($query, $request);
+            $this->applyWithdrawalSearch($query, $request);
 
             $status = search_text($request->input('status'));
             if ($status === '') {
@@ -352,6 +354,55 @@ class PublisherReportsController extends Controller
         if (! empty($validated['date_to'])) {
             $query->whereDate('created_at', '<=', $validated['date_to']);
         }
+    }
+
+    /**
+     * @param  Builder<Model>  $query
+     */
+    private function applyOrderSearch($query, Request $request): void
+    {
+        $search = search_text($request->input('search', $request->input('q')));
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%'.$search.'%';
+        $query->where(function ($q) use ($like, $search) {
+            $q->where('site_name', 'like', $like)
+                ->orWhere('site_url', 'like', $like)
+                ->orWhereHas('order', function ($oq) use ($like) {
+                    $oq->where('order_number', 'like', $like)
+                        ->orWhere('reference_code', 'like', $like);
+                });
+
+            $digits = preg_replace('/\D+/', '', $search);
+            if ($digits !== '') {
+                $q->orWhereHas('order', function ($oq) use ($digits) {
+                    $oq->where('order_number', $digits);
+                });
+            }
+        });
+    }
+
+    /**
+     * @param  Builder<Model>  $query
+     */
+    private function applyWithdrawalSearch($query, Request $request): void
+    {
+        $search = search_text($request->input('search', $request->input('q')));
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%'.$search.'%';
+        $query->where(function ($q) use ($like, $search) {
+            $q->where('payment_method', 'like', $like);
+
+            $digits = preg_replace('/\D+/', '', $search);
+            if ($digits !== '') {
+                $q->orWhere('id', (int) $digits);
+            }
+        });
     }
 
     /**

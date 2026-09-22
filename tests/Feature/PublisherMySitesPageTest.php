@@ -675,7 +675,7 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('syncSitesStatusUrl', $html);
         $this->assertStringContainsString('history.replaceState', $html);
         $this->assertStringContainsString('.site-status-filter.is-active', $html);
-        $this->assertStringContainsString('background: #0f766e', $html);
+        $this->assertStringContainsString('background: var(--brand-primary, #1a585e)', $html);
 
         $gateEnd = strpos($js, '})(); // publisherWebsitesExternalBoot');
         $alwaysOn = strpos($js, 'publisherWebsitesAlwaysOnActions');

@@ -28,9 +28,7 @@
                         <h6 class="text-muted mb-1">Total Earned</h6>
                         <h3 class="mb-0" id="totalEarned" style="color: #10b981;">€0.00</h3>
                     </div>
-                    <div class="bg-success bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-euro-sign fa-2x text-success"></i>
-                    </div>
+                    <i class="fa fa-euro-sign reports-stat-icon" aria-hidden="true"></i>
                 </div>
             </div>
         </div>
@@ -46,9 +44,7 @@
                             <a href="{{ route('publisher.tasks') }}">Tasks</a>
                         </div>
                     </div>
-                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-check-circle fa-2x text-primary"></i>
-                    </div>
+                    <i class="fa fa-check-circle reports-stat-icon" aria-hidden="true"></i>
                 </div>
             </div>
         </div>
@@ -60,9 +56,7 @@
                         <h3 class="mb-0" id="totalWithdrawn" style="color: #ef4444;">€0.00</h3>
                         <div class="text-muted small mt-1" id="withdrawnFeesHint"></div>
                     </div>
-                    <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-download fa-2x text-danger"></i>
-                    </div>
+                    <i class="fa fa-download reports-stat-icon" aria-hidden="true"></i>
                 </div>
             </div>
         </div>
@@ -74,9 +68,7 @@
                         <h3 class="mb-0" id="availableToWithdraw">€0.00</h3>
                         <a href="{{ route('publisher.withdraw') }}" class="small">Go to Withdraw</a>
                     </div>
-                    <div class="bg-info bg-opacity-10 p-3 rounded-circle">
-                        <i class="fa fa-wallet fa-2x text-info"></i>
-                    </div>
+                    <i class="fa fa-wallet reports-stat-icon" aria-hidden="true"></i>
                 </div>
             </div>
         </div>
@@ -108,7 +100,10 @@
                             <div class="fw-semibold"><i class="fa fa-shopping-cart me-2"></i><span id="ordersTabTitle">Orders</span></div>
                             <small class="text-muted" id="ordersResultsCount"></small>
                         </div>
-                        <form id="ordersFilters" class="row g-2 align-items-end">
+                        <form id="ordersFilters" class="row g-2 align-items-end flex-md-nowrap">
+                            <div class="col-auto reports-search-field">
+                                <x-slb-search-field name="search" id="ordersSearch" placeholder="Order #, site, reference…" mode="" />
+                            </div>
                             <div class="col-auto">
                                 <label class="form-label small mb-0" for="ordersDateFrom">From</label>
                                 <input type="date" class="form-control form-control-sm" id="ordersDateFrom" name="date_from">
@@ -117,17 +112,23 @@
                                 <label class="form-label small mb-0" for="ordersDateTo">To</label>
                                 <input type="date" class="form-control form-control-sm" id="ordersDateTo" name="date_to">
                             </div>
-                            <div class="col-auto">
+                            <div class="col-auto reports-theme-select">
                                 <label class="form-label small mb-0" for="ordersStatus">Status</label>
-                                <select class="form-select form-select-sm" id="ordersStatus" name="status">
-                                    <option value="completed" selected>Completed</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="processing">Processing</option>
-                                    <option value="review">In Review</option>
-                                    <option value="scheduled">Scheduled</option>
-                                    <option value="cancelled">Cancelled</option>
-                                    <option value="all">All</option>
-                                </select>
+                                @include('advertiser.partials.catalog-theme-select', [
+                                    'selectId' => 'ordersStatus',
+                                    'name' => 'status',
+                                    'label' => 'Status',
+                                    'current' => 'completed',
+                                    'options' => [
+                                        ['value' => 'completed', 'label' => 'Completed'],
+                                        ['value' => 'pending', 'label' => 'Pending'],
+                                        ['value' => 'processing', 'label' => 'Processing'],
+                                        ['value' => 'review', 'label' => 'In Review'],
+                                        ['value' => 'scheduled', 'label' => 'Scheduled'],
+                                        ['value' => 'cancelled', 'label' => 'Cancelled'],
+                                        ['value' => 'all', 'label' => 'All'],
+                                    ],
+                                ])
                             </div>
                             <div class="col-auto">
                                 <button type="submit" class="btn btn-sm btn-primary">Apply</button>
@@ -177,7 +178,10 @@
                             <div class="fw-semibold"><i class="fa fa-download me-2"></i><span id="withdrawalsTabTitle">Withdrawals</span></div>
                             <small class="text-muted" id="withdrawalsResultsCount"></small>
                         </div>
-                        <form id="withdrawalsFilters" class="row g-2 align-items-end">
+                        <form id="withdrawalsFilters" class="row g-2 align-items-end flex-md-nowrap">
+                            <div class="col-auto reports-search-field">
+                                <x-slb-search-field name="search" id="withdrawalsSearch" placeholder="WD reference, method…" mode="" />
+                            </div>
                             <div class="col-auto">
                                 <label class="form-label small mb-0" for="withdrawalsDateFrom">From</label>
                                 <input type="date" class="form-control form-control-sm" id="withdrawalsDateFrom" name="date_from">
@@ -186,15 +190,21 @@
                                 <label class="form-label small mb-0" for="withdrawalsDateTo">To</label>
                                 <input type="date" class="form-control form-control-sm" id="withdrawalsDateTo" name="date_to">
                             </div>
-                            <div class="col-auto">
+                            <div class="col-auto reports-theme-select">
                                 <label class="form-label small mb-0" for="withdrawalsStatus">Status</label>
-                                <select class="form-select form-select-sm" id="withdrawalsStatus" name="status">
-                                    <option value="completed" selected>Paid</option>
-                                    <option value="pending">Requested</option>
-                                    <option value="processing">Processing</option>
-                                    <option value="cancelled">Cancelled / Rejected</option>
-                                    <option value="all">All</option>
-                                </select>
+                                @include('advertiser.partials.catalog-theme-select', [
+                                    'selectId' => 'withdrawalsStatus',
+                                    'name' => 'status',
+                                    'label' => 'Status',
+                                    'current' => 'completed',
+                                    'options' => [
+                                        ['value' => 'completed', 'label' => 'Paid'],
+                                        ['value' => 'pending', 'label' => 'Requested'],
+                                        ['value' => 'processing', 'label' => 'Processing'],
+                                        ['value' => 'cancelled', 'label' => 'Cancelled / Rejected'],
+                                        ['value' => 'all', 'label' => 'All'],
+                                    ],
+                                ])
                             </div>
                             <div class="col-auto">
                                 <button type="submit" class="btn btn-sm btn-primary">Apply</button>
@@ -252,6 +262,24 @@
 </div>
 
 <style>
+.publisher-reports-container .reports-search-field {
+    width: 18rem;
+    max-width: 100%;
+}
+.publisher-reports-container .reports-theme-select {
+    min-width: 10.5rem;
+}
+.publisher-reports-container .reports-theme-select .theme-select {
+    width: 100%;
+}
+.publisher-reports-container .reports-stat-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+    color: var(--brand-primary, #1a585e);
+    background: none;
+    border: 0;
+    flex-shrink: 0;
+}
 .publisher-reports-container .table td,
 .publisher-reports-container .table th {
     padding: 12px 15px;
@@ -445,6 +473,7 @@
     function ordersFilterParams(page) {
         return {
             page: page || 1,
+            search: String($('#ordersSearch').val() || '').trim(),
             status: $('#ordersStatus').val() || 'completed',
             date_from: $('#ordersDateFrom').val() || '',
             date_to: $('#ordersDateTo').val() || '',
@@ -454,10 +483,67 @@
     function withdrawalsFilterParams(page) {
         return {
             page: page || 1,
+            search: String($('#withdrawalsSearch').val() || '').trim(),
             status: $('#withdrawalsStatus').val() || 'completed',
             date_from: $('#withdrawalsDateFrom').val() || '',
             date_to: $('#withdrawalsDateTo').val() || '',
         };
+    }
+
+    function refreshReportsThemeSelects() {
+        document.querySelectorAll('.publisher-reports-container [data-theme-select]').forEach(function (wrap) {
+            const select = wrap.querySelector('select');
+            const valueEl = wrap.querySelector('.single-select-value');
+            if (!select || !valueEl) return;
+            const val = String(select.value);
+            wrap.querySelectorAll('.single-select-option').forEach(function (opt) {
+                const on = String(opt.getAttribute('data-value')) === val;
+                opt.classList.toggle('selected', on);
+                opt.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            const selected = wrap.querySelector('.single-select-option.selected');
+            valueEl.textContent = selected
+                ? String(selected.getAttribute('data-label') || selected.textContent || '').trim()
+                : String((select.options[select.selectedIndex] && select.options[select.selectedIndex].text) || '').trim();
+        });
+    }
+
+    function bindReportsThemeSelects() {
+        document.querySelectorAll('.publisher-reports-container [data-theme-select]').forEach(function (wrap) {
+            if (wrap.dataset.bound === '1') return;
+            wrap.dataset.bound = '1';
+            const select = wrap.querySelector('select');
+            const trigger = wrap.querySelector('.single-select-input');
+            const dropdown = wrap.querySelector('.single-select-dropdown');
+            if (!select || !trigger || !dropdown) return;
+
+            trigger.addEventListener('click', function (e) {
+                e.preventDefault();
+                const willOpen = !dropdown.classList.contains('show');
+                document.querySelectorAll('.publisher-reports-container .theme-select .single-select-dropdown.show').forEach(function (dd) {
+                    if (dd === dropdown) return;
+                    dd.classList.remove('show');
+                    const other = dd.previousElementSibling;
+                    if (other) other.setAttribute('aria-expanded', 'false');
+                });
+                dropdown.classList.toggle('show', willOpen);
+                trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            });
+
+            wrap.querySelectorAll('.single-select-option').forEach(function (opt) {
+                opt.addEventListener('click', function () {
+                    const next = String(opt.getAttribute('data-value') || '');
+                    if (select.value !== next) {
+                        select.value = next;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    refreshReportsThemeSelects();
+                    dropdown.classList.remove('show');
+                    trigger.setAttribute('aria-expanded', 'false');
+                });
+            });
+        });
+        refreshReportsThemeSelects();
     }
 
     function loadOrders(page) {
@@ -498,7 +584,7 @@
     function renderOrdersTable(orderItems) {
         if (!orderItems || orderItems.length === 0) {
             $('#ordersTableBody').html(
-                '<tr><td colspan="9" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2 mb-0">No orders match this filter</p><p class="text-muted small mb-0">Try another status or date range.</p></td></tr>'
+                '<tr><td colspan="9" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2 mb-0">No orders match this filter</p><p class="text-muted small mb-0">Try another search, status, or date range.</p></td></tr>'
             );
             return;
         }
@@ -680,7 +766,7 @@
     function renderWithdrawalsTable(withdrawals) {
         if (!withdrawals || withdrawals.length === 0) {
             $('#withdrawalsTableBody').html(
-                '<tr><td colspan="7" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2 mb-0">No withdrawals match this filter</p><p class="text-muted small mb-0">Try another status or date range.</p></td></tr>'
+                '<tr><td colspan="7" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2 mb-0">No withdrawals match this filter</p><p class="text-muted small mb-0">Try another search, status, or date range.</p></td></tr>'
             );
             return;
         }
@@ -741,9 +827,21 @@
     }
 
     $(function () {
+        bindReportsThemeSelects();
         loadStatistics();
         loadOrders(1);
         loadWithdrawals(1);
+
+        if (window.SlbLiveSearch) {
+            SlbLiveSearch.init(document.getElementById('ordersSearch'), {
+                mode: 'ajax',
+                onSearch: function () { loadOrders(1); },
+            });
+            SlbLiveSearch.init(document.getElementById('withdrawalsSearch'), {
+                mode: 'ajax',
+                onSearch: function () { loadWithdrawals(1); },
+            });
+        }
 
         $('#ordersFilters').on('submit', function (e) {
             e.preventDefault();
@@ -751,6 +849,12 @@
         });
         $('#withdrawalsFilters').on('submit', function (e) {
             e.preventDefault();
+            loadWithdrawals(1);
+        });
+        $('#ordersStatus, #ordersDateFrom, #ordersDateTo').on('change', function () {
+            loadOrders(1);
+        });
+        $('#withdrawalsStatus, #withdrawalsDateFrom, #withdrawalsDateTo').on('change', function () {
             loadWithdrawals(1);
         });
 

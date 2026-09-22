@@ -138,14 +138,15 @@
   box-shadow: 0 8px 24px rgba(11, 98, 102, 0.05);
 }
 .kpi-tile .kpi-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   flex-shrink: 0;
+  font-size: 1.35rem;
 }
 .kpi-icon--earnings { background: #0b6266; }
 .kpi-icon--pending { background: #3aaeb2; }
@@ -207,15 +208,16 @@ a.kpi-tile:hover .kpi-value {
   text-decoration: none;
 }
 .pub-queue-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   background: var(--pub-mint);
   color: var(--pub-teal);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  font-size: 1.15rem;
 }
 .pub-queue-label {
   font-size: 12px;
