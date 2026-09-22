@@ -72,6 +72,25 @@ class AdminWebsiteRecordsSheetTest extends TestCase
 
     private function dropTableColumn(string $table, string $column): void
     {
+        foreach (Schema::getForeignKeys($table) as $fk) {
+            $columns = $fk['columns'] ?? [];
+            if (! in_array($column, $columns, true)) {
+                continue;
+            }
+            $name = $fk['name'] ?? null;
+            try {
+                Schema::table($table, function ($blueprint) use ($name, $column) {
+                    if (is_string($name) && $name !== '') {
+                        $blueprint->dropForeign($name);
+                    } else {
+                        $blueprint->dropForeign([$column]);
+                    }
+                });
+            } catch (\Throwable) {
+                // SQLite leftover FK names; keep dropping indexes/column.
+            }
+        }
+
         foreach (Schema::getIndexes($table) as $index) {
             $columns = $index['columns'] ?? [];
             if (! in_array($column, $columns, true)) {
