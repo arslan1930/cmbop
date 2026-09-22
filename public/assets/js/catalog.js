@@ -2489,6 +2489,10 @@ const CatalogUrl = (function () {
                 markActivePreset(group);
             });
         }
+
+        if (typeof refreshCatalogThemeSelects === 'function') {
+            refreshCatalogThemeSelects();
+        }
     }
 
     /**
@@ -3239,6 +3243,8 @@ window.scheduleCatalogFilterLive = scheduleCatalogFilterLive;
         });
     }
 
+    bindCatalogThemeSelects();
+
     // More-filters selects + checkbox filters share the live path.
     ['tag', 'favorites_filter', 'blacklist_filter'].forEach(function (name) {
         const select = document.querySelector('#filterForm select[name="' + name + '"]');
@@ -3320,6 +3326,64 @@ window.scheduleCatalogFilterLive = scheduleCatalogFilterLive;
     initCatalogTagQuick();
     initCatalogFavoritesQuick();
 })();
+
+function refreshCatalogThemeSelects() {
+    document.querySelectorAll('.catalog-theme-select').forEach(function (wrap) {
+        const select = wrap.querySelector('select');
+        const valueEl = wrap.querySelector('.single-select-value');
+        if (!select || !valueEl) return;
+        const val = String(select.value);
+        wrap.querySelectorAll('.single-select-option').forEach(function (opt) {
+            const on = String(opt.getAttribute('data-value')) === val;
+            opt.classList.toggle('selected', on);
+            opt.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        const selected = wrap.querySelector('.single-select-option.selected');
+        valueEl.textContent = selected
+            ? String(selected.getAttribute('data-label') || selected.textContent || '').trim()
+            : String((select.options[select.selectedIndex] && select.options[select.selectedIndex].text) || '').trim();
+    });
+}
+
+function bindCatalogThemeSelects() {
+    document.querySelectorAll('.catalog-theme-select').forEach(function (wrap) {
+        if (wrap.dataset.bound === '1') return;
+        wrap.dataset.bound = '1';
+        const select = wrap.querySelector('select');
+        const trigger = wrap.querySelector('.single-select-input');
+        const dropdown = wrap.querySelector('.single-select-dropdown');
+        if (!select || !trigger || !dropdown) return;
+
+        trigger.addEventListener('click', function (e) {
+            e.preventDefault();
+            const willOpen = !dropdown.classList.contains('show');
+            document.querySelectorAll('.catalog-theme-select .single-select-dropdown.show').forEach(function (dd) {
+                if (dd === dropdown) return;
+                dd.classList.remove('show');
+                const other = dd.previousElementSibling;
+                if (other) other.setAttribute('aria-expanded', 'false');
+            });
+            dropdown.classList.toggle('show', willOpen);
+            trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        });
+
+        wrap.querySelectorAll('.single-select-option').forEach(function (opt) {
+            opt.addEventListener('click', function () {
+                const next = String(opt.getAttribute('data-value') || '');
+                if (select.value !== next) {
+                    select.value = next;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                refreshCatalogThemeSelects();
+                dropdown.classList.remove('show');
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+        });
+
+        select.addEventListener('change', refreshCatalogThemeSelects);
+    });
+    refreshCatalogThemeSelects();
+}
 
 function syncTagQuick(params) {
     const current = params && params.get
@@ -3632,6 +3696,152 @@ function catalogEscapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function catalogSuggestionUrlFromSearch(value) {
+    const raw = String(value || '').trim();
+    if (!raw || /\s/.test(raw)) return '';
+    const withScheme = /^https?:\/\//i.test(raw) ? raw : ('https://' + raw.replace(/^\/+/, ''));
+    try {
+        const host = new URL(withScheme).hostname.replace(/^www\./i, '');
+        if (!host || host.indexOf('.') === -1 || !/^[a-z0-9.-]+$/i.test(host)) return '';
+        return withScheme;
+    } catch (err) {
+        return '';
+    }
+}
+
+function catalogSuggestionCountryOptions() {
+    const seen = {};
+    const rows = [];
+    document.querySelectorAll('#countryMultiOptions input[data-type="country"]').forEach(function (input) {
+        const code = String(input.value || '').trim();
+        if (!code || seen[code]) return;
+        seen[code] = true;
+        rows.push({
+            code: code,
+            name: input.getAttribute('data-name') || code,
+        });
+    });
+    rows.sort(function (a, b) {
+        return String(a.name).localeCompare(String(b.name));
+    });
+    return rows;
+}
+
+function catalogSuggestionLanguageOptions(countryCode) {
+    const map = (window.CatalogConfig && CatalogConfig.countryLanguageMap) || {};
+    const rows = map[String(countryCode || '').toLowerCase()] || [];
+    return Array.isArray(rows) ? rows : [];
+}
+
+function catalogSuggestionStatusLabel(status) {
+    const key = String(status || 'pending').toLowerCase();
+    if (key === 'accepted' || key === 'approved') return 'Accepted';
+    if (key === 'rejected') return 'Declined';
+    if (key === 'reviewed') return 'In review';
+    return 'Pending';
+}
+
+function catalogThemeSelectMarkup(id, rows, placeholder) {
+    const options = [{ value: '', label: placeholder }].concat(rows || []);
+    const optionHtml = options.map(function (opt) {
+        const selected = opt.value === '' ? ' selected' : '';
+        return '<option value="' + catalogEscapeHtml(opt.value) + '"' + selected + '>' + catalogEscapeHtml(opt.label) + '</option>';
+    }).join('');
+    const itemHtml = options.map(function (opt) {
+        const on = opt.value === '';
+        return '<div class="single-select-option' + (on ? ' selected' : '') + '" role="option"'
+            + ' data-value="' + catalogEscapeHtml(opt.value) + '"'
+            + ' data-label="' + catalogEscapeHtml(opt.label) + '"'
+            + ' aria-selected="' + (on ? 'true' : 'false') + '">'
+            + catalogEscapeHtml(opt.label) + '</div>';
+    }).join('');
+    return '<div class="single-select-wrapper theme-select swal-theme-select" data-theme-select="' + catalogEscapeHtml(id) + '">'
+        + '<select id="' + catalogEscapeHtml(id) + '" class="visually-hidden" tabindex="-1">' + optionHtml + '</select>'
+        + '<button type="button" class="single-select-input" aria-haspopup="listbox" aria-expanded="false" aria-label="' + catalogEscapeHtml(placeholder) + '">'
+        + '<span class="single-select-value">' + catalogEscapeHtml(placeholder) + '</span>'
+        + '<i class="fa fa-chevron-down single-select-arrow" aria-hidden="true"></i>'
+        + '</button>'
+        + '<div class="single-select-dropdown"><div class="single-select-options" role="listbox" aria-label="' + catalogEscapeHtml(placeholder) + '">' + itemHtml + '</div></div>'
+        + '</div>';
+}
+
+function catalogSyncSwalThemeSelect(wrap) {
+    const select = wrap.querySelector('select');
+    const valueEl = wrap.querySelector('.single-select-value');
+    if (!select || !valueEl) return;
+    const val = String(select.value);
+    wrap.querySelectorAll('.single-select-option').forEach(function (opt) {
+        const on = String(opt.getAttribute('data-value')) === val;
+        opt.classList.toggle('selected', on);
+        opt.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const selected = wrap.querySelector('.single-select-option.selected');
+    valueEl.textContent = selected
+        ? String(selected.getAttribute('data-label') || selected.textContent || '').trim()
+        : '';
+}
+
+function catalogBindSwalThemeSelect(wrap) {
+    if (!wrap || wrap.dataset.bound === '1') return;
+    wrap.dataset.bound = '1';
+    const select = wrap.querySelector('select');
+    const trigger = wrap.querySelector('.single-select-input');
+    const dropdown = wrap.querySelector('.single-select-dropdown');
+    if (!select || !trigger || !dropdown) return;
+
+    trigger.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const willOpen = !dropdown.classList.contains('show');
+        document.querySelectorAll('.swal-theme-select .single-select-dropdown.show').forEach(function (open) {
+            if (open === dropdown) return;
+            open.classList.remove('show');
+            const other = open.parentElement && open.parentElement.querySelector('.single-select-input');
+            if (other) other.setAttribute('aria-expanded', 'false');
+        });
+        dropdown.classList.toggle('show', willOpen);
+        trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+
+    wrap.addEventListener('click', function (event) {
+        const opt = event.target.closest('.single-select-option');
+        if (!opt || !wrap.contains(opt)) return;
+        event.preventDefault();
+        const next = String(opt.getAttribute('data-value') || '');
+        if (select.value !== next) {
+            select.value = next;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        catalogSyncSwalThemeSelect(wrap);
+        dropdown.classList.remove('show');
+        trigger.setAttribute('aria-expanded', 'false');
+    });
+}
+
+function catalogReplaceSwalThemeOptions(selectId, rows, placeholder) {
+    const select = document.getElementById(selectId);
+    const wrap = select && select.closest('.swal-theme-select');
+    if (!select || !wrap) return;
+    const options = [{ value: '', label: placeholder }].concat(rows || []);
+    const previous = String(select.value || '');
+    const keep = options.some(function (opt) { return opt.value === previous; }) ? previous : '';
+    select.innerHTML = options.map(function (opt) {
+        return '<option value="' + catalogEscapeHtml(opt.value) + '">' + catalogEscapeHtml(opt.label) + '</option>';
+    }).join('');
+    select.value = keep;
+    const list = wrap.querySelector('.single-select-options');
+    if (list) {
+        list.innerHTML = options.map(function (opt) {
+            return '<div class="single-select-option" role="option"'
+                + ' data-value="' + catalogEscapeHtml(opt.value) + '"'
+                + ' data-label="' + catalogEscapeHtml(opt.label) + '"'
+                + ' aria-selected="false">'
+                + catalogEscapeHtml(opt.label) + '</div>';
+        }).join('');
+    }
+    catalogSyncSwalThemeSelect(wrap);
 }
 
 // Prefer shared layout toast (partials/app-toast); keep a local fallback for catalog-only pages.
@@ -5367,24 +5577,129 @@ document.addEventListener('click', async function (e) {
 
     const btn = e.target.closest('.btn-suggest-website');
     if (!btn) return;
+    e.preventDefault();
+    if (!window.Swal || typeof Swal.fire !== 'function') return;
+    if (!CatalogConfig.routes || !CatalogConfig.routes.websiteSuggestionsStore) return;
+
     const prefill = btn.dataset.search || document.querySelector('input[name="search"]')?.value || '';
+    const prefilledUrl = catalogSuggestionUrlFromSearch(prefill);
+    const searchContext = prefilledUrl ? '' : String(prefill || '').trim();
+    const countryRows = catalogSuggestionCountryOptions().map(function (row) {
+        return { value: row.code, label: row.name };
+    });
+    const contextHtml = searchContext
+        ? '<p class="small text-muted mb-2">You searched for <strong>' + catalogEscapeHtml(searchContext) + '</strong>. Tell us the publisher site that should be in the catalog.</p>'
+        : '<p class="small text-muted mb-2">Paste the site URL. We’ll check the catalog before sending it for review.</p>';
+
     const { value: form } = await Swal.fire({
         title: 'Suggest a website',
-        html: `<p class="small text-muted mb-2">Can’t find a publisher site? Suggest it and we’ll try to include it.</p>
-               <input id="swal-site-name" class="swal2-input" placeholder="Website name" value="${catalogEscapeHtml(prefill)}">
-               <input id="swal-site-url" class="swal2-input" placeholder="https://example.com">
-               <textarea id="swal-site-notes" class="swal2-textarea" placeholder="Why should we add it? (optional)"></textarea>`,
+        html: contextHtml
+            + '<input id="swal-site-url" class="swal2-input" placeholder="https://example.com" value="' + catalogEscapeHtml(prefilledUrl) + '" autocomplete="url">'
+            + '<p id="swal-site-status" class="small mb-2 text-start" style="min-height:1.25rem"></p>'
+            + '<input id="swal-site-name" class="swal2-input" placeholder="Website name (optional)">'
+            + catalogThemeSelectMarkup('swal-site-country', countryRows, 'Country (optional)')
+            + catalogThemeSelectMarkup('swal-site-language', [], 'Language (optional)')
+            + '<textarea id="swal-site-notes" class="swal2-textarea" placeholder="What placement do you want here? (optional)"></textarea>',
         showCancelButton: true,
         confirmButtonText: 'Submit suggestion',
-        preConfirm: () => {
+        focusConfirm: false,
+        didOpen: function () {
+            const urlInput = document.getElementById('swal-site-url');
+            const statusEl = document.getElementById('swal-site-status');
+            const countryEl = document.getElementById('swal-site-country');
+            let timer = null;
+
+            function fillLanguages() {
+                const rows = catalogSuggestionLanguageOptions(countryEl.value).map(function (row) {
+                    return { value: row.code, label: row.name };
+                });
+                catalogReplaceSwalThemeOptions('swal-site-language', rows, 'Language (optional)');
+            }
+
+            function paintStatus(data) {
+                const state = data && data.state ? data.state : '';
+                urlInput.dataset.checkState = state;
+                if (!state || state === 'invalid') {
+                    statusEl.textContent = state === 'invalid' ? (data.message || '') : '';
+                    statusEl.style.color = 'var(--brand-ink-muted, #697078)';
+                    return;
+                }
+                const tone = state === 'available'
+                    ? 'var(--brand-primary, #1a585e)'
+                    : 'var(--brand-danger, #dc2626)';
+                statusEl.style.color = tone;
+                if (data.href) {
+                    statusEl.innerHTML = catalogEscapeHtml(data.message || '')
+                        + ' <a href="' + catalogEscapeHtml(data.href) + '">Open in catalog</a>';
+                } else {
+                    statusEl.textContent = data.message || '';
+                }
+            }
+
+            function runCheck() {
+                const raw = urlInput.value.trim();
+                if (!CatalogConfig.routes.websiteSuggestionsCheck || !catalogSuggestionUrlFromSearch(raw)) {
+                    urlInput.dataset.checkState = '';
+                    statusEl.textContent = '';
+                    return;
+                }
+                statusEl.style.color = 'var(--brand-ink-muted, #697078)';
+                statusEl.textContent = 'Checking the catalog…';
+                const requested = raw;
+                fetch(CatalogConfig.routes.websiteSuggestionsCheck + '?url=' + encodeURIComponent(raw), {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                }).then(function (res) {
+                    return res.json().catch(function () { return {}; });
+                }).then(function (data) {
+                    if (urlInput.value.trim() !== requested) return;
+                    paintStatus(data);
+                }).catch(function () {
+                    if (urlInput.value.trim() !== requested) return;
+                    urlInput.dataset.checkState = '';
+                    statusEl.textContent = '';
+                });
+            }
+
+            document.querySelectorAll('.swal-theme-select').forEach(catalogBindSwalThemeSelect);
+            const popup = document.querySelector('.swal2-popup');
+            const htmlBox = popup && popup.querySelector('.swal2-html-container');
+            if (htmlBox) htmlBox.style.overflow = 'visible';
+            countryEl.addEventListener('change', fillLanguages);
+            urlInput.addEventListener('input', function () {
+                window.clearTimeout(timer);
+                timer = window.setTimeout(runCheck, 350);
+            });
+            fillLanguages();
+            if (urlInput.value.trim()) runCheck();
+        },
+        preConfirm: function () {
             const website_name = document.getElementById('swal-site-name').value.trim();
             const website_url = document.getElementById('swal-site-url').value.trim();
             const notes = document.getElementById('swal-site-notes').value.trim();
-            if (!website_name || !website_url) {
-                Swal.showValidationMessage('Website name and URL are required');
+            const country = document.getElementById('swal-site-country').value.trim();
+            const language = document.getElementById('swal-site-language').value.trim();
+            const checkState = document.getElementById('swal-site-url').dataset.checkState || '';
+            if (!website_url) {
+                Swal.showValidationMessage('Enter the website URL.');
                 return false;
             }
-            return { website_name, website_url, notes, search_query: prefill };
+            if (!catalogSuggestionUrlFromSearch(website_url)) {
+                Swal.showValidationMessage('Enter a full website URL, like https://example.com.');
+                return false;
+            }
+            if (checkState === 'listed' || checkState === 'unavailable' || checkState === 'pending') {
+                Swal.showValidationMessage(document.getElementById('swal-site-status').textContent || 'That website cannot be suggested.');
+                return false;
+            }
+            return {
+                website_name: website_name,
+                website_url: website_url,
+                notes: notes,
+                country: country,
+                language: language,
+                search_query: prefill,
+            };
         },
     });
     if (!form) return;
@@ -5395,10 +5710,25 @@ document.addEventListener('click', async function (e) {
             'Accept': 'application/json',
             'X-CSRF-TOKEN': CatalogConfig.csrfToken,
         },
+        credentials: 'same-origin',
         body: JSON.stringify(form),
     });
     const data = await res.json().catch(() => ({}));
-    Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
+    if (!data.success) {
+        Swal.fire({ icon: 'error', title: data.message || 'Could not send that suggestion.' });
+        return;
+    }
+    const recent = Array.isArray(data.recent) ? data.recent : [];
+    const list = recent.map(function (row) {
+        const label = row.domain || row.name || 'Website';
+        return '<li>' + catalogEscapeHtml(label) + ' — ' + catalogEscapeHtml(catalogSuggestionStatusLabel(row.status)) + '</li>';
+    }).join('');
+    Swal.fire({
+        icon: 'success',
+        title: 'Suggestion pending',
+        html: '<p class="small mb-2">' + catalogEscapeHtml(data.message || 'We’ll review this site.') + '</p>'
+            + (list ? '<ul class="small text-start mb-0">' + list + '</ul>' : ''),
+    });
 });
 
 /**

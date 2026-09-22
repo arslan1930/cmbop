@@ -443,10 +443,7 @@
                             @endif
 
                             @if($showBulkChip)
-                                <span class="site-chip site-chip--bulk site-chip--status">
-                                    <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
-                                    <span>Bulk −{{ rtrim(rtrim(number_format((float) $dealBulkChipPct, 1), '0'), '.') }}%</span>
-                                </span>
+                                <span class="catalog-bulk-note">−{{ rtrim(rtrim(number_format((float) $dealBulkChipPct, 1), '0'), '.') }}% on {{ (int) config('site_promotions.bulk.min_qty', 3) }}+</span>
                             @endif
 
                             @include('advertiser.partials.catalog-placement-chips', [
@@ -1204,10 +1201,7 @@
                             </span>
                         @endif
                         @if($showMobileBulkChip)
-                            <span class="site-chip site-chip--bulk site-chip--status">
-                                <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
-                                <span>Bulk −{{ rtrim(rtrim(number_format((float) $mobileBulkChipPct, 1), '0'), '.') }}%</span>
-                            </span>
+                            <span class="catalog-bulk-note">−{{ rtrim(rtrim(number_format((float) $mobileBulkChipPct, 1), '0'), '.') }}% on {{ (int) config('site_promotions.bulk.min_qty', 3) }}+</span>
                         @endif
                         @include('advertiser.partials.catalog-placement-chips', [
                             'homepageOptions' => $homepageOptions,

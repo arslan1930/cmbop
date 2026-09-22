@@ -421,7 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (selectedMethod === 'paypal') {
             const logo = boot.paypalLogo || '/assets/img/payments/paypal.png';
-            return '<img src="' + logo + '" alt="" width="28" height="28" class="me-2" style="width:28px;height:28px;vertical-align:middle"> Pay ' + formatted + ' with PayPal';
+            return '<img src="' + logo + '" alt="" width="24" height="24" class="me-2" style="width:24px;height:24px;vertical-align:middle"> Pay ' + formatted + ' with PayPal';
         }
         if (selectedMethod) {
             return '<i class="fa fa-file-invoice me-2"></i> Get invoice & pay ' + formatted;

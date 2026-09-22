@@ -422,8 +422,8 @@
                                  @if(empty($paypalConfigured)) aria-disabled="true" data-paypal-disabled="1" @endif
                                  @if(! $paypalNeedsAmount) aria-disabled="true" data-zero-amount="1" @endif>
                                 <div class="payment-option-card">
-                                    <div style="width: 112px; height: 112px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; flex-shrink:0;">
-                                        <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="PayPal" width="104" height="103" style="width:104px;height:auto;" decoding="async">
+                                    <div style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 8px; flex-shrink:0;">
+                                        <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="PayPal" width="72" height="71" style="width:72px;height:auto;" decoding="async">
                                     </div>
                                     <div class="flex-grow-1">
                                         <span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -735,8 +735,8 @@
                         <div id="paypalPaymentDetails" class="card border-0 shadow-sm mb-4" style="display: none;">
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
-                                    <div style="width: 88px; height: 88px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                                        <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="PayPal" width="80" height="79" style="width:80px;height:auto;" decoding="async">
+                                    <div style="width: 64px; height: 64px; background: #f3f4f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                                        <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="PayPal" width="56" height="55" style="width:56px;height:auto;" decoding="async">
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">PayPal</h3>

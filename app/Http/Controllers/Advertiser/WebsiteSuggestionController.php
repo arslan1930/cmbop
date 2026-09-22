@@ -34,10 +34,33 @@ class WebsiteSuggestionController extends Controller
         }
     }
 
+    public function check(Request $request)
+    {
+        try {
+            $verdict = $this->verdictForUrl((string) $request->query('url', ''));
+
+            return response()->json([
+                'success' => true,
+                'state' => $verdict['state'],
+                'message' => $verdict['message'],
+                'domain' => $verdict['domain'],
+                'href' => $verdict['href'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Website suggestion check failed: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'state' => 'error',
+                'message' => UserFacingError::message($e, 'Could not check that website. Please try again.'),
+            ], 500);
+        }
+    }
+
     private function storeSuggestion(Request $request)
     {
         $data = $request->validate([
-            'website_name' => 'required|string|max:190',
+            'website_name' => 'nullable|string|max:190',
             'website_url' => 'required|string|max:255',
             'country' => 'nullable|string|max:8',
             'language' => 'nullable|string|max:8',
@@ -45,47 +68,29 @@ class WebsiteSuggestionController extends Controller
             'search_query' => 'nullable|string|max:190',
         ]);
 
-        $url = CommunityInbox::safeHttpUrl($data['website_url']);
-        $domain = $url ? $this->extractDomain($url) : null;
-        if (! $url || ! $domain) {
+        $verdict = $this->verdictForUrl($data['website_url']);
+        if ($verdict['state'] !== 'available') {
             return response()->json([
                 'success' => false,
-                'message' => 'Please enter a valid website URL.',
+                'state' => $verdict['state'],
+                'message' => $verdict['message'],
             ], 422);
         }
 
-        $existing = Site::findOccupyingDomain($domain);
-        if ($existing) {
-            $message = $existing->isCatalogVisible()
-                ? 'That website is already listed in our catalog. Try searching for “'.$domain.'”.'
-                : 'We already have this website on file. It is not currently available in the catalog.';
-
-            return response()->json([
-                'success' => false,
-                'message' => $message,
-            ], 422);
-        }
-
-        $recentDuplicate = WebsiteSuggestion::query()
-            ->where('domain', $domain)
-            ->where('status', 'pending')
-            ->where('created_at', '>=', now()->subDays(30))
-            ->exists();
-
-        if ($recentDuplicate) {
-            return response()->json([
-                'success' => false,
-                'message' => 'We already have a pending suggestion for this website. Thank you!',
-            ], 422);
+        $url = $verdict['url'];
+        $domain = $verdict['domain'];
+        $websiteName = trim((string) ($data['website_name'] ?? ''));
+        if ($websiteName === '') {
+            $websiteName = $domain;
         }
 
         $suggestion = WebsiteSuggestion::create([
             'user_id' => auth()->id(),
-            'website_name' => $data['website_name'],
+            'website_name' => $websiteName,
             'website_url' => $url,
             'domain' => $domain,
-            'country' => $data['country'] ?? null,
-            'language' => $data['language'] ?? null,
+            'country' => ($data['country'] ?? '') !== '' ? $data['country'] : null,
+            'language' => ($data['language'] ?? '') !== '' ? $data['language'] : null,
             'notes' => $data['notes'] ?? null,
             'search_query' => $data['search_query'] ?? null,
             'status' => 'pending',
@@ -111,10 +116,88 @@ class WebsiteSuggestionController extends Controller
             Log::warning('Failed to notify admins about website suggestion: '.$e->getMessage());
         }
 
+        $recent = WebsiteSuggestion::query()
+            ->where('user_id', auth()->id())
+            ->latest('id')
+            ->limit(5)
+            ->get(['website_name', 'domain', 'status'])
+            ->map(fn (WebsiteSuggestion $row) => [
+                'name' => $row->website_name,
+                'domain' => $row->domain,
+                'status' => $row->status,
+            ])
+            ->values()
+            ->all();
+
         return response()->json([
             'success' => true,
-            'message' => 'Thanks! We’ll review “'.$suggestion->website_name.'” and try to include it if it fits our marketplace.',
+            'status' => 'pending',
+            'message' => 'Thanks! We’ll review “'.$suggestion->website_name.'” and email you when it’s accepted or declined.',
+            'recent' => $recent,
         ]);
+    }
+
+    /**
+     * @return array{state: string, message: string, domain: ?string, href: ?string, url: ?string}
+     */
+    private function verdictForUrl(string $raw): array
+    {
+        $url = CommunityInbox::safeHttpUrl($raw);
+        $domain = $url ? $this->extractDomain($url) : null;
+        if (! $url || ! $domain) {
+            return [
+                'state' => 'invalid',
+                'message' => 'Enter a full website URL, like https://example.com.',
+                'domain' => null,
+                'href' => null,
+                'url' => null,
+            ];
+        }
+
+        $existing = Site::findOccupyingDomain($domain);
+        if ($existing) {
+            if ($existing->isCatalogVisible()) {
+                return [
+                    'state' => 'listed',
+                    'message' => 'That website is already listed in our catalog. Try searching for “'.$domain.'”.',
+                    'domain' => $domain,
+                    'href' => route('advertiser.catalog', ['search' => $domain]),
+                    'url' => $url,
+                ];
+            }
+
+            return [
+                'state' => 'unavailable',
+                'message' => 'We already have this website on file. It is not currently available in the catalog.',
+                'domain' => $domain,
+                'href' => null,
+                'url' => $url,
+            ];
+        }
+
+        $recentDuplicate = WebsiteSuggestion::query()
+            ->where('domain', $domain)
+            ->where('status', 'pending')
+            ->where('created_at', '>=', now()->subDays(30))
+            ->exists();
+
+        if ($recentDuplicate) {
+            return [
+                'state' => 'pending',
+                'message' => 'We already have a pending suggestion for this website. Thank you!',
+                'domain' => $domain,
+                'href' => null,
+                'url' => $url,
+            ];
+        }
+
+        return [
+            'state' => 'available',
+            'message' => 'This site is not in the catalog yet. You can suggest it.',
+            'domain' => $domain,
+            'href' => null,
+            'url' => $url,
+        ];
     }
 
     private function extractDomain(string $url): ?string

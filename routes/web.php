@@ -1072,6 +1072,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
             ->name('catalog.visit');
 
         // Suggest a website missing from the catalog
+        Route::get('/website-suggestions/check', [WebsiteSuggestionController::class, 'check'])
+            ->middleware('throttle:30,1')
+            ->name('website-suggestions.check');
         Route::post('/website-suggestions', [WebsiteSuggestionController::class, 'store'])
             ->middleware('throttle:10,1')
             ->name('website-suggestions.store');

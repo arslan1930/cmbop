@@ -1,6 +1,7 @@
 @extends('advertiser.layouts.app')
 
 @push('page-styles')
+    <link href="{{ asset('assets/css/single-select.css') }}?v={{ @filemtime(public_path('assets/css/single-select.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/catalog.css') }}?v={{ @filemtime(public_path('assets/css/catalog.css')) ?: '1' }}" rel="stylesheet">
     {{-- Critical catalog guards: if a stale CDN copy of catalog.css wins the
          race, Chrome still must not paint a stuck busy layer, teal NEW pills,
@@ -533,30 +534,38 @@
                              this row pulled those cells up so the DA label sat above Tag/Favorites/Blacklist. --}}
                         <div class="row g-3 align-items-start">
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogTagFilter">
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogTagFilter-trigger">
                                     <abbr class="metric-abbr text-decoration-none" title="{{ \App\Support\SiteTag::FILTER_TOOLTIP }}">Tag</abbr>
                                 </label>
-                                <select name="tag" id="catalogTagFilter" class="form-select form-select-sm" aria-label="Listing tag">
-                                    @foreach(\App\Support\SiteTag::catalogFilterOptions() as $value => $label)
-                                        <option value="{{ $value }}" @selected($catalogTagFilter === $value || ($value === '' && $catalogTagFilter === null))>{{ $label }}</option>
-                                    @endforeach
-                                </select>
+                                @include('advertiser.partials.catalog-theme-select', [
+                                    'selectId' => 'catalogTagFilter',
+                                    'name' => 'tag',
+                                    'label' => 'Listing tag',
+                                    'current' => $catalogTagFilter === null ? '' : (string) $catalogTagFilter,
+                                    'options' => \App\Support\SiteTag::catalogFilterOptions(),
+                                ])
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">Favorites</label>
-                                <select name="favorites_filter" class="form-select form-select-sm">
-                                    <option value="">All Sites</option>
-                                    <option value="1" {{ request('favorites_filter') == '1' ? 'selected' : '' }}>Favorites Only</option>
-                                </select>
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogFavoritesFilter-trigger">Favorites</label>
+                                @include('advertiser.partials.catalog-theme-select', [
+                                    'selectId' => 'catalogFavoritesFilter',
+                                    'name' => 'favorites_filter',
+                                    'label' => 'Favorites',
+                                    'current' => (string) request('favorites_filter'),
+                                    'options' => ['' => 'All Sites', '1' => 'Favorites Only'],
+                                ])
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">Blacklist</label>
-                                <select name="blacklist_filter" class="form-select form-select-sm">
-                                    <option value="">All Sites</option>
-                                    <option value="1" {{ request('blacklist_filter') == '1' ? 'selected' : '' }}>Blacklisted Only</option>
-                                </select>
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogBlacklistFilter-trigger">Blacklist</label>
+                                @include('advertiser.partials.catalog-theme-select', [
+                                    'selectId' => 'catalogBlacklistFilter',
+                                    'name' => 'blacklist_filter',
+                                    'label' => 'Blacklist',
+                                    'current' => (string) request('blacklist_filter'),
+                                    'options' => ['' => 'All Sites', '1' => 'Blacklisted Only'],
+                                ])
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
@@ -636,13 +645,14 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogRatingMin">Min rating</label>
-                                <select name="rating_min" id="catalogRatingMin" class="form-select form-select-sm">
-                                    <option value="">Any</option>
-                                    <option value="3" @selected(request('rating_min') === '3')>3.0+</option>
-                                    <option value="4" @selected(request('rating_min') === '4')>4.0+</option>
-                                    <option value="4.5" @selected(request('rating_min') === '4.5')>4.5+</option>
-                                </select>
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogRatingMin-trigger">Min rating</label>
+                                @include('advertiser.partials.catalog-theme-select', [
+                                    'selectId' => 'catalogRatingMin',
+                                    'name' => 'rating_min',
+                                    'label' => 'Min rating',
+                                    'current' => (string) request('rating_min'),
+                                    'options' => ['' => 'Any', '3' => '3.0+', '4' => '4.0+', '4.5' => '4.5+'],
+                                ])
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
@@ -715,31 +725,36 @@
                             data-search="{{ $catalogSearchText }}">
                         <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
                     </button>
-                    <label for="catalogPerPage" class="small text-muted mb-0">Per page</label>
-                    <select id="catalogPerPage"
-                            name="per_page"
-                            form="filterForm"
-                            class="form-select form-select-sm catalog-sort-select"
-                            aria-label="Sites per page">
-                        @foreach(\App\Services\Catalog\CatalogUrlQuery::ALLOWED_PER_PAGE as $size)
-                            <option value="{{ $size }}" @selected($catalogPerPage === $size)>{{ $size }}</option>
-                        @endforeach
-                    </select>
-                    <label for="catalogSort" class="small text-muted mb-0">Sort</label>
-                    <select id="catalogSort"
-                            name="sort"
-                            form="filterForm"
-                            class="form-select form-select-sm catalog-sort-select">
-                        <option value="dr_desc" @selected($sortValue === 'dr_desc')>DR (high → low)</option>
-                        <option value="dr_asc" @selected($sortValue === 'dr_asc')>DR (low → high)</option>
-                        <option value="da_desc" @selected($sortValue === 'da_desc')>DA (high → low)</option>
-                        <option value="da_asc" @selected($sortValue === 'da_asc')>DA (low → high)</option>
-                        <option value="traffic_desc" @selected($sortValue === 'traffic_desc')>Traffic (high → low)</option>
-                        <option value="price_asc" @selected($sortValue === 'price_asc')>Price (low → high)</option>
-                        <option value="price_desc" @selected($sortValue === 'price_desc')>Price (high → low)</option>
-                        <option value="newest" @selected($sortValue === 'newest')>Newest first</option>
-                        <option value="rating_desc" @selected($sortValue === 'rating_desc')>Rating (high → low)</option>
-                    </select>
+                    <label for="catalogPerPage-trigger" class="small text-muted mb-0">Per page</label>
+                    @include('advertiser.partials.catalog-theme-select', [
+                        'selectId' => 'catalogPerPage',
+                        'name' => 'per_page',
+                        'form' => 'filterForm',
+                        'label' => 'Sites per page',
+                        'modifier' => 'catalog-theme-select--compact',
+                        'current' => (string) $catalogPerPage,
+                        'options' => collect(\App\Services\Catalog\CatalogUrlQuery::ALLOWED_PER_PAGE)->mapWithKeys(fn ($size) => [(string) $size => (string) $size])->all(),
+                    ])
+                    <label for="catalogSort-trigger" class="small text-muted mb-0">Sort</label>
+                    @include('advertiser.partials.catalog-theme-select', [
+                        'selectId' => 'catalogSort',
+                        'name' => 'sort',
+                        'form' => 'filterForm',
+                        'label' => 'Sort',
+                        'modifier' => 'catalog-theme-select--sort',
+                        'current' => (string) $sortValue,
+                        'options' => [
+                            'dr_desc' => 'DR (high → low)',
+                            'dr_asc' => 'DR (low → high)',
+                            'da_desc' => 'DA (high → low)',
+                            'da_asc' => 'DA (low → high)',
+                            'traffic_desc' => 'Traffic (high → low)',
+                            'price_asc' => 'Price (low → high)',
+                            'price_desc' => 'Price (high → low)',
+                            'newest' => 'Newest first',
+                            'rating_desc' => 'Rating (high → low)',
+                        ],
+                    ])
                 </div>
             </div>
 
@@ -783,6 +798,7 @@ window.CatalogConfig = {
         favoritesSave: @json(route('advertiser.favorites.save')),
         blacklistSave: @json(route('advertiser.blacklist.save')),
         websiteSuggestionsStore: @json(route('advertiser.website-suggestions.store')),
+        websiteSuggestionsCheck: @json(route('advertiser.website-suggestions.check')),
         siteClaim: @json(route('advertiser.sites.claim')),
         siteClaimsIndex: @json(route('advertiser.site-claims')),
         revealUrl: @json(route('advertiser.catalog.reveal-url', ['site' => '__SITE__'])),
@@ -793,6 +809,7 @@ window.CatalogConfig = {
     }
 };
 </script>
+<script src="{{ asset('assets/js/single-select.js') }}?v={{ @filemtime(public_path('assets/js/single-select.js')) ?: '1' }}" defer></script>
 <script src="{{ asset('assets/js/catalog.js') }}?v={{ @filemtime(public_path('assets/js/catalog.js')) ?: '1' }}" defer></script>
 
 @endsection

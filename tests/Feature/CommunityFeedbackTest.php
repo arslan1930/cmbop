@@ -129,6 +129,49 @@ class CommunityFeedbackTest extends TestCase
         ]);
     }
 
+    public function test_website_suggestion_check_reports_a_listed_domain_and_a_new_one(): void
+    {
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->siteFor($publisher);
+        $advertiser = $this->userWithRole('advertiser');
+
+        $this->actingAs($advertiser)
+            ->getJson(route('advertiser.website-suggestions.check', ['url' => $site->site_url]))
+            ->assertOk()
+            ->assertJsonPath('state', 'listed')
+            ->assertJsonPath('domain', 'owned-news.example');
+
+        $this->actingAs($advertiser)
+            ->getJson(route('advertiser.website-suggestions.check', ['url' => 'https://fresh-tech.example']))
+            ->assertOk()
+            ->assertJsonPath('state', 'available')
+            ->assertJsonPath('domain', 'fresh-tech.example');
+    }
+
+    public function test_website_suggestion_stores_country_language_and_lists_it_as_pending(): void
+    {
+        $advertiser = $this->userWithRole('advertiser');
+
+        $this->actingAs($advertiser)->postJson(route('advertiser.website-suggestions.store'), [
+            'website_url' => 'https://fresh-tech.example',
+            'country' => 'us',
+            'language' => 'en',
+            'notes' => 'Need a homepage mention',
+            'search_query' => 'finance blogs',
+        ])->assertOk()
+            ->assertJsonPath('status', 'pending')
+            ->assertJsonPath('recent.0.domain', 'fresh-tech.example')
+            ->assertJsonPath('recent.0.status', 'pending');
+
+        $this->assertDatabaseHas('website_suggestions', [
+            'domain' => 'fresh-tech.example',
+            'website_name' => 'fresh-tech.example',
+            'country' => 'us',
+            'language' => 'en',
+            'status' => 'pending',
+        ]);
+    }
+
     public function test_website_suggestion_rejects_credential_and_non_http_urls(): void
     {
         $user = $this->userWithRole('advertiser');

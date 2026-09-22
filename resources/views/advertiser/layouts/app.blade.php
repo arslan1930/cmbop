@@ -315,16 +315,18 @@
         <div id="cartProceedHint" class="small text-muted mt-2 d-none">
             Assign an article to at least one website to checkout. Sites without articles stay in your cart.
         </div>
-        <details class="cart-after-pay d-none" id="cartAfterPay">
-            <summary>What happens after you pay</summary>
-            @include('partials.buy-confidence')
-        </details>
-        <button id="keepBrowsingCatalog" class="cart-keep-browsing" type="button">
-            Keep browsing publishers
-        </button>
-        <button id="clearCart" class="cart-clear" type="button">
-            Clear cart
-        </button>
+        <div class="cart-footer-links">
+            <details class="cart-after-pay d-none" id="cartAfterPay">
+                <summary>What happens after you pay</summary>
+                @include('partials.buy-confidence')
+            </details>
+            <button id="keepBrowsingCatalog" class="cart-keep-browsing" type="button">
+                Keep browsing
+            </button>
+            <button id="clearCart" class="cart-clear" type="button">
+                Clear cart
+            </button>
+        </div>
     </div>
 </div>
 
@@ -795,6 +797,123 @@
         });
     }
     
+    function cartThemeSelectMarkup(id, className, dataAttrs, options, ariaLabel) {
+        const current = options.find((opt) => opt.selected && !opt.group) || options.find((opt) => !opt.group) || { value: '', label: '' };
+        let selectOptions = '';
+        let openGroup = false;
+        options.forEach((opt) => {
+            if (opt.group) {
+                if (openGroup) selectOptions += '</optgroup>';
+                selectOptions += '<optgroup label="' + escapeHtml(opt.label) + '">';
+                openGroup = true;
+                return;
+            }
+            selectOptions += '<option value="' + escapeHtml(opt.value) + '"' + (opt.selected ? ' selected' : '') + '>' + escapeHtml(opt.label) + '</option>';
+        });
+        if (openGroup) selectOptions += '</optgroup>';
+        const items = options.map((opt) => {
+            if (opt.group) {
+                return '<div class="single-select-option-group">' + escapeHtml(opt.label) + '</div>';
+            }
+            return '<div class="single-select-option' + (opt.selected ? ' selected' : '') + '" role="option"'
+                + ' data-value="' + escapeHtml(opt.value) + '"'
+                + ' data-label="' + escapeHtml(opt.label) + '"'
+                + ' aria-selected="' + (opt.selected ? 'true' : 'false') + '">'
+                + escapeHtml(opt.label) + '</div>';
+        }).join('');
+        return '<div class="cart-theme-select">'
+            + '<select id="' + escapeHtml(id) + '" class="' + className + ' visually-hidden" tabindex="-1" ' + dataAttrs + '>' + selectOptions + '</select>'
+            + '<button type="button" class="single-select-input" aria-haspopup="listbox" aria-expanded="false" aria-label="' + escapeHtml(ariaLabel) + '">'
+            + '<span class="single-select-value">' + escapeHtml(current.label || '') + '</span>'
+            + '<i class="fa fa-chevron-down single-select-arrow" aria-hidden="true"></i>'
+            + '</button>'
+            + '<div class="single-select-dropdown"><div class="single-select-options" role="listbox">' + items + '</div></div>'
+            + '</div>';
+    }
+
+    function placeCartThemeMenu(dropdown, trigger) {
+        const rect = trigger.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + 'px';
+        dropdown.style.right = 'auto';
+        dropdown.style.zIndex = '1200';
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow < 180) {
+            dropdown.style.top = 'auto';
+            dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+        } else {
+            dropdown.style.bottom = 'auto';
+            dropdown.style.top = (rect.bottom + 4) + 'px';
+        }
+    }
+
+    function closeCartThemeMenus(except) {
+        document.querySelectorAll('.cart-theme-select .single-select-dropdown.show').forEach((dropdown) => {
+            if (except && dropdown === except) return;
+            dropdown.classList.remove('show');
+            const trigger = dropdown.parentElement && dropdown.parentElement.querySelector('.single-select-input');
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    function bindCartThemeSelects(root) {
+        if (!root) return;
+        root.querySelectorAll('.cart-theme-select').forEach((wrap) => {
+            if (wrap.dataset.bound === '1') return;
+            wrap.dataset.bound = '1';
+            const select = wrap.querySelector('select');
+            const trigger = wrap.querySelector('.single-select-input');
+            const dropdown = wrap.querySelector('.single-select-dropdown');
+            const valueEl = wrap.querySelector('.single-select-value');
+            if (!select || !trigger || !dropdown) return;
+            const syncLabel = () => {
+                const val = String(select.value);
+                wrap.querySelectorAll('.single-select-option').forEach((opt) => {
+                    const on = String(opt.getAttribute('data-value')) === val;
+                    opt.classList.toggle('selected', on);
+                    opt.setAttribute('aria-selected', on ? 'true' : 'false');
+                });
+                const selected = wrap.querySelector('.single-select-option.selected');
+                if (valueEl) {
+                    valueEl.textContent = selected
+                        ? String(selected.getAttribute('data-label') || selected.textContent || '').trim()
+                        : '';
+                }
+            };
+            trigger.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const willOpen = !dropdown.classList.contains('show');
+                closeCartThemeMenus(dropdown);
+                dropdown.classList.toggle('show', willOpen);
+                trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+                if (willOpen) placeCartThemeMenu(dropdown, trigger);
+            });
+            wrap.addEventListener('click', (event) => {
+                const opt = event.target.closest('.single-select-option');
+                if (!opt || !wrap.contains(opt)) return;
+                event.preventDefault();
+                const next = String(opt.getAttribute('data-value') ?? '');
+                if (select.value !== next) {
+                    select.value = next;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                syncLabel();
+                dropdown.classList.remove('show');
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+        });
+    }
+
+    if (!window.__cartThemeDocBound) {
+        window.__cartThemeDocBound = true;
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('.cart-theme-select')) return;
+            closeCartThemeMenus();
+        });
+    }
+
     // Update cart display
     function updateCartDisplay() {
         const counts = cartCountSummary(cart);
@@ -907,23 +1026,26 @@
             if (totalsEl) {
                 totalsEl.classList.remove('d-none');
             }
+            const cartStatus = missing === 0
+                ? (readyCount + ' ready')
+                : (readyCount === 0
+                    ? (missingSlots === 1 ? '1 article still needed' : missingSlots + ' articles still needed')
+                    : (readyCount + ' ready · ' + missingSlots + ' article' + (missingSlots === 1 ? '' : 's') + ' still needed'));
             if (headerMeta) {
-                headerMeta.textContent = cartCountLabel(counts.sites, counts.placements)
-                    + ' · ' + readyCount + ' ready to pay';
+                headerMeta.textContent = cartStatus;
             }
             if (checklistEl) {
                 if (missing === 0) {
                     checklistEl.classList.add('d-none');
                     checklistEl.innerHTML = '';
                 } else {
-                    const status = readyCount === 0
-                        ? (missingSlots === 1 ? '1 article still needed' : missingSlots + ' articles still needed')
-                        : (readyCount + ' ready · ' + missingSlots + ' article' + (missingSlots === 1 ? '' : 's') + ' still needed');
+                    const status = cartStatus;
                     const siteList = missingLines.map((item) => '<li>' + escapeHtml(item.name || 'Website') + '</li>').join('');
                     checklistEl.innerHTML = '<div class="cart-checklist__status">' + escapeHtml(status) + '</div>'
                         + (siteList ? '<ul class="cart-checklist__sites">' + siteList + '</ul>' : '');
                     checklistEl.classList.remove('d-none');
                 }
+                checklistEl.classList.add('d-none');
             }
             if (readyNote) {
                 // Header already says “N ready to pay”; do not repeat it in the footer.
@@ -1016,37 +1138,60 @@
                 const sensitiveSelectId = 'cart-sens-' + itemKey.replace(/[^a-zA-Z0-9_-]/g, '-');
                 let homepageDisplay = '';
                 if (homepageOptions.length > 0) {
-                    let homeOpts = `<option value="none"${homepageDays ? '' : ' selected'}>No homepage</option>`;
+                    const homeOptions = [{ value: 'none', label: 'No homepage', selected: !homepageDays }];
                     homepageOptions.forEach((opt) => {
                         const days = parseInt(opt.days, 10);
-                        const selected = homepageDays === days ? ' selected' : '';
                         const fee = parseFloat(opt.price) || 0;
                         const feeLabel = opt.free || fee <= 0 ? 'Free' : slbFormatPay(fee, { signed: true });
-                        homeOpts += `<option value="${days}"${selected}>Homepage ${days} day${days === 1 ? '' : 's'} (${feeLabel})</option>`;
+                        homeOptions.push({
+                            value: String(days),
+                            label: 'Homepage ' + days + ' day' + (days === 1 ? '' : 's') + ' (' + feeLabel + ')',
+                            selected: homepageDays === days,
+                        });
                     });
-                    homepageDisplay = `<div class="cart-item-option">
-                        <label class="visually-hidden" for="${homepageSelectId}">Homepage placement for ${escapeHtml(siteName)}</label>
-                        <select id="${homepageSelectId}" class="cart-option-select cart-homepage-select" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">${homeOpts}</select>
-                    </div>`;
+                    homepageDisplay = cartThemeSelectMarkup(
+                        homepageSelectId,
+                        'cart-option-select cart-homepage-select',
+                        'data-id="' + item.id + '" data-sensitive-type="' + sensitiveAttr + '" data-homepage-days="' + cartHomepageParam(item) + '"',
+                        homeOptions,
+                        'Homepage placement for ' + siteName
+                    );
                 }
                 let sensitiveDisplay = '';
                 if (sensitiveOptions.length > 0) {
-                    let sensOpts = `<option value=""${!item.sensitive_type ? ' selected' : ''}>No sensitive topic</option>`;
+                    const sensOptions = [{ value: '', label: 'No sensitive topic', selected: !item.sensitive_type }];
                     sensitiveOptions.forEach((opt) => {
                         const type = String(opt.type || '');
-                        const selected = (item.sensitive_type || '') === type ? ' selected' : '';
-                        sensOpts += `<option value="${escapeHtml(type)}"${selected}>${escapeHtml(type)} (${slbFormatPay(opt.price, { signed: true })})</option>`;
+                        sensOptions.push({
+                            value: type,
+                            label: type + ' (' + slbFormatPay(opt.price, { signed: true }) + ')',
+                            selected: (item.sensitive_type || '') === type,
+                        });
                     });
-                    sensitiveDisplay = `<div class="cart-item-option">
-                        <label class="visually-hidden" for="${sensitiveSelectId}">Sensitive topic for ${escapeHtml(siteName)}</label>
-                        <select id="${sensitiveSelectId}" class="cart-option-select cart-sensitive-select" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">${sensOpts}</select>
-                    </div>`;
+                    sensitiveDisplay = cartThemeSelectMarkup(
+                        sensitiveSelectId,
+                        'cart-option-select cart-sensitive-select',
+                        'data-id="' + item.id + '" data-sensitive-type="' + sensitiveAttr + '" data-homepage-days="' + cartHomepageParam(item) + '"',
+                        sensOptions,
+                        'Sensitive topic for ' + siteName
+                    );
                 } else if (item.sensitive_type) {
                     sensitiveDisplay = `<div class="cart-item-sensitive"><small>+ ${escapeHtml(item.sensitive_type)} (${slbFormatPay(item.additional_price)})</small></div>`;
                 }
                 const socialList = Array.isArray(item.social_channels) ? item.social_channels : [];
+                const socialIcon = {
+                    facebook: 'fa-facebook',
+                    instagram: 'fa-instagram',
+                    x: 'fa-x-twitter',
+                };
                 const socialDisplay = socialList.length
-                    ? `<div class="cart-item-social"><small>Social: ${escapeHtml(socialList.map((c) => c === 'x' ? 'X' : (c.charAt(0).toUpperCase() + c.slice(1))).join(', '))}</small></div>`
+                    ? `<div class="cart-item-social" aria-label="${escapeHtml(socialList.map((c) => c === 'x' ? 'X' : (c.charAt(0).toUpperCase() + c.slice(1))).join(', '))}">${socialList.map((c) => {
+                        const icon = socialIcon[c];
+                        const name = c === 'x' ? 'X' : (c.charAt(0).toUpperCase() + c.slice(1));
+                        return icon
+                            ? `<i class="fa-brands ${icon}" title="${escapeHtml(name)}" aria-hidden="true"></i>`
+                            : '';
+                    }).join('')}</div>`
                     : '';
                 let articleBlock = '';
                 if (approvedArticles.length === 0 && placementIds.every((id) => !id)) {
@@ -1066,22 +1211,31 @@
                         const other = options.filter((article) => !articleFitsSiteLanguages(article, siteLangs));
                         const slotLabel = placementIds.length > 1
                             ? `Article ${copyIndex + 1} of ${placementIds.length}`
-                            : (selectedId ? 'Article' : 'Add article');
-                        const slotKicker = siteLangLabel ? (slotLabel + ' · site ' + siteLangLabel) : slotLabel;
+                            : 'Article';
+                        const slotKicker = slotLabel;
                         const selectId = 'cart-doc-' + itemKey.replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + copyIndex;
-                        const renderOption = (article) => {
+                        const chooseLabel = placementIds.length > 1
+                            ? ('Choose article ' + (copyIndex + 1) + ' of ' + placementIds.length)
+                            : 'Choose article';
+                        const articleOptions = [{ value: '', label: chooseLabel, selected: !selectedId }];
+                        const pushArticle = (article) => {
                             const optionId = articleId(article.id);
-                            return `<option value="${optionId}" ${optionId === Number(selectedId) ? 'selected' : ''}>${escapeHtml(articlePickerLabel(article))}</option>`;
+                            articleOptions.push({
+                                value: String(optionId),
+                                label: articlePickerLabel(article),
+                                selected: optionId === Number(selectedId),
+                            });
                         };
-                        let opts = `<option value="">— Choose ${placementIds.length > 1 ? 'article ' + (copyIndex + 1) + ' of ' + placementIds.length : 'article'} —</option>`;
                         if (matching.length > 0 && other.length > 0 && !requireSameLanguage) {
-                            opts += `<optgroup label="Matches this site">${matching.map(renderOption).join('')}</optgroup>`;
-                            opts += `<optgroup label="Other languages">${other.map(renderOption).join('')}</optgroup>`;
+                            articleOptions.push({ group: true, label: 'Matches this site' });
+                            matching.forEach(pushArticle);
+                            articleOptions.push({ group: true, label: 'Other languages' });
+                            other.forEach(pushArticle);
                         } else {
-                            options.forEach((article) => { opts += renderOption(article); });
+                            options.forEach(pushArticle);
                         }
                         if (selectedId && !options.some((a) => articleId(a.id) === Number(selectedId))) {
-                            opts += `<option value="${selectedId}" selected>Assigned article</option>`;
+                            articleOptions.push({ value: String(selectedId), label: 'Assigned article', selected: true });
                         }
                         const emptyHint = options.length === 0 && !selectedId
                             ? `<div class="cart-item-article-empty mt-1">Need another article? <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">Upload article</a></div>`
@@ -1093,21 +1247,19 @@
                             ? `<div class="cart-item-language-note" title="Preferred match is the same language as the site">${escapeHtml(item.language_note)}</div>`
                             : noMatchNote;
                         const uploadLink = `<a class="cart-item-upload-link" href="${contentLibraryUploadUrl}">${selectedId ? 'Upload another' : 'Upload new'}</a>`;
+                        const articleSelect = cartThemeSelectMarkup(
+                            selectId,
+                            'cart-article-select',
+                            'data-id="' + item.id + '" data-sensitive-type="' + sensitiveAttr + '" data-homepage-days="' + cartHomepageParam(item) + '" data-copy-index="' + copyIndex + '" data-prev-value="' + (selectedId || '') + '"',
+                            articleOptions,
+                            'Article for ' + siteName + (siteLangLabel ? ' · site ' + siteLangLabel : '')
+                        );
                         return `
                         <div class="cart-item-article ${selectedId ? 'is-assigned' : 'needs-document'}">
                             <div class="cart-item-order-label">
                                 <span class="cart-item-order-kicker">${escapeHtml(slotKicker)}</span>
                             </div>
-                            <label class="visually-hidden" for="${selectId}">Article for ${escapeHtml(siteName)}</label>
-                            <select id="${selectId}"
-                                    class="cart-article-select"
-                                    data-id="${item.id}"
-                                    data-sensitive-type="${sensitiveAttr}"
-                                    data-homepage-days="${cartHomepageParam(item)}"
-                                    data-copy-index="${copyIndex}"
-                                    data-prev-value="${selectedId || ''}">
-                                ${opts}
-                            </select>
+                            ${articleSelect}
                             ${langNote}
                             <div class="cart-item-article-actions">
                                 ${uploadLink}
@@ -1116,44 +1268,40 @@
                         </div>`;
                     }).join('');
                 }
-                const qtyNote = qty > 1
-                    ? `<div class="cart-item-qty-note">${qty} placements · ${qty} articles</div>`
-                    : '';
                 const minBulk = parseInt(item.bulk_min_qty, 10) || 3;
                 const isBulkPack = !!item.bulk_pack || (!!item.bulk_eligible && qty >= minBulk);
                 const minQty = isBulkPack ? minBulk : 1;
                 
+                const optionRow = (homepageDisplay || sensitiveDisplay || socialDisplay)
+                    ? `<div class="cart-item-options">${homepageDisplay}${sensitiveDisplay}${socialDisplay}</div>`
+                    : '';
                 html += `
                     <div class="cart-item" data-key="${itemKeyAttr}">
-                        <div class="cart-item-top">
-                            <div class="cart-item-info">
-                                <div class="cart-item-name">${escapeHtml(siteName)}</div>
-                                ${identityMeta ? `<div class="cart-item-meta">${escapeHtml(identityMeta)}</div>` : ''}
-                                ${sensitiveDisplay}
-                                ${homepageDisplay}
-                                ${socialDisplay}
-                                <div class="cart-item-price">${priceLabel}</div>
-                                ${qtyNote}
-                            </div>
-                            <div class="cart-item-quantity" role="group" aria-label="Placements">
-                                <span class="cart-item-qty-label">Placements</span>
-                                <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Decrease placements" title="Placements — each needs its own article" ${qty <= minQty ? 'disabled' : ''}>
-                                    <i class="fa fa-minus" aria-hidden="true"></i>
-                                </button>
-                                <span class="quantity-number" aria-label="Placements ${item.quantity}">${item.quantity}</span>
-                                <button type="button" class="increase-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Increase placements — each needs its own article" title="Placements — each needs its own article">
-                                    <i class="fa fa-plus" aria-hidden="true"></i>
-                                </button>
-                            </div>
-                            <button type="button" class="cart-item-remove" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Remove ${escapeHtml(siteName)} from cart">
-                                Remove
+                        <div class="cart-item-head">
+                            <div class="cart-item-name">${escapeHtml(siteName)}</div>
+                            <div class="cart-item-price">${priceLabel}</div>
+                            <button type="button" class="cart-item-remove" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Remove ${escapeHtml(siteName)} from cart">Remove<i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+                        </div>
+                        ${identityMeta ? `<div class="cart-item-meta">${escapeHtml(identityMeta)}</div>` : ''}
+                        <div class="cart-item-quantity" role="group" aria-label="Placements">
+                            <span class="cart-item-qty-label visually-hidden">Placements</span>
+                            <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Decrease placements" title="Placements — each needs its own article" ${qty <= minQty ? 'disabled' : ''}>
+                                <i class="fa fa-minus" aria-hidden="true"></i>
+                            </button>
+                            <span class="quantity-number" aria-label="Placements ${item.quantity}">${item.quantity}</span>
+                            <button type="button" class="increase-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Increase placements — each needs its own article" title="Placements — each needs its own article">
+                                <i class="fa fa-plus" aria-hidden="true"></i>
                             </button>
                         </div>
-                        ${articleBlock}
+                        ${optionRow}
+                        <div class="cart-item-article-row">
+                            <div class="cart-item-articles">${articleBlock}</div>
+                        </div>
                     </div>
                 `;
             });
             container.innerHTML = html;
+            bindCartThemeSelects(container);
         }
         
         const payEl = document.getElementById('cartTotalAmount');

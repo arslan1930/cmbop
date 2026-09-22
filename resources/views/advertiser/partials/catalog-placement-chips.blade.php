@@ -49,20 +49,29 @@
     @endif
 @endif
 @if($showSocialPlacementChip)
+    @php
+        $socialIcon = [
+            'facebook' => 'fa-facebook',
+            'instagram' => 'fa-instagram',
+            'x' => 'fa-x-twitter',
+        ];
+    @endphp
     @if($placementOpenDetailsId !== '')
         <button type="button"
-                class="site-chip site-chip--social site-chip--descriptor"
+                class="catalog-social-icons"
                 data-catalog-open-details="{{ $placementOpenDetailsId }}"
                 data-catalog-open-section="social"
                 data-no-tip
                 aria-label="{{ $socialTitle }} — open Details">
-            <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
-            <span>{{ $socialChipLabel }}</span>
+            @foreach($placementSocialChannels as $channel)
+                <i class="fa-brands {{ $socialIcon[$channel] ?? 'fa-share-nodes' }}" aria-hidden="true"></i>
+            @endforeach
         </button>
     @else
-        <span class="site-chip site-chip--social site-chip--descriptor"@if($socialTitle !== '') aria-label="{{ $socialTitle }}"@endif>
-            <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
-            <span>{{ $socialChipLabel }}</span>
+        <span class="catalog-social-icons"@if($socialTitle !== '') aria-label="{{ $socialTitle }}"@endif>
+            @foreach($placementSocialChannels as $channel)
+                <i class="fa-brands {{ $socialIcon[$channel] ?? 'fa-share-nodes' }}" aria-hidden="true"></i>
+            @endforeach
         </span>
     @endif
 @endif

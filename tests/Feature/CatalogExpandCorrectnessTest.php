@@ -322,7 +322,7 @@ class CatalogExpandCorrectnessTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('site-chip--social', $html);
+        $this->assertStringContainsString('catalog-social-icons', $html);
         $this->assertStringContainsString('Facebook', $html);
         $this->assertStringContainsString('Social promotions', $html);
         $this->assertStringContainsString('Homepage promotions', $html);
@@ -367,8 +367,10 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('site-chip--homepage', $html);
         $this->assertStringContainsString('Homepage</span>', $html);
         $this->assertStringNotContainsString('Free homepage', $html);
-        $this->assertStringContainsString('site-chip--social', $html);
-        $this->assertStringContainsString('Facebook, Instagram', $html);
+        $this->assertStringContainsString('catalog-social-icons', $html);
+        $this->assertStringContainsString('fa-facebook', $html);
+        $this->assertStringContainsString('fa-instagram', $html);
+        $this->assertStringNotContainsString('>Facebook, Instagram<', $html);
         $this->assertStringNotContainsString('Social: Facebook', $html);
         $this->assertStringContainsString('data-catalog-open-section="social"', $html);
         $this->assertStringContainsString('data-catalog-open-section="homepage"', $html);

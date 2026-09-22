@@ -116,9 +116,9 @@ class CatalogNewBadgeAlignTest extends TestCase
 
         $this->assertStringContainsString('site-chip--sale', $html);
         $this->assertStringContainsString('−10%', $html);
-        $this->assertStringContainsString('site-chip--bulk', $html);
+        $this->assertStringContainsString('catalog-bulk-note', $html);
         // Pack floors at publisher payout → effective ~11.5%, not nominal 15%.
-        $this->assertStringContainsString('Bulk −11.5%', $html);
+        $this->assertStringContainsString('−11.5% on 3+', $html);
         $this->assertStringNotContainsString('Bulk −15%', $html);
     }
 
