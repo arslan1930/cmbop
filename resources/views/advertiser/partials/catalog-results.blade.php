@@ -378,6 +378,13 @@
                                @endif>{{ $displayRootedUrl }}</a>
                             <div class="catalog-site-tag-slot">
                                 @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
+                                @include('advertiser.partials.catalog-placement-chips', [
+                                    'homepageOptions' => $homepageOptions,
+                                    'defaultHomepageDays' => $defaultHomepageDays,
+                                    'socialChannels' => $socialChannels,
+                                    'socialChannelLabels' => $socialChannelLabels,
+                                    'openDetailsId' => (string) $site->id,
+                                ])
                                 @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                             </div>
                         </div>
@@ -421,7 +428,7 @@
                                 report($e);
                             }
                         @endphp
-                        @if($site->isFeatured() || $showSaleChip || $showBulkChip || $showPlacementChips)
+                        @if($site->isFeatured() || $showSaleChip || $showBulkChip)
                         <div class="catalog-site-deals">
                             @if($site->isFeatured())
                                 <span class="site-chip site-chip--featured site-chip--descriptor">
@@ -440,14 +447,6 @@
                             @if($showBulkChip)
                                 <span class="catalog-bulk-note">−{{ rtrim(rtrim(number_format((float) $dealBulkChipPct, 1), '0'), '.') }}% on {{ (int) config('site_promotions.bulk.min_qty', 3) }}+</span>
                             @endif
-
-                            @include('advertiser.partials.catalog-placement-chips', [
-                                'homepageOptions' => $homepageOptions,
-                                'defaultHomepageDays' => $defaultHomepageDays,
-                                'socialChannels' => $socialChannels,
-                                'socialChannelLabels' => $socialChannelLabels,
-                                'openDetailsId' => (string) $site->id,
-                            ])
                         </div>
                         @endif
 
@@ -1147,6 +1146,13 @@
                        @endif>{{ $displayRootedUrl }}</a>
                     <div class="catalog-site-tag-slot">
                         @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
+                        @include('advertiser.partials.catalog-placement-chips', [
+                            'homepageOptions' => $homepageOptions,
+                            'defaultHomepageDays' => $defaultHomepageDays,
+                            'socialChannels' => $socialChannels,
+                            'socialChannelLabels' => $socialChannelLabels,
+                            'openDetailsId' => (string) $site->id,
+                        ])
                         @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                     </div>
                     @php
@@ -1182,7 +1188,7 @@
                             report($e);
                         }
                     @endphp
-                    @if($showMobileSaleChip || $showMobileBulkChip || $homepageOptions !== [] || $socialChannels !== [])
+                    @if($showMobileSaleChip || $showMobileBulkChip)
                     <div class="catalog-site-deals catalog-site-deals--mobile mt-1">
                         @if($showMobileSaleChip)
                             <span class="site-chip site-chip--sale site-chip--status">
@@ -1193,13 +1199,6 @@
                         @if($showMobileBulkChip)
                             <span class="catalog-bulk-note">−{{ rtrim(rtrim(number_format((float) $mobileBulkChipPct, 1), '0'), '.') }}% on {{ (int) config('site_promotions.bulk.min_qty', 3) }}+</span>
                         @endif
-                        @include('advertiser.partials.catalog-placement-chips', [
-                            'homepageOptions' => $homepageOptions,
-                            'defaultHomepageDays' => $defaultHomepageDays,
-                            'socialChannels' => $socialChannels,
-                            'socialChannelLabels' => $socialChannelLabels,
-                            'openDetailsId' => (string) $site->id,
-                        ])
                     </div>
                     @endif
                     <span class="category-badge mt-1">{{ $mobileCategory }}</span>

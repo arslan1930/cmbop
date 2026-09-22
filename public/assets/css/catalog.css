@@ -2432,6 +2432,11 @@ a.catalog-site-rooted-url.site-open-link::after {
     max-width: 100%;
 }
 
+.catalog-site-tag-slot {
+    flex-wrap: nowrap;
+    gap: 6px;
+}
+
 .catalog-site-tag-slot:empty {
     display: none;
 }
@@ -2622,7 +2627,9 @@ button.site-badge-new.catalog-new-ribbon.is-alerting {
     cursor: pointer;
 }
 
-.catalog-social-icons i {
+.catalog-social-icons i,
+.catalog-social-icons i.fa.slb-icon-svg,
+.catalog-social-icons i.fa-brands.slb-icon-svg {
     width: 22px;
     height: 22px;
     min-width: 22px;
@@ -2630,6 +2637,37 @@ button.site-badge-new.catalog-new-ribbon.is-alerting {
     flex: 0 0 22px;
     font-size: 22px;
     color: var(--brand-ink-muted, #697078);
+    background: none !important;
+    background-color: currentColor !important;
+    -webkit-mask: var(--slb-icon) center / contain no-repeat !important;
+    mask: var(--slb-icon) center / contain no-repeat !important;
+}
+
+.catalog-social-icons .fa-facebook,
+.catalog-social-icons .fa-facebook-f {
+    --slb-icon: url("../icons/brands/facebook-fill.svg");
+}
+
+.catalog-social-icons .fa-instagram {
+    --slb-icon: url("../icons/brands/instagram-fill.svg");
+}
+
+.catalog-social-icons .fa-x-twitter {
+    --slb-icon: url("../icons/brands/x-fill.svg");
+}
+
+.catalog-social-icons i svg {
+    display: none !important;
+}
+
+.catalog-site-deals .site-chip--homepage {
+    height: auto;
+    min-height: 22px;
+    padding: 0.2rem 0.65rem;
+    border: 0 !important;
+    box-shadow: none;
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #1a585e);
 }
 
 .catalog-site-tag-slot .site-chip--sponsored,

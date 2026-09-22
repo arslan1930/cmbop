@@ -37,13 +37,11 @@
                 data-catalog-open-section="homepage"
                 data-no-tip
                 aria-label="{{ $homepageAria }}">
-            <i class="fa-solid fa-house" aria-hidden="true"></i>
             <span>{{ $homepageChipLabel }}</span>
         </button>
     @else
         <span class="site-chip site-chip--homepage site-chip--descriptor"
               aria-label="{{ $homepageAria }}">
-            <i class="fa-solid fa-house" aria-hidden="true"></i>
             <span>{{ $homepageChipLabel }}</span>
         </span>
     @endif
