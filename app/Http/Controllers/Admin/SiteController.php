@@ -4158,10 +4158,17 @@ class SiteController extends Controller
 
     public function bulk(Request $request)
     {
+        if ($request->input('action') === 'verify') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Verification is a per-site admin choice. Use Manage → Verify on each listing.',
+            ], 422);
+        }
+
         $data = $request->validate([
             'ids' => ['required', 'array', 'min:1', 'max:50'],
             'ids.*' => ['integer', 'distinct'],
-            'action' => ['required', 'in:verify,deactivate,archive,restore,nudge'],
+            'action' => ['required', 'in:deactivate,archive,restore,nudge'],
             'reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -4201,7 +4208,6 @@ class SiteController extends Controller
             }
 
             $inner = Request::create($request->url(), 'POST', array_filter([
-                'verified' => $action === 'verify' ? 1 : null,
                 'active' => $action === 'deactivate' ? 0 : null,
                 'reason' => in_array($action, ['archive', 'deactivate'], true) ? $reason : null,
             ], static fn ($value) => $value !== null));
@@ -4214,7 +4220,6 @@ class SiteController extends Controller
 
             try {
                 $response = match ($action) {
-                    'verify' => $this->verify($inner, $id),
                     'deactivate' => $this->toggleActive($inner, $id),
                     'archive' => $this->destroy($inner, $id),
                     'restore' => $this->restore($inner, $id),

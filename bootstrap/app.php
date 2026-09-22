@@ -293,7 +293,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ->hourly()
             ->withoutOverlapping();
 
-        // Auto-complete file verification when publishers uploaded the txt but forgot to click Check
+        // Auto-complete file verification on unpublished drafts (live listings stay admin-verify)
         $schedule->command('sites:recheck-file-verification --limit=100')
             ->dailyAt('05:10')
             ->withoutOverlapping();
