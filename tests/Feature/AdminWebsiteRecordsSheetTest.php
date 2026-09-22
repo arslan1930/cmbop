@@ -1428,4 +1428,68 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertDontSee('SQLSTATE', false)
             ->assertDontSee('must be of type', false);
     }
+
+    public function test_live_filter_survives_missing_countries_name_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-country-name.example',
+            'domain' => 'live-no-country-name.example',
+            'active' => true,
+        ]);
+
+        $this->dropTableColumn('countries', 'name');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-country-name.example', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.sites.records', ['live' => 1, 'partial' => 1]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('live', true);
+    }
+
+    public function test_live_filter_survives_missing_price_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-price-col.example',
+            'domain' => 'live-no-price-col.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('price');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-price-col.example', false)
+            ->assertDontSee('SQLSTATE', false)
+            ->assertDontSee('Unable to cast value to a decimal', false);
+    }
+
+    public function test_live_filter_survives_missing_onboarding_status_column(): void
+    {
+        $admin = $this->userWithRoles(['admin'], 'admin');
+        $publisher = $this->userWithRoles(['publisher'], 'publisher');
+        $this->makeSite($publisher, [
+            'site_url' => 'https://live-no-onboarding-col.example',
+            'domain' => 'live-no-onboarding-col.example',
+            'active' => true,
+        ]);
+
+        $this->dropSitesColumn('onboarding_status');
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.records', ['live' => 1]))
+            ->assertOk()
+            ->assertSee('https://live-no-onboarding-col.example', false)
+            ->assertDontSee('SQLSTATE', false);
+    }
 }

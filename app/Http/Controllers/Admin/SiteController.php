@@ -619,15 +619,50 @@ class SiteController extends Controller
     private function recordsCountryOptions(array $countryCounts)
     {
         try {
-            return Country::marketplace()
-                ->orderBy('name')
-                ->get(['code', 'name'])
-                ->map(function (Country $country) use ($countryCounts) {
-                    $code = strtolower(trim(scalar_text($country->code ?? '')));
+            $table = (new Country)->getTable();
+            $hasCode = Schema::hasColumn($table, 'code');
+            $hasName = Schema::hasColumn($table, 'name');
+            if (! $hasCode && ! $hasName) {
+                return collect();
+            }
+
+            $select = array_values(array_filter([
+                $hasCode ? 'code' : null,
+                $hasName ? 'name' : null,
+            ]));
+
+            $query = Country::query();
+            try {
+                if ($hasCode) {
+                    $query = Country::marketplace();
+                }
+            } catch (\Throwable $e) {
+                report($e);
+                $query = Country::query();
+            }
+
+            try {
+                if ($hasName) {
+                    $query->orderBy('name');
+                } elseif ($hasCode) {
+                    $query->orderBy('code');
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
+            return $query
+                ->get($select)
+                ->map(function (Country $country) use ($countryCounts, $hasCode, $hasName) {
+                    $code = strtolower(trim(scalar_text(
+                        $hasCode ? ($country->code ?? '') : ($country->name ?? '')
+                    )));
 
                     return [
                         'code' => $code,
-                        'name' => scalar_text($country->name ?? ''),
+                        'name' => $hasName
+                            ? scalar_text($country->name ?? '')
+                            : strtoupper($code),
                         'count' => (int) ($countryCounts[$code] ?? 0),
                     ];
                 })
