@@ -2617,13 +2617,68 @@ button.site-badge-new.catalog-new-ribbon.is-alerting {
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--brand-primary, #1a585e);
+    color: var(--brand-ink-muted, #697078);
     line-height: 1;
     cursor: pointer;
 }
 
 .catalog-social-icons i {
-    font-size: 14px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
+    flex: 0 0 22px;
+    font-size: 22px;
+    color: var(--brand-ink-muted, #697078);
+}
+
+.catalog-site-tag-slot .site-chip--sponsored,
+.catalog-site-tag-slot .site-chip--partner,
+.catalog-site-tag-slot .site-chip--prefer,
+.catalog-site-tag-slot .site-chip--none {
+    height: auto;
+    min-height: 22px;
+    padding: 0.2rem 0.65rem;
+    border: 0 !important;
+    box-shadow: none;
+}
+
+.catalog-site-tag-slot .site-chip--sponsored {
+    background: #fff6e8;
+    color: #9a3412;
+}
+
+.catalog-site-tag-slot .site-chip--partner {
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #1a585e);
+}
+
+.catalog-site-tag-slot .site-chip--prefer {
+    background: #e8f2f3;
+    color: var(--brand-primary-deep, #134347);
+}
+
+.catalog-site-tag-slot .site-chip--none {
+    background: #f1f5f9;
+    color: var(--brand-ink-muted, #697078);
+}
+
+.catalog-social-icons.m-draw:hover svg path,
+.catalog-social-icons.m-draw:hover svg circle,
+.catalog-social-icons.m-draw:hover svg line,
+.catalog-social-icons.m-draw:hover svg polyline,
+.catalog-social-icons.m-draw:hover svg rect,
+.catalog-social-icons.m-draw:hover svg ellipse,
+.catalog-social-icons.m-draw:hover svg polygon,
+.catalog-social-icons .m-draw:hover svg path,
+.catalog-social-icons .m-draw:hover svg circle,
+.catalog-social-icons .m-draw:hover svg line,
+.catalog-social-icons .m-draw:hover svg polyline,
+.catalog-social-icons .m-draw:hover svg rect,
+.catalog-social-icons .m-draw:hover svg ellipse,
+.catalog-social-icons .m-draw:hover svg polygon {
+    -webkit-animation: none !important;
+    animation: none !important;
 }
 
 .catalog-site-badges--mobile {

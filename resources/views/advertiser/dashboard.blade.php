@@ -47,7 +47,7 @@
     border: 1px solid #e5eef0; border-radius: 10px; background: #fff; height: 100%;
 }
 .kpi-tile .kpi-icon {
-    width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center;
+    width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center;
     justify-content: center; flex-shrink: 0;
     background: var(--brand-primary-bg, #e6f5f5);
     color: #fff;
@@ -55,8 +55,9 @@
 }
 .kpi-tile .kpi-icon i {
     color: inherit;
-    font-size: 1.05rem;
+    font-size: 1.25rem;
     line-height: 1;
+    transform: scale(0.92);
 }
 .kpi-tile .kpi-label { font-size: 12px; color: #6b7280; display: block; }
 .kpi-tile .kpi-value { font-size: 1.35rem; font-weight: 700; color: var(--brand-primary, #1a585e); line-height: 1.1; }

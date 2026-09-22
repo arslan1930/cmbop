@@ -10,12 +10,6 @@
     $tagTitle = $isNone
         ? \App\Support\SiteTag::NONE_CHIP_TITLE
         : \App\Support\SiteTag::catalogChipTitle($tagValue);
-    $tagIcon = match ($tagValue) {
-        \App\Support\SiteTag::SPONSORED => 'fa-star',
-        \App\Support\SiteTag::PARTNER => 'fa-handshake',
-        \App\Support\SiteTag::AS_YOU_PREFER => 'fa-sliders-h',
-        default => $isNone && $showNone ? 'fa-tag' : null,
-    };
     $tagModifier = match ($tagValue) {
         \App\Support\SiteTag::SPONSORED => 'sponsored',
         \App\Support\SiteTag::PARTNER => 'partner',
@@ -27,9 +21,6 @@
 @if($chipLabel && $tagModifier)
     <span class="site-chip site-chip--{{ $tagModifier }} site-chip--descriptor"
           @if($showDefinition && $tagTitle) title="{{ $tagTitle }}" @endif>
-        @if($tagIcon)
-            <i class="fa-solid {{ $tagIcon }}" aria-hidden="true"></i>
-        @endif
         <span>{{ $chipLabel }}</span>
     </span>
     @if($showDefinition && $tagTitle)
