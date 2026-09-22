@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Detect demo / lorem catalog rows so Site Details can warn buyers.
@@ -62,19 +63,19 @@ class CatalogPlaceholderListing
             // TypeError/SQLSTATE on the first WHERE clause.
             $q->whereRaw('1 = 0');
 
-            if (Site::hasSitesColumn('description')) {
+            if (self::sitesColumnPresent('description')) {
                 $q->orWhere('description', 'like', '%lorem ipsum%')
                     ->orWhere('description', 'like', '%replace this placeholder with a real site description%');
             }
 
-            if (Site::hasSitesColumn('domain')) {
+            if (self::sitesColumnPresent('domain')) {
                 $q->orWhere('domain', 'example.com')
                     ->orWhere('domain', 'localhost')
                     ->orWhere('domain', 'like', 'demo%.com');
             }
 
             foreach (['site_url', 'example_url'] as $column) {
-                if (! Site::hasSitesColumn($column)) {
+                if (! self::sitesColumnPresent($column)) {
                     continue;
                 }
                 $q->orWhere($column, 'like', '%example.com%')
@@ -82,5 +83,25 @@ class CatalogPlaceholderListing
                     ->orWhere($column, 'like', '%demo%.com%');
             }
         });
+    }
+
+    /**
+     * When leftover Hostinger dropped the sites table, assume the shipped
+     * columns so SQL generation (and unit toSql() checks) still describe the
+     * real queue. When the table exists, skip columns Hostinger actually dropped.
+     */
+    private static function sitesColumnPresent(string $column): bool
+    {
+        try {
+            if (! Schema::hasTable((new Site)->getTable())) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return true;
+        }
+
+        return Site::hasSitesColumn($column);
     }
 }
