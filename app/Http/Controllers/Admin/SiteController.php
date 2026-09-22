@@ -457,10 +457,16 @@ class SiteController extends Controller
 
     /**
      * Leftover ?page[]=2 TypeErrors Laravel's paginator filter_var().
+     * Arrays are junk — stay on page 1 instead of flattening to an empty page.
      */
     private function recordsPage(Request $request): int
     {
-        return max(1, (int) scalar_text($request->query('page', 1)));
+        $raw = $request->query('page', 1);
+        if (is_array($raw)) {
+            return 1;
+        }
+
+        return max(1, (int) scalar_text($raw));
     }
 
     /**
