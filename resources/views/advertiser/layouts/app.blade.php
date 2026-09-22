@@ -1233,6 +1233,8 @@
             body.set('quantity', String(qty));
         }
 
+        const cartWasEmpty = !Array.isArray(cart) || cart.length === 0;
+
         return fetch(@json(route('advertiser.cart.add')), {
             method: 'POST',
             headers: {
@@ -1264,9 +1266,7 @@
                 window.catalogAnnounceCart(label);
             }
             updateCartDisplay();
-            let firstAdd = false;
-            try { firstAdd = sessionStorage.getItem('slb_cart_drawer_seen') !== '1'; } catch (_) { firstAdd = true; }
-            if (opts.openCart || opts.bulk || (Number.isFinite(qty) && qty > 1) || firstAdd) {
+            if (opts.openCart || opts.bulk || (Number.isFinite(qty) && qty > 1) || cartWasEmpty) {
                 try { openCart(); } catch (_) { /* cart chrome may not be ready */ }
                 try { sessionStorage.setItem('slb_cart_drawer_seen', '1'); } catch (_) {}
             }

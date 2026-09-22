@@ -486,10 +486,14 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('window.catalogSyncInCartButtons', $js);
         $this->assertStringContainsString("btn.classList.toggle('is-in-cart', inCart)", $js);
         $this->assertStringContainsString('<span>In cart</span>', $js);
-        $this->assertStringContainsString("button.classList.contains('is-in-cart')", $js);
+        $this->assertStringContainsString('<span>Add to cart</span>', $js);
+        $this->assertStringContainsString("button.classList.contains('is-in-cart') && !isBulkHint", $js);
         $this->assertStringContainsString('window.catalogSyncBuyAddonHints', $js);
         $this->assertStringContainsString('.buy-now.is-in-cart[data-id=', $js);
         $this->assertStringContainsString("Incl. ' + homepage.days + '-day homepage'", $js);
+        $this->assertStringContainsString("btn.dataset.bulkHint === '1' || btn.hasAttribute('data-bulk-hint')", $js);
+        $this->assertStringContainsString('alreadyLabeled ? idleHtml : btn.innerHTML', $js);
+        $this->assertStringContainsString('Keep persistent "In cart"', $js);
         $this->assertStringNotContainsString('readiness chips', $js);
     }
 

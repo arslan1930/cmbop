@@ -4041,18 +4041,28 @@ window.catalogSyncInCartButtons = function catalogSyncInCartButtons(cartItems) {
             ids[String(item.id)] = true;
         }
     });
+    const idleHtml = '<i class="fa-solid fa-cart-plus" aria-hidden="true"></i> <span>Add to cart</span>';
+    const inCartHtml = '<i class="fa-solid fa-cart-shopping" aria-hidden="true"></i> <span>In cart</span>';
     document.querySelectorAll('.buy-now').forEach(function (btn) {
+        // Bulk pack CTAs stay "Add 3" even when the site is already in the cart.
+        if (btn.dataset.bulkHint === '1' || btn.hasAttribute('data-bulk-hint')) {
+            return;
+        }
         if (!btn.dataset.defaultHtml) {
-            btn.dataset.defaultHtml = btn.innerHTML;
+            const alreadyLabeled = btn.classList.contains('is-in-cart') || btn.dataset.inCart === '1';
+            btn.dataset.defaultHtml = alreadyLabeled ? idleHtml : btn.innerHTML;
         }
         const inCart = !!ids[String(btn.dataset.id)];
         btn.classList.toggle('is-in-cart', inCart);
         if (inCart) {
-            btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> <span>In cart</span>';
-            btn.setAttribute('aria-label', 'Open cart');
+            btn.dataset.inCart = '1';
+            btn.innerHTML = inCartHtml;
+            const name = btn.dataset.name || 'this site';
+            btn.setAttribute('aria-label', 'Open cart — ' + name + ' is already in your cart');
             btn.title = 'Already in cart — open to assign an article or change options';
         } else if (btn.dataset.busy !== '1') {
-            btn.innerHTML = btn.dataset.defaultHtml;
+            delete btn.dataset.inCart;
+            btn.innerHTML = btn.dataset.defaultHtml || idleHtml;
             const name = btn.dataset.name || 'this site';
             btn.setAttribute('aria-label', 'Buy placement for ' + name);
             btn.removeAttribute('title');
@@ -4995,7 +5005,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function (e) {
         const button = e.target.closest('.buy-now');
         if (!button) return;
-        if (button.classList.contains('is-in-cart')) {
+        const isBulkHint = button.dataset.bulkHint === '1' || button.hasAttribute('data-bulk-hint');
+        if (button.classList.contains('is-in-cart') && !isBulkHint) {
             e.preventDefault();
             e.stopPropagation();
             if (typeof window.openCart === 'function') {
@@ -5076,6 +5087,13 @@ document.addEventListener('DOMContentLoaded', function() {
         Promise.resolve(window.addToCart(id, name, finalPrice, sensitiveType, additionalPrice, basePrice, cartOptions))
             .then(function (result) {
                 if (result && result.ok === false) return;
+                if (typeof window.catalogSyncInCartButtons === 'function' && Array.isArray(window.advertiserCart)) {
+                    window.catalogSyncInCartButtons(window.advertiserCart);
+                }
+                // Keep persistent "In cart" — do not flash "Added!" over it.
+                if (btn.classList.contains('is-in-cart')) {
+                    return;
+                }
                 btn.classList.add('is-added');
                 btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Added!';
                 setTimeout(function () {
