@@ -1,0 +1,148 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          HOST: ${{ secrets.HOSTINGER_HOST }}
+          PORT: ${{ secrets.HOSTINGER_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/hostinger_deploy
+          chmod 600 ~/.ssh/hostinger_deploy
+
+          ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Test Hostinger SSH
+        env:
+          HOST: ${{ secrets.HOSTINGER_HOST }}
+          PORT: ${{ secrets.HOSTINGER_PORT }}
+          USER: ${{ secrets.HOSTINGER_USER }}
+        run: |
+          ssh \
+            -i ~/.ssh/hostinger_deploy \
+            -p "$PORT" \
+            -o IdentitiesOnly=yes \
+            "$USER@$HOST" \
+            'echo "SSH connection successful"'
+
+      - name: Create deployment archive
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.env' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='storage' \
+            -czf deployment.tar.gz .
+
+      - name: Upload deployment
+        env:
+          HOST: ${{ secrets.HOSTINGER_HOST }}
+          PORT: ${{ secrets.HOSTINGER_PORT }}
+          USER: ${{ secrets.HOSTINGER_USER }}
+        run: |
+          scp \
+            -i ~/.ssh/hostinger_deploy \
+            -P "$PORT" \
+            -o IdentitiesOnly=yes \
+            deployment.tar.gz \
+            "$USER@$HOST:/tmp/seolinkbuildings-deployment.tar.gz"
+
+      - name: Deploy on Hostinger
+        env:
+          HOST: ${{ secrets.HOSTINGER_HOST }}
+          PORT: ${{ secrets.HOSTINGER_PORT }}
+          USER: ${{ secrets.HOSTINGER_USER }}
+        run: |
+          ssh \
+            -i ~/.ssh/hostinger_deploy \
+            -p "$PORT" \
+            -o IdentitiesOnly=yes \
+            "$USER@$HOST" \
+            'bash -s' <<'REMOTE_SCRIPT'
+
+          set -euo pipefail
+
+          APP_DIR="/home/u841082722/domains/seolinkbuildings.com/laravel_app"
+          PUBLIC_DIR="/home/u841082722/domains/seolinkbuildings.com/public_html"
+
+          PHP="/opt/alt/php83/usr/bin/php"
+          COMPOSER="/usr/local/bin/composer"
+
+          ARCHIVE="/tmp/seolinkbuildings-deployment.tar.gz"
+          TEMP_DIR="/tmp/seolinkbuildings-deploy"
+
+          echo "Starting Seolinkbuildings deployment..."
+
+          rm -rf "$TEMP_DIR"
+          mkdir -p "$TEMP_DIR"
+
+          tar -xzf "$ARCHIVE" -C "$TEMP_DIR"
+
+          echo "Updating Laravel application..."
+
+          rsync -a \
+            --exclude='.env' \
+            --exclude='storage/' \
+            --exclude='vendor/' \
+            "$TEMP_DIR/" "$APP_DIR/"
+
+          echo "Installing Composer dependencies with PHP 8.3..."
+
+          cd "$APP_DIR"
+
+          "$PHP" "$COMPOSER" install \
+            --no-dev \
+            --optimize-autoloader \
+            --no-interaction \
+            --prefer-dist
+
+          echo "Updating public files..."
+
+          rsync -a \
+            --exclude='index.php' \
+            "$APP_DIR/public/" "$PUBLIC_DIR/"
+
+          echo "Checking production files..."
+
+          test -f "$APP_DIR/.env"
+          test -d "$APP_DIR/storage"
+          test -f "$PUBLIC_DIR/index.php"
+
+          echo "Clearing Laravel caches..."
+
+          "$PHP" artisan optimize:clear
+
+          echo "Rebuilding Laravel caches..."
+
+          "$PHP" artisan optimize
+
+          echo "Cleaning temporary deployment files..."
+
+          rm -rf "$TEMP_DIR"
+          rm -f "$ARCHIVE"
+
+          echo "Deployment completed successfully."
+
+          REMOTE_SCRIPT
