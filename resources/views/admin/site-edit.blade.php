@@ -7,7 +7,7 @@
     $isMarketingEditor = $isMarketingEditor ?? false;
     $marketingListingLocked = $marketingListingLocked ?? false;
     $categories = $categories ?? collect();
-    $rawMarketingNiches = old('categories', $site->categories_array ?? []);
+    $rawMarketingNiches = old('categories', old('category', $site->categories_array ?? []));
     if (! is_string($rawMarketingNiches) && ! is_iterable($rawMarketingNiches)) {
         $rawMarketingNiches = [];
     }
@@ -25,6 +25,15 @@
         ->map(fn ($v) => (string) $v)
         ->values()
         ->all();
+    if ($marketingNiches === [] && ! old('categories') && ! old('category') && filled($site->category)) {
+        $fromColumn = \App\Models\Category::resolveNicheNames($site->category)['resolved'] ?? [];
+        $marketingNiches = collect($fromColumn)
+            ->flatten()
+            ->filter(fn ($v) => is_scalar($v) && filled($v) && strtolower((string) $v) !== 'pending')
+            ->map(fn ($v) => (string) $v)
+            ->values()
+            ->all();
+    }
     // After save, url()->previous() is this edit page — Back would look broken.
     $sitesBackUrl = staff_route('sites.index', array_filter([
         'publisher' => $site->publisher_id,
@@ -443,10 +452,34 @@
                             </select>
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold" for="category">Category</label>
-                            <input type="text" id="category" name="category" class="form-control"
-                                   value="{{ old_text('category', $site->category) }}">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold" for="categoryInput">Niches <span class="text-danger">*</span> (max 7)</label>
+                            <input type="hidden"
+                                   name="categories"
+                                   id="selectedCategories"
+                                   value="{{ implode('|', $marketingNiches) }}">
+                            <div class="multi-select-wrapper" id="categoryWrapper" data-multi-select="category">
+                                <div class="multi-select-input" id="categoryInput" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" aria-label="Select niches">
+                                    <span class="multi-select-placeholder">Select niches (max 7)…</span>
+                                </div>
+                                <div class="multi-select-dropdown" id="categoryDropdown" role="listbox" aria-multiselectable="true">
+                                    <div class="multi-select-search">
+                                        <input type="text" placeholder="Type to search niches…" id="categorySearch" autocomplete="off" aria-label="Search niches">
+                                    </div>
+                                    <div class="multi-select-options" id="categoryOptions">
+                                        @foreach($categories as $categoryName)
+                                            <div class="multi-select-option{{ in_array((string) $categoryName, $marketingNiches, true) ? ' selected' : '' }}"
+                                                 role="option"
+                                                 data-value="{{ $categoryName }}"
+                                                 data-label="{{ $categoryName }}">{{ $categoryName }}</div>
+                                        @endforeach
+                                    </div>
+                                    <div class="multi-select-empty d-none" id="categoryEmpty" role="status">No categories found</div>
+                                </div>
+                            </div>
+                            <div class="form-text">Same niches as Catalog. Type and press Enter to add; Backspace removes the last chip. Max 7.</div>
+                            @error('categories')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error('category')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" for="example_url">Example URL</label>
@@ -548,6 +581,28 @@
                         <a href="{{ $sitesBackUrl }}" class="btn btn-outline-secondary">Cancel</a>
                     </div>
                 </form>
+                <link href="{{ same_origin_asset('assets/css/multi-select.css') }}?v={{ @filemtime(public_path('assets/css/multi-select.css')) ?: '1' }}" rel="stylesheet">
+                <script src="{{ same_origin_asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
+                <script src="{{ same_origin_asset('js/multi-select.js') }}?v={{ @filemtime(public_path('js/multi-select.js')) ?: '1' }}"></script>
+                <script>
+                (function () {
+                    const prefills = @json($marketingNiches);
+                    const ms = window.initMultiSelect({
+                        wrapperId: 'categoryWrapper',
+                        inputId: 'categoryInput',
+                        dropdownId: 'categoryDropdown',
+                        optionsId: 'categoryOptions',
+                        hiddenInputId: 'selectedCategories',
+                        searchId: 'categorySearch',
+                        emptyId: 'categoryEmpty',
+                        maxSelections: 7,
+                        placeholderText: 'Select niches (max 7)…',
+                    });
+                    if (ms && prefills.length) {
+                        ms.setSelectedItems(prefills, prefills);
+                    }
+                })();
+                </script>
             @endif
         </div>
     </div>

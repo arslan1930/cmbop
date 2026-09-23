@@ -492,10 +492,8 @@ class AdvertiserBillingUxTest extends TestCase
 
         $this->actingAs($user)
             ->getJson(route('advertiser.billing.view', $tax))
-            ->assertStatus(503)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Unable to open that invoice.')
-            ->assertJsonMissingPath('exception')
+            ->assertOk()
+            ->assertSee('INVOICE #', false)
             ->assertDontSee('SQLSTATE');
 
         $this->mock(BillingDocumentService::class, function ($mock) use ($sql) {

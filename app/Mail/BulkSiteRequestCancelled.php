@@ -33,7 +33,7 @@ class BulkSiteRequestCancelled extends PlatformMailable
                 'bulkRequest' => $this->bulkRequest,
                 'reason' => filled($this->reason) ? trim((string) $this->reason) : null,
                 'count' => (int) ($this->bulkRequest->estimated_count ?: 0),
-                'websitesUrl' => route('publisher.websites'),
+                'websitesUrl' => $this->publicRoute('publisher.websites'),
                 'brand' => $this->brand(),
             ]);
     }

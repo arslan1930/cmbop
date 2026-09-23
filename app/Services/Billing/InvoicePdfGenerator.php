@@ -71,11 +71,14 @@ class InvoicePdfGenerator
     }
 
     /**
-     * Rewrite a stored PDF that still prints leftover APP_URL (localhost).
+     * Rebuild a stored PDF that still prints leftover APP_URL (localhost)
+     * or used a core font so completed invoices show as garbled glyphs.
      */
     public function ensureCustomerPdf(Invoice $invoice): Invoice
     {
-        if ($invoice->pdfExists() && ! $this->storedPdfHasLeftoverHost($invoice)) {
+        if ($invoice->pdfExists()
+            && ! $this->storedPdfHasLeftoverHost($invoice)
+            && $this->storedPdfEmbedsUnicodeFont($invoice)) {
             return $invoice;
         }
 
@@ -93,6 +96,17 @@ class InvoicePdfGenerator
         return str_contains($binary, 'localhost')
             || str_contains($binary, '127.0.0.1')
             || str_contains($binary, '://[::1]');
+    }
+
+    private function storedPdfEmbedsUnicodeFont(Invoice $invoice): bool
+    {
+        try {
+            $binary = (string) Storage::disk($invoice->pdfStorageDisk())->get($invoice->pdf_path);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return str_contains($binary, 'DejaVu');
     }
 
     public function absolutePath(Invoice $invoice): ?string
@@ -125,22 +139,42 @@ class InvoicePdfGenerator
 
     private function makePdf(Invoice $invoice, bool $includeLogo)
     {
-        $html = view('billing.pdf.invoice', [
-            'invoice' => $invoice,
-            'company' => function_exists('billing_company_for_documents')
-                ? billing_company_for_documents()
-                : config('billing.company'),
-            'colors' => config('billing.colors'),
-            'currencySymbol' => config('billing.currency_symbol', '€'),
-            'includeLogo' => $includeLogo,
-        ])->render();
+        $previousConvert = config('dompdf.convert_entities');
+        config(['dompdf.convert_entities' => false]);
 
-        $pdf = Pdf::loadHTML($html)->setPaper('a4', 'portrait');
-        // Force rasterization now so a missing-GD throw happens here,
-        // not inside stream()/download() after headers may have started.
-        $pdf->output();
+        try {
+            $html = view('billing.pdf.invoice', [
+                'invoice' => $invoice,
+                'company' => function_exists('billing_company_for_documents')
+                    ? billing_company_for_documents()
+                    : config('billing.company'),
+                'colors' => config('billing.colors'),
+                'currencySymbol' => config('billing.currency_symbol', '€'),
+                'includeLogo' => $includeLogo,
+            ])->render();
 
-        return $pdf;
+            $fontDir = base_path('vendor/dompdf/dompdf/lib/fonts');
+            $fontCache = storage_path('fonts');
+            if (! is_dir($fontCache)) {
+                mkdir($fontCache, 0755, true);
+            }
+
+            $pdf = Pdf::loadHTML($html, 'UTF-8')
+                ->setPaper('a4', 'portrait')
+                ->setOption([
+                    'defaultFont' => 'DejaVu Sans',
+                    'isFontSubsettingEnabled' => false,
+                    'fontDir' => $fontDir,
+                    'fontCache' => $fontCache,
+                ]);
+            // Force rasterization now so a missing-GD throw happens here,
+            // not inside stream()/download() after headers may have started.
+            $pdf->output();
+
+            return $pdf;
+        } finally {
+            config(['dompdf.convert_entities' => $previousConvert]);
+        }
     }
 
     private function isMissingGdException(\Throwable $e): bool

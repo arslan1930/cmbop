@@ -47,7 +47,7 @@ class BulkSiteItemsRejected extends PlatformMailable
             'domains' => $this->domains,
             'note' => trim($this->note),
             'count' => $count,
-            'websitesUrl' => route('publisher.websites'),
+            'websitesUrl' => $this->publicRoute('publisher.websites'),
             'brand' => $this->brand(),
         ]);
     }

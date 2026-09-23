@@ -18,7 +18,7 @@ Admin notes: {{ $dispute->admin_notes }}
 
 Please keep completed placements live. If you believe this was a mistake, contact support.
 
-@component('mail::button', ['url' => route('publisher.balance')])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').route('publisher.balance', [], false)])
 View balance
 @endcomponent
 

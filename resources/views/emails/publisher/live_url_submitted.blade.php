@@ -39,7 +39,7 @@ The publisher has submitted the live URL for your order #{{ $order->order_number
 
 If you do not approve the order within {{ $autoApproveHours ?? \App\Models\OrderItem::autoApproveHours() }} hours, it will be automatically approved. If you have any questions or concerns, please contact our support team.
 
-@component('mail::button', ['url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id])])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false)])
 Review Order
 @endcomponent
 

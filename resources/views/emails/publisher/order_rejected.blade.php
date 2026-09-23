@@ -18,7 +18,7 @@ We regret to inform you that your order #{{ $order->order_number }} has been rej
 
 You can browse other publishers and place a new order.
 
-@component('mail::button', ['url' => route('advertiser.catalog')])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').route('advertiser.catalog', [], false)])
 Browse Publishers
 @endcomponent
 

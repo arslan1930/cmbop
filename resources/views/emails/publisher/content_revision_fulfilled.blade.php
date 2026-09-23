@@ -10,7 +10,7 @@ The advertiser sent a revised article for order #{{ $order->order_number }} on {
 2. Publish the content
 3. Submit the live URL when ready
 
-@component('mail::button', ['url' => route('publisher.tasks', ['focus' => 'order', 'order' => $order->id])])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').route('publisher.tasks', ['focus' => 'order', 'order' => $order->id], false)])
 Open task
 @endcomponent
 

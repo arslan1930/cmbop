@@ -32,7 +32,7 @@ Great news! Your payment for Order #{{ $order->order_number }} has been confirme
 
 Your order is now being processed. You can track your order status from your dashboard.
 
-@component('mail::button', ['url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id])])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false)])
 View My Orders
 @endcomponent
 

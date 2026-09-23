@@ -120,7 +120,7 @@ There has been a status change for your site <strong>{{ $site->site_name }}</str
 - DA/DR: {{ $site->da }}/{{ $site->dr }}
 - Traffic: {{ number_format($site->traffic) }} monthly visitors
 
-@component('mail::button', ['url' => \Illuminate\Support\Facades\Route::has('publisher.websites') ? route('publisher.websites') : url('/publisher/websites')])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').(\Illuminate\Support\Facades\Route::has('publisher.websites') ? route('publisher.websites', [], false) : '/publisher/websites')])
 View Your Sites
 @endcomponent
 

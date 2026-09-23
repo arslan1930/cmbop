@@ -191,10 +191,8 @@ class BillingController extends Controller
         }
 
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
-                $pdfs->generateAndStore($invoice);
-                $invoice->refresh();
-            }
+            $pdfs->ensureCustomerPdf($invoice);
+            $invoice->refresh();
 
             $billing->recordDownload($invoice);
 
@@ -214,7 +212,7 @@ class BillingController extends Controller
         }
     }
 
-    public function viewPdf(Request $request, Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
+    public function viewPdf(Request $request, Invoice $invoice, BillingDocumentService $billing)
     {
         $this->authorizeOwner($invoice);
 
@@ -223,14 +221,10 @@ class BillingController extends Controller
         }
 
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
-                $pdfs->generateAndStore($invoice);
-                $invoice->refresh();
-            }
-
+            $invoice->loadMissing(['order.items', 'user']);
             $billing->recordDownload($invoice);
 
-            return $pdfs->stream($invoice);
+            return response()->view('advertiser.invoice', $this->wiseStyleInvoiceData($invoice));
         } catch (HttpExceptionInterface $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -329,6 +323,155 @@ class BillingController extends Controller
         }
 
         return $this->leftoverDenied($request, 'This invoice has been cancelled.');
+    }
+
+    /**
+     * Same HTML invoice as Wise /advertiser/invoice/{ref}, for every payment method.
+     *
+     * @return array<string, mixed>
+     */
+    public function wiseStyleInvoiceData(Invoice $invoice): array
+    {
+        $user = $invoice->user ?: auth()->user();
+        $snap = is_array($invoice->billing_snapshot) ? $invoice->billing_snapshot : [];
+        $ref = trim((string) ($invoice->reference_code ?: ''));
+
+        $deposit = $ref !== ''
+            ? DepositRequest::query()
+                ->where('user_id', $invoice->user_id)
+                ->where('reference_code', $ref)
+                ->first()
+            : null;
+
+        if ($deposit) {
+            return [
+                'invoiceType' => 'deposit',
+                'referenceCode' => $deposit->reference_code,
+                'amount' => $deposit->amount,
+                'billingName' => $user->billing_name ?? $user->name,
+                'companyName' => $user->company_name ?? '',
+                'country' => $user->country ?? '',
+                'state' => $user->state ?? '',
+                'city' => $user->city ?? '',
+                'address' => $user->address ?? '',
+                'postalCode' => $user->postal_code ?? '',
+                'vatNumber' => $user->vat_number ?? '',
+                'userName' => $user->name,
+                'userEmail' => $user->email,
+                'userId' => $user->id,
+                'status' => $deposit->status,
+                'paymentMethod' => $deposit->payment_method,
+                'orderDate' => $deposit->created_at,
+                'orderItems' => [],
+                'totalBaseAmount' => 0,
+                'totalSensitiveAmount' => 0,
+                'deposit' => $deposit,
+                'canMarkPaid' => $deposit->canUserMarkPaid(),
+                'userMarkedPaid' => $deposit->userHasMarkedPaid(),
+                'markPaidUrl' => route('advertiser.add-funds.mark-paid', $deposit),
+            ];
+        }
+
+        $order = $invoice->order;
+        if ($order) {
+            $order->loadMissing('items');
+            $orderItems = [];
+            $totalBaseAmount = 0;
+            $totalSensitiveAmount = 0;
+            $totalHomepageAmount = 0;
+            foreach ($order->items as $item) {
+                $additionalPrice = (float) ($item->additional_price ?? 0);
+                $homepagePrice = (float) ($item->homepage_price ?? 0);
+                $basePrice = max(0, (float) $item->price - $additionalPrice - $homepagePrice);
+                $totalBaseAmount += $basePrice;
+                $totalSensitiveAmount += $additionalPrice;
+                $totalHomepageAmount += $homepagePrice;
+                $orderItems[] = [
+                    'site_name' => $item->site_name,
+                    'site_url' => $item->site_url,
+                    'price' => $item->price,
+                    'base_price' => $basePrice,
+                    'additional_price' => $additionalPrice,
+                    'homepage_days' => $item->homepage_days,
+                    'homepage_price' => $homepagePrice,
+                    'social_channels' => $item->enabledSocialChannels(),
+                    'sensitive_type' => $item->sensitive_type,
+                    'content_link' => $item->content_link,
+                    'live_url' => $item->live_url ?? '',
+                ];
+            }
+
+            return [
+                'invoiceType' => 'order',
+                'referenceCode' => $order->reference_code,
+                'amount' => $order->total_amount,
+                'billingName' => $user->billing_name ?? $user->name,
+                'companyName' => $user->company_name ?? '',
+                'country' => $user->country ?? '',
+                'state' => $user->state ?? '',
+                'city' => $user->city ?? '',
+                'address' => $user->address ?? '',
+                'postalCode' => $user->postal_code ?? '',
+                'vatNumber' => $user->vat_number ?? '',
+                'userName' => $user->name,
+                'userEmail' => $user->email,
+                'userId' => $user->id,
+                'status' => $order->status,
+                'paymentMethod' => $order->payment_method,
+                'orderDate' => $order->created_at,
+                'orderItems' => $orderItems,
+                'totalBaseAmount' => $totalBaseAmount,
+                'totalSensitiveAmount' => $totalSensitiveAmount,
+                'totalHomepageAmount' => $totalHomepageAmount,
+                'deposit' => null,
+                'canMarkPaid' => false,
+                'userMarkedPaid' => false,
+                'markPaidUrl' => null,
+            ];
+        }
+
+        $isDepositDoc = $invoice->type === Invoice::TYPE_DEPOSIT_RECEIPT;
+        $orderItems = [];
+        if (! $isDepositDoc) {
+            foreach ((array) $invoice->line_items as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $orderItems[] = [
+                    'site_name' => (string) ($item['description'] ?? $item['site_name'] ?? 'Item'),
+                    'site_url' => $item['site_url'] ?? null,
+                    'price' => (float) ($item['line_total'] ?? $item['total'] ?? $item['unit_price'] ?? 0),
+                    'sensitive_type' => $item['sensitive_type'] ?? null,
+                ];
+            }
+        }
+
+        return [
+            'invoiceType' => $isDepositDoc ? 'deposit' : 'order',
+            'referenceCode' => $ref !== '' ? $ref : (string) $invoice->invoice_number,
+            'amount' => $invoice->total_amount,
+            'billingName' => $snap['name'] ?? $invoice->customer_name ?? $user->name ?? '',
+            'companyName' => $snap['company'] ?? '',
+            'country' => $snap['country'] ?? '',
+            'state' => $snap['state'] ?? '',
+            'city' => $snap['city'] ?? '',
+            'address' => $snap['address'] ?? '',
+            'postalCode' => $snap['postal_code'] ?? '',
+            'vatNumber' => $snap['vat_number'] ?? '',
+            'userName' => $user->name ?? $invoice->customer_name,
+            'userEmail' => $snap['email'] ?? $invoice->customer_email ?? $user->email ?? '',
+            'userId' => $invoice->user_id,
+            'status' => $invoice->status,
+            'paymentMethod' => $invoice->payment_method,
+            'orderDate' => $invoice->invoice_date,
+            'orderItems' => $orderItems,
+            'totalBaseAmount' => $isDepositDoc ? 0 : (float) $invoice->subtotal,
+            'totalSensitiveAmount' => 0,
+            'deposit' => null,
+            'canMarkPaid' => false,
+            'userMarkedPaid' => false,
+            'markPaidUrl' => null,
+        ];
     }
 
     private function leftoverJson(\Throwable $e, string $fallback): JsonResponse

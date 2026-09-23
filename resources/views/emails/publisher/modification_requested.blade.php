@@ -20,7 +20,7 @@ The advertiser has requested modifications for Order #{{ $order->order_number }}
 2. Make the required changes to your content
 3. Resubmit the updated live URL
 
-@component('mail::button', ['url' => route('publisher.tasks', ['focus' => 'order', 'order' => $order->id])])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').route('publisher.tasks', ['focus' => 'order', 'order' => $order->id], false)])
 View Order
 @endcomponent
 

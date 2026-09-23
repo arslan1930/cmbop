@@ -328,4 +328,57 @@ class InvoiceSellerDetailsTest extends TestCase
         $this->assertStringContainsString('SEOLinkBuildings', $html);
         $this->assertStringNotContainsString('localhost', $html);
     }
+
+    public function test_ensure_customer_pdf_rebuilds_core_font_documents(): void
+    {
+        Storage::fake('local');
+        config(['billing.storage.disk' => 'local']);
+
+        $role = Role::where('name', 'advertiser')->firstOrFail();
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        $relative = 'invoices/garbled-core-font.pdf';
+        Storage::disk('local')->put($relative, "%PDF-1.4\n% Helvetica core font leftover\n");
+
+        $invoice = Invoice::create([
+            'user_id' => $user->id,
+            'invoice_number' => 'RCT-2026-000198',
+            'type' => Invoice::TYPE_DEPOSIT_RECEIPT,
+            'status' => Invoice::STATUS_PAID,
+            'invoice_date' => now(),
+            'customer_name' => $user->name,
+            'customer_email' => $user->email,
+            'currency' => 'EUR',
+            'subtotal' => 25,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 25,
+            'payment_method' => 'wise',
+            'payment_status' => 'paid',
+            'reference_code' => '337198',
+            'transaction_id' => '337198',
+            'pdf_disk' => 'local',
+            'pdf_path' => $relative,
+            'line_items' => [
+                [
+                    'description' => 'Wallet top-up',
+                    'quantity' => 1,
+                    'unit_price' => 25,
+                    'line_total' => 25,
+                ],
+            ],
+            'billing_snapshot' => [],
+        ]);
+
+        $healed = app(InvoicePdfGenerator::class)->ensureCustomerPdf($invoice->fresh());
+        $binary = (string) Storage::disk('local')->get($healed->pdf_path);
+
+        $this->assertStringStartsWith('%PDF', $binary);
+        $this->assertStringContainsString('DejaVu', $binary);
+        $this->assertStringNotContainsString('Helvetica core font leftover', $binary);
+    }
 }

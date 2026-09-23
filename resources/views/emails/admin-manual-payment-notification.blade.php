@@ -8,7 +8,7 @@ Total Amount: €{{ number_format($totalAmount, 2) }}
 
 Please review and confirm payment.
 
-@component('mail::button', ['url' => route('admin.payments')])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').route('admin.payments', [], false)])
 View Payments
 @endcomponent
 

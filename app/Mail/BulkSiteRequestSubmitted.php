@@ -29,7 +29,7 @@ class BulkSiteRequestSubmitted extends PlatformMailable
                 'bulkRequest' => $this->bulkRequest,
                 'publisherName' => $publisher->name ?? 'Unknown',
                 'publisherEmail' => $publisher->email ?? 'Unknown',
-                'adminUrl' => $this->openUrl ?: route('admin.bulk-site-requests.show', $this->bulkRequest),
+                'adminUrl' => $this->openUrl ?: $this->publicRoute('admin.bulk-site-requests.show', $this->bulkRequest),
             ]);
     }
 }

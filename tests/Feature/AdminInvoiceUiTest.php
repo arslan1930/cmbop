@@ -209,7 +209,7 @@ class AdminInvoiceUiTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.invoices.view', $invoice))
             ->assertOk()
-            ->assertHeader('content-type', 'application/pdf');
+            ->assertSee('INVOICE #', false);
 
         $this->assertSame(0, (int) $invoice->fresh()->download_count);
     }
@@ -228,7 +228,7 @@ class AdminInvoiceUiTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.invoices.view', $invoice))
             ->assertOk()
-            ->assertHeader('content-type', 'application/pdf');
+            ->assertSee('INVOICE #', false);
 
         $this->actingAs($admin)
             ->get(route('admin.invoices.download', $invoice))

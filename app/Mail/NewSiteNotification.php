@@ -27,11 +27,13 @@ class NewSiteNotification extends PlatformMailable
     {
         $publisherId = (int) ($site->publisher_id ?? 0);
 
-        return route(staff_route_prefix_for($staff).'sites.index', array_filter([
+        $path = route(staff_route_prefix_for($staff).'sites.index', array_filter([
             'needs_review' => 1,
             'publisher' => $publisherId > 0 ? $publisherId : null,
             'site' => $site->id,
-        ]));
+        ]), false);
+
+        return rtrim(app_public_url(), '/').$path;
     }
 
     public function build()

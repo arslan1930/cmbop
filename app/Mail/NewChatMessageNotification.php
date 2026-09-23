@@ -42,8 +42,8 @@ class NewChatMessageNotification extends PlatformMailable
 
         // Link opens the recipient's dashboard thread (opposite of sender).
         $url = $senderIsAdvertiser
-            ? route('publisher.tasks', ['focus' => 'messages', 'order' => $this->order->id])
-            : route('advertiser.orders', ['focus' => 'messages', 'order' => $this->order->id]);
+            ? $this->publicRoute('publisher.tasks', ['focus' => 'messages', 'order' => $this->order->id])
+            : $this->publicRoute('advertiser.orders', ['focus' => 'messages', 'order' => $this->order->id]);
 
         return $this->subject('New Message regarding Order #'.$this->order->order_number)
             ->markdown('emails.new-chat-message', [

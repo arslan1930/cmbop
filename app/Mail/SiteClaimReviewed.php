@@ -35,10 +35,10 @@ class SiteClaimReviewed extends PlatformMailable
                 'approved' => $approved,
                 'siteName' => $siteName,
                 'actionUrl' => $approved
-                    ? route('publisher.websites')
+                    ? $this->publicRoute('publisher.websites')
                     : ($claimer?->hasRole('advertiser')
-                        ? route('advertiser.site-claims')
-                        : route('site-claims.index')),
+                        ? $this->publicRoute('advertiser.site-claims')
+                        : $this->publicRoute('site-claims.index')),
             ]);
     }
 }

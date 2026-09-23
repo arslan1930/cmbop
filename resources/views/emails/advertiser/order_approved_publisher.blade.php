@@ -46,7 +46,7 @@ Your payout (listing price; platform fee excluded) has been credited to your pub
 
 You can view all your approved orders in your publisher dashboard.
 
-@component('mail::button', ['url' => route('publisher.tasks', ['focus' => 'order', 'order' => $order->id])])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').route('publisher.tasks', ['focus' => 'order', 'order' => $order->id], false)])
 View My Tasks
 @endcomponent
 

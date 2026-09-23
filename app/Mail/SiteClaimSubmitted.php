@@ -30,7 +30,7 @@ class SiteClaimSubmitted extends PlatformMailable
                 'siteName' => $siteName,
                 'claimerName' => $claimer?->name ?? 'Unknown',
                 'claimerEmail' => $this->claim->contact_email ?: ($claimer?->email ?? 'Unknown'),
-                'adminUrl' => route('admin.community.index', ['tab' => 'claims', 'status' => 'pending']),
+                'adminUrl' => $this->publicRoute('admin.community.index', ['tab' => 'claims', 'status' => 'pending']),
             ]);
     }
 }

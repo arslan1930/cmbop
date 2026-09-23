@@ -874,4 +874,59 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->assertSee('Leftover history stamp', false)
             ->assertDontSee('Something went wrong');
     }
+
+    public function test_show_and_done_drop_leftover_markdown_bold_markers_from_description(): void
+    {
+        $bulk = $this->makeBulkRequest();
+        ActivityLog::create([
+            'user_id' => $this->marketer->id,
+            'user_name' => $this->marketer->name,
+            'user_email' => $this->marketer->email,
+            'role' => 'marketing',
+            'action' => 'bulk_request.notes_updated',
+            'description' => 'Staff updated **notes** on bulk request #'.$bulk->id,
+            'subject_type' => BulkSiteRequest::class,
+            'subject_id' => $bulk->id,
+            'subject_label' => 'Bulk request #'.$bulk->id,
+            'properties' => ['bulk_site_request_id' => $bulk->id],
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee('Staff updated notes on bulk request #'.$bulk->id, false)
+            ->assertDontSee('**notes**', false);
+
+        $item = BulkSiteRequestItem::create([
+            'bulk_site_request_id' => $bulk->id,
+            'site_url' => 'https://md-desc.example',
+            'domain' => 'md-desc.example',
+            'price' => 40,
+        ]);
+        $category = Category::query()->where('name', 'Business & Finance')->first()
+            ?? Category::query()->firstOrFail();
+        [$country, $language] = $this->marketplaceCodes();
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.bulk-site-requests.done', $bulk), [
+                'items' => [
+                    $item->id => [
+                        'language' => $language,
+                        'country' => $country,
+                        'da' => 20,
+                        'dr' => 25,
+                        'traffic' => 1000,
+                        ...$this->publishableDoneFields($category->name),
+                        'description' => 'Guest posts on this **website** stay published and the link remains dofollow for advertisers.',
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $site = Site::query()->where('domain', 'md-desc.example')->first();
+        $this->assertNotNull($site);
+        $this->assertStringContainsString('website', (string) $site->description);
+        $this->assertStringNotContainsString('**', (string) $site->description);
+    }
 }

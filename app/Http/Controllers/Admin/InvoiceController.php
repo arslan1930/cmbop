@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Advertiser\BillingController;
 use App\Http\Controllers\Controller;
 use App\Models\BillingEvent;
 use App\Models\Invoice;
@@ -134,33 +135,26 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function viewPdf(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
+    public function viewPdf(Invoice $invoice, BillingDocumentService $billing)
     {
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
-                $pdfs->generateAndStore($invoice);
-                $invoice->refresh();
-            }
-        } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not generate the PDF.'));
-        }
-
-        try {
+            $invoice->loadMissing(['order.items', 'user']);
             $billing->recordAdminDownload($invoice, auth()->user());
 
-            return $pdfs->stream($invoice);
+            return response()->view(
+                'advertiser.invoice',
+                app(BillingController::class)->wiseStyleInvoiceData($invoice)
+            );
         } catch (\Throwable $e) {
-            return back()->with('error', UserFacingError::message($e, 'Could not open the PDF.'));
+            return back()->with('error', UserFacingError::message($e, 'Could not open the invoice.'));
         }
     }
 
     public function download(Invoice $invoice, InvoicePdfGenerator $pdfs, BillingDocumentService $billing)
     {
         try {
-            if (! $invoice->hasPdf() || ! $invoice->pdfExists()) {
-                $pdfs->generateAndStore($invoice);
-                $invoice->refresh();
-            }
+            $pdfs->ensureCustomerPdf($invoice);
+            $invoice->refresh();
         } catch (\Throwable $e) {
             return back()->with('error', UserFacingError::message($e, 'Could not generate the PDF.'));
         }

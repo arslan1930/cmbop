@@ -13,7 +13,7 @@ The publisher for {{ $site->site_name }} asked you to send a revised article for
 2. Upload or link an updated article
 3. The publisher will continue publishing once they have it
 
-@component('mail::button', ['url' => route('advertiser.orders', ['focus' => 'order', 'order' => $order->id])])
+@component('mail::button', ['url' => rtrim(app_public_url(), '/').route('advertiser.orders', ['focus' => 'order', 'order' => $order->id], false)])
 Send revised article
 @endcomponent
 

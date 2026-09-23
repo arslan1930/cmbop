@@ -28,7 +28,7 @@ class AdminAssignedSiteNotification extends PlatformMailable
                 'site' => $this->site,
                 'domain' => $domain,
                 'publisherName' => $this->recipientUser->name ?? 'Publisher',
-                'acceptUrl' => route('publisher.websites', ['status' => 'invites']),
+                'acceptUrl' => $this->publicRoute('publisher.websites', ['status' => 'invites']),
             ]);
     }
 }

@@ -30,8 +30,8 @@ class SpendBudgetAlertMail extends PlatformMailable
                 'user' => $this->user,
                 'kind' => $this->kind,
                 'status' => $this->status,
-                'analyticsUrl' => route('advertiser.analytics'),
-                'addFundsUrl' => route('advertiser.add-funds'),
+                'analyticsUrl' => $this->publicRoute('advertiser.analytics'),
+                'addFundsUrl' => $this->publicRoute('advertiser.add-funds'),
             ]);
     }
 }

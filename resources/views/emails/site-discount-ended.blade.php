@@ -15,7 +15,7 @@ Ended: {{ $endedAt->timezone(config('app.timezone'))->format('d M Y H:i') }}
 
 You can set a new timed discount anytime from your publisher websites catalog.
 
-<x-mail::button :url="route('publisher.websites')">
+<x-mail::button :url="rtrim(app_public_url(), '/').route('publisher.websites', [], false)">
 Manage my websites
 </x-mail::button>
 
