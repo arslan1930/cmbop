@@ -253,7 +253,7 @@
                         <div class="company-details">
                             @if($isDepositInvoice)
                                 <p><strong>Seller / Service Provider:</strong> {{ $depositPayment['seller_name'] ?? 'SEOLinkBuildings Partner' }}</p>
-                                <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary'] ?? 'Topurlz Ltd' }}</p>
+                                <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>
                                 @if(!empty($depositPayment['bic']))
                                     <p><strong>BIC (SWIFT):</strong> {{ $depositPayment['bic'] }}</p>
                                 @endif

@@ -5,35 +5,34 @@
 @endphp
 
 @section('content')
-<div class="container-fluid py-3">
-    <div class="mb-4">
-        <h4 class="mb-1 fw-bold">Community feedback</h4>
-        <p class="text-muted mb-0">Problem reports, suggestions, missing-website requests, and ownership claims.</p>
-    </div>
+<link href="{{ asset('assets/css/single-select.css') }}?v={{ @filemtime(public_path('assets/css/single-select.css')) ?: '1' }}" rel="stylesheet">
+<div class="container-fluid community-inbox py-3">
+    @include('admin.partials.page-header', [
+        'title' => 'Community feedback',
+        'subtitle' => 'Problem reports, suggestions, missing-website requests, and ownership claims.',
+    ])
 
-    <ul class="nav nav-pills gap-2 mb-3 flex-wrap">
+    <nav class="community-tabs mb-3" aria-label="Community inbox">
         @foreach($tabs as $key => $label)
-            <li class="nav-item">
-                <a class="nav-link {{ $tab === $key ? 'active' : '' }}"
-                   href="{{ route('admin.community.index', $tabQueries[$key] ?? ['tab' => $key]) }}">
-                    {{ $label }}
-                    @if(($counts[$key] ?? 0) > 0)
-                        <span class="badge bg-warning text-dark ms-1">{{ $counts[$key] }}</span>
-                    @endif
-                </a>
-            </li>
+            <a class="community-tab {{ $tab === $key ? 'is-active' : '' }}"
+               href="{{ route('admin.community.index', $tabQueries[$key] ?? ['tab' => $key]) }}">
+                {{ $label }}
+                @if(($counts[$key] ?? 0) > 0)
+                    <span class="community-tab__count">{{ $counts[$key] }}</span>
+                @endif
+            </a>
         @endforeach
-    </ul>
+    </nav>
 
-    <form method="get" class="card border-0 shadow-sm mb-3">
+    <form method="get" class="card border-0 shadow-sm mb-3 community-inbox-filters">
         <div class="card-body row g-2 align-items-end">
             <input type="hidden" name="tab" value="{{ $tab }}">
             <div class="col-md-5">
                 <x-slb-search-field name="q" id="adminCommunitySearch" :value="$q" placeholder="Search…" />
             </div>
             <div class="col-md-3">
-                <label class="form-label small text-muted mb-1">Status</label>
-                <select name="status" class="form-select form-select-sm">
+                <label class="form-label small text-muted mb-1" for="communityStatusFilter">Status</label>
+                <select name="status" id="communityStatusFilter" class="form-select form-select-sm" aria-label="Status">
                     <option value="">All</option>
                     @foreach($statuses as $st)
                         <option value="{{ $st }}" @selected($status === $st)>{{ ucfirst($st) }}</option>
@@ -41,17 +40,17 @@
                 </select>
             </div>
             <div class="col-md-4 d-flex gap-2">
-                <button class="btn btn-sm btn-outline-primary">Filter</button>
+                <button class="btn btn-sm btn-primary">Filter</button>
                 <a href="{{ route('admin.community.index', ['tab' => $tab]) }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </div>
     </form>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm admin-table-fit community-inbox">
         <div class="table-responsive">
             @if($tab === 'problems')
-                <table class="table align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table align-middle mb-0 modern-table">
+                    <thead>
                         <tr>
                             <th>From</th>
                             <th>Subject</th>
@@ -111,8 +110,8 @@
                     @include('admin.community.detail', ['tab' => 'problems', 'item' => $item, 'pageUrl' => CommunityInbox::safeHttpUrl($item->page_url)])
                 @endforeach
             @elseif($tab === 'suggestions')
-                <table class="table align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table align-middle mb-0 modern-table">
+                    <thead>
                         <tr>
                             <th>From</th>
                             <th>Category</th>
@@ -171,8 +170,8 @@
                     @include('admin.community.detail', ['tab' => 'suggestions', 'item' => $item, 'pageUrl' => CommunityInbox::safeHttpUrl($item->page_url)])
                 @endforeach
             @elseif($tab === 'websites')
-                <table class="table align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table align-middle mb-0 modern-table">
+                    <thead>
                         <tr>
                             <th>Suggested website</th>
                             <th>Requested by</th>
@@ -240,8 +239,8 @@
                     @include('admin.community.detail', ['tab' => 'websites', 'item' => $item, 'pageUrl' => CommunityInbox::safeHttpUrl($item->website_url)])
                 @endforeach
             @else
-                <table class="table align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table align-middle mb-0 modern-table">
+                    <thead>
                         <tr>
                             <th>Claimed site</th>
                             <th>Claimer</th>
@@ -357,7 +356,7 @@
     </div>
 </div>
 
-<div class="offcanvas offcanvas-end" tabindex="-1" id="communityDrawer" aria-labelledby="communityDrawerTitle">
+<div class="offcanvas offcanvas-end community-drawer" tabindex="-1" id="communityDrawer" aria-labelledby="communityDrawerTitle">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="communityDrawerTitle">Details</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -365,8 +364,112 @@
     <div class="offcanvas-body" id="communityDrawerBody"></div>
 </div>
 
+<script src="{{ asset('assets/js/single-select.js') }}?v={{ @filemtime(public_path('assets/js/single-select.js')) ?: '1' }}"></script>
 <script>
 const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+
+function mountCommunityThemeSelect(select) {
+    if (!select || select.closest('.community-theme-select')) {
+        return;
+    }
+    const parent = select.parentNode;
+    if (!parent) {
+        return;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'single-select-wrapper community-theme-select';
+    parent.insertBefore(wrap, select);
+    wrap.appendChild(select);
+    select.classList.add('visually-hidden');
+    select.tabIndex = -1;
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'single-select-input' + (select.classList.contains('form-select-sm') ? ' single-select-input--sm' : '');
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+    const labelled = select.id ? document.querySelector('label[for="' + select.id + '"]') : null;
+    const aria = (labelled ? labelled.textContent : select.getAttribute('aria-label') || 'Choose').replace(/\s+/g, ' ').trim();
+    trigger.setAttribute('aria-label', aria);
+
+    const valueEl = document.createElement('span');
+    valueEl.className = 'single-select-value';
+    const arrow = document.createElement('i');
+    arrow.className = 'fa fa-chevron-down single-select-arrow';
+    arrow.setAttribute('aria-hidden', 'true');
+    trigger.append(valueEl, arrow);
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'single-select-dropdown';
+    const options = document.createElement('div');
+    options.className = 'single-select-options';
+    options.setAttribute('role', 'listbox');
+    dropdown.appendChild(options);
+    wrap.append(trigger, dropdown);
+
+    function sync() {
+        const current = String(select.value || '');
+        options.replaceChildren();
+        Array.from(select.options).forEach((opt) => {
+            const el = document.createElement('div');
+            const on = opt.value === current;
+            el.className = 'single-select-option' + (on ? ' selected' : '');
+            el.setAttribute('role', 'option');
+            el.setAttribute('data-value', opt.value);
+            el.setAttribute('aria-selected', on ? 'true' : 'false');
+            el.textContent = opt.textContent || '';
+            options.appendChild(el);
+        });
+        const selected = select.options[select.selectedIndex];
+        const label = selected ? String(selected.textContent || '').trim() : 'Select…';
+        valueEl.textContent = label || 'Select…';
+        valueEl.classList.toggle('single-select-placeholder', current === '');
+        trigger.disabled = !!select.disabled;
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (select.disabled) {
+            return;
+        }
+        const willOpen = !dropdown.classList.contains('show');
+        document.querySelectorAll('.single-select-dropdown.show').forEach((dd) => {
+            if (dd === dropdown) {
+                return;
+            }
+            dd.classList.remove('show');
+            const other = dd.parentElement && dd.parentElement.querySelector('.single-select-input');
+            if (other) {
+                other.setAttribute('aria-expanded', 'false');
+            }
+        });
+        dropdown.classList.toggle('show', willOpen);
+        trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+
+    dropdown.addEventListener('click', (e) => {
+        const opt = e.target.closest('.single-select-option');
+        if (!opt) {
+            return;
+        }
+        e.stopPropagation();
+        const next = opt.getAttribute('data-value') || '';
+        if (select.value !== next) {
+            select.value = next;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        dropdown.classList.remove('show');
+        trigger.setAttribute('aria-expanded', 'false');
+        sync();
+    });
+
+    select.addEventListener('change', sync);
+    sync();
+}
+
+mountCommunityThemeSelect(document.getElementById('communityStatusFilter'));
 
 function communityFetchMessage(res, data, fallback) {
     if (data.message) {
@@ -403,17 +506,26 @@ document.querySelectorAll('.btn-status').forEach(btn => {
         const current = /^[a-z]+$/.test(btn.dataset.status || '') ? btn.dataset.status : '';
         const { value: form } = await Swal.fire({
             title: 'Update status',
-            html: `<select id="swal-status" class="swal2-select">
-                     ${statuses.map(s => `<option value="${s}" ${s === current ? 'selected' : ''}>${s}</option>`).join('')}
-                   </select>
-                   <textarea id="swal-notes" class="swal2-textarea" placeholder="Admin notes"></textarea>`,
+            html: `<div class="community-swal-fields">
+                     <label class="community-swal-label" for="swal-status">Status</label>
+                     <select id="swal-status" class="form-select" aria-label="Status">
+                       ${statuses.map(s => `<option value="${s}" ${s === current ? 'selected' : ''}>${s.charAt(0).toUpperCase()}${s.slice(1)}</option>`).join('')}
+                     </select>
+                     <label class="community-swal-label" for="swal-notes">Admin notes</label>
+                     <textarea id="swal-notes" class="form-control" rows="4" placeholder="Admin notes"></textarea>
+                   </div>`,
             showCancelButton: true,
             confirmButtonText: 'Save',
+            customClass: {
+                popup: 'community-swal',
+                htmlContainer: 'community-swal-html',
+            },
             didOpen: () => {
                 const notes = document.getElementById('swal-notes');
                 if (notes) {
                     notes.value = btn.dataset.notes || '';
                 }
+                mountCommunityThemeSelect(document.getElementById('swal-status'));
             },
             preConfirm: () => ({
                 status: document.getElementById('swal-status').value,

@@ -94,9 +94,9 @@ class InvoiceSellerDetailsTest extends TestCase
 
         $this->assertStringContainsString('SEOLinkBuildings Partner', $html);
         $this->assertStringContainsString('Beneficiary:', $html);
-        $this->assertStringContainsString('Topurlz Ltd', $html);
+        $this->assertStringContainsString('Teqno Ltd', $html);
         $this->assertStringContainsString('TRWIBEB1XXX', $html);
-        $this->assertStringContainsString('BE04905543949331', $html);
+        $this->assertStringContainsString('BE40 9059 9538 0863', $html);
         $this->assertStringContainsString('+447445152374', $html);
         $this->assertStringContainsString('16607074', $html);
         $this->assertStringContainsString('Not VAT registered', $html);

@@ -224,3 +224,43 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
 }
+
+/* Community inbox: list stays in the viewport; Details drawer wraps long URLs. */
+.community-inbox td.text-end {
+  white-space: normal;
+}
+
+.community-inbox td.text-end .btn {
+  margin-bottom: 0.25rem;
+}
+
+#communityDrawer.offcanvas,
+.community-drawer.offcanvas {
+  max-width: min(100vw, 26rem);
+}
+
+#communityDrawer .offcanvas-body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+#communityDrawer .row {
+  --bs-gutter-x: 0.75rem;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+#communityDrawer dt {
+  margin-top: 0.65rem;
+}
+
+#communityDrawer dt:first-child {
+  margin-top: 0;
+}
+
+#communityDrawer dd,
+#communityDrawer a {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

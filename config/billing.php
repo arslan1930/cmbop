@@ -34,9 +34,9 @@ return [
     */
     'deposit_payment' => [
         'seller_name' => env('BILLING_DEPOSIT_SELLER_NAME') ?: 'SEOLinkBuildings Partner',
-        'beneficiary' => env('BILLING_DEPOSIT_BENEFICIARY') ?: 'Topurlz Ltd',
+        'beneficiary' => env('BILLING_DEPOSIT_BENEFICIARY') ?: 'Teqno Ltd',
         'bic' => env('BILLING_DEPOSIT_BIC') ?: 'TRWIBEB1XXX',
-        'iban' => env('BILLING_DEPOSIT_IBAN') ?: 'BE04905543949331',
+        'iban' => env('BILLING_DEPOSIT_IBAN') ?: 'BE40 9059 9538 0863',
         'phone' => env('BILLING_DEPOSIT_PHONE') ?: '+447445152374',
         'address_lines' => array_values(array_filter([
             env('BILLING_DEPOSIT_ADDRESS_LINE1') ?: '20 Wenlock Road, London, England, N1 7GU',
@@ -45,7 +45,7 @@ return [
         ])),
         'registration_no' => env('BILLING_DEPOSIT_REGISTRATION_NO') ?: '16607074',
         'vat_note' => env('BILLING_DEPOSIT_VAT_NOTE') ?: 'Not VAT registered – no VAT charged',
-        'wise_pay_url' => env('BILLING_WISE_PAY_URL') ?: 'https://wise.com/pay/business/topurlzltd',
+        'wise_pay_url' => env('BILLING_WISE_PAY_URL') ?: 'https://wise.com/pay/business/teqnoltd',
         /*
          * Deposit crypto rails (Option A: USDT TRC20). Empty address = hidden.
          * Aligns with common withdraw USDT TRC20; other chains are opt-in via env.

@@ -26,8 +26,12 @@ use App\Support\PaypalPaymentError;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Endroid\QrCode\Builder\Builder;
+use Endroid\QrCode\Color\Color;
+use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\Writer\PngWriter;
+use Endroid\QrCode\Writer\Result\ResultInterface;
 use Endroid\QrCode\Writer\SvgWriter;
+use Endroid\QrCode\Writer\WriterInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -243,16 +247,16 @@ class AddFundsController extends Controller
 
         $amount = round((float) $data['amount'], 2);
         $payUrl = DepositPaymentConfig::wisePayLink($amount);
+        $logoPath = public_path('assets/brand/web/favicon.svg');
+        if (! is_file($logoPath)) {
+            $logoPath = public_path('favicon.svg');
+        }
+        $logoPath = is_file($logoPath) ? $logoPath : '';
 
         // Prefer SVG: no ext-gd / Imagick required (Hostinger often lacks GD for PNG).
         // Fall back to PNG when GD is available and SVG somehow fails.
         try {
-            $result = (new Builder(
-                writer: new SvgWriter,
-                data: $payUrl,
-                size: 300,
-                margin: 10,
-            ))->build();
+            $result = $this->buildWiseQr(new SvgWriter, $payUrl, $logoPath);
         } catch (\Throwable $svgError) {
             if (! extension_loaded('gd')) {
                 Log::error('Wise QR generation failed (SVG) and GD is unavailable', [
@@ -265,12 +269,7 @@ class AddFundsController extends Controller
                 'error' => $svgError->getMessage(),
             ]);
 
-            $result = (new Builder(
-                writer: new PngWriter,
-                data: $payUrl,
-                size: 300,
-                margin: 10,
-            ))->build();
+            $result = $this->buildWiseQr(new PngWriter, $payUrl, $logoPath);
         }
 
         return response($result->getString(), 200, [
@@ -279,6 +278,23 @@ class AddFundsController extends Controller
             // Avoid intermediary caches serving a login HTML page as the image.
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    private function buildWiseQr(WriterInterface $writer, string $payUrl, string $logoPath): ResultInterface
+    {
+        return (new Builder(
+            writer: $writer,
+            data: $payUrl,
+            size: 300,
+            margin: 16,
+            errorCorrectionLevel: ErrorCorrectionLevel::High,
+            foregroundColor: new Color(13, 47, 20),
+            backgroundColor: new Color(244, 248, 244),
+            logoPath: $logoPath,
+            logoResizeToWidth: 72,
+            logoResizeToHeight: 72,
+            logoPunchoutBackground: false,
+        ))->build();
     }
 
     public function createCheckoutSession(Request $request)

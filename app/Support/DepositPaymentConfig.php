@@ -17,7 +17,7 @@ class DepositPaymentConfig
 
     public static function wisePayUrl(): string
     {
-        return rtrim((string) (self::depositPayment()['wise_pay_url'] ?? 'https://wise.com/pay/business/topurlzltd'), '?&');
+        return rtrim((string) (self::depositPayment()['wise_pay_url'] ?? 'https://wise.com/pay/business/teqnoltd'), '?&');
     }
 
     public static function wisePayLink(float $amount): string
