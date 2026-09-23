@@ -47,6 +47,8 @@ jobs:
 
       - name: Create deployment archive
         run: |
+          ARCHIVE="$RUNNER_TEMP/seolinkbuildings-deployment.tar.gz"
+
           tar \
             --exclude='.git' \
             --exclude='.github' \
@@ -54,7 +56,8 @@ jobs:
             --exclude='node_modules' \
             --exclude='vendor' \
             --exclude='storage' \
-            -czf deployment.tar.gz .
+            -czf "$ARCHIVE" \
+            -C "$GITHUB_WORKSPACE" .
 
       - name: Upload deployment
         env:
@@ -66,7 +69,7 @@ jobs:
             -i ~/.ssh/hostinger_deploy \
             -P "$PORT" \
             -o IdentitiesOnly=yes \
-            deployment.tar.gz \
+            "$RUNNER_TEMP/seolinkbuildings-deployment.tar.gz" \
             "$USER@$HOST:/tmp/seolinkbuildings-deployment.tar.gz"
 
       - name: Deploy on Hostinger
