@@ -163,7 +163,7 @@ class FrenchMoneyLanders
                 'meta_description' => 'Guest post sur des blogs et sites en France : filtrez la thématique, le DA/DR et le prix en EUR, choisissez dofollow ou sponsored et recevez l’URL live.',
                 'teaser_countries' => ['fr'],
                 'teaser_title' => 'Sites pour guest posts en France',
-                'teaser_subtitle' => 'Aperçu masqué des listings actifs en France. Les domaines s’ouvrent après inscription.',
+                'teaser_subtitle' => 'Aperçu masqué des fiches actives en France. Les domaines s’ouvrent après inscription.',
                 'intro' => [
                     'SEOLinkBuildings est une marketplace en libre-service, pas un forfait opaque de guest posts. Vous choisissez le site — souvent en .fr, souvent en français —, vous payez en euros depuis le portefeuille et vous gardez le brief, le chat et l’URL live dans une seule commande. Le siège est à Londres (Topurlz Ltd) ; nous n’inventons pas un SIRET français.',
                     '« Guest post France », « publier sur des blogs en France » et « guest posting sites France » décrivent la même intention : une publication payante sur un site qui n’est pas le vôtre, avec des règles écrites de longueur, de liens et de délais.',
@@ -179,13 +179,13 @@ class FrenchMoneyLanders
                     ],
                     [
                         'title' => 'Dofollow et sponsored',
-                        'body' => 'L’attribut du lien est sur le listing. Beaucoup de médias marquent les publications payantes. Lisez le type de lien avant de commander : il n’existe pas de « dofollow à tout prix ».',
+                        'body' => 'L’attribut du lien est sur la fiche. Beaucoup de médias marquent les publications payantes. Lisez le type de lien avant de commander : il n’existe pas de « dofollow à tout prix ».',
                     ],
                 ],
                 'sections' => [
                     [
                         'h2' => 'Trafic, thématique et permanence',
-                        'body' => 'Un guest post « avec trafic » signifie que le listing affiche le trafic déclaré par l’éditeur, pas une garantie de visites. Les thématiques (santé, finance, tech, assurance, immobilier, voyage, fintech, marketing, e-commerce) se filtrent dans le catalogue, pas sur des URL séparées. « Permanent » dépend des règles du site : certaines publications restent, d’autres ont une durée. Lisez le listing.',
+                        'body' => 'Un guest post « avec trafic » signifie que la fiche affiche le trafic déclaré par l’éditeur, pas une garantie de visites. Les thématiques (santé, finance, tech, assurance, immobilier, voyage, fintech, marketing, e-commerce) se filtrent dans le catalogue, pas sur des URL séparées. « Permanent » dépend des règles du site : certaines publications restent, d’autres ont une durée. Lisez la fiche.',
                     ],
                     [
                         'h2' => 'DA et DR, sans formules forcées',
@@ -199,7 +199,7 @@ class FrenchMoneyLanders
                     ],
                     [
                         'q' => 'Le guest post est-il en français ?',
-                        'a' => 'La langue est sur le listing. La plupart des sites dont le pays principal est la France publient en français. Vérifiez avant d’écrire le brief.',
+                        'a' => 'La langue est sur la fiche. La plupart des sites dont le pays principal est la France publient en français. Vérifiez avant d’écrire le brief.',
                     ],
                     [
                         'q' => 'Garantissez-vous un classement ?',
@@ -224,10 +224,10 @@ class FrenchMoneyLanders
                 'meta_description' => 'Acheter un article sponsorisé ou un publirédactionnel : brief, lien et URL live sur des médias du catalogue, en euros, sans tarif inventé.',
                 'teaser_countries' => ['fr'],
                 'teaser_title' => 'Médias pour un article sponsorisé',
-                'teaser_subtitle' => 'Aperçu des listings France. Le format exact (article, publirédactionnel, guest post) est sur la fiche.',
+                'teaser_subtitle' => 'Aperçu des fiches France. Le format exact (article, publirédactionnel, guest post) est sur la fiche.',
                 'intro' => [
                     'Un article sponsorisé est un contenu payant publié sur un média qui n’est pas le vôtre. Un publirédactionnel est le même geste dans le vocabulaire des médias français : un texte commandé, souvent signalé comme contenu sponsorisé. Un guest post est le terme SEO courant pour cette publication lorsqu’elle porte un backlink.',
-                    'Un communiqué de presse n’est pas automatiquement un article sponsorisé. S’il vous faut une diffusion de marque plutôt qu’un lien sur un listing, voyez la page digital PR. Ici, vous achetez la publication que l’éditeur accepte sur sa fiche.',
+                    'Un communiqué de presse n’est pas automatiquement un article sponsorisé. S’il vous faut une diffusion de marque plutôt qu’un lien sur une fiche, voyez la page digital PR. Ici, vous achetez la publication que l’éditeur accepte sur sa fiche.',
                 ],
                 'points' => [
                     [
@@ -246,7 +246,7 @@ class FrenchMoneyLanders
                 'sections' => [
                     [
                         'h2' => 'Tarif d’un article sponsorisé',
-                        'body' => 'Le tarif est le prix du listing, en euros, au moment de la commande. Il change avec l’autorité, la thématique et les exigences de rédaction. La page tarifs explique le modèle ; elle ne publie pas une grille figée.',
+                        'body' => 'Le tarif est le prix de la fiche, en euros, au moment de la commande. Il change avec l’autorité, la thématique et les exigences de rédaction. La page tarifs explique le modèle ; elle ne publie pas une grille figée.',
                     ],
                 ],
                 'faqs' => [
@@ -273,18 +273,18 @@ class FrenchMoneyLanders
                 'h1' => 'Acheter des backlinks en France',
                 'subtitle' => 'Des liens placés dans un contenu publié chez un éditeur du catalogue, filtrables par pays, thématique et métriques affichées.',
                 'meta_title' => 'Acheter des backlinks en France | SEOLinkBuildings',
-                'meta_description' => 'Acheter des liens SEO sur des sites français : pertinence, trafic déclaré, dofollow ou sponsored, prix en euros sur le listing. Pas de promesse de positions.',
+                'meta_description' => 'Acheter des liens SEO sur des sites français : pertinence, trafic déclaré, dofollow ou sponsored, prix en euros sur la fiche. Pas de promesse de positions.',
                 'teaser_countries' => ['fr'],
                 'teaser_title' => 'Sites .fr pour des backlinks',
-                'teaser_subtitle' => 'Aperçu des listings dont le pays principal est la France.',
+                'teaser_subtitle' => 'Aperçu des fiches dont le pays principal est la France.',
                 'intro' => [
                     'Acheter des backlinks, acheter des liens SEO ou chercher des backlinks de qualité recouvre ici la même action : choisir un site, faire publier un contenu et obtenir l’URL où le lien est en ligne. « Acheter des backlinks France » restreint le filtre au pays France.',
-                    'La qualité se juge sur la thématique, la langue, le trafic déclaré et les règles du média — pas sur une promesse de classement. Un backlink thématique est un lien sur un site dont la niche correspond à la vôtre. Un backlink avec trafic réel signifie que le listing montre un trafic déclaré, pas une visite garantie.',
+                    'La qualité se juge sur la thématique, la langue, le trafic déclaré et les règles du média — pas sur une promesse de classement. Un backlink thématique est un lien sur un site dont la niche correspond à la vôtre. Un backlink avec trafic réel signifie que la fiche montre un trafic déclaré, pas une visite garantie.',
                 ],
                 'points' => [
                     [
                         'title' => 'Dofollow et liens sponsored',
-                        'body' => 'Backlinks dofollow et liens dofollow existent lorsque le listing l’indique. Beaucoup de publications payantes sont en rel sponsored. C’est écrit avant le paiement.',
+                        'body' => 'Backlinks dofollow et liens dofollow existent lorsque la fiche l’indique. Beaucoup de publications payantes sont en rel sponsored. C’est écrit avant le paiement.',
                     ],
                     [
                         'title' => 'Sites .fr',
@@ -304,7 +304,7 @@ class FrenchMoneyLanders
                 'faqs' => [
                     [
                         'q' => 'Les backlinks sont-ils permanents ?',
-                        'a' => 'La durée est sur le listing. Certaines publications restent en ligne, d’autres ont une date de fin. Nous ne garantissons pas la permanence au-delà de ce que l’éditeur écrit.',
+                        'a' => 'La durée est sur la fiche. Certaines publications restent en ligne, d’autres ont une date de fin. Nous ne garantissons pas la permanence au-delà de ce que l’éditeur écrit.',
                     ],
                     [
                         'q' => 'Puis-je acheter des backlinks pas cher ?',
@@ -325,12 +325,12 @@ class FrenchMoneyLanders
                 'h1' => 'Netlinking en France',
                 'subtitle' => 'La marketplace pour choisir vos liens, ou un cadre clair pour les agences qui passent commande pour leurs clients.',
                 'meta_title' => 'Plateforme de netlinking | SEOLinkBuildings',
-                'meta_description' => 'Netlinking France : marketplace de guest posts et de backlinks en euros, forfaits selon les listings, white label pour les agences sans logo sur le site public.',
+                'meta_description' => 'Netlinking France : marketplace de guest posts et de backlinks en euros, forfaits selon les fiches, white label pour les agences sans logo sur le site public.',
                 'teaser_countries' => ['fr'],
                 'teaser_title' => 'Éditeurs pour une campagne de netlinking',
                 'teaser_subtitle' => 'Les sites français du catalogue. Le netlinking Europe reste dans le même compte.',
                 'intro' => [
-                    'Le netlinking, c’est l’obtention de liens depuis d’autres sites. Sur SEOLinkBuildings, le service netlinking est la marketplace : vous composez la campagne site par site. Un forfait netlinking ou un pack netlinking n’est pas un PDF figé — c’est la somme des listings que vous validez.',
+                    'Le netlinking, c’est l’obtention de liens depuis d’autres sites. Sur SEOLinkBuildings, le service netlinking est la marketplace : vous composez la campagne site par site. Un forfait netlinking ou un pack netlinking n’est pas un PDF figé — c’est la somme des fiches que vous validez.',
                     '« Netlinking pas cher » décrit un budget, pas une qualité inférieure garantie. « Netlinking Europe » décrit le catalogue au-delà de la France, toujours en euros. Nous ne créons pas une page par pays ni par ville.',
                 ],
                 'points' => [
@@ -396,7 +396,7 @@ class FrenchMoneyLanders
                     ],
                     [
                         'title' => 'Pas de revendeur fantôme',
-                        'body' => 'Il n’y a pas de grille partenaire secrète ni de remise inventée. Le prix affiché est le prix du listing.',
+                        'body' => 'Il n’y a pas de grille partenaire secrète ni de remise inventée. Le prix affiché est le prix de la fiche.',
                     ],
                 ],
                 'sections' => [
@@ -435,7 +435,7 @@ class FrenchMoneyLanders
                 'teaser_subtitle' => 'Les fiches disent si le média accepte un article, une mention ou un lien.',
                 'intro' => [
                     'Le digital PR cherche une présence sur des médias : article, mention de marque, parfois un lien. Acheter un communiqué de presse ou un contenu sponsorisé n’équivaut pas à acheter un backlink dofollow. Lisez la fiche.',
-                    '« Acheter des mentions de marque » correspond aux placements où le média cite la marque. Si le listing ne promet pas de lien, n’en attendez pas un. Les forfaits chiffrés, lorsqu’ils existent, sont sur la page tarifs — nous n’en inventons pas ici.',
+                    '« Acheter des mentions de marque » correspond aux placements où le média cite la marque. Si la fiche ne promet pas de lien, n’en attendez pas un. Les forfaits chiffrés, lorsqu’ils existent, sont sur la page tarifs — nous n’en inventons pas ici.',
                 ],
                 'points' => [
                     [
@@ -444,7 +444,7 @@ class FrenchMoneyLanders
                     ],
                     [
                         'title' => 'Pas de publicité native inventée',
-                        'body' => 'Nous ne vendons pas un réseau display. Uniquement les formats que l’éditeur a mis sur son listing.',
+                        'body' => 'Nous ne vendons pas un réseau display. Uniquement les formats que l’éditeur a mis sur sa fiche.',
                     ],
                     [
                         'title' => 'Même portefeuille EUR',
@@ -542,7 +542,7 @@ class FrenchMoneyLanders
                 'points' => [
                     [
                         'title' => 'Dofollow et nofollow',
-                        'body' => 'Dofollow (ou l’absence de nofollow) transmet le signal classique. Nofollow et sponsored demandent aux moteurs de traiter le lien comme un lien commercial. Google attend rel sponsored sur beaucoup de liens payants. Le listing indique l’attribut réel.',
+                        'body' => 'Dofollow (ou l’absence de nofollow) transmet le signal classique. Nofollow et sponsored demandent aux moteurs de traiter le lien comme un lien commercial. Google attend rel sponsored sur beaucoup de liens payants. La fiche indique l’attribut réel.',
                     ],
                     [
                         'title' => 'Texte d’ancre',
@@ -570,7 +570,7 @@ class FrenchMoneyLanders
                     ],
                     [
                         'q' => 'Quels sont les risques d’acheter des backlinks ?',
-                        'a' => 'Lien hors thématique, réseau de mauvaise qualité, attribut masqué, ou page supprimée. Choisissez un listing vérifiable et lisez le type de lien. Nous ne promettons pas que Google ignorera un lien payant.',
+                        'a' => 'Lien hors thématique, réseau de mauvaise qualité, attribut masqué, ou page supprimée. Choisissez une fiche vérifiable et lisez le type de lien. Nous ne promettons pas que Google ignorera un lien payant.',
                     ],
                     [
                         'q' => 'Rel sponsored est-il obligatoire ?',

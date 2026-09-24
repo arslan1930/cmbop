@@ -35,11 +35,11 @@ return [
 
     // ==================== SERVICES SECTION ====================
     'services_title' => 'Une marketplace conçue pour les placements',
-    'services_description' => 'Parcourez des éditeurs vérifiés, payez depuis votre wallet et suivez chaque commande jusqu’à l’URL live.',
+    'services_description' => 'Parcourez des éditeurs, payez depuis votre portefeuille et suivez chaque commande jusqu’à l’URL live.',
     'value_3_description' => 'Suivez le statut, discutez sur la commande et vérifiez le lien live à la livraison.',
     'value_3_title' => 'Suivi jusqu’à l’URL live',
     'value_2_description' => 'Prix de placement clairs avant l’achat. Rechargez une fois, commandez quand vous êtes prêt.',
-    'value_2_title' => 'Paiement par wallet',
+    'value_2_title' => 'Paiement depuis le portefeuille',
     'value_1_description' => 'Filtrez par pays, langue, niche et métriques pour trouver les sites adaptés à votre campagne.',
     'value_1_title' => 'Catalogue d’éditeurs vérifiés',
 
@@ -75,11 +75,11 @@ return [
 
     // How It Works Section
     'how_it_works_title' => 'Comment fonctionne la marketplace',
-    'how_it_works_description' => 'Parcourez les éditeurs, rechargez votre wallet et achetez des placements — au même endroit.',
+    'how_it_works_description' => 'Parcourez les éditeurs, rechargez votre portefeuille et achetez des placements — au même endroit.',
     'step_1_title' => '1. Parcourir le catalogue',
     'step_1_description' => 'Filtrez par pays, langue, catégorie et métriques pour trouver les bons éditeurs.',
     'step_2_title' => '2. Recharger & acheter',
-    'step_2_description' => 'Rechargez le wallet, choisissez un site et passez commande. Les prix sont clairs avant le paiement.',
+    'step_2_description' => 'Rechargez le portefeuille, choisissez un site et passez commande. Les prix sont clairs avant le paiement.',
     'step_3_title' => '3. Obtenir le lien live',
     'step_3_description' => 'Les éditeurs livrent le placement. Suivez le statut, discutez et vérifiez l’URL live.',
 
@@ -544,7 +544,7 @@ return [
     'meta_faq_title' => 'FAQ — Guest posts, paiements et publication | SEOLinkBuildings',
     'meta_faq_description' => 'Réponses sur wallet, commandes, remboursements, vérification et publication. Comprenez le fonctionnement de Seolinkbuildings.com avant d’acheter ou de vendre.',
     'meta_pricing_title' => 'Prix des guest posts en France | SEOLinkBuildings',
-    'meta_pricing_description' => 'Le prix d’un guest post est celui du site, en euros, au checkout. La page tarifs décrit aussi les forfaits de digital PR publiés, sans grille figée.',
+    'meta_pricing_description' => 'Le prix d’un guest post est celui du site, en euros, à la commande. La page tarifs décrit aussi les forfaits de digital PR publiés, sans grille figée.',
     'meta_marketplace_title' => 'Catalogue de médias SEO en France | SEOLinkBuildings',
     'meta_marketplace_description' => 'Catalogue d’éditeurs en France : thématique, langue, DA/DR et prix en euros. Les domaines s’ouvrent après inscription.',
     'meta_how_it_works_title' => 'Comment commander un guest post | SEOLinkBuildings',
@@ -668,7 +668,7 @@ return [
     'pricing_cta_create' => 'Créer un compte gratuit',
     'pricing_cta_browse' => 'Parcourir après connexion',
     'pricing_bonus_note' => 'Les nouveaux annonceurs reçoivent 20 € de crédit pour les premières commandes (non retirable).',
-    'pricing_managed_title' => 'Vous préférez un package Digital PR managé ?',
+    'pricing_managed_title' => 'Vous préférez un forfait Digital PR géré ?',
     'pricing_managed_body' => 'Notre équipe peut gérer les campagnes d’outreach si vous voulez une livraison clé en main.',
     'pricing_talk_sales' => 'Parler aux ventes',
     'pricing_most_popular' => 'Le plus populaire',

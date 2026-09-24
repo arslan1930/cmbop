@@ -94,6 +94,7 @@ class PortugueseMoneyLanderTest extends TestCase
         $this->assertStringContainsString('faturação do anunciante', $agencias);
         $this->assertStringNotContainsString('refactur', $agencias);
         $this->assertStringNotContainsString('Billing', $agencias);
+        $this->assertStringNotContainsString('depois do login', $agencias);
     }
 
     public function test_sitemap_and_english_lander(): void

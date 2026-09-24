@@ -106,6 +106,9 @@ class SpanishMoneyLanderTest extends TestCase
         $agencias = $this->get('/es/agencias')->assertOk()->getContent();
         $this->assertStringContainsString('La facturación sigue a la sociedad británica', $agencias);
         $this->assertStringNotContainsString('El billing', $agencias);
+        $this->assertStringNotContainsString('Billing', $agencias);
+        $this->assertStringNotContainsString('tras el login', $agencias);
+        $this->assertStringNotContainsString('resellers', $agencias);
     }
 
     public function test_sitemap_es_includes_money_landers_and_not_aliases(): void

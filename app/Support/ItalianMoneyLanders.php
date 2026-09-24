@@ -374,7 +374,7 @@ class ItalianMoneyLanders
             'agenzie' => [
                 'kicker' => 'Account B2B',
                 'h1' => 'Guest post per agenzie e white label',
-                'subtitle' => 'Catalogo self-service per agenzie SEO, consulenti e team che ri-fatturano. Wallet in EUR, ordini tracciati, fatture dove il billing le emette.',
+                'subtitle' => 'Catalogo self-service per agenzie SEO, consulenti e team che ri-fatturano. Portafoglio in EUR, ordini tracciati, fatture nella fatturazione dell\'inserzionista.',
                 'meta_title' => 'Guest post per agenzie e white label | SEOLinkBuildings',
                 'meta_description' => 'Piattaforma guest post per agenzie e SEO specialist: catalogo in EUR, fatture, ordini per brand e white label operativo — senza pacchetti opachi.',
                 'teaser_countries' => ['it'],

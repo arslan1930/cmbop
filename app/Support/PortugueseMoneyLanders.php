@@ -187,7 +187,7 @@ class PortugueseMoneyLanders
                     ],
                     [
                         'h2' => 'Sites com DA ou DR elevado',
-                        'body' => 'Filtre DA e DR depois do login para separar sites com DA elevado ou DR elevado. As métricas ajudam a triar; não decidem sozinhas. O catálogo público está em <a href="'.$marketplace.'">/pt/marketplace</a>. Preços: <a href="'.$precos.'">quanto custa um guest post</a>. Se publica um site .pt: <a href="'.$publisher.'">tornar-se publisher</a>.',
+                        'body' => 'Filtre DA e DR depois do registo para separar sites com DA elevado ou DR elevado. As métricas ajudam a triar; não decidem sozinhas. O catálogo público está em <a href="'.$marketplace.'">/pt/marketplace</a>. Preços: <a href="'.$precos.'">quanto custa um guest post</a>. Se publica um site .pt: <a href="'.$publisher.'">tornar-se publisher</a>.',
                     ],
                     [
                         'h2' => 'Para agências e equipas SEO',
@@ -205,7 +205,7 @@ class PortugueseMoneyLanders
                     ],
                     [
                         'q' => 'Inclui o Brasil ou outros mercados lusófonos?',
-                        'a' => 'Não nesta landing. O Brasil e outros países têm o seu próprio filtro de país depois do login.',
+                        'a' => 'Não nesta landing. O Brasil e outros países têm o seu próprio filtro de país depois do registo.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Criar conta e abrir o catálogo', 'url' => $register],
@@ -283,7 +283,7 @@ class PortugueseMoneyLanders
                 'meta_description' => 'Link building em Portugal: catálogo self-service, DA/DR e preços em EUR, publicações com acompanhamento. Não é um pacote opaco de links.',
                 'teaser_countries' => ['pt'],
                 'teaser_title' => 'Inventário para campanhas de link building',
-                'teaser_subtitle' => 'Exemplo de sites Portugal. Para fintech ou outros nichos, filtre depois do login — não há doorway por vertical nem por cidade.',
+                'teaser_subtitle' => 'Exemplo de sites Portugal. Para fintech ou outros nichos, filtre depois do registo — não há doorway por vertical nem por cidade.',
                 'intro' => [
                     '«Link building Portugal», «pacotes linkbuilding» e «agência linkbuilding Portugal» costumam ser páginas de agência. O SEOLinkBuildings é uma plataforma: monta a campanha a partir do catálogo, com uma carteira EUR para PT e o resto da Europa.',
                     'White label ou faturas para várias marcas: <a href="'.$agencies.'">link building para agências</a>. Guia: <a href="'.$guia.'">como fazer link building</a>.',
@@ -354,7 +354,7 @@ class PortugueseMoneyLanders
                     ],
                     [
                         'title' => 'Dofollow só conforme o listing',
-                        'body' => 'Filtre o tipo de link depois do login. «Comprar links dofollow» não substitui nicho, idioma e audiência.',
+                        'body' => 'Filtre o tipo de link depois do registo. «Comprar links dofollow» não substitui nicho, idioma e audiência.',
                     ],
                     [
                         'title' => 'Sem SKU de niche edit',
@@ -417,7 +417,7 @@ class PortugueseMoneyLanders
                     ],
                     [
                         'title' => 'Plataforma para equipas SEO',
-                        'body' => 'Filtros, métricas, chat da encomenda e URL em vivo. O painel depois do login está em inglês para todos os papéis.',
+                        'body' => 'Filtros, métricas, chat da encomenda e URL em vivo. O painel depois do registo está em inglês para todos os papéis.',
                     ],
                 ],
                 'sections' => [
@@ -460,7 +460,7 @@ class PortugueseMoneyLanders
                 'meta_description' => 'Digital PR em Portugal: publicações de catálogo, carteira EUR, URL em vivo, pacotes geridos — sem garantias de News nem teletipo.',
                 'teaser_countries' => ['pt'],
                 'teaser_title' => 'Sites Portugal no catálogo (pré-visualização)',
-                'teaser_subtitle' => 'Alguns publishers parecem um media kit; nem todos são um diário. Nicho e idioma filtram-se depois do login.',
+                'teaser_subtitle' => 'Alguns publishers parecem um media kit; nem todos são um diário. Nicho e idioma filtram-se depois do registo.',
                 'intro' => [
                     '«Digital PR Portugal», «nota de imprensa SEO» e «menções de marca» misturam PR e link building. Aqui compra publicações em sites que estão mesmo no catálogo. Se um domínio não está listado, não o vendemos.',
                     'Os pacotes geridos de digital PR (valores em Preços, hoje a partir de 499 €/mês no plano base se continuar listado) são outreach da equipa, não um botão «apareça num diário nacional».',

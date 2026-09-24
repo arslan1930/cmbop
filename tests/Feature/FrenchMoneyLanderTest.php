@@ -86,6 +86,8 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringNotContainsString('résultats mesurables', $home);
         $this->assertStringNotContainsString('Checkout wallet', $home);
         $this->assertStringNotContainsString('Semrush', $home);
+        $this->assertStringNotContainsString('Paiement par wallet', $home);
+        $this->assertStringNotContainsString('package Digital PR managé', $home);
 
         $buy = $this->get('/fr/acheter-guest-post')->assertOk()->getContent();
         $this->assertStringContainsString('Acheter un guest post en France', $buy);
@@ -102,6 +104,8 @@ class FrenchMoneyLanderTest extends TestCase
         $tarifs = $this->get('/fr/tarifs')->assertOk()->getContent();
         $this->assertStringContainsString('Combien coûte un guest post en France', $tarifs);
         $this->assertStringContainsString('Prix des guest posts en France | SEOLinkBuildings', $tarifs);
+        $this->assertStringNotContainsString('au checkout', $tarifs);
+        $this->assertStringNotContainsString('package Digital PR managé', $tarifs);
     }
 
     public function test_sitemap_fr_includes_money_landers_and_not_aliases(): void
