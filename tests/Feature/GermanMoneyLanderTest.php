@@ -133,6 +133,11 @@ class GermanMoneyLanderTest extends TestCase
 
                 continue;
             }
+            if ($locale === 'ro') {
+                $this->get('/ro/digital-pr')->assertOk();
+
+                continue;
+            }
             $this->get('/'.$locale.'/digital-pr')->assertRedirect('/it/digital-pr');
         }
     }

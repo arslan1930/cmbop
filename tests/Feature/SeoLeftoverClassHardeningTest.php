@@ -38,6 +38,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(AustrianMoneyLanders::class)', $web);
         $this->assertStringContainsString('class_exists(SwissMoneyLanders::class)', $web);
         $this->assertStringContainsString('class_exists(SpanishMoneyLanders::class)', $web);
+        $this->assertStringContainsString('class_exists(RomanianMoneyLanders::class)', $web);
+        $this->assertStringContainsString("method_exists(MarketingPageController::class, 'romanianMoneyLander')", $web);
         $this->assertStringContainsString("method_exists(MarketingPageController::class, 'italianMoneyLander')", $web);
         $this->assertStringContainsString("method_exists(MarketingPageController::class, 'germanMoneyLander')", $web);
         $this->assertStringContainsString("method_exists(MarketingPageController::class, 'austrianMoneyLander')", $web);
@@ -81,6 +83,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(AustrianMoneyLanders::class, 'clusterLinks')", $controller);
         $this->assertStringContainsString("method_exists(SwissMoneyLanders::class, 'clusterLinks')", $controller);
         $this->assertStringContainsString("method_exists(SpanishMoneyLanders::class, 'clusterLinks')", $controller);
+        $this->assertStringContainsString("method_exists(RomanianMoneyLanders::class, 'clusterLinks')", $controller);
         $this->assertStringContainsString("view()->exists('pages.guest-posts-country')", $controller);
         $this->assertStringContainsString("view()->exists('pages.guest-post-prices-europe')", $controller);
         $this->assertStringNotContainsString('$teasers->teasersForCountries', $controller);
@@ -92,6 +95,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(AustrianMoneyLanders::class)', $sitemap);
         $this->assertStringContainsString('class_exists(SwissMoneyLanders::class)', $sitemap);
         $this->assertStringContainsString('class_exists(SpanishMoneyLanders::class)', $sitemap);
+        $this->assertStringContainsString('class_exists(RomanianMoneyLanders::class)', $sitemap);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $sitemap);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $sitemap);
         $this->assertStringContainsString('class_exists(ThinBlogRedirects::class)', $sitemap);
@@ -115,6 +119,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(AustrianMoneyLanders::class)', $i18n);
         $this->assertStringContainsString('class_exists(SwissMoneyLanders::class)', $i18n);
         $this->assertStringContainsString('class_exists(SpanishMoneyLanders::class)', $i18n);
+        $this->assertStringContainsString('class_exists(RomanianMoneyLanders::class)', $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'englishOnlyMarketingSlugs')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'moneyLanderLocales')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'isEnglishOnlyMarketingPath')", $i18n);
@@ -200,7 +205,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
     public function test_public_money_pages_and_admin_login_stay_up(): void
     {
-        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-austria', '/guest-posts-switzerland', '/guest-posts-spain', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login', '/at', '/at/gastbeitrag-kaufen', '/de/gastbeitrag-kaufen', '/ch', '/ch/gastbeitrag-kaufen', '/es', '/es/comprar-guest-post'] as $path) {
+        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-austria', '/guest-posts-switzerland', '/guest-posts-spain', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login', '/at', '/at/gastbeitrag-kaufen', '/de/gastbeitrag-kaufen', '/ch', '/ch/gastbeitrag-kaufen', '/es', '/es/comprar-guest-post', '/ro', '/ro/cumpara-guest-post', '/guest-posts-romania'] as $path) {
             $this->get($path)
                 ->assertOk()
                 ->assertDontSee('SQLSTATE')

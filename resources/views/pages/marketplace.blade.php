@@ -120,6 +120,23 @@
             </p>
         </div>
     @endif
+    @if(function_exists('public_locale') && public_locale() === 'ro' && class_exists(\App\Support\RomanianMoneyLanders::class) && method_exists(\App\Support\RomanianMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Site-uri din România pentru guest post</h2>
+            <p class="text-muted">Aceasta este lista publică de publishers din România: nișă, limbă, DA/DR și preț în euro. Nu indexăm fiecare combinație de filtru și nu avem landings de oraș (București și Cluj nu au URL propriu). Catalogul complet, cu domenii, se deschide după înregistrare.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\RomanianMoneyLanders::clusterLinks('piata'),
+                'current' => 'piata',
+                'title' => 'Pagini înrudite',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/ro/cumpara-guest-post') }}">Cumpără guest post în România</a>
+                · <a href="{{ url('/ro/cumpara-backlink') }}">Cumpără backlinkuri</a>
+                · <a href="{{ localized_url('pricing') }}">Cât costă un guest post în România</a>
+                · <a href="{{ url('/guest-posts-romania') }}">Romania inventory (English)</a>
+            </p>
+        </div>
+    @endif
     <p class="text-center small mt-2 mb-0">
         <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
         — median advertiser prices by European publisher country.

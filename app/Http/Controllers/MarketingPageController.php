@@ -13,6 +13,7 @@ use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
 use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
+use App\Support\RomanianMoneyLanders;
 use App\Support\SpanishMoneyLanders;
 use App\Support\SwissMoneyLanders;
 use Throwable;
@@ -220,6 +221,36 @@ class MarketingPageController extends Controller
             'priceFrom' => $teasers?->priceFromForCountries($codes),
             'cluster' => method_exists(SpanishMoneyLanders::class, 'clusterLinks')
                 ? SpanishMoneyLanders::clusterLinks($slug)
+                : [],
+        ]);
+    }
+
+    public function romanianMoneyLander(string $slug)
+    {
+        abort_unless(class_exists(RomanianMoneyLanders::class), 404);
+        abort_unless(view()->exists('pages.romanian-money-lander'), 404);
+
+        $page = RomanianMoneyLanders::find($slug);
+        abort_unless(is_array($page), 404);
+
+        $codes = array_values(array_filter(array_map(
+            static fn ($code) => strtolower(trim((string) $code)),
+            $page['teaser_countries'] ?? ['ro']
+        )));
+        if ($codes === []) {
+            $codes = ['ro'];
+        }
+
+        $teasers = $this->catalogTeaserService();
+
+        return view('pages.romanian-money-lander', [
+            'slug' => $slug,
+            'page' => $page,
+            'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
+            'siteCount' => $teasers?->countForCountries($codes),
+            'priceFrom' => $teasers?->priceFromForCountries($codes),
+            'cluster' => method_exists(RomanianMoneyLanders::class, 'clusterLinks')
+                ? RomanianMoneyLanders::clusterLinks($slug)
                 : [],
         ]);
     }

@@ -154,4 +154,17 @@
     ])
 </div>
 @endif
+@if(function_exists('public_locale') && public_locale() === 'ro' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\RomanianMoneyLanders::class) && method_exists(\App\Support\RomanianMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Cât costă un guest post în România</h2>
+    <p class="text-muted">Nu publicăm un PDF fix și nu inventăm un tarif cu TVA românesc: prețul este al site-ului, în euro, la checkout. „Preț guest post” și „cost linkbuilding” urmează listingurile pe care le alegi. Pachetele numerotate de mai sus sunt campanii gestionate de digital PR, nu un sac de URL-uri anonime.</p>
+    <p class="text-muted">Prețurile în vigoare sunt în <a href="{{ localized_url('marketplace') }}">catalogul din România</a>, după înregistrare. Indexul european (pagină în engleză): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <p class="text-muted">Prețul îl fac autoritatea, traficul, nișa, țara, cerințele de conținut și revizia editorială — după listing, nu ca medii inventate. Sediul este la Londra (Topurlz Ltd); nu există un CUI românesc.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\RomanianMoneyLanders::clusterLinks('preturi'),
+        'current' => 'preturi',
+        'title' => 'Pagini înrudite',
+    ])
+</div>
+@endif
 @endsection

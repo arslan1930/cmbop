@@ -369,6 +369,8 @@ return [
         'point_3_body' => 'Most RO-primary sites publish in Romanian. Confirm the listing language before you brief.',
         'teaser_title' => 'Sample Romanian inventory',
         'teaser_subtitle' => 'Masked preview of live Romania listings. Register to see domains and buy.',
+        'native_url' => '/ro/cumpara-guest-post',
+        'native_label' => 'Cumpără guest post în română',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',
