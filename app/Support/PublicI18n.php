@@ -192,6 +192,7 @@ class PublicI18n
         return match ($locale) {
             'at' => ['at'],
             'ch' => ['ch'],
+            'es' => ['es'],
             'ro' => ['ro'],
             'gr' => ['gr'],
             'dk' => ['dk'],

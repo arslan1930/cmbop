@@ -153,6 +153,8 @@ return [
         'point_3_body' => 'Confirm Spanish (or Catalan / regional) on the listing before you write the brief. Country and language are separate filters.',
         'teaser_title' => 'Sample Spanish inventory',
         'teaser_subtitle' => 'Masked preview of live Spain listings. Register to see domains and buy.',
+        'native_url' => '/es/comprar-guest-post',
+        'native_label' => 'Comprar guest post en español',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',
@@ -323,6 +325,8 @@ return [
         'point_3_body' => 'Most CH-primary sites here publish in German. Confirm French or Italian on the listing before you brief if you need those languages.',
         'teaser_title' => 'Sample Swiss inventory',
         'teaser_subtitle' => 'Masked preview of live Switzerland listings. Register to see domains and buy.',
+        'native_url' => '/ch/gastbeitrag-kaufen',
+        'native_label' => 'Gastbeitrag kaufen auf Deutsch (Schweiz)',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',

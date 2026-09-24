@@ -6,6 +6,35 @@
         && view()->exists('partials.visitor-support-chat');
     $tawkSrc = null;
     $tawkVisitor = null;
+    $supportRole = 'guest';
+    if (auth()->check()) {
+        $roleUser = auth()->user();
+        $roleName = '';
+        if (is_object($roleUser) && method_exists($roleUser, 'activeRoleModel')) {
+            $activeRole = $roleUser->activeRoleModel();
+            $roleName = strtolower(trim((string) ($activeRole->name ?? '')));
+        }
+        if (in_array($roleName, ['advertiser', 'publisher'], true)) {
+            $supportRole = $roleName;
+        }
+    }
+    $supportQuestions = match ($supportRole) {
+        'advertiser' => [
+            'How do I place an order?',
+            'How does the wallet work?',
+            'Where do I track a live URL?',
+        ],
+        'publisher' => [
+            'How do I add a website?',
+            'When do payouts arrive?',
+            'How do I accept an order?',
+        ],
+        default => [
+            'How do I create an account?',
+            'How does the marketplace work?',
+            'What does a placement cost?',
+        ],
+    };
     if (class_exists(\App\Support\TawkChat::class)
         && method_exists(\App\Support\TawkChat::class, 'embedSrc')) {
         $tawkSrc = \App\Support\TawkChat::embedSrc();
@@ -25,15 +54,48 @@
 (function () {
   if (!window.fetch || window.fetch.__slbTheme) return;
   var nativeFetch = window.fetch.bind(window);
+  var supportQuestions = @json($supportQuestions);
   function paintTheme(data) {
-    var theme = data && data.data && data.data.widget && data.data.widget.theme;
-    if (!theme) return;
+    var widget = data && data.data && data.data.widget;
+    if (!widget) return;
+    var theme = widget.theme || (widget.theme = {});
     theme.header = theme.header || {};
     theme.header.background = '#1a585e';
     theme.header.text = '#ffffff';
     theme.agent = theme.agent || {};
     theme.agent.messageBackground = '#1a585e';
     theme.agent.messageText = '#ffffff';
+    walkWidget(widget);
+    addQuestions(widget);
+  }
+  function walkWidget(node) {
+    if (!node || typeof node !== 'object') return;
+    if (typeof node.value === 'string' && node.value.trim().toLowerCase() === 'customer support') {
+      node.value = 'SEOLinkBuildings';
+    }
+    if (Array.isArray(node.options) && node.options.length && node.options[0] && typeof node.options[0].text === 'string') {
+      node.options = supportQuestions.map(function (question, index) {
+        var copy = Object.assign({}, node.options[Math.min(index, node.options.length - 1)] || {});
+        copy.text = question;
+        return copy;
+      });
+    }
+    Object.keys(node).forEach(function (key) { walkWidget(node[key]); });
+  }
+  function addQuestions(widget) {
+    var states = widget.states || {};
+    Object.keys(states).forEach(function (key) {
+      var state = states[key];
+      if (!state || !Array.isArray(state.body)) return;
+      if (state.body.some(function (card) { return card && String(card.id || '').indexOf('slb-q-') === 0; })) return;
+      supportQuestions.forEach(function (question, index) {
+        state.body.push({
+          id: 'slb-q-' + index,
+          type: 'text',
+          content: { value: question, alignment: 'left' }
+        });
+      });
+    });
   }
   var wrapped = function (input, init) {
     var url = typeof input === 'string' ? input : (input && input.url) || '';
@@ -84,14 +146,23 @@ Tawk_API.visitor = {!! json_encode($tawkVisitor, JSON_UNESCAPED_SLASHES | JSON_U
       autoplay: false,
       path: @json(asset('assets/vendor/lottie/chat-box.json').'?v='.(@filemtime(public_path('assets/vendor/lottie/chat-box.json')) ?: '1'))
     });
-    anim.addEventListener('DOMLoaded', function () {
+    function restMark() {
+      anim.loop = false;
       anim.goToAndStop(40, true);
+    }
+    anim.addEventListener('DOMLoaded', function () {
+      restMark();
       var svg = launcher.querySelector('svg');
       if (svg) {
         svg.style.width = '84px';
         svg.style.height = '84px';
       }
     });
+    launcher.addEventListener('mouseenter', function () {
+      anim.loop = true;
+      anim.play();
+    });
+    launcher.addEventListener('mouseleave', restMark);
   }
   if (document.readyState === 'complete') paintMark();
   window.addEventListener('load', paintMark);

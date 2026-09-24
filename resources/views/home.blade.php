@@ -5,6 +5,15 @@
 @section('canonical', localized_url('/'))
 
 @push('head')
+@php
+    $heroMarkWebp = asset('assets/img/logo1-hero.webp').'?v='.(@filemtime(public_path('assets/img/logo1-hero.webp')) ?: '1');
+@endphp
+<link rel="preload" as="image" href="{{ $heroMarkWebp }}" type="image/webp" fetchpriority="high">
+<style>
+  /* Homepage first paint: same wash as the hero so refresh is not a white splash. */
+  html, body { background: #f7fafb; }
+  .slb-reveal { animation: none !important; opacity: 1 !important; }
+</style>
 <script type="application/ld+json">
 {!! json_encode([
     '@@context' => 'https://schema.org',

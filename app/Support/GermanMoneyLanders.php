@@ -82,15 +82,14 @@ class GermanMoneyLanders
     }
 
     /**
-     * CH still reuses German marketing copy, so Swiss copies of German-owned
-     * money URLs 301 onto /de rather than onto Italian (shared slugs).
-     * Austria owns /at and is not a German copy locale.
+     * Germany owns /de copies. Austria owns /at and Switzerland owns /ch;
+     * they are not German copy locales.
      *
      * @return list<string>
      */
     public static function copyRedirectLocales(): array
     {
-        return ['de', 'ch'];
+        return ['de'];
     }
 
     public static function capturesLocaleCopy(string $locale, string $segment): bool

@@ -12,6 +12,8 @@ use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
 use App\Support\PortugueseMoneyLanders;
 use App\Support\PublicI18n;
+use App\Support\SpanishMoneyLanders;
+use App\Support\SwissMoneyLanders;
 use App\Support\ThinBlogRedirects;
 use Illuminate\Http\Response;
 

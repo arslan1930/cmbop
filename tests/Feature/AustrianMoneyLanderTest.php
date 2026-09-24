@@ -50,18 +50,18 @@ class AustrianMoneyLanderTest extends TestCase
         }
     }
 
-    public function test_austria_owns_prefixed_copies_and_switzerland_still_copies_germany(): void
+    public function test_austria_owns_prefixed_copies_and_switzerland_owns_ch(): void
     {
         $this->get('/at/gastbeitrag-kaufen')->assertOk();
         $this->get('/de/gastbeitrag-kaufen')->assertOk();
+        $this->get('/ch/gastbeitrag-kaufen')->assertOk();
         $this->get('/gastbeitrag-kaufen')->assertRedirect('/de/gastbeitrag-kaufen');
-        $this->get('/ch/gastbeitrag-kaufen')->assertRedirect('/de/gastbeitrag-kaufen');
         $this->get('/fr/gastbeitrag-kaufen')->assertRedirect('/de/gastbeitrag-kaufen');
 
         $this->get('/at/digital-pr')->assertOk();
         $this->get('/de/digital-pr')->assertOk();
         $this->get('/it/digital-pr')->assertOk();
-        $this->get('/ch/digital-pr')->assertRedirect('/de/digital-pr');
+        $this->get('/ch/digital-pr')->assertOk();
         $this->get('/fr/digital-pr')->assertRedirect('/it/digital-pr');
         $this->get('/at/comprare-guest-post')->assertRedirect('/it/comprare-guest-post');
     }
@@ -142,12 +142,14 @@ class AustrianMoneyLanderTest extends TestCase
         $this->assertSame(url('/de/gastbeitrag-kaufen'), PublicI18n::switchUrl($request, 'de'));
         $this->assertSame(url('/at/gastbeitrag-kaufen'), PublicI18n::switchUrl($request, 'at'));
         $this->assertSame(url('/it'), PublicI18n::switchUrl($request, 'it'));
-        $this->assertSame(url('/ch'), PublicI18n::switchUrl($request, 'ch'));
+        $this->assertSame(url('/ch/gastbeitrag-kaufen'), PublicI18n::switchUrl($request, 'ch'));
 
         $shared = Request::create('/at/digital-pr', 'GET');
         $this->assertSame(url('/it/digital-pr'), PublicI18n::switchUrl($shared, 'it'));
         $this->assertSame(url('/de/digital-pr'), PublicI18n::switchUrl($shared, 'de'));
         $this->assertSame(url('/at/digital-pr'), PublicI18n::switchUrl($shared, 'at'));
+        $this->assertSame(url('/ch/digital-pr'), PublicI18n::switchUrl($shared, 'ch'));
+        $this->assertSame(url('/es/digital-pr'), PublicI18n::switchUrl($shared, 'es'));
         $this->assertSame(url('/fr'), PublicI18n::switchUrl($shared, 'fr'));
     }
 
@@ -168,11 +170,11 @@ class AustrianMoneyLanderTest extends TestCase
 
     public function test_germany_still_owns_unprefixed_german_slugs(): void
     {
-        $this->assertSame(['de', 'ch'], GermanMoneyLanders::copyRedirectLocales());
+        $this->assertSame(['de'], GermanMoneyLanders::copyRedirectLocales());
         $this->assertSame(['at'], AustrianMoneyLanders::copyRedirectLocales());
         $this->assertSame(['it', 'de', 'at', 'pt'], PublicI18n::moneyLanderLocales('digital-pr'));
         $this->assertSame('it', PublicI18n::moneyLanderXDefault('digital-pr'));
-        $this->assertSame(['de', 'at'], PublicI18n::moneyLanderLocales('gastbeitrag-kaufen'));
+        $this->assertSame(['de', 'at', 'ch'], PublicI18n::moneyLanderLocales('gastbeitrag-kaufen'));
         $this->assertSame('de', PublicI18n::moneyLanderXDefault('gastbeitrag-kaufen'));
     }
 

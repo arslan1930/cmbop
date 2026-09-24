@@ -41,6 +41,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(MarketingPageController::class, 'italianMoneyLander')", $web);
         $this->assertStringContainsString("method_exists(MarketingPageController::class, 'germanMoneyLander')", $web);
         $this->assertStringContainsString("method_exists(MarketingPageController::class, 'austrianMoneyLander')", $web);
+        $this->assertStringContainsString("method_exists(MarketingPageController::class, 'swissMoneyLander')", $web);
+        $this->assertStringContainsString("method_exists(MarketingPageController::class, 'spanishMoneyLander')", $web);
         $this->assertStringContainsString('class_exists(CatalogTeaserService::class)', $web);
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $web);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $web);

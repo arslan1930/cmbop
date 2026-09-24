@@ -194,10 +194,24 @@
   border-bottom-left-radius: 4px;
 }
 
-.slb-live-chat__meta {
-  font-size: var(--type-meta, 0.75rem);
-  color: var(--brand-ink-muted, #697078);
-  line-height: 1.2;
+.slb-live-chat__reactions {
+  display: flex;
+  gap: 4px;
+}
+
+.slb-live-chat__reaction {
+  border: 1px solid var(--brand-primary-border, #b8e4e4);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0 6px;
+  line-height: 1.4;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.slb-live-chat__reaction.is-on {
+  background: var(--brand-primary-bg, #e6f5f5);
+  border-color: var(--brand-primary, #1a585e);
 }
 
 .slb-live-chat__row {

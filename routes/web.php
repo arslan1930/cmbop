@@ -102,6 +102,8 @@ use App\Support\LocalizedPublicPath;
 use App\Support\PortugueseMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
+use App\Support\SpanishMoneyLanders;
+use App\Support\SwissMoneyLanders;
 use App\Support\UserMessages;
 use App\Support\WelcomeBonusCopy;
 use Illuminate\Auth\Events\Verified;

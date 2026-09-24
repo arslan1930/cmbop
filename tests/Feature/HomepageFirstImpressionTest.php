@@ -43,6 +43,10 @@ class HomepageFirstImpressionTest extends TestCase
         $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $html);
         $this->assertStringNotContainsString('Demo Site', $html);
         $this->assertStringNotContainsString('dashboard.png', $html);
+        $this->assertStringContainsString('logo1-hero.webp', $html);
+        $this->assertStringContainsString('rel="preload"', $html);
+        $this->assertStringContainsString('decoding="sync"', $html);
+        $this->assertStringNotContainsString('class="slb-hero-mark"', strstr($html, 'decoding="async"') ?: '');
     }
 
     public function test_managed_package_ctas_point_to_contact(): void
