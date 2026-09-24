@@ -35,6 +35,23 @@
         <a href="{{ localized_url('how-it-works') }}" class="btn btn-outline-secondary btn-lg px-4">{{ __('messages.nav_how_it_works') }}</a>
     </div>
     <p class="text-center text-muted small mt-3 mb-0">{{ __('messages.marketplace_catalog_note') }}</p>
+    @if(function_exists('public_locale') && public_locale() === 'it' && class_exists(\App\Support\ItalianMoneyLanders::class) && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Siti per guest post e backlink in Italia</h2>
+            <p class="text-muted">Questa pagina è la lista pubblica del catalogo: nicchia, lingua, DA/DR e prezzo in euro. Non indicizziamo ogni combinazione di filtro. Il catalogo completo, con domini e filtri, si apre dopo la registrazione. ZA SEOZoom non è una colonna dei listing.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\ItalianMoneyLanders::clusterLinks('mercato'),
+                'current' => 'mercato',
+                'title' => 'Pagine correlate',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/it/comprare-guest-post') }}">Acquistare guest post</a>
+                · <a href="{{ url('/it/comprare-backlink') }}">Acquistare backlink</a>
+                · <a href="{{ localized_url('pricing') }}">Prezzi guest post</a>
+                · <a href="{{ url('/guest-posts-italy') }}">Italy inventory (English)</a>
+            </p>
+        </div>
+    @endif
     <p class="text-center small mt-2 mb-0">
         <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
         — median advertiser prices by European publisher country.

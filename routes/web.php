@@ -95,6 +95,7 @@ use App\Services\Marketing\CatalogTeaserService;
 use App\Support\CountryLander;
 use App\Support\EnglishOnlyMarketingSlugs;
 use App\Support\HttpCron;
+use App\Support\ItalianMoneyLanders;
 use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
@@ -294,6 +295,77 @@ foreach ($prefixedLocales as $locale) {
 
             return Redirect::to($query ? $target.'?'.$query : $target, 301);
         });
+    }
+}
+
+$italianMoneySlugs = [];
+$italianMoneyAliases = [];
+if (class_exists(ItalianMoneyLanders::class)) {
+    try {
+        $italianMoneySlugs = ItalianMoneyLanders::slugs();
+        $italianMoneyAliases = ItalianMoneyLanders::aliases();
+    } catch (Throwable) {
+        $italianMoneySlugs = [];
+        $italianMoneyAliases = [];
+    }
+}
+
+if ($italianMoneySlugs !== []) {
+    Route::group([
+        'prefix' => 'it',
+        'as' => 'locale.it.money.',
+    ], function () use ($italianMoneySlugs) {
+        foreach ($italianMoneySlugs as $slug) {
+            Route::get('/'.$slug, [MarketingPageController::class, 'italianMoneyLander'])
+                ->defaults('slug', $slug)
+                ->name($slug);
+        }
+    });
+
+    foreach ($italianMoneySlugs as $slug) {
+        Route::get('/'.$slug, function () use ($slug) {
+            $query = request()->getQueryString();
+            $target = '/it/'.$slug;
+
+            return Redirect::to($query ? $target.'?'.$query : $target, 301);
+        });
+
+        foreach ($prefixedLocales as $locale) {
+            if ($locale === 'it') {
+                continue;
+            }
+            Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
+                $query = request()->getQueryString();
+                $target = '/it/'.$slug;
+
+                return Redirect::to($query ? $target.'?'.$query : $target, 301);
+            });
+        }
+    }
+}
+
+if ($italianMoneyAliases !== []) {
+    foreach ($italianMoneyAliases as $from => $to) {
+        Route::get('/it/'.$from, function () use ($to) {
+            $query = request()->getQueryString();
+
+            return Redirect::to($query ? $to.'?'.$query : $to, 301);
+        });
+        Route::get('/'.$from, function () use ($to) {
+            $query = request()->getQueryString();
+
+            return Redirect::to($query ? $to.'?'.$query : $to, 301);
+        });
+        foreach ($prefixedLocales as $locale) {
+            if ($locale === 'it') {
+                continue;
+            }
+            Route::get('/'.$locale.'/'.$from, function () use ($to) {
+                $query = request()->getQueryString();
+
+                return Redirect::to($query ? $to.'?'.$query : $to, 301);
+            });
+        }
     }
 }
 

@@ -37,6 +37,14 @@ class SponsoredPostGuideI18n
                 'meta_description' => 'Gesponsorde posts uitgelegd: verschil met gastposts, publishers kiezen, en hoe betaalde links gelabeld moeten worden.',
                 'content' => self::nl(),
             ],
+            'it' => [
+                'title' => 'Guest post e articolo sponsorizzato: che differenza c’è',
+                'slug' => 'guest-post-vs-articolo-sponsorizzato',
+                'excerpt' => 'Un articolo sponsorizzato è una pubblicazione a pagamento. Differenza con il guest post, scelta dell’editore, marcatura dei link a pagamento.',
+                'meta_title' => 'Guest post e articolo sponsorizzato: le differenze',
+                'meta_description' => 'Differenza tra guest post e articolo sponsorizzato: quando paghi, come si dichiara il link, e come scegliere i siti sul marketplace.',
+                'content' => self::it(),
+            ],
         ];
     }
 
@@ -253,6 +261,62 @@ HTML;
 <li><a href="https://developers.google.com/search/docs/crawling-indexing/links-crawlable">Crawlable links</a></li>
 <li><a href="https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides-what-people-are-asking">FTC-gidsen (VS)</a></li>
 </ul>
+HTML;
+    }
+
+    private static function it(): string
+    {
+        $backlinks = '/it/blog/come-ottenere-backlink';
+        $guest = '/it/blog/cose-un-guest-post';
+        $linkGuide = '/it/blog/come-fare-link-building';
+        $chooseSite = '/blog/how-to-choose-a-publisher-site-dr-da-traffic-niche';
+        $buy = '/it/comprare-guest-post';
+        $sponsoredPage = '/it/articoli-sponsorizzati';
+        $brief = '/blog/guest-post-brief-anchors-urls-images-sensitive-topics';
+        $dofollow = '/it/blog/dofollow-vs-nofollow';
+        $price = '/blog/how-to-price-your-site-and-sensitive-niches';
+        $live = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
+        $removed = '/blog/what-happens-if-a-live-link-is-removed';
+        $catalog = '/it/mercato';
+        $how = '/it/come-funziona';
+        $img = BlogInlineImages::publicUrl(SponsoredPostGuideBlogPost::IMAGE_COMPARE);
+
+        return <<<HTML
+<p>Un articolo sponsorizzato (pubbliredazionale, post sponsorizzato, pubblicazione a pagamento) è un pezzo che il publisher mette online perché qualcuno ha pagato, scambiato o altrimenti compensato. È pubblicità in veste editoriale. Lecito. Fingerlo come raccomandazione gratuita, no.</p>
+<p>Flusso contributor non pagato: <a href="{$guest}">cos’è un guest post</a>. Mix di tattiche: <a href="{$linkGuide}">link building</a>. Landing commerciale: <a href="{$sponsoredPage}">articoli sponsorizzati</a>.</p>
+
+<h2>Cos’è un articolo sponsorizzato</h2>
+<p>Native advertising sul sito del publisher. Altri nomi — advertorial, paid post, partner content, inserzione editoriale — descrivono lo stesso fatto commerciale. Anche prodotto, obbligo affiliate o sconto in cambio di un URL live contano come corrispettivo. Se l’articolo senza l’accordo non esisterebbe, trattalo come sponsorizzato.</p>
+
+<h2>Sponsored vs guest post vs editoriale</h2>
+<figure>
+<img src="{$img}" alt="Confronto: articolo editoriale, guest post, articolo sponsorizzato — committenza, pagamento, disclosure, marcatura del link" loading="lazy" width="1200" height="675">
+<figcaption>Le pubblicazioni a pagamento sono lecite. Il problema nelle spam policy è il link ranking non qualificato venduto come prodotto.</figcaption>
+</figure>
+<p>Una fattura “guest post” per un dofollow exact-match è una pubblicazione sponsorizzata con un nome più gentile. Nei report tieni le etichette.</p>
+
+<h2>Flusso e perché le aziende lo usano</h2>
+<p>Fissa landing e obiettivo (traffico, citazione o entrambi), shortlist publisher, prezzo, disclosure, attributo, durata per iscritto, scrivere/revisionare, live, ricontrollare — <a href="{$live}">dopo il live</a>, <a href="{$removed}">se un link viene rimosso</a>.</p>
+<p>Su un marketplace come <a href="{$catalog}">SEOLinkBuildings</a> le regole stanno spesso sul listing. Facilita il confronto. Non rende ogni listing un buon acquisto. <a href="{$how}">Come funziona</a>, <a href="{$buy}">acquistare guest post</a>.</p>
+
+<h2>Scegliere il publisher</h2>
+<p>Rilevanza, pubblico, traffico della sezione, qualità dei contenuti, vincoli scritti, prezzo senza medie globali inventate. <a href="{$chooseSite}">Scegliere un sito</a>, <a href="{$brief}">brief</a>, <a href="{$price}">prezzare il sito</a>.</p>
+
+<h2>Attributi e Google</h2>
+<p>Comprare/vendere link che passano credito di ranking per manipolare: link spam. La pubblicità è normale se qualificata. <code>rel="sponsored"</code> è l’attributo documentato (2019). <code>nofollow</code> resta valido; sono hint. <a href="{$dofollow}">Dofollow vs nofollow e rel sponsored</a>. Non chiedere di togliere <code>sponsored</code>. Acquisizione: <a href="{$backlinks}">come ottenere backlink</a>.</p>
+
+<h2>Cosa chiedi, cosa dichiari</h2>
+<p>Quale URL, chi scrive, quale <code>rel</code>, quale etichetta per i lettori, indicizzabile, durata, quanti link commerciali, approvazione prima del live, temi sensibili. I lettori devono capire l’accordo. Attributo HTML e disclosure visibile sono due compiti.</p>
+
+<h2>Domande frequenti</h2>
+<h3>Google permette i post sponsorizzati?</h3>
+<p>La pubblicità fa parte del web. Il problema è il link ranking non qualificato.</p>
+<h3>È la stessa cosa di un guest post?</h3>
+<p>No. Alcuni venditori usano la stessa parola. Contratto e <code>rel</code> devono dire la verità.</p>
+<h3>Il link migliorerà il ranking?</h3>
+<p>Nessuno può prometterlo. Un articolo pertinente può comunque mandare lettori.</p>
+<h3>Ogni link a pagamento deve essere nofollow?</h3>
+<p>Il qualificatore documentato è <code>sponsored</code>. <code>nofollow</code> va bene lo stesso.</p>
 HTML;
     }
 }

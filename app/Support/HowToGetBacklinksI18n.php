@@ -37,6 +37,14 @@ class HowToGetBacklinksI18n
                 'meta_description' => 'Praktische gids: hoe je backlinks krijgt, waar je kwaliteit herkent, en hoe betaalde plaatsingen verschillen van verdiende links.',
                 'content' => self::nl(),
             ],
+            'it' => [
+                'title' => 'Come ottenere backlink: guida pratica ai link di qualità',
+                'slug' => 'come-ottenere-backlink',
+                'excerpt' => 'Come ottenere e valutare i backlink: rilevanza, referring domain, guest post, digital PR — e perché una pubblicazione a pagamento non è una citazione editoriale.',
+                'meta_title' => 'Come ottenere backlink: una guida pratica per il SEO',
+                'meta_description' => 'Come ottenere backlink utili: rilevanza, referring domain, guest post, PR digitale, e come i link a pagamento si distinguono da quelli guadagnati.',
+                'content' => self::it(),
+            ],
         ];
     }
 
@@ -266,6 +274,56 @@ HTML;
 <li><a href="https://developers.google.com/search/docs/crawling-indexing/links-crawlable">Crawlable links</a></li>
 <li><a href="https://developers.google.com/search/docs/fundamentals/creating-helpful-content">Nuttige content</a></li>
 </ul>
+HTML;
+    }
+
+    private static function it(): string
+    {
+        $guest = '/it/blog/cose-un-guest-post';
+        $sponsored = '/it/blog/guest-post-vs-articolo-sponsorizzato';
+        $linkGuide = '/it/blog/come-fare-link-building';
+        $chooseSite = '/blog/how-to-choose-a-publisher-site-dr-da-traffic-niche';
+        $buy = '/it/comprare-guest-post';
+        $dofollow = '/it/blog/dofollow-vs-nofollow';
+        $outreach = '/blog/marketplace-vs-cold-outreach-vs-digital-pr';
+        $catalog = '/it/mercato';
+        $how = '/it/come-funziona';
+        $back = '/it/comprare-backlink';
+        $img = BlogInlineImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS);
+
+        return <<<HTML
+<p>Un backlink è un collegamento ipertestuale da un sito a un altro. I motori lo usano, insieme ad altri segnali, per capire come le pagine si relazionano e chi cita chi.</p>
+<p>Tutta la meccanica è questa. Il resto della guida serve a non sprecare mesi su link che non aiutano la pagina di destinazione.</p>
+<p>La strategia — tipi di link, misura, roadmap — sta in <a href="{$linkGuide}">come fare link building</a>. Qui è acquisizione: come si ottengono i backlink, e come si distingue un link utile da uno rumoroso.</p>
+
+<h2>Cos’è un backlink</h2>
+<p>Il sito A pubblica una pagina che punta a una URL del sito B. Per B è un backlink. Il sito che invia il link è un <strong>referring domain</strong> se non lo hai già contato.</p>
+<p>Dieci link dallo stesso blog non sono dieci publisher. I report vanno tenuti separati.</p>
+<p>Un backlink può essere editoriale, ottenuto con outreach, pagato/sponsorizzato o user-generated. Non è la stessa cosa. Le spam policy di Google trattano l’acquisto di link <em>per manipolare i ranking</em> come link spam; pubblicità e sponsorizzazioni sono normali se marcate con <code>rel="sponsored"</code> o <code>rel="nofollow"</code>. Dettagli: <a href="{$sponsored}">articolo sponsorizzato</a>.</p>
+
+<h2>Perché i backlink possono contare</h2>
+<p>Non sono un codice per il primo posto. Aiutano discovery e contesto. Non aspettarti “N backlink, poi rank 1”. Contano anche contenuto, intento, link interni e concorrenza.</p>
+
+<h2>Cosa rende un backlink utile</h2>
+<p>Valuta la pagina, non il logo. La <strong>rilevanza</strong> a livello di URL batte una nicchia vaga in homepage. Nuovi referring domain insegnano di più del quinto link dallo stesso host. Un link nel corpo batte il footer. DA/DR sono filtri, non prove — <a href="{$chooseSite}">scegliere un publisher</a>. Il traffico verso la pagina che linka è un controllo di plausibilità, non un contratto. ZA non è una metrica del catalogo SEOLinkBuildings.</p>
+
+<h2>Modi per ottenere backlink</h2>
+<figure>
+<img src="{$img}" alt="Cinque vie ai backlink: digital PR, guest post, pagina risorse, broken link, sponsored" loading="lazy" width="1200" height="675">
+<figcaption>I backlink utili arrivano da metodi adatti alla pagina — non da un obbligo di volume.</figcaption>
+</figure>
+<p>Guest post: <a href="{$guest}">cos’è un guest post</a>. Digital PR vuole una storia, non un PDF. Asset linkabili prima, outreach dopo. Directory di camere e associazioni possono essere legittime; le “SEO directory” che vendono solo slot dofollow, no. Outreach: una richiesta concreta batte un template. Confronto: <a href="{$outreach}">marketplace vs cold outreach vs PR</a>.</p>
+<p>Le pubblicazioni a pagamento sono pubblicità. Un catalogo come <a href="{$catalog}">SEOLinkBuildings</a> è inventario con regole, non un sacco di “link ranking garantiti”. Flusso: <a href="{$how}">come funziona</a> e <a href="{$buy}">acquistare guest post</a>. Per l’intento “comprare link”: <a href="{$back}">acquistare backlink</a>.</p>
+
+<h2>Domande frequenti</h2>
+<h3>Quanti backlink mi servono?</h3>
+<p>Non c’è un numero universale. Segui query pertinenti e citazioni utili.</p>
+<h3>I nofollow servono?</h3>
+<p>Google li tratta come hint. Portano ancora persone. Non inutili, non un trucco.</p>
+<h3>I link da marketplace sono “cattivi”?</h3>
+<p>Il marketplace trova i publisher. La qualità dipende da sito, articolo e marcatura.</p>
+<h3>Devo fare disavow?</h3>
+<p>Quasi tutti i siti raccolgono spazzatura. Niente panico. Search Console, pattern che controlli tu.</p>
 HTML;
     }
 }
