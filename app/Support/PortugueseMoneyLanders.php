@@ -396,11 +396,11 @@ class PortugueseMoneyLanders
             'agencias' => [
                 'kicker' => 'Conta B2B',
                 'h1' => 'Link building para agências em Portugal',
-                'subtitle' => 'Catálogo self-service para agências SEO, revendedores e equipas que refacturam. Carteira EUR, encomendas com acompanhamento, faturas onde o Billing as emite.',
+                'subtitle' => 'Catálogo self-service para agências SEO, revendedores e equipas que refaturam. Carteira EUR, encomendas com acompanhamento, faturas na faturação do anunciante.',
                 'meta_title' => 'Link building para agências em Portugal | SEOLinkBuildings',
                 'meta_description' => 'White label e guest posts para agências em Portugal: catálogo EUR, faturas, encomendas por marca — sem um frontend de revenda com o seu logotipo.',
                 'teaser_countries' => ['pt'],
-                'teaser_title' => 'Inventário que pode refacturar',
+                'teaser_title' => 'Inventário que pode refaturar',
                 'teaser_subtitle' => 'Os mesmos listings que um anunciante interno. A conta é sua; as marcas vivem nos seus projetos e encomendas.',
                 'intro' => [
                     '«Agência linkbuilding Portugal», «guest post para agências» e «outreach linkbuilding» procuram um fornecedor que execute. Aqui a agência mantém o comando: escolhe sites, paga e entrega o URL em vivo ao cliente.',

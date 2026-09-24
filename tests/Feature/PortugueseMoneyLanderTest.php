@@ -88,6 +88,12 @@ class PortugueseMoneyLanderTest extends TestCase
         $precos = $this->get('/pt/precos')->assertOk()->getContent();
         $this->assertStringContainsString('Quanto custa um guest post em Portugal', $precos);
         $this->assertStringContainsString('Preços de guest post e backlinks em Portugal', $precos);
+
+        $agencias = $this->get('/pt/agencias')->assertOk()->getContent();
+        $this->assertStringContainsString('equipas que refaturam', $agencias);
+        $this->assertStringContainsString('faturação do anunciante', $agencias);
+        $this->assertStringNotContainsString('refactur', $agencias);
+        $this->assertStringNotContainsString('Billing', $agencias);
     }
 
     public function test_sitemap_and_english_lander(): void
