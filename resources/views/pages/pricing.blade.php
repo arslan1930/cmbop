@@ -153,4 +153,17 @@
     ])
 </div>
 @endif
+@if(function_exists('public_locale') && public_locale() === 'fr' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\FrenchMoneyLanders::class) && method_exists(\App\Support\FrenchMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Prix affichés au checkout</h2>
+    <p class="text-muted">Nous ne publions pas un PDF figé et nous n’inventons pas de TVA française : le prix est celui du site, en euros, au checkout. Le coût du netlinking et le tarif d’un article sponsorisé suivent les listings que vous choisissez. Les forfaits chiffrés plus haut sont des campagnes de digital PR gérées, pas un sac d’URL anonymes.</p>
+    <p class="text-muted">Les prix en vigueur sont dans le <a href="{{ localized_url('marketplace') }}">catalogue français</a>, après inscription. Index européen (page en anglais) : <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <p class="text-muted">Le prix dépend de l’autorité, du trafic déclaré, de la thématique, du pays, des exigences de contenu et de la relecture — selon le listing, pas selon des moyennes inventées. Le siège est à Londres (Topurlz Ltd) ; il n’y a pas de SIRET français.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\FrenchMoneyLanders::clusterLinks('tarifs'),
+        'current' => 'tarifs',
+        'title' => 'Pages liées',
+    ])
+</div>
+@endif
 @endsection

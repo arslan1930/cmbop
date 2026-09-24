@@ -42,8 +42,8 @@ class PortugueseMoneyLanderTest extends TestCase
     public function test_portugal_owns_unique_slugs_and_shares_with_italy(): void
     {
         $this->get('/pt/comprar-guest-post')->assertOk();
-        $this->get('/comprar-guest-post')->assertRedirect('/pt/comprar-guest-post');
-        $this->get('/fr/comprar-guest-post')->assertRedirect('/pt/comprar-guest-post');
+        $this->get('/comprar-guest-post')->assertRedirect('/es/comprar-guest-post');
+        $this->get('/fr/comprar-guest-post')->assertRedirect('/es/comprar-guest-post');
 
         $this->get('/pt/link-building')->assertOk();
         $this->get('/it/link-building')->assertOk();
@@ -117,8 +117,8 @@ class PortugueseMoneyLanderTest extends TestCase
     {
         $this->assertSame(['pt'], PortugueseMoneyLanders::copyRedirectLocales());
         $this->assertSame(['pt'], PublicI18n::catalogTeaserCountries('pt'));
-        $this->assertSame(['pt'], PublicI18n::moneyLanderLocales('comprar-guest-post'));
-        $this->assertSame('pt', PublicI18n::moneyLanderXDefault('comprar-guest-post'));
+        $this->assertSame(['es', 'pt'], PublicI18n::moneyLanderLocales('comprar-guest-post'));
+        $this->assertSame('es', PublicI18n::moneyLanderXDefault('comprar-guest-post'));
         $this->assertContains('pt', PublicI18n::moneyLanderLocales('link-building'));
         $this->assertContains('it', PublicI18n::moneyLanderLocales('link-building'));
         $this->assertSame('it', PublicI18n::moneyLanderXDefault('link-building'));

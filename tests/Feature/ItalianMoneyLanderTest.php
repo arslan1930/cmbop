@@ -138,7 +138,7 @@ class ItalianMoneyLanderTest extends TestCase
     public function test_italian_teaser_countries_are_italy(): void
     {
         $this->assertSame(['it'], PublicI18n::catalogTeaserCountries('it'));
-        $this->assertSame(['de'], PublicI18n::catalogTeaserCountries('fr'));
+        $this->assertSame(['fr'], PublicI18n::catalogTeaserCountries('fr'));
     }
 
     public function test_italian_pillar_translations_render_on_localized_slugs(): void
