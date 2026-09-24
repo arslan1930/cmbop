@@ -214,7 +214,7 @@ class AustrianMoneyLanders
                     ],
                     [
                         'q' => 'Gibt es eine Rechnung?',
-                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen im Billing herunterladen, soweit das Produkt sie ausstellt.',
+                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen in der Rechnungsübersicht herunterladen, soweit das Produkt sie ausstellt.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Konto anlegen und Katalog öffnen', 'url' => $register],
@@ -272,7 +272,7 @@ class AustrianMoneyLanders
                         'a' => 'Nur wenn das Listing das zulässt. Viele Publisher kennzeichnen bezahlte Veröffentlichungen.',
                     ],
                     [
-                        'q' => 'Bietet ihr APA-OTS oder Wiener Tageszeitungen?',
+                        'q' => 'Bieten Sie APA-OTS oder Wiener Tageszeitungen?',
                         'a' => 'Nur wenn diese Domain im Katalog ist. Wir versprechen kein OTS und kein Google News.',
                     ],
                 ],
@@ -323,7 +323,7 @@ class AustrianMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Verkauft ihr Linkbuilding-Pakete?',
+                        'q' => 'Verkaufen Sie Linkbuilding-Pakete?',
                         'a' => 'Nicht als undurchsichtiges SKU. Sie kaufen einzelne Veröffentlichungen. Die nummerierten Pakete auf der Preisseite sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.',
                     ],
                     [
@@ -386,7 +386,7 @@ class AustrianMoneyLanders
                         'a' => 'Sie können Angebote filtern, die das deklarieren. Der Publisher bleibt für das Live-HTML verantwortlich.',
                     ],
                     [
-                        'q' => 'Macht ihr Link-Inserts in bestehende Artikel?',
+                        'q' => 'Machen Sie Link-Inserts in bestehende Artikel?',
                         'a' => 'Nicht als Niche-Edit-SKU. Manche Sites verkaufen ein zeitlich begrenztes Homepage-Extra.',
                     ],
                     [
@@ -405,7 +405,7 @@ class AustrianMoneyLanders
             'agenturen' => [
                 'kicker' => 'B2B-Konto',
                 'h1' => 'Linkbuilding für Agenturen in Österreich',
-                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen wo das Billing sie ausstellt.',
+                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen in der Rechnungsübersicht, soweit das Produkt sie ausstellt.',
                 'meta_title' => 'Linkbuilding für Agenturen in Österreich | SEOLinkBuildings',
                 'meta_description' => 'White-Label-Linkbuilding und Gastbeiträge für Agenturen in Österreich: EUR-Katalog, Rechnungen, Aufträge pro Brand — ohne gebrandetes Reseller-Frontend.',
                 'teaser_countries' => ['at'],
@@ -422,7 +422,7 @@ class AustrianMoneyLanders
                     ],
                     [
                         'title' => 'Auftrag und Rechnung',
-                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie im Advertiser-Billing herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
+                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie in der Rechnungsübersicht des Advertisers herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
                     ],
                     [
                         'title' => 'Plattform für SEO-Teams',
@@ -445,8 +445,8 @@ class AustrianMoneyLanders
                         'a' => 'Ja, indem Sie das Konto selbst bedienen. Wir liefern kein gebrandetes White-Label-Portal.',
                     ],
                     [
-                        'q' => 'Stellt ihr österreichische E-Rechnungen aus?',
-                        'a' => 'Das Billing folgt der UK-Gesellschaft des Produkts. Laden Sie die Belege aus Wallet/Rechnungen und klären Sie mit Ihrer Buchhaltung, ob Sie weitere Integrationen brauchen.',
+                        'q' => 'Stellen Sie österreichische E-Rechnungen aus?',
+                        'a' => 'Die Rechnungsstellung folgt der UK-Gesellschaft des Produkts. Laden Sie die Belege aus Wallet/Rechnungen und klären Sie mit Ihrer Buchhaltung, ob Sie weitere Integrationen brauchen.',
                     ],
                     [
                         'q' => 'Gibt es eine separate Agentur-Preisliste?',
@@ -500,7 +500,7 @@ class AustrianMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Publiziert ihr bei Google News oder APA OTS?',
+                        'q' => 'Publizieren Sie bei Google News oder APA OTS?',
                         'a' => 'Nein als Produkt. Steht eine Katalog-Site in News oder in einem Aussendungsdienst, hängt das vom Publisher ab, nicht von uns.',
                     ],
                     [

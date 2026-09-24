@@ -382,7 +382,7 @@ class ItalianMoneyLanders
                 'teaser_subtitle' => 'Stessi listing degli inserzionisti interni. Tu resti l’account; i brand stanno nei tuoi progetti/ordini.',
                 'intro' => [
                     'Le ricerche “agenzia link building”, “agenzia guest post” e “consulente link building” spesso vogliono un fornitore che esegua. Qui l’agenzia resta in controllo: sceglie i siti, paga, consegna l’URL al cliente.',
-                    'White label operativo significa che il cliente finale non deve creare un account sul marketplace. Non è un programma reseller con il tuo logo sul frontend pubblico.',
+                    'White label operativo significa che il cliente finale non deve creare un account sul marketplace. Non è un programma di rivendita con il tuo logo sul sito pubblico.',
                 ],
                 'points' => [
                     [

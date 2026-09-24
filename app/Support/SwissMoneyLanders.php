@@ -216,7 +216,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'q' => 'Gibt es eine Rechnung?',
-                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen im Billing herunterladen, soweit das Produkt sie ausstellt.',
+                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen in der Rechnungsübersicht herunterladen, soweit das Produkt sie ausstellt.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Konto anlegen und Katalog öffnen', 'url' => $register],
@@ -274,7 +274,7 @@ class SwissMoneyLanders
                         'a' => 'Nur wenn das Listing das zulässt. Viele Publisher kennzeichnen bezahlte Veröffentlichungen.',
                     ],
                     [
-                        'q' => 'Bietet ihr Zürcher Tageszeitungen oder eine Agenturmeldung?',
+                        'q' => 'Bieten Sie Zürcher Tageszeitungen oder eine Agenturmeldung?',
                         'a' => 'Nur wenn diese Domain im Katalog ist. Wir versprechen keine Agenturmeldung und kein Google News.',
                     ],
                 ],
@@ -325,7 +325,7 @@ class SwissMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Verkauft ihr Linkbuilding-Pakete?',
+                        'q' => 'Verkaufen Sie Linkbuilding-Pakete?',
                         'a' => 'Nicht als undurchsichtiges SKU. Sie kaufen einzelne Veröffentlichungen. Die nummerierten Pakete auf der Preisseite sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.',
                     ],
                     [
@@ -388,7 +388,7 @@ class SwissMoneyLanders
                         'a' => 'Sie können Angebote filtern, die das deklarieren. Der Publisher bleibt für das Live-HTML verantwortlich.',
                     ],
                     [
-                        'q' => 'Macht ihr Link-Inserts in bestehende Artikel?',
+                        'q' => 'Machen Sie Link-Inserts in bestehende Artikel?',
                         'a' => 'Nicht als Niche-Edit-SKU. Manche Sites verkaufen ein zeitlich begrenztes Homepage-Extra.',
                     ],
                     [
@@ -407,7 +407,7 @@ class SwissMoneyLanders
             'agenturen' => [
                 'kicker' => 'B2B-Konto',
                 'h1' => 'Linkbuilding für Agenturen in der Schweiz',
-                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen wo das Billing sie ausstellt.',
+                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen in der Rechnungsübersicht, soweit das Produkt sie ausstellt.',
                 'meta_title' => 'Linkbuilding für Agenturen in der Schweiz | SEOLinkBuildings',
                 'meta_description' => 'White-Label-Linkbuilding und Gastbeiträge für Agenturen in der Schweiz: EUR-Katalog, Rechnungen, Aufträge pro Brand — ohne gebrandetes Reseller-Frontend.',
                 'teaser_countries' => ['ch'],
@@ -424,7 +424,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'title' => 'Auftrag und Rechnung',
-                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie im Advertiser-Billing herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
+                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie in der Rechnungsübersicht des Advertisers herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
                     ],
                     [
                         'title' => 'Plattform für SEO-Teams',
@@ -447,8 +447,8 @@ class SwissMoneyLanders
                         'a' => 'Ja, indem Sie das Konto selbst bedienen. Wir liefern kein gebrandetes White-Label-Portal.',
                     ],
                     [
-                        'q' => 'Stellt ihr Schweizer MWST-Rechnungen aus?',
-                        'a' => 'Das Billing folgt der UK-Gesellschaft (Topurlz Ltd, London). Es gibt keine erfundene Schweizer Niederlassung und keinen CHF-Checkout. Klären Sie MWST mit Ihrer Buchhaltung.',
+                        'q' => 'Stellen Sie Schweizer MWST-Rechnungen aus?',
+                        'a' => 'Die Rechnungsstellung folgt der UK-Gesellschaft (Topurlz Ltd, London). Es gibt keine erfundene Schweizer Niederlassung und keinen CHF-Checkout. Klären Sie MWST mit Ihrer Buchhaltung.',
                     ],
                     [
                         'q' => 'Gibt es eine separate Agentur-Preisliste?',
@@ -502,7 +502,7 @@ class SwissMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Publiziert ihr bei Google News oder über eine Agenturmeldung?',
+                        'q' => 'Publizieren Sie bei Google News oder über eine Agenturmeldung?',
                         'a' => 'Nein als Produkt. Steht eine Katalog-Site in News oder in einem Aussendungsdienst, hängt das vom Publisher ab, nicht von uns.',
                     ],
                     [
