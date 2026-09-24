@@ -99,6 +99,7 @@ use App\Support\GermanMoneyLanders;
 use App\Support\HttpCron;
 use App\Support\ItalianMoneyLanders;
 use App\Support\LocalizedPublicPath;
+use App\Support\PortugueseMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
 use App\Support\UserMessages;
@@ -356,6 +357,16 @@ if ($italianMoneySlugs !== [] && method_exists(MarketingPageController::class, '
                 )) {
                 continue;
             }
+            if (class_exists(PortugueseMoneyLanders::class)
+                && (
+                    (method_exists(PortugueseMoneyLanders::class, 'capturesLocaleCopy')
+                        && PortugueseMoneyLanders::capturesLocaleCopy($locale, $slug))
+                    || ($locale === 'pt'
+                        && method_exists(PortugueseMoneyLanders::class, 'isPublicSegment')
+                        && PortugueseMoneyLanders::isPublicSegment($slug))
+                )) {
+                continue;
+            }
             Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
                 $query = request()->getQueryString();
                 $target = '/it/'.$slug;
@@ -399,6 +410,16 @@ if ($italianMoneyAliases !== []) {
                     || ($locale === 'at'
                         && method_exists(AustrianMoneyLanders::class, 'isPublicSegment')
                         && AustrianMoneyLanders::isPublicSegment($from))
+                )) {
+                continue;
+            }
+            if (class_exists(PortugueseMoneyLanders::class)
+                && (
+                    (method_exists(PortugueseMoneyLanders::class, 'capturesLocaleCopy')
+                        && PortugueseMoneyLanders::capturesLocaleCopy($locale, $from))
+                    || ($locale === 'pt'
+                        && method_exists(PortugueseMoneyLanders::class, 'isPublicSegment')
+                        && PortugueseMoneyLanders::isPublicSegment($from))
                 )) {
                 continue;
             }
@@ -469,6 +490,16 @@ if ($germanMoneySlugs !== [] && method_exists(MarketingPageController::class, 'g
                 )) {
                 continue;
             }
+            if (class_exists(PortugueseMoneyLanders::class)
+                && (
+                    (method_exists(PortugueseMoneyLanders::class, 'capturesLocaleCopy')
+                        && PortugueseMoneyLanders::capturesLocaleCopy($locale, $slug))
+                    || ($locale === 'pt'
+                        && method_exists(PortugueseMoneyLanders::class, 'isPublicSegment')
+                        && PortugueseMoneyLanders::isPublicSegment($slug))
+                )) {
+                continue;
+            }
             Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
                 $query = request()->getQueryString();
                 $target = '/de/'.$slug;
@@ -517,6 +548,16 @@ if ($germanMoneyAliases !== []) {
                 )) {
                 continue;
             }
+            if (class_exists(PortugueseMoneyLanders::class)
+                && (
+                    (method_exists(PortugueseMoneyLanders::class, 'capturesLocaleCopy')
+                        && PortugueseMoneyLanders::capturesLocaleCopy($locale, $from))
+                    || ($locale === 'pt'
+                        && method_exists(PortugueseMoneyLanders::class, 'isPublicSegment')
+                        && PortugueseMoneyLanders::isPublicSegment($from))
+                )) {
+                continue;
+            }
             Route::get('/'.$locale.'/'.$from, function () use ($to) {
                 $query = request()->getQueryString();
 
@@ -554,6 +595,72 @@ if ($austrianMoneySlugs !== [] && method_exists(MarketingPageController::class, 
 if ($austrianMoneyAliases !== []) {
     foreach ($austrianMoneyAliases as $from => $to) {
         Route::get('/at/'.$from, function () use ($to) {
+            $query = request()->getQueryString();
+
+            return Redirect::to($query ? $to.'?'.$query : $to, 301);
+        });
+    }
+}
+
+$portugueseMoneySlugs = [];
+$portugueseMoneyAliases = [];
+if (class_exists(PortugueseMoneyLanders::class)) {
+    try {
+        $portugueseMoneySlugs = PortugueseMoneyLanders::slugs();
+        $portugueseMoneyAliases = PortugueseMoneyLanders::aliases();
+    } catch (Throwable) {
+        $portugueseMoneySlugs = [];
+        $portugueseMoneyAliases = [];
+    }
+}
+
+if ($portugueseMoneySlugs !== [] && method_exists(MarketingPageController::class, 'portugueseMoneyLander')) {
+    Route::group([
+        'prefix' => 'pt',
+        'as' => 'locale.pt.money.',
+    ], function () use ($portugueseMoneySlugs) {
+        foreach ($portugueseMoneySlugs as $slug) {
+            Route::get('/'.$slug, [MarketingPageController::class, 'portugueseMoneyLander'])
+                ->defaults('slug', $slug)
+                ->name($slug);
+        }
+    });
+
+    foreach ($portugueseMoneySlugs as $slug) {
+        $italianOwnsSlug = class_exists(ItalianMoneyLanders::class)
+            && ItalianMoneyLanders::isSlug($slug);
+        $germanOwnsSlug = class_exists(GermanMoneyLanders::class)
+            && GermanMoneyLanders::isSlug($slug);
+        $austrianOwnsSlug = class_exists(AustrianMoneyLanders::class)
+            && AustrianMoneyLanders::isSlug($slug);
+        if ($italianOwnsSlug || $germanOwnsSlug || $austrianOwnsSlug) {
+            continue;
+        }
+
+        Route::get('/'.$slug, function () use ($slug) {
+            $query = request()->getQueryString();
+            $target = '/pt/'.$slug;
+
+            return Redirect::to($query ? $target.'?'.$query : $target, 301);
+        });
+
+        foreach ($prefixedLocales as $locale) {
+            if ($locale === 'pt') {
+                continue;
+            }
+            Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
+                $query = request()->getQueryString();
+                $target = '/pt/'.$slug;
+
+                return Redirect::to($query ? $target.'?'.$query : $target, 301);
+            });
+        }
+    }
+}
+
+if ($portugueseMoneyAliases !== []) {
+    foreach ($portugueseMoneyAliases as $from => $to) {
+        Route::get('/pt/'.$from, function () use ($to) {
             $query = request()->getQueryString();
 
             return Redirect::to($query ? $to.'?'.$query : $to, 301);

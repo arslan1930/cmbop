@@ -66,7 +66,7 @@ class PublicI18n
     public static function supported(): array
     {
         return self::configuredLocales('supported', [
-            'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
+            'en', 'de', 'fr', 'nl', 'es', 'it', 'pt', 'us',
             'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
         ]);
     }
@@ -74,7 +74,7 @@ class PublicI18n
     public static function prefixed(): array
     {
         return self::configuredLocales('prefixed', [
-            'de', 'fr', 'nl', 'es', 'it', 'us',
+            'de', 'fr', 'nl', 'es', 'it', 'pt', 'us',
             'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
         ]);
     }
@@ -130,6 +130,7 @@ class PublicI18n
             'no' => 'nb-NO',
             'ee' => 'et-EE',
             'pl' => 'pl-PL',
+            'pt' => 'pt-PT',
             default => $locale,
         };
     }
@@ -153,6 +154,7 @@ class PublicI18n
             'fr' => 'fr_FR',
             'nl' => 'nl_NL',
             'es' => 'es_ES',
+            'pt' => 'pt_PT',
             'it' => 'it_IT',
             'at' => 'de_AT',
             'ch' => 'de_CH',
@@ -200,6 +202,7 @@ class PublicI18n
             'ee' => ['ee'],
             'pl' => ['pl'],
             'it' => ['it'],
+            'pt' => ['pt'],
             default => ['de'],
         };
     }
@@ -226,6 +229,9 @@ class PublicI18n
         if (class_exists(AustrianMoneyLanders::class) && AustrianMoneyLanders::isSlug($slug)) {
             $locales[] = 'at';
         }
+        if (class_exists(PortugueseMoneyLanders::class) && PortugueseMoneyLanders::isSlug($slug)) {
+            $locales[] = 'pt';
+        }
 
         return $locales;
     }
@@ -241,6 +247,9 @@ class PublicI18n
         }
         if (in_array('at', $locales, true)) {
             return 'at';
+        }
+        if (in_array('pt', $locales, true)) {
+            return 'pt';
         }
 
         return self::default();
@@ -318,6 +327,9 @@ class PublicI18n
             'pl' => 'pl',
             'pl-pl' => 'pl',
             'pol' => 'pl',
+            'pt' => 'pt',
+            'pt-pt' => 'pt',
+            'por' => 'pt',
         ];
 
         if (isset($aliases[$normalized]) && self::isSupported($aliases[$normalized])) {
@@ -499,6 +511,10 @@ class PublicI18n
         }
 
         if (class_exists(AustrianMoneyLanders::class) && AustrianMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(PortugueseMoneyLanders::class) && PortugueseMoneyLanders::isPublicSegment($first)) {
             return true;
         }
 

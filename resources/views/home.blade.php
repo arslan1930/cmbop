@@ -85,6 +85,15 @@
             ])
         </div>
     @endif
+    @if (function_exists('public_locale') && public_locale() === 'pt' && class_exists(\App\Support\PortugueseMoneyLanders::class) && method_exists(\App\Support\PortugueseMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\PortugueseMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Páginas de guest posts, backlinks e link building em Portugal',
+            ])
+        </div>
+    @endif
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')

@@ -128,4 +128,16 @@
     ])
 </div>
 @endif
+@if(function_exists('public_locale') && public_locale() === 'pt' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\PortugueseMoneyLanders::class) && method_exists(\App\Support\PortugueseMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Quanto custa um guest post em Portugal</h2>
+    <p class="text-muted">Não publicamos um PDF fixo nem uma tabela com IVA português inventado: o preço é o do site, em euros, no checkout. «Preços backlinks» e «custo link building» seguem os listings que escolher. Os pacotes numerados acima são campanhas de digital PR geridas, não um saco de URLs anónimos.</p>
+    <p class="text-muted">Os preços em vivo estão no <a href="{{ localized_url('marketplace') }}">catálogo português</a> depois do registo. Índice europeu (página em inglês): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\PortugueseMoneyLanders::clusterLinks('precos'),
+        'current' => 'precos',
+        'title' => 'Páginas relacionadas',
+    ])
+</div>
+@endif
 @endsection

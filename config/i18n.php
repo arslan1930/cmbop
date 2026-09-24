@@ -10,13 +10,13 @@ return [
     'default' => 'en',
 
     'supported' => [
-        'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
+        'en', 'de', 'fr', 'nl', 'es', 'it', 'pt', 'us',
         'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
     ],
 
     /** Prefixed locales (UK English has no URL prefix). `us` is US English. */
     'prefixed' => [
-        'de', 'fr', 'nl', 'es', 'it', 'us',
+        'de', 'fr', 'nl', 'es', 'it', 'pt', 'us',
         'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
     ],
 
@@ -45,6 +45,7 @@ return [
         'guest-posts-uk',
         'guest-posts-italy',
         'guest-posts-spain',
+        'guest-posts-portugal',
         'guest-posts-france',
         'guest-posts-netherlands',
         'guest-posts-switzerland',
@@ -106,6 +107,7 @@ return [
         'seolinkbuildings.gr' => 'gr',
         'seolinkbuildings.ro' => 'ro',
         'seolinkbuildings.pl' => 'pl',
+        'seolinkbuildings.pt' => 'pt',
     ],
 
     /** Paths that must always render in English (no locale prefix). */
