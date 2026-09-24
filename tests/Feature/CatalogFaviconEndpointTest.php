@@ -39,6 +39,8 @@ class CatalogFaviconEndpointTest extends TestCase
             'active_role_id' => $publisherRole->id,
         ]);
         $this->publisher->roles()->attach($publisherRole->id);
+
+        Storage::fake('public');
     }
 
     private function makeSite(array $overrides = []): Site
@@ -57,6 +59,7 @@ class CatalogFaviconEndpointTest extends TestCase
             'price' => 80,
             'publication_time' => '7 days',
             'link_type' => 'dofollow',
+            'description' => 'Favicon catalog listing.',
             'verified' => true,
             'active' => 1,
         ], $overrides));

@@ -9,9 +9,9 @@ return [
 
     // Hero Section Translations
     'hero_title' => 'SEOLinkBuildings',
-    'hero_support' => 'Comprate guest post su siti di editori verificati.',
+    'hero_support' => 'Il marketplace di guest post e link building per l’Italia.',
     'get_started' => 'Inizia',
-    'hero_tagline' => 'Il marketplace globale di link building per SEO, PR digitale e distribuzione di contenuti.',
+    'hero_tagline' => 'Piattaforma self-service: catalogo di editori, wallet in EUR e URL live sull’ordine — per SEO, agenzie e PR digitale.',
     'hero_product_alt' => 'Anteprima del catalogo del marketplace con metriche dei publisher e prezzi delle pubblicazioni',
 
     // Footer
@@ -61,17 +61,17 @@ return [
     // Default + page meta (SEOLinkBuildings / seolinkbuildings.com)
     'meta_default_title' => 'SEOLinkBuildings — Marketplace di guest post e backlink',
     'meta_default_description' => 'Seolinkbuildings.com è il marketplace di guest post per comprare e vendere backlink editoriali con publisher verificati e prezzi trasparenti in EUR.',
-    'meta_home_title' => 'Comprare guest post da editori verificati | SEOLinkBuildings',
-    'meta_home_description' => 'Comprare guest post su siti di editori verificati. Wallet in EUR, prezzi chiari, URL live nell\'ordine — il marketplace di SEOLinkBuildings.',
-    'meta_home_description_off' => 'Comprare guest post su siti di editori verificati. Wallet in EUR, prezzi chiari, URL live nell\'ordine — il marketplace di SEOLinkBuildings.',
+    'meta_home_title' => 'Marketplace guest post e link building | SEOLinkBuildings',
+    'meta_home_description' => 'Piattaforma self-service per guest post e backlink editoriali. Catalogo europeo, wallet in EUR, URL live sull’ordine — SEOLinkBuildings.',
+    'meta_home_description_off' => 'Piattaforma self-service per guest post e backlink editoriali. Catalogo europeo, wallet in EUR, URL live sull’ordine — SEOLinkBuildings.',
     'meta_about_title' => 'Chi siamo — Marketplace europeo di guest post | SEOLinkBuildings',
     'meta_about_description' => 'Scopri come SEOLinkBuildings mette in contatto inserzionisti e publisher per guest post etici e PR digitale in Europa e nei mercati anglofoni. Il sito pubblico è disponibile in inglese (UK/US), tedesco, francese, olandese, spagnolo e italiano. Gestito da Topurlz Ltd (UK).',
     'meta_faq_title' => 'FAQ — Guest post, pagamenti e pubblicazione | SEOLinkBuildings',
     'meta_faq_description' => 'Risposte su wallet, ordini, rimborsi, verifica e pubblicazione. Scopri come funziona il marketplace di Seolinkbuildings.com prima di comprare o vendere.',
-    'meta_pricing_title' => 'Prezzi di guest post e PR digitale | SEOLinkBuildings',
-    'meta_pricing_description' => 'Pubblicazioni del marketplace con prezzo per sito, più pacchetti gestiti di PR digitale da 499 €/mese. Prezzi chiari in EUR, senza costi a sorpresa su Seolinkbuildings.com.',
-    'meta_marketplace_title' => 'Sfoglia i siti dei publisher e compra guest post | SEOLinkBuildings',
-    'meta_marketplace_description' => 'Filtra siti web verificati per nicchia, lingua e prezzo. Ordina pubblicazioni editoriali con tracciamento dell\'URL live sul marketplace di SEOLinkBuildings.',
+    'meta_pricing_title' => 'Prezzi guest post e costo link building | SEOLinkBuildings',
+    'meta_pricing_description' => 'Quanto costa un guest post: prezzi per sito in EUR più pacchetti di PR digitale in listino. Nessun listino inventato — i prezzi live stanno nel catalogo.',
+    'meta_marketplace_title' => 'Lista siti per guest post in Italia | SEOLinkBuildings',
+    'meta_marketplace_description' => 'Siti per guest post e backlink in Italia: filtra nicchia, lingua, DA/DR e prezzo in euro. Il catalogo completo si apre dopo la registrazione.',
     'meta_how_it_works_title' => 'Come funziona l\'ordine di un guest post | SEOLinkBuildings',
     'meta_how_it_works_description' => 'Sfoglia publisher verificati con valutazioni e storico di consegna, ricarica un wallet in EUR (20 € di credito di benvenuto), assegna i contenuti, approva l\'URL live e valuta la consegna — e come i publisher pubblicano e vengono pagati.',
     'meta_how_it_works_description_off' => 'Sfoglia publisher verificati con valutazioni e storico di consegna, ricarica un wallet in EUR, assegna i contenuti, approva l\'URL live e valuta la consegna — e come i publisher pubblicano e vengono pagati.',
@@ -191,8 +191,8 @@ return [
 
     // Pricing page chrome
     'pricing_kicker' => 'Prezzi',
-    'pricing_page_title' => 'Prezzi trasparenti per ogni campagna',
-    'pricing_page_subtitle' => 'Paga per pubblicazione nel marketplace, oppure scegli un pacchetto gestito di PR digitale.',
+    'pricing_page_title' => 'Prezzi guest post e costo del link building',
+    'pricing_page_subtitle' => 'Paga per pubblicazione nel marketplace, in euro, oppure scegli un pacchetto gestito di PR digitale in listino.',
     'pricing_hero_title' => 'Compra pubblicazioni adatte al tuo mercato',
     'pricing_hero_lead' => 'Sfoglia siti di publisher verificati, scegli un prezzo adatto e paga dal wallet.',
     'pricing_hero_from' => 'Le pubblicazioni del marketplace partono da',
@@ -207,9 +207,9 @@ return [
     'pricing_create_account' => 'Crea un account',
 
     // Marketplace marketing page
-    'marketplace_kicker' => 'Marketplace',
-    'marketplace_title' => 'Una rete di publisher pensata per i risultati SEO',
-    'marketplace_subtitle' => 'Filtra per Paese, lingua, categoria e metriche, poi compra pubblicazioni con prezzi chiari.',
+    'marketplace_kicker' => 'Catalogo',
+    'marketplace_title' => 'Lista siti per guest post in Italia',
+    'marketplace_subtitle' => 'Confronta editori italiani ed europei per nicchia, lingua, DA/DR e prezzo in euro. I domini completi si vedono dopo il login.',
     'marketplace_point_1_title' => 'Publisher verificati',
     'marketplace_point_1_body' => 'Concentrati su siti editoriali reali in Europa e nei principali mercati internazionali.',
     'marketplace_point_2_title' => 'Checkout dal wallet',

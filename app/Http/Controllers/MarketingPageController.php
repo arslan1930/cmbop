@@ -10,6 +10,7 @@ use App\Services\CuratedBlogWriter;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\CountryLander;
+use App\Support\ItalianMoneyLanders;
 use Throwable;
 
 class MarketingPageController extends Controller
@@ -66,6 +67,34 @@ class MarketingPageController extends Controller
             'priceFrom' => $teasers?->priceFromForCountries($codes),
             'blogLinks' => $this->landerBlogLinks($lander['blog_slugs'] ?? []),
             'siblings' => $this->countryLanderSiblings($key),
+        ]);
+    }
+
+    public function italianMoneyLander(string $slug)
+    {
+        abort_unless(class_exists(ItalianMoneyLanders::class), 404);
+        abort_unless(view()->exists('pages.italian-money-lander'), 404);
+
+        $page = ItalianMoneyLanders::find($slug);
+        abort_unless(is_array($page), 404);
+
+        $codes = array_values(array_filter(array_map(
+            static fn ($code) => strtolower(trim((string) $code)),
+            $page['teaser_countries'] ?? ['it']
+        )));
+        if ($codes === []) {
+            $codes = ['it'];
+        }
+
+        $teasers = $this->catalogTeaserService();
+
+        return view('pages.italian-money-lander', [
+            'slug' => $slug,
+            'page' => $page,
+            'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
+            'siteCount' => $teasers?->countForCountries($codes),
+            'priceFrom' => $teasers?->priceFromForCountries($codes),
+            'cluster' => ItalianMoneyLanders::clusterLinks($slug),
         ]);
     }
 
@@ -247,6 +276,11 @@ class MarketingPageController extends Controller
                 'gastposts-kopen-op-seolinkbuildings-adverteerdersgids',
                 'uitgevers-kiezen-dr-da-verkeer-en-niche',
                 'what-to-check-after-the-live-link-indexation-attributes-rankings',
+            ],
+            'it' => [
+                'cose-un-guest-post',
+                'come-fare-link-building',
+                'come-ottenere-backlink',
             ],
         ];
 

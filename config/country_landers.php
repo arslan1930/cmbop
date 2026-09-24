@@ -112,10 +112,12 @@ return [
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',
             'wallet-escrow-and-refunds-explained',
         ],
+        'native_url' => '/it/comprare-guest-post',
+        'native_label' => 'Acquistare guest post in italiano',
         'faqs' => [
             [
                 'q' => 'Posso comprare guest post in Italia da questo marketplace?',
-                'a' => 'Yes. This English page is the public lander for Italy inventory. After you register, filter country Italy and check out in EUR.',
+                'a' => 'Yes. This English page is the public lander for Italy inventory. The Italian conversion page is /it/comprare-guest-post. After you register, filter country Italy and check out in EUR.',
             ],
             [
                 'q' => 'Is the article written in Italian?',

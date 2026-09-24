@@ -993,7 +993,7 @@ class MarketingOpsScopeTest extends TestCase
             ->getContent();
 
         $this->assertSame(1, substr_count($html, 'Please fix the following'));
-        $this->assertSame(1, substr_count($html, 'data-slb-flash'));
+        $this->assertSame(1, substr_count($html, 'slb-flash-stack'));
         $this->assertSame(0, Site::where('domain', 'one-banner.example')->count());
     }
 

@@ -176,6 +176,9 @@
 
     <div class="text-center d-flex flex-wrap justify-content-center gap-2">
         <a href="{{ url('/register') }}" class="btn btn-primary btn-lg px-4">{{ __('messages.get_started') }}</a>
+        @if(!empty($lander['native_url']))
+            <a href="{{ url($lander['native_url']) }}" class="btn btn-outline-primary btn-lg px-4">{{ $lander['native_label'] ?? $lander['native_url'] }}</a>
+        @endif
         <a href="{{ localized_url('become-a-publisher') }}" class="btn btn-outline-secondary btn-lg px-4">{{ __('messages.nav_become_publisher') }}</a>
         <a href="{{ localized_url('how-it-works') }}" class="btn btn-outline-secondary btn-lg px-4">{{ __('messages.nav_how_it_works') }}</a>
     </div>

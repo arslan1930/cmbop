@@ -51,7 +51,18 @@ class DofollowNofollowAnchorsEnBlogPost
             'status' => 'published',
             'featured_image' => self::FEATURED_STORAGE,
             'faq' => self::faqItems(),
+            'translations' => self::translations(),
         ];
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    public static function translations(): array
+    {
+        return class_exists(DofollowNofollowAnchorsI18n::class)
+            ? DofollowNofollowAnchorsI18n::all()
+            : [];
     }
 
     /**

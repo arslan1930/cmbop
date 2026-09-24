@@ -63,8 +63,8 @@ class PublicI18nTest extends TestCase
                 'Achetez des guest posts sur des sites d’éditeurs vérifiés.',
             ],
             '/it' => [
-                'Comprare guest post da editori verificati | SEOLinkBuildings',
-                'Comprate guest post su siti di editori verificati.',
+                'Marketplace guest post e link building | SEOLinkBuildings',
+                'Il marketplace di guest post e link building per l’Italia.',
             ],
             '/es' => [
                 'Comprar guest posts de editores verificados | SEOLinkBuildings',
@@ -332,7 +332,7 @@ class PublicI18nTest extends TestCase
             ->assertOk()
             ->assertSee('Accedi', false)
             ->assertSee('Registrati', false)
-            ->assertSee('Il marketplace globale di link building', false)
+            ->assertSee('Piattaforma self-service: catalogo di editori', false)
             ->assertSee('Come funziona', false);
     }
 

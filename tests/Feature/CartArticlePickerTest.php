@@ -118,7 +118,8 @@ class CartArticlePickerTest extends TestCase
         $this->assertStringContainsString('raw.replace(/\\s+\\(\\d+\\)\\s*$/', $layout);
         $this->assertStringContainsString('flips >= 4 || raw.length >= 20', $layout);
         $this->assertStringContainsString('Assigned article', $layout);
-        $this->assertStringContainsString('<optgroup label="Matches this site">', $layout);
+        $this->assertStringContainsString("label: 'Matches this site'", $layout);
+        $this->assertStringContainsString('<optgroup label="', $layout);
         $this->assertStringContainsString('None of your articles match — you can still assign one.', $layout);
         $this->assertStringContainsString('!selectedId && matching.length === 0 && other.length > 0', $layout);
         $this->assertStringContainsString('selectedId && item.language_note', $layout);

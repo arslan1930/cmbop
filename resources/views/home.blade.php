@@ -58,6 +58,15 @@
     @if (view()->exists('components.hero'))
         @include('components.hero')
     @endif
+    @if (function_exists('public_locale') && public_locale() === 'it' && class_exists(\App\Support\ItalianMoneyLanders::class) && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\ItalianMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Pagine per chi cerca guest post e backlink in Italia',
+            ])
+        </div>
+    @endif
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')

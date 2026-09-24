@@ -226,7 +226,20 @@ class LinkBuildingGuidesBlogTest extends TestCase
         $index = $this->get('/blog')->assertOk();
         $index->assertDontSee('Thin backlinks stub', false);
         $index->assertDontSee('Thin guest-post stub', false);
-        $index->assertSee('How to Get Backlinks', false);
+
+        $listingTitles = Blog::published()
+            ->withoutLegacyRedirects()
+            ->withPublishedLocale('en')
+            ->orderByDesc('published_at')
+            ->get()
+            ->map(fn (Blog $post) => $post->applyPublishedLocale('en')->title)
+            ->implode("\n");
+        $this->assertStringContainsString('How to Get Backlinks', $listingTitles);
+        $this->assertStringNotContainsString('Thin backlinks stub', $listingTitles);
+
+        $this->get('/blog/'.HowToGetBacklinksBlogPost::SLUG)
+            ->assertOk()
+            ->assertSee('How to Get Backlinks', false);
     }
 
     public function test_blog_upsert_curated_includes_link_building_guides(): void

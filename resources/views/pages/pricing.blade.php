@@ -90,4 +90,16 @@
     ])
 </div>
 @include('components.pricing', ['showIntro' => false])
+@if(function_exists('public_locale') && public_locale() === 'it' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\ItalianMoneyLanders::class))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Quanto costa un guest post</h2>
+    <p class="text-muted">Non pubblichiamo un listino PDF fisso: il prezzo è quello del sito, in euro, al checkout. “Quanto costano i backlink” e “costo link building” dipendono dai listing che scegli. I pacchetti numerati sopra sono campagne gestite di PR digitale, non un sacco di URL anonimi.</p>
+    <p class="text-muted">Per vedere i prezzi live filtra il <a href="{{ localized_url('marketplace') }}">catalogo</a> dopo la registrazione. Indice europeo (pagina in inglese): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\ItalianMoneyLanders::clusterLinks('prezzi'),
+        'current' => 'prezzi',
+        'title' => 'Pagine correlate',
+    ])
+</div>
+@endif
 @endsection

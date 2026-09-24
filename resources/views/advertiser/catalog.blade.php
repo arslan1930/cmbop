@@ -552,7 +552,7 @@
                                     'selectId' => 'catalogFavoritesFilter',
                                     'name' => 'favorites_filter',
                                     'label' => 'Favorites',
-                                    'current' => (string) request('favorites_filter'),
+                                    'current' => search_text(request('favorites_filter')),
                                     'options' => ['' => 'All Sites', '1' => 'Favorites Only'],
                                 ])
                             </div>
@@ -563,7 +563,7 @@
                                     'selectId' => 'catalogBlacklistFilter',
                                     'name' => 'blacklist_filter',
                                     'label' => 'Blacklist',
-                                    'current' => (string) request('blacklist_filter'),
+                                    'current' => search_text(request('blacklist_filter')),
                                     'options' => ['' => 'All Sites', '1' => 'Blacklisted Only'],
                                 ])
                             </div>
@@ -650,7 +650,7 @@
                                     'selectId' => 'catalogRatingMin',
                                     'name' => 'rating_min',
                                     'label' => 'Min rating',
-                                    'current' => (string) request('rating_min'),
+                                    'current' => search_text(request('rating_min')),
                                     'options' => ['' => 'Any', '3' => '3.0+', '4' => '4.0+', '4.5' => '4.5+'],
                                 ])
                             </div>
