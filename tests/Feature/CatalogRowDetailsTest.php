@@ -96,10 +96,11 @@ class CatalogRowDetailsTest extends TestCase
         $titleChunk = substr($html, $titleStart, $identityStart - $titleStart);
         $this->assertStringContainsString('catalog-site-name', $titleChunk);
         $this->assertStringContainsString('site-chip--verified', $titleChunk);
-        $this->assertStringContainsString('catalog-details-toggle', $titleChunk);
+        $this->assertStringNotContainsString('catalog-details-toggle', $titleChunk);
         $this->assertStringNotContainsString('site-open-link', $titleChunk);
         $this->assertStringNotContainsString('Partner article', $titleChunk);
 
+        $this->assertStringContainsString('catalog-details-toggle', $html);
         $this->assertStringContainsString('Partner article', $html);
         $this->assertMatchesRegularExpression(
             '/catalog-site-identity[\s\S]*?Partner article[\s\S]*?catalog-site-deals|catalog-site-identity[\s\S]*?Partner article/',
