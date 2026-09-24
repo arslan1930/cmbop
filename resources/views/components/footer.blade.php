@@ -69,6 +69,20 @@
                         <li><a href="{{ url('/ro/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
                         <li><a href="{{ url('/ro/ghid') }}" class="text-dark text-decoration-none d-block mb-2">Ghid</a></li>
                     @endif
+                    @if(function_exists('public_locale') && public_locale() === 'ch' && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks'))
+                        @foreach(\App\Support\SwissMoneyLanders::clusterLinks('home') as $item)
+                            @if(!in_array($item['slug'] ?? '', ['home', 'marktplatz', 'preise'], true))
+                                <li><a href="{{ $item['url'] }}" class="text-dark text-decoration-none d-block mb-2">{{ $item['label'] }}</a></li>
+                            @endif
+                        @endforeach
+                    @endif
+                    @if(function_exists('public_locale') && public_locale() === 'es' && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks'))
+                        @foreach(\App\Support\SpanishMoneyLanders::clusterLinks('home') as $item)
+                            @if(!in_array($item['slug'] ?? '', ['home', 'mercado', 'precios'], true))
+                                <li><a href="{{ $item['url'] }}" class="text-dark text-decoration-none d-block mb-2">{{ $item['label'] }}</a></li>
+                            @endif
+                        @endforeach
+                    @endif
                     @php
                         $nordicFooter = class_exists(\App\Support\MoneyLanderCatalog::class)
                             ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')

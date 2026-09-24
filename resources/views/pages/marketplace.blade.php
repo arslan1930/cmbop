@@ -86,10 +86,44 @@
             </p>
         </div>
     @endif
-    @if(function_exists('public_locale') && public_locale() === 'pt' && class_exists(\App\Support\PortugueseMoneyLanders::class) && method_exists(\App\Support\PortugueseMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+    @if(function_exists('public_locale') && public_locale() === 'ch' && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
             <h2 class="h4 mb-3" style="color:#1a585e;">Gastbeitrag-Portale in der Schweiz</h2>
             <p class="text-muted">Diese Seite ist die öffentliche Liste schweizerischer Publisher: Nische, Sprache, DA/DR und Preis in Euro. Wir indexieren nicht jede Filterkombination und keine eigene Stadtseite (kein eigenes Zürich-Listing). Der vollständige Katalog mit Domains öffnet sich nach der Registrierung. Checkout bleibt EUR.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\SwissMoneyLanders::clusterLinks('marktplatz'),
+                'current' => 'marktplatz',
+                'title' => 'Verwandte Seiten',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/ch/gastbeitrag-kaufen') }}">Gastbeitrag kaufen in der Schweiz</a>
+                · <a href="{{ url('/ch/backlinks-kaufen') }}">Backlinks kaufen</a>
+                · <a href="{{ localized_url('pricing') }}">Was kostet ein Gastbeitrag in der Schweiz</a>
+                · <a href="{{ url('/guest-posts-switzerland') }}">Switzerland inventory (English)</a>
+            </p>
+        </div>
+    @endif
+    @if(function_exists('public_locale') && public_locale() === 'es' && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Medios y publishers en España</h2>
+            <p class="text-muted">Esta es la lista pública de publishers en España: nicho, idioma, DA/DR y precio en euros. No indexamos cada combinación de filtro ni landings de ciudad (Madrid y Barcelona no tienen URL propia). El catálogo completo, con dominios, se abre tras el registro.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\SpanishMoneyLanders::clusterLinks('mercado'),
+                'current' => 'mercado',
+                'title' => 'Páginas relacionadas',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/es/comprar-guest-post') }}">Comprar guest post</a>
+                · <a href="{{ url('/es/comprar-backlinks') }}">Comprar backlinks</a>
+                · <a href="{{ localized_url('pricing') }}">Qué cuesta un guest post</a>
+                · <a href="{{ url('/guest-posts-spain') }}">Spain inventory (English)</a>
+            </p>
+        </div>
+    @endif
+    @if(function_exists('public_locale') && public_locale() === 'pt' && class_exists(\App\Support\PortugueseMoneyLanders::class) && method_exists(\App\Support\PortugueseMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Catálogo de meios e publishers em Portugal</h2>
+            <p class="text-muted">Esta é a lista pública de publishers em Portugal: nicho, língua, DA/DR e preço em euros. Não indexamos cada combinação de filtro nem landings de cidade (Lisboa e Porto não têm URL próprio). O catálogo completo, com domínios, abre-se após o registo.</p>
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\PortugueseMoneyLanders::clusterLinks('marketplace'),
                 'current' => 'marketplace',
