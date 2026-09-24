@@ -82,6 +82,25 @@ class GermanMoneyLanders
     }
 
     /**
+     * AT/CH reuse German marketing copy, so their copies of German-owned
+     * money URLs 301 onto /de rather than onto Italian (shared slugs).
+     *
+     * @return list<string>
+     */
+    public static function copyRedirectLocales(): array
+    {
+        return ['de', 'at', 'ch'];
+    }
+
+    public static function capturesLocaleCopy(string $locale, string $segment): bool
+    {
+        $locale = strtolower(trim($locale));
+
+        return in_array($locale, self::copyRedirectLocales(), true)
+            && self::isPublicSegment($segment);
+    }
+
+    /**
      * @return list<string>
      */
     public static function publicSegments(): array

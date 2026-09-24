@@ -63,6 +63,14 @@ class GermanMoneyLanderTest extends TestCase
         $this->get('/de/digital-pr')->assertOk();
         $this->get('/it/digital-pr')->assertOk();
         $this->get('/digital-pr')->assertRedirect('/it/digital-pr');
+        $this->get('/fr/digital-pr')->assertRedirect('/it/digital-pr');
+        $this->get('/fr/link-building')->assertRedirect('/it/link-building');
+
+        $this->get('/at/digital-pr')->assertRedirect('/de/digital-pr');
+        $this->get('/ch/digital-pr')->assertRedirect('/de/digital-pr');
+        $this->get('/at/link-building')->assertRedirect('/de/linkbuilding');
+        $this->get('/ch/gastbeitrag-kaufen')->assertRedirect('/de/gastbeitrag-kaufen');
+        $this->get('/at/comprare-guest-post')->assertRedirect('/it/comprare-guest-post');
     }
 
     public function test_catalog_and_research_aliases_redirect_without_creating_twins(): void

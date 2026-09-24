@@ -33,6 +33,9 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
         $web = (string) file_get_contents(base_path('routes/web.php'));
         $this->assertStringContainsString('class_exists(CountryLander::class)', $web);
+        $this->assertStringContainsString('class_exists(ItalianMoneyLanders::class)', $web);
+        $this->assertStringContainsString('class_exists(GermanMoneyLanders::class)', $web);
+        $this->assertStringContainsString("method_exists(MarketingPageController::class, 'germanMoneyLander')", $web);
         $this->assertStringContainsString('class_exists(CatalogTeaserService::class)', $web);
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $web);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $web);

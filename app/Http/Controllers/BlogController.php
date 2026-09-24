@@ -99,7 +99,8 @@ class BlogController extends Controller
 
         try {
             if ($requestedLocale === 'de'
-                && class_exists(GermanMoneyLanders::class)) {
+                && class_exists(GermanMoneyLanders::class)
+                && method_exists(GermanMoneyLanders::class, 'legacyBlogSlugs')) {
                 $legacyDe = GermanMoneyLanders::legacyBlogSlugs()[$slug] ?? null;
                 if (is_string($legacyDe) && $legacyDe !== '' && $legacyDe !== $slug) {
                     $target = '/de/blog/'.$legacyDe;
