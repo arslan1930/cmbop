@@ -183,7 +183,7 @@ class PortugueseMoneyLanders
                 'sections' => [
                     [
                         'h2' => 'Guest post com backlink em Portugal',
-                        'body' => 'No mercado português, «comprar guest post», «guest post permanente» e «guest post com tráfego» coincidem na intenção de compra. Paga uma publicação com as regras do listing. A permanência é a que o publisher declara — não é uma promessa de ranking. Verticais (finanças, saúde, imobiliário, seguros, tecnologia) e cidades (Lisboa, Porto) são temas desta página, não landings /pt/nichos.',
+                        'body' => 'No mercado português, «comprar guest post», «guest post permanente» e «guest post com tráfego» coincidem na intenção de compra. Pague uma publicação com as regras do listing. A permanência é a que o publisher declara — não é uma promessa de ranking. Verticais (finanças, saúde, imobiliário, seguros, tecnologia) e cidades (Lisboa, Porto) são temas desta página, não landings /pt/nichos.',
                     ],
                     [
                         'h2' => 'Sites com DA ou DR elevado',
@@ -291,7 +291,7 @@ class PortugueseMoneyLanders
                 'points' => [
                     [
                         'title' => 'Self-service, não um PDF',
-                        'body' => 'Vê o site, o preço de checkout e as métricas antes de pagar. Não se compra um «pacote de 20 DR50» sem nomes.',
+                        'body' => 'Veja o site, o preço de checkout e as métricas antes de pagar. Não se compra um «pacote de 20 DR50» sem nomes.',
                     ],
                     [
                         'title' => 'Custo do link building',
@@ -299,7 +299,7 @@ class PortugueseMoneyLanders
                     ],
                     [
                         'title' => 'Guest post, PR, niche edit',
-                        'body' => 'Link building manual aqui significa: escolhe os publishers. Guest posts e artigos patrocinados são encomendas de catálogo. Niche edits não são um SKU — explicação: <a href="'.$niche.'">niche edits</a>.',
+                        'body' => 'Link building manual aqui significa escolher os publishers. Guest posts e artigos patrocinados são encomendas de catálogo. Niche edits não são um SKU — explicação: <a href="'.$niche.'">niche edits</a>.',
                     ],
                 ],
                 'sections' => [
@@ -315,7 +315,7 @@ class PortugueseMoneyLanders
                 'faqs' => [
                     [
                         'q' => 'Vendem pacotes de link building?',
-                        'a' => 'Não como SKU opaco. Compra publicações avulsas. Os pacotes numerados em Preços são campanhas de digital PR geridas, não um saco de URLs anónimos.',
+                        'a' => 'Não como SKU opaco. Compre publicações avulsas. Os pacotes numerados em Preços são campanhas de digital PR geridas, não um saco de URLs anónimos.',
                     ],
                     [
                         'q' => 'É link building white-hat?',
@@ -413,7 +413,7 @@ class PortugueseMoneyLanders
                     ],
                     [
                         'title' => 'Encomenda e fatura',
-                        'body' => 'As faturas de encargos de carteira/encomenda descarregam-se no Billing do anunciante quando o produto as gera. Dados da empresa UK (Topurlz Ltd) em Quem somos — não há entidade legal portuguesa inventada.',
+                        'body' => 'As faturas de encargos de carteira ou encomenda descarregam-se na faturação do anunciante quando o produto as gera. Dados da empresa UK (Topurlz Ltd) em <a href="/pt/sobre-nos">Quem somos</a> — não há entidade legal portuguesa inventada.',
                     ],
                     [
                         'title' => 'Plataforma para equipas SEO',
@@ -423,7 +423,7 @@ class PortugueseMoneyLanders
                 'sections' => [
                     [
                         'h2' => 'Agência vs marketplace',
-                        'body' => 'Uma agência escolhe os sites para o cliente. Um marketplace mostra os sites ao comprador. O SEOLinkBuildings é o segundo. Se a sua equipa é a agência, põe o primeiro por cima do segundo.',
+                        'body' => 'Uma agência escolhe os sites para o cliente. Um marketplace mostra os sites ao comprador. O SEOLinkBuildings é o segundo. Se a sua equipa é a agência, a escolha dos sites fica convosco e o catálogo é a fonte.',
                     ],
                     [
                         'h2' => 'Alta',
@@ -463,7 +463,7 @@ class PortugueseMoneyLanders
                 'teaser_subtitle' => 'Alguns publishers parecem um media kit; nem todos são um diário. Nicho e idioma filtram-se depois do login.',
                 'intro' => [
                     '«Digital PR Portugal», «nota de imprensa SEO» e «menções de marca» misturam PR e link building. Aqui compra publicações em sites que estão mesmo no catálogo. Se um domínio não está listado, não o vendemos.',
-                    'Os pacotes geridos de digital PR (valores em Preços, hoje a partir de 499 €/mês no plano base se continuar listado) são outreach da equipa, não um botão «saia num diário nacional».',
+                    'Os pacotes geridos de digital PR (valores em Preços, hoje a partir de 499 €/mês no plano base se continuar listado) são outreach da equipa, não um botão «apareça num diário nacional».',
                 ],
                 'points' => [
                     [
