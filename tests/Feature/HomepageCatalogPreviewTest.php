@@ -171,10 +171,24 @@ class HomepageCatalogPreviewTest extends TestCase
 
         $this->assertStringContainsString('catalog-table', $html);
         $this->assertStringContainsString('slb-hero-catalog-clone', $html);
+        $catalogCssAt = strpos($html, 'assets/css/catalog.css');
+        $heroAt = strpos($html, 'class="slb-hero"');
+        $this->assertNotFalse($catalogCssAt);
+        $this->assertNotFalse($heroAt);
+        $this->assertLessThan($heroAt, $catalogCssAt, 'catalog.css must load in head before the hero paints');
         $this->assertStringContainsString('min-width: 720px', $html);
         $this->assertStringContainsString('overscroll-behavior-x: contain', $html);
 
         $hero = (string) file_get_contents(resource_path('views/components/hero.blade.php'));
+        $this->assertStringContainsString('#mainNavbar .navbar-logo', $hero);
+        $this->assertStringContainsString('max-height: 52px', $hero);
+        $this->assertStringContainsString('transition: none !important', $hero);
+        $this->assertStringContainsString('animation: none !important', $hero);
+        $this->assertStringNotContainsString('animation: slbHeroFade', $hero);
+        $this->assertStringNotContainsString('animation: slbHeroRise', $hero);
+        $this->assertStringContainsString('overflow-x: clip', $hero);
+        $this->assertStringContainsString('overflow-y: visible', $hero);
+        $this->assertStringNotContainsString('overflow-x: hidden', $hero);
         $this->assertStringContainsString('overflow-x: visible', $hero);
         $this->assertStringContainsString("view()->exists('components.hero-catalog-preview')", $hero);
         $this->assertDoesNotMatchRegularExpression(

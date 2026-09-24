@@ -44,7 +44,71 @@
   </div>
 </section>
 
+@push('page_styles')
 <style>
+  /* Homepage only: lock nav size in <head> so the 1006×280 wordmark
+     cannot paint full-size and then shrink (scale-up flash on land/refresh).
+     Match navbar.blade.php breakpoints; kill size transitions. */
+  :root { --public-navbar-height: 88px; }
+  body { padding-top: var(--public-navbar-height); }
+  #mainNavbar,
+  #mainNavbar .navbar-logo,
+  #mainNavbar .navbar-brand {
+    transition: none !important;
+  }
+  #mainNavbar { padding: 0.75rem 0; }
+  #mainNavbar .navbar-logo {
+    height: 52px;
+    max-height: 52px;
+    width: auto;
+    max-width: min(240px, 52vw);
+    object-fit: contain;
+  }
+  #mainNavbar .navbar-brand {
+    max-width: min(240px, 52vw);
+  }
+  @media (min-width: 992px) and (max-width: 1399.98px) {
+    :root { --public-navbar-height: 76px; }
+    #mainNavbar { padding: 0.45rem 0; }
+    #mainNavbar .navbar-logo {
+      height: 44px;
+      max-height: 44px;
+      max-width: min(180px, 22vw);
+    }
+    #mainNavbar .navbar-brand { max-width: min(180px, 22vw); }
+  }
+  @media (min-width: 1400px) {
+    :root { --public-navbar-height: 96px; }
+    #mainNavbar .navbar-logo {
+      height: 64px;
+      max-height: 64px;
+      max-width: min(300px, 30vw);
+    }
+    #mainNavbar .navbar-brand { max-width: min(300px, 30vw); }
+  }
+  @media (max-width: 991.98px) {
+    :root { --public-navbar-height: 76px; }
+  }
+  @media (max-width: 575.98px) {
+    :root { --public-navbar-height: 72px; }
+    #mainNavbar .navbar-logo {
+      height: 44px;
+      max-height: 44px;
+      max-width: min(200px, 56vw);
+    }
+    #mainNavbar .navbar-brand { max-width: min(200px, 56vw); }
+  }
+
+  .slb-hero-brand-stack,
+  .slb-hero-title,
+  .slb-hero-tagline,
+  .slb-hero-cta-group,
+  .slb-hero-catalog-text,
+  .slb-hero-visual,
+  .slb-hero-catalog-clone {
+    animation: none !important;
+  }
+
   .slb-hero {
     position: relative;
     width: 100%;
@@ -108,7 +172,7 @@
     align-items: flex-start;
     gap: 12px;
     margin-bottom: 1rem;
-    animation: slbHeroFade 0.7s ease both;
+    animation: none;
   }
 
   .slb-hero-mark {
@@ -130,7 +194,7 @@
     letter-spacing: -0.015em;
     word-spacing: 0.04em;
     max-width: 32ch;
-    animation: slbHeroFade 0.7s ease 0.08s both;
+    animation: none;
   }
 
   .slb-hero-tagline {
@@ -139,7 +203,7 @@
     line-height: 1.55;
     color: #4b5563;
     max-width: 36ch;
-    animation: slbHeroFade 0.7s ease 0.16s both;
+    animation: none;
   }
 
   .slb-hero-cta-group {
@@ -151,7 +215,7 @@
     width: max-content;
     max-width: 100%;
     margin-top: 1.75rem;
-    animation: slbHeroFade 0.7s ease 0.24s both;
+    animation: none;
   }
 
   .slb-hero-cta,
@@ -206,7 +270,7 @@
     font-weight: 600;
     color: var(--brand-primary, #1a585e);
     text-decoration: none;
-    animation: slbHeroFade 0.7s ease 0.3s both;
+    animation: none;
   }
 
   .slb-hero-catalog-text:hover {
@@ -229,7 +293,7 @@
     width: 1340px;
     max-width: none;
     zoom: 0.74;
-    animation: slbHeroRise 0.9s ease 0.18s both;
+    animation: none;
     overflow: hidden;
     border-radius: 18px 0 0 0;
     box-shadow: -18px 24px 70px rgba(26, 88, 94, 0.18);
@@ -309,12 +373,31 @@
     text-decoration: none;
   }
 
-  /* Clip the wide catalog preview inside the hero only.
-     overflow-x:clip on #main-content makes a nested scrollport and hides
-     features / pricing / footer below the first viewport. */
+  /* Clip the wide catalog preview without making body a scrollport.
+     overflow-x:hidden + overflow-y:auto on body unsticks position:fixed
+     and drops the navbar on land/refresh. clip + visible keeps window
+     scrolling and the bar pinned. */
+  html:has(.slb-hero-catalog-clone),
   body:has(.slb-hero-catalog-clone) {
-    overflow-x: hidden;
+    overflow-x: clip;
+    overflow-y: visible;
     scrollbar-gutter: auto;
+  }
+  body:has(.slb-hero) #mainNavbar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+  }
+  @media (min-width: 992px) {
+    body:has(.slb-hero) #mainNavbar .container {
+      flex-wrap: nowrap;
+    }
+  }
+  body:has(.slb-hero) .slb-reveal {
+    animation: none;
+    opacity: 1;
   }
   body:has(.slb-hero-catalog-clone) #main-content,
   body:has(.slb-hero-catalog-clone) #content {
@@ -430,3 +513,4 @@
     }
   }
 </style>
+@endpush

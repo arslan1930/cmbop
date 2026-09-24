@@ -177,6 +177,7 @@
             }
         }
     </style>
+    @stack('page_styles')
 </head>
 <body class="slb-marketing">
 

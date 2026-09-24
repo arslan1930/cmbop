@@ -117,6 +117,23 @@
 
       row.appendChild(bubble);
       row.appendChild(meta);
+
+      var reactions = document.createElement('div');
+      reactions.className = 'slb-live-chat__reactions';
+      ['👍', '❤️', '🙏'].forEach(function (emoji) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'slb-live-chat__reaction' + (m.reaction === emoji ? ' is-on' : '');
+        button.textContent = emoji;
+        button.setAttribute('aria-label', 'React ' + emoji);
+        button.addEventListener('click', function () {
+          m.reaction = m.reaction === emoji ? '' : emoji;
+          saveState();
+          render();
+        });
+        reactions.appendChild(button);
+      });
+      row.appendChild(reactions);
       logEl.appendChild(row);
     });
     if (typing) {

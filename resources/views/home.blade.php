@@ -5,6 +5,11 @@
 @section('canonical', localized_url('/'))
 
 @push('head')
+<style>
+  /* Homepage first paint: same wash as the hero so refresh is not a white splash. */
+  html, body { background: #f7fafb; }
+  .slb-reveal { animation: none !important; opacity: 1 !important; }
+</style>
 <script type="application/ld+json">
 {!! json_encode([
     '@@context' => 'https://schema.org',

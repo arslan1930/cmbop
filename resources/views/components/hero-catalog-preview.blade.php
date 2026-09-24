@@ -73,9 +73,12 @@
     $rowCount = count($rows);
 @endphp
 
-<div class="slb-hero-visual">
+@push('page_styles')
   <link href="{{ asset('assets/css/multi-select.css') }}?v={{ @filemtime(public_path('assets/css/multi-select.css')) ?: '1' }}" rel="stylesheet">
   <link href="{{ asset('assets/css/catalog.css') }}?v={{ @filemtime(public_path('assets/css/catalog.css')) ?: '1' }}" rel="stylesheet">
+@endpush
+
+<div class="slb-hero-visual">
   <div class="catalog-page slb-hero-catalog-clone" aria-label="Publisher catalog preview">
     <div class="card border-0 shadow-sm catalog-filters-card slb-hero-catalog-clone__filters">
       <div class="card-body py-3">
