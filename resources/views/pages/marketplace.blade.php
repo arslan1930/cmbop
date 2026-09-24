@@ -120,10 +120,34 @@
             </p>
         </div>
     @endif
-    <p class="text-center small mt-2 mb-0">
-        <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
-        — median advertiser prices by European publisher country.
-    </p>
+    @if(function_exists('public_locale') && public_locale() === 'nl' && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Catalogus van publishers in Nederland</h2>
+            <p class="text-muted">Dit is de publieke lijst publishers in Nederland: niche, taal, DA/DR en prijs in euro. We indexeren niet elke filtercombinatie en steden (Amsterdam, Rotterdam) hebben geen eigen URL. De volledige catalogus, met domeinen, opent na registratie.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\DutchMoneyLanders::clusterLinks('marktplaats'),
+                'current' => 'marktplaats',
+                'title' => 'Gerelateerde pagina’s',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/nl/gastblog-kopen') }}">Gastblog kopen in Nederland</a>
+                · <a href="{{ url('/nl/backlinks-kopen') }}">Backlinks kopen</a>
+                · <a href="{{ localized_url('pricing') }}">Wat kost een gastblog in Nederland</a>
+                · <a href="{{ url('/guest-posts-netherlands') }}">Netherlands inventory (English)</a>
+            </p>
+        </div>
+    @endif
+    @if(function_exists('public_locale') && public_locale() === 'nl')
+        <p class="text-center small mt-2 mb-0">
+            <a href="{{ url('/guest-post-prices-europe') }}">Europees prijsindex guest posts</a>
+            — mediane adverteerdersprijzen per Europees publisherland (Engelse pagina).
+        </p>
+    @else
+        <p class="text-center small mt-2 mb-0">
+            <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
+            — median advertiser prices by European publisher country.
+        </p>
+    @endif
 
     @if(view()->exists('components.country-lander-nav'))
         @include('components.country-lander-nav', [

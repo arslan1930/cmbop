@@ -69,6 +69,15 @@
                         <li><a href="{{ url('/ro/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
                         <li><a href="{{ url('/ro/ghid') }}" class="text-dark text-decoration-none d-block mb-2">Ghid</a></li>
                     @endif
+                    @if(function_exists('public_locale') && public_locale() === 'nl')
+                        <li><a href="{{ url('/nl/gastblog-kopen') }}" class="text-dark text-decoration-none d-block mb-2">Gastblog kopen</a></li>
+                        <li><a href="{{ url('/nl/gesponsord-artikel') }}" class="text-dark text-decoration-none d-block mb-2">Gesponsord artikel</a></li>
+                        <li><a href="{{ url('/nl/backlinks-kopen') }}" class="text-dark text-decoration-none d-block mb-2">Backlinks kopen</a></li>
+                        <li><a href="{{ url('/nl/linkbuilding') }}" class="text-dark text-decoration-none d-block mb-2">Linkbuilding</a></li>
+                        <li><a href="{{ url('/nl/bureaus') }}" class="text-dark text-decoration-none d-block mb-2">Voor bureaus</a></li>
+                        <li><a href="{{ url('/nl/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
+                        <li><a href="{{ url('/nl/gids') }}" class="text-dark text-decoration-none d-block mb-2">Gids</a></li>
+                    @endif
                 </ul>
             </div>
 

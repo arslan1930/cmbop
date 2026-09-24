@@ -22,7 +22,7 @@
     'applicationCategory' => 'BusinessApplication',
     'operatingSystem' => 'Web',
     'url' => url('/'),
-    'description' => 'Guest-post and backlink marketplace connecting advertisers with publishers across Europe.',
+    'description' => __('messages.meta_home_description'),
     'image' => asset('assets/img/logo1.png'),
     'offers' => [
         '@type' => 'Offer',
@@ -55,7 +55,7 @@
     'hasPart' => [
         [
             '@type' => 'AboutPage',
-            'name' => 'About SEOLinkBuildings',
+            'name' => __('messages.about_title'),
             'url' => localized_url('about'),
         ],
     ],
@@ -109,6 +109,15 @@
                 'links' => \App\Support\RomanianMoneyLanders::clusterLinks('home'),
                 'current' => 'home',
                 'title' => 'Pagini de guest post, backlinkuri și link building în România',
+            ])
+        </div>
+    @endif
+    @if (function_exists('public_locale') && public_locale() === 'nl' && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\DutchMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Pagina’s over gastblogs, backlinks en linkbuilding in Nederland',
             ])
         </div>
     @endif

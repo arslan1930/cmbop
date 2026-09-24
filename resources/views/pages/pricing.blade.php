@@ -153,4 +153,17 @@
     ])
 </div>
 @endif
+@if(function_exists('public_locale') && public_locale() === 'nl' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Wat kost een gastblog in Nederland</h2>
+    <p class="text-muted">We publiceren geen vast PDF-tarief en verzinnen geen Nederlandse btw-prijslijst: de prijs is die van de site, in euro. «Prijs guest post», «tarief gesponsord artikel» en «kosten linkbuilding» volgen de catalogusregels die u kiest. De genummerde pakketten hierboven zijn beheerde digital-PR-campagnes, geen zak anonieme URL’s.</p>
+    <p class="text-muted">Actuele bedragen staan in de <a href="{{ localized_url('marketplace') }}">Nederlandse catalogus</a>, na registratie. Europese index (Engelse pagina): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <p class="text-muted">De prijs volgt autoriteit, traffic, niche, land, contentregels en redactionele toetsing — per catalogusregel, niet als verzonnen gemiddelden. Het hoofdkantoor is in Londen (Topurlz Ltd); er is geen KvK in Nederland.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\DutchMoneyLanders::clusterLinks('prijzen'),
+        'current' => 'prijzen',
+        'title' => 'Gerelateerde pagina’s',
+    ])
+</div>
+@endif
 @endsection

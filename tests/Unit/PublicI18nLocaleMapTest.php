@@ -80,6 +80,7 @@ class PublicI18nLocaleMapTest extends TestCase
         $this->assertSame('de', PublicI18n::messagesFallback('at'));
         $this->assertSame('de', PublicI18n::messagesFallback('ch'));
         $this->assertSame(['ro'], PublicI18n::catalogTeaserCountries('ro'));
+        $this->assertSame(['nl'], PublicI18n::catalogTeaserCountries('nl'));
     }
 
     public function test_english_only_marketing_slugs_cover_landers_and_price_index(): void
