@@ -10,6 +10,7 @@ use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
 use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
+use App\Support\PortugueseMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\SpanishMoneyLanders;
 use App\Support\SwissMoneyLanders;
@@ -92,16 +93,9 @@ class SitemapController extends Controller
             }
         }
 
-        if ($locale === 'ch' && class_exists(SwissMoneyLanders::class)) {
-            foreach (SwissMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['ch']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-            }
-        }
-
-        if ($locale === 'es' && class_exists(SpanishMoneyLanders::class)) {
-            foreach (SpanishMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['es']);
+        if ($locale === 'pt' && class_exists(PortugueseMoneyLanders::class)) {
+            foreach (PortugueseMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['pt']);
                 $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
             }
         }
