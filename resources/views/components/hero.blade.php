@@ -10,13 +10,16 @@
   <div class="container-fluid slb-hero-inner">
     <div class="slb-hero-copy">
       <div class="slb-hero-brand-stack">
-        <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
-             alt="SEOLinkBuildings"
-             class="slb-hero-mark"
-             width="1006"
-             height="280"
-             fetchpriority="high"
-             decoding="async">
+        <picture>
+          <source type="image/webp" srcset="{{ asset('assets/img/logo1-hero.webp') }}?v={{ @filemtime(public_path('assets/img/logo1-hero.webp')) ?: '1' }}">
+          <img src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}"
+               alt="SEOLinkBuildings"
+               class="slb-hero-mark"
+               width="1006"
+               height="280"
+               fetchpriority="high"
+               decoding="sync">
+        </picture>
       </div>
 
       <h1 class="slb-hero-title">{{ __('messages.hero_support') }}</h1>
