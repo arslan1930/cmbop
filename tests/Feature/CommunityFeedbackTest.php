@@ -615,7 +615,7 @@ class CommunityFeedbackTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Landing-tab claim proof unique string.', $html);
-        $this->assertStringContainsString('nav-link active', $html);
+        $this->assertStringContainsString('community-tab is-active', $html);
         $this->assertMatchesRegularExpression('/tab=claims/', $html);
     }
 

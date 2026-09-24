@@ -16,8 +16,16 @@ class TawkChat
     {
         // Leftover config/services.php has no tawk key — still honor .env
         // so live Hostinger can embed without a leftover 500.
-        $property = self::configOrEnv('services.tawk.property_id', 'TAWK_PROPERTY_ID');
-        $widget = self::configOrEnv('services.tawk.widget_id', 'TAWK_WIDGET_ID');
+        $property = self::configOrEnv(
+            'services.tawk.property_id',
+            'TAWK_PROPERTY_ID',
+            '6aa6a3693d02a53444168308'
+        );
+        $widget = self::configOrEnv(
+            'services.tawk.widget_id',
+            'TAWK_WIDGET_ID',
+            'default'
+        );
 
         if ($property === '' || $widget === '') {
             return null;

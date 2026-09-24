@@ -37,6 +37,14 @@ class LinkBuildingGuideI18n
                 'meta_description' => 'Praktische linkbuildingstrategie: soorten links, content en PR, gastposts, outreach, ankers, meting, en risicovolle tactieken om te laten.',
                 'content' => self::nl(),
             ],
+            'it' => [
+                'title' => 'Come fare link building: strategia SEO pratica',
+                'slug' => 'come-fare-link-building',
+                'excerpt' => 'Link building in pratica: come i motori leggono i link, quali tattiche reggono, come misuri, e cosa lasciare stare — anche in Italia.',
+                'meta_title' => 'Come fare link building: una strategia SEO pratica',
+                'meta_description' => 'Guida al link building: tipi di link, content e PR, guest post, outreach, ancore, misurazione e tattiche rischiose da evitare.',
+                'content' => self::it(),
+            ],
         ];
     }
 
@@ -249,6 +257,60 @@ HTML;
 <li><a href="https://developers.google.com/search/docs/crawling-indexing/links-crawlable">Crawlable links</a></li>
 <li><a href="https://developers.google.com/search/docs/fundamentals/creating-helpful-content">Nuttige content</a></li>
 </ul>
+HTML;
+    }
+
+    private static function it(): string
+    {
+        $backlinks = '/it/blog/come-ottenere-backlink';
+        $guest = '/it/blog/cose-un-guest-post';
+        $sponsored = '/it/blog/guest-post-vs-articolo-sponsorizzato';
+        $chooseSite = '/blog/how-to-choose-a-publisher-site-dr-da-traffic-niche';
+        $dofollow = '/it/blog/dofollow-vs-nofollow';
+        $outreach = '/blog/marketplace-vs-cold-outreach-vs-digital-pr';
+        $live = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
+        $aeo = '/blog/ai-aeo-seo-why-guest-posts-and-brand-mentions-matter';
+        $buy = '/it/comprare-guest-post';
+        $lb = '/it/link-building';
+        $catalog = '/it/mercato';
+        $how = '/it/come-funziona';
+        $img = BlogInlineImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP);
+
+        return <<<HTML
+<p>Il link building è il lavoro di ottenere o piazzare collegamenti da altri siti verso il proprio. I motori usano i link, tra le altre cose, per discovery e contesto. Non è la promessa che dieci nuovi href muovano una keyword.</p>
+<p>Acquisizione: <a href="{$backlinks}">come ottenere backlink</a>. Contributor: <a href="{$guest}">cos’è un guest post</a>. Paid: <a href="{$sponsored}">articolo sponsorizzato</a>. Piattaforma: <a href="{$lb}">link building in Italia</a>.</p>
+
+<h2>Cos’è il link building — e perché i link contano</h2>
+<p>Una campagna ha una URL obiettivo, un motivo per citarla, una via verso i publisher e una definizione di “finito” che non è solo una riga Excel. I link aiutano discovery, contesto (anchor e dintorni) e persone (referral). Le linee guida Google sul contenuto utile restano la base.</p>
+<p>Off-page SEO in Italia è lo stesso mestiere: citazioni esterne, non un trucco locale. “SEO off-site” e “link building white hat” descrivono metodi che reggono una review umana — non PBN e farm.</p>
+
+<h2>Tipi, guadagnare vs comprare</h2>
+<p>Editoriale, guest post, sponsored, digital PR, resource/directory, UGC, link interni (non sono backlink, ma fanno parte della strategia). Referring domain e volume vanno riportati a parte. Se in una frase non spieghi perché uno sconosciuto salverebbe l’URL: sistema prima la pagina.</p>
+
+<h2>Tattiche</h2>
+<p>Asset di contenuto; digital PR (a volte solo una menzione — <a href="{$aeo}">guest post e brand mention</a>); guest post su host pertinenti; resource e broken-link outreach; referring domain dei competitor ordinati per rilevanza, non per score. Outreach: <a href="{$outreach}">marketplace vs cold email vs PR</a>. Catalogo: <a href="{$catalog}">SEOLinkBuildings</a>, <a href="{$how}">come funziona</a>, <a href="{$chooseSite}">scegliere il publisher</a>.</p>
+<p>Ancore: prima la frase, poi le parole cliccabili. Attributi: <a href="{$dofollow}">dofollow vs nofollow</a>. I link interni sono il modo più economico di marcare gli hub.</p>
+
+<h2>Misurare, errori, rischio</h2>
+<p>Una URL primaria. Referring domain, URL live con attributi, indicizzazione, referral, impressioni in Search Console, perdite — <a href="{$live}">checklist dopo il live</a>. Niente “50 backlink” se 40 arrivano da un network.</p>
+<p>Lascia: PBN, commenti/profili automatici, link farm, reciprocal industriale, expired-domain net, guest posting irrilevante su larga scala con ancore keyword, pacchetti dofollow non qualificati.</p>
+
+<h2>Roadmap</h2>
+<figure>
+<img src="{$img}" alt="Roadmap di link building: principianti, intermedio, avanzato" loading="lazy" width="1200" height="675">
+<figcaption>Impara la qualità dell’host prima di aggiungere volume.</figcaption>
+</figure>
+<p>Uno o due asset che mantieni. Un piccolo programma contributor. Di tanto in tanto pubblicazioni sponsored etichettate. PR se c’è una storia. Link interni come pavimento. Ordinare: <a href="{$buy}">acquistare guest post</a>.</p>
+
+<h2>Domande frequenti</h2>
+<h3>Quanti backlink per rankare?</h3>
+<p>Nessuna quota universale. Query pertinenti e referral utili.</p>
+<h3>I backlink sono ancora un fattore?</h3>
+<p>I motori li usano ancora. Google pubblica anche regole contro gli schemi. Un segnale tra tanti.</p>
+<h3>Link building = SEO?</h3>
+<p>No. La SEO include crawl, indicizzazione, contenuto, intento, link interni e altro.</p>
+<h3>Solo tramite marketplace?</h3>
+<p>Puoi comprare pubblicazioni. Ti serve comunque una pagina che meriti il click.</p>
 HTML;
     }
 }

@@ -2222,9 +2222,9 @@ class Site extends Model
     public function hasGoodMetrics(): bool
     {
         try {
-            $da = static::hasSitesColumn('da') ? (int) $this->da : 0;
-            $dr = static::hasSitesColumn('dr') ? (int) $this->dr : 0;
-            $traffic = static::hasSitesColumn('traffic') ? (int) $this->traffic : 0;
+            $da = $this->qualityMetricInt('da');
+            $dr = $this->qualityMetricInt('dr');
+            $traffic = $this->qualityMetricInt('traffic');
 
             return $da >= self::GOOD_MIN_DA
                 && $dr >= self::GOOD_MIN_DR
@@ -2232,6 +2232,23 @@ class Site extends Model
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Prefer attributes already on the model so in-memory Site objects
+     * still evaluate the quality bar when Schema::hasColumn is unavailable.
+     */
+    private function qualityMetricInt(string $column): int
+    {
+        $attributes = $this->getAttributes();
+        if (array_key_exists($column, $attributes)) {
+            return (int) $attributes[$column];
+        }
+        if (! static::hasSitesColumn($column)) {
+            return 0;
+        }
+
+        return (int) $this->getAttribute($column);
     }
 
     /**

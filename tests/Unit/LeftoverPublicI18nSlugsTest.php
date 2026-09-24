@@ -75,6 +75,19 @@ class PublicI18n
     }
 }
 
+PHP;
+        file_put_contents($tmp, $src);
+
+        try {
+            $this->assertTrue(LeftoverPublicI18nSlugs::persistMissingMethod($tmp));
+            $healed = (string) file_get_contents($tmp);
+            $this->assertTrue(LeftoverPublicI18nSlugs::sourceDefinesMethod($healed));
+            $this->assertFalse(LeftoverPublicI18nSlugs::persistMissingMethod($tmp));
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
     public function test_leftover_language_helper_does_not_fatal_when_supported_is_missing(): void
     {
         $script = <<<'PHP'

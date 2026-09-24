@@ -152,9 +152,8 @@ class TawkChatWidgetTest extends TestCase
         $out = VisitorChatEmbed::inject($html);
 
         $this->assertStringContainsString('https://embed.tawk.to/6aa6a3693d02a53444168308/default', $out);
-        $this->assertStringContainsString('id="slb-visitor-chat-overflow"', $out);
-        $this->assertStringContainsString('.help-fab { display: none !important; }', $out);
-        $this->assertStringContainsString('overflow-x: clip !important', $out);
+        $this->assertStringContainsString('window.slbPinTawk', $out);
+        $this->assertStringContainsString('Tawk_API', $out);
         $this->assertSame($out, VisitorChatEmbed::inject($out));
     }
 

@@ -258,8 +258,8 @@ class CatalogTrustStripTest extends TestCase
         $this->assertStringNotContainsString('Low Rated Filter', $doneHtml);
 
         $blade = (string) file_get_contents(resource_path('views/advertiser/catalog.blade.php'));
-        $this->assertStringContainsString('value="rating_desc"', $blade);
-        $this->assertStringContainsString('name="rating_min"', $blade);
+        $this->assertStringContainsString("'rating_desc' => 'Rating (high → low)'", $blade);
+        $this->assertStringContainsString("'name' => 'rating_min'", $blade);
         $this->assertStringContainsString('name="has_completions"', $blade);
 
         $js = (string) file_get_contents(public_path('assets/js/catalog.js'));

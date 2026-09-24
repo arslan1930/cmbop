@@ -476,6 +476,7 @@ class AdvertiserBillingUxTest extends TestCase
         );
 
         $this->mock(InvoicePdfGenerator::class, function ($mock) use ($sql) {
+            $mock->shouldReceive('ensureCustomerPdf')->andThrow($sql);
             $mock->shouldReceive('generateAndStore')->andThrow($sql);
             $mock->shouldReceive('download')->andThrow($sql);
             $mock->shouldReceive('stream')->andThrow($sql);

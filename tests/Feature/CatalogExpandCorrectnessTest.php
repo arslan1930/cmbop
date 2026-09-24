@@ -119,10 +119,7 @@ class CatalogExpandCorrectnessTest extends TestCase
         $this->assertStringContainsString('site-chip--partner', $html);
         $this->assertStringContainsString(SiteTag::DETAILS_HEADING, $html);
         $this->assertStringContainsString(SiteTag::FILTER_TOOLTIP, $html);
-        $this->assertStringContainsString(
-            'Paid placement disclosed as sponsored — not the DoFollow / NoFollow link attribute',
-            $html
-        );
+        $this->assertStringNotContainsString('catalog-tag-definition', $html);
         $this->assertStringNotContainsString('<strong>Tags</strong>', $html);
         $this->assertStringNotContainsString('<dt>Tags</dt>', $html);
     }

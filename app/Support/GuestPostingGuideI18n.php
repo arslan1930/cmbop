@@ -37,6 +37,14 @@ class GuestPostingGuideI18n
                 'meta_description' => 'Praktische gastblog-gids: publishers vinden, pitchen, voor hun lezers schrijven, ankers zetten, en goedkope guest-postnetwerken overslaan.',
                 'content' => self::nl(),
             ],
+            'it' => [
+                'title' => 'Cos’è un guest post: guida al guest blogging per il SEO',
+                'slug' => 'cose-un-guest-post',
+                'excerpt' => 'Come funziona davvero un guest post: trovare host pertinenti, proporre il pezzo, scrivere per i loro lettori e evitare i network che vendono solo un link.',
+                'meta_title' => 'Cos’è un guest post: pitch, testo e pubblicazione SEO',
+                'meta_description' => 'Guida al guest post: cosa sono, come si pitchano, come si scrivono e come si evita di comprare reti low-cost. CTA al catalogo SEOLinkBuildings.',
+                'content' => self::it(),
+            ],
         ];
     }
 
@@ -278,6 +286,85 @@ HTML;
 <li><a href="https://developers.google.com/search/blog/2021/07/link-tagging-and-link-spam-update">Qualifying links (2021)</a></li>
 <li><a href="https://developers.google.com/search/docs/crawling-indexing/links-crawlable">Crawlable links</a></li>
 <li><a href="https://developers.google.com/search/docs/fundamentals/creating-helpful-content">Nuttige content</a></li>
+</ul>
+HTML;
+    }
+
+    private static function it(): string
+    {
+        $backlinks = '/it/blog/come-ottenere-backlink';
+        $sponsored = '/it/blog/guest-post-vs-articolo-sponsorizzato';
+        $linkGuide = '/it/blog/come-fare-link-building';
+        $chooseSite = '/blog/how-to-choose-a-publisher-site-dr-da-traffic-niche';
+        $buy = '/it/comprare-guest-post';
+        $brief = '/blog/guest-post-brief-anchors-urls-images-sensitive-topics';
+        $dofollow = '/it/blog/dofollow-vs-nofollow';
+        $outreach = '/blog/marketplace-vs-cold-outreach-vs-digital-pr';
+        $europe = '/blog/buy-guest-posts-in-europe-how-to-choose-publisher-sites';
+        $live = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
+        $catalog = '/it/mercato';
+        $how = '/it/come-funziona';
+        $img = BlogInlineImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW);
+
+        return <<<HTML
+<p>Un guest post è un articolo su un sito che non possiedi — di solito con byline e, se l’host lo consente, un link di ritorno.</p>
+<p>La definizione è semplice. Il lavoro no. La maggior parte delle campagne fallisce sulla scelta dell’host, non sul talento di scrittura.</p>
+<p>Acquisizione: <a href="{$backlinks}">come ottenere backlink</a>. Pubblicazioni a pagamento: <a href="{$sponsored}">guest post vs articolo sponsorizzato</a>. Qui il flusso.</p>
+
+<h2>Cosa sono i guest post</h2>
+<p>Consegni il testo, l’host lo pubblica per i suoi lettori. Tiene URL, traffico e il diritto di tagliare o rifiutare. Non è una citazione indipendente e non è automaticamente un pubbliredazionale. Alcuni host prendono pezzi non pagati; altri fanno pagare. Va detto.</p>
+
+<h2>Flusso</h2>
+<ol>
+<li>Scegliere una URL di destinazione sul proprio sito</li>
+<li>Shortlist di host con lettori in comune</li>
+<li>Pitch, “write for us”, o un listing con regole scritte</li>
+<li>Leggere vincoli (lunghezza, link, tono, immagini, disclosure)</li>
+<li>Scrivere, far revisionare, andare live</li>
+<li>Salvare URL live, attributo, anchor, data di ricontrollo</li>
+</ol>
+
+<h2>A cosa serve — e i limiti</h2>
+<p>Su siti con lettori veri: visibilità, una citazione crawlable, un sample pubblico. Nessuna promessa di ranking. Le spam policy di Google citano il guest posting su larga scala con ancore keyword-rich. Il formato non è vietato. Il pattern per manipolare i ranking sì.</p>
+
+<h2>Trovare e valutare gli host</h2>
+<p>Cerca come un editor, esporta i referring domain dei competitor, confronta i listing — <a href="{$catalog}">il catalogo SEOLinkBuildings</a> è scoperta, non un bollino di qualità. <a href="{$how}">Come funziona</a>, <a href="{$buy}">acquistare guest post</a>. Europa: <a href="{$europe}">scegliere i publisher</a>. Metriche: <a href="{$chooseSite}">DA, DR, traffico</a> — ZA SEOZoom non è una colonna del listing.</p>
+
+<h2>Pitch e testo</h2>
+<p>Perché questo sito, un’idea, titolo di lavoro, due frasi, chi sei, esclusività. Canali: <a href="{$outreach}">marketplace vs outreach vs PR</a>. Scrivi per il loro lettore. Una URL primaria. Brief: <a href="{$brief}">ancore, URL, immagini</a>. Attributi: <a href="{$dofollow}">dofollow, nofollow, rel sponsored</a>.</p>
+
+<h2>Segnali d’allarme e workflow</h2>
+<figure>
+<img src="{$img}" alt="Workflow del guest post: trovare siti, valutare, pitchare, scrivere, pubblicare, controllare l’URL live" loading="lazy" width="1200" height="675">
+<figcaption>Non scalare prima che i primi URL live restino in piedi.</figcaption>
+</figure>
+<p>Sempre gli stessi tre partner outbound, niente autori, casino più CBD più cucina, “write for us” che parla solo di DA. Dopo la live: <a href="{$live}">checklist del link</a>. Quadro: <a href="{$linkGuide}">come fare link building</a>.</p>
+
+<h2>Checklist publisher</h2>
+<ul>
+<li>So dire il pubblico in una frase</li>
+<li>I post recenti sono originali e in tema</li>
+<li>Gli outbound non sembrano una farm</li>
+<li>Pagina indicizzabile; attributo noto; la landing merita il click</li>
+</ul>
+
+<h2>Domande frequenti</h2>
+<h3>Il guest posting è ancora utile?</h3>
+<p>Su host con lettori e standard, sì. Sui network che vendono lo stesso pezzo a cento blog, no.</p>
+<h3>Devo pagare?</h3>
+<p>Pagare non rende il testo buono o cattivo. Cambia come va etichettato il link. In Italia si cerca anche “guest post a pagamento”: è la stessa domanda commerciale.</p>
+<h3>Quale anchor?</h3>
+<p>Una frase che scriverebbe una persona. Exact-match ovunque è un pattern su cui Google avverte.</p>
+<h3>Ripubblicare lo stesso articolo?</h3>
+<p>Di solito no. Gli editori si aspettano lavoro originale.</p>
+
+<h2>Fonti</h2>
+<ul>
+<li><a href="https://developers.google.com/search/docs/essentials/spam-policies">Spam policies di Google</a></li>
+<li><a href="https://developers.google.com/search/blog/2019/09/evolving-nofollow-new-ways-to-identify">Evolving nofollow (2019)</a></li>
+<li><a href="https://developers.google.com/search/blog/2021/07/link-tagging-and-link-spam-update">Qualifying links (2021)</a></li>
+<li><a href="https://developers.google.com/search/docs/crawling-indexing/links-crawlable">Link crawlable</a></li>
+<li><a href="https://developers.google.com/search/docs/fundamentals/creating-helpful-content">Contenuti utili</a></li>
 </ul>
 HTML;
     }

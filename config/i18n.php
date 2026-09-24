@@ -59,6 +59,14 @@ return [
         'guest-posts-estonia',
         'guest-posts-poland',
         'guest-post-prices-europe',
+        'comprare-guest-post',
+        'articoli-sponsorizzati',
+        'link-building',
+        'comprare-backlink',
+        'agenzie',
+        'digital-pr',
+        'catalogo',
+        'prezzi-guest-post',
     ],
 
     /**

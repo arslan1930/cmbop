@@ -17,15 +17,16 @@ use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\CreatesBlogUploads;
 use Tests\TestCase;
 
 class MarketingBulkSiteOpsTest extends TestCase
 {
+    use CreatesBlogUploads;
     use RefreshDatabase;
 
     private User $publisher;
@@ -90,7 +91,7 @@ class MarketingBulkSiteOpsTest extends TestCase
             'site_tag' => 'as_you_prefer',
             'description' => 'Guest posts on this website stay published and the link remains dofollow for advertisers.',
             'categories' => $category,
-            'site_image' => UploadedFile::fake()->image('cover.jpg', 80, 80),
+            'site_image' => $this->fakeBlogUpload('cover.jpg', 80, 80),
         ];
     }
 

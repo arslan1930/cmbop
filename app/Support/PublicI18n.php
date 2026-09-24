@@ -199,6 +199,7 @@ class PublicI18n
             'hu' => ['hu'],
             'ee' => ['ee'],
             'pl' => ['pl'],
+            'it' => ['it'],
             default => ['de'],
         };
     }
@@ -423,6 +424,10 @@ class PublicI18n
             return true;
         }
 
+        if (class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
         return in_array($first, $public, true);
     }
 
@@ -459,6 +464,15 @@ class PublicI18n
                 && self::isEnglishOnlyMarketingPath($request)
                 && $targetLocale === self::default()) {
                 return $path === '' ? url('/') : url($path);
+            }
+
+            return self::urlForLocale('', $targetLocale);
+        }
+
+        $first = $path === '' ? '' : explode('/', $path, 2)[0];
+        if (class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isSlug($first)) {
+            if ($targetLocale === 'it') {
+                return url('/it/'.$first);
             }
 
             return self::urlForLocale('', $targetLocale);
@@ -562,6 +576,12 @@ class PublicI18n
             && in_array($first, self::englishOnlyMarketingSlugs(), true)) {
             $locales = [self::default()];
             $xDefaultLocale = self::default();
+        }
+        if ($locales === null && $first !== ''
+            && class_exists(ItalianMoneyLanders::class)
+            && ItalianMoneyLanders::isSlug($first)) {
+            $locales = ['it'];
+            $xDefaultLocale = 'it';
         }
 
         $tags = [];

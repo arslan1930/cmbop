@@ -35,6 +35,14 @@
                     <li><a href="{{ localized_url('faq') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.nav_faq') }}</a></li>
                     <li><a href="{{ localized_url('contact') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.contact') }}</a></li>
                     <li><a href="{{ $blogIndexUrl }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.blog') }}</a></li>
+                    @if(function_exists('public_locale') && public_locale() === 'it')
+                        <li><a href="{{ url('/it/comprare-guest-post') }}" class="text-dark text-decoration-none d-block mb-2">Acquistare guest post</a></li>
+                        <li><a href="{{ url('/it/articoli-sponsorizzati') }}" class="text-dark text-decoration-none d-block mb-2">Articoli sponsorizzati</a></li>
+                        <li><a href="{{ url('/it/comprare-backlink') }}" class="text-dark text-decoration-none d-block mb-2">Acquistare backlink</a></li>
+                        <li><a href="{{ url('/it/link-building') }}" class="text-dark text-decoration-none d-block mb-2">Link building</a></li>
+                        <li><a href="{{ url('/it/agenzie') }}" class="text-dark text-decoration-none d-block mb-2">Per agenzie</a></li>
+                        <li><a href="{{ url('/it/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
+                    @endif
                 </ul>
             </div>
 

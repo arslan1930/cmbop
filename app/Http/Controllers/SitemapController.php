@@ -7,6 +7,7 @@ use App\Models\BlogTranslation;
 use App\Services\CuratedBlogSync;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\CountryLander;
+use App\Support\ItalianMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\ThinBlogRedirects;
 use Illuminate\Http\Response;
@@ -64,6 +65,12 @@ class SitemapController extends Controller
 
         foreach ($this->staticPages() as $page) {
             $urls[] = $this->urlEntry($page['path'], $locale, $page['changefreq'], $page['priority']);
+        }
+
+        if ($locale === 'it' && class_exists(ItalianMoneyLanders::class)) {
+            foreach (ItalianMoneyLanders::slugs() as $slug) {
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', ['it'], ['it' => $slug]);
+            }
         }
 
         // Auth stays noindex — do not list login/register in sitemaps.

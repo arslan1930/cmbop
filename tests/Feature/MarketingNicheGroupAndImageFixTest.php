@@ -14,7 +14,6 @@ use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\CreatesBlogUploads;
 use Tests\TestCase;
@@ -173,7 +172,7 @@ class MarketingNicheGroupAndImageFixTest extends TestCase
                         'link_type' => 'dofollow',
                         'site_tag' => 'as_you_prefer',
                         'description' => 'Guest posts on this website stay published and the link remains dofollow for advertisers.',
-                        'site_image' => UploadedFile::fake()->image('cover.jpg', 80, 80),
+                        'site_image' => $this->fakeBlogUpload('cover.jpg', 80, 80),
                     ],
                 ],
             ])
