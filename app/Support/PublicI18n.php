@@ -190,6 +190,7 @@ class PublicI18n
         return match ($locale) {
             'at' => ['at'],
             'ch' => ['ch'],
+            'es' => ['es'],
             'ro' => ['ro'],
             'gr' => ['gr'],
             'dk' => ['dk'],
@@ -226,6 +227,12 @@ class PublicI18n
         if (class_exists(AustrianMoneyLanders::class) && AustrianMoneyLanders::isSlug($slug)) {
             $locales[] = 'at';
         }
+        if (class_exists(SwissMoneyLanders::class) && SwissMoneyLanders::isSlug($slug)) {
+            $locales[] = 'ch';
+        }
+        if (class_exists(SpanishMoneyLanders::class) && SpanishMoneyLanders::isSlug($slug)) {
+            $locales[] = 'es';
+        }
 
         return $locales;
     }
@@ -241,6 +248,12 @@ class PublicI18n
         }
         if (in_array('at', $locales, true)) {
             return 'at';
+        }
+        if (in_array('ch', $locales, true)) {
+            return 'ch';
+        }
+        if (in_array('es', $locales, true)) {
+            return 'es';
         }
 
         return self::default();
@@ -499,6 +512,14 @@ class PublicI18n
         }
 
         if (class_exists(AustrianMoneyLanders::class) && AustrianMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(SwissMoneyLanders::class) && SwissMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(SpanishMoneyLanders::class) && SpanishMoneyLanders::isPublicSegment($first)) {
             return true;
         }
 

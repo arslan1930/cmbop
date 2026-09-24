@@ -51,6 +51,30 @@
                         <li><a href="{{ url('/de/agenturen') }}" class="text-dark text-decoration-none d-block mb-2">Für Agenturen</a></li>
                         <li><a href="{{ url('/de/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
                     @endif
+                    @if(function_exists('public_locale') && public_locale() === 'at')
+                        <li><a href="{{ url('/at/gastbeitrag-kaufen') }}" class="text-dark text-decoration-none d-block mb-2">Gastbeitrag kaufen</a></li>
+                        <li><a href="{{ url('/at/advertorial') }}" class="text-dark text-decoration-none d-block mb-2">Advertorials</a></li>
+                        <li><a href="{{ url('/at/backlinks-kaufen') }}" class="text-dark text-decoration-none d-block mb-2">Backlinks kaufen</a></li>
+                        <li><a href="{{ url('/at/linkbuilding') }}" class="text-dark text-decoration-none d-block mb-2">Linkbuilding</a></li>
+                        <li><a href="{{ url('/at/agenturen') }}" class="text-dark text-decoration-none d-block mb-2">Für Agenturen</a></li>
+                        <li><a href="{{ url('/at/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
+                    @endif
+                    @if(function_exists('public_locale') && public_locale() === 'ch')
+                        <li><a href="{{ url('/ch/gastbeitrag-kaufen') }}" class="text-dark text-decoration-none d-block mb-2">Gastbeitrag kaufen</a></li>
+                        <li><a href="{{ url('/ch/advertorial') }}" class="text-dark text-decoration-none d-block mb-2">Advertorials</a></li>
+                        <li><a href="{{ url('/ch/backlinks-kaufen') }}" class="text-dark text-decoration-none d-block mb-2">Backlinks kaufen</a></li>
+                        <li><a href="{{ url('/ch/linkbuilding') }}" class="text-dark text-decoration-none d-block mb-2">Linkbuilding</a></li>
+                        <li><a href="{{ url('/ch/agenturen') }}" class="text-dark text-decoration-none d-block mb-2">Für Agenturen</a></li>
+                        <li><a href="{{ url('/ch/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
+                    @endif
+                    @if(function_exists('public_locale') && public_locale() === 'es')
+                        <li><a href="{{ url('/es/comprar-guest-post') }}" class="text-dark text-decoration-none d-block mb-2">Comprar guest post</a></li>
+                        <li><a href="{{ url('/es/articulo-patrocinado') }}" class="text-dark text-decoration-none d-block mb-2">Artículo patrocinado</a></li>
+                        <li><a href="{{ url('/es/comprar-backlinks') }}" class="text-dark text-decoration-none d-block mb-2">Comprar backlinks</a></li>
+                        <li><a href="{{ url('/es/link-building') }}" class="text-dark text-decoration-none d-block mb-2">Link building</a></li>
+                        <li><a href="{{ url('/es/agencias') }}" class="text-dark text-decoration-none d-block mb-2">Para agencias</a></li>
+                        <li><a href="{{ url('/es/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">PR digital</a></li>
+                    @endif
                 </ul>
             </div>
 

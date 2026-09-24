@@ -85,6 +85,24 @@
             ])
         </div>
     @endif
+    @if (function_exists('public_locale') && public_locale() === 'ch' && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\SwissMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Seiten für Gastbeiträge, Backlinks und Linkbuilding in der Schweiz',
+            ])
+        </div>
+    @endif
+    @if (function_exists('public_locale') && public_locale() === 'es' && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\SpanishMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Páginas para guest posts, backlinks y link building en España',
+            ])
+        </div>
+    @endif
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')
