@@ -83,13 +83,17 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringContainsString('Marketplace de netlinking en France | SEOLinkBuildings', $home);
         $this->assertStringContainsString('Marketplace de guest posts, backlinks et netlinking pour la France.', $home);
         $this->assertStringContainsString('/fr/acheter-guest-post', $home);
-        $this->assertStringNotContainsString('Acheter des guest posts en France | SEOLinkBuildings', $home);
+        $this->assertStringNotContainsString('résultats mesurables', $home);
+        $this->assertStringNotContainsString('Checkout wallet', $home);
+        $this->assertStringNotContainsString('Semrush', $home);
 
         $buy = $this->get('/fr/acheter-guest-post')->assertOk()->getContent();
         $this->assertStringContainsString('Acheter un guest post en France', $buy);
         $this->assertStringContainsString('Acheter des guest posts en France | SEOLinkBuildings', $buy);
         $this->assertStringContainsString('SIRET', $buy);
         $this->assertStringNotContainsString('meilleure plateforme', $buy);
+        $this->assertStringNotContainsString('checkout', strtolower($buy));
+        $this->assertStringNotContainsString('Semrush', $buy);
 
         $marche = $this->get('/fr/marche')->assertOk()->getContent();
         $this->assertStringContainsString('Catalogue de médias et d’éditeurs en France', $marche);

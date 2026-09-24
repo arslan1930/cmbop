@@ -308,7 +308,7 @@ class FrenchMoneyLanders
                     ],
                     [
                         'q' => 'Puis-je acheter des backlinks pas cher ?',
-                        'a' => 'Le prix bas est celui d’un listing moins cher, visible au checkout. Ce n’est pas un produit séparé et ce n’est pas une promesse de résultat.',
+                        'a' => 'Le prix bas est celui d’une fiche moins chère, visible à la commande. Ce n’est pas un produit séparé et ce n’est pas une promesse de résultat.',
                     ],
                 ],
                 'see_also' => [
@@ -560,7 +560,7 @@ class FrenchMoneyLanders
                     ],
                     [
                         'h2' => 'Stratégie de netlinking',
-                        'body' => 'Commencez par des sites dont la thématique et la langue correspondent à la page cible. Mélangez guest posts et, seulement si la fiche le permet, insertions de lien. Évitez les promesses de « guide netlinking 2026 » chiffrées : les volumes et les difficultés de mots-clés de recherche ne sont pas des volumes Semrush.',
+                        'body' => 'Commencez par des sites dont la thématique et la langue correspondent à la page cible. Mélangez guest posts et, seulement si la fiche le permet, insertions de lien. Un calendrier annuel n’est pas une garantie de positions.',
                     ],
                 ],
                 'faqs' => [
