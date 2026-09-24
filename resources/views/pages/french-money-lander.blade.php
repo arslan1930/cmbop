@@ -92,7 +92,7 @@
                     <div class="h-100 p-4 rounded-4 bg-white border">
                         <div class="small text-muted mb-1">À partir de</div>
                         <div class="h3 mb-0" style="color:#1a585e;">€{{ number_format((float) $priceFrom, 0) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Prix de checkout le plus bas parmi les listings actifs dont le pays principal est la France, en ce moment. Ce n’est pas une grille tarifaire fixe.</p>
+                        <p class="small text-muted mb-0 mt-2">Prix le plus bas parmi les fiches actives dont le pays principal est la France, en ce moment. Ce n’est pas une grille tarifaire fixe.</p>
                     </div>
                 </div>
             @endif
@@ -159,7 +159,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="small text-muted mb-5">Nous affichons le DA, le DR et le prix en euros lorsqu’ils figurent sur le listing. Nous n’inventons pas les métriques. Le tableau liste le pays principal France — pas un mélange Belgique ou Suisse.</p>
+        <p class="small text-muted mb-5">Nous affichons le DA, le DR et le prix en euros lorsqu’ils figurent sur la fiche. Nous n’inventons pas les métriques. Le tableau liste le pays principal France — pas un mélange Belgique ou Suisse.</p>
     @endif
 
     @foreach(($page['sections'] ?? []) as $section)

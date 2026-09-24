@@ -183,7 +183,7 @@ class ItalianMoneyLanders
                     ],
                     [
                         'q' => 'Serve la fattura?',
-                        'a' => 'Gli inserzionisti possono scaricare le fatture degli ordini dal billing, dove il prodotto le emette. Dettagli in Per agenzie.',
+                        'a' => 'Gli inserzionisti possono scaricare le fatture degli ordini dalla fatturazione, dove il prodotto le emette. Dettagli in Per agenzie.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Crea un account e apri il catalogo', 'url' => $register],
@@ -391,7 +391,7 @@ class ItalianMoneyLanders
                     ],
                     [
                         'title' => 'Ordine guest post e fattura',
-                        'body' => 'Le fatture degli addebiti wallet / ordini si scaricano dal billing inserzionista quando il prodotto le genera. Dati societari UK (Topurlz Ltd) in Chi siamo.',
+                        'body' => 'Le fatture degli addebiti portafoglio / ordini si scaricano dalla fatturazione dell\'inserzionista quando il prodotto le genera. Dati societari UK (Topurlz Ltd) in Chi siamo.',
                     ],
                     [
                         'title' => 'Piattaforma per SEO specialist',
@@ -415,7 +415,7 @@ class ItalianMoneyLanders
                     ],
                     [
                         'q' => 'Emittete fattura elettronica italiana?',
-                        'a' => 'Il billing segue la società UK del prodotto. Scarica i documenti dal wallet/fatture in piattaforma e verifica con il tuo commercialista se ti servono integrazioni SDI.',
+                        'a' => 'La fatturazione segue la società UK del prodotto. Scarica i documenti dal portafoglio/fatture in piattaforma e verifica con il tuo commercialista se ti servono integrazioni SDI.',
                     ],
                     [
                         'q' => 'C’è un listino agenzia diverso?',

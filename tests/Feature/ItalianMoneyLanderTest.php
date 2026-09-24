@@ -79,6 +79,12 @@ class ItalianMoneyLanderTest extends TestCase
         $buy = $this->get('/it/comprare-guest-post')->assertOk()->getContent();
         $this->assertStringContainsString('Acquistare guest post su siti di editori verificati', $buy);
         $this->assertStringContainsString('Acquistare guest post in Italia | SEOLinkBuildings', $buy);
+
+        $agencies = $this->get('/it/agenzie')->assertOk()->getContent();
+        $this->assertStringContainsString('fatturazione', $agencies);
+        $this->assertStringContainsString('inserzionista', $agencies);
+        $this->assertStringNotContainsString('dal billing', $agencies);
+        $this->assertStringNotContainsString('Il billing', $agencies);
     }
 
     public function test_italian_marketplace_and_pricing_target_catalog_and_cost_queries(): void

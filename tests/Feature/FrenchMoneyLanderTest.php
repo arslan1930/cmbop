@@ -95,7 +95,12 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringContainsString('SIRET', $buy);
         $this->assertStringNotContainsString('meilleure plateforme', $buy);
         $this->assertStringNotContainsString('checkout', strtolower($buy));
+        $this->assertStringNotContainsString('listing', strtolower($buy));
         $this->assertStringNotContainsString('Semrush', $buy);
+
+        $blade = (string) file_get_contents(resource_path('views/pages/french-money-lander.blade.php'));
+        $this->assertStringNotContainsString('checkout', strtolower($blade));
+        $this->assertStringNotContainsString('listing', strtolower($blade));
 
         $marche = $this->get('/fr/marche')->assertOk()->getContent();
         $this->assertStringContainsString('Catalogue de médias et d’éditeurs en France', $marche);
@@ -105,7 +110,14 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringContainsString('Combien coûte un guest post en France', $tarifs);
         $this->assertStringContainsString('Prix des guest posts en France | SEOLinkBuildings', $tarifs);
         $this->assertStringNotContainsString('au checkout', $tarifs);
+        $this->assertStringNotContainsString('selon le listing', $tarifs);
         $this->assertStringNotContainsString('package Digital PR managé', $tarifs);
+
+        $how = $this->get('/fr/comment-ca-marche')->assertOk()->getContent();
+        $this->assertStringNotContainsString('Recharger le wallet', $how);
+        $this->assertStringNotContainsString('au checkout', $how);
+        $this->assertStringNotContainsString('paiements wallet', $how);
+        $this->assertStringContainsString('portefeuille', $how);
     }
 
     public function test_sitemap_fr_includes_money_landers_and_not_aliases(): void
