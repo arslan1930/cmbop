@@ -192,7 +192,7 @@ class GermanMoneyLanders
                 ],
                 'points' => [
                     [
-                        'title' => 'Publisher, kein Phantom-Listino',
+                        'title' => 'Publisher, keine Phantom-Preisliste',
                         'body' => 'Jede Katalogzeile ist eine Website mit Nische, Sprache, Land, DA/DR, deklariertem Traffic und Checkout-Preis. Wir verkaufen keine PBNs und keine „50-Link-Pakete“.',
                     ],
                     [
@@ -355,7 +355,7 @@ class GermanMoneyLanders
                     ],
                 ],
                 'cta_primary' => ['label' => 'Mit dem Katalog starten', 'url' => $register],
-                'cta_secondary' => ['label' => 'Preise und Listung', 'url' => $preise],
+                'cta_secondary' => ['label' => 'Preise und Katalog', 'url' => $preise],
                 'see_also' => [
                     ['label' => 'Gastbeitrag kaufen', 'url' => $guest],
                     ['label' => 'Linkaufbau-Strategien', 'url' => $blogLb],
@@ -528,7 +528,7 @@ class GermanMoneyLanders
                     ],
                     [
                         'q' => 'Was kostet eine Kampagne?',
-                        'a' => 'Self-Service: Summe der Listings. Gemanagt: die Pakete auf der Preisseite (EUR-Beträge laut aktuellem Listino).',
+                        'a' => 'Self-Service: Summe der Listings. Gemanagt: die Pakete auf der Preisseite (EUR-Beträge laut aktueller Preisliste).',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Pakete und Katalog ansehen', 'url' => $preise],

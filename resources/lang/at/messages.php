@@ -16,7 +16,7 @@ return [
     'meta_marketplace_description' => 'Publisher-Katalog Österreich: .at- und deutschsprachige Sites nach Nische, DA/DR und EUR-Preis filtern. Der vollständige Katalog öffnet sich nach der Registrierung.',
 
     'meta_pricing_title' => 'Gastbeitrag & Backlink Preise Österreich | SEOLinkBuildings',
-    'meta_pricing_description' => 'Was kostet ein Gastbeitrag in Österreich? Preise pro Site in EUR plus Digital-PR-Pakete. Live-Preise stehen im Katalog — kein erfundenes OTS-Listino.',
+    'meta_pricing_description' => 'Was kostet ein Gastbeitrag in Österreich? Preise pro Site in EUR plus Digital-PR-Pakete. Live-Preise stehen im Katalog — kein erfundenes OTS-Preisblatt.',
 
     'marketplace_kicker' => 'Österreich-Katalog',
     'marketplace_title' => 'Gastbeitrag-Portale und österreichische Publisher',

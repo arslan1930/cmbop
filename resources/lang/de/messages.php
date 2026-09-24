@@ -544,7 +544,7 @@ return [
     'meta_faq_title' => 'FAQ — Guest Posts, Zahlungen und Publishing | SEOLinkBuildings',
     'meta_faq_description' => 'Antworten zu Wallet, Aufträgen, Rückerstattungen, Verifizierung und Publishing. So funktioniert der Marktplatz auf Seolinkbuildings.com.',
     'meta_pricing_title' => 'Was kostet ein Gastbeitrag | SEOLinkBuildings',
-    'meta_pricing_description' => 'Gastbeitrag-Kosten und Preisliste: Preise pro Site in EUR plus Digital-PR-Pakete. Kein erfundenes Listino — Live-Preise stehen im Katalog.',
+    'meta_pricing_description' => 'Gastbeitrag-Kosten und Preisliste: Preise pro Site in EUR plus Digital-PR-Pakete. Keine erfundene Preisliste — Live-Preise stehen im Katalog.',
     'meta_marketplace_title' => 'Beste Seiten für Gastbeiträge | SEOLinkBuildings',
     'meta_marketplace_description' => 'Publisher-Marktplatz Deutschland: filtern Sie Nische, Sprache, DA/DR und EUR-Preis. Der vollständige Katalog öffnet sich nach der Registrierung.',
     'meta_how_it_works_title' => 'So funktionieren Guest-Post-Bestellungen | SEOLinkBuildings',

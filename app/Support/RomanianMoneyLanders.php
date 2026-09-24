@@ -381,7 +381,7 @@ class RomanianMoneyLanders
             'agentii' => [
                 'kicker' => 'Cont B2B',
                 'h1' => 'Link building pentru agenții în România',
-                'subtitle' => 'Catalog self-service pentru agenții SEO, reselleri și echipe care refacturează. Portofel EUR, comenzi urmărite, facturi în facturarea advertiserului.',
+                'subtitle' => 'Catalog self-service pentru agenții SEO, revânzători și echipe care refacturează. Portofel EUR, comenzi urmărite, facturi în facturarea advertiserului.',
                 'meta_title' => 'Link building pentru agenții în România | SEOLinkBuildings',
                 'meta_description' => 'Guest post pentru agenții în România: catalog EUR, facturi, comenzi pe brand — fără un portal de revânzare cu logoul tău.',
                 'teaser_countries' => ['ro'],
@@ -514,7 +514,7 @@ class RomanianMoneyLanders
                 'sections' => [
                     [
                         'h2' => 'Când ar avea sens un niche edit',
-                        'body' => 'Doar dacă articolul existent se potrivește tematic, publisherul răspunde editorial și linkul rămâne transparent. Nu îl orchestrăm ca SKU de volum.',
+                        'body' => 'Doar dacă articolul existent se potrivește tematic, publisherul răspunde editorial și linkul rămâne transparent. Nu îl vindem ca SKU de volum.',
                     ],
                 ],
                 'faqs' => [
