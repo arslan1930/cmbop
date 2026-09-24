@@ -33,6 +33,8 @@ class SpanishMoneyLanderTest extends TestCase
 
             $this->assertStringNotContainsString('hreflang="en-GB"', $html, $slug);
             $this->assertStringNotContainsString('advertiser/catalog', $html, $slug);
+            $this->assertStringNotContainsString('listino', $html, $slug);
+            $this->assertStringNotContainsString('Listino', $html, $slug);
             $this->assertStringNotContainsString('inLanguage":"it-IT"', $html, $slug);
             $this->assertGreaterThanOrEqual(30, mb_strlen((string) $page['meta_title']), $slug);
             $this->assertLessThanOrEqual(70, mb_strlen((string) $page['meta_title']), $slug);
@@ -85,7 +87,11 @@ class SpanishMoneyLanderTest extends TestCase
         $buy = $this->get('/es/comprar-guest-post')->assertOk()->getContent();
         $this->assertStringContainsString('Comprar guest post en España', $buy);
         $this->assertStringContainsString('Comprar guest post en España | SEOLinkBuildings', $buy);
+        $this->assertStringContainsString('Elija el sitio', $buy);
         $this->assertStringContainsString('no hay CIF español inventado', $buy);
+        $this->assertStringNotContainsString('listino', $buy);
+        $this->assertStringNotContainsString('Elige el sitio', $buy);
+        $this->assertStringNotContainsString('trátalo', $buy);
 
         $mercado = $this->get('/es/mercado')->assertOk()->getContent();
         $this->assertStringContainsString('Catálogo de medios y publishers en España', $mercado);
@@ -94,6 +100,7 @@ class SpanishMoneyLanderTest extends TestCase
         $precios = $this->get('/es/precios')->assertOk()->getContent();
         $this->assertStringContainsString('Qué cuesta un guest post en España', $precios);
         $this->assertStringContainsString('Precios guest post y backlinks en España', $precios);
+        $this->assertStringNotContainsString('listino', $precios);
     }
 
     public function test_sitemap_es_includes_money_landers_and_not_aliases(): void

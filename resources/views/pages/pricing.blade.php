@@ -144,7 +144,7 @@
 @if(function_exists('public_locale') && public_locale() === 'es' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks'))
 <div class="container pb-5" style="max-width: 1100px;">
     <h2 class="h4 mb-3" style="color:#1a585e;">Qué cuesta un guest post en España</h2>
-    <p class="text-muted">No publicamos un PDF fijo ni un listino con IVA español inventado: el precio es el del sitio, en euros, en el checkout. «Precios backlinks» y «coste link building» siguen los listings que elija. Los paquetes numerados arriba son campañas de PR digital gestionadas, no un saco de URLs anónimas.</p>
+    <p class="text-muted">No publicamos un PDF fijo ni una tarifa con IVA español inventado: el precio es el del sitio, en euros, en el checkout. «Precios backlinks» y «coste link building» siguen los listings que elija. Los paquetes numerados arriba son campañas de PR digital gestionadas, no un saco de URLs anónimas.</p>
     <p class="text-muted">Los precios en vivo están en el <a href="{{ localized_url('marketplace') }}">catálogo de España</a> tras registrarse. Índice europeo (página en inglés): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
     <p class="text-muted">El precio lo marcan autoridad, tráfico, nicho, país (.es vs. otros), requisitos de contenido y revisión editorial — según el listing, no como medias españolas inventadas. Sede en Londres (Topurlz Ltd); no hay CIF español.</p>
     @include('components.italian-seo-cluster-nav', [

@@ -162,7 +162,7 @@ class SpanishMoneyLanders
                 'teaser_title' => 'Ejemplo de sitios para guest posts en España',
                 'teaser_subtitle' => 'Vista previa enmascarada de listings activos de España. Los dominios se ven tras registrarse.',
                 'intro' => [
-                    'SEOLinkBuildings es un marketplace self-service para anunciantes en España, no un paquete opaco de guest posts. Elige el sitio — a menudo .es, a menudo en español —, paga en euros desde el monedero y mantiene briefing, chat y URL en vivo en un solo pedido. Sede en Londres (Topurlz Ltd); no hay CIF español inventado.',
+                    'SEOLinkBuildings es un marketplace self-service para anunciantes en España, no un paquete opaco de guest posts. Elija el sitio — a menudo .es, a menudo en español —, pague en euros desde el monedero y mantenga el briefing, el chat y la URL en vivo en un solo pedido. Sede en Londres (Topurlz Ltd); no hay CIF español inventado.',
                     '«Comprar guest post», «publicar artículo invitado» y «guest post España» son la misma intención: una publicación de pago en un sitio que no es suyo, con reglas escritas de longitud, enlaces y plazos.',
                 ],
                 'points' => [
@@ -182,7 +182,7 @@ class SpanishMoneyLanders
                 'sections' => [
                     [
                         'h2' => 'Guest post con backlink en España',
-                        'body' => 'En el mercado español, «comprar guest post», «guest post permanente» y «guest post de calidad» coinciden en intención de compra. Paga una publicación con las reglas del listing. La permanencia es la que declara el publisher — no es una promesa de ranking. Verticales (finanzas, salud, inmobiliaria, seguros, tecnología) y ciudades (Madrid, Barcelona) son H2 de esta página, no landings /es/nichos.',
+                        'body' => 'En el mercado español, «comprar guest post», «guest post permanente» y «guest post de calidad» coinciden en intención de compra. Pague una publicación con las reglas del listing. La permanencia es la que declara el publisher — no es una promesa de ranking. Verticales (finanzas, salud, inmobiliaria, seguros, tecnología) y ciudades (Madrid, Barcelona) son H2 de esta página, no landings /es/nichos.',
                     ],
                     [
                         'h2' => 'Catálogo de medios, no un doorway',
@@ -231,7 +231,7 @@ class SpanishMoneyLanders
                     ],
                     [
                         'title' => 'Patrocinado vs guest post',
-                        'body' => 'Si paga por aparecer, trátalo como sponsored — aunque la factura diga guest post. Google espera una cualificación (rel sponsored o nofollow) en colocaciones de pago.',
+                        'body' => 'Si paga por aparecer, trátelo como sponsored — aunque la factura diga guest post. Google espera una cualificación (rel sponsored o nofollow) en colocaciones de pago.',
                     ],
                     [
                         'title' => 'Contenido editorial, no un banner',
@@ -310,7 +310,7 @@ class SpanishMoneyLanders
                 'faqs' => [
                     [
                         'q' => '¿Vendéis paquetes de linkbuilding?',
-                        'a' => 'No como SKU opaco. Compra publicaciones sueltas. Los paquetes numerados en Precios son campañas de PR digital gestionadas, no un saco de URLs anónimas.',
+                        'a' => 'No como SKU opaco. Compre publicaciones sueltas. Los paquetes numerados en Precios son campañas de PR digital gestionadas, no un saco de URLs anónimas.',
                     ],
                     [
                         'q' => '¿Es linkbuilding white-hat?',
@@ -481,7 +481,7 @@ class SpanishMoneyLanders
                     ],
                     [
                         'h2' => 'Guest post vs PR digital',
-                        'body' => 'El guest post es un artículo en el sitio anfitrión. La PR digital apunta a una historia que un editor querría por sí solo. En el marketplace igual paga la publicación: trátala como sponsored si hay contraprestación. <a href="'.$sponsored.'">Artículo patrocinado</a>.',
+                        'body' => 'El guest post es un artículo en el sitio anfitrión. La PR digital apunta a una historia que un editor querría por sí solo. En el marketplace igual paga la publicación: trátela como sponsored si hay contraprestación. <a href="'.$sponsored.'">Artículo patrocinado</a>.',
                     ],
                 ],
                 'faqs' => [
@@ -495,7 +495,7 @@ class SpanishMoneyLanders
                     ],
                     [
                         'q' => '¿Cuánto cuesta una campaña?',
-                        'a' => 'Self-service: suma de listings. Gestionado: los paquetes en Precios (importes en EUR del listino actual).',
+                        'a' => 'Self-service: suma de listings. Gestionado: los paquetes en Precios (importes en EUR de la tarifa actual).',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Ver paquetes y catálogo', 'url' => $precios],
@@ -576,7 +576,7 @@ class SpanishMoneyLanders
                 'teaser_subtitle' => 'No clonamos el inventario de un competidor. Tras el login ve listings propios con precio de checkout en euro.',
                 'intro' => [
                     'Las búsquedas «Publisuites alternativa», «Getlinko alternativa» o «mejores plataformas linkbuilding» quieren un comparador. Esta página no afirma ser «mejor» en métricas que no publicamos. Enumera lo que sí puede comprobar en SEOLinkBuildings.',
-                    'Sede: Londres, Topurlz Ltd. Catálogo europeo, checkout en EUR. No inventamos una sede española, un CIF ni un wallet en otra divisa.',
+                    'Sede: Londres, Topurlz Ltd. Catálogo europeo, checkout en EUR. No inventamos una sede española, un CIF ni un monedero en otra divisa.',
                 ],
                 'points' => [
                     [

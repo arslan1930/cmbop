@@ -192,7 +192,7 @@ return [
     // Pricing page chrome
     'pricing_kicker' => 'Precios',
     'pricing_page_title' => 'Qué cuesta un guest post en España',
-    'pricing_page_subtitle' => 'Pague por publicación en el marketplace o elija un paquete gestionado de PR digital — en euros, sin listino con IVA español inventado.',
+    'pricing_page_subtitle' => 'Pague por publicación en el marketplace o elija un paquete gestionado de PR digital — en euros, sin tarifa con IVA español inventado.',
     'pricing_hero_title' => 'Coste del guest post por publisher, no por paquete',
     'pricing_hero_lead' => 'Explore publishers de España, elija el precio en EUR que encaje y pague con el monedero.',
     'pricing_hero_from' => 'Las publicaciones del marketplace empiezan desde',

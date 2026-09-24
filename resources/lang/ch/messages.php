@@ -16,7 +16,7 @@ return [
     'meta_marketplace_description' => 'Publisher-Katalog Schweiz: .ch- und deutschsprachige Sites nach Nische, DA/DR und EUR-Preis filtern. Der vollständige Katalog öffnet sich nach der Registrierung.',
 
     'meta_pricing_title' => 'Gastbeitrag & Backlink Preise Schweiz | SEOLinkBuildings',
-    'meta_pricing_description' => 'Was kostet ein Gastbeitrag in der Schweiz? Preise pro Site in EUR plus Digital-PR-Pakete. Live-Preise stehen im Katalog — kein CHF-Listino, keine erfundene MWST-Nummer.',
+    'meta_pricing_description' => 'Was kostet ein Gastbeitrag in der Schweiz? Preise pro Site in EUR plus Digital-PR-Pakete. Live-Preise stehen im Katalog — keine CHF-Preisliste, keine erfundene MWST-Nummer.',
 
     'marketplace_kicker' => 'Schweiz-Katalog',
     'marketplace_title' => 'Gastbeitrag-Portale und Schweizer Publisher',

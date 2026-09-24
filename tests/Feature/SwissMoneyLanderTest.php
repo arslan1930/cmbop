@@ -39,6 +39,7 @@ class SwissMoneyLanderTest extends TestCase
             $this->assertStringNotContainsString('ß', (string) ($page['h1'] ?? ''), $slug);
             $this->assertStringNotContainsString('ß', (string) ($page['meta_title'] ?? ''), $slug);
             $this->assertStringNotContainsString('ß', (string) ($page['meta_description'] ?? ''), $slug);
+            $this->assertStringNotContainsString('Listino', (string) json_encode($page, JSON_UNESCAPED_UNICODE), $slug);
             $this->assertGreaterThanOrEqual(30, mb_strlen((string) $page['meta_title']), $slug);
             $this->assertLessThanOrEqual(70, mb_strlen((string) $page['meta_title']), $slug);
             $this->assertLessThanOrEqual(180, mb_strlen((string) $page['meta_description']), $slug);
@@ -88,9 +89,11 @@ class SwissMoneyLanderTest extends TestCase
         $this->assertStringContainsString('Gastbeiträge kaufen in der Schweiz | SEOLinkBuildings', $buy);
         $this->assertStringNotContainsString('Gastbeiträge kaufen – relevante Publisher für Ihre SEO', $buy);
         $this->assertStringContainsString('zahlen in Euro aus dem Wallet', $buy);
+        $this->assertStringNotContainsString('Listino', $buy);
 
         $advertorial = $this->get('/ch/advertorial')->assertOk()->getContent();
         $this->assertStringContainsString('kein CHF-Wallet', $advertorial);
+        $this->assertStringNotContainsString('Listino', $advertorial);
 
         $marktplatz = $this->get('/ch/marktplatz')->assertOk()->getContent();
         $this->assertStringContainsString('Gastbeitrag-Portale und Schweizer Publisher', $marktplatz);

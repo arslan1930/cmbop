@@ -92,7 +92,7 @@
                     <div class="h-100 p-4 rounded-4 bg-white border">
                         <div class="small text-muted mb-1">Desde</div>
                         <div class="h3 mb-0" style="color:#1a585e;">€{{ number_format((float) $priceFrom, 0) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Precio de checkout más bajo en listings de España verificados y activos en este momento. No es un listino fijo.</p>
+                        <p class="small text-muted mb-0 mt-2">Precio de checkout más bajo en listings de España verificados y activos en este momento. No es una tarifa fija.</p>
                     </div>
                 </div>
             @endif

@@ -338,7 +338,7 @@ class SwissMoneyLanders
                     ],
                 ],
                 'cta_primary' => ['label' => 'Mit dem Katalog starten', 'url' => $register],
-                'cta_secondary' => ['label' => 'Preise und Listung', 'url' => $preise],
+                'cta_secondary' => ['label' => 'Preise ansehen', 'url' => $preise],
                 'see_also' => [
                     ['label' => 'Gastbeitrag kaufen', 'url' => $guest],
                     ['label' => 'Linkaufbau-Strategien', 'url' => $blogLb],
@@ -348,7 +348,7 @@ class SwissMoneyLanders
             'backlinks-kaufen' => [
                 'kicker' => 'Redaktionelle Backlinks',
                 'h1' => 'Backlinks aus der Schweiz kaufen',
-                'subtitle' => 'Schweizische Backlinks und SEO-Backlinks aus dem Katalog: Preise in Euro, DA/DR, deklariertes Attribut. Kein PBN, kein garantiertes Ranking.',
+                'subtitle' => 'Schweizerische Backlinks und SEO-Backlinks aus dem Katalog: Preise in Euro, DA/DR, deklariertes Attribut. Kein PBN, kein garantiertes Ranking.',
                 'meta_title' => 'Backlinks kaufen in der Schweiz | SEOLinkBuildings',
                 'meta_description' => 'Backlinks kaufen in der Schweiz bei geprüften Publishern. Dofollow, Nische und EUR-Preis vergleichen, Live-URL am Auftrag verfolgen — ohne Ranking-Garantie.',
                 'teaser_countries' => ['ch'],
@@ -374,7 +374,7 @@ class SwissMoneyLanders
                 ],
                 'sections' => [
                     [
-                        'h2' => 'Schweizische Backlinks und .ch-Publisher',
+                        'h2' => 'Schweizerische Backlinks und .ch-Publisher',
                         'body' => 'Filtern Sie Land Schweiz. Die öffentliche Vorschau maskiert Domains. Katalog: <a href="'.$marktplatz.'">Gastbeitrag-Portale in der Schweiz</a>. Auch ohne Kauf: <a href="'.$blogBack.'">Was sind Backlinks?</a>.',
                     ],
                     [
@@ -511,7 +511,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'q' => 'Was kostet eine Kampagne?',
-                        'a' => 'Self-Service: Summe der Listings. Gemanagt: die Pakete auf der Preisseite (EUR-Beträge laut aktuellem Listino).',
+                        'a' => 'Self-Service: Summe der Listings. Gemanagt: die Pakete auf der Preisseite (EUR-Beträge laut aktueller Preisliste).',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Pakete und Katalog ansehen', 'url' => $preise],
