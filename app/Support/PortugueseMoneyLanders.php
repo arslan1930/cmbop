@@ -161,7 +161,7 @@ class PortugueseMoneyLanders
                 'meta_description' => 'Comprar guest post em sites portugueses verificados. Filtre nicho, DA/DR e preço em EUR, escolha dofollow ou sponsored e acompanhe o URL em vivo.',
                 'teaser_countries' => ['pt'],
                 'teaser_title' => 'Exemplo de sites para guest posts em Portugal',
-                'teaser_subtitle' => 'Pré-visualização mascarada de listings activos de Portugal. Os domínios vêem-se depois do registo.',
+                'teaser_subtitle' => 'Pré-visualização mascarada de listings ativos de Portugal. Os domínios vêem-se depois do registo.',
                 'intro' => [
                     'O SEOLinkBuildings é um marketplace self-service para anunciantes em Portugal, não um pacote opaco de guest posts. Escolha o site — muitas vezes .pt, muitas vezes em português europeu —, pague em euros a partir da carteira e mantenha briefing, chat e URL em vivo numa só encomenda. Sede em Londres (Topurlz Ltd); não há NIF português inventado.',
                     '«Comprar guest post», «guest post em blogs portugueses» e «guest posting sites Portugal» são a mesma intenção: uma publicação paga num site que não é seu, com regras escritas de extensão, ligações e prazos.',
@@ -291,7 +291,7 @@ class PortugueseMoneyLanders
                 'points' => [
                     [
                         'title' => 'Self-service, não um PDF',
-                        'body' => 'Vê site, preço de checkout e métricas antes de pagar. Não compra um «pacote de 20 DR50» sem nomes.',
+                        'body' => 'Vê o site, o preço de checkout e as métricas antes de pagar. Não se compra um «pacote de 20 DR50» sem nomes.',
                     ],
                     [
                         'title' => 'Custo do link building',
@@ -342,7 +342,7 @@ class PortugueseMoneyLanders
                 'meta_description' => 'Comprar backlinks em Portugal em publishers verificados. Compare dofollow, nicho e preço EUR; acompanhe o URL em vivo — sem garantia de ranking.',
                 'teaser_countries' => ['pt'],
                 'teaser_title' => 'Sites para backlinks em Portugal (pré-visualização)',
-                'teaser_subtitle' => 'Os hosts continuam mascarados até ter conta. «Backlinks de qualidade» aqui significa filtrável, não um ranking objectivo.',
+                'teaser_subtitle' => 'Os hosts continuam mascarados até ter conta. «Backlinks de qualidade» aqui significa filtrável, não um ranking objetivo.',
                 'intro' => [
                     '«Comprar backlinks», «backlinks Portugal» e «links dofollow» são a mesma pergunta comercial. No SEOLinkBuildings o backlink nasce de uma publicação no site do publisher, não de uma rede de domínios expirados.',
                     'O Google trata links comprados para manipular rankings como spam de links se não estiverem qualificados. Trate as publicações pagas como sponsored/nofollow quando o site o exigir.',
@@ -368,7 +368,7 @@ class PortugueseMoneyLanders
                     ],
                     [
                         'h2' => 'Qualidade, não promessas',
-                        'body' => 'Temática, contexto editorial, qualidade do publisher, audiência, conteúdo, colocação, âncoras transparentes e o perfil global — factores que pode verificar. Um único backlink não «melhora rankings» sozinho. Riscos: <a href="'.$guia.'">guia</a>.',
+                        'body' => 'Temática, contexto editorial, qualidade do publisher, audiência, conteúdo, colocação, âncoras transparentes e o perfil global — fatores que pode verificar. Um único backlink não «melhora rankings» sozinho. Riscos: <a href="'.$guia.'">guia</a>.',
                     ],
                 ],
                 'faqs' => [
@@ -398,18 +398,18 @@ class PortugueseMoneyLanders
                 'h1' => 'Link building para agências em Portugal',
                 'subtitle' => 'Catálogo self-service para agências SEO, revendedores e equipas que refacturam. Carteira EUR, encomendas com acompanhamento, faturas onde o Billing as emite.',
                 'meta_title' => 'Link building para agências em Portugal | SEOLinkBuildings',
-                'meta_description' => 'White label e guest posts para agências em Portugal: catálogo EUR, faturas, encomendas por marca — sem um frontend de revenda com o seu logótipo.',
+                'meta_description' => 'White label e guest posts para agências em Portugal: catálogo EUR, faturas, encomendas por marca — sem um frontend de revenda com o seu logotipo.',
                 'teaser_countries' => ['pt'],
                 'teaser_title' => 'Inventário que pode refacturar',
-                'teaser_subtitle' => 'Os mesmos listings que um anunciante interno. A conta é sua; as marcas vivem nos seus projectos e encomendas.',
+                'teaser_subtitle' => 'Os mesmos listings que um anunciante interno. A conta é sua; as marcas vivem nos seus projetos e encomendas.',
                 'intro' => [
                     '«Agência linkbuilding Portugal», «guest post para agências» e «outreach linkbuilding» procuram um fornecedor que execute. Aqui a agência mantém o comando: escolhe sites, paga e entrega o URL em vivo ao cliente.',
-                    'White label operativo significa: o cliente final não tem de criar conta no marketplace. Não é um programa de revenda com o seu logótipo no site público.',
+                    'White label operacional significa: o cliente final não tem de criar conta no marketplace. Não é um programa de revenda com o seu logotipo no site público.',
                 ],
                 'points' => [
                     [
                         'title' => 'Uma carteira, várias campanhas',
-                        'body' => 'Carregue em euros (cartão ou transferência, se estiver activo) e distribua o saldo entre encomendas.',
+                        'body' => 'Carregue em euros (cartão ou transferência, se estiver ativo) e distribua o saldo entre encomendas.',
                     ],
                     [
                         'title' => 'Encomenda e fatura',
@@ -463,7 +463,7 @@ class PortugueseMoneyLanders
                 'teaser_subtitle' => 'Alguns publishers parecem um media kit; nem todos são um diário. Nicho e idioma filtram-se depois do login.',
                 'intro' => [
                     '«Digital PR Portugal», «nota de imprensa SEO» e «menções de marca» misturam PR e link building. Aqui compra publicações em sites que estão mesmo no catálogo. Se um domínio não está listado, não o vendemos.',
-                    'Os pacotes geridos de digital PR (importâncias em Preços, hoje a partir de 499 €/mês no plano base se continuar listado) são outreach da equipa, não um botão «saia num diário nacional».',
+                    'Os pacotes geridos de digital PR (valores em Preços, hoje a partir de 499 €/mês no plano base se continuar listado) são outreach da equipa, não um botão «saia num diário nacional».',
                 ],
                 'points' => [
                     [
@@ -500,7 +500,7 @@ class PortugueseMoneyLanders
                     ],
                     [
                         'q' => 'Quanto custa uma campanha?',
-                        'a' => 'Self-service: soma dos listings. Gerido: os pacotes em Preços (importâncias em EUR da tarifa actual).',
+                        'a' => 'Self-service: soma dos listings. Gerido: os pacotes em Preços (valores em EUR da tarifa atual).',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Ver pacotes e catálogo', 'url' => $precos],
@@ -519,7 +519,7 @@ class PortugueseMoneyLanders
                 'meta_description' => 'O que são niche edits e inserções de link, quando são arriscados, e porque em Portugal vendemos publicações editoriais — não um insert em rankings alheios.',
                 'teaser_countries' => ['pt'],
                 'teaser_title' => 'Sites editoriais, não redes de inserts',
-                'teaser_subtitle' => 'Pré-visualização de listings Portugal activos. O produto padrão é um artigo novo com ligação no corpo, não um insert silencioso.',
+                'teaser_subtitle' => 'Pré-visualização de listings Portugal ativos. O produto padrão é um artigo novo com ligação no corpo, não um insert silencioso.',
                 'intro' => [
                     'Um niche edit é uma ligação metida num artigo já publicado — muitas vezes porque o URL já está indexado. «Inserção de link» e «links em artigos existentes» procuram exactamente isso.',
                     'O SEOLinkBuildings não o vende como produto. A encomenda padrão é uma publicação nova (guest post ou artigo patrocinado) com briefing e URL em vivo. Alguns publishers oferecem um extra de homepage com prazo; está visível no listing, não é um insert silencioso num artigo que já posiciona.',

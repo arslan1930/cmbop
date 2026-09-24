@@ -92,7 +92,7 @@
                     <div class="h-100 p-4 rounded-4 bg-white border">
                         <div class="small text-muted mb-1">Desde</div>
                         <div class="h3 mb-0" style="color:#1a585e;">€{{ number_format((float) $priceFrom, 0) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Preço de checkout mais baixo em listings de Portugal verificados e activos neste momento. Não é uma tabela de preços fixa.</p>
+                        <p class="small text-muted mb-0 mt-2">Preço de checkout mais baixo em listings de Portugal verificados e ativos neste momento. Não é uma tabela de preços fixa.</p>
                     </div>
                 </div>
             @endif
@@ -101,7 +101,7 @@
                     <div class="h-100 p-4 rounded-4 bg-white border">
                         <div class="small text-muted mb-1">Sites em pré-visualização</div>
                         <div class="h3 mb-0" style="color:#1a585e;">{{ number_format((int) $siteCount) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Publishers activos e verificados com país primário Portugal no catálogo, quando a contagem está disponível.</p>
+                        <p class="small text-muted mb-0 mt-2">Publishers ativos e verificados com país primário Portugal no catálogo, quando a contagem está disponível.</p>
                     </div>
                 </div>
             @endif

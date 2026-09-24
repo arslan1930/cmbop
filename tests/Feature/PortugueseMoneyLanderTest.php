@@ -78,6 +78,8 @@ class PortugueseMoneyLanderTest extends TestCase
         $this->assertStringContainsString('não há NIF português inventado', $buy);
         $this->assertStringNotContainsString('média portugueses guest post', $buy);
         $this->assertStringNotContainsString('guest post da alto', $buy);
+        $this->assertStringNotContainsString('importâncias', $buy);
+        $this->assertStringNotContainsString('activos', $buy);
 
         $market = $this->get('/pt/marketplace')->assertOk()->getContent();
         $this->assertStringContainsString('Catálogo de meios e publishers em Portugal', $market);

@@ -38,7 +38,7 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'marketplace_point_3_title' => 'Sites .pt e português',
     'marketplace_point_3_body' => 'Muitos listings são .pt ou estão em português europeu. Idioma e país estão na linha — sem inventário inventado.',
     'marketplace_teaser_title' => 'Exemplo de publishers em Portugal',
-    'marketplace_teaser_subtitle' => 'Pré-visualização mascarada de listings activos de Portugal. Os domínios vêem-se depois do registo.',
+    'marketplace_teaser_subtitle' => 'Pré-visualização mascarada de listings ativos de Portugal. Os domínios vêem-se depois do registo.',
     'marketplace_catalog_note' => 'O catálogo em vivo abre-se depois do login e permanece em inglês. Filtro país = Portugal.',
 
     'pricing_page_title' => 'Quanto custa um guest post em Portugal',
