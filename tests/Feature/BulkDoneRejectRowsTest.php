@@ -26,13 +26,14 @@ use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\CreatesBlogUploads;
 use Tests\TestCase;
 
 class BulkDoneRejectRowsTest extends TestCase
 {
+    use CreatesBlogUploads;
     use RefreshDatabase;
 
     private User $publisher;
@@ -159,7 +160,7 @@ class BulkDoneRejectRowsTest extends TestCase
             'site_tag' => 'as_you_prefer',
             'description' => 'Guest posts on this website stay published and the link remains dofollow for advertisers.',
             'categories' => $category,
-            'site_image' => UploadedFile::fake()->image('cover.jpg', 80, 80),
+            'site_image' => $this->fakeBlogUpload('cover.jpg', 80, 80),
         ];
     }
 
@@ -219,7 +220,7 @@ class BulkDoneRejectRowsTest extends TestCase
                 ->assertSessionHas('success', function ($message) {
                     $message = (string) $message;
 
-                    return str_contains($message, '2 site(s) added')
+                    return str_contains($message, '2 site(s) are now active')
                         && str_contains($message, '1 site was removed');
                 });
 
@@ -1190,7 +1191,7 @@ class BulkDoneRejectRowsTest extends TestCase
                     ['url' => 'https://owe-b.example', 'price' => 50],
                 ],
             ])
-            ->assertRedirect(route('publisher.websites'))
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
             ->assertSessionHas('success');
     }
 
