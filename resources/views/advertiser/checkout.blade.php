@@ -825,9 +825,22 @@
                                 @include('partials.payment-trust', ['compact' => true, 'showMethods' => false])
                             </div>
 
-                            <a href="{{ route('advertiser.catalog') }}" class="btn btn-outline-secondary w-100 mt-2">
+                            <a href="{{ route('advertiser.catalog') }}" id="continueShopping" class="btn btn-outline-secondary w-100 mt-2">
                                 <i class="fa fa-arrow-left"></i> Continue Shopping
                             </a>
+                            <script>
+                            (function () {
+                                try {
+                                    var stored = sessionStorage.getItem('slb_catalog_return') || '';
+                                    var catalogPath = @json(parse_url(route('advertiser.catalog'), PHP_URL_PATH) ?: '/advertiser/catalog');
+                                    var path = stored.split('?')[0];
+                                    if (stored.charAt(0) !== '/' || stored.indexOf('//') !== -1 || stored.indexOf('\\') !== -1) return;
+                                    if (path !== catalogPath && path !== catalogPath + '/') return;
+                                    var link = document.getElementById('continueShopping');
+                                    if (link) link.setAttribute('href', stored);
+                                } catch (_) {}
+                            })();
+                            </script>
                         </div>
                     </div>
                 </div>

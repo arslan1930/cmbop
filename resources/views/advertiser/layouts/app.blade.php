@@ -469,6 +469,29 @@
     let cartSchedule = null;
     let contentLibraryUploadUrl = @json(route('advertiser.content-library', ['upload' => 1]));
     let catalogUrl = @json(route('advertiser.catalog'));
+    const catalogPath = @json(parse_url(route('advertiser.catalog'), PHP_URL_PATH) ?: '/advertiser/catalog');
+
+    function slbCatalogReturn() {
+        try {
+            const stored = sessionStorage.getItem('slb_catalog_return') || '';
+            const path = stored.split('?')[0];
+            if (stored.charAt(0) !== '/' || stored.indexOf('//') !== -1 || stored.indexOf('\\') !== -1) return '';
+            if (path !== catalogPath && path !== catalogPath + '/') return '';
+            return stored;
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function slbRememberCatalog() {
+        try {
+            const here = window.location.pathname || '';
+            if (here !== catalogPath && here !== catalogPath + '/') return;
+            const back = here + (window.location.search || '');
+            if (back.charAt(0) !== '/' || back.indexOf('//') !== -1 || back.indexOf('\\') !== -1) return;
+            sessionStorage.setItem('slb_catalog_return', back);
+        } catch (_) {}
+    }
 
     function applyCartPayload(data) {
         if (Array.isArray(data)) {
@@ -1495,7 +1518,7 @@
         closeCart();
         const onCatalog = {{ request()->routeIs('advertiser.catalog') ? 'true' : 'false' }};
         if (!onCatalog) {
-            window.location.href = catalogUrl;
+            window.location.href = slbCatalogReturn() || catalogUrl;
         }
     });
 
@@ -1699,6 +1722,7 @@
         const wizardPay = @json(route('advertiser.wizard.pay'));
         const plainCheckout = @json(route('advertiser.checkout'));
         const inWizard = {{ request()->boolean('wizard') || !empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language'] ?? null) ? 'true' : 'false' }};
+        slbRememberCatalog();
         window.location.href = inWizard ? wizardPay : plainCheckout;
     });
     
@@ -1712,6 +1736,40 @@
     } catch (_) {}
     // Catalog shows its own banner; other pages toast names already dropped during render.
     const onCatalogPage = {{ request()->routeIs('advertiser.catalog') ? 'true' : 'false' }};
+    if (onCatalogPage) {
+        slbRememberCatalog();
+        ['pushState', 'replaceState'].forEach(function (name) {
+            const original = history[name];
+            if (typeof original !== 'function' || original.__slbCatalog) return;
+            const wrapped = function () {
+                const result = original.apply(this, arguments);
+                slbRememberCatalog();
+                return result;
+            };
+            wrapped.__slbCatalog = true;
+            history[name] = wrapped;
+        });
+        window.addEventListener('popstate', slbRememberCatalog);
+    }
+    document.addEventListener('click', function (event) {
+        const link = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+        if (!link || link.classList.contains('catalog-clear-all')) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        if (link.target && link.target !== '_self') return;
+        let url;
+        try {
+            url = new URL(link.href, window.location.origin);
+        } catch (_) {
+            return;
+        }
+        if (url.origin !== window.location.origin) return;
+        if (url.pathname !== catalogPath && url.pathname !== catalogPath + '/') return;
+        if (url.search) return;
+        const back = slbCatalogReturn();
+        if (!back || back === url.pathname || back === url.pathname + '/') return;
+        event.preventDefault();
+        window.location.href = back;
+    });
     if (!onCatalogPage) {
         toastRemovedCartNames(
             @json($ssrCartRemovedInactive ?? []),
