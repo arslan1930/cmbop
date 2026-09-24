@@ -167,14 +167,29 @@ if ($supportedLocalePattern === '') {
 }
 
 $nordicCeeOwnsSegment = static function (string $locale, string $segment): bool {
-    if (! class_exists(MoneyLanderCatalog::class)
-        || ! method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
-        || ! method_exists(MoneyLanderCatalog::class, 'localeOwnsSegment')) {
-        return false;
+    if (class_exists(MoneyLanderCatalog::class)
+        && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
+        && method_exists(MoneyLanderCatalog::class, 'localeOwnsSegment')
+        && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)
+        && MoneyLanderCatalog::localeOwnsSegment($locale, $segment)) {
+        return true;
     }
 
-    return in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)
-        && MoneyLanderCatalog::localeOwnsSegment($locale, $segment);
+    // Leftover CH/ES landers own prefixed copies; do not 301 them to DE/IT/PT/RO.
+    if ($locale === 'ch' && class_exists(SwissMoneyLanders::class)) {
+        return (method_exists(SwissMoneyLanders::class, 'capturesLocaleCopy')
+                && SwissMoneyLanders::capturesLocaleCopy($locale, $segment))
+            || (method_exists(SwissMoneyLanders::class, 'isPublicSegment')
+                && SwissMoneyLanders::isPublicSegment($segment));
+    }
+    if ($locale === 'es' && class_exists(SpanishMoneyLanders::class)) {
+        return (method_exists(SpanishMoneyLanders::class, 'capturesLocaleCopy')
+                && SpanishMoneyLanders::capturesLocaleCopy($locale, $segment))
+            || (method_exists(SpanishMoneyLanders::class, 'isPublicSegment')
+                && SpanishMoneyLanders::isPublicSegment($segment));
+    }
+
+    return false;
 };
 
 // Stacked locale cleanup: /nl/fr → /nl
@@ -817,17 +832,75 @@ if ($romanianMoneyAliases !== []) {
     }
 }
 
-// Leftover Hostinger File Manager hygiene: keep CH/ES controller method
-// names in this file even though those landers are not routed here.
+// Leftover Hostinger File Manager: register /ch and /es landers when the
+// controller methods exist (prefixed copies only — DE/IT/PT keep unique 301s).
 if (method_exists(MarketingPageController::class, 'swissMoneyLander')
     && class_exists(SwissMoneyLanders::class)
     && method_exists(SwissMoneyLanders::class, 'slugs')) {
-    // Restored leftover snapshots may re-register /ch landers from this guard.
+    $swissMoneySlugs = [];
+    $swissMoneyAliases = [];
+    try {
+        $swissMoneySlugs = SwissMoneyLanders::slugs();
+        $swissMoneyAliases = method_exists(SwissMoneyLanders::class, 'aliases')
+            ? SwissMoneyLanders::aliases()
+            : [];
+    } catch (Throwable) {
+        $swissMoneySlugs = [];
+        $swissMoneyAliases = [];
+    }
+    if ($swissMoneySlugs !== []) {
+        Route::group([
+            'prefix' => 'ch',
+            'as' => 'locale.ch.money.',
+        ], function () use ($swissMoneySlugs) {
+            foreach ($swissMoneySlugs as $slug) {
+                Route::get('/'.$slug, [MarketingPageController::class, 'swissMoneyLander'])
+                    ->defaults('slug', $slug)
+                    ->name($slug);
+            }
+        });
+    }
+    foreach ($swissMoneyAliases as $from => $to) {
+        Route::get('/ch/'.$from, function () use ($to) {
+            $query = request()->getQueryString();
+
+            return Redirect::to($query ? $to.'?'.$query : $to, 301);
+        });
+    }
 }
 if (method_exists(MarketingPageController::class, 'spanishMoneyLander')
     && class_exists(SpanishMoneyLanders::class)
     && method_exists(SpanishMoneyLanders::class, 'slugs')) {
-    // Restored leftover snapshots may re-register /es landers from this guard.
+    $spanishMoneySlugs = [];
+    $spanishMoneyAliases = [];
+    try {
+        $spanishMoneySlugs = SpanishMoneyLanders::slugs();
+        $spanishMoneyAliases = method_exists(SpanishMoneyLanders::class, 'aliases')
+            ? SpanishMoneyLanders::aliases()
+            : [];
+    } catch (Throwable) {
+        $spanishMoneySlugs = [];
+        $spanishMoneyAliases = [];
+    }
+    if ($spanishMoneySlugs !== []) {
+        Route::group([
+            'prefix' => 'es',
+            'as' => 'locale.es.money.',
+        ], function () use ($spanishMoneySlugs) {
+            foreach ($spanishMoneySlugs as $slug) {
+                Route::get('/'.$slug, [MarketingPageController::class, 'spanishMoneyLander'])
+                    ->defaults('slug', $slug)
+                    ->name($slug);
+            }
+        });
+    }
+    foreach ($spanishMoneyAliases as $from => $to) {
+        Route::get('/es/'.$from, function () use ($to) {
+            $query = request()->getQueryString();
+
+            return Redirect::to($query ? $to.'?'.$query : $to, 301);
+        });
+    }
 }
 
 if (class_exists(MoneyLanderCatalog::class)

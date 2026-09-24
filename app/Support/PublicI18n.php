@@ -226,10 +226,6 @@ class PublicI18n
                 if (! is_string($locale) || ! is_string($class)) {
                     continue;
                 }
-                // CH/ES landers exist as leftover classes but are not fully routed on this branch.
-                if (in_array($locale, ['ch', 'es'], true)) {
-                    continue;
-                }
                 if (method_exists($class, 'isSlug') && $class::isSlug($slug)) {
                     $locales[] = $locale;
                 }
@@ -608,6 +604,13 @@ class PublicI18n
                 $moneyUrl = self::moneyLanderUrl($first, $targetLocale);
                 if (is_string($moneyUrl) && $moneyUrl !== '') {
                     return $moneyUrl;
+                }
+            }
+
+            if (class_exists(MoneyLanderCatalog::class) && method_exists(MoneyLanderCatalog::class, 'classFor')) {
+                $targetClass = MoneyLanderCatalog::classFor($targetLocale);
+                if (is_string($targetClass) && method_exists($targetClass, 'isSlug') && $targetClass::isSlug($first)) {
+                    return url('/'.$targetLocale.'/'.$first);
                 }
             }
 

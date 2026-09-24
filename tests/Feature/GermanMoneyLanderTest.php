@@ -139,6 +139,11 @@ class GermanMoneyLanderTest extends TestCase
 
                 continue;
             }
+            if ($locale === 'es') {
+                $this->get('/es/digital-pr')->assertOk();
+
+                continue;
+            }
             if (class_exists(MoneyLanderCatalog::class)
                 && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
                 && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)) {

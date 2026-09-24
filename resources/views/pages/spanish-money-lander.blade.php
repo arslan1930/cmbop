@@ -24,7 +24,8 @@
     $hreflangLocales = 'es';
     $hreflangXDefault = 'es';
     if (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'moneyLanderLocales')) {
-        $hreflangLocales = implode(',', \App\Support\PublicI18n::moneyLanderLocales($slug));
+        $fromI18n = \App\Support\PublicI18n::moneyLanderLocales($slug);
+        $hreflangLocales = implode(',', array_values(array_unique(array_merge(['es'], $fromI18n))));
         $hreflangXDefault = method_exists(\App\Support\PublicI18n::class, 'moneyLanderXDefault')
             ? \App\Support\PublicI18n::moneyLanderXDefault($slug)
             : $hreflangXDefault;

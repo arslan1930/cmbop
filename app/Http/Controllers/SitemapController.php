@@ -14,6 +14,8 @@ use App\Support\MoneyLanderCatalog;
 use App\Support\PortugueseMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\RomanianMoneyLanders;
+use App\Support\SpanishMoneyLanders;
+use App\Support\SwissMoneyLanders;
 use App\Support\ThinBlogRedirects;
 use Illuminate\Http\Response;
 
@@ -103,6 +105,20 @@ class SitemapController extends Controller
         if ($locale === 'ro' && class_exists(RomanianMoneyLanders::class)) {
             foreach (RomanianMoneyLanders::slugs() as $slug) {
                 [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['ro']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if ($locale === 'ch' && class_exists(SwissMoneyLanders::class)) {
+            foreach (SwissMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['ch']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if ($locale === 'es' && class_exists(SpanishMoneyLanders::class)) {
+            foreach (SpanishMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['es']);
                 $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
             }
         }
