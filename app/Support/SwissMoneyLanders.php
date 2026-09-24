@@ -194,7 +194,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'h2' => 'Publisher auswählen',
-                        'body' => 'Filtern Sie nach Land Schweiz, Sprache Deutsch, Nische (Tourismus, Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, B2B) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach dem Login und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
+                        'body' => 'Filtern Sie nach Land Schweiz, Sprache Deutsch, Nische (Tourismus, Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, B2B) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach der Anmeldung und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
                     ],
                     [
                         'h2' => 'Keine Agenturmeldung, kein festes Paket',
@@ -294,7 +294,7 @@ class SwissMoneyLanders
                 'meta_description' => 'Linkaufbau in der Schweiz: Self-Service-Katalog, DA/DR und Preise in EUR, nachverfolgte Veröffentlichungen. Kein undurchsichtiges Linkbuilding-Paket.',
                 'teaser_countries' => ['ch'],
                 'teaser_title' => 'Inventar für Linkbuilding-Kampagnen',
-                'teaser_subtitle' => 'Beispiel Schweiz-Sites. Für E-Commerce oder andere Nischen filtern Sie nach dem Login — keine Doorway-Landing pro Branche oder Stadt.',
+                'teaser_subtitle' => 'Beispiel Schweiz-Sites. Für E-Commerce oder andere Nischen filtern Sie nach der Anmeldung — keine eigene Seite pro Branche oder Stadt.',
                 'intro' => [
                     '„Linkaufbau Schweiz“, „Linkbuilding-Paket“ und „Zürich SEO Linkbuilding“ sind oft Agenturseiten. SEOLinkBuildings ist eine Plattform: Sie bauen die Kampagne aus dem Katalog, mit einem Wallet für CH, DE, AT und weitere Märkte.',
                     'White Label oder Rechnungen für mehrere Brands: <a href="'.$agencies.'">Linkbuilding für Agenturen</a>.',
@@ -365,7 +365,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'title' => 'Dofollow nur laut Listing',
-                        'body' => 'Filtern Sie den Linktyp nach dem Login. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
+                        'body' => 'Filtern Sie den Linktyp nach der Anmeldung. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
                     ],
                     [
                         'title' => 'Kein Niche-Edit-SKU',
@@ -428,7 +428,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'title' => 'Plattform für SEO-Teams',
-                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach dem Login ist für alle Rollen auf Englisch.',
+                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach der Anmeldung ist für alle Rollen auf Englisch.',
                     ],
                 ],
                 'sections' => [
@@ -471,7 +471,7 @@ class SwissMoneyLanders
                 'meta_description' => 'Digital PR und Online-PR in der Schweiz: Veröffentlichungen aus dem Katalog, EUR-Wallet, Live-URL, gemanagte Pakete — ohne News- oder Agentur-Garantien.',
                 'teaser_countries' => ['ch'],
                 'teaser_title' => 'Schweiz-Sites im Katalog (Vorschau)',
-                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach dem Login.',
+                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach der Anmeldung.',
                 'intro' => [
                     '„Digital PR Schweiz“, „Online PR Zürich“ und „Brand Mentions Schweiz“ mischen PR und Linkbuilding. Hier kaufen Sie Veröffentlichungen auf Sites, die wirklich im Katalog stehen. Fehlt eine Domain, verkaufen wir sie nicht.',
                     'Gemanagte Digital-PR-Pakete (Beträge auf der Preisseite, aktuell ab 499 €/Monat für den Basisplan, sofern noch gelistet) sind Outreach durch das Team, kein Button „erscheinen Sie in einer Zürcher Tageszeitung“.',

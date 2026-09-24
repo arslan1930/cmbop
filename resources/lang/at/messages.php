@@ -29,7 +29,7 @@ return [
     'marketplace_point_3_body' => 'Viele Listings sind .at oder deutschsprachig. Sprache und Land stehen auf der Zeile — keine erfundenen Inventarzahlen.',
     'marketplace_teaser_title' => 'Beispiel österreichischer Publisher',
     'marketplace_teaser_subtitle' => 'Maskierte Vorschau aktiver Österreich-Listings. Domains sehen Sie nach der Registrierung.',
-    'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach dem Login und bleibt auf Englisch. Filter Land = Österreich.',
+    'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach der Anmeldung und bleibt auf Englisch. Filter Land = Österreich.',
 
     'pricing_page_title' => 'Was kostet ein Gastbeitrag in Österreich',
     'pricing_page_subtitle' => 'Zahlen Sie pro Veröffentlichung im Marktplatz oder wählen Sie ein gemanagtes Digital-PR-Paket — in Euro, ohne OTS-Preisliste.',

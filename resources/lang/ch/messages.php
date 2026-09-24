@@ -26,10 +26,10 @@ return [
     'marketplace_point_2_title' => 'Wallet in Euro',
     'marketplace_point_2_body' => 'Einmal aufladen, schweizerische und andere europäische Veröffentlichungen aus demselben EUR-Wallet kaufen. Checkout bleibt Euro — kein CHF-Wallet.',
     'marketplace_point_3_title' => '.ch und Deutsch',
-    'marketplace_point_3_body' => 'Viele Listings sind .ch oder deutschsprachig. Sprache und Land stehen auf der Zeile — keine erfundenen Inventarzahlen. Französisch- und Italienisch-CH separat nach dem Login filtern.',
+    'marketplace_point_3_body' => 'Viele Listings sind .ch oder deutschsprachig. Sprache und Land stehen auf der Zeile — keine erfundenen Inventarzahlen. Französisch- und Italienisch-CH separat nach der Anmeldung filtern.',
     'marketplace_teaser_title' => 'Beispiel Schweizer Publisher',
     'marketplace_teaser_subtitle' => 'Maskierte Vorschau aktiver Schweiz-Listings. Domains sehen Sie nach der Registrierung.',
-    'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach dem Login und bleibt auf Englisch. Filter Land = Schweiz.',
+    'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach der Anmeldung und bleibt auf Englisch. Filter Land = Schweiz.',
 
     'pricing_page_title' => 'Was kostet ein Gastbeitrag in der Schweiz',
     'pricing_page_subtitle' => 'Zahlen Sie pro Veröffentlichung im Marktplatz oder wählen Sie ein gemanagtes Digital-PR-Paket — in Euro, ohne CHF-Preisliste und ohne OTS.',

@@ -211,7 +211,7 @@ class GermanMoneyLanders
                     ],
                     [
                         'h2' => 'Publisher auswählen',
-                        'body' => 'Filtern Sie nach Land Deutschland, Sprache Deutsch, Nische (Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, Fachportale) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach dem Login und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
+                        'body' => 'Filtern Sie nach Land Deutschland, Sprache Deutsch, Nische (Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, Fachportale) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach der Anmeldung und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
                     ],
                     [
                         'h2' => 'Pakete, Dauerhaftigkeit, Nischen',
@@ -311,7 +311,7 @@ class GermanMoneyLanders
                 'meta_description' => 'Linkaufbau in Deutschland: Self-Service-Katalog, DA/DR und Preise in EUR, nachverfolgte Veröffentlichungen. Kein undurchsichtiges Linkbuilding-Paket.',
                 'teaser_countries' => ['de'],
                 'teaser_title' => 'Inventar für Linkbuilding-Kampagnen',
-                'teaser_subtitle' => 'Beispiel Deutschland-Sites. Für E-Commerce oder andere Nischen filtern Sie nach dem Login — keine Doorway-Landing pro Branche.',
+                'teaser_subtitle' => 'Beispiel Deutschland-Sites. Für E-Commerce oder andere Nischen filtern Sie nach der Anmeldung — keine eigene Seite pro Branche.',
                 'intro' => [
                     '„Linkaufbau-Paket“, „monatliches Linkbuilding“ und „Linkaufbau-Dienstleistung“ sind in deutschen SERPs oft Agenturseiten. SEOLinkBuildings ist eine Plattform: Sie bauen die Kampagne aus dem Katalog, mit einem Wallet für mehrere Märkte.',
                     'White Label oder Rechnungen für mehrere Brands: <a href="'.$agencies.'">Linkbuilding für Agenturen</a>.',
@@ -382,7 +382,7 @@ class GermanMoneyLanders
                     ],
                     [
                         'title' => 'Dofollow nur laut Listing',
-                        'body' => 'Filtern Sie den Linktyp nach dem Login. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
+                        'body' => 'Filtern Sie den Linktyp nach der Anmeldung. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
                     ],
                     [
                         'title' => 'Kein Niche-Edit-SKU',
@@ -445,7 +445,7 @@ class GermanMoneyLanders
                     ],
                     [
                         'title' => 'Plattform für SEO-Teams',
-                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach dem Login ist für alle Rollen auf Englisch.',
+                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach der Anmeldung ist für alle Rollen auf Englisch.',
                     ],
                 ],
                 'sections' => [
@@ -488,7 +488,7 @@ class GermanMoneyLanders
                 'meta_description' => 'Digital PR und Online-Pressearbeit: Veröffentlichungen aus dem SEOLinkBuildings-Katalog, EUR-Wallet, Live-URL, gemanagte Pakete — ohne News-Garantien.',
                 'teaser_countries' => ['de'],
                 'teaser_title' => 'Deutschland-Sites im Katalog (Vorschau)',
-                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach dem Login.',
+                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach der Anmeldung.',
                 'intro' => [
                     '„Digital PR Deutschland“, „Online-Pressearbeit“ und „Brand Mention aufbauen“ mischen PR und Linkbuilding. Hier kaufen Sie Veröffentlichungen auf Sites, die wirklich im Katalog stehen. Fehlt eine Domain, verkaufen wir sie nicht.',
                     'Gemanagte Digital-PR-Pakete (Beträge auf der Preisseite, aktuell ab 499 €/Monat für den Basisplan, sofern noch gelistet) sind Outreach durch das Team, kein Button „erscheinen Sie in einer überregionalen Zeitung“.',

@@ -157,7 +157,7 @@ class ItalianMoneyLanders
                     ],
                     [
                         'h2' => 'Come scegliere i siti',
-                        'body' => 'Filtra per Paese Italia, lingua italiana, nicchia e fascia di prezzo. DA e DR aiutano a scartare, non a decidere da soli. Il catalogo live si apre dopo il login e resta in inglese nella dashboard — i prezzi restano in EUR.',
+                        'body' => 'Filtra per Paese Italia, lingua italiana, nicchia e fascia di prezzo. DA e DR aiutano a scartare, non a decidere da soli. Il catalogo live si apre dopo l\'accesso e resta in inglese nella dashboard — i prezzi restano in EUR.',
                     ],
                     [
                         'h2' => 'Guest post economici, permanenti, pacchetti',
@@ -261,7 +261,7 @@ class ItalianMoneyLanders
                 'meta_description' => 'Link building a pagamento in Italia con catalogo self-service. Confronta siti, DA/DR e prezzi in EUR, poi ordina pubblicazioni tracciate su SEOLinkBuildings.',
                 'teaser_countries' => ['it'],
                 'teaser_title' => 'Inventario per campagne di link building',
-                'teaser_subtitle' => 'Esempio di siti Italia. Per ecommerce o altre nicchie filtri il catalogo dopo il login — non creiamo landing doorway per ogni settore.',
+                'teaser_subtitle' => 'Esempio di siti Italia. Per ecommerce o altre nicchie filtri il catalogo dopo l\'accesso — non creiamo una pagina per ogni settore.',
                 'intro' => [
                     '“Servizio link building”, “pacchetto link building” e “link building a pagamento” in SERP italiana sono spesso pagine di agenzia. SEOLinkBuildings è una piattaforma: tu costruisci la campagna dal catalogo, con lo stesso wallet per più mercati.',
                     'Se ti serve white label o fattura per più brand, vai su <a href="'.$agencies.'">guest post per agenzie</a>.',
@@ -277,7 +277,7 @@ class ItalianMoneyLanders
                     ],
                     [
                         'title' => 'Ecommerce e nicchie',
-                        'body' => 'Non c’è una landing separata per ogni verticale. Filtri categoria (ecommerce, finanza, salute, …) nel catalogo dopo il login.',
+                        'body' => 'Non c’è una landing separata per ogni verticale. Filtri categoria (ecommerce, finanza, salute, …) nel catalogo dopo l\'accesso.',
                     ],
                 ],
                 'sections' => [
@@ -332,7 +332,7 @@ class ItalianMoneyLanders
                     ],
                     [
                         'title' => 'Dofollow solo se il listing lo dice',
-                        'body' => 'Filtra il tipo di link nel catalogo dopo il login. “Comprare link dofollow” non autorizza a ignorare nicchia e lingua.',
+                        'body' => 'Filtra il tipo di link nel catalogo dopo l\'accesso. “Comprare link dofollow” non autorizza a ignorare nicchia e lingua.',
                     ],
                     [
                         'title' => 'Non è un niche edit',
@@ -395,7 +395,7 @@ class ItalianMoneyLanders
                     ],
                     [
                         'title' => 'Piattaforma per SEO specialist',
-                        'body' => 'Filtri, metriche, chat d’ordine e URL live. La dashboard dopo il login è in inglese per tutti i ruoli.',
+                        'body' => 'Filtri, metriche, chat d’ordine e URL live. La dashboard dopo l\'accesso è in inglese per tutti i ruoli.',
                     ],
                 ],
                 'sections' => [
@@ -438,7 +438,7 @@ class ItalianMoneyLanders
                 'meta_description' => 'Digital PR e pubblicazioni su siti italiani dal catalogo SEOLinkBuildings. Wallet in EUR, URL live, pacchetti gestiti in listino — senza promesse News.',
                 'teaser_countries' => ['it'],
                 'teaser_title' => 'Siti Italia nel catalogo (anteprima)',
-                'teaser_subtitle' => 'Alcuni publisher sono vicini a un media kit; non tutti sono testate. Filtra nicchia e lingua dopo il login.',
+                'teaser_subtitle' => 'Alcuni publisher sono vicini a un media kit; non tutti sono testate. Filtra nicchia e lingua dopo l\'accesso.',
                 'intro' => [
                     '“Digital PR Italia”, “pubblicare su testate italiane” e “guest post su giornali” mescolano PR e link building. Qui puoi comprare pubblicazioni su siti che ci sono davvero nel catalogo. Se un dominio non è elencato, non lo vendiamo.',
                     'I pacchetti gestiti di PR digitale (importi in pagina Prezzi, oggi da 499 €/mese per il piano base se ancora in listino) sono outreach seguito dal team, non un bottone “compari su un quotidiano nazionale”.',

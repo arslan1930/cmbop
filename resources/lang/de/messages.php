@@ -685,7 +685,7 @@ return [
     'marketplace_point_3_body' => 'Erreichen Sie englische, EU-, chinesische und Golf-Märkte mit sprachbewusstem Inventar.',
     'marketplace_teaser_title' => 'Beispiel für verifiziertes Inventar',
     'marketplace_teaser_subtitle' => 'Eine Vorschau live verfügbarer Placements — erstellen Sie ein kostenloses Konto für den vollständigen Katalog.',
-    'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach dem Login und bleibt auf Englisch.',
+    'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach der Anmeldung und bleibt auf Englisch.',
     'become_publisher_kicker' => 'Publisher',
     'become_publisher_title' => 'Ihre Website mit Gastbeiträgen vermarkten',
     'become_publisher_subtitle' => 'Listen Sie Websites, erhalten Sie briefte Aufträge und verdienen Sie mit Qualitätsplacements.',
