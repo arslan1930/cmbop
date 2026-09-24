@@ -35,6 +35,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(CountryLander::class)', $web);
         $this->assertStringContainsString('class_exists(ItalianMoneyLanders::class)', $web);
         $this->assertStringContainsString('class_exists(GermanMoneyLanders::class)', $web);
+        $this->assertStringContainsString("method_exists(MarketingPageController::class, 'italianMoneyLander')", $web);
         $this->assertStringContainsString("method_exists(MarketingPageController::class, 'germanMoneyLander')", $web);
         $this->assertStringContainsString('class_exists(CatalogTeaserService::class)', $web);
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $web);
@@ -69,6 +70,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(GuestPostPriceIndex::class)', $controller);
         $this->assertStringContainsString('class_exists(CatalogTeaserService::class)', $controller);
         $this->assertStringContainsString('catalogTeaserService()', $controller);
+        $this->assertStringContainsString("method_exists(ItalianMoneyLanders::class, 'clusterLinks')", $controller);
+        $this->assertStringContainsString("method_exists(GermanMoneyLanders::class, 'clusterLinks')", $controller);
         $this->assertStringContainsString("view()->exists('pages.guest-posts-country')", $controller);
         $this->assertStringContainsString("view()->exists('pages.guest-post-prices-europe')", $controller);
         $this->assertStringNotContainsString('$teasers->teasersForCountries', $controller);

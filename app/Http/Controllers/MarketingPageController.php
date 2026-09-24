@@ -95,7 +95,9 @@ class MarketingPageController extends Controller
             'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
             'siteCount' => $teasers?->countForCountries($codes),
             'priceFrom' => $teasers?->priceFromForCountries($codes),
-            'cluster' => ItalianMoneyLanders::clusterLinks($slug),
+            'cluster' => method_exists(ItalianMoneyLanders::class, 'clusterLinks')
+                ? ItalianMoneyLanders::clusterLinks($slug)
+                : [],
         ]);
     }
 
@@ -123,7 +125,9 @@ class MarketingPageController extends Controller
             'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
             'siteCount' => $teasers?->countForCountries($codes),
             'priceFrom' => $teasers?->priceFromForCountries($codes),
-            'cluster' => GermanMoneyLanders::clusterLinks($slug),
+            'cluster' => method_exists(GermanMoneyLanders::class, 'clusterLinks')
+                ? GermanMoneyLanders::clusterLinks($slug)
+                : [],
         ]);
     }
 

@@ -311,7 +311,7 @@ if (class_exists(ItalianMoneyLanders::class)) {
     }
 }
 
-if ($italianMoneySlugs !== []) {
+if ($italianMoneySlugs !== [] && method_exists(MarketingPageController::class, 'italianMoneyLander')) {
     Route::group([
         'prefix' => 'it',
         'as' => 'locale.it.money.',

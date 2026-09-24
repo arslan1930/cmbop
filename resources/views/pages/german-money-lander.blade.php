@@ -17,6 +17,7 @@
     }
     $cluster = $cluster ?? (
         class_exists(\App\Support\GermanMoneyLanders::class)
+        && method_exists(\App\Support\GermanMoneyLanders::class, 'clusterLinks')
             ? \App\Support\GermanMoneyLanders::clusterLinks($slug)
             : []
     );

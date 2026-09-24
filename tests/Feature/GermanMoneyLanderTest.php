@@ -73,6 +73,53 @@ class GermanMoneyLanderTest extends TestCase
         $this->get('/at/comprare-guest-post')->assertRedirect('/it/comprare-guest-post');
     }
 
+    public function test_every_prefixed_locale_copy_goes_to_the_owning_money_page(): void
+    {
+        $prefixed = array_values(array_filter(
+            PublicI18n::prefixed(),
+            static fn ($locale) => is_string($locale) && $locale !== ''
+        ));
+        $this->assertNotEmpty($prefixed);
+
+        foreach ($prefixed as $locale) {
+            if ($locale === 'de') {
+                $this->get('/de/gastbeitrag-kaufen')->assertOk();
+
+                continue;
+            }
+            $this->get('/'.$locale.'/gastbeitrag-kaufen')
+                ->assertRedirect('/de/gastbeitrag-kaufen');
+        }
+
+        foreach ($prefixed as $locale) {
+            if ($locale === 'it') {
+                $this->get('/it/comprare-guest-post')->assertOk();
+
+                continue;
+            }
+            $this->get('/'.$locale.'/comprare-guest-post')
+                ->assertRedirect('/it/comprare-guest-post');
+        }
+
+        foreach ($prefixed as $locale) {
+            if (in_array($locale, ['de', 'at', 'ch'], true)) {
+                if ($locale === 'de') {
+                    $this->get('/de/digital-pr')->assertOk();
+                } else {
+                    $this->get('/'.$locale.'/digital-pr')->assertRedirect('/de/digital-pr');
+                }
+
+                continue;
+            }
+            if ($locale === 'it') {
+                $this->get('/it/digital-pr')->assertOk();
+
+                continue;
+            }
+            $this->get('/'.$locale.'/digital-pr')->assertRedirect('/it/digital-pr');
+        }
+    }
+
     public function test_catalog_and_research_aliases_redirect_without_creating_twins(): void
     {
         $this->get('/de/marketplace')->assertRedirect('/de/marktplatz');

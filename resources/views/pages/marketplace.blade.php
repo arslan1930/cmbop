@@ -35,7 +35,7 @@
         <a href="{{ localized_url('how-it-works') }}" class="btn btn-outline-secondary btn-lg px-4">{{ __('messages.nav_how_it_works') }}</a>
     </div>
     <p class="text-center text-muted small mt-3 mb-0">{{ __('messages.marketplace_catalog_note') }}</p>
-    @if(function_exists('public_locale') && public_locale() === 'it' && class_exists(\App\Support\ItalianMoneyLanders::class) && view()->exists('components.italian-seo-cluster-nav'))
+    @if(function_exists('public_locale') && public_locale() === 'it' && class_exists(\App\Support\ItalianMoneyLanders::class) && method_exists(\App\Support\ItalianMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
             <h2 class="h4 mb-3" style="color:#1a585e;">Siti per guest post e backlink in Italia</h2>
             <p class="text-muted">Questa pagina è la lista pubblica del catalogo: nicchia, lingua, DA/DR e prezzo in euro. Non indicizziamo ogni combinazione di filtro. Il catalogo completo, con domini e filtri, si apre dopo la registrazione. ZA SEOZoom non è una colonna dei listing.</p>
@@ -52,7 +52,7 @@
             </p>
         </div>
     @endif
-    @if(function_exists('public_locale') && public_locale() === 'de' && class_exists(\App\Support\GermanMoneyLanders::class) && view()->exists('components.italian-seo-cluster-nav'))
+    @if(function_exists('public_locale') && public_locale() === 'de' && class_exists(\App\Support\GermanMoneyLanders::class) && method_exists(\App\Support\GermanMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
             <h2 class="h4 mb-3" style="color:#1a585e;">Beste Seiten für Gastbeiträge in Deutschland</h2>
             <p class="text-muted">Diese Seite ist die öffentliche Katalogliste: Nische, Sprache, DA/DR und Preis in Euro. Wir indexieren nicht jede Filterkombination. Der vollständige Katalog mit Domains und Filtern öffnet sich nach der Registrierung. Es erscheinen nur Metriken, die am Listing existieren.</p>

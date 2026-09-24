@@ -58,7 +58,7 @@
     @if (view()->exists('components.hero'))
         @include('components.hero')
     @endif
-    @if (function_exists('public_locale') && public_locale() === 'it' && class_exists(\App\Support\ItalianMoneyLanders::class) && view()->exists('components.italian-seo-cluster-nav'))
+    @if (function_exists('public_locale') && public_locale() === 'it' && class_exists(\App\Support\ItalianMoneyLanders::class) && method_exists(\App\Support\ItalianMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="container py-4">
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\ItalianMoneyLanders::clusterLinks('home'),
@@ -67,7 +67,7 @@
             ])
         </div>
     @endif
-    @if (function_exists('public_locale') && public_locale() === 'de' && class_exists(\App\Support\GermanMoneyLanders::class) && view()->exists('components.italian-seo-cluster-nav'))
+    @if (function_exists('public_locale') && public_locale() === 'de' && class_exists(\App\Support\GermanMoneyLanders::class) && method_exists(\App\Support\GermanMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="container py-4">
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\GermanMoneyLanders::clusterLinks('home'),
