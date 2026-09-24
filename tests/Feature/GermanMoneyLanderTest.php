@@ -66,9 +66,9 @@ class GermanMoneyLanderTest extends TestCase
         $this->get('/fr/digital-pr')->assertRedirect('/it/digital-pr');
         $this->get('/fr/link-building')->assertRedirect('/it/link-building');
 
-        $this->get('/at/digital-pr')->assertRedirect('/de/digital-pr');
+        $this->get('/at/digital-pr')->assertOk();
         $this->get('/ch/digital-pr')->assertRedirect('/de/digital-pr');
-        $this->get('/at/link-building')->assertRedirect('/de/linkbuilding');
+        $this->get('/at/link-building')->assertRedirect('/at/linkbuilding');
         $this->get('/ch/gastbeitrag-kaufen')->assertRedirect('/de/gastbeitrag-kaufen');
         $this->get('/at/comprare-guest-post')->assertRedirect('/it/comprare-guest-post');
     }
@@ -87,6 +87,11 @@ class GermanMoneyLanderTest extends TestCase
 
                 continue;
             }
+            if ($locale === 'at') {
+                $this->get('/at/gastbeitrag-kaufen')->assertOk();
+
+                continue;
+            }
             $this->get('/'.$locale.'/gastbeitrag-kaufen')
                 ->assertRedirect('/de/gastbeitrag-kaufen');
         }
@@ -102,12 +107,17 @@ class GermanMoneyLanderTest extends TestCase
         }
 
         foreach ($prefixed as $locale) {
-            if (in_array($locale, ['de', 'at', 'ch'], true)) {
+            if (in_array($locale, ['de', 'ch'], true)) {
                 if ($locale === 'de') {
                     $this->get('/de/digital-pr')->assertOk();
                 } else {
                     $this->get('/'.$locale.'/digital-pr')->assertRedirect('/de/digital-pr');
                 }
+
+                continue;
+            }
+            if ($locale === 'at') {
+                $this->get('/at/digital-pr')->assertOk();
 
                 continue;
             }
@@ -192,6 +202,7 @@ class GermanMoneyLanderTest extends TestCase
         $shared = Request::create('/de/digital-pr', 'GET');
         $this->assertSame(url('/it/digital-pr'), PublicI18n::switchUrl($shared, 'it'));
         $this->assertSame(url('/de/digital-pr'), PublicI18n::switchUrl($shared, 'de'));
+        $this->assertSame(url('/at/digital-pr'), PublicI18n::switchUrl($shared, 'at'));
         $this->assertSame(url('/fr'), PublicI18n::switchUrl($shared, 'fr'));
     }
 

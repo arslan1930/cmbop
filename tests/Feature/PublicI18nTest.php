@@ -11,14 +11,19 @@ class PublicI18nTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_austria_and_switzerland_reuse_german_copy(): void
+    public function test_austria_localizes_german_copy_and_switzerland_still_reuses_germany(): void
     {
-        foreach (['/at', '/ch'] as $path) {
-            $html = $this->get($path)->assertOk()->getContent();
-            $this->assertStringContainsString('Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $html, $path);
-            $this->assertStringContainsString('Marktplatz', $html, $path);
-            $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $html, $path);
-        }
+        $at = $this->get('/at')->assertOk()->getContent();
+        $this->assertStringContainsString('Österreichischer Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $at);
+        $this->assertStringContainsString('Marktplatz für Gastbeiträge in Österreich | SEOLinkBuildings', $at);
+        $this->assertStringContainsString('Marktplatz', $at);
+        $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $at);
+        $this->assertStringNotContainsString('Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings', $at);
+
+        $ch = $this->get('/ch')->assertOk()->getContent();
+        $this->assertStringContainsString('Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $ch);
+        $this->assertStringContainsString('Marktplatz', $ch);
+        $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $ch);
 
         $this->get('/at')->assertSee('lang="de-AT"', false);
         $this->get('/ch')->assertSee('lang="de-CH"', false);

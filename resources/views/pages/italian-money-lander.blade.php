@@ -25,6 +25,12 @@
         && \App\Support\GermanMoneyLanders::isSlug($slug);
     $hreflangLocales = $sharedWithGerman ? 'it,de' : 'it';
     $hreflangXDefault = 'it';
+    if (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'moneyLanderLocales')) {
+        $hreflangLocales = implode(',', \App\Support\PublicI18n::moneyLanderLocales($slug));
+        $hreflangXDefault = method_exists(\App\Support\PublicI18n::class, 'moneyLanderXDefault')
+            ? \App\Support\PublicI18n::moneyLanderXDefault($slug)
+            : $hreflangXDefault;
+    }
 @endphp
 
 @extends('layouts.app')

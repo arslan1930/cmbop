@@ -77,6 +77,11 @@ return [
         'linkaufbau',
         'preisliste',
         'fuer-agenturen',
+        'medienplatzierung',
+        'advertorial-kaufen',
+        'backlink-kaufen',
+        'gastartikel-kaufen',
+        'gastbeitrag-bestellen',
     ],
 
     /**

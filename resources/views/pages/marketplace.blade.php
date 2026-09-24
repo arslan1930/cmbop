@@ -69,6 +69,23 @@
             </p>
         </div>
     @endif
+    @if(function_exists('public_locale') && public_locale() === 'at' && class_exists(\App\Support\AustrianMoneyLanders::class) && method_exists(\App\Support\AustrianMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Gastbeitrag-Portale in Österreich</h2>
+            <p class="text-muted">Diese Seite ist die öffentliche Liste österreichischer Publisher: Nische, Sprache, DA/DR und Preis in Euro. Wir indexieren nicht jede Filterkombination und keine City-Doorways (kein eigenes Wien-Listing). Der vollständige Katalog mit Domains öffnet sich nach der Registrierung.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\AustrianMoneyLanders::clusterLinks('marktplatz'),
+                'current' => 'marktplatz',
+                'title' => 'Verwandte Seiten',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/at/gastbeitrag-kaufen') }}">Gastbeitrag kaufen in Österreich</a>
+                · <a href="{{ url('/at/backlinks-kaufen') }}">Backlinks kaufen</a>
+                · <a href="{{ localized_url('pricing') }}">Was kostet ein Gastbeitrag in Österreich</a>
+                · <a href="{{ url('/guest-posts-austria') }}">Austria inventory (English)</a>
+            </p>
+        </div>
+    @endif
     <p class="text-center small mt-2 mb-0">
         <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
         — median advertiser prices by European publisher country.
