@@ -115,4 +115,17 @@
     ])
 </div>
 @endif
+@if(function_exists('public_locale') && public_locale() === 'at' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\AustrianMoneyLanders::class) && method_exists(\App\Support\AustrianMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Was kostet ein Gastbeitrag in Österreich</h2>
+    <p class="text-muted">Kein festes PDF und keine APA-OTS-Preisliste: der Preis ist der der Site, in Euro, am Checkout. „Backlinks Preise Österreich“ und „Linkbuilding-Kosten“ folgen den Listings, die Sie wählen. Die nummerierten Pakete oben sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.</p>
+    <p class="text-muted">Live-Preise sehen Sie im <a href="{{ localized_url('marketplace') }}">österreichischen Katalog</a> nach der Registrierung. Europäischer Index (englische Seite): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <p class="text-muted">Preis prägen Publisher-Autorität, Traffic, Nische, Land (.at vs. andere), Content-Anforderungen und redaktionelle Prüfung — jeweils laut Listing, nicht als erfundene Österreich-Durchschnittswerte.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\AustrianMoneyLanders::clusterLinks('preise'),
+        'current' => 'preise',
+        'title' => 'Verwandte Seiten',
+    ])
+</div>
+@endif
 @endsection

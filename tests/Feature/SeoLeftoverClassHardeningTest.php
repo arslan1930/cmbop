@@ -35,8 +35,10 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(CountryLander::class)', $web);
         $this->assertStringContainsString('class_exists(ItalianMoneyLanders::class)', $web);
         $this->assertStringContainsString('class_exists(GermanMoneyLanders::class)', $web);
+        $this->assertStringContainsString('class_exists(AustrianMoneyLanders::class)', $web);
         $this->assertStringContainsString("method_exists(MarketingPageController::class, 'italianMoneyLander')", $web);
         $this->assertStringContainsString("method_exists(MarketingPageController::class, 'germanMoneyLander')", $web);
+        $this->assertStringContainsString("method_exists(MarketingPageController::class, 'austrianMoneyLander')", $web);
         $this->assertStringContainsString('class_exists(CatalogTeaserService::class)', $web);
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $web);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $web);
@@ -72,6 +74,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('catalogTeaserService()', $controller);
         $this->assertStringContainsString("method_exists(ItalianMoneyLanders::class, 'clusterLinks')", $controller);
         $this->assertStringContainsString("method_exists(GermanMoneyLanders::class, 'clusterLinks')", $controller);
+        $this->assertStringContainsString("method_exists(AustrianMoneyLanders::class, 'clusterLinks')", $controller);
         $this->assertStringContainsString("view()->exists('pages.guest-posts-country')", $controller);
         $this->assertStringContainsString("view()->exists('pages.guest-post-prices-europe')", $controller);
         $this->assertStringNotContainsString('$teasers->teasersForCountries', $controller);
@@ -80,6 +83,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(CountryLander::class)', $sitemap);
         $this->assertStringContainsString('class_exists(GuestPostPriceIndex::class)', $sitemap);
         $this->assertStringContainsString('class_exists(PublicI18n::class)', $sitemap);
+        $this->assertStringContainsString('class_exists(AustrianMoneyLanders::class)', $sitemap);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $sitemap);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $sitemap);
         $this->assertStringContainsString('class_exists(ThinBlogRedirects::class)', $sitemap);
@@ -100,7 +104,9 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
         $i18n = (string) file_get_contents(base_path('app/Support/PublicI18n.php'));
         $this->assertStringContainsString('class_exists(LocalizedPublicPath::class)', $i18n);
+        $this->assertStringContainsString('class_exists(AustrianMoneyLanders::class)', $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'englishOnlyMarketingSlugs')", $i18n);
+        $this->assertStringContainsString("method_exists(self::class, 'moneyLanderLocales')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'isEnglishOnlyMarketingPath')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'isPaginatedBlogIndex')", $i18n);
 
@@ -184,7 +190,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
     public function test_public_money_pages_and_admin_login_stay_up(): void
     {
-        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login'] as $path) {
+        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-austria', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login', '/at', '/at/gastbeitrag-kaufen', '/de/gastbeitrag-kaufen'] as $path) {
             $this->get($path)
                 ->assertOk()
                 ->assertDontSee('SQLSTATE')

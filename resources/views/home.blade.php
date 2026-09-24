@@ -76,6 +76,15 @@
             ])
         </div>
     @endif
+    @if (function_exists('public_locale') && public_locale() === 'at' && class_exists(\App\Support\AustrianMoneyLanders::class) && method_exists(\App\Support\AustrianMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\AustrianMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Seiten für Gastbeiträge, Backlinks und Linkbuilding in Österreich',
+            ])
+        </div>
+    @endif
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')
