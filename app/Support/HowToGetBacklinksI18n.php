@@ -17,7 +17,7 @@ class HowToGetBacklinksI18n
                 'title' => 'Was sind Backlinks: praktischer Leitfaden für hochwertige Links',
                 'slug' => 'was-sind-backlinks',
                 'excerpt' => 'Was Backlinks sind, wie Sie sie aufbauen und bewerten: Relevanz, verweisende Domains, Gastbeiträge, Digital PR — und warum bezahlte Platzierungen keine redaktionellen Zitate sind.',
-                'meta_title' => 'Was sind Backlinks? Praktischer SEO-Leitfaden',
+                'meta_title' => 'Was sind Backlinks? Ein praktischer Leitfaden für SEO',
                 'meta_description' => 'Was sind Backlinks und wie Sie sie aufbauen: Qualität erkennen, Gastbeiträge, Digital PR, und wie sich bezahlte Platzierungen von verdienten Links unterscheiden.',
                 'content' => self::de(),
             ],
