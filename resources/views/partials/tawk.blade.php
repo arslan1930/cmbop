@@ -22,6 +22,39 @@
 @if ($tawkSrc)
 <script src="{{ asset('assets/vendor/lottie-web/lottie_light.min.js') }}?v={{ @filemtime(public_path('assets/vendor/lottie-web/lottie_light.min.js')) ?: '1' }}" defer></script>
 <script>
+(function () {
+  if (!window.fetch || window.fetch.__slbTheme) return;
+  var nativeFetch = window.fetch.bind(window);
+  function paintTheme(data) {
+    var theme = data && data.data && data.data.widget && data.data.widget.theme;
+    if (!theme) return;
+    theme.header = theme.header || {};
+    theme.header.background = '#1a585e';
+    theme.header.text = '#ffffff';
+    theme.agent = theme.agent || {};
+    theme.agent.messageBackground = '#1a585e';
+    theme.agent.messageText = '#ffffff';
+  }
+  var wrapped = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var pending = nativeFetch(input, init);
+    if (url.indexOf('va.tawk.to/v1/widget-settings') === -1) return pending;
+    return pending.then(function (response) {
+      return response.clone().json().then(function (data) {
+        paintTheme(data);
+        var headers = new Headers(response.headers);
+        headers.delete('content-length');
+        return new Response(JSON.stringify(data), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: headers
+        });
+      }).catch(function () { return response; });
+    });
+  };
+  wrapped.__slbTheme = true;
+  window.fetch = wrapped;
+})();
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
 Tawk_API.customStyle = {
   zIndex: 1080,
