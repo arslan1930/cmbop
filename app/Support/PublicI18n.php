@@ -233,6 +233,9 @@ class PublicI18n
         if (class_exists(PortugueseMoneyLanders::class) && PortugueseMoneyLanders::isSlug($slug)) {
             $locales[] = 'pt';
         }
+        if (class_exists(RomanianMoneyLanders::class) && RomanianMoneyLanders::isSlug($slug)) {
+            $locales[] = 'ro';
+        }
 
         return $locales;
     }
@@ -251,6 +254,9 @@ class PublicI18n
         }
         if (in_array('pt', $locales, true)) {
             return 'pt';
+        }
+        if (in_array('ro', $locales, true)) {
+            return 'ro';
         }
 
         return self::default();
@@ -516,6 +522,10 @@ class PublicI18n
         }
 
         if (class_exists(PortugueseMoneyLanders::class) && PortugueseMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(RomanianMoneyLanders::class) && RomanianMoneyLanders::isPublicSegment($first)) {
             return true;
         }
 

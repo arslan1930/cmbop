@@ -72,7 +72,7 @@
     @if(function_exists('public_locale') && public_locale() === 'at' && class_exists(\App\Support\AustrianMoneyLanders::class) && method_exists(\App\Support\AustrianMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
             <h2 class="h4 mb-3" style="color:#1a585e;">Gastbeitrag-Portale in Österreich</h2>
-            <p class="text-muted">Diese Seite ist die öffentliche Liste österreichischer Publisher: Nische, Sprache, DA/DR und Preis in Euro. Wir indexieren nicht jede Filterkombination und keine City-Doorways (kein eigenes Wien-Listing). Der vollständige Katalog mit Domains öffnet sich nach der Registrierung.</p>
+            <p class="text-muted">Diese Seite ist die öffentliche Liste österreichischer Publisher: Nische, Sprache, DA/DR und Preis in Euro. Wir indexieren nicht jede Filterkombination und keine eigene Stadtseite (kein eigenes Wien-Listing). Der vollständige Katalog mit Domains öffnet sich nach der Registrierung.</p>
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\AustrianMoneyLanders::clusterLinks('marktplatz'),
                 'current' => 'marktplatz',
@@ -88,8 +88,8 @@
     @endif
     @if(function_exists('public_locale') && public_locale() === 'pt' && class_exists(\App\Support\PortugueseMoneyLanders::class) && method_exists(\App\Support\PortugueseMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
-            <h2 class="h4 mb-3" style="color:#1a585e;">Meios portugueses para guest posts</h2>
-            <p class="text-muted">Esta página é a lista pública de publishers com país primário Portugal: nicho, idioma, DA/DR e preço em euros. Não indexamos cada combinação de filtro nem doorways de cidade (não há uma landing só de Lisboa). O catálogo completo com domínios abre-se depois do registo.</p>
+            <h2 class="h4 mb-3" style="color:#1a585e;">Gastbeitrag-Portale in der Schweiz</h2>
+            <p class="text-muted">Diese Seite ist die öffentliche Liste schweizerischer Publisher: Nische, Sprache, DA/DR und Preis in Euro. Wir indexieren nicht jede Filterkombination und keine eigene Stadtseite (kein eigenes Zürich-Listing). Der vollständige Katalog mit Domains öffnet sich nach der Registrierung. Checkout bleibt EUR.</p>
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\PortugueseMoneyLanders::clusterLinks('marketplace'),
                 'current' => 'marketplace',
@@ -100,6 +100,23 @@
                 · <a href="{{ url('/pt/comprar-backlinks') }}">Comprar backlinks</a>
                 · <a href="{{ localized_url('pricing') }}">Quanto custa um guest post</a>
                 · <a href="{{ url('/guest-posts-portugal') }}">Portugal inventory (English)</a>
+            </p>
+        </div>
+    @endif
+    @if(function_exists('public_locale') && public_locale() === 'ro' && class_exists(\App\Support\RomanianMoneyLanders::class) && method_exists(\App\Support\RomanianMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Site-uri din România pentru guest post</h2>
+            <p class="text-muted">Aceasta este lista publică de publishers din România: nișă, limbă, DA/DR și preț în euro. Nu indexăm fiecare combinație de filtru și nu avem landings de oraș (București și Cluj nu au URL propriu). Catalogul complet, cu domenii, se deschide după înregistrare.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\RomanianMoneyLanders::clusterLinks('piata'),
+                'current' => 'piata',
+                'title' => 'Pagini înrudite',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/ro/cumpara-guest-post') }}">Cumpără guest post în România</a>
+                · <a href="{{ url('/ro/cumpara-backlink') }}">Cumpără backlinkuri</a>
+                · <a href="{{ localized_url('pricing') }}">Cât costă un guest post în România</a>
+                · <a href="{{ url('/guest-posts-romania') }}">Romania inventory (English)</a>
             </p>
         </div>
     @endif

@@ -192,7 +192,7 @@ class AustrianMoneyLanders
                     ],
                     [
                         'h2' => 'Publisher auswählen',
-                        'body' => 'Filtern Sie nach Land Österreich, Sprache Deutsch, Nische (Tourismus, Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, B2B) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach dem Login und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
+                        'body' => 'Filtern Sie nach Land Österreich, Sprache Deutsch, Nische (Tourismus, Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, B2B) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach der Anmeldung und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
                     ],
                     [
                         'h2' => 'Kein OTS, kein festes Paket',
@@ -214,7 +214,7 @@ class AustrianMoneyLanders
                     ],
                     [
                         'q' => 'Gibt es eine Rechnung?',
-                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen im Billing herunterladen, soweit das Produkt sie ausstellt.',
+                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen in der Rechnungsübersicht herunterladen, soweit das Produkt sie ausstellt.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Konto anlegen und Katalog öffnen', 'url' => $register],
@@ -272,7 +272,7 @@ class AustrianMoneyLanders
                         'a' => 'Nur wenn das Listing das zulässt. Viele Publisher kennzeichnen bezahlte Veröffentlichungen.',
                     ],
                     [
-                        'q' => 'Bietet ihr APA-OTS oder Wiener Tageszeitungen?',
+                        'q' => 'Bieten Sie APA-OTS oder Wiener Tageszeitungen?',
                         'a' => 'Nur wenn diese Domain im Katalog ist. Wir versprechen kein OTS und kein Google News.',
                     ],
                 ],
@@ -292,7 +292,7 @@ class AustrianMoneyLanders
                 'meta_description' => 'Linkaufbau in Österreich: Self-Service-Katalog, DA/DR und Preise in EUR, nachverfolgte Veröffentlichungen. Kein undurchsichtiges Linkbuilding-Paket.',
                 'teaser_countries' => ['at'],
                 'teaser_title' => 'Inventar für Linkbuilding-Kampagnen',
-                'teaser_subtitle' => 'Beispiel Österreich-Sites. Für E-Commerce oder andere Nischen filtern Sie nach dem Login — keine Doorway-Landing pro Branche oder Stadt.',
+                'teaser_subtitle' => 'Beispiel Österreich-Sites. Für E-Commerce oder andere Nischen filtern Sie nach der Anmeldung — keine eigene Seite pro Branche oder Stadt.',
                 'intro' => [
                     '„Linkaufbau Österreich“, „Linkbuilding-Paket“ und „Wien SEO Linkbuilding“ sind oft Agenturseiten. SEOLinkBuildings ist eine Plattform: Sie bauen die Kampagne aus dem Katalog, mit einem Wallet für AT, DE und weitere Märkte.',
                     'White Label oder Rechnungen für mehrere Brands: <a href="'.$agencies.'">Linkbuilding für Agenturen</a>.',
@@ -323,7 +323,7 @@ class AustrianMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Verkauft ihr Linkbuilding-Pakete?',
+                        'q' => 'Verkaufen Sie Linkbuilding-Pakete?',
                         'a' => 'Nicht als undurchsichtiges SKU. Sie kaufen einzelne Veröffentlichungen. Die nummerierten Pakete auf der Preisseite sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.',
                     ],
                     [
@@ -336,7 +336,7 @@ class AustrianMoneyLanders
                     ],
                 ],
                 'cta_primary' => ['label' => 'Mit dem Katalog starten', 'url' => $register],
-                'cta_secondary' => ['label' => 'Preise und Listung', 'url' => $preise],
+                'cta_secondary' => ['label' => 'Preise und Katalog', 'url' => $preise],
                 'see_also' => [
                     ['label' => 'Gastbeitrag kaufen', 'url' => $guest],
                     ['label' => 'Linkaufbau-Strategien', 'url' => $blogLb],
@@ -363,7 +363,7 @@ class AustrianMoneyLanders
                     ],
                     [
                         'title' => 'Dofollow nur laut Listing',
-                        'body' => 'Filtern Sie den Linktyp nach dem Login. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
+                        'body' => 'Filtern Sie den Linktyp nach der Anmeldung. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
                     ],
                     [
                         'title' => 'Kein Niche-Edit-SKU',
@@ -386,7 +386,7 @@ class AustrianMoneyLanders
                         'a' => 'Sie können Angebote filtern, die das deklarieren. Der Publisher bleibt für das Live-HTML verantwortlich.',
                     ],
                     [
-                        'q' => 'Macht ihr Link-Inserts in bestehende Artikel?',
+                        'q' => 'Machen Sie Link-Inserts in bestehende Artikel?',
                         'a' => 'Nicht als Niche-Edit-SKU. Manche Sites verkaufen ein zeitlich begrenztes Homepage-Extra.',
                     ],
                     [
@@ -405,7 +405,7 @@ class AustrianMoneyLanders
             'agenturen' => [
                 'kicker' => 'B2B-Konto',
                 'h1' => 'Linkbuilding für Agenturen in Österreich',
-                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen wo das Billing sie ausstellt.',
+                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen in der Rechnungsübersicht, soweit das Produkt sie ausstellt.',
                 'meta_title' => 'Linkbuilding für Agenturen in Österreich | SEOLinkBuildings',
                 'meta_description' => 'White-Label-Linkbuilding und Gastbeiträge für Agenturen in Österreich: EUR-Katalog, Rechnungen, Aufträge pro Brand — ohne gebrandetes Reseller-Frontend.',
                 'teaser_countries' => ['at'],
@@ -422,11 +422,11 @@ class AustrianMoneyLanders
                     ],
                     [
                         'title' => 'Auftrag und Rechnung',
-                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie im Advertiser-Billing herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
+                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie in der Rechnungsübersicht des Advertisers herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
                     ],
                     [
                         'title' => 'Plattform für SEO-Teams',
-                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach dem Login ist für alle Rollen auf Englisch.',
+                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach der Anmeldung ist für alle Rollen auf Englisch.',
                     ],
                 ],
                 'sections' => [
@@ -445,8 +445,8 @@ class AustrianMoneyLanders
                         'a' => 'Ja, indem Sie das Konto selbst bedienen. Wir liefern kein gebrandetes White-Label-Portal.',
                     ],
                     [
-                        'q' => 'Stellt ihr österreichische E-Rechnungen aus?',
-                        'a' => 'Das Billing folgt der UK-Gesellschaft des Produkts. Laden Sie die Belege aus Wallet/Rechnungen und klären Sie mit Ihrer Buchhaltung, ob Sie weitere Integrationen brauchen.',
+                        'q' => 'Stellen Sie österreichische E-Rechnungen aus?',
+                        'a' => 'Die Rechnungsstellung folgt der UK-Gesellschaft des Produkts. Laden Sie die Belege aus Wallet/Rechnungen und klären Sie mit Ihrer Buchhaltung, ob Sie weitere Integrationen brauchen.',
                     ],
                     [
                         'q' => 'Gibt es eine separate Agentur-Preisliste?',
@@ -469,7 +469,7 @@ class AustrianMoneyLanders
                 'meta_description' => 'Digital PR und Online-PR in Österreich: Veröffentlichungen aus dem Katalog, EUR-Wallet, Live-URL, gemanagte Pakete — ohne News- oder OTS-Garantien.',
                 'teaser_countries' => ['at'],
                 'teaser_title' => 'Österreich-Sites im Katalog (Vorschau)',
-                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach dem Login.',
+                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach der Anmeldung.',
                 'intro' => [
                     '„Digital PR Österreich“, „Online PR Wien“ und „Brand Mentions Österreich“ mischen PR und Linkbuilding. Hier kaufen Sie Veröffentlichungen auf Sites, die wirklich im Katalog stehen. Fehlt eine Domain, verkaufen wir sie nicht.',
                     'Gemanagte Digital-PR-Pakete (Beträge auf der Preisseite, aktuell ab 499 €/Monat für den Basisplan, sofern noch gelistet) sind Outreach durch das Team, kein Button „erscheinen Sie in einer Wiener Tageszeitung“.',
@@ -500,7 +500,7 @@ class AustrianMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Publiziert ihr bei Google News oder APA OTS?',
+                        'q' => 'Publizieren Sie bei Google News oder APA OTS?',
                         'a' => 'Nein als Produkt. Steht eine Katalog-Site in News oder in einem Aussendungsdienst, hängt das vom Publisher ab, nicht von uns.',
                     ],
                     [
@@ -509,7 +509,7 @@ class AustrianMoneyLanders
                     ],
                     [
                         'q' => 'Was kostet eine Kampagne?',
-                        'a' => 'Self-Service: Summe der Listings. Gemanagt: die Pakete auf der Preisseite (EUR-Beträge laut aktuellem Listino).',
+                        'a' => 'Self-Service: Summe der Listings. Gemanagt: die Pakete auf der Preisseite (EUR-Beträge laut aktueller Preisliste).',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Pakete und Katalog ansehen', 'url' => $preise],

@@ -103,6 +103,15 @@
             ])
         </div>
     @endif
+    @if (function_exists('public_locale') && public_locale() === 'ro' && class_exists(\App\Support\RomanianMoneyLanders::class) && method_exists(\App\Support\RomanianMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\RomanianMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Pagini de guest post, backlinkuri și link building în România',
+            ])
+        </div>
+    @endif
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')

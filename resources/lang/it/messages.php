@@ -137,7 +137,7 @@ return [
     'about_page_workflow_body' => 'Sfoglia i publisher verificati, ricarica il wallet, assegna i contenuti e rivedi il link live quando il publisher lo consegna. Aggiornamenti di stato e chat restano sullo stesso ordine.',
     'about_page_workflow_trust' => 'Scegli i siti con Verificato, valutazioni e storico di completamento, non solo DA/DR.',
     'about_page_cta_title' => 'Inizia come inserzionista o publisher',
-    'about_page_cta_note' => 'Crea un account gratuito per comprare pubblicazioni, oppure metti in elenco i tuoi siti e guadagna. La dashboard resta in inglese dopo il login.',
+    'about_page_cta_note' => 'Crea un account gratuito per comprare pubblicazioni, oppure metti in elenco i tuoi siti e guadagna. La dashboard resta in inglese dopo l\'accesso.',
     'about_page_cta_marketplace' => 'Esplora il marketplace',
     'about_page_cta_publisher' => 'Diventa publisher',
     'about_page_faq_title' => 'Su SEOLinkBuildings — FAQ',
@@ -175,7 +175,7 @@ return [
     // FAQ
     'faq_kicker' => 'Centro assistenza',
     'faq_title' => 'Domande frequenti',
-    'faq_subtitle' => 'Risposte rapide prima di creare un account. Il prodotto resta in inglese dopo il login.',
+    'faq_subtitle' => 'Risposte rapide prima di creare un account. Il prodotto resta in inglese dopo l\'accesso.',
     'faq_q_1' => 'Il marketplace è disponibile nella mia lingua?',
     'faq_a_1' => 'Il sito web pubblico è disponibile in inglese (UK/US), tedesco, francese, olandese, spagnolo e italiano. Dopo il login, la dashboard SaaS resta in inglese per coerenza.',
     'faq_q_2' => 'Come compro una pubblicazione?',
@@ -187,7 +187,7 @@ return [
     'faq_q_5' => 'Quali lingue possono usare i siti dei publisher?',
     'faq_a_5' => 'I publisher possono elencare siti nei Paesi e nelle lingue del nostro marketplace, inclusi mercati in inglese, mercati cinesi e Paesi del Golfo dove supportati.',
     'faq_q_6' => 'Chi contatto per le vendite?',
-    'faq_a_6' => 'Usa la pagina Contatti per richieste di vendita e partnership. I clienti esistenti possono anche aprire Aiuto e feedback dopo il login.',
+    'faq_a_6' => 'Usa la pagina Contatti per richieste di vendita e partnership. I clienti esistenti possono anche aprire Aiuto e feedback dopo l\'accesso.',
 
     // Pricing page chrome
     'pricing_kicker' => 'Prezzi',
@@ -197,7 +197,7 @@ return [
     'pricing_hero_lead' => 'Sfoglia siti di publisher verificati, scegli un prezzo adatto e paga dal wallet.',
     'pricing_hero_from' => 'Le pubblicazioni del marketplace partono da',
     'pricing_cta_create' => 'Crea un account gratuito',
-    'pricing_cta_browse' => 'Sfoglia dopo il login',
+    'pricing_cta_browse' => 'Sfoglia dopo l\'accesso',
     'pricing_bonus_note' => 'I nuovi inserzionisti ricevono 20 € di credito gratuito per i primi ordini (non prelevabile).',
     'pricing_managed_title' => 'Preferisci un pacchetto gestito di PR digitale?',
     'pricing_managed_body' => 'Il nostro team può gestire campagne di outreach se vuoi una consegna senza occupartene tu.',
@@ -209,7 +209,7 @@ return [
     // Marketplace marketing page
     'marketplace_kicker' => 'Catalogo',
     'marketplace_title' => 'Lista siti per guest post in Italia',
-    'marketplace_subtitle' => 'Confronta editori italiani ed europei per nicchia, lingua, DA/DR e prezzo in euro. I domini completi si vedono dopo il login.',
+    'marketplace_subtitle' => 'Confronta editori italiani ed europei per nicchia, lingua, DA/DR e prezzo in euro. I domini completi si vedono dopo l\'accesso.',
     'marketplace_point_1_title' => 'Publisher verificati',
     'marketplace_point_1_body' => 'Concentrati su siti editoriali reali in Europa e nei principali mercati internazionali.',
     'marketplace_point_2_title' => 'Checkout dal wallet',
@@ -218,7 +218,7 @@ return [
     'marketplace_point_3_body' => 'Raggiungi mercati in inglese, UE, cinesi e del Golfo con inventario consapevole della lingua.',
     'marketplace_teaser_title' => 'Esempio di inventario verificato',
     'marketplace_teaser_subtitle' => 'Un\'anteprima delle pubblicazioni live: crea un account gratuito per sfogliare il catalogo completo.',
-    'marketplace_catalog_note' => 'Il catalogo live si apre dopo il login e resta in inglese.',
+    'marketplace_catalog_note' => 'Il catalogo live si apre dopo l\'accesso e resta in inglese.',
 
     // Become publisher
     'become_publisher_kicker' => 'Publisher',
