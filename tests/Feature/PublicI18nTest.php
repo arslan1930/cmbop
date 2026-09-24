@@ -21,15 +21,17 @@ class PublicI18nTest extends TestCase
         $this->assertStringNotContainsString('Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings', $at);
 
         $ch = $this->get('/ch')->assertOk()->getContent();
-        $this->assertStringContainsString('Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $ch);
+        $this->assertStringContainsString('Schweizer Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $ch);
+        $this->assertStringContainsString('Marktplatz für Gastbeiträge in der Schweiz | SEOLinkBuildings', $ch);
         $this->assertStringContainsString('Marktplatz', $ch);
         $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $ch);
+        $this->assertStringNotContainsString('Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings', $ch);
 
         $this->get('/at')->assertSee('lang="de-AT"', false);
         $this->get('/ch')->assertSee('lang="de-CH"', false);
         $this->get('/ro')
             ->assertOk()
-            ->assertSee('Cumpără guest posturi de la publisheri verificați', false)
+            ->assertSee('Marketplace de guest post, backlinkuri și link building pentru România.', false)
             ->assertSee('lang="ro"', false);
     }
 
@@ -72,8 +74,8 @@ class PublicI18nTest extends TestCase
                 'Il marketplace di guest post e link building per l’Italia.',
             ],
             '/es' => [
-                'Comprar guest posts de editores verificados | SEOLinkBuildings',
-                'Compre guest posts en sitios de editores verificados.',
+                'Marketplace de guest posts en España | SEOLinkBuildings',
+                'Marketplace de guest posts, backlinks y link building para España.',
             ],
             '/nl' => [
                 'Guest posts kopen bij geverifieerde publishers | SEOLinkBuildings',
@@ -330,7 +332,7 @@ class PublicI18nTest extends TestCase
             ->assertOk()
             ->assertSee('Iniciar sesión', false)
             ->assertSee('Registrarse', false)
-            ->assertSee('El marketplace global de link building', false)
+            ->assertSee('Marketplace de guest posts, backlinks y link building para España.', false)
             ->assertSee('Cómo funciona', false);
 
         $this->get('/it')
