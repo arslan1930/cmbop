@@ -1,4 +1,21 @@
 @component('mail::message')
+@if(!empty($advertiserCompleted))
+Hi {{ $greetingName }},
+
+We're happy to let you know that your order #{{ $order->order_number }} is now complete, and all links are live. You can find the full summary of your published links in the attached document.
+
+We hope you're pleased with the results!
+
+**Ready to place another order?**
+
+Boost your online presence even further by securing additional high-quality links. Click below to get started on your next order and stay ahead of the competition:
+
+@component('mail::button', ['url' => $catalogUrl])
+Place a new order
+@endcomponent
+
+Thank you for choosing us, and we look forward to working with you again soon!
+@else
 # @if($changeKind === 'created')
 New order created
 @elseif($changeKind === 'payment_status')
@@ -39,4 +56,5 @@ If you have questions, reply to this email or contact support.
 
 Thanks,<br>
 {{ $brand['name'] ?? config('app.name') }} Team
+@endif
 @endcomponent

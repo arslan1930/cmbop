@@ -1014,6 +1014,35 @@ function initBulkDealRail() {
     applyCollapsed(bulkRailReadCollapsed());
     startAutoplay();
 
+    window.revealBulkDealForSite = function (siteId) {
+        const id = String(siteId || '');
+        if (!id || id === '0') return;
+
+        const card = allCards.find(function (node) {
+            const buy = node.querySelector('.buy-now[data-id]');
+            return buy && String(buy.getAttribute('data-id')) === id;
+        });
+
+        if (searchInput && String(searchInput.value || '').trim() !== '') {
+            searchInput.value = '';
+            applySearch('');
+        }
+
+        applyCollapsed(false);
+        bulkRailWriteCollapsed(false);
+        clearHighlights();
+
+        if (card) {
+            const index = allCards.indexOf(card);
+            goToPage(Math.floor(index / pageSize) + 1, { user: true });
+            card.classList.add('is-bulk-match');
+            autoplayPaused = true;
+            stopAutoplay();
+        }
+
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     bulkRailTeardown = function () {
         stopAutoplay();
         if (resumeTimer) {
@@ -1028,6 +1057,14 @@ function initBulkDealRail() {
 }
 
 document.addEventListener('DOMContentLoaded', initBulkDealRail);
+document.addEventListener('click', function (e) {
+    const jump = e.target.closest('[data-bulk-jump]');
+    if (!jump) return;
+    e.preventDefault();
+    if (typeof window.revealBulkDealForSite === 'function') {
+        window.revealBulkDealForSite(jump.getAttribute('data-bulk-jump'));
+    }
+});
 window.initBulkDealRail = initBulkDealRail;
 window.destroyBulkDealRail = destroyBulkDealRail;
 

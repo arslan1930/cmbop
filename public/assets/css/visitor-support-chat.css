@@ -26,33 +26,43 @@
 }
 
 .slb-live-chat__launcher {
-  width: 56px;
-  height: 56px;
+  width: 192px;
+  height: 192px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
-  background: var(--brand-primary, #1a585e);
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(26, 88, 94, 0.28);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex: 0 0 auto;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  transition: transform 0.15s ease;
+}
+
+.slb-live-chat__launcher-lottie {
+  width: 192px;
+  height: 192px;
+  pointer-events: none;
+}
+
+.slb-live-chat__launcher-lottie svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .slb-live-chat__launcher:hover {
-  background: var(--brand-primary-deep, #134347);
-  box-shadow: 0 12px 28px rgba(26, 88, 94, 0.34);
+  background: transparent;
+  box-shadow: none;
   transform: translateY(-1px);
 }
 
 .slb-live-chat__launcher:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 3px var(--bs-focus-ring-color, rgba(14, 165, 233, 0.4)),
-    0 10px 24px rgba(26, 88, 94, 0.28);
+  box-shadow: 0 0 0 3px var(--bs-focus-ring-color, rgba(14, 165, 233, 0.4));
 }
 
 .slb-live-chat.is-open .slb-live-chat__launcher {

@@ -428,7 +428,7 @@
                                 report($e);
                             }
                         @endphp
-                        @if($site->isFeatured() || $showSaleChip || $showBulkChip)
+                        @if($site->isFeatured() || $showSaleChip)
                         <div class="catalog-site-deals">
                             @if($site->isFeatured())
                                 <span class="site-chip site-chip--featured site-chip--descriptor">
@@ -444,9 +444,6 @@
                                 </span>
                             @endif
 
-                            @if($showBulkChip)
-                                <span class="catalog-bulk-note">−{{ rtrim(rtrim(number_format((float) $dealBulkChipPct, 1), '0'), '.') }}% on {{ (int) config('site_promotions.bulk.min_qty', 3) }}+</span>
-                            @endif
                         </div>
                         @endif
 
@@ -558,6 +555,8 @@
                             'salePrice' => $catalogSalePrice,
                             'salePercent' => $catalogSalePctDisplay,
                             'align' => 'center',
+                            'bulkPercent' => $showBulkChip ? $dealBulkChipPct : null,
+                            'siteId' => $site->id,
                         ])
 
                         @if($isOwnedByMe)
@@ -1188,16 +1187,13 @@
                             report($e);
                         }
                     @endphp
-                    @if($showMobileSaleChip || $showMobileBulkChip)
+                    @if($showMobileSaleChip)
                     <div class="catalog-site-deals catalog-site-deals--mobile mt-1">
                         @if($showMobileSaleChip)
                             <span class="site-chip site-chip--sale site-chip--status">
                                 <i class="fa-solid fa-percent" aria-hidden="true"></i>
                                 <span>−{{ rtrim(rtrim(number_format((float) $mobileSaleChipPct, 1), '0'), '.') }}%</span>
                             </span>
-                        @endif
-                        @if($showMobileBulkChip)
-                            <span class="catalog-bulk-note">−{{ rtrim(rtrim(number_format((float) $mobileBulkChipPct, 1), '0'), '.') }}% on {{ (int) config('site_promotions.bulk.min_qty', 3) }}+</span>
                         @endif
                     </div>
                     @endif
@@ -1433,6 +1429,8 @@
                     'salePrice' => $catalogSalePrice,
                     'salePercent' => $catalogSalePctDisplay,
                     'align' => 'start',
+                    'bulkPercent' => ! empty($showMobileBulkChip) ? $mobileBulkChipPct : null,
+                    'siteId' => $site->id,
                 ])
             </div>
 

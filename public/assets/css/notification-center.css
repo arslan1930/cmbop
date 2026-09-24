@@ -69,17 +69,19 @@
   position: absolute;
   top: -4px;
   right: -4px;
-  min-width: 18px;
+  box-sizing: border-box;
+  width: 18px;
   height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--nc-danger, #dc3545);
+  min-width: 18px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--nc-danger, #dc2626);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
-  line-height: 18px;
+  line-height: 1;
   text-align: center;
-  border: 2px solid var(--nc-bg, #fff);
+  border: 2px solid #fff;
   display: none;
   align-items: center;
   justify-content: center;
@@ -210,6 +212,7 @@
   display: flex;
   gap: 6px;
   overflow-x: auto;
+  overflow-y: hidden;
   padding: 10px 16px;
   border-bottom: 1px solid var(--nc-border-soft);
   background: var(--nc-bg);
@@ -241,11 +244,47 @@
 }
 
 .nc-body {
+  overflow-x: auto;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
   max-height: 320px;
   background: var(--nc-bg-soft, #f7fafb);
+}
+
+.nc-filters,
+.nc-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--nc-primary, #3faeb2) var(--nc-primary-soft, #e6f5f5);
+}
+
+.nc-filters::-webkit-scrollbar,
+.nc-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.nc-filters::-webkit-scrollbar-track,
+.nc-body::-webkit-scrollbar-track {
+  background: var(--nc-primary-soft, #e6f5f5);
+  border-radius: 999px;
+}
+
+.nc-filters::-webkit-scrollbar-thumb,
+.nc-body::-webkit-scrollbar-thumb {
+  background: var(--nc-primary, #3faeb2);
+  border-radius: 999px;
+  border: 2px solid var(--nc-primary-soft, #e6f5f5);
+}
+
+.nc-filters::-webkit-scrollbar-thumb:hover,
+.nc-body::-webkit-scrollbar-thumb:hover {
+  background: var(--nc-primary-strong, #1a585e);
+}
+
+.nc-filters::-webkit-scrollbar-corner,
+.nc-body::-webkit-scrollbar-corner {
+  background: var(--nc-primary-soft, #e6f5f5);
 }
 
 .nc-group-label {

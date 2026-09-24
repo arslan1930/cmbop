@@ -83,9 +83,8 @@
         aria-expanded="false"
         aria-controls="slbLiveChatPanel"
     >
-        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="currentColor">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
-        </svg>
+        <span class="slb-live-chat__launcher-lottie" id="slbLiveChatLottie" data-lottie="{{ asset('assets/vendor/lottie/chatbot.json') }}" aria-hidden="true"></span>
     </button>
 </div>
+<script src="{{ asset('assets/vendor/lottie-web/lottie_light.min.js') }}?v={{ @filemtime(public_path('assets/vendor/lottie-web/lottie_light.min.js')) ?: '1' }}" defer></script>
 <script src="{{ asset('js/visitor-support-chat.js') }}?v={{ @filemtime(public_path('js/visitor-support-chat.js')) ?: '1' }}" defer></script>

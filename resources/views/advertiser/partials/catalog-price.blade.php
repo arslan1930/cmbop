@@ -12,11 +12,18 @@
     @param float|null $salePrice   null when there is no active offer
     @param float|null $salePercent
     @param string     $align       center (table) | start (card)
+    @param float|null $bulkPercent effective pack savings, when bulk wins
+    @param int|null   $bulkMinQty
+    @param int|null   $siteId      jumps the bulk rail to this listing
 --}}
 @php
     $priceAlign = ($align ?? 'center') === 'start' ? 'start' : 'center';
     $hasOffer = ($salePrice ?? null) !== null;
     $payPrice = $hasOffer ? $salePrice : $listPrice;
+    $bulkOfferPct = isset($bulkPercent) && $bulkPercent !== null && (float) $bulkPercent > 0
+        ? (float) $bulkPercent
+        : null;
+    $bulkOfferQty = (int) ($bulkMinQty ?? config('site_promotions.bulk.min_qty', 3));
 @endphp
 
 <div class="catalog-price catalog-price--{{ $priceAlign }}">
@@ -30,5 +37,13 @@
             <i class="fa-solid fa-tag" aria-hidden="true"></i>
             <span class="catalog-price__offer-text">{{ rtrim(rtrim(number_format((float) $salePercent, 1), '0'), '.') }}% off</span>
         </span>
+    @endif
+    @if($bulkOfferPct !== null)
+        <button type="button"
+                class="catalog-bulk-note catalog-price__bulk"
+                data-bulk-jump="{{ (int) ($siteId ?? 0) }}"
+                aria-label="Show this site in Bulk discount deals">
+            <span class="catalog-price__bulk-label">−{{ rtrim(rtrim(number_format($bulkOfferPct, 1), '0'), '.') }}% on {{ $bulkOfferQty }}+</span>
+        </button>
     @endif
 </div>

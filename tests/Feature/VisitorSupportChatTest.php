@@ -35,12 +35,9 @@ class VisitorSupportChatTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('id="slbLiveChat"', false)
-            ->assertSee('aria-label="Open live chat"', false)
-            ->assertSee('Hi! 👋 How can we help you today?', false)
-            ->assertSee('visitor-support-chat.js', false)
-            ->assertSee(route('support.chat'), false)
-            ->assertDontSee('embed.tawk.to', false)
+            ->assertDontSee('id="slbLiveChat"', false)
+            ->assertDontSee('visitor-support-chat.js', false)
+            ->assertSee('embed.tawk.to', false)
             ->assertDontSee('aria-label="Open help and feedback"', false);
 
         $js = (string) file_get_contents(public_path('js/visitor-support-chat.js'));
@@ -57,9 +54,8 @@ class VisitorSupportChatTest extends TestCase
         $this->actingAs($advertiser)
             ->get(route('advertiser.dashboard'))
             ->assertOk()
-            ->assertSee('id="slbLiveChat"', false)
-            ->assertSee('aria-label="Open live chat"', false)
-            ->assertDontSee('embed.tawk.to', false);
+            ->assertDontSee('id="slbLiveChat"', false)
+            ->assertSee('embed.tawk.to', false);
     }
 
     public function test_local_provider_returns_a_reply(): void

@@ -38,12 +38,11 @@ class TawkChatWidgetTest extends TestCase
             ->assertSee('Tawk_API', false)
             ->assertSee('Tawk_API.onLoad', false)
             ->assertSee('Tawk_API.minimize', false)
-            ->assertSee('slbPinTawk', false)
-            ->assertSee("classList.toggle('tawk-open'", false)
+            ->assertDontSee('slbPinTawk', false)
             ->assertDontSee('slb-tawk-launcher', false)
             ->assertDontSee('aria-label="Open customer support"', false)
-            ->assertSee("setProperty('top', 'auto', 'important')", false)
-            ->assertSee("removeProperty('max-width')", false)
+            ->assertDontSee("setProperty('top', 'auto', 'important')", false)
+            ->assertDontSee("setProperty('width'", false)
             ->assertSee('slbTawkKeepOpen = false', false)
             ->assertDontSee('aria-label="Open help and feedback"', false)
             ->assertSee('slbOpenSupport', false)
@@ -108,7 +107,7 @@ class TawkChatWidgetTest extends TestCase
             ->assertSee('Tawk_API.onLoad', false)
             ->assertSee('Tawk_API.minimize', false)
             ->assertSee('slbTawkKeepOpen', false)
-            ->assertSee('slbPinTawk', false)
+            ->assertDontSee('slbPinTawk', false)
             ->assertDontSee('slb-tawk-launcher', false)
             ->assertDontSee('aria-label="Open customer support"', false)
             ->assertDontSee('aria-label="Open help and feedback"', false);
@@ -122,7 +121,7 @@ class TawkChatWidgetTest extends TestCase
             ->assertSee($publisher->email, false)
             ->assertSee('Tawk_API.onLoad', false)
             ->assertSee('Tawk_API.minimize', false)
-            ->assertSee('slbPinTawk', false)
+            ->assertDontSee('slbPinTawk', false)
             ->assertDontSee('slb-tawk-launcher', false)
             ->assertDontSee('aria-label="Open help and feedback"', false);
     }
@@ -133,15 +132,12 @@ class TawkChatWidgetTest extends TestCase
         $this->assertStringContainsString('iframe[title="chat widget"]', $css);
         $this->assertStringContainsString('iframe[src*="tawk.to"]', $css);
         $this->assertStringContainsString('flex: 0 0 auto', $css);
-        $this->assertStringContainsString('top: auto !important', $css);
-        $this->assertStringContainsString('left: auto !important', $css);
-        $this->assertStringContainsString('right: 16px !important', $css);
-        $this->assertStringContainsString('bottom: 20px !important', $css);
+        $this->assertStringContainsString('position: fixed !important', $css);
+        $this->assertStringNotContainsString('right: 16px !important', $css);
+        $this->assertStringNotContainsString('bottom: 20px !important', $css);
+        $this->assertStringNotContainsString('html.tawk-open iframe[title="chat widget"]', $css);
         $this->assertStringNotContainsString('.slb-tawk-launcher', $css);
-        $this->assertStringNotContainsString('html:not(.tawk-open) iframe[title="chat widget"]', $css);
-        $this->assertStringContainsString('html.tawk-open iframe[title="chat widget"]', $css);
-        $this->assertStringContainsString('div:has(> iframe[title="chat widget"])', $css);
-        $this->assertStringNotContainsString('div:has( iframe[src*="tawk.to"])', $css);
+        $this->assertStringNotContainsString('div:has(> iframe[title="chat widget"])', $css);
     }
 
     public function test_leftover_html_without_tawk_include_gets_the_widget(): void
@@ -173,8 +169,7 @@ class TawkChatWidgetTest extends TestCase
         $html = '<html><body><p>Home</p></body></html>';
         $out = VisitorChatEmbed::inject($html);
 
-        $this->assertStringContainsString('id="slbLiveChat"', $out);
-        $this->assertStringContainsString('aria-label="Open live chat"', $out);
-        $this->assertStringNotContainsString('embed.tawk.to', $out);
+        $this->assertStringNotContainsString('id="slbLiveChat"', $out);
+        $this->assertStringContainsString('embed.tawk.to', $out);
     }
 }

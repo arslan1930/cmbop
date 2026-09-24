@@ -904,48 +904,46 @@ nav[aria-label="Pagination Navigation"] svg {
 }
 
 /*
- * Tawk.to visitor chat. Body is a flex column with overflow-x:clip, so
- * leftover top/left on the iframe paints the pre-chat card over dashboard
- * KPIs / order totals. Pin the iframe and its immediate wrapper only —
- * a descendant :has(iframe) would match #app and pin the whole page.
- * Do not hide or replace Tawk's own bubble; html.tawk-open only caps the
- * maximized panel so leftover dimensions cannot cover the page.
+ * Tawk.to visitor chat. Body is a flex column, so an unsized iframe stretches
+ * with the page. Keep the widget out of that column and leave Tawk's own
+ * position, size, bubble, and branding bar alone.
  */
 iframe[title="chat widget"],
 iframe[title="Chat widget"],
 iframe[src*="tawk.to"] {
   position: fixed !important;
-  top: auto !important;
-  left: auto !important;
-  right: 16px !important;
-  bottom: 20px !important;
-  z-index: var(--shell-z-fab, 1080) !important;
   flex: 0 0 auto !important;
   align-self: flex-end !important;
   margin: 0 !important;
-  transform: none !important;
+  overscroll-behavior: contain;
 }
 
-html.tawk-open iframe[title="chat widget"],
-html.tawk-open iframe[title="Chat widget"],
-html.tawk-open iframe[src*="tawk.to"] {
-  max-width: min(400px, calc(100vw - 24px)) !important;
-  max-height: min(640px, calc(100dvh - 24px)) !important;
+.slb-chat-mark {
+  position: fixed;
+  right: 16px;
+  bottom: 20px;
+  z-index: 1081;
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
 }
 
-div:has(> iframe[title="chat widget"]),
-div:has(> iframe[title="Chat widget"]),
-div:has(> iframe[src*="tawk.to"]) {
-  position: fixed !important;
-  top: auto !important;
-  left: auto !important;
-  right: 16px !important;
-  bottom: 20px !important;
-  z-index: var(--shell-z-fab, 1080) !important;
-  flex: 0 0 auto !important;
-  align-self: flex-end !important;
-  width: auto !important;
-  height: auto !important;
-  margin: 0 !important;
-  transform: none !important;
+.slb-chat-mark svg {
+  width: 84px;
+  height: 84px;
+  display: block;
+}
+
+.slb-chat-mark.is-hidden {
+  display: none;
+}
+
+html.slb-tawk-open,
+html.slb-tawk-open body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
 }

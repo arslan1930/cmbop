@@ -22,7 +22,7 @@ class VisitorSupportChatController extends Controller
 
         $data = $request->validate([
             'message' => ['required', 'string', 'min:1', 'max:4000'],
-            'session_id' => ['nullable', 'uuid'],
+            'session_id' => ['nullable', 'string', 'max:64'],
             'history' => ['nullable', 'array', 'max:20'],
             'history.*.role' => ['required_with:history', 'in:user,assistant'],
             'history.*.content' => ['required_with:history', 'string', 'max:2000'],

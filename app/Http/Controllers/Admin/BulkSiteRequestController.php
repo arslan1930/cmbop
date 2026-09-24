@@ -555,7 +555,7 @@ class BulkSiteRequestController extends Controller
                     $validator->errors()->add('items.'.$itemId.'.categories', 'Unknown niche: '.$cat);
                 }
 
-                $description = $this->plainListingDescription((string) ($row['description'] ?? ''));
+                $description = trim((string) ($row['description'] ?? ''));
                 foreach (SiteDescriptionRules::errors($description) as $message) {
                     $validator->errors()->add('items.'.$itemId.'.description', $message);
                 }
@@ -659,7 +659,7 @@ class BulkSiteRequestController extends Controller
                 'country' => strtolower(trim((string) $row['country'])),
                 'categories' => $categories,
                 'category' => implode('|', $categories),
-                'description' => $this->plainListingDescription((string) ($row['description'] ?? '')),
+                'description' => trim((string) ($row['description'] ?? '')),
                 'example_url' => $this->normalizeHttpUrl((string) ($row['example_url'] ?? '')),
                 'turnaround_time' => (string) ($row['turnaround_time'] ?? ''),
                 'publication_time' => (string) ($row['publication_time'] ?? ''),
@@ -848,7 +848,7 @@ class BulkSiteRequestController extends Controller
                 }
 
                 $description = app(SiteDescriptionSanitizer::class)->sanitize(
-                    $this->plainListingDescription((string) ($row['description'] ?? ''))
+                    SiteDescriptionRules::forTextarea((string) ($row['description'] ?? ''))
                 );
                 if (! SiteDescriptionRules::isValid($description)) {
                     $failures[] = [
@@ -1218,7 +1218,7 @@ class BulkSiteRequestController extends Controller
         }
 
         if ($field === 'description') {
-            return SiteDescriptionRules::isValid($this->plainListingDescription((string) ($row['description'] ?? '')));
+            return SiteDescriptionRules::isValid(trim((string) ($row['description'] ?? '')));
         }
 
         if ($field === 'site_tag') {
@@ -1357,7 +1357,6 @@ class BulkSiteRequestController extends Controller
                 foreach ($resolved['unknown'] as $cat) {
                     $errors[] = 'Unknown niche: '.$cat;
                 }
-                $descriptionRaw = $this->plainListingDescription($descriptionRaw);
                 if (! SiteDescriptionRules::isValid($descriptionRaw)) {
                     $errors[] = 'Description must be at least '.SiteDescriptionRules::MIN_CHARS.' characters';
                 }
@@ -1469,18 +1468,6 @@ class BulkSiteRequestController extends Controller
         }
 
         return $url;
-    }
-
-    /**
-     * Listing copy is plain text. Drop leftover markdown **bold** markers so
-     * they are not stored or shown on the bulk request page.
-     */
-    private function plainListingDescription(string $raw): string
-    {
-        $text = SiteDescriptionRules::forTextarea($raw);
-        $text = preg_replace('/\*\*(.+?)\*\*/us', '$1', $text) ?? $text;
-
-        return str_replace('**', '', $text);
     }
 
     /**

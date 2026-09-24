@@ -49,13 +49,19 @@ class OrderStatusChanged extends PlatformMailable
             : '—';
         $newLabel = $labels[$this->newValue] ?? ucfirst($this->newValue);
 
-        $subject = match ($this->changeKind) {
-            'created' => 'New order #'.$order->order_number.' created',
-            'payment_status' => 'Payment update for order #'.$order->order_number.' — '.$newLabel,
+        $advertiserCompleted = $this->audience === 'advertiser'
+            && $this->changeKind === 'status'
+            && $this->newValue === 'completed';
+
+        $subject = match (true) {
+            $advertiserCompleted => 'Order #'.$order->order_number.' is now complete',
+            $this->changeKind === 'created' => 'New order #'.$order->order_number.' created',
+            $this->changeKind === 'payment_status' => 'Payment update for order #'.$order->order_number.' — '.$newLabel,
             default => 'Order #'.$order->order_number.' is now '.$newLabel,
         };
 
         [$ctaUrl, $ctaLabel] = $this->ctaForAudience();
+        $greetingName = trim((string) ($this->recipient->name ?? ''));
 
         $copy = $this->description ?: $this->defaultCopy($newLabel);
 
@@ -63,6 +69,9 @@ class OrderStatusChanged extends PlatformMailable
             ->markdown('emails.orders.status-changed')
             ->with([
                 'firstName' => $firstName,
+                'greetingName' => $greetingName !== '' ? $greetingName : 'there',
+                'advertiserCompleted' => $advertiserCompleted,
+                'catalogUrl' => $this->customerFacingRoute('advertiser.catalog'),
                 'audience' => $this->audience,
                 'changeKind' => $this->changeKind,
                 'order' => $order,

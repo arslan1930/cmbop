@@ -613,6 +613,17 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     color: var(--brand-primary, #1a585e);
 }
 
+.orders-page .m-draw:hover svg path,
+.orders-page .m-draw:hover svg circle,
+.orders-page .m-draw:hover svg line,
+.orders-page .m-draw:hover svg polyline,
+.orders-page .m-draw:hover svg rect,
+.orders-page .m-draw:hover svg ellipse,
+.orders-page .m-draw:hover svg polygon {
+    -webkit-animation: none;
+    animation: none;
+}
+
 .orders-action-icon.btn-action-sm:hover,
 .orders-action-icon.btn-action-sm:focus-visible {
     color: var(--brand-primary, #1a585e);

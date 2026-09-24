@@ -369,7 +369,7 @@
                                     <div style="margin-bottom: 16px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Wise Payment Link</p>
                                         <div id="wisePaymentLink" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; word-break: break-all; font-family: monospace;">
-                                            {{ rtrim($wisePayUrl ?? config('billing.deposit_payment.wise_pay_url', 'https://wise.com/pay/business/teqnoltd'), '?&') }}?amount=<span class="amount-link">0</span>&currency=EUR
+                                            {{ rtrim($wisePayUrl ?? config('billing.deposit_payment.wise_pay_url', 'https://wise.com/pay/business/topurlzltd'), '?&') }}?amount=<span class="amount-link">0</span>&currency=EUR
                                         </div>
                                         <button type="button" class="copy-btn mt-2" data-target="wisePaymentLink">
                                             <i class="fas fa-copy"></i> Copy Payment Link
@@ -382,7 +382,7 @@
                                         <img id="wiseQRCode"
                                              data-qr-base="{{ route('advertiser.add-funds.wise-qr', absolute: false) }}"
                                              alt="Scan to pay with Wise"
-                                             style="display: none; width: 150px; height: 150px; margin: 0 auto; border-radius: 16px; background: #f4f8f4;"
+                                             style="display: none; width: 150px; height: 150px; margin: 0 auto;"
                                              width="150"
                                              height="150">
                                         <p id="wiseQrHint" class="small text-muted">Select an amount (≥ €10) to generate your Wise QR.</p>
@@ -465,11 +465,11 @@
                                     </div>
                                     <div style="margin-bottom: 12px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Beneficiary:</p>
-                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>
+                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['beneficiary'] ?? 'Topurlz Ltd' }}</p>
                                     </div>
                                     <div style="margin-bottom: 12px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">IBAN:</p>
-                                        <div id="bankIban" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['iban'] ?? 'BE40 9059 9538 0863' }}</div>
+                                        <div id="bankIban" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['iban'] ?? 'BE04905543949331' }}</div>
                                         <button type="button" class="copy-btn mt-1" data-target="bankIban">Copy IBAN</button>
                                     </div>
                                     <div style="margin-bottom: 12px;">

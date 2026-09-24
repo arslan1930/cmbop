@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Server-side visitor-chat provider. The browser never sees API keys.
@@ -50,11 +51,50 @@ class VisitorSupportChatService
     private function localReply(string $message): string
     {
         $company = trim((string) config('app.name', 'SEOLinkBuildings'));
-        $name = auth()->user()->name ?? '';
+        $user = auth()->user();
+        $name = trim((string) ($user->name ?? ''));
+        $email = trim((string) ($user->email ?? ''));
         $hello = $name !== '' ? 'Thanks, '.$name.'.' : 'Thanks for writing in.';
+
+        $this->notifySupport($message, $name, $email);
 
         return $hello.' A teammate at '.$company.' will follow up here. '
             .'You can also use Contact if you need billing or account help.';
+    }
+
+    private function notifySupport(string $message, string $name, string $email): void
+    {
+        $to = trim((string) config('email_notifications.brand.support_email', ''));
+        if ($to === '' || ! filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        $who = $name !== '' ? $name : 'Visitor';
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $who .= ' <'.$email.'>';
+        }
+
+        $from = trim((string) (config('email_notifications.brand.sender_email') ?: config('mail.from.address')));
+        $fromName = trim((string) (config('email_notifications.brand.sender_name') ?: config('mail.from.name')));
+
+        try {
+            Mail::raw(
+                "Support chat message from {$who}\n\n{$message}",
+                function ($mail) use ($to, $from, $fromName, $name, $email): void {
+                    if ($from !== '' && filter_var($from, FILTER_VALIDATE_EMAIL)) {
+                        $mail->from($from, $fromName !== '' ? $fromName : null);
+                    }
+                    $mail->to($to)->subject('Support chat message');
+                    if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        $mail->replyTo($email, $name !== '' ? $name : null);
+                    }
+                }
+            );
+        } catch (\Throwable $e) {
+            Log::warning('visitor-support-chat.notify-failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

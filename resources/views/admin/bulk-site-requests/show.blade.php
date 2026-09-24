@@ -73,7 +73,7 @@
                         @forelse($history as $entry)
                             <div class="bulk-history-item">
                                 <div class="fw-semibold">{{ marketing_task_label($entry->action) }}</div>
-                                <div class="text-muted">{{ preg_replace(['/\*\*(.+?)\*\*/us', '/\*\*/u'], ['$1', ''], (string) $entry->description) }}</div>
+                                <div class="text-muted">{{ $entry->description }}</div>
                                 @php
                                     $historyNote = \App\Support\MarketingHistoryDisplay::reason($entry);
                                 @endphp
@@ -521,7 +521,7 @@
                                                               placeholder="Shown to advertisers. At least 50 characters."
                                                               required
                                                               data-bulk-required
-                                                              @disabled($isRejected)>{{ preg_replace(['/\*\*(.+?)\*\*/us', '/\*\*/u'], ['$1', ''], (string) old('items.'.$item->id.'.description')) }}</textarea>
+                                                              @disabled($isRejected)>{{ old('items.'.$item->id.'.description') }}</textarea>
                                                     @error('items.'.$item->id.'.description')
                                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                                     @enderror
