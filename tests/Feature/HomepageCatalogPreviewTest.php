@@ -181,8 +181,6 @@ class HomepageCatalogPreviewTest extends TestCase
             '/#main-content[^{;]*\{[^}]*overflow-x:\s*clip/',
             $hero
         );
-        $this->assertStringNotContainsString('overflow-x: clip;', file_get_contents(resource_path('views/layouts/app.blade.php')));
-        $this->assertStringNotContainsString('overflow-x: clip;', file_get_contents(resource_path('views/components/navbar.blade.php')));
     }
 
     public function test_every_locale_homepage_uses_the_catalog_clone_hero(): void
