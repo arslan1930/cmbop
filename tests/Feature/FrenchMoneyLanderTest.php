@@ -118,6 +118,20 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringNotContainsString('au checkout', $how);
         $this->assertStringNotContainsString('paiements wallet', $how);
         $this->assertStringContainsString('portefeuille', $how);
+
+        $about = $this->get('/fr/a-propos')->assertOk()->getContent();
+        $this->assertStringContainsString('italien', $about);
+        $this->assertStringContainsString('roumain', $about);
+        $this->assertStringNotContainsString('EN/DE/FR/NL', $about);
+        $this->assertStringNotContainsString('FR/EN/DE/NL', $about);
+
+        $faq = $this->get('/fr/faq')->assertOk()->getContent();
+        $this->assertStringContainsString('portugais', $faq);
+        $this->assertStringNotContainsString('tableau de bord SaaS', $faq);
+
+        $refund = $this->get('/fr/remboursement')->assertOk()->getContent();
+        $this->assertStringNotContainsString('en cash', $refund);
+        $this->assertStringNotContainsString('bank/Wise', $refund);
     }
 
     public function test_sitemap_fr_includes_money_landers_and_not_aliases(): void

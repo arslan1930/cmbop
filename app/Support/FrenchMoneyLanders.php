@@ -284,7 +284,7 @@ class FrenchMoneyLanders
                 'points' => [
                     [
                         'title' => 'Dofollow et liens sponsored',
-                        'body' => 'Backlinks dofollow et liens dofollow existent lorsque la fiche l’indique. Beaucoup de publications payantes sont en rel sponsored. C’est écrit avant le paiement.',
+                        'body' => 'Les backlinks dofollow existent lorsque la fiche l’indique. Beaucoup de publications payantes portent rel sponsored. C’est écrit avant le paiement.',
                     ],
                     [
                         'title' => 'Sites .fr',
@@ -447,7 +447,7 @@ class FrenchMoneyLanders
                         'body' => 'Nous ne vendons pas un réseau display. Uniquement les formats que l’éditeur a mis sur sa fiche.',
                     ],
                     [
-                        'title' => 'Même portefeuille EUR',
+                        'title' => 'Même portefeuille en euros',
                         'body' => 'Le paiement reste le portefeuille en euros. Pas de devise séparée pour la France.',
                     ],
                 ],
