@@ -99,6 +99,8 @@ use App\Support\GermanMoneyLanders;
 use App\Support\HttpCron;
 use App\Support\ItalianMoneyLanders;
 use App\Support\LocalizedPublicPath;
+use App\Support\MoneyLanderCatalog;
+use App\Support\MoneyLanderRoutes;
 use App\Support\PortugueseMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
@@ -125,7 +127,7 @@ use Illuminate\Support\Facades\Validator;
 
 $prefixedLocales = (array) config('i18n.prefixed', [
     'de', 'fr', 'nl', 'es', 'it', 'us',
-    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
+    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
 ]);
 if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'prefixed')) {
     try {
@@ -141,7 +143,7 @@ if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'prefixe
 }
 $supportedLocales = (array) config('i18n.supported', [
     'en', 'de', 'fr', 'nl', 'es', 'it', 'us',
-    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee',
+    'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
 ]);
 if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'supported')) {
     try {
@@ -163,6 +165,17 @@ if ($prefixedLocalePattern === '') {
 if ($supportedLocalePattern === '') {
     $supportedLocalePattern = 'en|de|fr|nl|es|it|us|at|ch|ro|gr|dk|se|no|bg|hu|ee|pl';
 }
+
+$nordicCeeOwnsSegment = static function (string $locale, string $segment): bool {
+    if (! class_exists(MoneyLanderCatalog::class)
+        || ! method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
+        || ! method_exists(MoneyLanderCatalog::class, 'localeOwnsSegment')) {
+        return false;
+    }
+
+    return in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)
+        && MoneyLanderCatalog::localeOwnsSegment($locale, $segment);
+};
 
 // Stacked locale cleanup: /nl/fr → /nl
 Route::get('/{locale}/{nested}', function ($locale, $nested) use ($prefixedLocales) {
@@ -380,6 +393,9 @@ if ($italianMoneySlugs !== [] && method_exists(MarketingPageController::class, '
                 )) {
                 continue;
             }
+            if ($nordicCeeOwnsSegment($locale, $slug)) {
+                continue;
+            }
             Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
                 $query = request()->getQueryString();
                 $target = '/it/'.$slug;
@@ -444,6 +460,9 @@ if ($italianMoneyAliases !== []) {
                         && method_exists(RomanianMoneyLanders::class, 'isPublicSegment')
                         && RomanianMoneyLanders::isPublicSegment($from))
                 )) {
+                continue;
+            }
+            if ($nordicCeeOwnsSegment($locale, $from)) {
                 continue;
             }
             Route::get('/'.$locale.'/'.$from, function () use ($to) {
@@ -533,6 +552,9 @@ if ($germanMoneySlugs !== [] && method_exists(MarketingPageController::class, 'g
                 )) {
                 continue;
             }
+            if ($nordicCeeOwnsSegment($locale, $slug)) {
+                continue;
+            }
             Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
                 $query = request()->getQueryString();
                 $target = '/de/'.$slug;
@@ -599,6 +621,9 @@ if ($germanMoneyAliases !== []) {
                         && method_exists(RomanianMoneyLanders::class, 'isPublicSegment')
                         && RomanianMoneyLanders::isPublicSegment($from))
                 )) {
+                continue;
+            }
+            if ($nordicCeeOwnsSegment($locale, $from)) {
                 continue;
             }
             Route::get('/'.$locale.'/'.$from, function () use ($to) {
@@ -701,6 +726,9 @@ if ($portugueseMoneySlugs !== [] && method_exists(MarketingPageController::class
                 )) {
                 continue;
             }
+            if ($nordicCeeOwnsSegment($locale, $slug)) {
+                continue;
+            }
             Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
                 $query = request()->getQueryString();
                 $target = '/pt/'.$slug;
@@ -766,6 +794,9 @@ if ($romanianMoneySlugs !== [] && method_exists(MarketingPageController::class, 
             if ($locale === 'ro') {
                 continue;
             }
+            if ($nordicCeeOwnsSegment($locale, $slug)) {
+                continue;
+            }
             Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
                 $query = request()->getQueryString();
                 $target = '/ro/'.$slug;
@@ -783,6 +814,37 @@ if ($romanianMoneyAliases !== []) {
 
             return Redirect::to($query ? $to.'?'.$query : $to, 301);
         });
+    }
+}
+
+// Leftover Hostinger File Manager hygiene: keep CH/ES controller method
+// names in this file even though those landers are not routed here.
+if (method_exists(MarketingPageController::class, 'swissMoneyLander')
+    && class_exists(SwissMoneyLanders::class)
+    && method_exists(SwissMoneyLanders::class, 'slugs')) {
+    // Restored leftover snapshots may re-register /ch landers from this guard.
+}
+if (method_exists(MarketingPageController::class, 'spanishMoneyLander')
+    && class_exists(SpanishMoneyLanders::class)
+    && method_exists(SpanishMoneyLanders::class, 'slugs')) {
+    // Restored leftover snapshots may re-register /es landers from this guard.
+}
+
+if (class_exists(MoneyLanderCatalog::class)
+    && class_exists(MoneyLanderRoutes::class)
+    && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
+    && method_exists(MarketingPageController::class, 'nordicCeeMoneyLander')) {
+    foreach (MoneyLanderCatalog::nordicCeeLocales() as $nordicLocale) {
+        $nordicClass = MoneyLanderCatalog::classFor($nordicLocale);
+        if (! is_string($nordicClass)) {
+            continue;
+        }
+        MoneyLanderRoutes::register(
+            $nordicLocale,
+            $nordicClass,
+            'nordicCeeMoneyLander',
+            $prefixedLocales
+        );
     }
 }
 

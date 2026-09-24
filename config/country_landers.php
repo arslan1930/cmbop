@@ -499,6 +499,8 @@ return [
         'point_3_body' => 'Register, filter Denmark, send the brief in the listing language, and approve the live URL on the order.',
         'teaser_title' => 'Sample Danish inventory',
         'teaser_subtitle' => 'Masked preview of live Denmark listings. Register to open domains and check out.',
+        'native_url' => '/dk/koeb-gaesteindlaeg',
+        'native_label' => 'Køb gæsteindlæg på dansk',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',
@@ -541,6 +543,8 @@ return [
         'point_3_body' => 'Most SE-primary sites publish in Swedish. Match the brief to the listing language.',
         'teaser_title' => 'Sample Swedish inventory',
         'teaser_subtitle' => 'Masked preview of live Sweden listings. Register to see domains and buy.',
+        'native_url' => '/se/kopa-gastinlagg',
+        'native_label' => 'Köp gästinlägg på svenska',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',
@@ -583,6 +587,8 @@ return [
         'point_3_body' => 'Register, filter Norway, send the brief in the listing language, and approve the live URL on the order.',
         'teaser_title' => 'Sample Norwegian inventory',
         'teaser_subtitle' => 'Masked preview of live Norway listings. Register to open domains and check out.',
+        'native_url' => '/no/kjope-gjesteinnlegg',
+        'native_label' => 'Kjøp gjesteinnlegg på norsk',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',
@@ -625,6 +631,8 @@ return [
         'point_3_body' => 'Most BG-primary sites publish in Bulgarian. Match the brief to the listing language.',
         'teaser_title' => 'Sample Bulgarian inventory',
         'teaser_subtitle' => 'Masked preview of live Bulgaria listings. Register to see domains and buy.',
+        'native_url' => '/bg/kupi-guest-post',
+        'native_label' => 'Купи гост пост на български',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',
@@ -667,6 +675,8 @@ return [
         'point_3_body' => 'Register, filter Hungary, send the brief in the listing language, and approve the live URL on the order.',
         'teaser_title' => 'Sample Hungarian inventory',
         'teaser_subtitle' => 'Masked preview of live Hungary listings. Register to open domains and check out.',
+        'native_url' => '/hu/vendegposzt',
+        'native_label' => 'Vendégposzt magyarul',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',
@@ -709,6 +719,8 @@ return [
         'point_3_body' => 'Most EE-primary sites publish in Estonian. Match the brief to the listing language.',
         'teaser_title' => 'Sample Estonian inventory',
         'teaser_subtitle' => 'Masked preview of live Estonia listings. Register to see domains and buy.',
+        'native_url' => '/ee/osta-kulalispostitus',
+        'native_label' => 'Osta külalispostitus eesti keeles',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',
@@ -751,6 +763,8 @@ return [
         'point_3_body' => 'Most PL-primary sites publish in Polish. Confirm the listing language before you write the brief. An English-language site hosted in Poland is a different row.',
         'teaser_title' => 'Sample Polish inventory',
         'teaser_subtitle' => 'Masked preview of live Poland listings. Register to see domains and place the order.',
+        'native_url' => '/pl/wpis-goscinny',
+        'native_label' => 'Kup wpis gościnny po polsku',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',

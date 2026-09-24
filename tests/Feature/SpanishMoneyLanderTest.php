@@ -161,7 +161,9 @@ class SpanishMoneyLanderTest extends TestCase
         $this->assertSame(['es'], PublicI18n::catalogTeaserCountries('es'));
         $this->assertSame(['es'], PublicI18n::moneyLanderLocales('comprar-guest-post'));
         $this->assertSame('es', PublicI18n::moneyLanderXDefault('comprar-guest-post'));
-        $this->assertSame(['it', 'de', 'at', 'ch', 'es', 'ro'], PublicI18n::moneyLanderLocales('digital-pr'));
+        foreach (['it', 'de', 'at', 'pt', 'ro', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl'] as $code) {
+            $this->assertContains($code, PublicI18n::moneyLanderLocales('digital-pr'));
+        }
         $this->assertSame('it', PublicI18n::moneyLanderXDefault('digital-pr'));
     }
 

@@ -120,6 +120,25 @@
             </p>
         </div>
     @endif
+    @php
+        $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
+            ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
+            : null;
+        $nordicMarket = is_array($nordicChrome['marketplace'] ?? null) ? $nordicChrome['marketplace'] : null;
+    @endphp
+    @if($nordicChrome && $nordicMarket && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">{{ $nordicMarket['h2'] }}</h2>
+            <p class="text-muted">{!! $nordicMarket['body'] !!}</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => $nordicChrome['marketplace_links'],
+                'title' => $nordicChrome['cluster_title'] ?? '',
+            ])
+            @if(!empty($nordicMarket['links']))
+                <p class="small mb-0">{!! $nordicMarket['links'] !!}</p>
+            @endif
+        </div>
+    @endif
     <p class="text-center small mt-2 mb-0">
         <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
         — median advertiser prices by European publisher country.

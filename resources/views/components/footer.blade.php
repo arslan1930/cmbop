@@ -69,6 +69,16 @@
                         <li><a href="{{ url('/ro/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
                         <li><a href="{{ url('/ro/ghid') }}" class="text-dark text-decoration-none d-block mb-2">Ghid</a></li>
                     @endif
+                    @php
+                        $nordicFooter = class_exists(\App\Support\MoneyLanderCatalog::class)
+                            ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
+                            : null;
+                    @endphp
+                    @if(!empty($nordicFooter['footer_links']))
+                        @foreach($nordicFooter['footer_links'] as $item)
+                            <li><a href="{{ $item['url'] }}" class="text-dark text-decoration-none d-block mb-2">{{ $item['label'] }}</a></li>
+                        @endforeach
+                    @endif
                 </ul>
             </div>
 

@@ -112,6 +112,20 @@
             ])
         </div>
     @endif
+    @php
+        $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
+            ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
+            : null;
+    @endphp
+    @if($nordicChrome && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => $nordicChrome['home_links'],
+                'current' => 'home',
+                'title' => $nordicChrome['cluster_title'] ?? '',
+            ])
+        </div>
+    @endif
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')

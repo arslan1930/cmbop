@@ -6,6 +6,7 @@ use App\Services\CuratedBlogWriter;
 use App\Support\DofollowNofollowAnchorsEnBlogPost;
 use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
+use App\Support\MoneyLanderCatalog;
 use App\Support\PublicI18n;
 use Database\Seeders\LinkBuildingGuidesBlogsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -135,6 +136,13 @@ class GermanMoneyLanderTest extends TestCase
             }
             if ($locale === 'ro') {
                 $this->get('/ro/digital-pr')->assertOk();
+
+                continue;
+            }
+            if (class_exists(MoneyLanderCatalog::class)
+                && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
+                && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)) {
+                $this->get('/'.$locale.'/digital-pr')->assertOk();
 
                 continue;
             }
