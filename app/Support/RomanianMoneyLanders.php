@@ -197,7 +197,7 @@ class RomanianMoneyLanders
                 'faqs' => [
                     [
                         'q' => 'Pot publica doar pe site-uri .ro?',
-                        'a' => 'Da, filtrând țara România. Catalogul european rămâne disponibil în același portofel EUR.',
+                        'a' => 'Da. Filtrezi după țara România. Catalogul european rămâne disponibil în același portofel EUR.',
                     ],
                     [
                         'q' => 'Scrieți voi articolul?',
@@ -205,7 +205,7 @@ class RomanianMoneyLanders
                     ],
                     [
                         'q' => 'Există pagini pentru București sau Cluj?',
-                        'a' => 'Nu. Orașele nu au URL propriu. Filtrezi țara, nu ușa de oraș.',
+                        'a' => 'Nu. Orașele nu au pagină proprie. Filtrezi țara.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Creează cont și vezi catalogul', 'url' => $register],
@@ -220,9 +220,9 @@ class RomanianMoneyLanders
             'articol-sponsorizat' => [
                 'kicker' => 'Advertorial',
                 'h1' => 'Articole sponsorizate și advertoriale în România',
-                'subtitle' => 'Publici un articol plătit pe un site din catalog, cu preț în euro și URL live. Nu vindem un comunicat de presă generic și nici o garanție de știre.',
+                'subtitle' => 'Publici un articol plătit pe un site din catalog, cu preț în euro și URL live. Nu vindem un comunicat de presă generic și nicio garanție de știre.',
                 'meta_title' => 'Articol sponsorizat și advertorial România | SEOLinkBuildings',
-                'meta_description' => 'Cumperi articole sponsorizate și advertoriale pe site-uri din România. Preț în EUR pe listing, briefing, URL live — fără teletip inventat.',
+                'meta_description' => 'Cumperi articole sponsorizate și advertoriale pe site-uri din România. Preț în EUR pe listing, briefing, URL live — fără agenție de presă inventată.',
                 'teaser_countries' => ['ro'],
                 'teaser_title' => 'Site-uri media pentru guest post și advertorial',
                 'teaser_subtitle' => 'Aceeași previzualizare de publishers din România. Un advertorial există doar dacă site-ul este listat și acceptă brief-ul.',
@@ -353,7 +353,7 @@ class RomanianMoneyLanders
                 'sections' => [
                     [
                         'h2' => 'Outreach',
-                        'body' => 'Outreach-ul self-service ești tu: scrii briefingul și alegi site-ul. Outreach-ul gestionat este în pachetele de digital PR, dacă rămân listate (azi de la 499 €/lună pe planul de bază).',
+                        'body' => 'La self-service, outreach-ul îl faci tu: scrii briefingul și alegi site-ul. Outreach-ul gestionat este în pachetele de digital PR, dacă rămân listate (azi de la 499 €/lună pe planul de bază).',
                     ],
                     [
                         'h2' => 'Cum începe o campanie',
@@ -383,7 +383,7 @@ class RomanianMoneyLanders
                 'h1' => 'Link building pentru agenții în România',
                 'subtitle' => 'Catalog self-service pentru agenții SEO, reselleri și echipe care refacturează. Portofel EUR, comenzi urmărite, facturi în facturarea advertiserului.',
                 'meta_title' => 'Link building pentru agenții în România | SEOLinkBuildings',
-                'meta_description' => 'Guest post pentru agenții în România: catalog EUR, facturi, comenzi pe brand — fără un frontend de revânzare cu logoul tău.',
+                'meta_description' => 'Guest post pentru agenții în România: catalog EUR, facturi, comenzi pe brand — fără un portal de revânzare cu logoul tău.',
                 'teaser_countries' => ['ro'],
                 'teaser_title' => 'Inventar pe care îl poți refactura',
                 'teaser_subtitle' => 'Aceleași listinguri ca pentru un advertiser intern. Contul este al tău; brandurile stau în proiectele și comenzile tale.',
@@ -402,13 +402,13 @@ class RomanianMoneyLanders
                     ],
                     [
                         'title' => 'Panou pentru echipe SEO',
-                        'body' => 'Filtre, metrici, chatul comenzii și URL live. După login, panoul este în engleză pentru toate rolurile.',
+                        'body' => 'Filtre, metrici, chatul comenzii și URL live. După autentificare, panoul este în engleză pentru toate rolurile.',
                     ],
                 ],
                 'sections' => [
                     [
                         'h2' => 'Agenție vs marketplace',
-                        'body' => 'O agenție alege site-urile pentru client. Un marketplace arată site-urile cumpărătorului. SEOLinkBuildings este al doilea. Dacă echipa ta este agenția, selecția rămâne la voi, iar catalogul este sursa.',
+                        'body' => 'O agenție alege site-urile pentru client. Un marketplace arată site-urile cumpărătorului. SEOLinkBuildings este al doilea. Dacă echipa ta este agenția, selecția rămâne la tine, iar catalogul este sursa.',
                     ],
                 ],
                 'faqs' => [
@@ -438,10 +438,10 @@ class RomanianMoneyLanders
                 'h1' => 'Digital PR în România',
                 'subtitle' => 'Campanii de digital PR ca publicații în site-urile din marketplace, plus pachete gestionate la prețuri. Fără promisiune de Google News.',
                 'meta_title' => 'Digital PR în România | SEOLinkBuildings',
-                'meta_description' => 'Digital PR în România: publicații din catalog, portofel EUR, URL live și pachete gestionate — fără garanții de News sau teletip.',
+                'meta_description' => 'Digital PR în România: publicații din catalog, portofel EUR, URL live și pachete gestionate — fără garanții de News sau de agenție de presă.',
                 'teaser_countries' => ['ro'],
                 'teaser_title' => 'Site-uri din România în catalog',
-                'teaser_subtitle' => 'Unii publishers arată ca un media kit; nu toți sunt un cotidian. Nișa și limba se filtrează după login.',
+                'teaser_subtitle' => 'Unii publishers arată ca un media kit; nu toți sunt un cotidian. Nișa și limba se filtrează după autentificare.',
                 'intro' => [
                     '„Digital PR România”, „comunicat de presă SEO” și „mențiuni de brand” amestecă PR-ul cu link buildingul. Aici cumperi publicații pe site-uri care sunt efectiv în catalog.',
                     'Pachetele gestionate (valorile sunt la Prețuri; azi de la 499 €/lună pe planul de bază, dacă rămâne listat) sunt outreach de echipă, nu un buton „să apară într-un ziar național”.',
@@ -468,7 +468,7 @@ class RomanianMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Garantează un articol în presă?',
+                        'q' => 'Garantați un articol în presă?',
                         'a' => 'Nu. Livrăm URL-ul pe site-ul pe care l-ai comandat, dacă publisherul acceptă.',
                     ],
                     [
@@ -489,22 +489,22 @@ class RomanianMoneyLanders
                 'h1' => 'Niche edits în România — și ce vindem în loc',
                 'subtitle' => 'Niche edits (inserarea unui link într-un articol deja publicat) nu sunt un SKU pe SEOLinkBuildings. Aici este limita față de guest post și riscurile.',
                 'meta_title' => 'Niche edits în România, explicate | SEOLinkBuildings',
-                'meta_description' => 'Ce sunt niche edits și inserările de link, când sunt riscante, și de ce în România vindem publicații editoriale — nu un insert într-un articol străin.',
+                'meta_description' => 'Ce sunt niche edits și inserările de link, când sunt riscante, și de ce în România vindem publicații editoriale — nu o inserare într-un articol străin.',
                 'teaser_countries' => ['ro'],
-                'teaser_title' => 'Site-uri editoriale, nu rețele de inserturi',
+                'teaser_title' => 'Site-uri editoriale, nu rețele de inserări',
                 'teaser_subtitle' => 'Previzualizare de listinguri active din România. Produsul standard este un articol nou cu link în text.',
                 'intro' => [
                     'Un niche edit este un link pus într-un articol deja publicat, adesea pentru că URL-ul este deja indexat. „Inserare link” și „contextual backlinks” caută exact asta.',
-                    'Nu vindem acest lucru ca produs. Comanda standard este o publicație nouă (guest post sau articol sponsorizat) cu briefing și URL live. Unele site-uri oferă un extra de homepage, cu termen; este vizibil pe listing, nu un insert tăcut într-un articol care deja rankează.',
+                    'Nu vindem acest lucru ca produs. Comanda standard este o publicație nouă (guest post sau articol sponsorizat) cu briefing și URL live. Unele site-uri oferă un extra de homepage, cu termen; este vizibil pe listing, nu o inserare ascunsă într-un articol care deja se poziționează.',
                 ],
                 'points' => [
                     [
                         'title' => 'Verifică relevanța',
-                        'body' => 'Un insert într-un text vechi, pe altă temă, este de obicei mai slab decât un articol nou pe un site potrivit.',
+                        'body' => 'O inserare într-un text vechi, pe altă temă, este de obicei mai slabă decât un articol nou pe un site potrivit.',
                     ],
                     [
                         'title' => 'Riscuri',
-                        'body' => 'Proprietate neclară, ancore schimbate ulterior, lipsa marcajului sponsorizat, rețele de inserturi cu același tipar.',
+                        'body' => 'Proprietate neclară, ancore schimbate ulterior, lipsa marcajului sponsorizat, rețele de inserări cu același tipar.',
                     ],
                     [
                         'title' => 'Ce cumperi aici',
@@ -550,7 +550,7 @@ class RomanianMoneyLanders
                 'teaser_subtitle' => 'După ghid, site-urile reale sunt în catalogul României, cu preț de checkout.',
                 'intro' => [
                     'Acest ghid acoperă întrebările informaționale (ce este link building, cum să cumperi backlinkuri, riscuri, anchor text) fără o pagină nouă pentru fiecare frază.',
-                    'Panoul de după login rămâne în engleză. Pagina publică este în română.',
+                    'Panoul de după autentificare rămâne în engleză. Pagina publică este în română.',
                 ],
                 'points' => [
                     [
@@ -573,7 +573,7 @@ class RomanianMoneyLanders
                     ],
                     [
                         'h2' => 'PBN vs guest post',
-                        'body' => 'Un PBN este o rețea controlată ca să paseze linkuri. Nu vindem asta. Un guest post este o publicație pe un site cu cititori proprii. Dacă nu poți numi site-ul, nu este acest produs.',
+                        'body' => 'Un PBN este o rețea controlată ca să transmită linkuri. Nu vindem asta. Un guest post este o publicație pe un site cu cititori proprii. Dacă nu poți numi site-ul, nu este acest produs.',
                     ],
                     [
                         'h2' => 'Riscurile cumpărării de backlinkuri',

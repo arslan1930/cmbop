@@ -82,6 +82,10 @@ class RomanianMoneyLanderTest extends TestCase
 
         $buy = $this->get('/ro/cumpara-guest-post')->assertOk()->getContent();
         $this->assertStringContainsString('nu inventăm un CUI românesc', $buy);
+        $this->assertStringContainsString('Acasă', $buy);
+        $this->assertStringNotContainsString('teletip', $buy);
+        $this->assertStringNotContainsString('ușa de oraș', $buy);
+        $this->assertStringNotContainsString('rankează', $buy);
 
         $market = $this->get('/ro/piata')->assertOk()->getContent();
         $this->assertStringContainsString('Catalog de publicații și publishers în România', $market);
