@@ -210,7 +210,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
     public function test_public_money_pages_and_admin_login_stay_up(): void
     {
-        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-austria', '/guest-posts-switzerland', '/guest-posts-spain', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login', '/at', '/at/gastbeitrag-kaufen', '/de/gastbeitrag-kaufen', '/ch', '/ch/gastbeitrag-kaufen', '/es', '/es/comprar-guest-post', '/ro', '/ro/cumpara-guest-post', '/guest-posts-romania'] as $path) {
+        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-austria', '/guest-posts-switzerland', '/guest-posts-spain', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login', '/at', '/at/gastbeitrag-kaufen', '/de/gastbeitrag-kaufen', '/ch', '/ch/gastbeitrag-kaufen', '/es', '/es/comprar-guest-post', '/ro', '/ro/cumpara-guest-post', '/guest-posts-romania', '/nl', '/nl/gastblog-kopen', '/guest-posts-netherlands'] as $path) {
             $this->get($path)
                 ->assertOk()
                 ->assertDontSee('SQLSTATE')
