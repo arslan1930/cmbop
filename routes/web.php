@@ -99,6 +99,7 @@ use App\Support\GermanMoneyLanders;
 use App\Support\HttpCron;
 use App\Support\ItalianMoneyLanders;
 use App\Support\LocalizedPublicPath;
+use App\Support\PortugueseMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
 use App\Support\RomanianMoneyLanders;
@@ -359,23 +360,13 @@ if ($italianMoneySlugs !== [] && method_exists(MarketingPageController::class, '
                 )) {
                 continue;
             }
-            if (class_exists(SwissMoneyLanders::class)
+            if (class_exists(PortugueseMoneyLanders::class)
                 && (
-                    (method_exists(SwissMoneyLanders::class, 'capturesLocaleCopy')
-                        && SwissMoneyLanders::capturesLocaleCopy($locale, $slug))
-                    || ($locale === 'ch'
-                        && method_exists(SwissMoneyLanders::class, 'isPublicSegment')
-                        && SwissMoneyLanders::isPublicSegment($slug))
-                )) {
-                continue;
-            }
-            if (class_exists(SpanishMoneyLanders::class)
-                && (
-                    (method_exists(SpanishMoneyLanders::class, 'capturesLocaleCopy')
-                        && SpanishMoneyLanders::capturesLocaleCopy($locale, $slug))
-                    || ($locale === 'es'
-                        && method_exists(SpanishMoneyLanders::class, 'isPublicSegment')
-                        && SpanishMoneyLanders::isPublicSegment($slug))
+                    (method_exists(PortugueseMoneyLanders::class, 'capturesLocaleCopy')
+                        && PortugueseMoneyLanders::capturesLocaleCopy($locale, $slug))
+                    || ($locale === 'pt'
+                        && method_exists(PortugueseMoneyLanders::class, 'isPublicSegment')
+                        && PortugueseMoneyLanders::isPublicSegment($slug))
                 )) {
                 continue;
             }
@@ -435,23 +426,13 @@ if ($italianMoneyAliases !== []) {
                 )) {
                 continue;
             }
-            if (class_exists(SwissMoneyLanders::class)
+            if (class_exists(PortugueseMoneyLanders::class)
                 && (
-                    (method_exists(SwissMoneyLanders::class, 'capturesLocaleCopy')
-                        && SwissMoneyLanders::capturesLocaleCopy($locale, $from))
-                    || ($locale === 'ch'
-                        && method_exists(SwissMoneyLanders::class, 'isPublicSegment')
-                        && SwissMoneyLanders::isPublicSegment($from))
-                )) {
-                continue;
-            }
-            if (class_exists(SpanishMoneyLanders::class)
-                && (
-                    (method_exists(SpanishMoneyLanders::class, 'capturesLocaleCopy')
-                        && SpanishMoneyLanders::capturesLocaleCopy($locale, $from))
-                    || ($locale === 'es'
-                        && method_exists(SpanishMoneyLanders::class, 'isPublicSegment')
-                        && SpanishMoneyLanders::isPublicSegment($from))
+                    (method_exists(PortugueseMoneyLanders::class, 'capturesLocaleCopy')
+                        && PortugueseMoneyLanders::capturesLocaleCopy($locale, $from))
+                    || ($locale === 'pt'
+                        && method_exists(PortugueseMoneyLanders::class, 'isPublicSegment')
+                        && PortugueseMoneyLanders::isPublicSegment($from))
                 )) {
                 continue;
             }
@@ -532,23 +513,13 @@ if ($germanMoneySlugs !== [] && method_exists(MarketingPageController::class, 'g
                 )) {
                 continue;
             }
-            if (class_exists(SwissMoneyLanders::class)
+            if (class_exists(PortugueseMoneyLanders::class)
                 && (
-                    (method_exists(SwissMoneyLanders::class, 'capturesLocaleCopy')
-                        && SwissMoneyLanders::capturesLocaleCopy($locale, $slug))
-                    || ($locale === 'ch'
-                        && method_exists(SwissMoneyLanders::class, 'isPublicSegment')
-                        && SwissMoneyLanders::isPublicSegment($slug))
-                )) {
-                continue;
-            }
-            if (class_exists(SpanishMoneyLanders::class)
-                && (
-                    (method_exists(SpanishMoneyLanders::class, 'capturesLocaleCopy')
-                        && SpanishMoneyLanders::capturesLocaleCopy($locale, $slug))
-                    || ($locale === 'es'
-                        && method_exists(SpanishMoneyLanders::class, 'isPublicSegment')
-                        && SpanishMoneyLanders::isPublicSegment($slug))
+                    (method_exists(PortugueseMoneyLanders::class, 'capturesLocaleCopy')
+                        && PortugueseMoneyLanders::capturesLocaleCopy($locale, $slug))
+                    || ($locale === 'pt'
+                        && method_exists(PortugueseMoneyLanders::class, 'isPublicSegment')
+                        && PortugueseMoneyLanders::isPublicSegment($slug))
                 )) {
                 continue;
             }
@@ -610,23 +581,13 @@ if ($germanMoneyAliases !== []) {
                 )) {
                 continue;
             }
-            if (class_exists(SwissMoneyLanders::class)
+            if (class_exists(PortugueseMoneyLanders::class)
                 && (
-                    (method_exists(SwissMoneyLanders::class, 'capturesLocaleCopy')
-                        && SwissMoneyLanders::capturesLocaleCopy($locale, $from))
-                    || ($locale === 'ch'
-                        && method_exists(SwissMoneyLanders::class, 'isPublicSegment')
-                        && SwissMoneyLanders::isPublicSegment($from))
-                )) {
-                continue;
-            }
-            if (class_exists(SpanishMoneyLanders::class)
-                && (
-                    (method_exists(SpanishMoneyLanders::class, 'capturesLocaleCopy')
-                        && SpanishMoneyLanders::capturesLocaleCopy($locale, $from))
-                    || ($locale === 'es'
-                        && method_exists(SpanishMoneyLanders::class, 'isPublicSegment')
-                        && SpanishMoneyLanders::isPublicSegment($from))
+                    (method_exists(PortugueseMoneyLanders::class, 'capturesLocaleCopy')
+                        && PortugueseMoneyLanders::capturesLocaleCopy($locale, $from))
+                    || ($locale === 'pt'
+                        && method_exists(PortugueseMoneyLanders::class, 'isPublicSegment')
+                        && PortugueseMoneyLanders::isPublicSegment($from))
                 )) {
                 continue;
             }
@@ -684,119 +645,50 @@ if ($austrianMoneyAliases !== []) {
     }
 }
 
-$swissMoneySlugs = [];
-$swissMoneyAliases = [];
-if (class_exists(SwissMoneyLanders::class)) {
+$portugueseMoneySlugs = [];
+$portugueseMoneyAliases = [];
+if (class_exists(PortugueseMoneyLanders::class)) {
     try {
-        $swissMoneySlugs = SwissMoneyLanders::slugs();
-        $swissMoneyAliases = SwissMoneyLanders::aliases();
+        $portugueseMoneySlugs = PortugueseMoneyLanders::slugs();
+        $portugueseMoneyAliases = PortugueseMoneyLanders::aliases();
     } catch (Throwable) {
-        $swissMoneySlugs = [];
-        $swissMoneyAliases = [];
+        $portugueseMoneySlugs = [];
+        $portugueseMoneyAliases = [];
     }
 }
 
-if ($swissMoneySlugs !== [] && method_exists(MarketingPageController::class, 'swissMoneyLander')) {
+if ($portugueseMoneySlugs !== [] && method_exists(MarketingPageController::class, 'portugueseMoneyLander')) {
     Route::group([
-        'prefix' => 'ch',
-        'as' => 'locale.ch.money.',
-    ], function () use ($swissMoneySlugs) {
-        foreach ($swissMoneySlugs as $slug) {
-            Route::get('/'.$slug, [MarketingPageController::class, 'swissMoneyLander'])
-                ->defaults('slug', $slug)
-                ->name($slug);
-        }
-    });
-}
-
-if ($swissMoneyAliases !== []) {
-    foreach ($swissMoneyAliases as $from => $to) {
-        Route::get('/ch/'.$from, function () use ($to) {
-            $query = request()->getQueryString();
-
-            return Redirect::to($query ? $to.'?'.$query : $to, 301);
-        });
-    }
-}
-
-$spanishMoneySlugs = [];
-$spanishMoneyAliases = [];
-if (class_exists(SpanishMoneyLanders::class)) {
-    try {
-        $spanishMoneySlugs = SpanishMoneyLanders::slugs();
-        $spanishMoneyAliases = SpanishMoneyLanders::aliases();
-    } catch (Throwable) {
-        $spanishMoneySlugs = [];
-        $spanishMoneyAliases = [];
-    }
-}
-
-if ($spanishMoneySlugs !== [] && method_exists(MarketingPageController::class, 'spanishMoneyLander')) {
-    Route::group([
-        'prefix' => 'es',
-        'as' => 'locale.es.money.',
-    ], function () use ($spanishMoneySlugs) {
-        foreach ($spanishMoneySlugs as $slug) {
-            Route::get('/'.$slug, [MarketingPageController::class, 'spanishMoneyLander'])
+        'prefix' => 'pt',
+        'as' => 'locale.pt.money.',
+    ], function () use ($portugueseMoneySlugs) {
+        foreach ($portugueseMoneySlugs as $slug) {
+            Route::get('/'.$slug, [MarketingPageController::class, 'portugueseMoneyLander'])
                 ->defaults('slug', $slug)
                 ->name($slug);
         }
     });
 
-    foreach ($spanishMoneySlugs as $slug) {
+    foreach ($portugueseMoneySlugs as $slug) {
         $italianOwnsSlug = class_exists(ItalianMoneyLanders::class)
             && ItalianMoneyLanders::isSlug($slug);
         $germanOwnsSlug = class_exists(GermanMoneyLanders::class)
             && GermanMoneyLanders::isSlug($slug);
-        if (! $italianOwnsSlug && ! $germanOwnsSlug) {
-            Route::get('/'.$slug, function () use ($slug) {
-                $query = request()->getQueryString();
-                $target = '/es/'.$slug;
-
-                return Redirect::to($query ? $target.'?'.$query : $target, 301);
-            });
+        $austrianOwnsSlug = class_exists(AustrianMoneyLanders::class)
+            && AustrianMoneyLanders::isSlug($slug);
+        if ($italianOwnsSlug || $germanOwnsSlug || $austrianOwnsSlug) {
+            continue;
         }
 
+        Route::get('/'.$slug, function () use ($slug) {
+            $query = request()->getQueryString();
+            $target = '/pt/'.$slug;
+
+            return Redirect::to($query ? $target.'?'.$query : $target, 301);
+        });
+
         foreach ($prefixedLocales as $locale) {
-            if ($locale === 'es') {
-                continue;
-            }
-            $italianOwnsSlug = class_exists(ItalianMoneyLanders::class)
-                && ItalianMoneyLanders::isPublicSegment($slug);
-            $spanishCopy = class_exists(SpanishMoneyLanders::class)
-                && method_exists(SpanishMoneyLanders::class, 'capturesLocaleCopy')
-                && SpanishMoneyLanders::capturesLocaleCopy($locale, $slug);
-            if ($italianOwnsSlug && ! $spanishCopy) {
-                continue;
-            }
-            if (class_exists(GermanMoneyLanders::class)
-                && (
-                    (method_exists(GermanMoneyLanders::class, 'capturesLocaleCopy')
-                        && GermanMoneyLanders::capturesLocaleCopy($locale, $slug))
-                    || ($locale === 'de'
-                        && method_exists(GermanMoneyLanders::class, 'isPublicSegment')
-                        && GermanMoneyLanders::isPublicSegment($slug))
-                )) {
-                continue;
-            }
-            if (class_exists(AustrianMoneyLanders::class)
-                && (
-                    (method_exists(AustrianMoneyLanders::class, 'capturesLocaleCopy')
-                        && AustrianMoneyLanders::capturesLocaleCopy($locale, $slug))
-                    || ($locale === 'at'
-                        && method_exists(AustrianMoneyLanders::class, 'isPublicSegment')
-                        && AustrianMoneyLanders::isPublicSegment($slug))
-                )) {
-                continue;
-            }
-            if (class_exists(SwissMoneyLanders::class)
-                && (
-                    (method_exists(SwissMoneyLanders::class, 'capturesLocaleCopy')
-                        && SwissMoneyLanders::capturesLocaleCopy($locale, $slug))
-                    || ($locale === 'ch'
-                        && method_exists(SwissMoneyLanders::class, 'isPublicSegment')
-                        && SwissMoneyLanders::isPublicSegment($slug))
-                )) {
+            if ($locale === 'pt') {
                 continue;
             }
             if (class_exists(RomanianMoneyLanders::class)
@@ -811,7 +703,7 @@ if ($spanishMoneySlugs !== [] && method_exists(MarketingPageController::class, '
             }
             Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
                 $query = request()->getQueryString();
-                $target = '/es/'.$slug;
+                $target = '/pt/'.$slug;
 
                 return Redirect::to($query ? $target.'?'.$query : $target, 301);
             });
@@ -819,9 +711,9 @@ if ($spanishMoneySlugs !== [] && method_exists(MarketingPageController::class, '
     }
 }
 
-if ($spanishMoneyAliases !== []) {
-    foreach ($spanishMoneyAliases as $from => $to) {
-        Route::get('/es/'.$from, function () use ($to) {
+if ($portugueseMoneyAliases !== []) {
+    foreach ($portugueseMoneyAliases as $from => $to) {
+        Route::get('/pt/'.$from, function () use ($to) {
             $query = request()->getQueryString();
 
             return Redirect::to($query ? $to.'?'.$query : $to, 301);
