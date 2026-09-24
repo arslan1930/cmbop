@@ -1079,10 +1079,9 @@ class MarketingAssignSiteForPublisherTest extends TestCase
     {
         $disk = \Mockery::mock();
         $disk->shouldReceive('makeDirectory')->andReturn(true);
-        $disk->shouldReceive('put')->andReturn(true);
-        $disk->shouldReceive('putFile')->andReturn('sites/fail.jpg');
-        $disk->shouldReceive('putFileAs')->andReturn('sites/fail.jpg');
-        $disk->shouldReceive('exists')->andReturn(false);
+        $disk->shouldReceive('put')->andThrow(new \RuntimeException('disk full'));
+        $disk->shouldReceive('putFile')->andThrow(new \RuntimeException('disk full'));
+        $disk->shouldReceive('putFileAs')->andThrow(new \RuntimeException('disk full'));
         Storage::shouldReceive('disk')
             ->with('public')
             ->andReturn($disk);
