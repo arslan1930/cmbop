@@ -16,6 +16,8 @@ use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
 use App\Support\PortugueseMoneyLanders;
 use App\Support\RomanianMoneyLanders;
+use App\Support\SpanishMoneyLanders;
+use App\Support\SwissMoneyLanders;
 use Throwable;
 
 class MarketingPageController extends Controller
@@ -251,6 +253,66 @@ class MarketingPageController extends Controller
             'priceFrom' => $teasers?->priceFromForCountries($codes),
             'cluster' => method_exists(DutchMoneyLanders::class, 'clusterLinks')
                 ? DutchMoneyLanders::clusterLinks($slug)
+                : [],
+        ]);
+    }
+
+    public function swissMoneyLander(string $slug)
+    {
+        abort_unless(class_exists(SwissMoneyLanders::class), 404);
+        abort_unless(view()->exists('pages.swiss-money-lander'), 404);
+
+        $page = SwissMoneyLanders::find($slug);
+        abort_unless(is_array($page), 404);
+
+        $codes = array_values(array_filter(array_map(
+            static fn ($code) => strtolower(trim((string) $code)),
+            $page['teaser_countries'] ?? ['ch']
+        )));
+        if ($codes === []) {
+            $codes = ['ch'];
+        }
+
+        $teasers = $this->catalogTeaserService();
+
+        return view('pages.swiss-money-lander', [
+            'slug' => $slug,
+            'page' => $page,
+            'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
+            'siteCount' => $teasers?->countForCountries($codes),
+            'priceFrom' => $teasers?->priceFromForCountries($codes),
+            'cluster' => method_exists(SwissMoneyLanders::class, 'clusterLinks')
+                ? SwissMoneyLanders::clusterLinks($slug)
+                : [],
+        ]);
+    }
+
+    public function spanishMoneyLander(string $slug)
+    {
+        abort_unless(class_exists(SpanishMoneyLanders::class), 404);
+        abort_unless(view()->exists('pages.spanish-money-lander'), 404);
+
+        $page = SpanishMoneyLanders::find($slug);
+        abort_unless(is_array($page), 404);
+
+        $codes = array_values(array_filter(array_map(
+            static fn ($code) => strtolower(trim((string) $code)),
+            $page['teaser_countries'] ?? ['es']
+        )));
+        if ($codes === []) {
+            $codes = ['es'];
+        }
+
+        $teasers = $this->catalogTeaserService();
+
+        return view('pages.spanish-money-lander', [
+            'slug' => $slug,
+            'page' => $page,
+            'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
+            'siteCount' => $teasers?->countForCountries($codes),
+            'priceFrom' => $teasers?->priceFromForCountries($codes),
+            'cluster' => method_exists(SpanishMoneyLanders::class, 'clusterLinks')
+                ? SpanishMoneyLanders::clusterLinks($slug)
                 : [],
         ]);
     }

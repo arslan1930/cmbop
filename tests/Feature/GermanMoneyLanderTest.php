@@ -58,7 +58,8 @@ class GermanMoneyLanderTest extends TestCase
             ->assertRedirect('/de/gastbeitrag-kaufen');
         $this->get('/fr/backlinks-kaufen')
             ->assertRedirect('/de/backlinks-kaufen');
-        $this->assertSame(301, $this->get('/nl/linkbuilding')->status());
+        $this->get('/nl/linkbuilding')->assertOk();
+        $this->get('/de/linkbuilding')->assertOk();
 
         $this->get('/de/digital-pr')->assertOk();
         $this->get('/it/digital-pr')->assertOk();
@@ -135,6 +136,16 @@ class GermanMoneyLanderTest extends TestCase
             }
             if ($locale === 'ro') {
                 $this->get('/ro/digital-pr')->assertOk();
+
+                continue;
+            }
+            if ($locale === 'nl') {
+                $this->get('/nl/digital-pr')->assertOk();
+
+                continue;
+            }
+            if ($locale === 'es') {
+                $this->get('/es/digital-pr')->assertOk();
 
                 continue;
             }
