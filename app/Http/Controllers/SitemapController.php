@@ -7,6 +7,7 @@ use App\Models\BlogTranslation;
 use App\Services\CuratedBlogSync;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\CountryLander;
+use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\ThinBlogRedirects;
@@ -69,7 +70,21 @@ class SitemapController extends Controller
 
         if ($locale === 'it' && class_exists(ItalianMoneyLanders::class)) {
             foreach (ItalianMoneyLanders::slugs() as $slug) {
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', ['it'], ['it' => $slug]);
+                $sharedWithDe = class_exists(GermanMoneyLanders::class)
+                    && GermanMoneyLanders::isSlug($slug);
+                $locales = $sharedWithDe ? ['it', 'de'] : ['it'];
+                $paths = $sharedWithDe ? ['it' => $slug, 'de' => $slug] : ['it' => $slug];
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if ($locale === 'de' && class_exists(GermanMoneyLanders::class)) {
+            foreach (GermanMoneyLanders::slugs() as $slug) {
+                $sharedWithIt = class_exists(ItalianMoneyLanders::class)
+                    && ItalianMoneyLanders::isSlug($slug);
+                $locales = $sharedWithIt ? ['it', 'de'] : ['de'];
+                $paths = $sharedWithIt ? ['it' => $slug, 'de' => $slug] : ['de' => $slug];
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
             }
         }
 

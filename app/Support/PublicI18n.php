@@ -428,6 +428,10 @@ class PublicI18n
             return true;
         }
 
+        if (class_exists(GermanMoneyLanders::class) && GermanMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
         return in_array($first, $public, true);
     }
 
@@ -470,9 +474,28 @@ class PublicI18n
         }
 
         $first = $path === '' ? '' : explode('/', $path, 2)[0];
-        if (class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isSlug($first)) {
+        $italianSlug = class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isSlug($first);
+        $germanSlug = class_exists(GermanMoneyLanders::class) && GermanMoneyLanders::isSlug($first);
+        if ($italianSlug && $germanSlug) {
             if ($targetLocale === 'it') {
                 return url('/it/'.$first);
+            }
+            if ($targetLocale === 'de') {
+                return url('/de/'.$first);
+            }
+
+            return self::urlForLocale('', $targetLocale);
+        }
+        if ($italianSlug) {
+            if ($targetLocale === 'it') {
+                return url('/it/'.$first);
+            }
+
+            return self::urlForLocale('', $targetLocale);
+        }
+        if ($germanSlug) {
+            if ($targetLocale === 'de') {
+                return url('/de/'.$first);
             }
 
             return self::urlForLocale('', $targetLocale);
@@ -579,9 +602,21 @@ class PublicI18n
         }
         if ($locales === null && $first !== ''
             && class_exists(ItalianMoneyLanders::class)
+            && ItalianMoneyLanders::isSlug($first)
+            && class_exists(GermanMoneyLanders::class)
+            && GermanMoneyLanders::isSlug($first)) {
+            $locales = ['it', 'de'];
+            $xDefaultLocale = 'it';
+        } elseif ($locales === null && $first !== ''
+            && class_exists(ItalianMoneyLanders::class)
             && ItalianMoneyLanders::isSlug($first)) {
             $locales = ['it'];
             $xDefaultLocale = 'it';
+        } elseif ($locales === null && $first !== ''
+            && class_exists(GermanMoneyLanders::class)
+            && GermanMoneyLanders::isSlug($first)) {
+            $locales = ['de'];
+            $xDefaultLocale = 'de';
         }
 
         $tags = [];

@@ -15,7 +15,7 @@ class PublicI18nTest extends TestCase
     {
         foreach (['/at', '/ch'] as $path) {
             $html = $this->get($path)->assertOk()->getContent();
-            $this->assertStringContainsString('Gastbeitrag-Marktplatz für geprüfte Publisher.', $html, $path);
+            $this->assertStringContainsString('Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $html, $path);
             $this->assertStringContainsString('Marktplatz', $html, $path);
             $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $html, $path);
         }
@@ -45,8 +45,8 @@ class PublicI18nTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Gastbeiträge kaufen — Gastbeitrag-Marktplatz | SEOLinkBuildings', $html);
-        $this->assertStringContainsString('Gastbeitrag-Marktplatz für geprüfte Publisher.', $html);
+        $this->assertStringContainsString('Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings', $html);
+        $this->assertStringContainsString('Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $html);
         $this->assertStringNotContainsString('Guest-Post-Marktplatz für SEO-Backlinks', $html);
         $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $html);
     }
@@ -55,8 +55,8 @@ class PublicI18nTest extends TestCase
     {
         $pages = [
             '/de' => [
-                'Gastbeiträge kaufen — Gastbeitrag-Marktplatz | SEOLinkBuildings',
-                'Gastbeitrag-Marktplatz für geprüfte Publisher.',
+                'Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings',
+                'Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.',
             ],
             '/fr' => [
                 'Acheter des guest posts chez des éditeurs vérifiés | SEOLinkBuildings',

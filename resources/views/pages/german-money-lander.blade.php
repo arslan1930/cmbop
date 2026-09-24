@@ -2,7 +2,7 @@
     /** @var array<string, mixed> $page */
     $page = $page ?? [];
     $slug = (string) ($slug ?? '');
-    $canonical = url('/it/'.$slug);
+    $canonical = url('/de/'.$slug);
     $faqs = is_array($page['faqs'] ?? null) ? $page['faqs'] : [];
     $faqEntities = [];
     foreach ($faqs as $faq) {
@@ -16,15 +16,15 @@
         ];
     }
     $cluster = $cluster ?? (
-        class_exists(\App\Support\ItalianMoneyLanders::class)
-        && method_exists(\App\Support\ItalianMoneyLanders::class, 'clusterLinks')
-            ? \App\Support\ItalianMoneyLanders::clusterLinks($slug)
+        class_exists(\App\Support\GermanMoneyLanders::class)
+        && method_exists(\App\Support\GermanMoneyLanders::class, 'clusterLinks')
+            ? \App\Support\GermanMoneyLanders::clusterLinks($slug)
             : []
     );
-    $sharedWithGerman = class_exists(\App\Support\GermanMoneyLanders::class)
-        && \App\Support\GermanMoneyLanders::isSlug($slug);
-    $hreflangLocales = $sharedWithGerman ? 'it,de' : 'it';
-    $hreflangXDefault = 'it';
+    $sharedWithItalian = class_exists(\App\Support\ItalianMoneyLanders::class)
+        && \App\Support\ItalianMoneyLanders::isSlug($slug);
+    $hreflangLocales = $sharedWithItalian ? 'it,de' : 'de';
+    $hreflangXDefault = $sharedWithItalian ? 'it' : 'de';
 @endphp
 
 @extends('layouts.app')
@@ -53,7 +53,7 @@
     'name' => $page['meta_title'] ?? $page['h1'] ?? '',
     'url' => $canonical,
     'description' => $page['meta_description'] ?? '',
-    'inLanguage' => 'it-IT',
+    'inLanguage' => 'de-DE',
 ], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}' !!}
 </script>
 @endpush
@@ -77,6 +77,7 @@
         @include('components.italian-seo-cluster-nav', [
             'links' => $cluster,
             'current' => $slug,
+            'title' => 'Seiten für Gastbeiträge, Backlinks und Linkbuilding',
         ])
     @endif
 
@@ -85,18 +86,18 @@
             @if(!empty($priceFrom))
                 <div class="col-md-6">
                     <div class="h-100 p-4 rounded-4 bg-white border">
-                        <div class="small text-muted mb-1">Da</div>
+                        <div class="small text-muted mb-1">Ab</div>
                         <div class="h3 mb-0" style="color:#1a585e;">€{{ number_format((float) $priceFrom, 0) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Prezzo di checkout più basso sugli elenchi Italia verificati e attivi in questo momento. Non è un listino fisso.</p>
+                        <p class="small text-muted mb-0 mt-2">Niedrigster Checkout-Preis auf geprüften, aktiven Deutschland-Listings in diesem Moment. Kein festes Listino.</p>
                     </div>
                 </div>
             @endif
             @if(!empty($siteCount))
                 <div class="col-md-6">
                     <div class="h-100 p-4 rounded-4 bg-white border">
-                        <div class="small text-muted mb-1">Siti in anteprima</div>
+                        <div class="small text-muted mb-1">Sites in der Vorschau</div>
                         <div class="h3 mb-0" style="color:#1a585e;">{{ number_format((int) $siteCount) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Publisher attivi e verificati con Paese primario Italia nel catalogo, quando il conteggio è disponibile.</p>
+                        <p class="small text-muted mb-0 mt-2">Aktive, geprüfte Publisher mit Primärland Deutschland im Katalog, wenn die Zahl verfügbar ist.</p>
                     </div>
                 </div>
             @endif
@@ -113,7 +114,7 @@
                 <div class="col-md-4">
                     <div class="h-100 p-4 rounded-4 bg-white border">
                         <h2 class="h5" style="color:#1a585e;">{{ $point['title'] ?? '' }}</h2>
-                        <p class="text-muted mb-0">{{ $point['body'] ?? '' }}</p>
+                        <p class="text-muted mb-0">{!! $point['body'] ?? '' !!}</p>
                     </div>
                 </div>
             @endforeach
@@ -129,12 +130,12 @@
             <table class="table align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Sito</th>
-                        <th>Paese</th>
-                        <th>Lingua</th>
+                        <th>Site</th>
+                        <th>Land</th>
+                        <th>Sprache</th>
                         <th>DR</th>
                         <th>DA</th>
-                        <th>Da</th>
+                        <th>Ab</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -154,7 +155,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="small text-muted mb-5">Mostriamo DA, DR e prezzo in euro. ZA (SEOZoom) non è una metrica del listing.</p>
+        <p class="small text-muted mb-5">Wir zeigen DA, DR und den Preis in Euro, wenn sie am Listing existieren. Erfundene Kennzahlen erscheinen nicht.</p>
     @endif
 
     @foreach(($page['sections'] ?? []) as $section)
@@ -165,8 +166,8 @@
     @endforeach
 
     @if($faqs !== [])
-        <section class="mb-5" aria-labelledby="it-money-faq">
-            <h2 id="it-money-faq" class="h4 mb-3" style="color:#1a585e;">{{ __('messages.nav_faq') }}</h2>
+        <section class="mb-5" aria-labelledby="de-money-faq">
+            <h2 id="de-money-faq" class="h4 mb-3" style="color:#1a585e;">{{ __('messages.nav_faq') }}</h2>
             @foreach($faqs as $faq)
                 <div class="mb-3">
                     <h3 class="h6 mb-1" style="color:#1a585e;">{{ $faq['q'] ?? '' }}</h3>
@@ -178,7 +179,7 @@
 
     @if(!empty($page['see_also']))
         <section class="mb-5">
-            <h2 class="h5 mb-3" style="color:#1a585e;">Approfondimenti</h2>
+            <h2 class="h5 mb-3" style="color:#1a585e;">Weiterlesen</h2>
             <ul class="mb-0">
                 @foreach($page['see_also'] as $link)
                     <li class="mb-2"><a href="{{ $link['url'] }}">{{ $link['label'] }}</a></li>

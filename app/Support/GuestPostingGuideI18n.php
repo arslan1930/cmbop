@@ -14,11 +14,11 @@ class GuestPostingGuideI18n
     {
         return [
             'de' => [
-                'title' => 'Gastbeiträge: Ein vollständiger Leitfaden für Guest Blogging und SEO',
-                'slug' => 'gastbeitraege-leitfaden-pitch-und-text',
-                'excerpt' => 'Wie Gastbeiträge wirklich funktionieren: passende Hosts finden, Editoren pitchen, für deren Leser schreiben — und Netzwerke meiden, die nur Links verkaufen.',
-                'meta_title' => 'Gastbeiträge-Leitfaden: Pitchen, schreiben, publizieren',
-                'meta_description' => 'Praktischer Gastbeitrags-Leitfaden: Publisher finden, pitchen, für deren Leser schreiben, Anker setzen und minderwertige Guest-Post-Netze meiden.',
+                'title' => 'Was ist ein Gastbeitrag: Leitfaden für Guest Blogging und SEO',
+                'slug' => 'was-ist-ein-gastbeitrag',
+                'excerpt' => 'Was ein Gastbeitrag ist, wie Sie passende Hosts finden, pitchen und schreiben — und Netzwerke meiden, die nur Links verkaufen.',
+                'meta_title' => 'Was ist ein Gastbeitrag? Pitch, Text, Publikation',
+                'meta_description' => 'Was ist ein Gastbeitrag: Publisher finden, pitchen, für deren Leser schreiben, Anker setzen und minderwertige Guest-Post-Netze meiden.',
                 'content' => self::de(),
             ],
             'fr' => [
@@ -50,19 +50,21 @@ class GuestPostingGuideI18n
 
     private static function de(): string
     {
-        $backlinks = '/blog/how-to-get-backlinks';
-        $sponsored = '/blog/sponsored-post-guide';
-        $linkGuide = '/blog/link-building-guide';
+        $backlinks = '/de/blog/was-sind-backlinks';
+        $sponsored = '/de/blog/gesponserte-beitraege-leitfaden';
+        $linkGuide = '/de/blog/linkaufbau-strategien';
         $chooseSite = '/blog/how-to-choose-a-publisher-site-dr-da-traffic-niche';
         $buyGuide = '/blog/how-to-buy-guest-posts-on-seolinkbuildings-advertiser-guide';
         $brief = '/blog/guest-post-brief-anchors-urls-images-sensitive-topics';
-        $dofollow = '/blog/dofollow-nofollow-and-anchor-text-for-marketplace-links';
+        $dofollow = '/de/blog/dofollow-vs-nofollow-ankertext';
         $outreach = '/blog/marketplace-vs-cold-outreach-vs-digital-pr';
         $europe = '/blog/buy-guest-posts-in-europe-how-to-choose-publisher-sites';
         $ukus = '/blog/guest-posting-in-the-uk-and-us-what-to-buy-and-what-to-skip';
         $live = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
-        $catalog = '/marketplace';
-        $how = '/how-it-works';
+        $catalog = '/de/marktplatz';
+        $how = '/de/so-funktioniert-es';
+        $buyDe = '/de/gastbeitrag-kaufen';
+        $dofollowDe = '/de/blog/dofollow-vs-nofollow-ankertext';
         $img = BlogInlineImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW);
 
         return <<<HTML
@@ -70,8 +72,8 @@ class GuestPostingGuideI18n
 <p>Die Definition ist einfach. Die Arbeit nicht. Die meisten Kampagnen scheitern an der Host-Auswahl, nicht am Schreibtalent.</p>
 <p>Beschaffung insgesamt: <a href="{$backlinks}">So bekommen Sie Backlinks</a>. Bezahlte Native Ads: <a href="{$sponsored}">gesponserte Beiträge</a>. Hier der Workflow.</p>
 
-<h2>Was ist Guest Posting?</h2>
-<p>Sie liefern den Text, der Host veröffentlicht ihn für sein Publikum. Der Host behält URL, Traffic und das Recht zu kürzen oder abzulehnen. Das ist kein unabhängiges Zitat und nicht automatisch ein Advertorial. Manche Hosts nehmen unbezahlte Beiträge; manche berechnen eine Gebühr. Die kommerzielle Realität ehrlich benennen.</p>
+<h2>Was ist ein Gastbeitrag?</h2>
+<p>Sie liefern den Text, der Host veröffentlicht ihn für sein Publikum. Der Host behält URL, Traffic und das Recht zu kürzen oder abzulehnen. Das ist kein unabhängiges Zitat und nicht automatisch ein Advertorial. Manche Hosts nehmen unbezahlte Beiträge; manche berechnen eine Gebühr. Die kommerzielle Realität ehrlich benennen. Googles Spam-Richtlinien nennen großflächiges Guest Posting mit keyword-reichen Ankern als Muster — das Format ist nicht verboten, das Manipulationsmuster schon.</p>
 
 <h2>Ablauf</h2>
 <ol>
@@ -127,6 +129,7 @@ class GuestPostingGuideI18n
 <li><a href="https://developers.google.com/search/docs/crawling-indexing/links-crawlable">Crawlable links</a></li>
 <li><a href="https://developers.google.com/search/docs/fundamentals/creating-helpful-content">Helpful content</a></li>
 </ul>
+<p>Wenn Sie eine Veröffentlichung kaufen statt pitchen: <a href="{$buyDe}">Gastbeitrag kaufen</a> im Marktplatz, mit EUR-Wallet und Live-URL. Dofollow, Nofollow und rel sponsored: <a href="{$dofollowDe}">Dofollow vs. Nofollow</a>.</p>
 HTML;
     }
 

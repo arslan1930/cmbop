@@ -67,6 +67,16 @@ return [
         'digital-pr',
         'catalogo',
         'prezzi-guest-post',
+        'gastbeitrag-kaufen',
+        'advertorial',
+        'linkbuilding',
+        'backlinks-kaufen',
+        'agenturen',
+        'niche-edits',
+        'guest-post-kaufen',
+        'linkaufbau',
+        'preisliste',
+        'fuer-agenturen',
     ],
 
     /**

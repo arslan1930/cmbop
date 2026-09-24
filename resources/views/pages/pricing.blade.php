@@ -90,7 +90,7 @@
     ])
 </div>
 @include('components.pricing', ['showIntro' => false])
-@if(function_exists('public_locale') && public_locale() === 'it' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\ItalianMoneyLanders::class))
+@if(function_exists('public_locale') && public_locale() === 'it' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\ItalianMoneyLanders::class) && method_exists(\App\Support\ItalianMoneyLanders::class, 'clusterLinks'))
 <div class="container pb-5" style="max-width: 1100px;">
     <h2 class="h4 mb-3" style="color:#1a585e;">Quanto costa un guest post</h2>
     <p class="text-muted">Non pubblichiamo un listino PDF fisso: il prezzo è quello del sito, in euro, al checkout. “Quanto costano i backlink” e “costo link building” dipendono dai listing che scegli. I pacchetti numerati sopra sono campagne gestite di PR digitale, non un sacco di URL anonimi.</p>
@@ -99,6 +99,19 @@
         'links' => \App\Support\ItalianMoneyLanders::clusterLinks('prezzi'),
         'current' => 'prezzi',
         'title' => 'Pagine correlate',
+    ])
+</div>
+@endif
+@if(function_exists('public_locale') && public_locale() === 'de' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\GermanMoneyLanders::class) && method_exists(\App\Support\GermanMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Was kostet ein Gastbeitrag</h2>
+    <p class="text-muted">Wir veröffentlichen kein festes PDF-Listino: der Preis ist der der Site, in Euro, am Checkout. „Backlinks-Preise“ und „Linkbuilding-Kosten Deutschland“ folgen den Listings, die Sie wählen. Die nummerierten Pakete oben sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.</p>
+    <p class="text-muted">Live-Preise sehen Sie im <a href="{{ localized_url('marketplace') }}">Katalog</a> nach der Registrierung. Europäischer Index (englische Seite): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <p class="text-muted">Preis prägen Publisher-Autorität, Traffic, Nische, Land, Content-Anforderungen, permanente vs. zeitlich begrenzte Platzierung, Texterstellung und redaktionelle Prüfung — jeweils laut Listing, nicht als erfundene Durchschnittswerte.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\GermanMoneyLanders::clusterLinks('preise'),
+        'current' => 'preise',
+        'title' => 'Verwandte Seiten',
     ])
 </div>
 @endif
