@@ -81,6 +81,8 @@ class SwissMoneyLanderTest extends TestCase
         $this->assertStringContainsString('Marktplatz für Gastbeiträge in der Schweiz | SEOLinkBuildings', $home);
         $this->assertStringContainsString('Schweizer Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $home);
         $this->assertStringContainsString('/ch/gastbeitrag-kaufen', $home);
+        $this->assertStringContainsString('weiss jeder', $home);
+        $this->assertStringNotContainsString('weiß', $home);
         $this->assertStringNotContainsString('Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings', $home);
         $this->assertStringNotContainsString('Gastbeitrag kaufen in Deutschland | SEOLinkBuildings', $home);
 
@@ -94,6 +96,10 @@ class SwissMoneyLanderTest extends TestCase
         $advertorial = $this->get('/ch/advertorial')->assertOk()->getContent();
         $this->assertStringContainsString('kein CHF-Wallet', $advertorial);
         $this->assertStringNotContainsString('Listino', $advertorial);
+
+        $lb = $this->get('/ch/linkbuilding')->assertOk()->getContent();
+        $this->assertStringContainsString('Wallet für CH, DE, AT', $lb);
+        $this->assertStringNotContainsString('Wallet für AT, DE und weitere Märkte', $lb);
 
         $marktplatz = $this->get('/ch/marktplatz')->assertOk()->getContent();
         $this->assertStringContainsString('Gastbeitrag-Portale und Schweizer Publisher', $marktplatz);

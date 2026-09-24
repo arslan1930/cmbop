@@ -41,6 +41,7 @@ class SpanishMoneyLanders
             'white-label-linkbuilding' => '/es/agencias',
             'nota-de-prensa' => '/es/digital-pr',
             'comprar-nota-de-prensa' => '/es/digital-pr',
+            'publisher' => '/es/convertirse-en-publisher',
         ];
     }
 
@@ -432,7 +433,7 @@ class SpanishMoneyLanders
                     ],
                     [
                         'q' => '¿Emitís facturas con IVA español?',
-                        'a' => 'El billing sigue la sociedad UK del producto. Descargue los justificantes y aclare con su contabilidad si necesita más integraciones. No hay CIF español inventado.',
+                        'a' => 'La facturación sigue a la sociedad británica del producto. Descargue los justificantes y aclare con su contabilidad si necesita más integraciones. No hay CIF español inventado.',
                     ],
                     [
                         'q' => '¿Hay una tarifa de agencia aparte?',

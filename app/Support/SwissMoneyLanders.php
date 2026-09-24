@@ -296,7 +296,7 @@ class SwissMoneyLanders
                 'teaser_title' => 'Inventar für Linkbuilding-Kampagnen',
                 'teaser_subtitle' => 'Beispiel Schweiz-Sites. Für E-Commerce oder andere Nischen filtern Sie nach dem Login — keine Doorway-Landing pro Branche oder Stadt.',
                 'intro' => [
-                    '„Linkaufbau Schweiz“, „Linkbuilding-Paket“ und „Zürich SEO Linkbuilding“ sind oft Agenturseiten. SEOLinkBuildings ist eine Plattform: Sie bauen die Kampagne aus dem Katalog, mit einem Wallet für AT, DE und weitere Märkte.',
+                    '„Linkaufbau Schweiz“, „Linkbuilding-Paket“ und „Zürich SEO Linkbuilding“ sind oft Agenturseiten. SEOLinkBuildings ist eine Plattform: Sie bauen die Kampagne aus dem Katalog, mit einem Wallet für CH, DE, AT und weitere Märkte.',
                     'White Label oder Rechnungen für mehrere Brands: <a href="'.$agencies.'">Linkbuilding für Agenturen</a>.',
                 ],
                 'points' => [

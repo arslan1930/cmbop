@@ -35,4 +35,9 @@ return [
     'pricing_page_subtitle' => 'Zahlen Sie pro Veröffentlichung im Marktplatz oder wählen Sie ein gemanagtes Digital-PR-Paket — in Euro, ohne CHF-Preisliste und ohne OTS.',
     'pricing_hero_title' => 'Gastbeitrag-Kosten nach Publisher, nicht nach Paket',
     'pricing_hero_lead' => 'Durchsuchen Sie Schweizer Publisher-Sites, wählen Sie den passenden EUR-Preis und zahlen Sie per Wallet.',
+
+    'testimonial_4_text' => 'Wir schätzen Chat und Review-Schritte — nach der Zahlung weiss jeder, was als Nächstes kommt.',
+
+    'about_page_faq_a_4' => 'SEOLinkBuildings wird von Topurlz Ltd betrieben, einem in Grossbritannien registrierten Unternehmen. Firmennummer und Adresse stehen auf dieser Seite und sind bei Companies House prüfbar.',
+    'about_page_company_body' => 'SEOLinkBuildings wird von Topurlz Ltd betrieben, einem in Grossbritannien registrierten Unternehmen. Wir vermitteln transparente Gastbeitrags- und Backlink-Placements.',
 ];

@@ -71,6 +71,7 @@ class SpanishMoneyLanderTest extends TestCase
         $this->get('/es/precio-guest-post')->assertRedirect('/es/precios');
         $this->get('/es/comprar-enlaces-seo')->assertRedirect('/es/comprar-backlinks');
         $this->get('/es/publicar-guest-post')->assertRedirect('/es/comprar-guest-post');
+        $this->get('/es/publisher')->assertRedirect('/es/convertirse-en-publisher');
         $this->get('/es/madrid')->assertNotFound();
         $this->get('/es/nichos')->assertNotFound();
         $this->get('/es/barcelona')->assertNotFound();
@@ -101,6 +102,10 @@ class SpanishMoneyLanderTest extends TestCase
         $this->assertStringContainsString('Qué cuesta un guest post en España', $precios);
         $this->assertStringContainsString('Precios guest post y backlinks en España', $precios);
         $this->assertStringNotContainsString('listino', $precios);
+
+        $agencias = $this->get('/es/agencias')->assertOk()->getContent();
+        $this->assertStringContainsString('La facturación sigue a la sociedad británica', $agencias);
+        $this->assertStringNotContainsString('El billing', $agencias);
     }
 
     public function test_sitemap_es_includes_money_landers_and_not_aliases(): void
