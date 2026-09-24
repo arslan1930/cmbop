@@ -40,8 +40,8 @@ class MoneyQueryUrlMapTest extends TestCase
         $this->assertStringContainsString('Guest post cost in Germany', $germany);
         $this->assertStringNotContainsString('Buy guest posts from verified publishers', $germany);
 
-        $this->assertStringContainsString('Gastbeiträge kaufen — Gastbeitrag-Marktplatz', $de);
-        $this->assertStringContainsString('Gastbeitrag-Marktplatz für geprüfte Publisher.', $de);
+        $this->assertStringContainsString('Publisher-Marktplatz für Gastbeiträge', $de);
+        $this->assertStringContainsString('Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $de);
         $this->assertStringNotContainsString('/de/guest-posts-germany', $de);
 
         $index = $this->get('/guest-post-prices-europe')->assertOk()->getContent();

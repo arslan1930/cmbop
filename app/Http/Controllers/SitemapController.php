@@ -6,7 +6,9 @@ use App\Models\Blog;
 use App\Models\BlogTranslation;
 use App\Services\CuratedBlogSync;
 use App\Services\Marketing\GuestPostPriceIndex;
+use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
+use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\ThinBlogRedirects;
@@ -69,7 +71,22 @@ class SitemapController extends Controller
 
         if ($locale === 'it' && class_exists(ItalianMoneyLanders::class)) {
             foreach (ItalianMoneyLanders::slugs() as $slug) {
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', ['it'], ['it' => $slug]);
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['it']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if ($locale === 'de' && class_exists(GermanMoneyLanders::class)) {
+            foreach (GermanMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['de']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if ($locale === 'at' && class_exists(AustrianMoneyLanders::class)) {
+            foreach (AustrianMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['at']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
             }
         }
 
@@ -135,6 +152,37 @@ class SitemapController extends Controller
         $xml = view('sitemap', compact('urls'))->render();
 
         return response($xml, 200)->header('Content-Type', 'application/xml');
+    }
+
+    /**
+     * @param  list<string>  $fallback
+     * @return array{0: list<string>, 1: array<string, string>}
+     */
+    private function moneyLanderSitemapCluster(string $slug, array $fallback): array
+    {
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'moneyLanderLocales')) {
+            $locales = PublicI18n::moneyLanderLocales($slug);
+            if ($locales !== []) {
+                $paths = method_exists(PublicI18n::class, 'moneyLanderPathByLocale')
+                    ? PublicI18n::moneyLanderPathByLocale($slug)
+                    : [];
+                if ($paths === []) {
+                    $paths = [];
+                    foreach ($locales as $locale) {
+                        $paths[$locale] = $slug;
+                    }
+                }
+
+                return [$locales, $paths];
+            }
+        }
+
+        $paths = [];
+        foreach ($fallback as $locale) {
+            $paths[$locale] = $slug;
+        }
+
+        return [$fallback, $paths];
     }
 
     /**

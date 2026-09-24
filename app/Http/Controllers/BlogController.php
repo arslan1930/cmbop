@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Blog;
 use App\Models\BlogTranslation;
 use App\Services\CuratedBlogSync;
+use App\Support\GermanMoneyLanders;
 use App\Support\ThinBlogRedirects;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -94,6 +95,22 @@ class BlogController extends Controller
             }
         } catch (\Throwable) {
             // Missing schema or catalog class: fall through to the normal show path.
+        }
+
+        try {
+            if ($requestedLocale === 'de'
+                && class_exists(GermanMoneyLanders::class)
+                && method_exists(GermanMoneyLanders::class, 'legacyBlogSlugs')) {
+                $legacyDe = GermanMoneyLanders::legacyBlogSlugs()[$slug] ?? null;
+                if (is_string($legacyDe) && $legacyDe !== '' && $legacyDe !== $slug) {
+                    $target = '/de/blog/'.$legacyDe;
+                    $query = $request->getQueryString();
+
+                    return redirect($query ? $target.'?'.$query : $target, 301);
+                }
+            }
+        } catch (\Throwable) {
+            // Fall through if the German lander class is missing on leftover deploys.
         }
 
         $translation = BlogTranslation::query()

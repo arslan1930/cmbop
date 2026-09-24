@@ -14,11 +14,11 @@ class LinkBuildingGuideI18n
     {
         return [
             'de' => [
-                'title' => 'Linkbuilding-Leitfaden: Eine praktische SEO-Strategie für Autorität',
-                'slug' => 'linkbuilding-leitfaden-seo-strategie',
-                'excerpt' => 'Praktisches Linkbuilding: wie Suchmaschinen Links lesen, welche Taktiken tragfähig sind, wie Sie messen — und was Sie lassen.',
-                'meta_title' => 'Linkbuilding-Leitfaden: eine praktische SEO-Strategie',
-                'meta_description' => 'Praktische Linkbuilding-Strategie: Linktypen, Content und PR, Gastbeiträge, Outreach, Anker, Messung und riskante Taktiken, die Sie lassen.',
+                'title' => 'Linkaufbau-Strategien: wie Linkbuilding in der Praxis funktioniert',
+                'slug' => 'linkaufbau-strategien',
+                'excerpt' => 'Linkaufbau-Strategien: wie Suchmaschinen Links lesen, welche Taktiken tragen, wie Sie messen — und was Sie lassen. Inklusive Gastbeiträge und Digital PR.',
+                'meta_title' => 'Linkaufbau-Strategien: praktische SEO-Taktik',
+                'meta_description' => 'Wie funktioniert Linkbuilding: Linktypen, Content und PR, Gastbeiträge, Outreach, Anker, Messung und riskante Taktiken, die Sie lassen.',
                 'content' => self::de(),
             ],
             'fr' => [
@@ -50,25 +50,26 @@ class LinkBuildingGuideI18n
 
     private static function de(): string
     {
-        $backlinks = '/blog/how-to-get-backlinks';
-        $guest = '/blog/guest-posting-guide';
-        $sponsored = '/blog/sponsored-post-guide';
+        $backlinks = '/de/blog/was-sind-backlinks';
+        $guest = '/de/blog/was-ist-ein-gastbeitrag';
+        $sponsored = '/de/blog/gesponserte-beitraege-leitfaden';
         $chooseSite = '/blog/how-to-choose-a-publisher-site-dr-da-traffic-niche';
-        $dofollow = '/blog/dofollow-nofollow-and-anchor-text-for-marketplace-links';
+        $dofollow = '/de/blog/dofollow-vs-nofollow-ankertext';
         $outreach = '/blog/marketplace-vs-cold-outreach-vs-digital-pr';
         $live = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
         $aeo = '/blog/ai-aeo-seo-why-guest-posts-and-brand-mentions-matter';
-        $buyGuide = '/blog/how-to-buy-guest-posts-on-seolinkbuildings-advertiser-guide';
-        $catalog = '/marketplace';
-        $how = '/how-it-works';
+        $buyGuide = '/de/gastbeitrag-kaufen';
+        $catalog = '/de/marktplatz';
+        $how = '/de/so-funktioniert-es';
+        $lb = '/de/linkbuilding';
         $img = BlogInlineImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP);
 
         return <<<HTML
 <p>Linkbuilding ist die Arbeit, Hyperlinks von anderen Websites auf die eigene zu verdienen oder zu platzieren. Suchmaschinen nutzen Links unter anderem zur Discovery und zur Einordnung. Das ist die Mechanik — kein Versprechen, dass zehn neue hrefs ein Keyword bewegen.</p>
-<p>Beschaffung: <a href="{$backlinks}">So bekommen Sie Backlinks</a>. Contributor: <a href="{$guest}">Gastbeiträge</a>. Paid: <a href="{$sponsored}">gesponserte Beiträge</a>.</p>
+<p>Beschaffung: <a href="{$backlinks}">Was sind Backlinks</a>. Contributor: <a href="{$guest}">Was ist ein Gastbeitrag</a>. Paid: <a href="{$sponsored}">gesponserte Beiträge</a>.</p>
 
-<h2>Was Linkbuilding ist — und warum Links zählen</h2>
-<p>Eine Kampagne braucht eine Ziel-URL, einen Grund, sie zu zitieren, einen Weg zu Publishern und eine Definition von „fertig“, die nicht nur eine Tabellenzeile ist. Links helfen bei Discovery (crawlbares <code>&lt;a href&gt;</code>), Kontext (Anker und Umgebung) und Menschen (Referral). Googles Guidance zu hilfreichem Content bleibt die Basis.</p>
+<h2>Wie funktioniert Linkbuilding?</h2>
+<p>Eine Kampagne braucht eine Ziel-URL, einen Grund, sie zu zitieren, einen Weg zu Publishern und eine Definition von „fertig“, die nicht nur eine Tabellenzeile ist. Links helfen bei Discovery (crawlbares <code>&lt;a href&gt;</code>), Kontext (Anker und Umgebung) und Menschen (Referral). Googles Guidance zu hilfreichem Content bleibt die Basis. Plattform-Übersicht: <a href="{$lb}">Linkaufbau auf dem Marktplatz</a>.</p>
 <p>Öffentliche Leitplanken: Spam-Richtlinien zu Linkschemata, Qualifizierung von Werbung, Hinweise statt hartem Ausschluss für <code>nofollow</code>/<code>sponsored</code>/<code>ugc</code> seit 2019, crawlbare Links.</p>
 
 <h2>Typen, Verdienen vs. Bauen</h2>

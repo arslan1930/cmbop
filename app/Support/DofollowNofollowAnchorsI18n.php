@@ -13,6 +13,14 @@ class DofollowNofollowAnchorsI18n
     public static function all(): array
     {
         return [
+            'de' => [
+                'title' => 'Dofollow vs. Nofollow: Attribute, Ankertext und rel sponsored',
+                'slug' => 'dofollow-vs-nofollow-ankertext',
+                'excerpt' => 'Was dofollow, nofollow und rel sponsored in der Praxis bedeuten, wie Sie Ankertexte mischen und was Sie prüfen, bevor Sie einen Katalog-Link kaufen.',
+                'meta_title' => 'Dofollow vs Nofollow: Anker und sponsored',
+                'meta_description' => 'Dofollow vs Nofollow und rel sponsored: Bedeutung, Ankertext-Strategie und Live-Check nach der Veröffentlichung auf dem Marktplatz.',
+                'content' => self::de(),
+            ],
             'it' => [
                 'title' => 'Dofollow vs nofollow: attributi, ancore e rel sponsored',
                 'slug' => 'dofollow-vs-nofollow',
@@ -22,6 +30,59 @@ class DofollowNofollowAnchorsI18n
                 'content' => self::it(),
             ],
         ];
+    }
+
+    private static function de(): string
+    {
+        $marketplace = '/de/marktplatz';
+        $register = '/register';
+        $buy = '/de/gastbeitrag-kaufen';
+        $links = '/de/backlinks-kaufen';
+        $liveCheck = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
+        $briefGuide = '/blog/guest-post-brief-anchors-urls-images-sensitive-topics';
+        $imgTypes = BlogInlineImages::publicUrl(DofollowNofollowAnchorsEnBlogPost::IMAGE_TYPES);
+        $imgMix = BlogInlineImages::publicUrl(DofollowNofollowAnchorsEnBlogPost::IMAGE_MIX);
+
+        return <<<HTML
+<p>Zwei Fragen kommen immer: „Ist der Link dofollow?“ und „Welchen Anker nehmen wir?“ Beide können wirken. Beide werden überschätzt, wenn Relevanz und Site-Qualität schon schwach sind.</p>
+<p>Diese Anleitung erklärt <strong>Dofollow vs. Nofollow in der Praxis</strong>, was <strong>rel sponsored</strong> bedeutet, wie Ankertexte natürlich wirken, und was Sie an Marktplatz-Aufträgen prüfen. Dazu die <a href="{$briefGuide}">Briefing-Checkliste</a>.</p>
+
+<h2>Dofollow und Nofollow ohne Mythos</h2>
+<p>Kurz:</p>
+<ul>
+<li><strong>Dofollow</strong> (genauer: ein Link ohne blockierendes <code>rel</code>): kann Ranking-Signale weitergeben.</li>
+<li><strong>Nofollow</strong> (<code>rel="nofollow"</code>, oft mit <code>sponsored</code> / <code>ugc</code>): signalisiert „nicht als redaktionelle Empfehlung behandeln“. Der SEO-Wert ist begrenzter — nicht automatisch null.</li>
+</ul>
+<p>Google hat die alte Welt „nofollow = ignorieren“ aufgeweicht. Bleibt: Wenn Sie bewusst Autorität aufbauen, sind Dofollow auf passenden Sites die klarere Hebel. Nofollow ist Ergänzung, kein Ersatz.</p>
+
+<figure>
+<img src="{$imgTypes}" alt="Dofollow, Nofollow und rel sponsored im Vergleich" loading="lazy" width="1200" height="675">
+<figcaption>Das Attribut steht im HTML. Nach dem Live-Gang prüfen, nicht nur dem Listing glauben.</figcaption>
+</figure>
+
+<h2>Was bedeutet rel sponsored?</h2>
+<p><code>rel="sponsored"</code> kennzeichnet einen bezahlten Link. Google hat das 2019 als Qualifizierung für Werbung und Sponsoring eingeführt. Bei Gastbeiträgen und Advertorials, für die Sie zahlen, ist sponsored oder nofollow oft die ehrliche Kennzeichnung — auch wenn das Briefing „dofollow“ wünscht. Das Listing sagt, was der Publisher setzt.</p>
+
+<h2>Ankertext-Strategie</h2>
+<p>Mischen Sie Marke, nackte URL und beschreibende Phrasen. Exact-Match auf jeder Platzierung ist das Muster, vor dem die Spam-Richtlinien warnen. Ein Satz, den ein Mensch schreiben würde, schlägt „bestes vpn deutschland kaufen“ zehnmal.</p>
+<figure>
+<img src="{$imgMix}" alt="Ankertext-Mix: Marke, URL, beschreibende Phrase" loading="lazy" width="1200" height="675">
+<figcaption>Variieren Sie Anker über die Kampagne, nicht innerhalb eines Artikels künstlich.</figcaption>
+</figure>
+
+<h2>Vor dem Kauf im Katalog</h2>
+<p>Linktyp auf dem Listing lesen. Nach Live-Gang das <code>rel</code> inspizieren. <a href="{$marketplace}">Publisher-Katalog</a>, <a href="{$buy}">Gastbeitrag kaufen</a>, <a href="{$links}">Backlinks kaufen</a>. Live-Check: <a href="{$liveCheck}">Indexierung und Attribute</a>. Start: <a href="{$register}">Konto anlegen</a>.</p>
+
+<h2>Was Sie lassen</h2>
+<ul>
+<li>Exact-Match auf jeder Veröffentlichung</li>
+<li>Dofollow um jeden Preis auf irrelevante Sites</li>
+<li>Nofollow als Müll behandeln</li>
+<li>Anker nach Live-Gang ohne Absprache ändern</li>
+<li>Zehn Dofollow auf eine frische Domain in einer Woche</li>
+</ul>
+<p>Nichts davon ist eine automatische Penalty. Vieles wirkt künstlich. Künstlich ist ein schlechtes Signal.</p>
+HTML;
     }
 
     private static function it(): string

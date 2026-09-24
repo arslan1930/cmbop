@@ -205,6 +205,72 @@ class PublicI18n
     }
 
     /**
+     * Locales that own an indexable money-lander URL for this slug.
+     *
+     * @return list<string>
+     */
+    public static function moneyLanderLocales(string $slug): array
+    {
+        $slug = trim($slug, '/');
+        if ($slug === '') {
+            return [];
+        }
+
+        $locales = [];
+        if (class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isSlug($slug)) {
+            $locales[] = 'it';
+        }
+        if (class_exists(GermanMoneyLanders::class) && GermanMoneyLanders::isSlug($slug)) {
+            $locales[] = 'de';
+        }
+        if (class_exists(AustrianMoneyLanders::class) && AustrianMoneyLanders::isSlug($slug)) {
+            $locales[] = 'at';
+        }
+
+        return $locales;
+    }
+
+    public static function moneyLanderXDefault(string $slug): string
+    {
+        $locales = self::moneyLanderLocales($slug);
+        if (in_array('it', $locales, true)) {
+            return 'it';
+        }
+        if (in_array('de', $locales, true)) {
+            return 'de';
+        }
+        if (in_array('at', $locales, true)) {
+            return 'at';
+        }
+
+        return self::default();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function moneyLanderPathByLocale(string $slug): array
+    {
+        $paths = [];
+        foreach (self::moneyLanderLocales($slug) as $locale) {
+            $paths[$locale] = trim($slug, '/');
+        }
+
+        return $paths;
+    }
+
+    public static function moneyLanderUrl(string $slug, string $locale): ?string
+    {
+        $slug = trim($slug, '/');
+        $locale = strtolower(trim($locale));
+        if ($slug === '' || ! in_array($locale, self::moneyLanderLocales($slug), true)) {
+            return null;
+        }
+
+        return url('/'.$locale.'/'.$slug);
+    }
+
+    /**
      * Map an Accept-Language / BCP 47 tag onto a supported public locale.
      */
     public static function fromBrowserTag(?string $tag): ?string
@@ -428,6 +494,14 @@ class PublicI18n
             return true;
         }
 
+        if (class_exists(GermanMoneyLanders::class) && GermanMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(AustrianMoneyLanders::class) && AustrianMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
         return in_array($first, $public, true);
     }
 
@@ -470,9 +544,41 @@ class PublicI18n
         }
 
         $first = $path === '' ? '' : explode('/', $path, 2)[0];
-        if (class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isSlug($first)) {
+        $moneyLocales = method_exists(self::class, 'moneyLanderLocales')
+            ? self::moneyLanderLocales($first)
+            : [];
+        if ($moneyLocales !== []) {
+            if (method_exists(self::class, 'moneyLanderUrl')) {
+                $moneyUrl = self::moneyLanderUrl($first, $targetLocale);
+                if (is_string($moneyUrl) && $moneyUrl !== '') {
+                    return $moneyUrl;
+                }
+            }
+
+            return self::urlForLocale('', $targetLocale);
+        }
+        $italianSlug = class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isSlug($first);
+        $germanSlug = class_exists(GermanMoneyLanders::class) && GermanMoneyLanders::isSlug($first);
+        if ($italianSlug && $germanSlug) {
             if ($targetLocale === 'it') {
                 return url('/it/'.$first);
+            }
+            if ($targetLocale === 'de') {
+                return url('/de/'.$first);
+            }
+
+            return self::urlForLocale('', $targetLocale);
+        }
+        if ($italianSlug) {
+            if ($targetLocale === 'it') {
+                return url('/it/'.$first);
+            }
+
+            return self::urlForLocale('', $targetLocale);
+        }
+        if ($germanSlug) {
+            if ($targetLocale === 'de') {
+                return url('/de/'.$first);
             }
 
             return self::urlForLocale('', $targetLocale);
@@ -578,10 +684,32 @@ class PublicI18n
             $xDefaultLocale = self::default();
         }
         if ($locales === null && $first !== ''
+            && method_exists(self::class, 'moneyLanderLocales')) {
+            $moneyLocales = self::moneyLanderLocales($first);
+            if ($moneyLocales !== []) {
+                $locales = $moneyLocales;
+                $xDefaultLocale = method_exists(self::class, 'moneyLanderXDefault')
+                    ? self::moneyLanderXDefault($first)
+                    : ($moneyLocales[0] ?? self::default());
+            }
+        }
+        if ($locales === null && $first !== ''
+            && class_exists(ItalianMoneyLanders::class)
+            && ItalianMoneyLanders::isSlug($first)
+            && class_exists(GermanMoneyLanders::class)
+            && GermanMoneyLanders::isSlug($first)) {
+            $locales = ['it', 'de'];
+            $xDefaultLocale = 'it';
+        } elseif ($locales === null && $first !== ''
             && class_exists(ItalianMoneyLanders::class)
             && ItalianMoneyLanders::isSlug($first)) {
             $locales = ['it'];
             $xDefaultLocale = 'it';
+        } elseif ($locales === null && $first !== ''
+            && class_exists(GermanMoneyLanders::class)
+            && GermanMoneyLanders::isSlug($first)) {
+            $locales = ['de'];
+            $xDefaultLocale = 'de';
         }
 
         $tags = [];

@@ -28,6 +28,8 @@ return [
             'guest-posting-in-the-uk-and-us-what-to-buy-and-what-to-skip',
             'wallet-escrow-and-refunds-explained',
         ],
+        'native_url' => '/de/gastbeitrag-kaufen',
+        'native_label' => 'Gastbeitrag kaufen auf Deutsch',
         'faqs' => [
             [
                 'q' => 'What does guest post cost in Germany usually look like?',
@@ -319,6 +321,8 @@ return [
         'point_3_body' => 'Register, filter Austria, send a German-language brief unless the listing says otherwise, and approve the live URL on the order.',
         'teaser_title' => 'Sample Austrian inventory',
         'teaser_subtitle' => 'Masked preview of live Austria listings. Register to see domains and place the order.',
+        'native_url' => '/at/gastbeitrag-kaufen',
+        'native_label' => 'Gastbeitrag kaufen auf Deutsch (Österreich)',
         'blog_slugs' => [
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',
             'how-to-choose-a-publisher-site-dr-da-traffic-niche',

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\CuratedBlogWriter;
 use App\Support\DofollowNofollowAnchorsEnBlogPost;
+use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
 use App\Support\PublicI18n;
 use Database\Seeders\LinkBuildingGuidesBlogsSeeder;
@@ -33,9 +34,15 @@ class ItalianMoneyLanderTest extends TestCase
                 ->assertSee('/it/mercato', false)
                 ->getContent();
 
-            $this->assertStringNotContainsString('hreflang="de"', $html, $slug);
             $this->assertStringNotContainsString('hreflang="en-GB"', $html, $slug);
             $this->assertStringNotContainsString('advertiser/catalog', $html, $slug);
+            $sharedWithGerman = class_exists(GermanMoneyLanders::class)
+                && GermanMoneyLanders::isSlug($slug);
+            if ($sharedWithGerman) {
+                $this->assertStringContainsString('hreflang="de"', $html, $slug);
+            } else {
+                $this->assertStringNotContainsString('hreflang="de"', $html, $slug);
+            }
             $this->assertGreaterThanOrEqual(30, mb_strlen((string) $page['meta_title']), $slug);
             $this->assertLessThanOrEqual(70, mb_strlen((string) $page['meta_title']), $slug);
             $this->assertLessThanOrEqual(180, mb_strlen((string) $page['meta_description']), $slug);
@@ -108,8 +115,9 @@ class ItalianMoneyLanderTest extends TestCase
         $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $en);
 
         $de = $this->get('/de')->assertOk()->getContent();
-        $this->assertStringContainsString('Gastbeiträge kaufen — Gastbeitrag-Marktplatz | SEOLinkBuildings', $de);
+        $this->assertStringContainsString('Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings', $de);
         $this->assertStringNotContainsString('Acquistare guest post in Italia', $de);
+        $this->assertStringContainsString('/de/gastbeitrag-kaufen', $de);
     }
 
     public function test_language_switcher_on_money_page_leaves_other_locales_on_their_home(): void
