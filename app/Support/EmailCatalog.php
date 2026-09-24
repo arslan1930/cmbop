@@ -678,6 +678,7 @@ class EmailCatalog
             'your site discount has ended' => 'site_discount_ended',
             'your payout details were updated' => 'payout_profile_updated',
             'bulk site request from' => 'bulk_site_request_submitted',
+            'your bulk sites are active' => 'bulk_sites_seeded',
             'your sites were added to pending sites' => 'bulk_sites_seeded',
             'please accept a website we added' => 'admin_assigned_site',
             'your bulk website request was cancelled' => 'bulk_request_cancelled',
