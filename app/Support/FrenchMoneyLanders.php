@@ -383,7 +383,7 @@ class FrenchMoneyLanders
                 'teaser_subtitle' => 'Le même aperçu France que sur les pages annonceur.',
                 'intro' => [
                     'Une agence de netlinking utilise la marketplace comme un service : elle choisit les éditeurs, envoie les briefs et suit les URL. « Guest post pour agences » n’est pas un catalogue séparé.',
-                    'L’outreach reste le vôtre si vous préférez présenter les sites vous-même. Nous ne prétendons pas remplacer votre relation client, et nous ne disons pas que cette plateforme est meilleure que d’autres.',
+                    'La prise de contact reste la vôtre si vous préférez présenter les sites vous-même. Nous ne prétendons pas remplacer votre relation client, et nous ne disons pas que cette plateforme est meilleure que d’autres.',
                 ],
                 'points' => [
                     [
@@ -411,8 +411,8 @@ class FrenchMoneyLanders
                         'a' => 'Oui, de votre côté. Notre facture annonceur est émise par la société britannique. Nous n’émettons pas une facture à votre marque.',
                     ],
                     [
-                        'q' => 'Y a-t-il un outreach netlinking inclus ?',
-                        'a' => 'Non. Vous choisissez des éditeurs déjà listés. Nous ne prospectons pas des médias hors catalogue en votre nom.',
+                        'q' => 'Y a-t-il une prospection de médias incluse ?',
+                        'a' => 'Non. Vous choisissez des éditeurs déjà présents dans le catalogue. Nous ne prospectons pas des médias hors catalogue en votre nom.',
                     ],
                 ],
                 'see_also' => [

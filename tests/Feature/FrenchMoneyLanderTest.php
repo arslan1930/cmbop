@@ -92,6 +92,8 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringNotContainsString('About SEOLinkBuildings', $home);
         $this->assertStringNotContainsString('on-page', $home);
         $this->assertStringNotContainsString('actionnables', $home);
+        $this->assertStringNotContainsString('Storytelling', $home);
+        $this->assertStringNotContainsString('booster votre SEO', $home);
 
         $buy = $this->get('/fr/acheter-guest-post')->assertOk()->getContent();
         $this->assertStringContainsString('Acheter un guest post en France', $buy);
@@ -104,6 +106,7 @@ class FrenchMoneyLanderTest extends TestCase
 
         $agences = $this->get('/fr/agences')->assertOk()->getContent();
         $this->assertStringNotContainsString('off-page', $agences);
+        $this->assertStringNotContainsString('outreach', strtolower($agences));
 
         $blade = (string) file_get_contents(resource_path('views/pages/french-money-lander.blade.php'));
         $this->assertStringNotContainsString('checkout', strtolower($blade));
@@ -144,6 +147,10 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringNotContainsString('en cash', $refund);
         $this->assertStringNotContainsString('bank/Wise', $refund);
         $this->assertStringNotContainsString('Clawbacks', $refund);
+
+        $contact = $this->get('/fr/contact')->assertOk()->getContent();
+        $this->assertStringNotContainsString('mieux se classer', $contact);
+        $this->assertStringNotContainsString('bons classements', $contact);
 
         $buyGuide = (string) file_get_contents(app_path('Support/AcheterGuestPostsFrBlogPost.php'));
         $this->assertStringNotContainsString('/marketplace', $buyGuide);

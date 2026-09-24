@@ -69,7 +69,7 @@ return [
 
     'card_5_title' => 'Rédaction',
     'card_5_description' => 'Contenu professionnellement conçu pour les publications, les campagnes médias et les performances SEO.',
-    'card_5_item_1' => 'Storytelling engageant',
+    'card_5_item_1' => 'Narration engageante',
     'card_5_item_2' => 'Textes optimisés pour le SEO',
     'card_5_item_3' => 'Cohérence de la voix de la marque',
 
@@ -161,7 +161,7 @@ return [
     'pricing_card_3_item_3' => 'Sites web avec un trafic organique vérifié et des audiences réelles',
     'pricing_card_3_price_button' => 'Commencer',
 
-    'tagline' => 'Besoin d\'une stratégie de RP digitale sur mesure?',
+    'tagline' => 'Besoin d\'une stratégie de RP digitale sur mesure ?',
     'contact_us' => 'Contactez-nous',
 
     // ==================== TESTIMONIAL SECTION ====================
@@ -207,7 +207,7 @@ return [
     'newsletter_error_message' => 'Nous n\'avons pas pu enregistrer votre inscription. Veuillez réessayer.',
 
     // ==================== CTA SECTION ====================
-    'cta_title' => 'Prêt à booster votre SEO ?',
+    'cta_title' => 'Prêt à renforcer votre SEO ?',
     'cta_button' => 'Rejoindre maintenant',
     'cta_guarantee' => 'Remboursement portefeuille si un éditeur ne peut pas livrer — voir notre',
 
@@ -217,7 +217,7 @@ return [
 
     'ceo_name' => 'M. Arslan',
     'ceo_title' => 'Fondateur & PDG',
-    'ceo_quote' => '"Chez SEOLinkBuildings, nous croyons que les bons classements commencent par des relations de confiance. Chaque backlink que nous fournissons est basé sur la qualité, la transparence et la valeur à long terme pour nos clients."',
+    'ceo_quote' => '"Chez SEOLinkBuildings, nous croyons que les publications utiles commencent par des relations de confiance. Chaque backlink que nous proposons s’appuie sur la qualité, la transparence et une valeur durable pour nos clients."',
 
     'contact_info_title' => 'Coordonnées',
     'contact_email_label' => 'E-mail',
@@ -228,7 +228,7 @@ return [
     'contact_response_time' => 'Réponse moyenne : moins de 24h',
 
     'about_title' => 'À propos de SEOLinkBuildings',
-    'about_text' => 'Nous sommes une plateforme mondiale de création de liens connectant les marques avec des éditeurs vérifiés et à haute autorité dans toutes les grandes niches. Notre mission est de rendre l\'acquisition de backlinks transparente, efficace et axée sur les résultats — permettant aux entreprises de mieux se classer et d\'obtenir une visibilité durable dans Google Search et les résultats basés sur l\'IA.',
+    'about_text' => 'Nous sommes une marketplace de guest posts et de backlinks éditoriaux qui relie les marques à des éditeurs vérifiés. Les annonceurs voient les prix en euros, paient depuis un portefeuille et suivent chaque commande jusqu’à l’URL live — sans promesse de positions.',
 
     'enterprise_title' => 'Solutions d\'entreprise',
     'enterprise_description' => 'Pour les agences et les marques gérant des campagnes à grand volume, nous proposons des plans d\'entreprise personnalisés adaptés à votre échelle et à vos besoins.',
