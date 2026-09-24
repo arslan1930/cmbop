@@ -21,8 +21,8 @@
     'name' => 'SEOLinkBuildings',
     'applicationCategory' => 'BusinessApplication',
     'operatingSystem' => 'Web',
-    'url' => url('/'),
-    'description' => 'Guest-post and backlink marketplace connecting advertisers with publishers across Europe.',
+    'url' => localized_url('/'),
+    'description' => welcome_bonus_message('meta_home_description', 'meta_home_description_off'),
     'image' => asset('assets/img/logo1.png'),
     'offers' => [
         '@type' => 'Offer',
@@ -43,19 +43,19 @@
     '@type' => 'WebSite',
     'name' => 'SEOLinkBuildings',
     'alternateName' => ['SEO Link Buildings', 'Seolink Buildings'],
-    'url' => url('/'),
+    'url' => localized_url('/'),
     'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
         ? \App\Support\PublicI18n::htmlLang()
         : 'en-GB',
     'publisher' => [
         '@type' => 'Organization',
         'name' => 'SEOLinkBuildings',
-        'url' => url('/'),
+        'url' => localized_url('/'),
     ],
     'hasPart' => [
         [
             '@type' => 'AboutPage',
-            'name' => 'About SEOLinkBuildings',
+            'name' => __('messages.about_page_title'),
             'url' => localized_url('about'),
         ],
     ],

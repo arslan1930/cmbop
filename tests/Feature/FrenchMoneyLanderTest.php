@@ -88,6 +88,10 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringNotContainsString('Semrush', $home);
         $this->assertStringNotContainsString('Paiement par wallet', $home);
         $this->assertStringNotContainsString('package Digital PR managé', $home);
+        $this->assertStringNotContainsString('Guest-post and backlink marketplace connecting advertisers', $home);
+        $this->assertStringNotContainsString('About SEOLinkBuildings', $home);
+        $this->assertStringNotContainsString('on-page', $home);
+        $this->assertStringNotContainsString('actionnables', $home);
 
         $buy = $this->get('/fr/acheter-guest-post')->assertOk()->getContent();
         $this->assertStringContainsString('Acheter un guest post en France', $buy);
@@ -98,6 +102,9 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringNotContainsString('listing', strtolower($buy));
         $this->assertStringNotContainsString('Semrush', $buy);
 
+        $agences = $this->get('/fr/agences')->assertOk()->getContent();
+        $this->assertStringNotContainsString('off-page', $agences);
+
         $blade = (string) file_get_contents(resource_path('views/pages/french-money-lander.blade.php'));
         $this->assertStringNotContainsString('checkout', strtolower($blade));
         $this->assertStringNotContainsString('listing', strtolower($blade));
@@ -105,6 +112,8 @@ class FrenchMoneyLanderTest extends TestCase
         $marche = $this->get('/fr/marche')->assertOk()->getContent();
         $this->assertStringContainsString('Catalogue de médias et d’éditeurs en France', $marche);
         $this->assertStringContainsString('/fr/acheter-guest-post', $marche);
+        $this->assertStringNotContainsString('median advertiser prices', $marche);
+        $this->assertStringNotContainsString('EU guest-post price index', $marche);
 
         $tarifs = $this->get('/fr/tarifs')->assertOk()->getContent();
         $this->assertStringContainsString('Combien coûte un guest post en France', $tarifs);
@@ -112,6 +121,7 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertStringNotContainsString('au checkout', $tarifs);
         $this->assertStringNotContainsString('selon le listing', $tarifs);
         $this->assertStringNotContainsString('package Digital PR managé', $tarifs);
+        $this->assertStringNotContainsString('outreach', $tarifs);
 
         $how = $this->get('/fr/comment-ca-marche')->assertOk()->getContent();
         $this->assertStringNotContainsString('Recharger le wallet', $how);
@@ -128,10 +138,18 @@ class FrenchMoneyLanderTest extends TestCase
         $faq = $this->get('/fr/faq')->assertOk()->getContent();
         $this->assertStringContainsString('portugais', $faq);
         $this->assertStringNotContainsString('tableau de bord SaaS', $faq);
+        $this->assertStringNotContainsString('Aide & feedback', $faq);
 
         $refund = $this->get('/fr/remboursement')->assertOk()->getContent();
         $this->assertStringNotContainsString('en cash', $refund);
         $this->assertStringNotContainsString('bank/Wise', $refund);
+        $this->assertStringNotContainsString('Clawbacks', $refund);
+
+        $buyGuide = (string) file_get_contents(app_path('Support/AcheterGuestPostsFrBlogPost.php'));
+        $this->assertStringNotContainsString('/marketplace', $buyGuide);
+        $this->assertStringNotContainsString('/how-it-works', $buyGuide);
+        $this->assertStringNotContainsString('Au checkout', $buyGuide);
+        $this->assertStringContainsString('/fr/marche', $buyGuide);
     }
 
     public function test_sitemap_fr_includes_money_landers_and_not_aliases(): void

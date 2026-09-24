@@ -382,7 +382,7 @@ class FrenchMoneyLanders
                 'teaser_title' => 'Sites que vos clients peuvent comparer',
                 'teaser_subtitle' => 'Le même aperçu France que sur les pages annonceur.',
                 'intro' => [
-                    'Une agence SEO off-page utilise la marketplace comme un service de netlinking : elle choisit les éditeurs, envoie les briefs et suit les URL. « Guest post pour agences » n’est pas un catalogue séparé.',
+                    'Une agence de netlinking utilise la marketplace comme un service : elle choisit les éditeurs, envoie les briefs et suit les URL. « Guest post pour agences » n’est pas un catalogue séparé.',
                     'L’outreach reste le vôtre si vous préférez présenter les sites vous-même. Nous ne prétendons pas remplacer votre relation client, et nous ne disons pas que cette plateforme est meilleure que d’autres.',
                 ],
                 'points' => [
