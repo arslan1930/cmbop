@@ -14,11 +14,11 @@ class HowToGetBacklinksI18n
     {
         return [
             'de' => [
-                'title' => 'So bekommen Sie Backlinks: Ein praktischer Leitfaden für hochwertige Links',
-                'slug' => 'so-bekommen-sie-backlinks',
-                'excerpt' => 'Backlinks verdienen und bewerten: Relevanz, verweisende Domains, Gastbeiträge, Digital PR — und warum bezahlte Platzierungen keine redaktionellen Zitate sind.',
-                'meta_title' => 'So bekommen Sie Backlinks: Praktischer SEO-Leitfaden',
-                'meta_description' => 'Praktischer Leitfaden: wie Sie Backlinks bekommen, woran Sie Qualität erkennen und wie sich bezahlte Platzierungen von verdienten Links unterscheiden.',
+                'title' => 'Was sind Backlinks: praktischer Leitfaden für hochwertige Links',
+                'slug' => 'was-sind-backlinks',
+                'excerpt' => 'Was Backlinks sind, wie Sie sie aufbauen und bewerten: Relevanz, verweisende Domains, Gastbeiträge, Digital PR — und warum bezahlte Platzierungen keine redaktionellen Zitate sind.',
+                'meta_title' => 'Was sind Backlinks? Praktischer SEO-Leitfaden',
+                'meta_description' => 'Was sind Backlinks und wie Sie sie aufbauen: Qualität erkennen, Gastbeiträge, Digital PR, und wie sich bezahlte Platzierungen von verdienten Links unterscheiden.',
                 'content' => self::de(),
             ],
             'fr' => [
@@ -50,15 +50,16 @@ class HowToGetBacklinksI18n
 
     private static function de(): string
     {
-        $guest = '/blog/guest-posting-guide';
-        $sponsored = '/blog/sponsored-post-guide';
-        $linkGuide = '/blog/link-building-guide';
+        $guest = '/de/blog/was-ist-ein-gastbeitrag';
+        $sponsored = '/de/blog/gesponserte-beitraege-leitfaden';
+        $linkGuide = '/de/blog/linkaufbau-strategien';
         $chooseSite = '/blog/how-to-choose-a-publisher-site-dr-da-traffic-niche';
-        $buyGuide = '/blog/how-to-buy-guest-posts-on-seolinkbuildings-advertiser-guide';
-        $dofollow = '/blog/dofollow-nofollow-and-anchor-text-for-marketplace-links';
+        $buyGuide = '/de/gastbeitrag-kaufen';
+        $dofollow = '/de/blog/dofollow-vs-nofollow-ankertext';
         $outreach = '/blog/marketplace-vs-cold-outreach-vs-digital-pr';
-        $catalog = '/marketplace';
-        $how = '/how-it-works';
+        $catalog = '/de/marktplatz';
+        $how = '/de/so-funktioniert-es';
+        $buyLinks = '/de/backlinks-kaufen';
         $img = BlogInlineImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS);
 
         return <<<HTML
@@ -66,7 +67,7 @@ class HowToGetBacklinksI18n
 <p>Mehr ist die Mechanik nicht. Der Rest dieses Leitfadens geht darum, keine Monate mit Links zu verschwenden, die der Zielseite nichts nützen.</p>
 <p>Die Strategie — Linktypen, Messung, Roadmap — steht im <a href="{$linkGuide}">Linkbuilding-Leitfaden</a>. Hier geht es um Beschaffung: wie man Backlinks tatsächlich bekommt, und wie man einen nützlichen von einem lauten unterscheidet.</p>
 
-<h2>Was ist ein Backlink?</h2>
+<h2>Was sind Backlinks?</h2>
 <p>Site A veröffentlicht eine Seite, die auf eine URL von Site B zeigt. Für Site B ist das ein Backlink. Die sendende Site ist eine <strong>verweisende Domain</strong>, wenn Sie sie noch nicht gezählt haben.</p>
 <p>Zehn Links von einem Blog sind nicht dasselbe wie zehn Links von zehn Publishern. Kampagnenberichte sollten beides zeigen.</p>
 <p>Ein Backlink kann redaktionell, über Outreach verdient, bezahlt/gesponsert oder nutzergeneriert sein. Das ist nicht gleichwertig. Googles Spam-Richtlinien behandeln den Kauf von Links <em>zur Ranking-Manipulation</em> als Linkspam; Werbung und Sponsoring sind normal, wenn sie mit <code>rel="sponsored"</code> oder <code>rel="nofollow"</code> gekennzeichnet sind. Details im <a href="{$sponsored}">Leitfaden zu gesponserten Beiträgen</a>.</p>
@@ -122,6 +123,7 @@ class HowToGetBacklinksI18n
 <li><a href="https://developers.google.com/search/docs/crawling-indexing/links-crawlable">Crawlable links</a></li>
 <li><a href="https://developers.google.com/search/docs/fundamentals/creating-helpful-content">Helpful, people-first content</a></li>
 </ul>
+<p>Spam-Score und ähnliche Drittanbieter-Werte sind Filter, kein Urteil. Prüfen Sie Relevanz, Outbound-Muster und Live-HTML selbst. Kommerzielle Beschaffung: <a href="{$buyLinks}">Backlinks kaufen</a> oder <a href="{$buyGuide}">Gastbeitrag kaufen</a> — ohne Ranking-Garantie.</p>
 HTML;
     }
 

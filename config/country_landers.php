@@ -28,6 +28,8 @@ return [
             'guest-posting-in-the-uk-and-us-what-to-buy-and-what-to-skip',
             'wallet-escrow-and-refunds-explained',
         ],
+        'native_url' => '/de/gastbeitrag-kaufen',
+        'native_label' => 'Gastbeitrag kaufen auf Deutsch',
         'faqs' => [
             [
                 'q' => 'What does guest post cost in Germany usually look like?',

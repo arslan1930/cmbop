@@ -94,6 +94,7 @@ use App\Models\User;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Support\CountryLander;
 use App\Support\EnglishOnlyMarketingSlugs;
+use App\Support\GermanMoneyLanders;
 use App\Support\HttpCron;
 use App\Support\ItalianMoneyLanders;
 use App\Support\LocalizedPublicPath;
@@ -334,6 +335,11 @@ if ($italianMoneySlugs !== []) {
             if ($locale === 'it') {
                 continue;
             }
+            if ($locale === 'de'
+                && class_exists(GermanMoneyLanders::class)
+                && GermanMoneyLanders::isPublicSegment($slug)) {
+                continue;
+            }
             Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
                 $query = request()->getQueryString();
                 $target = '/it/'.$slug;
@@ -358,6 +364,100 @@ if ($italianMoneyAliases !== []) {
         });
         foreach ($prefixedLocales as $locale) {
             if ($locale === 'it') {
+                continue;
+            }
+            if ($locale === 'de'
+                && class_exists(GermanMoneyLanders::class)
+                && GermanMoneyLanders::isPublicSegment($from)) {
+                continue;
+            }
+            Route::get('/'.$locale.'/'.$from, function () use ($to) {
+                $query = request()->getQueryString();
+
+                return Redirect::to($query ? $to.'?'.$query : $to, 301);
+            });
+        }
+    }
+}
+
+$germanMoneySlugs = [];
+$germanMoneyAliases = [];
+if (class_exists(GermanMoneyLanders::class)) {
+    try {
+        $germanMoneySlugs = GermanMoneyLanders::slugs();
+        $germanMoneyAliases = GermanMoneyLanders::aliases();
+    } catch (Throwable) {
+        $germanMoneySlugs = [];
+        $germanMoneyAliases = [];
+    }
+}
+
+if ($germanMoneySlugs !== []) {
+    Route::group([
+        'prefix' => 'de',
+        'as' => 'locale.de.money.',
+    ], function () use ($germanMoneySlugs) {
+        foreach ($germanMoneySlugs as $slug) {
+            Route::get('/'.$slug, [MarketingPageController::class, 'germanMoneyLander'])
+                ->defaults('slug', $slug)
+                ->name($slug);
+        }
+    });
+
+    foreach ($germanMoneySlugs as $slug) {
+        $italianOwnsSlug = class_exists(ItalianMoneyLanders::class)
+            && ItalianMoneyLanders::isSlug($slug);
+        if (! $italianOwnsSlug) {
+            Route::get('/'.$slug, function () use ($slug) {
+                $query = request()->getQueryString();
+                $target = '/de/'.$slug;
+
+                return Redirect::to($query ? $target.'?'.$query : $target, 301);
+            });
+        }
+
+        foreach ($prefixedLocales as $locale) {
+            if ($locale === 'de') {
+                continue;
+            }
+            if ($locale === 'it'
+                && class_exists(ItalianMoneyLanders::class)
+                && ItalianMoneyLanders::isPublicSegment($slug)) {
+                continue;
+            }
+            Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
+                $query = request()->getQueryString();
+                $target = '/de/'.$slug;
+
+                return Redirect::to($query ? $target.'?'.$query : $target, 301);
+            });
+        }
+    }
+}
+
+if ($germanMoneyAliases !== []) {
+    foreach ($germanMoneyAliases as $from => $to) {
+        Route::get('/de/'.$from, function () use ($to) {
+            $query = request()->getQueryString();
+
+            return Redirect::to($query ? $to.'?'.$query : $to, 301);
+        });
+        $italianOwnsFrom = class_exists(ItalianMoneyLanders::class)
+            && ItalianMoneyLanders::isPublicSegment($from);
+        if (! $italianOwnsFrom) {
+            Route::get('/'.$from, function () use ($to) {
+                $query = request()->getQueryString();
+
+                return Redirect::to($query ? $to.'?'.$query : $to, 301);
+            });
+        }
+        foreach ($prefixedLocales as $locale) {
+            if ($locale === 'de') {
+                continue;
+            }
+            if ($locale === 'it'
+                && class_exists(ItalianMoneyLanders::class)
+                && ItalianMoneyLanders::isPublicSegment($from)) {
                 continue;
             }
             Route::get('/'.$locale.'/'.$from, function () use ($to) {

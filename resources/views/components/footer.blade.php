@@ -43,6 +43,14 @@
                         <li><a href="{{ url('/it/agenzie') }}" class="text-dark text-decoration-none d-block mb-2">Per agenzie</a></li>
                         <li><a href="{{ url('/it/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
                     @endif
+                    @if(function_exists('public_locale') && public_locale() === 'de')
+                        <li><a href="{{ url('/de/gastbeitrag-kaufen') }}" class="text-dark text-decoration-none d-block mb-2">Gastbeitrag kaufen</a></li>
+                        <li><a href="{{ url('/de/advertorial') }}" class="text-dark text-decoration-none d-block mb-2">Advertorials</a></li>
+                        <li><a href="{{ url('/de/backlinks-kaufen') }}" class="text-dark text-decoration-none d-block mb-2">Backlinks kaufen</a></li>
+                        <li><a href="{{ url('/de/linkbuilding') }}" class="text-dark text-decoration-none d-block mb-2">Linkbuilding</a></li>
+                        <li><a href="{{ url('/de/agenturen') }}" class="text-dark text-decoration-none d-block mb-2">Für Agenturen</a></li>
+                        <li><a href="{{ url('/de/digital-pr') }}" class="text-dark text-decoration-none d-block mb-2">Digital PR</a></li>
+                    @endif
                 </ul>
             </div>
 
