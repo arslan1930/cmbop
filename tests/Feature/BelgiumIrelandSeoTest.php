@@ -121,6 +121,10 @@ class BelgiumIrelandSeoTest extends TestCase
             ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
         $this->get('/uk/marketplace')->assertRedirect('/marketplace');
         $this->get('/uk/pricing')->assertRedirect('/pricing');
+        $this->get('/buy-guest-posts-ireland')->assertRedirect('/uk/buy-guest-posts-ireland');
+        $this->get('/de/buy-guest-posts-ireland')->assertRedirect('/uk/buy-guest-posts-ireland');
+        $this->get('/uk/guest-post-ireland')->assertRedirect('/uk/buy-guest-posts-ireland');
+        $this->get('/uk/dublin')->assertNotFound();
         $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
             ->get('/uk/buy-guest-posts-ireland')
             ->assertOk()
@@ -129,10 +133,9 @@ class BelgiumIrelandSeoTest extends TestCase
             ->get('/uk')
             ->assertRedirect('/')
             ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
-        $this->get('/buy-guest-posts-ireland')->assertRedirect('/uk/buy-guest-posts-ireland');
-        $this->get('/de/buy-guest-posts-ireland')->assertRedirect('/uk/buy-guest-posts-ireland');
-        $this->get('/uk/guest-post-ireland')->assertRedirect('/uk/buy-guest-posts-ireland');
-        $this->get('/uk/dublin')->assertNotFound();
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/buy-guest-posts-ireland')
+            ->assertRedirect('/uk/buy-guest-posts-ireland');
     }
 
     public function test_ireland_copy_is_not_a_uk_swap_and_does_not_invent_facts(): void

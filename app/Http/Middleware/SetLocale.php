@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\IrishMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\ViewerCountry;
 use Closure;
@@ -104,6 +105,15 @@ class SetLocale
             || ! PublicI18n::isPublicMarketingPath($request)
             || (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale))
             || (method_exists(PublicI18n::class, 'isEnglishOnlyMarketingPath') && PublicI18n::isEnglishOnlyMarketingPath($request))) {
+            return null;
+        }
+
+        $first = method_exists(PublicI18n::class, 'firstPathSegment')
+            ? PublicI18n::firstPathSegment($request)
+            : (string) $request->segment(1);
+        if (class_exists(IrishMoneyLanders::class)
+            && method_exists(IrishMoneyLanders::class, 'isPublicSegment')
+            && IrishMoneyLanders::isPublicSegment($first)) {
             return null;
         }
 
