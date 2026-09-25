@@ -192,7 +192,7 @@ class GermanMoneyLanders
                 ],
                 'points' => [
                     [
-                        'title' => 'Publisher, kein Phantom-Listino',
+                        'title' => 'Publisher, keine Phantom-Preisliste',
                         'body' => 'Jede Katalogzeile ist eine Website mit Nische, Sprache, Land, DA/DR, deklariertem Traffic und Checkout-Preis. Wir verkaufen keine PBNs und keine „50-Link-Pakete“.',
                     ],
                     [
@@ -211,7 +211,7 @@ class GermanMoneyLanders
                     ],
                     [
                         'h2' => 'Publisher auswählen',
-                        'body' => 'Filtern Sie nach Land Deutschland, Sprache Deutsch, Nische (Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, Fachportale) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach dem Login und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
+                        'body' => 'Filtern Sie nach Land Deutschland, Sprache Deutsch, Nische (Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, Fachportale) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach der Anmeldung und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
                     ],
                     [
                         'h2' => 'Pakete, Dauerhaftigkeit, Nischen',
@@ -233,7 +233,7 @@ class GermanMoneyLanders
                     ],
                     [
                         'q' => 'Gibt es eine Rechnung?',
-                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen im Billing herunterladen, soweit das Produkt sie ausstellt. Details unter Für Agenturen.',
+                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen in der Rechnungsübersicht herunterladen, soweit das Produkt sie ausstellt. Details unter Für Agenturen.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Konto anlegen und Katalog öffnen', 'url' => $register],
@@ -291,7 +291,7 @@ class GermanMoneyLanders
                         'a' => 'Nur wenn das Listing das zulässt. Viele Publisher kennzeichnen bezahlte Veröffentlichungen. Das ist die Policy der Site, kein Fehler des Marktplatzes.',
                     ],
                     [
-                        'q' => 'Bietet ihr Platzierungen auf Nachrichtenportalen?',
+                        'q' => 'Bieten Sie Platzierungen auf Nachrichtenportalen?',
                         'a' => 'Nur wenn diese Domain im Katalog ist. Wir versprechen kein Google News. Siehe auch Digital PR.',
                     ],
                 ],
@@ -311,7 +311,7 @@ class GermanMoneyLanders
                 'meta_description' => 'Linkaufbau in Deutschland: Self-Service-Katalog, DA/DR und Preise in EUR, nachverfolgte Veröffentlichungen. Kein undurchsichtiges Linkbuilding-Paket.',
                 'teaser_countries' => ['de'],
                 'teaser_title' => 'Inventar für Linkbuilding-Kampagnen',
-                'teaser_subtitle' => 'Beispiel Deutschland-Sites. Für E-Commerce oder andere Nischen filtern Sie nach dem Login — keine Doorway-Landing pro Branche.',
+                'teaser_subtitle' => 'Beispiel Deutschland-Sites. Für E-Commerce oder andere Nischen filtern Sie nach der Anmeldung — keine eigene Seite pro Branche.',
                 'intro' => [
                     '„Linkaufbau-Paket“, „monatliches Linkbuilding“ und „Linkaufbau-Dienstleistung“ sind in deutschen SERPs oft Agenturseiten. SEOLinkBuildings ist eine Plattform: Sie bauen die Kampagne aus dem Katalog, mit einem Wallet für mehrere Märkte.',
                     'White Label oder Rechnungen für mehrere Brands: <a href="'.$agencies.'">Linkbuilding für Agenturen</a>.',
@@ -342,7 +342,7 @@ class GermanMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Verkauft ihr Linkbuilding-Pakete?',
+                        'q' => 'Verkaufen Sie Linkbuilding-Pakete?',
                         'a' => 'Nicht als undurchsichtiges SKU. Sie kaufen einzelne Veröffentlichungen. Die nummerierten Pakete auf der Preisseite sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.',
                     ],
                     [
@@ -355,7 +355,7 @@ class GermanMoneyLanders
                     ],
                 ],
                 'cta_primary' => ['label' => 'Mit dem Katalog starten', 'url' => $register],
-                'cta_secondary' => ['label' => 'Preise und Listung', 'url' => $preise],
+                'cta_secondary' => ['label' => 'Preise und Katalog', 'url' => $preise],
                 'see_also' => [
                     ['label' => 'Gastbeitrag kaufen', 'url' => $guest],
                     ['label' => 'Linkaufbau-Strategien', 'url' => $blogLb],
@@ -382,7 +382,7 @@ class GermanMoneyLanders
                     ],
                     [
                         'title' => 'Dofollow nur laut Listing',
-                        'body' => 'Filtern Sie den Linktyp nach dem Login. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
+                        'body' => 'Filtern Sie den Linktyp nach der Anmeldung. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
                     ],
                     [
                         'title' => 'Kein Niche-Edit-SKU',
@@ -405,7 +405,7 @@ class GermanMoneyLanders
                         'a' => 'Sie können Angebote filtern, die das deklarieren. Der Publisher bleibt für das Live-HTML verantwortlich.',
                     ],
                     [
-                        'q' => 'Macht ihr Link-Inserts in bestehende Artikel?',
+                        'q' => 'Machen Sie Link-Inserts in bestehende Artikel?',
                         'a' => 'Nicht als Niche-Edit-SKU. Manche Sites verkaufen ein zeitlich begrenztes Homepage-Extra. Das ist nicht dasselbe wie ein Link in einem bereits platzierten Stück.',
                     ],
                     [
@@ -424,7 +424,7 @@ class GermanMoneyLanders
             'agenturen' => [
                 'kicker' => 'B2B-Konto',
                 'h1' => 'Linkbuilding für Agenturen und White Label',
-                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen wo das Billing sie ausstellt.',
+                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen in der Rechnungsübersicht, soweit das Produkt sie ausstellt.',
                 'meta_title' => 'Linkbuilding für Agenturen | SEOLinkBuildings',
                 'meta_description' => 'White-Label-Linkbuilding und Gastbeiträge für Agenturen: EUR-Katalog, Rechnungen, Aufträge pro Brand — ohne undurchsichtige Pakete und ohne gebrandetes Reseller-Frontend.',
                 'teaser_countries' => ['de'],
@@ -441,11 +441,11 @@ class GermanMoneyLanders
                     ],
                     [
                         'title' => 'Auftrag und Rechnung',
-                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie im Advertiser-Billing herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
+                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie in der Rechnungsübersicht des Advertisers herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
                     ],
                     [
                         'title' => 'Plattform für SEO-Teams',
-                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach dem Login ist für alle Rollen auf Englisch.',
+                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach der Anmeldung ist für alle Rollen auf Englisch.',
                     ],
                 ],
                 'sections' => [
@@ -464,8 +464,8 @@ class GermanMoneyLanders
                         'a' => 'Ja, indem Sie das Konto selbst bedienen. Wir liefern kein gebrandetes White-Label-Portal.',
                     ],
                     [
-                        'q' => 'Stellt ihr deutsche E-Rechnungen aus?',
-                        'a' => 'Das Billing folgt der UK-Gesellschaft des Produkts. Laden Sie die Belege aus Wallet/Rechnungen und klären Sie mit Ihrer Buchhaltung, ob Sie weitere Integrationen brauchen.',
+                        'q' => 'Stellen Sie deutsche E-Rechnungen aus?',
+                        'a' => 'Die Rechnungsstellung folgt der UK-Gesellschaft des Produkts. Laden Sie die Belege aus Wallet/Rechnungen und klären Sie mit Ihrer Buchhaltung, ob Sie weitere Integrationen brauchen.',
                     ],
                     [
                         'q' => 'Gibt es eine separate Agentur-Preisliste?',
@@ -488,7 +488,7 @@ class GermanMoneyLanders
                 'meta_description' => 'Digital PR und Online-Pressearbeit: Veröffentlichungen aus dem SEOLinkBuildings-Katalog, EUR-Wallet, Live-URL, gemanagte Pakete — ohne News-Garantien.',
                 'teaser_countries' => ['de'],
                 'teaser_title' => 'Deutschland-Sites im Katalog (Vorschau)',
-                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach dem Login.',
+                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach der Anmeldung.',
                 'intro' => [
                     '„Digital PR Deutschland“, „Online-Pressearbeit“ und „Brand Mention aufbauen“ mischen PR und Linkbuilding. Hier kaufen Sie Veröffentlichungen auf Sites, die wirklich im Katalog stehen. Fehlt eine Domain, verkaufen wir sie nicht.',
                     'Gemanagte Digital-PR-Pakete (Beträge auf der Preisseite, aktuell ab 499 €/Monat für den Basisplan, sofern noch gelistet) sind Outreach durch das Team, kein Button „erscheinen Sie in einer überregionalen Zeitung“.',
@@ -519,7 +519,7 @@ class GermanMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Publiziert ihr bei Google News?',
+                        'q' => 'Publizieren Sie bei Google News?',
                         'a' => 'Nein als Produkt. Steht eine Katalog-Site in News, hängt das von Google und dem Publisher ab, nicht von uns.',
                     ],
                     [
@@ -528,7 +528,7 @@ class GermanMoneyLanders
                     ],
                     [
                         'q' => 'Was kostet eine Kampagne?',
-                        'a' => 'Self-Service: Summe der Listings. Gemanagt: die Pakete auf der Preisseite (EUR-Beträge laut aktuellem Listino).',
+                        'a' => 'Self-Service: Summe der Listings. Gemanagt: die Pakete auf der Preisseite (EUR-Beträge laut aktueller Preisliste).',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Pakete und Katalog ansehen', 'url' => $preise],

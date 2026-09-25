@@ -2,7 +2,7 @@
     /** @var array<string, mixed> $page */
     $page = $page ?? [];
     $slug = (string) ($slug ?? '');
-    $canonical = url('/de/'.$slug);
+    $canonical = url('/ro/'.$slug);
     $faqs = is_array($page['faqs'] ?? null) ? $page['faqs'] : [];
     $faqEntities = [];
     foreach ($faqs as $faq) {
@@ -16,15 +16,13 @@
         ];
     }
     $cluster = $cluster ?? (
-        class_exists(\App\Support\GermanMoneyLanders::class)
-        && method_exists(\App\Support\GermanMoneyLanders::class, 'clusterLinks')
-            ? \App\Support\GermanMoneyLanders::clusterLinks($slug)
+        class_exists(\App\Support\RomanianMoneyLanders::class)
+        && method_exists(\App\Support\RomanianMoneyLanders::class, 'clusterLinks')
+            ? \App\Support\RomanianMoneyLanders::clusterLinks($slug)
             : []
     );
-    $sharedWithItalian = class_exists(\App\Support\ItalianMoneyLanders::class)
-        && \App\Support\ItalianMoneyLanders::isSlug($slug);
-    $hreflangLocales = $sharedWithItalian ? 'it,de' : 'de';
-    $hreflangXDefault = $sharedWithItalian ? 'it' : 'de';
+    $hreflangLocales = 'ro';
+    $hreflangXDefault = 'ro';
     if (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'moneyLanderLocales')) {
         $hreflangLocales = implode(',', \App\Support\PublicI18n::moneyLanderLocales($slug));
         $hreflangXDefault = method_exists(\App\Support\PublicI18n::class, 'moneyLanderXDefault')
@@ -59,7 +57,7 @@
     'name' => $page['meta_title'] ?? $page['h1'] ?? '',
     'url' => $canonical,
     'description' => $page['meta_description'] ?? '',
-    'inLanguage' => 'de-DE',
+    'inLanguage' => 'ro',
 ], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}' !!}
 </script>
 @endpush
@@ -83,7 +81,7 @@
         @include('components.italian-seo-cluster-nav', [
             'links' => $cluster,
             'current' => $slug,
-            'title' => 'Seiten für Gastbeiträge, Backlinks und Linkbuilding',
+            'title' => 'Pagini de guest post, backlinkuri și link building în România',
         ])
     @endif
 
@@ -92,18 +90,18 @@
             @if(!empty($priceFrom))
                 <div class="col-md-6">
                     <div class="h-100 p-4 rounded-4 bg-white border">
-                        <div class="small text-muted mb-1">Ab</div>
+                        <div class="small text-muted mb-1">De la</div>
                         <div class="h3 mb-0" style="color:#1a585e;">€{{ number_format((float) $priceFrom, 0) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Niedrigster Checkout-Preis auf geprüften, aktiven Deutschland-Listings in diesem Moment. Keine feste Preisliste.</p>
+                        <p class="small text-muted mb-0 mt-2">Cel mai mic preț de checkout pe listingurile verificate și active din România, acum. Nu este un tarif fix.</p>
                     </div>
                 </div>
             @endif
             @if(!empty($siteCount))
                 <div class="col-md-6">
                     <div class="h-100 p-4 rounded-4 bg-white border">
-                        <div class="small text-muted mb-1">Sites in der Vorschau</div>
+                        <div class="small text-muted mb-1">Site-uri în previzualizare</div>
                         <div class="h3 mb-0" style="color:#1a585e;">{{ number_format((int) $siteCount) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Aktive, geprüfte Publisher mit Primärland Deutschland im Katalog, wenn die Zahl verfügbar ist.</p>
+                        <p class="small text-muted mb-0 mt-2">Publishers activi și verificați cu țara principală România, când numărul este disponibil.</p>
                     </div>
                 </div>
             @endif
@@ -137,11 +135,11 @@
                 <thead class="table-light">
                     <tr>
                         <th>Site</th>
-                        <th>Land</th>
-                        <th>Sprache</th>
+                        <th>Țară</th>
+                        <th>Limbă</th>
                         <th>DR</th>
                         <th>DA</th>
-                        <th>Ab</th>
+                        <th>De la</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -161,7 +159,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="small text-muted mb-5">Wir zeigen DA, DR und den Preis in Euro, wenn sie am Listing existieren. Erfundene Kennzahlen erscheinen nicht.</p>
+        <p class="small text-muted mb-5">Afișăm DA, DR și prețul în euro când există pe listing. Nu inventăm metrici. Tabelul listează țara principală România — nu un amestec de alte piețe.</p>
     @endif
 
     @foreach(($page['sections'] ?? []) as $section)
@@ -172,8 +170,8 @@
     @endforeach
 
     @if($faqs !== [])
-        <section class="mb-5" aria-labelledby="de-money-faq">
-            <h2 id="de-money-faq" class="h4 mb-3" style="color:#1a585e;">{{ __('messages.nav_faq') }}</h2>
+        <section class="mb-5" aria-labelledby="ro-money-faq">
+            <h2 id="ro-money-faq" class="h4 mb-3" style="color:#1a585e;">{{ __('messages.nav_faq') }}</h2>
             @foreach($faqs as $faq)
                 <div class="mb-3">
                     <h3 class="h6 mb-1" style="color:#1a585e;">{{ $faq['q'] ?? '' }}</h3>
@@ -185,7 +183,7 @@
 
     @if(!empty($page['see_also']))
         <section class="mb-5">
-            <h2 class="h5 mb-3" style="color:#1a585e;">Weiterlesen</h2>
+            <h2 class="h5 mb-3" style="color:#1a585e;">Mai multe</h2>
             <ul class="mb-0">
                 @foreach($page['see_also'] as $link)
                     <li class="mb-2"><a href="{{ $link['url'] }}">{{ $link['label'] }}</a></li>

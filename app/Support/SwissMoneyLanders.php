@@ -194,11 +194,11 @@ class SwissMoneyLanders
                     ],
                     [
                         'h2' => 'Publisher auswählen',
-                        'body' => 'Filtern Sie nach Land Schweiz, Sprache Deutsch, Nische (Tourismus, Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, B2B) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach dem Login und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
+                        'body' => 'Filtern Sie nach Land Schweiz, Sprache Deutsch, Nische (Tourismus, Finanzen, Gesundheit, Immobilien, E-Commerce, Tech, B2B) und Preisspanne. DA und DR helfen beim Aussortieren, entscheiden aber nicht allein. Der Live-Katalog öffnet sich nach der Anmeldung und bleibt im Dashboard auf Englisch — Preise bleiben in EUR.',
                     ],
                     [
-                        'h2' => 'Kein OTS, kein festes Paket',
-                        'body' => 'APA-OTS und klassische Presseaussendungen sind ein anderes Produkt. Hier kaufen Sie redaktionelle Veröffentlichungen auf Sites, die im Katalog stehen. Für Volumen und White Label: <a href="'.$agencies.'">Gastbeiträge für Agenturen</a>. Deutschland-Katalog separat: <a href="'.$deGuest.'">Gastbeitrag kaufen in Deutschland</a>. Grundlagen: <a href="'.$blogGuest.'">Was ist ein Gastbeitrag?</a>',
+                        'h2' => 'Keine Agenturmeldung, kein festes Paket',
+                        'body' => 'Keystone-SDA und klassische Medienmitteilungen sind ein anderes Produkt. Hier kaufen Sie redaktionelle Veröffentlichungen auf Sites, die im Katalog stehen. Für Volumen und White Label: <a href="'.$agencies.'">Gastbeiträge für Agenturen</a>. Deutschland-Katalog separat: <a href="'.$deGuest.'">Gastbeitrag kaufen in Deutschland</a>. Grundlagen: <a href="'.$blogGuest.'">Was ist ein Gastbeitrag?</a>',
                     ],
                 ],
                 'faqs' => [
@@ -211,12 +211,12 @@ class SwissMoneyLanders
                         'a' => 'Nein. Das hängt vom Listing ab. Prüfen Sie den Linktyp und nach Live-Gang das rel-Attribut.',
                     ],
                     [
-                        'q' => 'Ersetzt das eine APA-OTS- oder Schweizer-Medienmitteilungs-Platzierung?',
-                        'a' => 'Nein. OTS ist ein Aussendungsdienst. Wir verkaufen Katalogveröffentlichungen auf Publisher-Sites, keine OTS-Slots.',
+                        'q' => 'Ersetzt das eine Schweizer Medienmitteilung?',
+                        'a' => 'Nein. Eine Agenturmeldung ist ein Aussendungsdienst. Wir verkaufen Katalogveröffentlichungen auf Publisher-Sites, keine Agentur-Slots.',
                     ],
                     [
                         'q' => 'Gibt es eine Rechnung?',
-                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen im Billing herunterladen, soweit das Produkt sie ausstellt.',
+                        'a' => 'Advertiser können Rechnungen zu Wallet-Belastungen und Aufträgen in der Rechnungsübersicht herunterladen, soweit das Produkt sie ausstellt.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Konto anlegen und Katalog öffnen', 'url' => $register],
@@ -232,13 +232,13 @@ class SwissMoneyLanders
                 'h1' => 'Advertorials und Medienplatzierung in der Schweiz',
                 'subtitle' => 'Advertorial, gesponserter Artikel oder Native-Advertising-Text auf schweizerischen Publisher-Sites: derselbe Marktplatz wie Gastbeiträge, mit EUR-Preis, Briefing und Live-URL.',
                 'meta_title' => 'Advertorial kaufen in der Schweiz | SEOLinkBuildings',
-                'meta_description' => 'Advertorial und Medienplatzierung in der Schweiz: Publisher filtern, in EUR zahlen, Briefing und Live-URL am Auftrag — ohne erfundenes OTS-Produkt.',
+                'meta_description' => 'Advertorial und Medienplatzierung in der Schweiz: Publisher filtern, in EUR zahlen, Briefing und Live-URL am Auftrag — ohne erfundene Agenturmeldung.',
                 'teaser_countries' => ['ch'],
                 'teaser_title' => 'Beispiel-Sites für bezahlte Veröffentlichungen',
                 'teaser_subtitle' => 'Derselbe Schweiz-Katalog wie bei Gastbeiträgen. Hier zählt die kommerzielle Sprache: Advertorial, Sponsored Content, Werbeartikel.',
                 'intro' => [
                     '„Artikel sponsorieren Schweiz“, „Advertorial kaufen“ und „Medienplatzierung“ beschreiben eine bezahlte Veröffentlichung auf einer Dritt-Site. Bei SEOLinkBuildings ist das kein separates SKU: es ist dieselbe Katalogbestellung, mit Disclosure und Link-Attribut laut Listing.',
-                    'Wir verkaufen kein Ranking und keine APA-OTS-Aussendung. Checkout ist Euro (kein CHF-Wallet, keine erfundene Schweizer MWST-Nummer). HQ bleibt London UK (Topurlz Ltd).',
+                    'Wir verkaufen kein Ranking und keine Agenturmeldung. Checkout ist Euro (kein CHF-Wallet, keine erfundene Schweizer MWST-Nummer). HQ bleibt London UK (Topurlz Ltd).',
                 ],
                 'points' => [
                     [
@@ -261,7 +261,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'h2' => 'Werbeartikel, Native Advertising, Presseportal',
-                        'body' => 'Nutzen Sie diese Labels im Briefing, wenn der Publisher sie verlangt. Der Marktplatz ändert kein SKU. Eine Presseportal- oder OTS-Platzierung gibt es nur, wenn diese Domain im Katalog steht. Vergleich: <a href="'.$blogSponsored.'">Gesponserte Beiträge</a>.',
+                        'body' => 'Nutzen Sie diese Labels im Briefing, wenn der Publisher sie verlangt. Der Marktplatz ändert kein SKU. Eine Presseportal- oder Agenturmeldung gibt es nur, wenn diese Domain im Katalog steht. Vergleich: <a href="'.$blogSponsored.'">Gesponserte Beiträge</a>.',
                     ],
                 ],
                 'faqs' => [
@@ -274,8 +274,8 @@ class SwissMoneyLanders
                         'a' => 'Nur wenn das Listing das zulässt. Viele Publisher kennzeichnen bezahlte Veröffentlichungen.',
                     ],
                     [
-                        'q' => 'Bietet ihr APA-OTS oder Zürcher Tageszeitungen?',
-                        'a' => 'Nur wenn diese Domain im Katalog ist. Wir versprechen kein OTS und kein Google News.',
+                        'q' => 'Bieten Sie Zürcher Tageszeitungen oder eine Agenturmeldung?',
+                        'a' => 'Nur wenn diese Domain im Katalog ist. Wir versprechen keine Agenturmeldung und kein Google News.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Katalog nach Registrierung öffnen', 'url' => $register],
@@ -294,7 +294,7 @@ class SwissMoneyLanders
                 'meta_description' => 'Linkaufbau in der Schweiz: Self-Service-Katalog, DA/DR und Preise in EUR, nachverfolgte Veröffentlichungen. Kein undurchsichtiges Linkbuilding-Paket.',
                 'teaser_countries' => ['ch'],
                 'teaser_title' => 'Inventar für Linkbuilding-Kampagnen',
-                'teaser_subtitle' => 'Beispiel Schweiz-Sites. Für E-Commerce oder andere Nischen filtern Sie nach dem Login — keine Doorway-Landing pro Branche oder Stadt.',
+                'teaser_subtitle' => 'Beispiel Schweiz-Sites. Für E-Commerce oder andere Nischen filtern Sie nach der Anmeldung — keine eigene Seite pro Branche oder Stadt.',
                 'intro' => [
                     '„Linkaufbau Schweiz“, „Linkbuilding-Paket“ und „Zürich SEO Linkbuilding“ sind oft Agenturseiten. SEOLinkBuildings ist eine Plattform: Sie bauen die Kampagne aus dem Katalog, mit einem Wallet für CH, DE, AT und weitere Märkte.',
                     'White Label oder Rechnungen für mehrere Brands: <a href="'.$agencies.'">Linkbuilding für Agenturen</a>.',
@@ -325,7 +325,7 @@ class SwissMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Verkauft ihr Linkbuilding-Pakete?',
+                        'q' => 'Verkaufen Sie Linkbuilding-Pakete?',
                         'a' => 'Nicht als undurchsichtiges SKU. Sie kaufen einzelne Veröffentlichungen. Die nummerierten Pakete auf der Preisseite sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.',
                     ],
                     [
@@ -365,7 +365,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'title' => 'Dofollow nur laut Listing',
-                        'body' => 'Filtern Sie den Linktyp nach dem Login. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
+                        'body' => 'Filtern Sie den Linktyp nach der Anmeldung. „Dofollow Backlinks kaufen“ ersetzt nicht Nische, Sprache und Publikum.',
                     ],
                     [
                         'title' => 'Kein Niche-Edit-SKU',
@@ -388,7 +388,7 @@ class SwissMoneyLanders
                         'a' => 'Sie können Angebote filtern, die das deklarieren. Der Publisher bleibt für das Live-HTML verantwortlich.',
                     ],
                     [
-                        'q' => 'Macht ihr Link-Inserts in bestehende Artikel?',
+                        'q' => 'Machen Sie Link-Inserts in bestehende Artikel?',
                         'a' => 'Nicht als Niche-Edit-SKU. Manche Sites verkaufen ein zeitlich begrenztes Homepage-Extra.',
                     ],
                     [
@@ -407,7 +407,7 @@ class SwissMoneyLanders
             'agenturen' => [
                 'kicker' => 'B2B-Konto',
                 'h1' => 'Linkbuilding für Agenturen in der Schweiz',
-                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen wo das Billing sie ausstellt.',
+                'subtitle' => 'Self-Service-Katalog für SEO-Agenturen, Reseller und Teams, die weiterberechnen. EUR-Wallet, nachverfolgte Aufträge, Rechnungen in der Rechnungsübersicht, soweit das Produkt sie ausstellt.',
                 'meta_title' => 'Linkbuilding für Agenturen in der Schweiz | SEOLinkBuildings',
                 'meta_description' => 'White-Label-Linkbuilding und Gastbeiträge für Agenturen in der Schweiz: EUR-Katalog, Rechnungen, Aufträge pro Brand — ohne gebrandetes Reseller-Frontend.',
                 'teaser_countries' => ['ch'],
@@ -424,11 +424,11 @@ class SwissMoneyLanders
                     ],
                     [
                         'title' => 'Auftrag und Rechnung',
-                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie im Advertiser-Billing herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
+                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie in der Rechnungsübersicht des Advertisers herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
                     ],
                     [
                         'title' => 'Plattform für SEO-Teams',
-                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach dem Login ist für alle Rollen auf Englisch.',
+                        'body' => 'Filter, Metriken, Auftrags-Chat und Live-URL. Das Dashboard nach der Anmeldung ist für alle Rollen auf Englisch.',
                     ],
                 ],
                 'sections' => [
@@ -447,8 +447,8 @@ class SwissMoneyLanders
                         'a' => 'Ja, indem Sie das Konto selbst bedienen. Wir liefern kein gebrandetes White-Label-Portal.',
                     ],
                     [
-                        'q' => 'Stellt ihr Schweizer MWST-Rechnungen aus?',
-                        'a' => 'Das Billing folgt der UK-Gesellschaft (Topurlz Ltd, London). Es gibt keine erfundene Schweizer Niederlassung und keinen CHF-Checkout. Klären Sie MWST mit Ihrer Buchhaltung.',
+                        'q' => 'Stellen Sie Schweizer MWST-Rechnungen aus?',
+                        'a' => 'Die Rechnungsstellung folgt der UK-Gesellschaft (Topurlz Ltd, London). Es gibt keine erfundene Schweizer Niederlassung und keinen CHF-Checkout. Klären Sie MWST mit Ihrer Buchhaltung.',
                     ],
                     [
                         'q' => 'Gibt es eine separate Agentur-Preisliste?',
@@ -466,12 +466,12 @@ class SwissMoneyLanders
             'digital-pr' => [
                 'kicker' => 'Online-Pressearbeit',
                 'h1' => 'Digital PR in der Schweiz: Veröffentlichungen und Erwähnungen',
-                'subtitle' => 'Digital-PR-Kampagnen als Veröffentlichungen auf Sites im Marktplatz, plus gemanagte Pakete in der Preisliste. Kein Google-News-Versprechen, keine erfundenen Brand Mentions, kein APA-OTS-SKU.',
+                'subtitle' => 'Digital-PR-Kampagnen als Veröffentlichungen auf Sites im Marktplatz, plus gemanagte Pakete in der Preisliste. Kein Google-News-Versprechen, keine erfundenen Brand Mentions, keine Agenturmeldung als SKU.',
                 'meta_title' => 'Digital PR in der Schweiz | SEOLinkBuildings',
-                'meta_description' => 'Digital PR und Online-PR in der Schweiz: Veröffentlichungen aus dem Katalog, EUR-Wallet, Live-URL, gemanagte Pakete — ohne News- oder OTS-Garantien.',
+                'meta_description' => 'Digital PR und Online-PR in der Schweiz: Veröffentlichungen aus dem Katalog, EUR-Wallet, Live-URL, gemanagte Pakete — ohne News- oder Agentur-Garantien.',
                 'teaser_countries' => ['ch'],
                 'teaser_title' => 'Schweiz-Sites im Katalog (Vorschau)',
-                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach dem Login.',
+                'teaser_subtitle' => 'Manche Publisher ähneln einem Media-Kit; nicht alle sind Nachrichtenportale. Nische und Sprache filtern Sie nach der Anmeldung.',
                 'intro' => [
                     '„Digital PR Schweiz“, „Online PR Zürich“ und „Brand Mentions Schweiz“ mischen PR und Linkbuilding. Hier kaufen Sie Veröffentlichungen auf Sites, die wirklich im Katalog stehen. Fehlt eine Domain, verkaufen wir sie nicht.',
                     'Gemanagte Digital-PR-Pakete (Beträge auf der Preisseite, aktuell ab 499 €/Monat für den Basisplan, sofern noch gelistet) sind Outreach durch das Team, kein Button „erscheinen Sie in einer Zürcher Tageszeitung“.',
@@ -479,7 +479,7 @@ class SwissMoneyLanders
                 'points' => [
                     [
                         'title' => 'Medien nur wenn sie im Katalog sind',
-                        'body' => 'Wir haben keinen Google-News-Kanal und kein OTS-Kontingent. Ein News-Gastbeitrag existiert nur, wenn diese Site ein Listing ist und das Briefing akzeptiert.',
+                        'body' => 'Wir haben keinen Google-News-Kanal und kein Kontingent bei einer Nachrichtenagentur. Ein News-Gastbeitrag existiert nur, wenn diese Site ein Listing ist und das Briefing akzeptiert.',
                     ],
                     [
                         'title' => 'Brand Mentions',
@@ -502,7 +502,7 @@ class SwissMoneyLanders
                 ],
                 'faqs' => [
                     [
-                        'q' => 'Publiziert ihr bei Google News oder APA OTS?',
+                        'q' => 'Publizieren Sie bei Google News oder über eine Agenturmeldung?',
                         'a' => 'Nein als Produkt. Steht eine Katalog-Site in News oder in einem Aussendungsdienst, hängt das vom Publisher ab, nicht von uns.',
                     ],
                     [

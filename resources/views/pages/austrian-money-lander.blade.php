@@ -92,7 +92,7 @@
                     <div class="h-100 p-4 rounded-4 bg-white border">
                         <div class="small text-muted mb-1">Ab</div>
                         <div class="h3 mb-0" style="color:#1a585e;">€{{ number_format((float) $priceFrom, 0) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Niedrigster Checkout-Preis auf geprüften, aktiven Österreich-Listings in diesem Moment. Kein festes Listino.</p>
+                        <p class="small text-muted mb-0 mt-2">Niedrigster Checkout-Preis auf geprüften, aktiven Österreich-Listings in diesem Moment. Keine feste Preisliste.</p>
                     </div>
                 </div>
             @endif

@@ -94,21 +94,21 @@
             ])
         </div>
     @endif
-    @if (function_exists('public_locale') && public_locale() === 'ch' && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+    @if (function_exists('public_locale') && public_locale() === 'pt' && class_exists(\App\Support\PortugueseMoneyLanders::class) && method_exists(\App\Support\PortugueseMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="container py-4">
             @include('components.italian-seo-cluster-nav', [
-                'links' => \App\Support\SwissMoneyLanders::clusterLinks('home'),
+                'links' => \App\Support\PortugueseMoneyLanders::clusterLinks('home'),
                 'current' => 'home',
-                'title' => 'Seiten für Gastbeiträge, Backlinks und Linkbuilding in der Schweiz',
+                'title' => 'Páginas de guest posts, backlinks e link building em Portugal',
             ])
         </div>
     @endif
-    @if (function_exists('public_locale') && public_locale() === 'es' && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+    @if (function_exists('public_locale') && public_locale() === 'ro' && class_exists(\App\Support\RomanianMoneyLanders::class) && method_exists(\App\Support\RomanianMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="container py-4">
             @include('components.italian-seo-cluster-nav', [
-                'links' => \App\Support\SpanishMoneyLanders::clusterLinks('home'),
+                'links' => \App\Support\RomanianMoneyLanders::clusterLinks('home'),
                 'current' => 'home',
-                'title' => 'Páginas para guest posts, backlinks y link building en España',
+                'title' => 'Pagini de guest post, backlinkuri și link building în România',
             ])
         </div>
     @endif

@@ -128,8 +128,13 @@ class GermanMoneyLanderTest extends TestCase
 
                 continue;
             }
-            if ($locale === 'es') {
-                $this->get('/es/digital-pr')->assertOk();
+            if ($locale === 'pt') {
+                $this->get('/pt/digital-pr')->assertOk();
+
+                continue;
+            }
+            if ($locale === 'ro') {
+                $this->get('/ro/digital-pr')->assertOk();
 
                 continue;
             }

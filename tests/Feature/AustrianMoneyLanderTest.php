@@ -172,7 +172,7 @@ class AustrianMoneyLanderTest extends TestCase
     {
         $this->assertSame(['de'], GermanMoneyLanders::copyRedirectLocales());
         $this->assertSame(['at'], AustrianMoneyLanders::copyRedirectLocales());
-        $this->assertSame(['it', 'de', 'at', 'ch', 'es'], PublicI18n::moneyLanderLocales('digital-pr'));
+        $this->assertSame(['it', 'de', 'at', 'ch', 'es', 'ro'], PublicI18n::moneyLanderLocales('digital-pr'));
         $this->assertSame('it', PublicI18n::moneyLanderXDefault('digital-pr'));
         $this->assertSame(['de', 'at', 'ch'], PublicI18n::moneyLanderLocales('gastbeitrag-kaufen'));
         $this->assertSame('de', PublicI18n::moneyLanderXDefault('gastbeitrag-kaufen'));
