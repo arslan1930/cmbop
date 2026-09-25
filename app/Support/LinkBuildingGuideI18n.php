@@ -17,7 +17,7 @@ class LinkBuildingGuideI18n
                 'title' => 'Linkaufbau-Strategien: wie Linkbuilding in der Praxis funktioniert',
                 'slug' => 'linkaufbau-strategien',
                 'excerpt' => 'Linkaufbau-Strategien: wie Suchmaschinen Links lesen, welche Taktiken tragen, wie Sie messen — und was Sie lassen. Inklusive Gastbeiträge und Digital PR.',
-                'meta_title' => 'Linkaufbau-Strategien: praktische SEO-Taktik',
+                'meta_title' => 'Linkaufbau-Strategien: praktische SEO-Taktik im Überblick',
                 'meta_description' => 'Wie funktioniert Linkbuilding: Linktypen, Content und PR, Gastbeiträge, Outreach, Anker, Messung und riskante Taktiken, die Sie lassen.',
                 'content' => self::de(),
             ],

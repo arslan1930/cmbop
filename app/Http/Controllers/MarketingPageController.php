@@ -14,6 +14,7 @@ use App\Support\CountryLander;
 use App\Support\DutchMoneyLanders;
 use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
+use App\Support\MoneyLanderCatalog;
 use App\Support\PortugueseMoneyLanders;
 use App\Support\RomanianMoneyLanders;
 use App\Support\SpanishMoneyLanders;
@@ -227,36 +228,6 @@ class MarketingPageController extends Controller
         ]);
     }
 
-    public function dutchMoneyLander(string $slug)
-    {
-        abort_unless(class_exists(DutchMoneyLanders::class), 404);
-        abort_unless(view()->exists('pages.dutch-money-lander'), 404);
-
-        $page = DutchMoneyLanders::find($slug);
-        abort_unless(is_array($page), 404);
-
-        $codes = array_values(array_filter(array_map(
-            static fn ($code) => strtolower(trim((string) $code)),
-            $page['teaser_countries'] ?? ['nl']
-        )));
-        if ($codes === []) {
-            $codes = ['nl'];
-        }
-
-        $teasers = $this->catalogTeaserService();
-
-        return view('pages.dutch-money-lander', [
-            'slug' => $slug,
-            'page' => $page,
-            'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
-            'siteCount' => $teasers?->countForCountries($codes),
-            'priceFrom' => $teasers?->priceFromForCountries($codes),
-            'cluster' => method_exists(DutchMoneyLanders::class, 'clusterLinks')
-                ? DutchMoneyLanders::clusterLinks($slug)
-                : [],
-        ]);
-    }
-
     public function swissMoneyLander(string $slug)
     {
         abort_unless(class_exists(SwissMoneyLanders::class), 404);
@@ -313,6 +284,44 @@ class MarketingPageController extends Controller
             'priceFrom' => $teasers?->priceFromForCountries($codes),
             'cluster' => method_exists(SpanishMoneyLanders::class, 'clusterLinks')
                 ? SpanishMoneyLanders::clusterLinks($slug)
+                : [],
+        ]);
+    }
+
+    public function nordicCeeMoneyLander(string $slug, ?string $landerLocale = null)
+    {
+        abort_unless(class_exists(MoneyLanderCatalog::class), 404);
+        abort_unless(view()->exists('pages.money-lander'), 404);
+
+        $locale = strtolower(trim((string) $landerLocale));
+        abort_unless(in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true), 404);
+
+        $class = MoneyLanderCatalog::classFor($locale);
+        abort_unless(is_string($class) && class_exists($class) && method_exists($class, 'find'), 404);
+
+        $page = $class::find($slug);
+        abort_unless(is_array($page), 404);
+
+        $codes = array_values(array_filter(array_map(
+            static fn ($code) => strtolower(trim((string) $code)),
+            $page['teaser_countries'] ?? [$locale]
+        )));
+        if ($codes === []) {
+            $codes = [$locale];
+        }
+
+        $teasers = $this->catalogTeaserService();
+
+        return view('pages.money-lander', [
+            'slug' => $slug,
+            'landerLocale' => $locale,
+            'page' => $page,
+            'ui' => method_exists($class, 'ui') ? $class::ui() : [],
+            'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
+            'siteCount' => $teasers?->countForCountries($codes),
+            'priceFrom' => $teasers?->priceFromForCountries($codes),
+            'cluster' => method_exists($class, 'clusterLinks')
+                ? $class::clusterLinks($slug)
                 : [],
         ]);
     }

@@ -130,12 +130,35 @@
             ])
         </div>
     @endif
-    @if (function_exists('public_locale') && public_locale() === 'nl' && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+    @if (function_exists('public_locale') && public_locale() === 'ch' && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="container py-4">
             @include('components.italian-seo-cluster-nav', [
-                'links' => \App\Support\DutchMoneyLanders::clusterLinks('home'),
+                'links' => \App\Support\SwissMoneyLanders::clusterLinks('home'),
                 'current' => 'home',
-                'title' => 'Pagina’s over gastblogs, backlinks en linkbuilding in Nederland',
+                'title' => 'Seiten für Gastbeiträge, Backlinks und Linkbuilding in der Schweiz',
+            ])
+        </div>
+    @endif
+    @if (function_exists('public_locale') && public_locale() === 'es' && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\SpanishMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Páginas de guest posts, backlinks y link building en España',
+            ])
+        </div>
+    @endif
+    @php
+        $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
+            ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
+            : null;
+    @endphp
+    @if($nordicChrome && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => $nordicChrome['home_links'],
+                'current' => 'home',
+                'title' => $nordicChrome['cluster_title'] ?? '',
             ])
         </div>
     @endif

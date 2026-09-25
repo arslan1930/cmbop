@@ -18,7 +18,7 @@ class PolishLocaleTest extends TestCase
         $this->assertStringContainsString('lang="pl-PL"', $html);
         $this->assertStringContainsString('hreflang="pl-PL"', $html);
         $this->assertStringContainsString('Polski', $html);
-        $this->assertStringContainsString('Rynek artykułów gościnnych', $html);
+        $this->assertStringContainsString('Rynek wpisów gościnnych', $html);
         $this->assertStringContainsString('navbar-lang-menu', $html);
         $this->assertStringContainsString('max-height: min(70vh, 28rem)', $html);
 

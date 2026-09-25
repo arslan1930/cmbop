@@ -105,8 +105,8 @@
     @endif
     @if(function_exists('public_locale') && public_locale() === 'es' && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
-            <h2 class="h4 mb-3" style="color:#1a585e;">Catálogo de medios y publishers en España</h2>
-            <p class="text-muted">Esta es la lista pública de publishers en España: nicho, idioma, DA/DR y precio en euro. No indexamos cada combinación de filtro ni landings de ciudad (Madrid y Barcelona no tienen URL propia). El catálogo completo, con dominios, se abre después del registro.</p>
+            <h2 class="h4 mb-3" style="color:#1a585e;">Medios y publishers en España</h2>
+            <p class="text-muted">Esta es la lista pública de publishers en España: nicho, idioma, DA/DR y precio en euros. No indexamos cada combinación de filtro ni landings de ciudad (Madrid y Barcelona no tienen URL propia). El catálogo completo, con dominios, se abre tras el registro.</p>
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\SpanishMoneyLanders::clusterLinks('mercado'),
                 'current' => 'mercado',
@@ -115,7 +115,7 @@
             <p class="small mb-0">
                 <a href="{{ url('/es/comprar-guest-post') }}">Comprar guest post</a>
                 · <a href="{{ url('/es/comprar-backlinks') }}">Comprar backlinks</a>
-                · <a href="{{ localized_url('pricing') }}">Qué cuesta un guest post en España</a>
+                · <a href="{{ localized_url('pricing') }}">Qué cuesta un guest post</a>
                 · <a href="{{ url('/guest-posts-spain') }}">Spain inventory (English)</a>
             </p>
         </div>
@@ -123,7 +123,7 @@
     @if(function_exists('public_locale') && public_locale() === 'pt' && class_exists(\App\Support\PortugueseMoneyLanders::class) && method_exists(\App\Support\PortugueseMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
             <h2 class="h4 mb-3" style="color:#1a585e;">Catálogo de meios e publishers em Portugal</h2>
-            <p class="text-muted">Esta é a lista pública de publishers em Portugal: nicho, língua, DA/DR e preço em euro. Não indexamos cada combinação de filtro nem landings de cidade (Lisboa e Porto não têm URL próprio). O catálogo completo, com domínios, abre-se após o registo.</p>
+            <p class="text-muted">Esta é a lista pública de publishers em Portugal: nicho, língua, DA/DR e preço em euros. Não indexamos cada combinação de filtro nem landings de cidade (Lisboa e Porto não têm URL próprio). O catálogo completo, com domínios, abre-se após o registo.</p>
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\PortugueseMoneyLanders::clusterLinks('marketplace'),
                 'current' => 'marketplace',
@@ -154,34 +154,29 @@
             </p>
         </div>
     @endif
-    @if(function_exists('public_locale') && public_locale() === 'nl' && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+    @php
+        $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
+            ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
+            : null;
+        $nordicMarket = is_array($nordicChrome['marketplace'] ?? null) ? $nordicChrome['marketplace'] : null;
+    @endphp
+    @if($nordicChrome && $nordicMarket && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
-            <h2 class="h4 mb-3" style="color:#1a585e;">Catalogus van publishers in Nederland</h2>
-            <p class="text-muted">Dit is de publieke lijst publishers in Nederland: niche, taal, DA/DR en prijs in euro. We indexeren niet elke filtercombinatie en steden (Amsterdam, Rotterdam) hebben geen eigen URL. De volledige catalogus, met domeinen, opent na registratie.</p>
+            <h2 class="h4 mb-3" style="color:#1a585e;">{{ $nordicMarket['h2'] }}</h2>
+            <p class="text-muted">{!! $nordicMarket['body'] !!}</p>
             @include('components.italian-seo-cluster-nav', [
-                'links' => \App\Support\DutchMoneyLanders::clusterLinks('marktplaats'),
-                'current' => 'marktplaats',
-                'title' => 'Gerelateerde pagina’s',
+                'links' => $nordicChrome['marketplace_links'],
+                'title' => $nordicChrome['cluster_title'] ?? '',
             ])
-            <p class="small mb-0">
-                <a href="{{ url('/nl/gastblog-kopen') }}">Gastblog kopen in Nederland</a>
-                · <a href="{{ url('/nl/backlinks-kopen') }}">Backlinks kopen</a>
-                · <a href="{{ localized_url('pricing') }}">Wat kost een gastblog in Nederland</a>
-                · <a href="{{ url('/guest-posts-netherlands') }}">Netherlands inventory (English)</a>
-            </p>
+            @if(!empty($nordicMarket['links']))
+                <p class="small mb-0">{!! $nordicMarket['links'] !!}</p>
+            @endif
         </div>
     @endif
-    @if(function_exists('public_locale') && public_locale() === 'nl')
-        <p class="text-center small mt-2 mb-0">
-            <a href="{{ url('/guest-post-prices-europe') }}">Europees prijsindex guest posts</a>
-            — mediane adverteerdersprijzen per Europees publisherland (Engelse pagina).
-        </p>
-    @else
-        <p class="text-center small mt-2 mb-0">
-            <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
-            — median advertiser prices by European publisher country.
-        </p>
-    @endif
+    <p class="text-center small mt-2 mb-0">
+        <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
+        — median advertiser prices by European publisher country.
+    </p>
 
     @if(view()->exists('components.country-lander-nav'))
         @include('components.country-lander-nav', [

@@ -51,9 +51,9 @@ class SpanishMoneyLanderTest extends TestCase
     public function test_spain_owns_unique_slugs_and_shares_digital_pr(): void
     {
         $this->get('/es/comprar-guest-post')->assertOk();
-        $this->get('/comprar-guest-post')->assertRedirect('/es/comprar-guest-post');
-        $this->get('/fr/comprar-guest-post')->assertRedirect('/es/comprar-guest-post');
-        $this->get('/it/comprar-guest-post')->assertRedirect('/es/comprar-guest-post');
+        $this->get('/pt/comprar-guest-post')->assertOk();
+        $this->get('/comprar-guest-post')->assertRedirect('/pt/comprar-guest-post');
+        $this->get('/fr/comprar-guest-post')->assertRedirect('/pt/comprar-guest-post');
 
         $this->get('/es/digital-pr')->assertOk();
         $this->get('/it/digital-pr')->assertOk();
@@ -164,10 +164,10 @@ class SpanishMoneyLanderTest extends TestCase
         $this->assertSame(['es'], PublicI18n::catalogTeaserCountries('es'));
         $this->assertContains('es', PublicI18n::moneyLanderLocales('comprar-guest-post'));
         $this->assertContains('pt', PublicI18n::moneyLanderLocales('comprar-guest-post'));
-        $this->assertSame('es', PublicI18n::moneyLanderXDefault('comprar-guest-post'));
-        $digitalPr = PublicI18n::moneyLanderLocales('digital-pr');
-        $this->assertContains('it', $digitalPr);
-        $this->assertContains('nl', $digitalPr);
+        $this->assertSame('pt', PublicI18n::moneyLanderXDefault('comprar-guest-post'));
+        foreach (['it', 'de', 'at', 'pt', 'ro', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl'] as $code) {
+            $this->assertContains($code, PublicI18n::moneyLanderLocales('digital-pr'));
+        }
         $this->assertSame('it', PublicI18n::moneyLanderXDefault('digital-pr'));
     }
 

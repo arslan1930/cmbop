@@ -45,8 +45,9 @@ class HomepageFirstImpressionTest extends TestCase
         $this->assertStringNotContainsString('dashboard.png', $html);
         $this->assertStringContainsString('logo1-hero.webp', $html);
         $this->assertStringContainsString('rel="preload"', $html);
-        $this->assertStringContainsString('decoding="sync"', $html);
-        $this->assertStringNotContainsString('class="slb-hero-mark"', strstr($html, 'decoding="async"') ?: '');
+        $this->assertSame(1, preg_match('/<img\b[^>]*\bclass="slb-hero-mark"[^>]*>/s', $html, $heroMark));
+        $this->assertStringContainsString('decoding="sync"', $heroMark[0]);
+        $this->assertStringNotContainsString('decoding="async"', $heroMark[0]);
     }
 
     public function test_managed_package_ctas_point_to_contact(): void

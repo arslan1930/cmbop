@@ -332,7 +332,7 @@ class PublicI18nTest extends TestCase
             ->assertOk()
             ->assertSee('Iniciar sesión', false)
             ->assertSee('Registrarse', false)
-            ->assertSee('Un marketplace pensado para publicaciones', false)
+            ->assertSee('Marketplace de guest posts, backlinks y link building para España.', false)
             ->assertSee('Cómo funciona', false);
 
         $this->get('/it')

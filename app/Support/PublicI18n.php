@@ -222,6 +222,19 @@ class PublicI18n
         }
 
         $locales = [];
+        if (class_exists(MoneyLanderCatalog::class) && method_exists(MoneyLanderCatalog::class, 'classes')) {
+            foreach (MoneyLanderCatalog::classes() as $locale => $class) {
+                if (! is_string($locale) || ! is_string($class)) {
+                    continue;
+                }
+                if (method_exists($class, 'isSlug') && $class::isSlug($slug)) {
+                    $locales[] = $locale;
+                }
+            }
+
+            return array_values(array_unique($locales));
+        }
+
         if (class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isSlug($slug)) {
             $locales[] = 'it';
         }
@@ -256,26 +269,10 @@ class PublicI18n
     public static function moneyLanderXDefault(string $slug): string
     {
         $locales = self::moneyLanderLocales($slug);
-        if (in_array('it', $locales, true)) {
-            return 'it';
-        }
-        if (in_array('de', $locales, true)) {
-            return 'de';
-        }
-        if (in_array('at', $locales, true)) {
-            return 'at';
-        }
-        if (in_array('ch', $locales, true)) {
-            return 'ch';
-        }
-        if (in_array('es', $locales, true)) {
-            return 'es';
-        }
-        if (in_array('pt', $locales, true)) {
-            return 'pt';
-        }
-        if (in_array('ro', $locales, true)) {
-            return 'ro';
+        foreach (['it', 'de', 'at', 'pt', 'ro', 'dk', 'se', 'no', 'bg', 'ee', 'hu', 'pl'] as $preferred) {
+            if (in_array($preferred, $locales, true)) {
+                return $preferred;
+            }
         }
         if (in_array('fr', $locales, true)) {
             return 'fr';
@@ -284,7 +281,7 @@ class PublicI18n
             return 'nl';
         }
 
-        return self::default();
+        return $locales[0] ?? self::default();
     }
 
     /**
@@ -534,6 +531,14 @@ class PublicI18n
             return true;
         }
 
+        if (class_exists(MoneyLanderCatalog::class) && method_exists(MoneyLanderCatalog::class, 'classes')) {
+            foreach (MoneyLanderCatalog::classes() as $class) {
+                if (is_string($class) && method_exists($class, 'isPublicSegment') && $class::isPublicSegment($first)) {
+                    return true;
+                }
+            }
+        }
+
         if (class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isPublicSegment($first)) {
             return true;
         }
@@ -628,6 +633,13 @@ class PublicI18n
                 $moneyUrl = self::moneyLanderUrl($first, $targetLocale);
                 if (is_string($moneyUrl) && $moneyUrl !== '') {
                     return $moneyUrl;
+                }
+            }
+
+            if (class_exists(MoneyLanderCatalog::class) && method_exists(MoneyLanderCatalog::class, 'classFor')) {
+                $targetClass = MoneyLanderCatalog::classFor($targetLocale);
+                if (is_string($targetClass) && method_exists($targetClass, 'isSlug') && $targetClass::isSlug($first)) {
+                    return url('/'.$targetLocale.'/'.$first);
                 }
             }
 
