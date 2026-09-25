@@ -132,14 +132,42 @@ class PublicI18nLocaleMapTest extends TestCase
         $this->assertNull(PublicI18n::localeForCountry('CA'));
     }
 
-    public function test_unprefixed_home_follows_the_visitor_country(): void
+    public function test_default_homepage_stays_uk_english_when_visitor_is_abroad(): void
     {
         config(['fx.fake_country' => 'US', 'fx.force_display' => '']);
-        $request = Request::create('http://localhost/', 'GET');
+        $home = (new SetLocale)->handle(Request::create('http://localhost/', 'GET'), fn () => response('ok'));
+        $this->assertSame(200, $home->getStatusCode());
+
+        $market = (new SetLocale)->handle(Request::create('http://localhost/marketplace', 'GET'), fn () => response('ok'));
+        $this->assertSame(302, $market->getStatusCode());
+        $this->assertStringEndsWith('/us/marketplace', (string) $market->headers->get('Location'));
+    }
+
+    public function test_uk_switcher_query_overrides_us_cookie(): void
+    {
+        $home = Request::create('http://localhost/', 'GET');
+        $home->cookies->set(config('i18n.cookie', 'public_locale'), 'us');
+        $homeResponse = (new SetLocale)->handle($home, fn () => response('ok'));
+        $this->assertSame(200, $homeResponse->getStatusCode());
+
+        $request = Request::create('http://localhost/?locale=en', 'GET');
+        $request->cookies->set(config('i18n.cookie', 'public_locale'), 'us');
         $response = (new SetLocale)->handle($request, fn () => response('ok'));
 
         $this->assertSame(302, $response->getStatusCode());
-        $this->assertStringEndsWith('/us', (string) $response->headers->get('Location'));
+        $homeLocation = (string) $response->headers->get('Location');
+        $this->assertSame('/', rtrim((string) parse_url($homeLocation, PHP_URL_PATH), '/') ?: '/');
+        $this->assertNull(parse_url($homeLocation, PHP_URL_QUERY));
+        $this->assertTrue($response->headers->has('Set-Cookie'));
+        $this->assertStringContainsString('public_locale', (string) $response->headers->get('Set-Cookie'));
+
+        $market = Request::create('http://localhost/marketplace?locale=en', 'GET');
+        $market->cookies->set(config('i18n.cookie', 'public_locale'), 'us');
+        $marketResponse = (new SetLocale)->handle($market, fn () => response('ok'));
+        $this->assertSame(302, $marketResponse->getStatusCode());
+        $marketLocation = (string) $marketResponse->headers->get('Location');
+        $this->assertSame('/marketplace', parse_url($marketLocation, PHP_URL_PATH));
+        $this->assertNull(parse_url($marketLocation, PHP_URL_QUERY));
     }
 
     public function test_uk_and_signed_in_app_stay_on_the_english_url(): void
