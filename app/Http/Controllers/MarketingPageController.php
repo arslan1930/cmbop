@@ -12,6 +12,7 @@ use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
 use App\Support\GermanMoneyLanders;
+use App\Support\IrishMoneyLanders;
 use App\Support\ItalianMoneyLanders;
 use App\Support\MoneyLanderCatalog;
 use App\Support\PortugueseMoneyLanders;
@@ -293,7 +294,10 @@ class MarketingPageController extends Controller
         abort_unless(view()->exists('pages.money-lander'), 404);
 
         $locale = strtolower(trim((string) $landerLocale));
-        abort_unless(in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true), 404);
+        $allowed = method_exists(MoneyLanderCatalog::class, 'chromeLocales')
+            ? MoneyLanderCatalog::chromeLocales()
+            : MoneyLanderCatalog::nordicCeeLocales();
+        abort_unless(in_array($locale, $allowed, true), 404);
 
         $class = MoneyLanderCatalog::classFor($locale);
         abort_unless(is_string($class) && class_exists($class) && method_exists($class, 'find'), 404);
@@ -321,6 +325,38 @@ class MarketingPageController extends Controller
             'priceFrom' => $teasers?->priceFromForCountries($codes),
             'cluster' => method_exists($class, 'clusterLinks')
                 ? $class::clusterLinks($slug)
+                : [],
+        ]);
+    }
+
+    public function irishMoneyLander(string $slug, ?string $landerLocale = null)
+    {
+        abort_unless(class_exists(IrishMoneyLanders::class), 404);
+        abort_unless(view()->exists('pages.money-lander'), 404);
+
+        $page = IrishMoneyLanders::find($slug);
+        abort_unless(is_array($page), 404);
+
+        $codes = array_values(array_filter(array_map(
+            static fn ($code) => strtolower(trim((string) $code)),
+            $page['teaser_countries'] ?? ['ie']
+        )));
+        if ($codes === []) {
+            $codes = ['ie'];
+        }
+
+        $teasers = $this->catalogTeaserService();
+
+        return view('pages.money-lander', [
+            'slug' => $slug,
+            'landerLocale' => 'uk',
+            'page' => $page,
+            'ui' => method_exists(IrishMoneyLanders::class, 'ui') ? IrishMoneyLanders::ui() : [],
+            'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
+            'siteCount' => $teasers?->countForCountries($codes),
+            'priceFrom' => $teasers?->priceFromForCountries($codes),
+            'cluster' => method_exists(IrishMoneyLanders::class, 'clusterLinks')
+                ? IrishMoneyLanders::clusterLinks($slug)
                 : [],
         ]);
     }

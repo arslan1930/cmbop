@@ -9,6 +9,7 @@ use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
 use App\Support\GermanMoneyLanders;
+use App\Support\IrishMoneyLanders;
 use App\Support\ItalianMoneyLanders;
 use App\Support\MoneyLanderCatalog;
 use App\Support\PortugueseMoneyLanders;
@@ -124,6 +125,16 @@ class SitemapController extends Controller
         }
 
         if (class_exists(MoneyLanderCatalog::class)
+            && method_exists(MoneyLanderCatalog::class, 'chromeLocales')
+            && in_array($locale, MoneyLanderCatalog::chromeLocales(), true)) {
+            $class = MoneyLanderCatalog::classFor($locale);
+            if (is_string($class) && class_exists($class) && method_exists($class, 'slugs')) {
+                foreach ($class::slugs() as $slug) {
+                    [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, [$locale]);
+                    $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+                }
+            }
+        } elseif (class_exists(MoneyLanderCatalog::class)
             && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
             && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)) {
             $class = MoneyLanderCatalog::classFor($locale);
@@ -132,6 +143,13 @@ class SitemapController extends Controller
                     [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, [$locale]);
                     $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
                 }
+            }
+        }
+
+        if ($locale === $this->defaultLocale() && class_exists(IrishMoneyLanders::class) && method_exists(IrishMoneyLanders::class, 'slugs')) {
+            foreach (IrishMoneyLanders::slugs() as $slug) {
+                $path = 'uk/'.$slug;
+                $urls[] = $this->urlEntry($path, $locale, 'weekly', '0.85', ['en'], ['en' => $path]);
             }
         }
 

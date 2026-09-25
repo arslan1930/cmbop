@@ -67,7 +67,7 @@ class PublicI18n
     {
         return self::configuredLocales('supported', [
             'en', 'de', 'fr', 'nl', 'es', 'it', 'pt', 'us',
-            'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
+            'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl', 'be',
         ]);
     }
 
@@ -75,7 +75,7 @@ class PublicI18n
     {
         return self::configuredLocales('prefixed', [
             'de', 'fr', 'nl', 'es', 'it', 'pt', 'us',
-            'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
+            'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl', 'be',
         ]);
     }
 
@@ -131,6 +131,8 @@ class PublicI18n
             'ee' => 'et-EE',
             'pl' => 'pl-PL',
             'pt' => 'pt-PT',
+            'be' => 'nl-BE',
+            'uk' => 'en-GB',
             default => $locale,
         };
     }
@@ -167,6 +169,8 @@ class PublicI18n
             'hu' => 'hu_HU',
             'ee' => 'et_EE',
             'pl' => 'pl_PL',
+            'be' => 'nl_BE',
+            'uk' => 'en_GB',
             default => $locale.'_'.strtoupper($locale),
         };
     }
@@ -204,6 +208,7 @@ class PublicI18n
             'pl' => ['pl'],
             'it' => ['it'],
             'pt' => ['pt'],
+            'be' => ['be'],
             default => ['de'],
         };
     }
@@ -218,6 +223,10 @@ class PublicI18n
         $slug = trim($slug, '/');
         if ($slug === '') {
             return [];
+        }
+
+        if (class_exists(IrishMoneyLanders::class) && method_exists(IrishMoneyLanders::class, 'isSlug') && IrishMoneyLanders::isSlug($slug)) {
+            return ['en'];
         }
 
         $locales = [];
@@ -255,6 +264,9 @@ class PublicI18n
         if (class_exists(RomanianMoneyLanders::class) && RomanianMoneyLanders::isSlug($slug)) {
             $locales[] = 'ro';
         }
+        if (class_exists(BelgianMoneyLanders::class) && BelgianMoneyLanders::isSlug($slug)) {
+            $locales[] = 'be';
+        }
 
         return $locales;
     }
@@ -276,6 +288,11 @@ class PublicI18n
      */
     public static function moneyLanderPathByLocale(string $slug): array
     {
+        $slug = trim($slug, '/');
+        if (class_exists(IrishMoneyLanders::class) && method_exists(IrishMoneyLanders::class, 'isSlug') && IrishMoneyLanders::isSlug($slug)) {
+            return ['en' => 'uk/'.$slug];
+        }
+
         $paths = [];
         foreach (self::moneyLanderLocales($slug) as $locale) {
             $paths[$locale] = trim($slug, '/');
@@ -288,7 +305,15 @@ class PublicI18n
     {
         $slug = trim($slug, '/');
         $locale = strtolower(trim($locale));
-        if ($slug === '' || ! in_array($locale, self::moneyLanderLocales($slug), true)) {
+        if ($slug === '') {
+            return null;
+        }
+
+        if (class_exists(IrishMoneyLanders::class) && method_exists(IrishMoneyLanders::class, 'isSlug') && IrishMoneyLanders::isSlug($slug)) {
+            return in_array($locale, ['en', 'uk'], true) ? url('/uk/'.$slug) : null;
+        }
+
+        if (! in_array($locale, self::moneyLanderLocales($slug), true)) {
             return null;
         }
 
@@ -315,6 +340,8 @@ class PublicI18n
             'en-uk' => 'en',
             'eng' => 'en',
             'uk' => 'en',
+            'nl-be' => 'be',
+            'fr-be' => 'be',
             'es-es' => 'es',
             'es-mx' => 'es',
             'es-ar' => 'es',
@@ -390,6 +417,18 @@ class PublicI18n
     {
         $segments = $request->segments();
         $locale = null;
+
+        if (
+            ! empty($segments)
+            && strtolower((string) $segments[0]) === 'uk'
+            && class_exists(IrishMoneyLanders::class)
+            && method_exists(IrishMoneyLanders::class, 'isPublicSegment')
+            && IrishMoneyLanders::isPublicSegment((string) ($segments[1] ?? ''))
+        ) {
+            array_shift($segments);
+
+            return [null, array_values($segments)];
+        }
 
         if (! empty($segments) && self::isPrefixed($segments[0])) {
             $locale = $segments[0];
@@ -551,6 +590,14 @@ class PublicI18n
         }
 
         if (class_exists(RomanianMoneyLanders::class) && RomanianMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(BelgianMoneyLanders::class) && BelgianMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(IrishMoneyLanders::class) && IrishMoneyLanders::isPublicSegment($first)) {
             return true;
         }
 

@@ -19,10 +19,14 @@ class PublicI18nLocaleMapTest extends TestCase
         $this->assertStringContainsString('ro', PublicI18n::prefixedPattern());
         $this->assertStringContainsString('pl', PublicI18n::prefixedPattern());
         $this->assertStringContainsString('pl', PublicI18n::supportedPattern());
+        $this->assertStringContainsString('be', PublicI18n::prefixedPattern());
+        $this->assertStringContainsString('be', PublicI18n::supportedPattern());
         $this->assertStringContainsString('en', PublicI18n::supportedPattern());
         $this->assertFalse(PublicI18n::isPrefixed('en'));
+        $this->assertFalse(PublicI18n::isPrefixed('uk'));
         $this->assertTrue(PublicI18n::isPrefixed('us'));
         $this->assertTrue(PublicI18n::isPrefixed('ee'));
+        $this->assertTrue(PublicI18n::isPrefixed('be'));
     }
 
     public function test_hreflang_and_og_locale_split_uk_and_us_english(): void
@@ -37,6 +41,8 @@ class PublicI18nLocaleMapTest extends TestCase
         $this->assertSame('sv-SE', PublicI18n::hreflang('se'));
         $this->assertSame('et-EE', PublicI18n::hreflang('ee'));
         $this->assertSame('pl-PL', PublicI18n::hreflang('pl'));
+        $this->assertSame('nl-BE', PublicI18n::hreflang('be'));
+        $this->assertSame('en-GB', PublicI18n::hreflang('uk'));
 
         $this->assertSame('en_GB', PublicI18n::ogLocale('en'));
         $this->assertSame('en_US', PublicI18n::ogLocale('us'));
@@ -65,6 +71,9 @@ class PublicI18nLocaleMapTest extends TestCase
         $this->assertSame('ee', PublicI18n::fromBrowserTag('et-EE'));
         $this->assertSame('pl', PublicI18n::fromBrowserTag('pl-PL'));
         $this->assertSame('pl', PublicI18n::fromBrowserTag('pl'));
+        $this->assertSame('be', PublicI18n::fromBrowserTag('nl-BE'));
+        $this->assertSame('be', PublicI18n::fromBrowserTag('fr-BE'));
+        $this->assertSame('en', PublicI18n::fromBrowserTag('en-IE'));
         $this->assertSame('ro', PublicI18n::fromBrowserTag('ro-RO'));
         $this->assertNull(PublicI18n::fromBrowserTag(''));
         $this->assertNull(PublicI18n::fromBrowserTag('ja-JP'));

@@ -93,6 +93,13 @@
                             <li><a href="{{ $item['url'] }}" class="text-dark text-decoration-none d-block mb-2">{{ $item['label'] }}</a></li>
                         @endforeach
                     @endif
+                    @if(function_exists('public_locale') && public_locale() === 'en' && class_exists(\App\Support\IrishMoneyLanders::class) && method_exists(\App\Support\IrishMoneyLanders::class, 'footerLinks'))
+                        @foreach(\App\Support\IrishMoneyLanders::footerLinks() as $item)
+                            @if(!in_array($item['slug'] ?? '', ['marketplace-ireland', 'pricing-ireland'], true))
+                                <li><a href="{{ $item['url'] }}" class="text-dark text-decoration-none d-block mb-2">{{ $item['label'] }}</a></li>
+                            @endif
+                        @endforeach
+                    @endif
                 </ul>
             </div>
 

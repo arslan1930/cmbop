@@ -173,6 +173,22 @@
             @endif
         </div>
     @endif
+    @if(function_exists('public_locale') && public_locale() === 'en' && class_exists(\App\Support\IrishMoneyLanders::class) && method_exists(\App\Support\IrishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Ireland link building marketplace</h2>
+            <p class="text-muted">This unprefixed catalog page is the UK/global public list. Ireland-primary publishers are a separate country filter after login — and a dedicated lander under the UK locale.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\IrishMoneyLanders::clusterLinks('marketplace-ireland'),
+                'title' => 'Ireland-targeted pages (UK locale)',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/uk/marketplace-ireland') }}">Ireland marketplace</a>
+                · <a href="{{ url('/uk/buy-guest-posts-ireland') }}">Buy guest posts in Ireland</a>
+                · <a href="{{ url('/guest-posts-ireland') }}">Ireland inventory (English)</a>
+                · <a href="{{ url('/guest-posts-uk') }}">UK inventory</a>
+            </p>
+        </div>
+    @endif
     <p class="text-center small mt-2 mb-0">
         <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
         — median advertiser prices by European publisher country.

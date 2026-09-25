@@ -144,6 +144,15 @@
             ])
         </div>
     @endif
+    @if (function_exists('public_locale') && public_locale() === 'en' && class_exists(\App\Support\IrishMoneyLanders::class) && method_exists(\App\Support\IrishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\IrishMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Guest posts, backlinks and link building in Ireland',
+            ])
+        </div>
+    @endif
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')

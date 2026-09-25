@@ -193,4 +193,19 @@
     ])
 </div>
 @endif
+@if(function_exists('public_locale') && public_locale() === 'en' && class_exists(\App\Support\IrishMoneyLanders::class) && method_exists(\App\Support\IrishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Guest post cost in Ireland</h2>
+    <p class="text-muted">UK pricing below is the marketplace model. Ireland-specific search intent (Irish publishers, .ie, Dublin) lives on dedicated UK-locale pages — not a copy of this page with the country name swapped.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\IrishMoneyLanders::clusterLinks('pricing-ireland'),
+        'title' => 'Ireland pricing and related pages',
+    ])
+    <p class="small mb-0">
+        <a href="{{ url('/uk/pricing-ireland') }}">Ireland pricing</a>
+        · <a href="{{ url('/uk/marketplace-ireland') }}">Ireland marketplace</a>
+        · <a href="{{ url('/pricing') }}">UK pricing</a>
+    </p>
+</div>
+@endif
 @endsection

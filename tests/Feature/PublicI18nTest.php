@@ -246,6 +246,8 @@ class PublicI18nTest extends TestCase
         $this->get('/se/pricing')->assertRedirect('/se/priser');
         $this->get('/pl/about')->assertRedirect('/pl/o-nas');
         $this->get('/pl/marketplace')->assertRedirect('/pl/rynek');
+        $this->get('/be/pricing')->assertRedirect('/be/prijzen');
+        $this->get('/be/how-it-works')->assertRedirect('/be/hoe-het-werkt');
     }
 
     public function test_language_switcher_uses_localized_page_paths(): void

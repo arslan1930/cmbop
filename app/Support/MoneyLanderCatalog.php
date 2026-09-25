@@ -29,6 +29,7 @@ class MoneyLanderCatalog
             'ee' => EstonianMoneyLanders::class,
             'hu' => HungarianMoneyLanders::class,
             'pl' => PolishMoneyLanders::class,
+            'be' => BelgianMoneyLanders::class,
         ];
 
         $out = [];
@@ -47,6 +48,19 @@ class MoneyLanderCatalog
     public static function nordicCeeLocales(): array
     {
         return ['dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl'];
+    }
+
+    /**
+     * Locales whose marketplace / pricing / home chrome uses MoneyLanderCatalog::chrome().
+     *
+     * @return list<string>
+     */
+    public static function chromeLocales(): array
+    {
+        return array_values(array_filter(
+            array_merge(self::nordicCeeLocales(), ['be']),
+            static fn (string $locale) => self::classFor($locale) !== null
+        ));
     }
 
     /**
@@ -96,7 +110,7 @@ class MoneyLanderCatalog
     public static function chrome(string $locale): ?array
     {
         $locale = strtolower(trim($locale));
-        if (! in_array($locale, self::nordicCeeLocales(), true)) {
+        if (! in_array($locale, self::chromeLocales(), true)) {
             return null;
         }
 

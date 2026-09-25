@@ -97,6 +97,7 @@ use App\Support\CountryLander;
 use App\Support\EnglishOnlyMarketingSlugs;
 use App\Support\GermanMoneyLanders;
 use App\Support\HttpCron;
+use App\Support\IrishMoneyLanders;
 use App\Support\ItalianMoneyLanders;
 use App\Support\LocalizedPublicPath;
 use App\Support\MoneyLanderCatalog;
@@ -919,6 +920,37 @@ if (class_exists(MoneyLanderCatalog::class)
             $prefixedLocales
         );
     }
+}
+
+if (class_exists(MoneyLanderCatalog::class)
+    && class_exists(MoneyLanderRoutes::class)
+    && method_exists(MoneyLanderCatalog::class, 'classFor')
+    && method_exists(MarketingPageController::class, 'nordicCeeMoneyLander')) {
+    $belgianClass = MoneyLanderCatalog::classFor('be');
+    if (is_string($belgianClass)) {
+        MoneyLanderRoutes::register(
+            'be',
+            $belgianClass,
+            'nordicCeeMoneyLander',
+            $prefixedLocales
+        );
+    }
+}
+
+if (class_exists(IrishMoneyLanders::class)
+    && class_exists(MoneyLanderRoutes::class)
+    && method_exists(MarketingPageController::class, 'irishMoneyLander')) {
+    MoneyLanderRoutes::register(
+        'uk',
+        IrishMoneyLanders::class,
+        'irishMoneyLander',
+        $prefixedLocales
+    );
+    Route::get('/uk', function () {
+        $query = request()->getQueryString();
+
+        return Redirect::to($query ? '/?'.$query : '/', 301);
+    });
 }
 
 // SEO: sitemap index + per-locale sitemaps + robots + llms.txt

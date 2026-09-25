@@ -230,6 +230,20 @@ class LocalizedPublicPath
                 'cookie-policy' => 'polityka-cookies',
                 'refund-policy' => 'zwroty',
             ],
+            'be' => [
+                'about' => 'over-ons',
+                'faq' => 'faq',
+                'pricing' => 'prijzen',
+                'marketplace' => 'marketplace',
+                'how-it-works' => 'hoe-het-werkt',
+                'become-a-publisher' => 'publisher-worden',
+                'why-choose-us' => 'waarom-wij',
+                'contact' => 'contact',
+                'privacy-policy' => 'privacybeleid',
+                'terms-of-services' => 'voorwaarden',
+                'cookie-policy' => 'cookiebeleid',
+                'refund-policy' => 'restitutie',
+            ],
         ];
 
         $maps['at'] = $maps['de'];
