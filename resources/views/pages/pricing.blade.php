@@ -130,9 +130,10 @@
 @endif
 @if(function_exists('public_locale') && public_locale() === 'ch' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks'))
 <div class="container pb-5" style="max-width: 1100px;">
-    <h2 class="h4 mb-3" style="color:#1a585e;">Preise im Katalog, nicht als PDF</h2>
-    <p class="text-muted">Kein festes PDF und keine Phantom-Preisliste: der Preis ist der der Site, in Euro, am Checkout. Kein CHF-Wallet. Die nummerierten Pakete oben sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.</p>
-    <p class="text-muted">Live-Preise sehen Sie im <a href="{{ localized_url('marketplace') }}">Schweizer Katalog</a> nach der Anmeldung. Europäischer Index (englische Seite): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <h2 class="h4 mb-3" style="color:#1a585e;">Was kostet ein Gastbeitrag in der Schweiz</h2>
+    <p class="text-muted">Kein festes PDF und keine CHF-Preisliste: der Preis ist der der Site, in Euro, am Checkout. „Backlinks Preise Schweiz“ und „Linkbuilding-Kosten“ folgen den Listings, die Sie wählen. Die nummerierten Pakete oben sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.</p>
+    <p class="text-muted">Live-Preise sehen Sie im <a href="{{ localized_url('marketplace') }}">Schweizer Katalog</a> nach der Registrierung. Europäischer Index (englische Seite): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <p class="text-muted">Preis prägen Publisher-Autorität, Traffic, Nische, Land (.ch vs. andere), Content-Anforderungen und redaktionelle Prüfung — jeweils laut Listing, nicht als erfundene Schweiz-Durchschnittswerte. Checkout bleibt EUR; es gibt kein CHF-Wallet.</p>
     @include('components.italian-seo-cluster-nav', [
         'links' => \App\Support\SwissMoneyLanders::clusterLinks('preise'),
         'current' => 'preise',
@@ -142,9 +143,10 @@
 @endif
 @if(function_exists('public_locale') && public_locale() === 'es' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks'))
 <div class="container pb-5" style="max-width: 1100px;">
-    <h2 class="h4 mb-3" style="color:#1a585e;">Precios en el catálogo, no en un PDF</h2>
-    <p class="text-muted">No publicamos un PDF fijo ni inventamos un IVA español: el precio es el del sitio, en euros, al pagar. Los paquetes numerados de arriba son campañas de digital PR gestionadas, no un saco de URLs anónimas.</p>
-    <p class="text-muted">Los precios en vigor están en el <a href="{{ localized_url('marketplace') }}">catálogo de España</a>, después del registro. Índice europeo (página en inglés): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <h2 class="h4 mb-3" style="color:#1a585e;">Qué cuesta un guest post en España</h2>
+    <p class="text-muted">No publicamos un PDF fijo ni una tarifa con IVA español inventado: el precio es el del sitio, en euros, en el checkout. «Precio guest post» y «coste linkbuilding» siguen los listings que elija. Los paquetes numerados de arriba son campañas gestionadas de digital PR, no un saco de URLs anónimas.</p>
+    <p class="text-muted">Los precios en vivo están en el <a href="{{ localized_url('marketplace') }}">catálogo de España</a>, después del registro. Índice europeo (página en inglés): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <p class="text-muted">El precio lo marcan autoridad, tráfico, nicho, país, requisitos de contenido y revisión editorial — por listing, no como medias inventadas. La sede es Londres (Topurlz Ltd); no hay CIF español.</p>
     @include('components.italian-seo-cluster-nav', [
         'links' => \App\Support\SpanishMoneyLanders::clusterLinks('precios'),
         'current' => 'precios',
@@ -164,6 +166,30 @@
     ])
 </div>
 @endif
+@if(function_exists('public_locale') && public_locale() === 'ch' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Was kostet ein Gastbeitrag in der Schweiz</h2>
+    <p class="text-muted">Kein festes PDF und keine CHF-Preisliste: der Preis ist der der Site, in Euro, am Checkout. «Backlinks Preise Schweiz» und «Linkbuilding-Kosten» folgen den Listings, die Sie wählen. Die nummerierten Pakete oben sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.</p>
+    <p class="text-muted">Live-Preise sehen Sie im <a href="{{ localized_url('marketplace') }}">schweizerischen Katalog</a> nach der Registrierung. Europäischer Index (englische Seite): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\SwissMoneyLanders::clusterLinks('preise'),
+        'current' => 'preise',
+        'title' => 'Verwandte Seiten',
+    ])
+</div>
+@endif
+@if(function_exists('public_locale') && public_locale() === 'es' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Qué cuesta un guest post en España</h2>
+    <p class="text-muted">No publicamos un PDF fijo ni inventamos un CIF o IVA español: el precio es el del sitio, en euros, en el checkout. «Precio guest post» y «coste link building» siguen los listings que elija. Los paquetes numerados de arriba son campañas de digital PR gestionadas, no un saco de URLs anónimas.</p>
+    <p class="text-muted">Los precios en vivo están en el <a href="{{ localized_url('marketplace') }}">catálogo de España</a> tras el registro. Índice europeo (página en inglés): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\SpanishMoneyLanders::clusterLinks('precios'),
+        'current' => 'precios',
+        'title' => 'Páginas relacionadas',
+    ])
+</div>
+@endif
 @if(function_exists('public_locale') && public_locale() === 'ro' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\RomanianMoneyLanders::class) && method_exists(\App\Support\RomanianMoneyLanders::class, 'clusterLinks'))
 <div class="container pb-5" style="max-width: 1100px;">
     <h2 class="h4 mb-3" style="color:#1a585e;">Cât costă un guest post în România</h2>
@@ -177,16 +203,19 @@
     ])
 </div>
 @endif
-@if(function_exists('public_locale') && public_locale() === 'fr' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\FrenchMoneyLanders::class) && method_exists(\App\Support\FrenchMoneyLanders::class, 'clusterLinks'))
+@php
+    $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
+        ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
+        : null;
+    $nordicPricing = is_array($nordicChrome['pricing'] ?? null) ? $nordicChrome['pricing'] : null;
+@endphp
+@if($nordicChrome && $nordicPricing && view()->exists('components.italian-seo-cluster-nav'))
 <div class="container pb-5" style="max-width: 1100px;">
-    <h2 class="h4 mb-3" style="color:#1a585e;">Prix affichés à la commande</h2>
-    <p class="text-muted">Nous ne publions pas un PDF figé et nous n’inventons pas de TVA française : le prix est celui du site, en euros, à la commande. Le coût du netlinking et le tarif d’un article sponsorisé suivent les fiches que vous choisissez. Les forfaits chiffrés plus haut sont des campagnes de digital PR gérées, pas un sac d’URL anonymes.</p>
-    <p class="text-muted">Les prix en vigueur sont dans le <a href="{{ localized_url('marketplace') }}">catalogue français</a>, après inscription. Index européen (page en anglais) : <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
-    <p class="text-muted">Le prix dépend de l’autorité, du trafic déclaré, de la thématique, du pays, des exigences de contenu et de la relecture — selon la fiche, pas selon des moyennes inventées. Le siège est à Londres (Topurlz Ltd) ; il n’y a pas de SIRET français.</p>
+    <h2 class="h4 mb-3" style="color:#1a585e;">{{ $nordicPricing['h2'] }}</h2>
+    <p class="text-muted">{!! $nordicPricing['body'] !!}</p>
     @include('components.italian-seo-cluster-nav', [
-        'links' => \App\Support\FrenchMoneyLanders::clusterLinks('tarifs'),
-        'current' => 'tarifs',
-        'title' => 'Pages liées',
+        'links' => $nordicChrome['pricing_links'],
+        'title' => $nordicChrome['cluster_title'] ?? '',
     ])
 </div>
 @endif

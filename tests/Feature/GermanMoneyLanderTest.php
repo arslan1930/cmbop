@@ -6,6 +6,7 @@ use App\Services\CuratedBlogWriter;
 use App\Support\DofollowNofollowAnchorsEnBlogPost;
 use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
+use App\Support\MoneyLanderCatalog;
 use App\Support\PublicI18n;
 use Database\Seeders\LinkBuildingGuidesBlogsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -58,7 +59,8 @@ class GermanMoneyLanderTest extends TestCase
             ->assertRedirect('/de/gastbeitrag-kaufen');
         $this->get('/fr/backlinks-kaufen')
             ->assertRedirect('/de/backlinks-kaufen');
-        $this->assertSame(301, $this->get('/nl/linkbuilding')->status());
+        $this->get('/nl/linkbuilding')->assertOk();
+        $this->get('/de/linkbuilding')->assertOk();
 
         $this->get('/de/digital-pr')->assertOk();
         $this->get('/it/digital-pr')->assertOk();
@@ -143,8 +145,10 @@ class GermanMoneyLanderTest extends TestCase
 
                 continue;
             }
-            if ($locale === 'fr') {
-                $this->get('/fr/digital-pr')->assertOk();
+            if (class_exists(MoneyLanderCatalog::class)
+                && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
+                && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)) {
+                $this->get('/'.$locale.'/digital-pr')->assertOk();
 
                 continue;
             }

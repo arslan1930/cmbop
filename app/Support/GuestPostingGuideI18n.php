@@ -17,7 +17,7 @@ class GuestPostingGuideI18n
                 'title' => 'Was ist ein Gastbeitrag: Leitfaden für Guest Blogging und SEO',
                 'slug' => 'was-ist-ein-gastbeitrag',
                 'excerpt' => 'Was ein Gastbeitrag ist, wie Sie passende Hosts finden, pitchen und schreiben — und Netzwerke meiden, die nur Links verkaufen.',
-                'meta_title' => 'Was ist ein Gastbeitrag? Pitch, Text, Publikation',
+                'meta_title' => 'Was ist ein Gastbeitrag? Pitch, Text und Publikation',
                 'meta_description' => 'Was ist ein Gastbeitrag: Publisher finden, pitchen, für deren Leser schreiben, Anker setzen und minderwertige Guest-Post-Netze meiden.',
                 'content' => self::de(),
             ],

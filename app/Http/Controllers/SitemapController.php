@@ -8,9 +8,10 @@ use App\Services\CuratedBlogSync;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
-use App\Support\FrenchMoneyLanders;
+use App\Support\DutchMoneyLanders;
 use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
+use App\Support\MoneyLanderCatalog;
 use App\Support\PortugueseMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\RomanianMoneyLanders;
@@ -123,10 +124,29 @@ class SitemapController extends Controller
             }
         }
 
-        if ($locale === 'fr' && class_exists(FrenchMoneyLanders::class)) {
-            foreach (FrenchMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['fr']);
+        if ($locale === 'ch' && class_exists(SwissMoneyLanders::class)) {
+            foreach (SwissMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['ch']);
                 $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if ($locale === 'es' && class_exists(SpanishMoneyLanders::class)) {
+            foreach (SpanishMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['es']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if (class_exists(MoneyLanderCatalog::class)
+            && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
+            && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)) {
+            $class = MoneyLanderCatalog::classFor($locale);
+            if (is_string($class) && class_exists($class) && method_exists($class, 'slugs')) {
+                foreach ($class::slugs() as $slug) {
+                    [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, [$locale]);
+                    $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+                }
             }
         }
 

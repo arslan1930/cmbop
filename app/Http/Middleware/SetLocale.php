@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use App\Support\ViewerCountry;
 use Closure;
@@ -41,6 +42,10 @@ class SetLocale
         }
 
         if ($request->isMethod('GET') && ! $request->ajax()) {
+            $explicit = $this->redirectForExplicitLocale($request);
+            if ($explicit !== null) {
+                return $explicit;
+            }
             $located = $this->redirectForLocation($request, $urlLocale);
             if ($located !== null) {
                 return $located;
@@ -92,8 +97,8 @@ class SetLocale
     }
 
     /**
-     * Unprefixed public pages follow the visitor IP, same source as display currency.
-     * A saved language cookie does not override that. An explicit /de or /us URL is left alone.
+     * Unprefixed public pages follow the visitor country, then a saved locale cookie.
+     * An explicit /de or /us URL is left alone. Login and the signed-in app stay English.
      */
     private function redirectForLocation(Request $request, ?string $urlLocale): ?Response
     {
@@ -103,6 +108,13 @@ class SetLocale
             || (method_exists(PublicI18n::class, 'isEnglishOnlyMarketingPath') && PublicI18n::isEnglishOnlyMarketingPath($request))
             || ! method_exists(PublicI18n::class, 'localeForCountry')
             || ! method_exists(PublicI18n::class, 'switchUrl')) {
+            return null;
+        }
+
+        $path = method_exists(PublicI18n::class, 'pathWithoutLocale')
+            ? PublicI18n::pathWithoutLocale($request)
+            : ltrim($request->path(), '/');
+        if ($path === '') {
             return null;
         }
 

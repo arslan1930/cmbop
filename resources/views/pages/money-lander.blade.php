@@ -2,7 +2,9 @@
     /** @var array<string, mixed> $page */
     $page = $page ?? [];
     $slug = (string) ($slug ?? '');
-    $canonical = url('/es/'.$slug);
+    $landerLocale = (string) ($landerLocale ?? public_locale());
+    $ui = is_array($ui ?? null) ? $ui : [];
+    $canonical = url('/'.$landerLocale.'/'.$slug);
     $faqs = is_array($page['faqs'] ?? null) ? $page['faqs'] : [];
     $faqEntities = [];
     foreach ($faqs as $faq) {
@@ -15,21 +17,18 @@
             ],
         ];
     }
-    $cluster = $cluster ?? (
-        class_exists(\App\Support\SpanishMoneyLanders::class)
-        && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks')
-            ? \App\Support\SpanishMoneyLanders::clusterLinks($slug)
-            : []
-    );
-    $hreflangLocales = 'es';
-    $hreflangXDefault = 'es';
+    $cluster = $cluster ?? [];
+    $hreflangLocales = $landerLocale;
+    $hreflangXDefault = $landerLocale;
     if (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'moneyLanderLocales')) {
-        $fromI18n = \App\Support\PublicI18n::moneyLanderLocales($slug);
-        $hreflangLocales = implode(',', array_values(array_unique(array_merge(['es'], $fromI18n))));
+        $hreflangLocales = implode(',', \App\Support\PublicI18n::moneyLanderLocales($slug));
         $hreflangXDefault = method_exists(\App\Support\PublicI18n::class, 'moneyLanderXDefault')
             ? \App\Support\PublicI18n::moneyLanderXDefault($slug)
             : $hreflangXDefault;
     }
+    $inLanguage = class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang')
+        ? \App\Support\PublicI18n::htmlLang($landerLocale)
+        : $landerLocale;
 @endphp
 
 @extends('layouts.app')
@@ -58,7 +57,7 @@
     'name' => $page['meta_title'] ?? $page['h1'] ?? '',
     'url' => $canonical,
     'description' => $page['meta_description'] ?? '',
-    'inLanguage' => 'es-ES',
+    'inLanguage' => $inLanguage,
 ], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}' !!}
 </script>
 @endpush
@@ -78,11 +77,11 @@
         ],
     ])
 
-    @if(view()->exists('components.italian-seo-cluster-nav'))
+    @if(view()->exists('components.italian-seo-cluster-nav') && $cluster !== [])
         @include('components.italian-seo-cluster-nav', [
             'links' => $cluster,
             'current' => $slug,
-            'title' => 'Páginas para guest posts, backlinks y link building en España',
+            'title' => $ui['cluster_title'] ?? '',
         ])
     @endif
 
@@ -91,18 +90,18 @@
             @if(!empty($priceFrom))
                 <div class="col-md-6">
                     <div class="h-100 p-4 rounded-4 bg-white border">
-                        <div class="small text-muted mb-1">Desde</div>
-                        <div class="h3 mb-0" style="color:#1a585e;">{{ format_money($priceFrom, ['decimals' => 0]) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Precio de checkout más bajo en listings de España verificados y activos en este momento. No es una tarifa fija.</p>
+                        <div class="small text-muted mb-1">{{ $ui['from'] ?? '' }}</div>
+                        <div class="h3 mb-0" style="color:#1a585e;">€{{ number_format((float) $priceFrom, 0) }}</div>
+                        <p class="small text-muted mb-0 mt-2">{{ $ui['price_note'] ?? '' }}</p>
                     </div>
                 </div>
             @endif
             @if(!empty($siteCount))
                 <div class="col-md-6">
                     <div class="h-100 p-4 rounded-4 bg-white border">
-                        <div class="small text-muted mb-1">Sitios en vista previa</div>
+                        <div class="small text-muted mb-1">{{ $ui['sites_preview'] ?? '' }}</div>
                         <div class="h3 mb-0" style="color:#1a585e;">{{ number_format((int) $siteCount) }}</div>
-                        <p class="small text-muted mb-0 mt-2">Publishers activos y verificados con país primario España en el catálogo, cuando el recuento está disponible.</p>
+                        <p class="small text-muted mb-0 mt-2">{{ $ui['count_note'] ?? '' }}</p>
                     </div>
                 </div>
             @endif
@@ -135,12 +134,12 @@
             <table class="table align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Sitio</th>
-                        <th>País</th>
-                        <th>Idioma</th>
+                        <th>{{ $ui['th_site'] ?? 'Site' }}</th>
+                        <th>{{ $ui['th_country'] ?? '' }}</th>
+                        <th>{{ $ui['th_language'] ?? '' }}</th>
                         <th>DR</th>
                         <th>DA</th>
-                        <th>Desde</th>
+                        <th>{{ $ui['th_from'] ?? ($ui['from'] ?? '') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -154,13 +153,13 @@
                             <td>{{ strtoupper((string) ($site['language'] ?: '—')) }}</td>
                             <td>{{ $site['dr'] ?? '—' }}</td>
                             <td>{{ $site['da'] ?? '—' }}</td>
-                            <td class="fw-semibold" style="color:#1a585e;">{{ format_money($site['price'], ['decimals' => 0]) }}</td>
+                            <td class="fw-semibold" style="color:#1a585e;">€{{ number_format((float) $site['price'], 0) }}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
-        <p class="small text-muted mb-5">Mostramos DA, DR y el precio en euros cuando existen en el listing. No inventamos métricas. La tabla lista país primario España — no un mix LATAM.</p>
+        <p class="small text-muted mb-5">{{ $ui['teaser_foot'] ?? '' }}</p>
     @endif
 
     @foreach(($page['sections'] ?? []) as $section)
@@ -171,12 +170,12 @@
     @endforeach
 
     @if($faqs !== [])
-        <section class="mb-5" aria-labelledby="es-money-faq">
-            <h2 id="es-money-faq" class="h4 mb-3" style="color:#1a585e;">{{ __('messages.nav_faq') }}</h2>
+        <section class="mb-5" aria-labelledby="money-faq">
+            <h2 id="money-faq" class="h4 mb-3" style="color:#1a585e;">{{ __('messages.nav_faq') }}</h2>
             @foreach($faqs as $faq)
                 <div class="mb-3">
                     <h3 class="h6 mb-1" style="color:#1a585e;">{{ $faq['q'] ?? '' }}</h3>
-                    <p class="text-muted mb-0">{{ $faq['a'] ?? '' }}</p>
+                    <p class="text-muted mb-0">{!! $faq['a'] ?? '' !!}</p>
                 </div>
             @endforeach
         </section>
@@ -184,7 +183,7 @@
 
     @if(!empty($page['see_also']))
         <section class="mb-5">
-            <h2 class="h5 mb-3" style="color:#1a585e;">Más información</h2>
+            <h2 class="h5 mb-3" style="color:#1a585e;">{{ $ui['see_also'] ?? '' }}</h2>
             <ul class="mb-0">
                 @foreach($page['see_also'] as $link)
                     <li class="mb-2"><a href="{{ $link['url'] }}">{{ $link['label'] }}</a></li>

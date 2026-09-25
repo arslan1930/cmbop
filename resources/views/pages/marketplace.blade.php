@@ -89,14 +89,14 @@
     @if(function_exists('public_locale') && public_locale() === 'ch' && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
             <h2 class="h4 mb-3" style="color:#1a585e;">Gastbeitrag-Portale und Schweizer Publisher</h2>
-            <p class="text-muted">Diese Seite ist die öffentliche Liste schweizerischer Publisher: Nische, Sprache, DA/DR und Preis in Euro. Wir indexieren nicht jede Filterkombination und keine eigene Stadtseite. Der vollständige Katalog mit Domains öffnet sich nach der Registrierung. Checkout bleibt EUR.</p>
+            <p class="text-muted">Diese Seite ist die öffentliche Liste schweizerischer Publisher: Nische, Sprache, DA/DR und Preis in Euro. Wir indexieren nicht jede Filterkombination und keine eigene Stadtseite (kein eigenes Zürich-Listing). Der vollständige Katalog mit Domains öffnet sich nach der Registrierung. Checkout bleibt EUR.</p>
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\SwissMoneyLanders::clusterLinks('marktplatz'),
                 'current' => 'marktplatz',
                 'title' => 'Verwandte Seiten',
             ])
             <p class="small mb-0">
-                <a href="{{ url('/ch/gastbeitrag-kaufen') }}">Gastbeitrag kaufen</a>
+                <a href="{{ url('/ch/gastbeitrag-kaufen') }}">Gastbeitrag kaufen in der Schweiz</a>
                 · <a href="{{ url('/ch/backlinks-kaufen') }}">Backlinks kaufen</a>
                 · <a href="{{ localized_url('pricing') }}">Was kostet ein Gastbeitrag in der Schweiz</a>
                 · <a href="{{ url('/guest-posts-switzerland') }}">Switzerland inventory (English)</a>
@@ -105,25 +105,25 @@
     @endif
     @if(function_exists('public_locale') && public_locale() === 'es' && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
-            <h2 class="h4 mb-3" style="color:#1a585e;">Catálogo de medios y publishers en España</h2>
-            <p class="text-muted">Esta página es la lista pública de publishers en España: nicho, idioma, DA/DR y precio en euros. No indexamos cada combinación de filtros ni páginas de ciudad. El catálogo completo, con dominios, se abre después del registro.</p>
+            <h2 class="h4 mb-3" style="color:#1a585e;">Medios y publishers en España</h2>
+            <p class="text-muted">Esta es la lista pública de publishers en España: nicho, idioma, DA/DR y precio en euros. No indexamos cada combinación de filtro ni landings de ciudad (Madrid y Barcelona no tienen URL propia). El catálogo completo, con dominios, se abre tras el registro.</p>
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\SpanishMoneyLanders::clusterLinks('mercado'),
                 'current' => 'mercado',
                 'title' => 'Páginas relacionadas',
             ])
             <p class="small mb-0">
-                <a href="{{ url('/es/comprar-guest-post') }}">Comprar guest post en España</a>
+                <a href="{{ url('/es/comprar-guest-post') }}">Comprar guest post</a>
                 · <a href="{{ url('/es/comprar-backlinks') }}">Comprar backlinks</a>
-                · <a href="{{ localized_url('pricing') }}">Qué cuesta un guest post en España</a>
+                · <a href="{{ localized_url('pricing') }}">Qué cuesta un guest post</a>
                 · <a href="{{ url('/guest-posts-spain') }}">Spain inventory (English)</a>
             </p>
         </div>
     @endif
     @if(function_exists('public_locale') && public_locale() === 'pt' && class_exists(\App\Support\PortugueseMoneyLanders::class) && method_exists(\App\Support\PortugueseMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
-            <h2 class="h4 mb-3" style="color:#1a585e;">Meios para guest posts em Portugal</h2>
-            <p class="text-muted">Esta página é a lista pública de publishers em Portugal: nicho, língua, DA/DR e preço em euros. Não indexamos cada combinação de filtros nem páginas de cidade. O catálogo completo, com domínios, abre depois do registo.</p>
+            <h2 class="h4 mb-3" style="color:#1a585e;">Catálogo de meios e publishers em Portugal</h2>
+            <p class="text-muted">Esta é a lista pública de publishers em Portugal: nicho, língua, DA/DR e preço em euros. Não indexamos cada combinação de filtro nem landings de cidade (Lisboa e Porto não têm URL próprio). O catálogo completo, com domínios, abre-se após o registo.</p>
             @include('components.italian-seo-cluster-nav', [
                 'links' => \App\Support\PortugueseMoneyLanders::clusterLinks('marketplace'),
                 'current' => 'marketplace',
@@ -154,26 +154,28 @@
             </p>
         </div>
     @endif
-    @if(function_exists('public_locale') && public_locale() === 'fr' && class_exists(\App\Support\FrenchMoneyLanders::class) && method_exists(\App\Support\FrenchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+    @php
+        $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
+            ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
+            : null;
+        $nordicMarket = is_array($nordicChrome['marketplace'] ?? null) ? $nordicChrome['marketplace'] : null;
+    @endphp
+    @if($nordicChrome && $nordicMarket && view()->exists('components.italian-seo-cluster-nav'))
         <div class="mt-5 pt-4 border-top">
-            <h2 class="h4 mb-3" style="color:#1a585e;">Médias français pour guest posts</h2>
-            <p class="text-muted">Ceci est la liste publique d’éditeurs en France : thématique, langue, DA/DR et prix en euros. Nous n’indexons pas chaque combinaison de filtres et nous n’avons pas de pages ville (Paris et Lyon n’ont pas d’URL). Le catalogue complet, avec les domaines, s’ouvre après inscription.</p>
+            <h2 class="h4 mb-3" style="color:#1a585e;">{{ $nordicMarket['h2'] }}</h2>
+            <p class="text-muted">{!! $nordicMarket['body'] !!}</p>
             @include('components.italian-seo-cluster-nav', [
-                'links' => \App\Support\FrenchMoneyLanders::clusterLinks('marche'),
-                'current' => 'marche',
-                'title' => 'Pages liées',
+                'links' => $nordicChrome['marketplace_links'],
+                'title' => $nordicChrome['cluster_title'] ?? '',
             ])
-            <p class="small mb-0">
-                <a href="{{ url('/fr/acheter-guest-post') }}">Acheter un guest post en France</a>
-                · <a href="{{ url('/fr/acheter-backlinks') }}">Acheter des backlinks</a>
-                · <a href="{{ localized_url('pricing') }}">Combien coûte un guest post</a>
-                · <a href="{{ url('/guest-posts-france') }}">France inventory (English)</a>
-            </p>
+            @if(!empty($nordicMarket['links']))
+                <p class="small mb-0">{!! $nordicMarket['links'] !!}</p>
+            @endif
         </div>
     @endif
     <p class="text-center small mt-2 mb-0">
-        <a href="{{ url('/guest-post-prices-europe') }}">{{ __('messages.marketplace_eu_index_label') }}</a>
-        — {{ __('messages.marketplace_eu_index_caption') }}
+        <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
+        — median advertiser prices by European publisher country.
     </p>
 
     @if(view()->exists('components.country-lander-nav'))

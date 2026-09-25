@@ -11,7 +11,7 @@ class PublicI18nTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_austria_localizes_german_copy_and_switzerland_still_reuses_germany(): void
+    public function test_austria_and_switzerland_localize_german_copy(): void
     {
         $at = $this->get('/at')->assertOk()->getContent();
         $this->assertStringContainsString('Österreichischer Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $at);
@@ -21,15 +21,17 @@ class PublicI18nTest extends TestCase
         $this->assertStringNotContainsString('Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings', $at);
 
         $ch = $this->get('/ch')->assertOk()->getContent();
-        $this->assertStringContainsString('Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $ch);
+        $this->assertStringContainsString('Schweizer Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $ch);
+        $this->assertStringContainsString('Marktplatz für Gastbeiträge in der Schweiz | SEOLinkBuildings', $ch);
         $this->assertStringContainsString('Marktplatz', $ch);
         $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.', $ch);
+        $this->assertStringNotContainsString('Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings', $ch);
 
         $this->get('/at')->assertSee('lang="de-AT"', false);
         $this->get('/ch')->assertSee('lang="de-CH"', false);
         $this->get('/ro')
             ->assertOk()
-            ->assertSee('Cumpără guest posturi de la publisheri verificați', false)
+            ->assertSee('Marketplace de guest post, backlinkuri și link building pentru România.', false)
             ->assertSee('lang="ro"', false);
     }
 
@@ -64,20 +66,20 @@ class PublicI18nTest extends TestCase
                 'Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.',
             ],
             '/fr' => [
-                'Acheter des guest posts chez des éditeurs vérifiés | SEOLinkBuildings',
-                'Achetez des guest posts sur des sites d’éditeurs vérifiés.',
+                'Marketplace de netlinking en France | SEOLinkBuildings',
+                'Marketplace de guest posts, backlinks et netlinking pour la France.',
             ],
             '/it' => [
                 'Marketplace guest post e link building | SEOLinkBuildings',
                 'Il marketplace di guest post e link building per l’Italia.',
             ],
             '/es' => [
-                'Comprar guest posts de editores verificados | SEOLinkBuildings',
-                'Compre guest posts en sitios de editores verificados.',
+                'Marketplace de guest posts en España | SEOLinkBuildings',
+                'Marketplace de guest posts, backlinks y link building para España.',
             ],
             '/nl' => [
-                'Guest posts kopen bij geverifieerde publishers | SEOLinkBuildings',
-                'Guest posts kopen bij geverifieerde publishers.',
+                'Linkbuilding-marktplaats Nederland | SEOLinkBuildings',
+                'Marktplaats voor gastblogs, backlinks en linkbuilding in Nederland.',
             ],
         ];
 
@@ -305,6 +307,34 @@ class PublicI18nTest extends TestCase
             ->assertSee('Italiano', false);
     }
 
+    public function test_default_homepage_and_uk_switcher_are_not_stolen_by_us_cookie(): void
+    {
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/')
+            ->assertOk()
+            ->assertSee('lang="en-GB"', false);
+
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/?locale=en')
+            ->assertRedirect('/')
+            ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
+
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/marketplace?locale=en')
+            ->assertRedirect('/marketplace')
+            ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
+
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'en')
+            ->get('/marketplace')
+            ->assertOk()
+            ->assertSee('lang="en-GB"', false);
+
+        $this->get('/us')
+            ->assertOk()
+            ->assertSee(PublicI18n::withExplicitLocaleQuery(url('/'), 'en'), false)
+            ->assertSee('English (UK)', false);
+    }
+
     public function test_us_spanish_and_italian_homes_are_routed(): void
     {
         $this->get('/us')
@@ -330,7 +360,7 @@ class PublicI18nTest extends TestCase
             ->assertOk()
             ->assertSee('Iniciar sesión', false)
             ->assertSee('Registrarse', false)
-            ->assertSee('El marketplace global de link building', false)
+            ->assertSee('Marketplace de guest posts, backlinks y link building para España.', false)
             ->assertSee('Cómo funciona', false);
 
         $this->get('/it')

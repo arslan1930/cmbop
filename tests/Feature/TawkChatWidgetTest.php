@@ -152,8 +152,9 @@ class TawkChatWidgetTest extends TestCase
         $out = VisitorChatEmbed::inject($html);
 
         $this->assertStringContainsString('https://embed.tawk.to/6aa6a3693d02a53444168308/default', $out);
-        $this->assertStringContainsString('window.slbPinTawk', $out);
         $this->assertStringContainsString('Tawk_API', $out);
+        $this->assertStringContainsString('window.slbOpenSupport', $out);
+        $this->assertStringNotContainsString('window.slbPinTawk', $out);
         $this->assertSame($out, VisitorChatEmbed::inject($out));
     }
 
