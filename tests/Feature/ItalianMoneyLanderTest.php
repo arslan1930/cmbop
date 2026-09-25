@@ -79,6 +79,12 @@ class ItalianMoneyLanderTest extends TestCase
         $buy = $this->get('/it/comprare-guest-post')->assertOk()->getContent();
         $this->assertStringContainsString('Acquistare guest post su siti di editori verificati', $buy);
         $this->assertStringContainsString('Acquistare guest post in Italia | SEOLinkBuildings', $buy);
+
+        $agencies = $this->get('/it/agenzie')->assertOk()->getContent();
+        $this->assertStringContainsString('fatturazione', $agencies);
+        $this->assertStringContainsString('inserzionista', $agencies);
+        $this->assertStringNotContainsString('dal billing', $agencies);
+        $this->assertStringNotContainsString('Il billing', $agencies);
     }
 
     public function test_italian_marketplace_and_pricing_target_catalog_and_cost_queries(): void
@@ -138,7 +144,7 @@ class ItalianMoneyLanderTest extends TestCase
     public function test_italian_teaser_countries_are_italy(): void
     {
         $this->assertSame(['it'], PublicI18n::catalogTeaserCountries('it'));
-        $this->assertSame(['de'], PublicI18n::catalogTeaserCountries('fr'));
+        $this->assertSame(['fr'], PublicI18n::catalogTeaserCountries('fr'));
     }
 
     public function test_italian_pillar_translations_render_on_localized_slugs(): void

@@ -59,7 +59,7 @@ class SpanishMoneyLanderTest extends TestCase
         $this->get('/it/digital-pr')->assertOk();
         $this->get('/de/digital-pr')->assertOk();
         $this->get('/digital-pr')->assertRedirect('/it/digital-pr');
-        $this->get('/fr/digital-pr')->assertRedirect('/it/digital-pr');
+        $this->get('/fr/digital-pr')->assertOk();
         $this->get('/es/comprare-guest-post')->assertRedirect('/it/comprare-guest-post');
     }
 
@@ -106,6 +106,9 @@ class SpanishMoneyLanderTest extends TestCase
         $agencias = $this->get('/es/agencias')->assertOk()->getContent();
         $this->assertStringContainsString('La facturación sigue a la sociedad británica', $agencias);
         $this->assertStringNotContainsString('El billing', $agencias);
+        $this->assertStringNotContainsString('Billing', $agencias);
+        $this->assertStringNotContainsString('tras el login', $agencias);
+        $this->assertStringNotContainsString('resellers', $agencias);
     }
 
     public function test_sitemap_es_includes_money_landers_and_not_aliases(): void
@@ -144,7 +147,7 @@ class SpanishMoneyLanderTest extends TestCase
         $this->assertSame(url('/de/digital-pr'), PublicI18n::switchUrl($shared, 'de'));
         $this->assertSame(url('/es/digital-pr'), PublicI18n::switchUrl($shared, 'es'));
         $this->assertSame(url('/ch/digital-pr'), PublicI18n::switchUrl($shared, 'ch'));
-        $this->assertSame(url('/fr'), PublicI18n::switchUrl($shared, 'fr'));
+        $this->assertSame(url('/fr/digital-pr'), PublicI18n::switchUrl($shared, 'fr'));
     }
 
     public function test_spain_english_lander_links_to_spanish_money_page(): void
@@ -159,9 +162,9 @@ class SpanishMoneyLanderTest extends TestCase
     {
         $this->assertSame(['es'], SpanishMoneyLanders::copyRedirectLocales());
         $this->assertSame(['es'], PublicI18n::catalogTeaserCountries('es'));
-        $this->assertSame(['es'], PublicI18n::moneyLanderLocales('comprar-guest-post'));
+        $this->assertSame(['es', 'pt'], PublicI18n::moneyLanderLocales('comprar-guest-post'));
         $this->assertSame('es', PublicI18n::moneyLanderXDefault('comprar-guest-post'));
-        $this->assertSame(['it', 'de', 'at', 'ch', 'es', 'ro'], PublicI18n::moneyLanderLocales('digital-pr'));
+        $this->assertSame(['it', 'de', 'at', 'ch', 'es', 'pt', 'ro', 'fr'], PublicI18n::moneyLanderLocales('digital-pr'));
         $this->assertSame('it', PublicI18n::moneyLanderXDefault('digital-pr'));
     }
 
