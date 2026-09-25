@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\IrishMoneyLanders;
 use App\Support\PublicI18n;
 use App\Support\ViewerCountry;
 use Closure;
@@ -74,17 +75,19 @@ class SetLocale
             && PublicI18n::isPublicMarketingPath($request)
             && PublicI18n::isSupported($locale)) {
             $response->headers->setCookie(
-                Cookie::make(
-                    config('i18n.cookie', 'public_locale'),
-                    $locale,
-                    60 * 24 * 365,
-                    '/',
-                    null,
-                    $request->isSecure(),
-                    false,
-                    false,
-                    'Lax'
-                )
+                method_exists(PublicI18n::class, 'localeCookie')
+                    ? PublicI18n::localeCookie($locale, $request)
+                    : Cookie::make(
+                        config('i18n.cookie', 'public_locale'),
+                        $locale,
+                        60 * 24 * 365,
+                        '/',
+                        null,
+                        $request->isSecure(),
+                        false,
+                        false,
+                        'Lax'
+                    )
             );
         }
 
@@ -97,10 +100,20 @@ class SetLocale
      */
     private function redirectForLocation(Request $request, ?string $urlLocale): ?Response
     {
-        if (! method_exists(PublicI18n::class, 'isPublicMarketingPath')
+        if ((method_exists(PublicI18n::class, 'isUkPrefixPath') && PublicI18n::isUkPrefixPath($request))
+            || ! method_exists(PublicI18n::class, 'isPublicMarketingPath')
             || ! PublicI18n::isPublicMarketingPath($request)
             || (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale))
             || (method_exists(PublicI18n::class, 'isEnglishOnlyMarketingPath') && PublicI18n::isEnglishOnlyMarketingPath($request))) {
+            return null;
+        }
+
+        $first = method_exists(PublicI18n::class, 'firstPathSegment')
+            ? PublicI18n::firstPathSegment($request)
+            : (string) $request->segment(1);
+        if (class_exists(IrishMoneyLanders::class)
+            && method_exists(IrishMoneyLanders::class, 'isPublicSegment')
+            && IrishMoneyLanders::isPublicSegment($first)) {
             return null;
         }
 
