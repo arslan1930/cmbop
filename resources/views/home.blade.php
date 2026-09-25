@@ -22,7 +22,7 @@
     'applicationCategory' => 'BusinessApplication',
     'operatingSystem' => 'Web',
     'url' => url('/'),
-    'description' => __('messages.meta_home_description'),
+    'description' => welcome_bonus_message('meta_home_description', 'meta_home_description_off'),
     'image' => asset('assets/img/logo1.png'),
     'offers' => [
         '@type' => 'Offer',
@@ -148,6 +148,24 @@
             ])
         </div>
     @endif
+    @if (function_exists('public_locale') && public_locale() === 'nl' && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\DutchMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Pagina’s over gastblogs, backlinks en linkbuilding in Nederland',
+            ])
+        </div>
+    @endif
+    @if (function_exists('public_locale') && public_locale() === 'fr' && class_exists(\App\Support\FrenchMoneyLanders::class) && method_exists(\App\Support\FrenchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\FrenchMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Pages guest posts, backlinks et netlinking en France',
+            ])
+        </div>
+    @endif
     @php
         $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
             ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
@@ -159,6 +177,15 @@
                 'links' => $nordicChrome['home_links'],
                 'current' => 'home',
                 'title' => $nordicChrome['cluster_title'] ?? '',
+            ])
+        </div>
+    @endif
+    @if (function_exists('public_locale') && public_locale() === 'en' && class_exists(\App\Support\IrishMoneyLanders::class) && method_exists(\App\Support\IrishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\IrishMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Guest posts, backlinks and link building in Ireland',
             ])
         </div>
     @endif

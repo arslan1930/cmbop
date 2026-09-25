@@ -109,6 +109,7 @@ if (! function_exists('get_available_locales')) {
             'hu' => ['name' => 'Magyar', 'flag' => '🇭🇺', 'code' => 'hu'],
             'ee' => ['name' => 'Eesti', 'flag' => '🇪🇪', 'code' => 'ee'],
             'pl' => ['name' => 'Polski', 'flag' => '🇵🇱', 'code' => 'pl'],
+            'be' => ['name' => 'Nederlands (België)', 'flag' => '🇧🇪', 'code' => 'be'],
         ];
 
         $supported = ['en' => 0];

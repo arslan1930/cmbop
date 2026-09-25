@@ -219,6 +219,8 @@ return [
     'marketplace_teaser_title' => 'Sample verified inventory',
     'marketplace_teaser_subtitle' => 'A preview of live placements — create a free account to browse the full catalog.',
     'marketplace_catalog_note' => 'The live catalog opens after login and stays in English.',
+    'marketplace_eu_index_label' => 'EU guest-post price index',
+    'marketplace_eu_index_caption' => 'median advertiser prices by European publisher country.',
 
     // Become publisher
     'become_publisher_kicker' => 'Publishers',

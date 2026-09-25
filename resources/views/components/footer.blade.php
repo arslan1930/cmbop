@@ -107,6 +107,20 @@
                             @endif
                         @endforeach
                     @endif
+                    @if(function_exists('public_locale') && public_locale() === 'nl' && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks'))
+                        @foreach(\App\Support\DutchMoneyLanders::clusterLinks('home') as $item)
+                            @if(!in_array($item['slug'] ?? '', ['home', 'marktplaats', 'prijzen'], true))
+                                <li><a href="{{ $item['url'] }}" class="text-dark text-decoration-none d-block mb-2">{{ $item['label'] }}</a></li>
+                            @endif
+                        @endforeach
+                    @endif
+                    @if(function_exists('public_locale') && public_locale() === 'fr' && class_exists(\App\Support\FrenchMoneyLanders::class) && method_exists(\App\Support\FrenchMoneyLanders::class, 'clusterLinks'))
+                        @foreach(\App\Support\FrenchMoneyLanders::clusterLinks('home') as $item)
+                            @if(!in_array($item['slug'] ?? '', ['home', 'marche', 'tarifs'], true))
+                                <li><a href="{{ $item['url'] }}" class="text-dark text-decoration-none d-block mb-2">{{ $item['label'] }}</a></li>
+                            @endif
+                        @endforeach
+                    @endif
                     @php
                         $nordicFooter = class_exists(\App\Support\MoneyLanderCatalog::class)
                             ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
@@ -115,6 +129,13 @@
                     @if(!empty($nordicFooter['footer_links']))
                         @foreach($nordicFooter['footer_links'] as $item)
                             <li><a href="{{ $item['url'] }}" class="text-dark text-decoration-none d-block mb-2">{{ $item['label'] }}</a></li>
+                        @endforeach
+                    @endif
+                    @if(function_exists('public_locale') && public_locale() === 'en' && class_exists(\App\Support\IrishMoneyLanders::class) && method_exists(\App\Support\IrishMoneyLanders::class, 'footerLinks'))
+                        @foreach(\App\Support\IrishMoneyLanders::footerLinks() as $item)
+                            @if(!in_array($item['slug'] ?? '', ['marketplace-ireland', 'pricing-ireland'], true))
+                                <li><a href="{{ $item['url'] }}" class="text-dark text-decoration-none d-block mb-2">{{ $item['label'] }}</a></li>
+                            @endif
                         @endforeach
                     @endif
                 </ul>

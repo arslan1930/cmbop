@@ -20,14 +20,23 @@
     $cluster = $cluster ?? [];
     $hreflangLocales = $landerLocale;
     $hreflangXDefault = $landerLocale;
+    $hreflangPath = $slug;
+    if ($landerLocale === 'uk') {
+        $hreflangPath = 'uk/'.$slug;
+        $hreflangLocales = 'en';
+        $hreflangXDefault = 'en';
+    }
     if (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'moneyLanderLocales')) {
-        $hreflangLocales = implode(',', \App\Support\PublicI18n::moneyLanderLocales($slug));
+        $fromI18n = \App\Support\PublicI18n::moneyLanderLocales($slug);
+        if ($fromI18n !== []) {
+            $hreflangLocales = implode(',', $fromI18n);
+        }
         $hreflangXDefault = method_exists(\App\Support\PublicI18n::class, 'moneyLanderXDefault')
             ? \App\Support\PublicI18n::moneyLanderXDefault($slug)
             : $hreflangXDefault;
     }
     $inLanguage = class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang')
-        ? \App\Support\PublicI18n::htmlLang($landerLocale)
+        ? \App\Support\PublicI18n::htmlLang($landerLocale === 'uk' ? 'en' : $landerLocale)
         : $landerLocale;
 @endphp
 
@@ -38,7 +47,7 @@
 @section('canonical', $canonical)
 @section('hreflang_locales', $hreflangLocales)
 @section('hreflang_x_default', $hreflangXDefault)
-@section('hreflang_path', $slug)
+@section('hreflang_path', $hreflangPath)
 
 @push('head')
 @if($faqEntities !== [])

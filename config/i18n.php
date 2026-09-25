@@ -11,13 +11,13 @@ return [
 
     'supported' => [
         'en', 'de', 'fr', 'nl', 'es', 'it', 'pt', 'us',
-        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
+        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl', 'be',
     ],
 
     /** Prefixed locales (UK English has no URL prefix). `us` is US English. */
     'prefixed' => [
         'de', 'fr', 'nl', 'es', 'it', 'pt', 'us',
-        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl',
+        'at', 'ch', 'ro', 'gr', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl', 'be',
     ],
 
     /**
@@ -59,6 +59,8 @@ return [
         'guest-posts-hungary',
         'guest-posts-estonia',
         'guest-posts-poland',
+        'guest-posts-belgium',
+        'guest-posts-ireland',
         'guest-post-prices-europe',
         'comprare-guest-post',
         'articoli-sponsorizzati',
