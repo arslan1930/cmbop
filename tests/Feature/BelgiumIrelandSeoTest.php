@@ -231,9 +231,15 @@ class BelgiumIrelandSeoTest extends TestCase
         $this->assertSame(url('/be'), PublicI18n::switchUrl($ireland, 'be'));
 
         $usHome = Request::create('/us', 'GET');
-        $this->assertSame(url('/uk'), PublicI18n::switchUrl($usHome, 'en'));
+        $this->assertSame(
+            PublicI18n::withExplicitLocaleQuery(url('/'), 'en'),
+            PublicI18n::switchUrl($usHome, 'en')
+        );
         $usMarket = Request::create('/us/marketplace', 'GET');
-        $this->assertSame(url('/uk/marketplace'), PublicI18n::switchUrl($usMarket, 'en'));
+        $this->assertSame(
+            PublicI18n::withExplicitLocaleQuery(url('/marketplace'), 'en'),
+            PublicI18n::switchUrl($usMarket, 'en')
+        );
 
         $beGuest = Request::create('/be/koop-guest-post-belgie', 'GET');
         $this->assertSame(url('/be/koop-guest-post-belgie'), PublicI18n::switchUrl($beGuest, 'be'));
@@ -243,6 +249,34 @@ class BelgiumIrelandSeoTest extends TestCase
             ->assertOk()
             ->assertSee('rel="alternate" hreflang="en-GB" href="'.url('/uk/buy-guest-posts-ireland').'"', false)
             ->assertDontSee('hreflang="nl-BE" href="'.url('/uk/buy-guest-posts-ireland'), false);
+    }
+
+    public function test_default_homepage_and_uk_switcher_are_not_stolen_by_us_cookie(): void
+    {
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/')
+            ->assertOk()
+            ->assertSee('lang="en-GB"', false);
+
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/?locale=en')
+            ->assertRedirect('/')
+            ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
+
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/marketplace?locale=en')
+            ->assertRedirect('/marketplace')
+            ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
+
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'en')
+            ->get('/marketplace')
+            ->assertOk()
+            ->assertSee('lang="en-GB"', false);
+
+        $this->get('/us')
+            ->assertOk()
+            ->assertSee(PublicI18n::withExplicitLocaleQuery(url('/'), 'en'), false)
+            ->assertSee('English (UK)', false);
     }
 
     public function test_uk_home_links_to_ireland_cluster_and_robots_allow_landers(): void

@@ -668,7 +668,9 @@ class PublicI18n
             if (method_exists(self::class, 'isEnglishOnlyMarketingPath')
                 && self::isEnglishOnlyMarketingPath($request)
                 && self::isDefaultEnglish($targetLocale)) {
-                return $path === '' ? url('/') : url($path);
+                $url = $path === '' ? url('/') : url($path);
+
+                return self::withExplicitLocaleQuery($url, self::default());
             }
 
             return self::switchTargetUrl('', $targetLocale);
@@ -730,13 +732,39 @@ class PublicI18n
     }
 
     /**
-     * `/uk` is not a public locale (unprefixed `/` is UK English), but the
-     * language switcher must hop through it so a leftover `/us` cookie cannot
-     * bounce the visitor back to US English.
+     * `/uk` is not a public locale. Unprefixed `/` is the default UK English homepage.
+     * The language switcher passes ?locale=en so a leftover /us cookie cannot win.
      */
     public static function isUkPrefixPath(Request $request): bool
     {
         return strtolower((string) $request->segment(1)) === 'uk';
+    }
+
+    public static function requestedLocale(Request $request): ?string
+    {
+        $raw = strtolower(trim((string) $request->query('locale', '')));
+        if ($raw === '') {
+            $raw = strtolower(trim((string) $request->query('hl', '')));
+        }
+        if ($raw === 'uk') {
+            $raw = 'en';
+        }
+        if ($raw === '' || ! self::isSupported($raw)) {
+            return null;
+        }
+
+        return $raw;
+    }
+
+    public static function withExplicitLocaleQuery(string $url, string $locale): string
+    {
+        $locale = strtolower(trim($locale));
+        if ($locale === 'uk') {
+            $locale = self::default();
+        }
+        $separator = str_contains($url, '?') ? '&' : '?';
+
+        return $url.$separator.'locale='.rawurlencode($locale);
     }
 
     public static function ukPinUrl(string $path = ''): string
@@ -797,7 +825,7 @@ class PublicI18n
     private static function switchTargetUrl(string $path, string $targetLocale): string
     {
         if (self::isDefaultEnglish($targetLocale)) {
-            return self::ukPinUrl($path);
+            return self::withExplicitLocaleQuery(self::urlForLocale($path, self::default()), self::default());
         }
 
         return self::urlForLocale($path, $targetLocale);
