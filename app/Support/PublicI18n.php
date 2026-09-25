@@ -204,6 +204,7 @@ class PublicI18n
             'pl' => ['pl'],
             'it' => ['it'],
             'pt' => ['pt'],
+            'fr' => ['fr'],
             default => ['de'],
         };
     }
@@ -230,11 +231,20 @@ class PublicI18n
         if (class_exists(AustrianMoneyLanders::class) && AustrianMoneyLanders::isSlug($slug)) {
             $locales[] = 'at';
         }
+        if (class_exists(SwissMoneyLanders::class) && SwissMoneyLanders::isSlug($slug)) {
+            $locales[] = 'ch';
+        }
+        if (class_exists(SpanishMoneyLanders::class) && SpanishMoneyLanders::isSlug($slug)) {
+            $locales[] = 'es';
+        }
         if (class_exists(PortugueseMoneyLanders::class) && PortugueseMoneyLanders::isSlug($slug)) {
             $locales[] = 'pt';
         }
         if (class_exists(RomanianMoneyLanders::class) && RomanianMoneyLanders::isSlug($slug)) {
             $locales[] = 'ro';
+        }
+        if (class_exists(FrenchMoneyLanders::class) && FrenchMoneyLanders::isSlug($slug)) {
+            $locales[] = 'fr';
         }
 
         return $locales;
@@ -252,11 +262,20 @@ class PublicI18n
         if (in_array('at', $locales, true)) {
             return 'at';
         }
+        if (in_array('ch', $locales, true)) {
+            return 'ch';
+        }
+        if (in_array('es', $locales, true)) {
+            return 'es';
+        }
         if (in_array('pt', $locales, true)) {
             return 'pt';
         }
         if (in_array('ro', $locales, true)) {
             return 'ro';
+        }
+        if (in_array('fr', $locales, true)) {
+            return 'fr';
         }
 
         return self::default();
@@ -525,7 +544,19 @@ class PublicI18n
             return true;
         }
 
+        if (class_exists(SwissMoneyLanders::class) && SwissMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(SpanishMoneyLanders::class) && SpanishMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
         if (class_exists(RomanianMoneyLanders::class) && RomanianMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(FrenchMoneyLanders::class) && FrenchMoneyLanders::isPublicSegment($first)) {
             return true;
         }
 
