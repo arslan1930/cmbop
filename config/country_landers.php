@@ -285,6 +285,8 @@ return [
         'point_3_body' => 'Many NL sites publish in Dutch; some accept English. Match the brief to the listing language.',
         'teaser_title' => 'Sample Dutch inventory',
         'teaser_subtitle' => 'Masked preview of live Netherlands listings. Register to see domains and buy.',
+        'native_url' => '/nl/gastblog-kopen',
+        'native_label' => 'Gastblog kopen in het Nederlands',
         'blog_slugs' => [
             'gastposts-kopen-op-seolinkbuildings-adverteerdersgids',
             'buy-guest-posts-in-europe-how-to-choose-publisher-sites',

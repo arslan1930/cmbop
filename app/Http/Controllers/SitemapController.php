@@ -8,7 +8,7 @@ use App\Services\CuratedBlogSync;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
-use App\Support\FrenchMoneyLanders;
+use App\Support\DutchMoneyLanders;
 use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
 use App\Support\PortugueseMoneyLanders;
@@ -123,9 +123,23 @@ class SitemapController extends Controller
             }
         }
 
-        if ($locale === 'fr' && class_exists(FrenchMoneyLanders::class)) {
-            foreach (FrenchMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['fr']);
+        if ($locale === 'ch' && class_exists(SwissMoneyLanders::class)) {
+            foreach (SwissMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['ch']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if ($locale === 'es' && class_exists(SpanishMoneyLanders::class)) {
+            foreach (SpanishMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['es']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if ($locale === 'nl' && class_exists(DutchMoneyLanders::class)) {
+            foreach (DutchMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['nl']);
                 $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
             }
         }

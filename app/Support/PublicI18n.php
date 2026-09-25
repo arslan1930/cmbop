@@ -204,7 +204,7 @@ class PublicI18n
             'pl' => ['pl'],
             'it' => ['it'],
             'pt' => ['pt'],
-            'fr' => ['fr'],
+            'nl' => ['nl'],
             default => ['de'],
         };
     }
@@ -246,6 +246,9 @@ class PublicI18n
         if (class_exists(FrenchMoneyLanders::class) && FrenchMoneyLanders::isSlug($slug)) {
             $locales[] = 'fr';
         }
+        if (class_exists(DutchMoneyLanders::class) && DutchMoneyLanders::isSlug($slug)) {
+            $locales[] = 'nl';
+        }
 
         return $locales;
     }
@@ -276,6 +279,9 @@ class PublicI18n
         }
         if (in_array('fr', $locales, true)) {
             return 'fr';
+        }
+        if (in_array('nl', $locales, true)) {
+            return 'nl';
         }
 
         return self::default();
@@ -540,6 +546,14 @@ class PublicI18n
             return true;
         }
 
+        if (class_exists(SwissMoneyLanders::class) && SwissMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(SpanishMoneyLanders::class) && SpanishMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
         if (class_exists(PortugueseMoneyLanders::class) && PortugueseMoneyLanders::isPublicSegment($first)) {
             return true;
         }
@@ -557,6 +571,10 @@ class PublicI18n
         }
 
         if (class_exists(FrenchMoneyLanders::class) && FrenchMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(DutchMoneyLanders::class) && DutchMoneyLanders::isPublicSegment($first)) {
             return true;
         }
 
