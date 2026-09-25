@@ -43,8 +43,8 @@ class PortugueseMoneyLanderTest extends TestCase
     {
         $this->get('/pt/comprar-guest-post')->assertOk();
         $this->get('/es/comprar-guest-post')->assertOk();
-        $this->get('/comprar-guest-post')->assertRedirect('/es/comprar-guest-post');
-        $this->get('/fr/comprar-guest-post')->assertRedirect('/es/comprar-guest-post');
+        $this->get('/comprar-guest-post')->assertRedirect('/pt/comprar-guest-post');
+        $this->get('/fr/comprar-guest-post')->assertRedirect('/pt/comprar-guest-post');
 
         $this->get('/pt/link-building')->assertOk();
         $this->get('/it/link-building')->assertOk();

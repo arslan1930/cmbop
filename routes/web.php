@@ -736,11 +736,8 @@ if ($portugueseMoneySlugs !== [] && method_exists(MarketingPageController::class
             && GermanMoneyLanders::isSlug($slug);
         $austrianOwnsSlug = class_exists(AustrianMoneyLanders::class)
             && AustrianMoneyLanders::isSlug($slug);
-        $swissOwnsSlug = class_exists(SwissMoneyLanders::class)
-            && SwissMoneyLanders::isSlug($slug);
-        $spanishOwnsSlug = class_exists(SpanishMoneyLanders::class)
-            && SpanishMoneyLanders::isSlug($slug);
-        if ($italianOwnsSlug || $germanOwnsSlug || $austrianOwnsSlug || $swissOwnsSlug || $spanishOwnsSlug) {
+        // Leftover CH/ES are prefixed copies only — PT keeps the unprefixed unique 301.
+        if ($italianOwnsSlug || $germanOwnsSlug || $austrianOwnsSlug) {
             continue;
         }
 

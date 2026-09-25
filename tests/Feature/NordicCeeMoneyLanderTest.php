@@ -265,7 +265,8 @@ class NordicCeeMoneyLanderTest extends TestCase
         $this->get('/wpis-goscinny')->assertRedirect('/pl/wpis-goscinny');
 
         $this->get('/digital-pr')->assertRedirect('/it/digital-pr');
-        $this->get('/fr/digital-pr')->assertRedirect('/it/digital-pr');
+        $this->get('/fr/digital-pr')->assertOk();
+        $this->get('/nl/digital-pr')->assertOk();
         foreach (['dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl'] as $locale) {
             $this->get('/'.$locale.'/digital-pr')->assertOk();
             $this->get('/'.$locale.'/niche-edits')->assertOk();
