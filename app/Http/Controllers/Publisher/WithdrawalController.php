@@ -430,6 +430,7 @@ class WithdrawalController extends Controller
                 $withdrawal->cancelled_at = now();
             }
             $withdrawal->save();
+            app(WalletLedgerService::class)->syncWithdrawalStatus($withdrawal);
 
             DB::commit();
 

@@ -256,6 +256,7 @@
 
 <script>
 let currentPage = 1;
+let financeClock = new URLSearchParams(window.location.search).get('finance') === '1';
 let weekStart = @json(now()->startOfWeek()->toDateString());
 let weekEnd = @json(now()->endOfWeek()->toDateString());
 let selectedIds = new Set();
@@ -369,6 +370,9 @@ function filterParams() {
     params.queue = queue;
     if (status) {
         params.status = status;
+    }
+    if (financeClock) {
+        params.finance = '1';
     }
     return params;
 }
@@ -907,7 +911,10 @@ $('#copyDetailsBtn').on('click', function() {
     if (lastDetailsCopyText) copyText(lastDetailsCopyText);
 });
 
-$('#filterBtn').on('click', () => loadWithdrawals(1));
+$('#filterBtn').on('click', function () {
+    financeClock = false;
+    loadWithdrawals(1);
+});
 $('#resetFiltersBtn').on('click', function() {
     $('#queueFilter').val('open');
     $('#statusFilter').val('');
@@ -917,12 +924,14 @@ $('#resetFiltersBtn').on('click', function() {
     $('#sortFilter').val('');
     $('#waitingFilter').val('');
     $('#searchInput').val('');
+    financeClock = false;
     selectedIds.clear();
     withdrawalFlags.clear();
     loadWithdrawals(1);
 });
 
 $('#queueFilter').on('change', function() {
+    financeClock = false;
     if ($(this).val() === 'open') $('#statusFilter').val('');
     loadWithdrawals(1);
 });
@@ -963,6 +972,7 @@ $(document).on('click', '.queue-preset', function () {
     $('#sortFilter').val('');
     $('#waitingFilter').val('');
     $('#searchInput').val('');
+    financeClock = false;
     document.getElementById('searchInput')?._slbLiveSearch?.refreshClear();
     if ($el.attr('data-week') === '1') {
         $('#dateFrom').val(weekStart);

@@ -381,7 +381,15 @@ class StripeWebhookController extends Controller
             return;
         }
 
-        $result = $promotions->featureFromStripePayment($site, $user, $sessionId, $paidPrice, $paidDays);
+        $result = $promotions->featureFromStripePayment(
+            $site,
+            $user,
+            $sessionId,
+            $paidPrice,
+            $paidDays,
+            isset($metadata['charge_currency']) ? (string) $metadata['charge_currency'] : null,
+            isset($metadata['charge_amount']) && is_numeric($metadata['charge_amount']) ? (float) $metadata['charge_amount'] : null
+        );
         if (! ($result['success'] ?? false)) {
             throw new \RuntimeException($result['message'] ?? 'Failed to apply site feature from webhook');
         }

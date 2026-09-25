@@ -94,6 +94,7 @@
                     <select id="dateFieldFilter" class="form-select form-select-sm" aria-label="Date field">
                         <option value="created_at">Filter by created date</option>
                         <option value="paid_at">Filter by paid date</option>
+                        <option value="completed_at">Filter by completed date</option>
                     </select>
                 </div>
                 <div class="col-12">
@@ -263,8 +264,10 @@ function paymentUrl(template, id) {
     return String(template).replace('__ID__', encodeURIComponent(id));
 }
 
+let financeClock = new URLSearchParams(window.location.search).get('finance') === '1';
+
 function currentFilterParams() {
-    return {
+    const params = {
         search: $('#searchInput').val() || '',
         payment_status: $('#paymentStatusFilter').val() || '',
         payment_method: $('#paymentMethodFilter').val() || '',
@@ -273,6 +276,10 @@ function currentFilterParams() {
         date_to: $('#dateTo').val() || '',
         date_field: $('#dateFieldFilter').val() || 'created_at',
     };
+    if (financeClock) {
+        params.finance = '1';
+    }
+    return params;
 }
 
 function syncFiltersToUrl() {
@@ -380,6 +387,7 @@ $(document).ready(function() {
 
     $('#filterForm').on('submit', function(e) {
         e.preventDefault();
+        financeClock = false;
         currentPage = 1;
         loadPayments();
     });
@@ -404,6 +412,7 @@ $(document).ready(function() {
         $('#dateFrom').val('');
         $('#dateTo').val('');
         $('#dateFieldFilter').val('created_at');
+        financeClock = false;
         currentPage = 1;
         loadPayments();
     });

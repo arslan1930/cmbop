@@ -468,12 +468,24 @@ class DepositController extends Controller
         }
 
         $from = scalar_text($request->input('from'));
-        if ($from !== '' && strtotime($from) !== false) {
-            $query->whereDate('created_at', '>=', $from);
-        }
         $to = scalar_text($request->input('to'));
-        if ($to !== '' && strtotime($to) !== false) {
-            $query->whereDate('created_at', '<=', $to);
+        if ($request->boolean('finance') && $status === 'completed') {
+            app(\App\Services\Admin\FinanceOverviewService::class)->applyDepositCompletedWindow(
+                $query,
+                $from !== '' ? $from : null,
+                $to !== '' ? $to : null
+            );
+        } else {
+            $dateColumn = 'created_at';
+            if ($status === 'completed' && DepositRequest::hasTableColumn('approved_at')) {
+                $dateColumn = 'approved_at';
+            }
+            if ($from !== '' && strtotime($from) !== false) {
+                $query->whereDate($dateColumn, '>=', $from);
+            }
+            if ($to !== '' && strtotime($to) !== false) {
+                $query->whereDate($dateColumn, '<=', $to);
+            }
         }
 
         $search = search_text($request->input('search'));

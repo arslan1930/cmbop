@@ -19,6 +19,54 @@ use Illuminate\Support\Facades\Schema;
 class FinanceOverviewService
 {
     /**
+     * Same completed-deposit window the overview total uses.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<DepositRequest>  $query
+     */
+    public function applyDepositCompletedWindow($query, ?string $from, ?string $to): void
+    {
+        $query->where('status', 'completed');
+        $this->applyCreatedOrPaidWindow($query, $this->parseDay($from, false), $this->windowEnd($to), 'approved_at');
+    }
+
+    /**
+     * Same paid-withdrawal window the overview total uses.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Withdrawal>  $query
+     */
+    public function applyWithdrawalPaidWindow($query, ?string $from, ?string $to): void
+    {
+        $query->where('status', 'completed');
+        $this->applyWithdrawalProcessedWindow($query, $this->parseDay($from, false), $this->windowEnd($to));
+    }
+
+    /**
+     * Same completed-GMV window the overview total uses, including later refunds.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Order>  $query
+     */
+    public function applyGmvWindow($query, ?string $from, ?string $to): void
+    {
+        $this->constrainRecognizedCompleted($query);
+        $this->applyCompletedWindow($query, $this->parseDay($from, false), $this->windowEnd($to));
+    }
+
+    /**
+     * Same created_at window the overview uses for bonuses issued.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\WalletTransaction>  $query
+     */
+    public function applyLedgerCreatedWindow($query, ?string $from, ?string $to): void
+    {
+        $this->applyCreatedWindow($query, $this->parseDay($from, false), $this->windowEnd($to));
+    }
+
+    private function windowEnd(?string $to): Carbon
+    {
+        return $this->parseDay($to, true) ?? now()->endOfDay();
+    }
+
+    /**
      * @return array{start: ?Carbon, end: Carbon, label: string, key: string}
      */
     public function resolvePeriod(?string $period, ?string $dateFrom = null, ?string $dateTo = null): array
@@ -66,14 +114,14 @@ class FinanceOverviewService
      *
      * @return array<string, mixed>
      */
-    public function overview(array $period): array
+    public function overview(array $period, bool $allWallets = false, bool $allDebt = false, float $minWallet = 0): array
     {
         try {
             $start = $period['start'];
             $end = $period['end'];
 
-            $ops = $this->opsQueues();
-            $liability = $this->walletLiability();
+            $ops = $this->opsQueues($allDebt);
+            $liability = $this->walletLiability($allWallets, $minWallet);
             $moneyIn = $this->moneyIn($start, $end);
             $moneyOut = $this->moneyOut($start, $end);
             $platform = $this->platform($start, $end);
@@ -131,6 +179,7 @@ class FinanceOverviewService
                     'amount' => 0.0,
                     'user_marked_paid_count' => 0,
                     'user_marked_paid_amount' => 0.0,
+                    'charges' => [],
                     'url' => route('admin.deposits', ['status' => 'pending']),
                 ],
                 'open_withdrawals' => [
@@ -170,7 +219,10 @@ class FinanceOverviewService
                 'payable_now' => 0.0,
                 'open_reserved_total' => 0.0,
                 'top_publisher_wallets' => [],
+                'publisher_wallets_total' => 0,
                 'open_withdrawal_rows' => [],
+                'open_withdrawals_total' => 0,
+                'other_currencies' => [],
             ],
             'money_in' => [
                 'deposits_completed' => [
@@ -197,6 +249,12 @@ class FinanceOverviewService
                 'manual_collected' => 0.0,
                 'failed_external_collected' => 0.0,
                 'site_feature_stripe' => 0.0,
+                'collected' => [
+                    'by_currency' => [],
+                    'deposits' => [],
+                    'orders_not_recorded' => 0,
+                    'features_not_recorded' => 0,
+                ],
             ],
             'money_out' => [
                 'earnings_credited' => [
@@ -253,7 +311,7 @@ class FinanceOverviewService
     /**
      * @return array<string, mixed>
      */
-    public function opsQueues(): array
+    public function opsQueues(bool $allDebt = false): array
     {
         $pendingCount = 0;
         $pendingAmount = 0.0;
@@ -294,6 +352,7 @@ class FinanceOverviewService
                 'amount' => $pendingAmount,
                 'user_marked_paid_count' => $userMarkedPaidCount,
                 'user_marked_paid_amount' => $userMarkedPaidAmount,
+                'charges' => $this->pendingDepositCharges(),
                 'url' => route('admin.deposits', ['status' => 'pending']),
             ],
             'open_withdrawals' => [
@@ -306,7 +365,7 @@ class FinanceOverviewService
                 'amount' => $unpaidAmount,
                 'url' => route('admin.payments', ['payment_status' => 'unpaid']),
             ],
-            'publisher_debt' => $this->publisherDebt(),
+            'publisher_debt' => $this->publisherDebt($allDebt ? 500 : 8),
         ];
     }
 
@@ -315,7 +374,7 @@ class FinanceOverviewService
      *
      * @return array{count: int, amount: float, rows: list<array<string, mixed>>, url: string}
      */
-    public function publisherDebt(): array
+    public function publisherDebt(int $limit = 8): array
     {
         $empty = [
             'count' => 0,
@@ -343,7 +402,7 @@ class FinanceOverviewService
         $rows = (clone $query)
             ->with('user:id,name,email')
             ->orderByDesc('debt_balance')
-            ->limit(8)
+            ->limit(max(1, $limit))
             ->get()
             ->map(fn (Wallet $wallet) => [
                 'user_id' => $wallet->user_id,
@@ -365,7 +424,7 @@ class FinanceOverviewService
     /**
      * @return array<string, mixed>
      */
-    public function walletLiability(): array
+    public function walletLiability(bool $allWallets = false, float $minWallet = 0): array
     {
         $advertiserRoleId = $this->walletsAvailable() ? Wallet::advertiserRoleId() : null;
         $publisherRoleId = $this->walletsAvailable() ? Wallet::publisherRoleId() : null;
@@ -387,13 +446,26 @@ class FinanceOverviewService
         // Sum per-wallet withdrawable/cash. Do NOT use
         // SUM(balance) - min(SUM(bonus), SUM(balance)) — that under/over-counts
         // when bonus is uneven across wallets.
+        $otherCurrencies = [];
+        $hasWalletCurrency = $this->walletsAvailable() && Schema::hasColumn('wallets', 'currency');
         if ($advertiserRoleId) {
             $columns = ['balance', 'reserved_balance'];
             if ($hasBonus) {
                 $columns[] = 'bonus_balance';
             }
+            if ($hasWalletCurrency) {
+                $columns[] = 'currency';
+            }
             $wallets = Wallet::where('role_id', $advertiserRoleId)->get($columns);
             foreach ($wallets as $wallet) {
+                $walletCurrency = $hasWalletCurrency ? strtoupper(trim((string) ($wallet->currency ?: 'EUR'))) : 'EUR';
+                if ($walletCurrency !== '' && $walletCurrency !== 'EUR') {
+                    $otherCurrencies[$walletCurrency] ??= ['currency' => $walletCurrency, 'balance' => 0.0, 'count' => 0];
+                    $otherCurrencies[$walletCurrency]['balance'] = round($otherCurrencies[$walletCurrency]['balance'] + (float) $wallet->balance, 2);
+                    $otherCurrencies[$walletCurrency]['count']++;
+
+                    continue;
+                }
                 $balance = (float) $wallet->balance;
                 $bonus = $hasBonus ? (float) ($wallet->bonus_balance ?? 0) : 0.0;
                 $adv['balance'] += $balance;
@@ -413,6 +485,14 @@ class FinanceOverviewService
                 ->with('user:id,name,email')
                 ->get();
             foreach ($wallets as $wallet) {
+                $walletCurrency = $hasWalletCurrency ? strtoupper(trim((string) ($wallet->currency ?: 'EUR'))) : 'EUR';
+                if ($walletCurrency !== '' && $walletCurrency !== 'EUR') {
+                    $otherCurrencies[$walletCurrency] ??= ['currency' => $walletCurrency, 'balance' => 0.0, 'count' => 0];
+                    $otherCurrencies[$walletCurrency]['balance'] = round($otherCurrencies[$walletCurrency]['balance'] + (float) $wallet->balance, 2);
+                    $otherCurrencies[$walletCurrency]['count']++;
+
+                    continue;
+                }
                 $balance = (float) $wallet->balance;
                 $bonus = $hasBonus ? (float) $wallet->bonus_balance : 0.0;
                 $withdrawable = $wallet->withdrawableBalance();
@@ -421,7 +501,7 @@ class FinanceOverviewService
                 $pub['reserved'] += (float) $wallet->reserved_balance;
                 $pub['withdrawable'] += $withdrawable;
 
-                if ($withdrawable > 0) {
+                if ($withdrawable > 0 && $withdrawable + 0.001 >= $minWallet) {
                     $topPublishers[] = [
                         'user_id' => $wallet->user_id,
                         'name' => $wallet->user?->name ?? 'User #'.$wallet->user_id,
@@ -437,7 +517,10 @@ class FinanceOverviewService
             $pub['withdrawable'] = round($pub['withdrawable'], 2);
 
             usort($topPublishers, fn ($a, $b) => $b['withdrawable'] <=> $a['withdrawable']);
-            $topPublishers = array_slice($topPublishers, 0, 8);
+            $publisherWalletTotal = count($topPublishers);
+            if (! $allWallets) {
+                $topPublishers = array_slice($topPublishers, 0, 8);
+            }
         }
 
         $openWithdrawals = Withdrawal::tableAvailable()
@@ -448,6 +531,7 @@ class FinanceOverviewService
             : collect();
         $openWithdrawalNets = round((float) $openWithdrawals->sum('net_amount'), 2);
 
+        $openWithdrawalTotal = $openWithdrawals->count();
         $openWithdrawalRows = $openWithdrawals->take(8)->map(fn (Withdrawal $w) => [
             'id' => $w->id,
             'user_id' => $w->user_id,
@@ -477,7 +561,10 @@ class FinanceOverviewService
             'payable_now' => $totalPublisherLiability,
             'open_reserved_total' => round($adv['reserved'] + $pub['reserved'], 2),
             'top_publisher_wallets' => $topPublishers,
+            'publisher_wallets_total' => $publisherWalletTotal ?? 0,
             'open_withdrawal_rows' => $openWithdrawalRows,
+            'open_withdrawals_total' => $openWithdrawalTotal,
+            'other_currencies' => array_values($otherCurrencies),
         ];
     }
 
@@ -586,7 +673,121 @@ class FinanceOverviewService
             'manual_collected' => $this->sumExternalOrdersCollected($start, $end, $this->manualOrderMethods()),
             'failed_external_collected' => $this->sumFailedExternalCollected($start, $end),
             'site_feature_stripe' => $this->siteFeatureStripeCash($start, $end),
+            'collected' => $this->collectedByCurrency($depositsCompleted, $paidOrders, $start, $end),
         ];
+    }
+
+    /**
+     * Money actually charged, in the currency Stripe or PayPal took. Not converted to euros.
+     * Deposits with no charge currency count as euros. Orders and featured placements
+     * with no stored charge are counted as not recorded.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<DepositRequest>|null  $depositsCompleted
+     * @param  \Illuminate\Database\Eloquent\Builder<Order>  $paidOrders
+     * @return array{by_currency: array<string, array{card: float, paypal: float, other: float}>, orders_not_recorded: int, features_not_recorded: int}
+     */
+    private function collectedByCurrency($depositsCompleted, $paidOrders, ?Carbon $start, Carbon $end): array
+    {
+        $by = [];
+        $add = function (string $currency, string $bucket, float $amount) use (&$by): void {
+            $code = strtoupper(trim($currency));
+            if ($code === '' || $amount == 0.0) {
+                return;
+            }
+            $by[$code] ??= ['card' => 0.0, 'paypal' => 0.0, 'other' => 0.0];
+            $by[$code][$bucket] = round($by[$code][$bucket] + $amount, 2);
+        };
+
+        $depositsBy = [];
+        if ($depositsCompleted && $this->depositsHaveColumn('charge_currency') && $this->depositsHaveColumn('charge_amount')) {
+            $rows = (clone $depositsCompleted)->get(['payment_method', 'amount', 'charge_currency', 'charge_amount']);
+            foreach ($rows as $row) {
+                $code = strtoupper(trim((string) ($row->charge_currency ?: 'EUR')));
+                $charged = $row->charge_amount !== null ? (float) $row->charge_amount : (float) $row->amount;
+                $method = strtolower((string) $row->payment_method);
+                $bucket = in_array($method, ['card', 'stripe'], true) ? 'card' : ($method === 'paypal' ? 'paypal' : 'other');
+                $add($code, $bucket, $charged);
+                $depositsBy[$code] = round(($depositsBy[$code] ?? 0) + $charged, 2);
+            }
+        } elseif ($depositsCompleted) {
+            $groups = (clone $depositsCompleted)
+                ->selectRaw('payment_method, SUM(amount) as total')
+                ->groupBy('payment_method')
+                ->get();
+            foreach ($groups as $row) {
+                $method = strtolower((string) $row->payment_method);
+                $bucket = in_array($method, ['card', 'stripe'], true) ? 'card' : ($method === 'paypal' ? 'paypal' : 'other');
+                $sum = (float) $row->total;
+                $add('EUR', $bucket, $sum);
+                $depositsBy['EUR'] = round(($depositsBy['EUR'] ?? 0) + $sum, 2);
+            }
+        }
+
+        $ordersNotRecorded = 0;
+        $externalOrders = (clone $paidOrders)->whereIn('payment_method', array_merge($this->cardOrderMethods(), ['paypal']));
+        if ($this->ordersHaveColumn('charge_currency') && $this->ordersHaveColumn('charge_amount')) {
+            $ordersNotRecorded = (clone $externalOrders)->where(function ($q) {
+                $q->whereNull('charge_currency')->orWhere('charge_currency', '');
+            })->count();
+            $recorded = (clone $externalOrders)->whereNotNull('charge_currency')->where('charge_currency', '!=', '')->get(['payment_method', 'charge_amount']);
+            foreach ($recorded as $row) {
+                $method = strtolower((string) $row->payment_method);
+                $bucket = $method === 'paypal' ? 'paypal' : 'card';
+                $add((string) $row->charge_currency, $bucket, (float) $row->charge_amount);
+            }
+        } else {
+            $ordersNotRecorded = (clone $externalOrders)->count();
+        }
+
+        $featuresNotRecorded = 0;
+        try {
+            if (Schema::hasTable('site_feature_purchases')) {
+                $features = SiteFeaturePurchase::query()->where('payment_method', 'stripe');
+                $this->applyCreatedWindow($features, $start, $end);
+                if (Schema::hasColumn('site_feature_purchases', 'charge_currency') && Schema::hasColumn('site_feature_purchases', 'charge_amount')) {
+                    $featuresNotRecorded = (clone $features)->where(function ($q) {
+                        $q->whereNull('charge_currency')->orWhere('charge_currency', '');
+                    })->count();
+                    foreach ((clone $features)->whereNotNull('charge_currency')->where('charge_currency', '!=', '')->get(['charge_currency', 'charge_amount']) as $row) {
+                        $add((string) $row->charge_currency, 'card', (float) $row->charge_amount);
+                    }
+                } else {
+                    $featuresNotRecorded = (clone $features)->count();
+                }
+            }
+        } catch (\Throwable) {
+            $featuresNotRecorded = 0;
+        }
+
+        ksort($by);
+        ksort($depositsBy);
+
+        return [
+            'by_currency' => $by,
+            'deposits' => $depositsBy,
+            'orders_not_recorded' => $ordersNotRecorded,
+            'features_not_recorded' => $featuresNotRecorded,
+        ];
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    private function pendingDepositCharges(): array
+    {
+        if (! DepositRequest::tableAvailable() || ! $this->depositsHaveColumn('charge_currency') || ! $this->depositsHaveColumn('charge_amount')) {
+            return [];
+        }
+
+        $totals = [];
+        foreach (DepositRequest::where('status', 'pending')->get(['amount', 'charge_currency', 'charge_amount']) as $row) {
+            $code = strtoupper(trim((string) ($row->charge_currency ?: 'EUR')));
+            $charged = $row->charge_amount !== null ? (float) $row->charge_amount : (float) $row->amount;
+            $totals[$code] = round(($totals[$code] ?? 0) + $charged, 2);
+        }
+        ksort($totals);
+
+        return $totals;
     }
 
     /**
@@ -894,7 +1095,7 @@ class FinanceOverviewService
         $data = $this->overview($period);
         $p = $data['period']['label'];
 
-        return [
+        $rows = [
             ['section' => 'period', 'metric' => 'label', 'value' => $p],
             ['section' => 'payable_now', 'metric' => 'amount', 'value' => $data['payable_now']],
             ['section' => 'due_to_pay_now', 'metric' => 'open_withdrawal_nets', 'value' => $data['due_to_pay_now']],
@@ -935,6 +1136,19 @@ class FinanceOverviewService
             ['section' => 'ops', 'metric' => 'unpaid_orders', 'value' => $data['ops']['unpaid_orders']['amount']],
             ['section' => 'ops', 'metric' => 'publisher_debt', 'value' => $data['ops']['publisher_debt']['amount']],
         ];
+
+        foreach ($data['money_in']['collected']['by_currency'] ?? [] as $code => $parts) {
+            foreach (['card', 'paypal', 'other'] as $bucket) {
+                if (($parts[$bucket] ?? 0) == 0.0) {
+                    continue;
+                }
+                $rows[] = ['section' => 'collected', 'metric' => $code.'_'.$bucket, 'value' => $parts[$bucket]];
+            }
+        }
+        $rows[] = ['section' => 'collected', 'metric' => 'orders_not_recorded', 'value' => $data['money_in']['collected']['orders_not_recorded'] ?? 0];
+        $rows[] = ['section' => 'collected', 'metric' => 'features_not_recorded', 'value' => $data['money_in']['collected']['features_not_recorded'] ?? 0];
+
+        return $rows;
     }
 
     /**

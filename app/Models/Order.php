@@ -31,6 +31,8 @@ class Order extends Model
         'subtotal',
         'tax',
         'total_amount',
+        'charge_currency',
+        'charge_amount',
         'payment_method',
         'payment_status',
         'payment_reference',

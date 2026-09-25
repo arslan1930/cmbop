@@ -212,7 +212,15 @@ class SitePromotionController extends Controller
 
             // Apply after payment is confirmed — even if the site was archived meantime —
             // so the publisher is not charged without receiving the feature.
-            $result = $this->promotions->featureFromStripePayment($site, auth()->user(), $sessionId, $paidPrice, $paidDays);
+            $result = $this->promotions->featureFromStripePayment(
+                $site,
+                auth()->user(),
+                $sessionId,
+                $paidPrice,
+                $paidDays,
+                isset($session->metadata->charge_currency) ? (string) $session->metadata->charge_currency : null,
+                isset($session->metadata->charge_amount) && is_numeric($session->metadata->charge_amount) ? (float) $session->metadata->charge_amount : null
+            );
 
             if ($result['credited'] ?? false) {
                 return redirect()->route('publisher.websites')

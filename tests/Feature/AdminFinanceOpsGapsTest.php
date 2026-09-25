@@ -150,13 +150,13 @@ class AdminFinanceOpsGapsTest extends TestCase
         $html = $this->actingAs($admin)
             ->get(route('admin.finance', ['q' => 'Gamma Match']))
             ->assertOk()
-            ->assertSee('More than 8 users match')
-            ->assertDontSee('9 users match')
+            ->assertSee('9 users match')
+            ->assertDontSee('More than 8 users match')
             ->getContent();
 
         $this->assertStringContainsString('gamma-match-01@example.test', $html);
         $this->assertStringContainsString('gamma-match-08@example.test', $html);
-        $this->assertStringNotContainsString($hidden->email, $html);
+        $this->assertStringContainsString($hidden->email, $html);
     }
 
     public function test_user_search_treats_underscore_as_literal(): void

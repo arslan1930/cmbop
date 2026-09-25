@@ -4,7 +4,9 @@ namespace App\Services\Wallet;
 
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Models\Withdrawal;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -203,6 +205,95 @@ class WalletLedgerService
             'meta' => $meta,
             'allow_zero' => true,
         ]);
+    }
+
+    public function syncWithdrawalStatus(Withdrawal $withdrawal): void
+    {
+        if (! Schema::hasTable('wallet_transactions') || ! Schema::hasColumn('wallet_transactions', 'status')) {
+            return;
+        }
+
+        $status = (string) $withdrawal->status;
+        if ($status === '') {
+            return;
+        }
+
+        WalletTransaction::query()
+            ->where('type', WalletTransaction::TYPE_WITHDRAWAL)
+            ->where('direction', 'debit')
+            ->where(function ($query) use ($withdrawal) {
+                $query->where('reference', 'WD-'.$withdrawal->id);
+                if (Schema::hasColumn('wallet_transactions', 'related_id')) {
+                    $query->orWhere(function ($query) use ($withdrawal) {
+                        $query->where('related_id', $withdrawal->id)
+                            ->where('related_type', $withdrawal->getMorphClass());
+                    });
+                }
+            })
+            ->update(['status' => $status]);
+    }
+
+    public function backfillWithdrawalStatuses(): void
+    {
+        if (Cache::get('wallet_ledger_withdrawal_status_backfill') === true) {
+            return;
+        }
+
+        try {
+            $this->backfillWithdrawalStatusesNow();
+            Cache::forever('wallet_ledger_withdrawal_status_backfill', true);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function backfillWithdrawalStatusesNow(): void
+    {
+        if (! Schema::hasTable('wallet_transactions') || ! Schema::hasTable('withdrawals') || ! Schema::hasColumn('wallet_transactions', 'status')) {
+            return;
+        }
+
+        $columns = ['id', 'reference', 'status'];
+        if (Schema::hasColumn('wallet_transactions', 'related_id')) {
+            $columns[] = 'related_id';
+        }
+        if (Schema::hasColumn('wallet_transactions', 'related_type')) {
+            $columns[] = 'related_type';
+        }
+
+        WalletTransaction::query()
+            ->where('type', WalletTransaction::TYPE_WITHDRAWAL)
+            ->where('direction', 'debit')
+            ->whereIn('status', ['pending', 'processing'])
+            ->select($columns)
+            ->chunkById(200, function ($rows): void {
+                foreach ($rows as $row) {
+                    $withdrawalId = $this->withdrawalIdFromLedgerRow($row);
+                    if ($withdrawalId === null) {
+                        continue;
+                    }
+                    $status = Withdrawal::query()->whereKey($withdrawalId)->value('status');
+                    if (is_string($status) && $status !== '' && $status !== $row->status) {
+                        $row->update(['status' => $status]);
+                    }
+                }
+            });
+    }
+
+    private function withdrawalIdFromLedgerRow(WalletTransaction $row): ?int
+    {
+        $reference = (string) $row->reference;
+        if (preg_match('/^WD-(\d+)$/', $reference, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        $relatedType = (string) $row->related_type;
+        $relatedId = (int) $row->related_id;
+        if ($relatedId > 0 && str_contains($relatedType, 'Withdrawal')) {
+            return $relatedId;
+        }
+
+        return null;
     }
 
     protected function makeReference(string $type): string

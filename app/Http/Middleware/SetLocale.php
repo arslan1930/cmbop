@@ -97,6 +97,66 @@ class SetLocale
     }
 
     /**
+     * Language switcher (?locale= / ?hl=) wins. The clean URL is kept and the
+     * public_locale cookie is set so a leftover /us cookie cannot steal English.
+     * Unprefixed home also stores the visitor-country locale once when no cookie exists.
+     */
+    private function redirectForExplicitLocale(Request $request): ?Response
+    {
+        if (! method_exists(PublicI18n::class, 'isPublicMarketingPath')
+            || ! PublicI18n::isPublicMarketingPath($request)
+            || ! method_exists(PublicI18n::class, 'urlForLocale')
+            || ! method_exists(PublicI18n::class, 'pathWithoutLocale')) {
+            return null;
+        }
+
+        $path = PublicI18n::pathWithoutLocale($request);
+        $requested = method_exists(PublicI18n::class, 'requestedLocale')
+            ? PublicI18n::requestedLocale($request)
+            : null;
+
+        if ($requested !== null) {
+            $target = PublicI18n::urlForLocale($path, $requested);
+            $query = $request->query();
+            unset($query['locale'], $query['hl']);
+            if ($query !== []) {
+                $target .= (str_contains($target, '?') ? '&' : '?').http_build_query($query);
+            }
+
+            $redirect = redirect()->to($target, 302);
+            if (method_exists(PublicI18n::class, 'localeCookie')) {
+                $redirect->headers->setCookie(PublicI18n::localeCookie($requested, $request));
+            }
+
+            return $redirect;
+        }
+
+        if ($path !== ''
+            || (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed(
+                method_exists(PublicI18n::class, 'splitPath') ? PublicI18n::splitPath($request)[0] : null
+            ))) {
+            return null;
+        }
+
+        $cookieName = (string) config('i18n.cookie', 'public_locale');
+        if (trim((string) $request->cookie($cookieName)) !== '') {
+            return null;
+        }
+
+        $fromCountry = method_exists(PublicI18n::class, 'localeForCountry')
+            ? PublicI18n::localeForCountry(app(ViewerCountry::class)->code($request))
+            : null;
+        if ($fromCountry === null
+            || (method_exists(PublicI18n::class, 'isPrefixed') && ! PublicI18n::isPrefixed($fromCountry))
+            || ! method_exists(PublicI18n::class, 'localeCookie')) {
+            return null;
+        }
+
+        return redirect()->to($request->url(), 302)
+            ->withCookie(PublicI18n::localeCookie($fromCountry, $request));
+    }
+
+    /**
      * Unprefixed public pages follow the visitor country, then a saved locale cookie.
      * An explicit /de or /us URL is left alone. Login and the signed-in app stay English.
      */

@@ -11,6 +11,8 @@ class SiteFeaturePurchase extends Model
         'site_id',
         'user_id',
         'amount',
+        'charge_currency',
+        'charge_amount',
         'days',
         'payment_method',
         'stripe_session_id',

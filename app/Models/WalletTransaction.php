@@ -78,6 +78,44 @@ class WalletTransaction extends Model
         return $this->direction === 'credit';
     }
 
+    public function adminRelatedUrl(): ?string
+    {
+        $type = (string) $this->related_type;
+        $id = (int) $this->related_id;
+        if ($id <= 0 || $type === '') {
+            return null;
+        }
+
+        if (str_contains($type, 'DepositRequest')) {
+            return route('admin.deposits', ['search' => (string) $id]);
+        }
+
+        if (str_contains($type, 'Order')) {
+            return route('admin.payments', ['search' => (string) $id]);
+        }
+
+        if (str_contains($type, 'Withdrawal')) {
+            return route('admin.withdrawals', ['queue' => 'all', 'search' => 'WD-'.$id]);
+        }
+
+        return null;
+    }
+
+    public function metaNote(): ?string
+    {
+        $meta = $this->meta;
+        if (! is_array($meta)) {
+            return null;
+        }
+
+        $reason = $meta['reason'] ?? null;
+        if (! is_string($reason) || trim($reason) === '') {
+            return null;
+        }
+
+        return str_replace('_', ' ', trim($reason));
+    }
+
     public function typeLabel(): string
     {
         return match ($this->type) {

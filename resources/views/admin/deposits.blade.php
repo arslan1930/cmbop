@@ -117,6 +117,9 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form method="GET" class="row g-3 align-items-end admin-deposits-filters">
+                @if(request()->boolean('finance'))
+                    <input type="hidden" name="finance" value="1">
+                @endif
                 <div class="col-md-3">
                     <label class="form-label fw-semibold" for="adminDepositsStatus">Status</label>
                     <select name="status" id="adminDepositsStatus" class="form-select">
@@ -141,11 +144,11 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold" for="adminDepositsFrom">From</label>
+                    <label class="form-label fw-semibold" for="adminDepositsFrom">{{ request('status') === 'completed' ? 'Approved from' : 'From' }}</label>
                     <input type="date" name="from" id="adminDepositsFrom" class="form-control" value="{{ request('from') }}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold" for="adminDepositsTo">To</label>
+                    <label class="form-label fw-semibold" for="adminDepositsTo">{{ request('status') === 'completed' ? 'Approved to' : 'To' }}</label>
                     <input type="date" name="to" id="adminDepositsTo" class="form-control" value="{{ request('to') }}">
                 </div>
                 <div class="col-md-2">

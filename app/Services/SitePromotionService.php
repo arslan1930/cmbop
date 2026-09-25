@@ -14,6 +14,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -300,13 +301,15 @@ class SitePromotionService
         User $publisher,
         ?string $stripeSessionId = null,
         ?float $paidPrice = null,
-        ?int $paidDays = null
+        ?int $paidDays = null,
+        ?string $chargeCurrency = null,
+        ?float $chargeAmount = null
     ): array {
         $price = $paidPrice !== null && $paidPrice > 0 ? round($paidPrice, 2) : $this->featurePrice();
         $days = $paidDays !== null && $paidDays > 0 ? $paidDays : $this->featureDays();
 
         try {
-            return DB::transaction(function () use ($site, $publisher, $price, $days, $stripeSessionId) {
+            return DB::transaction(function () use ($site, $publisher, $price, $days, $stripeSessionId, $chargeCurrency, $chargeAmount) {
                 // Lock the site first so webhook + success URL cannot both
                 // pass an unlocked exists() check and stack two 7-day periods.
                 $locked = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
@@ -335,7 +338,7 @@ class SitePromotionService
                     }
                 }
 
-                $featured = $this->applyFeaturePeriod($locked, $publisher, $price, $days, 'stripe', $stripeSessionId);
+                $featured = $this->applyFeaturePeriod($locked, $publisher, $price, $days, 'stripe', $stripeSessionId, $chargeCurrency, $chargeAmount);
                 $this->logStripeFeatureApplied($featured, $publisher, $price, $days, $stripeSessionId);
 
                 return [
@@ -476,7 +479,9 @@ class SitePromotionService
         float $price,
         int $days,
         string $paymentMethod,
-        ?string $stripeSessionId = null
+        ?string $stripeSessionId = null,
+        ?string $chargeCurrency = null,
+        ?float $chargeAmount = null
     ): Site {
         $starts = now();
         $currentUntil = $site->safeFeaturedUntil();
@@ -492,7 +497,7 @@ class SitePromotionService
             'featured_purchased_at' => $starts,
         ]);
 
-        SiteFeaturePurchase::create([
+        $purchase = [
             'site_id' => $site->id,
             'user_id' => $publisher->id,
             'amount' => $price,
@@ -501,7 +506,14 @@ class SitePromotionService
             'stripe_session_id' => $stripeSessionId,
             'starts_at' => $starts,
             'ends_at' => $ends,
-        ]);
+        ];
+        if ($chargeCurrency && $chargeAmount !== null
+            && Schema::hasColumn('site_feature_purchases', 'charge_currency')
+            && Schema::hasColumn('site_feature_purchases', 'charge_amount')) {
+            $purchase['charge_currency'] = strtoupper($chargeCurrency);
+            $purchase['charge_amount'] = $chargeAmount;
+        }
+        SiteFeaturePurchase::create($purchase);
 
         return $site->fresh();
     }

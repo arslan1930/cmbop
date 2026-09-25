@@ -122,6 +122,7 @@ class ManualWithdrawalSettlementService
             }
 
             $locked->update(Withdrawal::attributesThatExist($payload));
+            app(WalletLedgerService::class)->syncWithdrawalStatus($locked);
 
             return [
                 'withdrawal' => $locked->fresh(['user:id,name,email']),

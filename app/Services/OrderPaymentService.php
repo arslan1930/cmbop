@@ -1924,6 +1924,7 @@ class OrderPaymentService
                     'schedule_timezone' => $schedule['timezone'] ?? 'UTC',
                     'stripe_session_id' => $stripeSessionId,
                     'stripe_payment_intent_id' => $stripePaymentIntentId,
+                    ...$this->lineCharge($meta, (float) ($line['price'] ?? 0)),
                     'stripe_response' => method_exists($session, 'toArray')
                         ? json_encode($session->toArray())
                         : json_encode($session),
@@ -2267,6 +2268,11 @@ class OrderPaymentService
                     'publication_mode' => $schedule['mode'] ?? 'immediate',
                     'scheduled_publish_at' => $schedule['at'] ?? null,
                     'schedule_timezone' => $schedule['timezone'] ?? 'UTC',
+                    ...$this->lineCharge([
+                        'charge_currency' => $captured['currency'] ?? 'EUR',
+                        'charge_amount' => $captured['charge_amount'] ?? null,
+                        'order_total' => $package['order_total'] ?? $package['amount_due'] ?? 0,
+                    ], (float) ($line['price'] ?? 0)),
                     'paypal_order_id' => $paypalOrderId !== '' ? $paypalOrderId : null,
                     'paypal_capture_id' => $storedCaptureOnFirst ? null : $captureId,
                     'paypal_response' => $captured['raw'] ?? $captured,
@@ -2790,8 +2796,28 @@ class OrderPaymentService
     }
 
     /**
-     * @return array<string, mixed>
+     * @param  array<string, mixed>  $meta
+     * @return array{charge_currency: ?string, charge_amount: ?float}
      */
+    private function lineCharge(array $meta, float $lineEuros): array
+    {
+        $code = strtoupper(trim((string) ($meta['charge_currency'] ?? 'EUR')));
+        $lineEuros = round($lineEuros, 2);
+        $cartCharge = round((float) ($meta['charge_amount'] ?? 0), 2);
+        $cartEuros = round((float) ($meta['order_total'] ?? $meta['expected_amount'] ?? 0), 2);
+        if ($cartCharge > 0 && $cartEuros > 0) {
+            return [
+                'charge_currency' => $code !== '' ? $code : 'EUR',
+                'charge_amount' => round($lineEuros / $cartEuros * $cartCharge, 2),
+            ];
+        }
+        if ($code === '' || $code === 'EUR') {
+            return ['charge_currency' => 'EUR', 'charge_amount' => $lineEuros];
+        }
+
+        return ['charge_currency' => null, 'charge_amount' => null];
+    }
+
     private function sessionMetadataArray(object $session): array
     {
         $meta = $session->metadata ?? null;

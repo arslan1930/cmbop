@@ -24,7 +24,7 @@ class FinanceController extends Controller
 {
     public const LEDGER_EXPORT_LIMIT = 10000;
 
-    public const DOSSIER_SEARCH_LIMIT = 8;
+    public const DOSSIER_SEARCH_LIMIT = 50;
 
     public function __construct(
         private FinanceOverviewService $finance,
@@ -67,7 +67,13 @@ class FinanceController extends Controller
             $input['date_to'] ?? null
         );
 
-        $data = $this->finance->overview($period);
+        $minWallet = max(0, (float) $request->input('min_wallet', 0));
+        $data = $this->finance->overview(
+            $period,
+            $request->query('wallets') === 'all',
+            $request->query('debt') === 'all',
+            $minWallet
+        );
 
         return view('admin.finance', [
             'data' => $data,
@@ -78,6 +84,7 @@ class FinanceController extends Controller
             'userQueryTooShort' => $userQuery !== '' && mb_strlen($needle) < 2,
             'hasMoreMatches' => $hasMoreMatches,
             'userMatches' => $userMatches,
+            'minWallet' => $minWallet,
         ]);
     }
 
@@ -87,7 +94,7 @@ class FinanceController extends Controller
     public function ledger(Request $request)
     {
         $search = search_text($request->input('search'));
-        $userId = (int) $request->input('user_id');
+        $userId = $this->ledgerUserId($request);
         $ledgerUser = $userId > 0
             ? User::query()->whereKey($userId)->first(['id', 'name', 'email'])
             : null;
@@ -102,7 +109,13 @@ class FinanceController extends Controller
                 'types',
                 'search',
                 'ledgerUser'
-            ));
+            ) + [
+                'dateError' => null,
+                'totals' => ['count' => 0, 'by_currency' => []],
+                'advertiserRoleId' => null,
+                'publisherRoleId' => null,
+                'exportLimited' => false,
+            ]);
         }
 
         $with = ['user:id,name,email'];
@@ -114,10 +127,14 @@ class FinanceController extends Controller
             // Leftover Hostinger: list the ledger even if wallets is gone.
         }
 
+        $dateError = null;
+        $totals = ['count' => 0, 'by_currency' => []];
         try {
-            $transactions = $this->ledgerQuery($request)
+            app(\App\Services\Wallet\WalletLedgerService::class)->backfillWithdrawalStatuses();
+            $filtered = $this->ledgerQuery($request, $dateError);
+            $totals = $this->ledgerTotals($filtered);
+            $transactions = $this->applyLedgerSort($filtered, $request)
                 ->with($with)
-                ->latest()
                 ->paginate(40)
                 ->withQueryString();
         } catch (\Throwable $e) {
@@ -132,8 +149,14 @@ class FinanceController extends Controller
             'transactions',
             'types',
             'search',
-            'ledgerUser'
-        ));
+            'ledgerUser',
+            'dateError',
+            'totals'
+        ) + [
+            'advertiserRoleId' => Wallet::advertiserRoleId(),
+            'publisherRoleId' => Wallet::publisherRoleId(),
+            'exportLimited' => ($totals['count'] ?? 0) > self::LEDGER_EXPORT_LIMIT,
+        ]);
     }
 
     /**
@@ -157,8 +180,16 @@ class FinanceController extends Controller
                     'amount',
                     'bonus_amount',
                     'balance_after',
+                    'bonus_balance_after',
+                    'currency',
+                    'status',
+                    'payment_method',
+                    'wallet_id',
+                    'wallet_role',
                     'reference',
                     'description',
+                    'related_type',
+                    'related_id',
                 ]);
                 fclose($out);
             }, $filename, [
@@ -167,7 +198,13 @@ class FinanceController extends Controller
         }
 
         try {
-            $query = $this->ledgerQuery($request)->with(['user:id,name,email']);
+            app(\App\Services\Wallet\WalletLedgerService::class)->backfillWithdrawalStatuses();
+            $ignoredDateError = null;
+            $exportWith = ['user:id,name,email'];
+            if (Schema::hasTable('wallets')) {
+                $exportWith[] = 'wallet:id,role_id';
+            }
+            $query = $this->ledgerQuery($request, $ignoredDateError)->with($exportWith);
             $matchCount = (clone $query)->count();
         } catch (\Throwable $e) {
             report($e);
@@ -187,8 +224,16 @@ class FinanceController extends Controller
                     'amount',
                     'bonus_amount',
                     'balance_after',
+                    'bonus_balance_after',
+                    'currency',
+                    'status',
+                    'payment_method',
+                    'wallet_id',
+                    'wallet_role',
                     'reference',
                     'description',
+                    'related_type',
+                    'related_id',
                 ]);
                 fclose($out);
             }, $filename, [
@@ -202,7 +247,7 @@ class FinanceController extends Controller
             ($request->user()?->name ?? 'Admin').' exported the wallet ledger ('.min($matchCount, self::LEDGER_EXPORT_LIMIT).' row(s)).',
             null,
             [
-                'user_id' => (int) $request->input('user_id') ?: null,
+                'user_id' => $this->ledgerUserId($request) ?: null,
                 'type' => is_string($request->input('type')) ? $request->input('type') : '',
                 'direction' => is_string($request->input('direction')) ? $request->input('direction') : '',
                 'search' => search_text($request->input('search')),
@@ -213,7 +258,10 @@ class FinanceController extends Controller
             ]
         );
 
-        return response()->streamDownload(function () use ($query) {
+        $advertiserRoleId = Wallet::advertiserRoleId();
+        $publisherRoleId = Wallet::publisherRoleId();
+
+        return response()->streamDownload(function () use ($query, $advertiserRoleId, $publisherRoleId) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'id',
@@ -226,16 +274,26 @@ class FinanceController extends Controller
                 'amount',
                 'bonus_amount',
                 'balance_after',
+                'bonus_balance_after',
+                'currency',
+                'status',
+                'payment_method',
+                'wallet_id',
+                'wallet_role',
                 'reference',
                 'description',
+                'related_type',
+                'related_id',
             ]);
 
             $exported = 0;
-            $query->chunkById(500, function ($rows) use ($out, &$exported) {
+            $query->chunkById(500, function ($rows) use ($out, &$exported, $advertiserRoleId, $publisherRoleId) {
                 foreach ($rows as $tx) {
                     if ($exported >= self::LEDGER_EXPORT_LIMIT) {
                         return false;
                     }
+                    $roleId = (int) ($tx->wallet?->role_id ?? 0);
+                    $role = $roleId === (int) $advertiserRoleId ? 'advertiser' : ($roleId === (int) $publisherRoleId ? 'publisher' : '');
                     fputcsv($out, [
                         $tx->id,
                         optional($tx->created_at)?->toDateTimeString(),
@@ -247,8 +305,16 @@ class FinanceController extends Controller
                         $tx->amount,
                         $tx->bonus_amount,
                         $tx->balance_after,
+                        $tx->bonus_balance_after,
+                        $tx->currency,
+                        $tx->status,
+                        $tx->payment_method,
+                        $tx->wallet_id,
+                        $role,
                         $tx->reference,
                         $tx->description,
+                        $tx->related_type,
+                        $tx->related_id,
                     ]);
                     $exported++;
                 }
@@ -392,7 +458,7 @@ class FinanceController extends Controller
         ];
     }
 
-    private function ledgerQuery(Request $request): Builder
+    private function ledgerQuery(Request $request, ?string &$dateError = null): Builder
     {
         if (! $this->walletTransactionsAvailable()) {
             return WalletTransaction::query()->whereRaw('0 = 1');
@@ -410,10 +476,17 @@ class FinanceController extends Controller
             $query->where('direction', $direction);
         }
 
+        $wallet = search_text($request->input('wallet'));
+        if (in_array($wallet, ['advertiser', 'publisher'], true) && Schema::hasTable('wallets')) {
+            $roleId = $wallet === 'advertiser' ? Wallet::advertiserRoleId() : Wallet::publisherRoleId();
+            if ($roleId) {
+                $query->whereHas('wallet', fn ($q) => $q->where('role_id', $roleId));
+            }
+        }
+
         $search = search_text($request->input('search'));
         $meaningful = $this->dossierSearchNeedle($search);
         if ($search !== '' && $meaningful === '') {
-            // "%%" / "_" only — do not treat as no filter (that dumps the ledger).
             $query->whereRaw('0 = 1');
         } elseif ($meaningful !== '') {
             $like = like_contains($search);
@@ -423,36 +496,120 @@ class FinanceController extends Controller
                     ->orWhereHas('user', function ($sub) use ($like) {
                         $sub->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
                             ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\']);
+                        foreach (['company_name', 'payout_paypal_email', 'payout_wise_email', 'payout_bank_account', 'payout_crypto_trx_wallet'] as $column) {
+                            if (Schema::hasColumn('users', $column)) {
+                                $sub->orWhereRaw($column.' LIKE ? ESCAPE ?', [$like, '\\']);
+                            }
+                        }
                     });
                 if ($this->isExactDigitId($search)) {
-                    $q->orWhere('id', (int) $search);
+                    $id = (int) $search;
+                    $q->orWhere('id', $id);
+                    if (Schema::hasColumn('wallet_transactions', 'wallet_id')) {
+                        $q->orWhere('wallet_id', $id);
+                    }
+                    if (Schema::hasColumn('wallet_transactions', 'related_id')) {
+                        $q->orWhere('related_id', $id);
+                    }
                 }
             });
         }
 
-        $userId = (int) $request->input('user_id');
+        $userId = $this->ledgerUserId($request);
         if ($userId > 0) {
             $query->where('user_id', $userId);
         }
 
-        $dates = validator(
-            [
-                'date_from' => is_string($request->input('date_from')) ? $request->input('date_from') : null,
-                'date_to' => is_string($request->input('date_to')) ? $request->input('date_to') : null,
-            ],
-            [
-                'date_from' => 'nullable|date',
-                'date_to' => 'nullable|date|after_or_equal:date_from',
-            ]
-        )->valid();
-        if (! empty($dates['date_from'])) {
-            $query->whereDate('created_at', '>=', $dates['date_from']);
-        }
-        if (! empty($dates['date_to'])) {
-            $query->whereDate('created_at', '<=', $dates['date_to']);
+        $fromRaw = is_string($request->input('date_from')) ? trim($request->input('date_from')) : '';
+        $toRaw = is_string($request->input('date_to')) ? trim($request->input('date_to')) : '';
+        $fromOk = $fromRaw === '' || $this->isLedgerDay($fromRaw);
+        $toOk = $toRaw === '' || $this->isLedgerDay($toRaw);
+        if (! $fromOk || ! $toOk) {
+            $dateError = 'Enter real dates.';
+        } elseif ($fromRaw !== '' && $toRaw !== '' && $toRaw < $fromRaw) {
+            $dateError = 'The to date must be on or after the from date.';
+        } elseif ($request->boolean('finance') && ($fromRaw !== '' || $toRaw !== '')) {
+            $this->finance->applyLedgerCreatedWindow($query, $fromRaw !== '' ? $fromRaw : null, $toRaw !== '' ? $toRaw : null);
+        } else {
+            if ($fromRaw !== '') {
+                $query->whereDate('created_at', '>=', $fromRaw);
+            }
+            if ($toRaw !== '') {
+                $query->whereDate('created_at', '<=', $toRaw);
+            }
         }
 
         return $query;
+    }
+
+    private function applyLedgerSort(Builder $query, Request $request): Builder
+    {
+        $sort = search_text($request->input('sort'));
+        if ($sort === 'oldest') {
+            return $query->orderBy('created_at')->orderBy('id');
+        }
+        if ($sort === 'amount') {
+            return $query->orderByDesc('amount')->orderByDesc('id');
+        }
+
+        return $query->orderByDesc('created_at')->orderByDesc('id');
+    }
+
+    /**
+     * @return array{count: int, by_currency: array<string, array{credit: float, debit: float}>}
+     */
+    private function ledgerTotals(Builder $query): array
+    {
+        $count = (clone $query)->count();
+        $hasCurrency = Schema::hasColumn('wallet_transactions', 'currency');
+        if ($hasCurrency) {
+            $rows = (clone $query)
+                ->selectRaw("COALESCE(NULLIF(currency, ''), 'EUR') as code, direction, SUM(amount) as total")
+                ->groupByRaw("COALESCE(NULLIF(currency, ''), 'EUR'), direction")
+                ->get();
+        } else {
+            $rows = (clone $query)
+                ->selectRaw('direction, SUM(amount) as total')
+                ->groupBy('direction')
+                ->get();
+        }
+
+        $by = [];
+        foreach ($rows as $row) {
+            $code = strtoupper(trim((string) ($row->code ?? 'EUR')));
+            if ($code === '') {
+                $code = 'EUR';
+            }
+            $by[$code] ??= ['credit' => 0.0, 'debit' => 0.0];
+            $dir = $row->direction === 'credit' ? 'credit' : 'debit';
+            $by[$code][$dir] = round((float) $row->total, 2);
+        }
+        ksort($by);
+
+        return ['count' => $count, 'by_currency' => $by];
+    }
+
+    private function ledgerUserId(Request $request): int
+    {
+        $raw = $request->input('user_id');
+        if (! is_scalar($raw) || ! $this->isExactDigitId((string) $raw)) {
+            return 0;
+        }
+
+        return (int) $raw;
+    }
+
+    private function isLedgerDay(string $value): bool
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
+            return false;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->toDateString() === $value;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function redirectToDossierIfUnique(string $userQuery): ?RedirectResponse
@@ -490,9 +647,17 @@ class FinanceController extends Controller
         $like = like_contains($needle);
 
         return User::query()
-            ->where(function ($query) use ($like) {
+            ->where(function ($query) use ($like, $needle) {
                 $query->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
                     ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\']);
+                foreach (['company_name', 'payout_paypal_email', 'payout_wise_email', 'payout_bank_account', 'payout_crypto_trx_wallet'] as $column) {
+                    if (Schema::hasColumn('users', $column)) {
+                        $query->orWhereRaw($column.' LIKE ? ESCAPE ?', [$like, '\\']);
+                    }
+                }
+                if (ctype_digit($needle) && (string) ((int) $needle) === $needle) {
+                    $query->orWhere('id', (int) $needle);
+                }
             })
             ->orderBy('name')
             ->limit($limit)

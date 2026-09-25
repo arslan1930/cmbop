@@ -855,7 +855,11 @@ class PaymentController extends Controller
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', "%{$search}%")
-                    ->orWhere('reference_code', 'like', "%{$search}%")
+                    ->orWhere('reference_code', 'like', "%{$search}%");
+                if (ctype_digit($search) && (string) (int) $search === $search) {
+                    $q->orWhere('id', (int) $search);
+                }
+                $q
                     ->orWhereHas('user', function ($sub) use ($search) {
                         $sub->where('name', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%");
@@ -864,6 +868,16 @@ class PaymentController extends Controller
                     $q->orWhere('payment_reference', 'like', "%{$search}%");
                 }
             });
+        }
+
+        if ($request->boolean('finance')) {
+            app(\App\Services\Admin\FinanceOverviewService::class)->applyGmvWindow(
+                $query,
+                is_string($request->input('date_from')) ? $request->input('date_from') : null,
+                is_string($request->input('date_to')) ? $request->input('date_to') : null
+            );
+
+            return $query;
         }
 
         $paymentStatus = is_string($request->input('payment_status')) ? $request->input('payment_status') : '';
@@ -896,12 +910,14 @@ class PaymentController extends Controller
             [
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
-                'date_field' => 'nullable|in:created_at,paid_at',
+                'date_field' => 'nullable|in:created_at,paid_at,completed_at',
             ]
         )->valid();
 
-        $dateField = ($dates['date_field'] ?? 'created_at') === 'paid_at' ? 'paid_at' : 'created_at';
-        if ($dateField === 'paid_at' && ! $this->ordersHaveColumn('paid_at')) {
+        $dateField = in_array($dates['date_field'] ?? 'created_at', ['paid_at', 'completed_at'], true)
+            ? $dates['date_field']
+            : 'created_at';
+        if (in_array($dateField, ['paid_at', 'completed_at'], true) && ! $this->ordersHaveColumn($dateField)) {
             $dateField = 'created_at';
         }
         if (! empty($dates['date_from'])) {

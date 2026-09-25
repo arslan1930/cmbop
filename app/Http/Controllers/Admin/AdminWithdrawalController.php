@@ -597,16 +597,24 @@ class AdminWithdrawalController extends Controller
                 'date_to' => 'nullable|date|after_or_equal:date_from',
             ]
         )->valid();
-        $paidClock = $status === 'completed' && Withdrawal::hasProcessedAtColumn();
-        if ($paidClock && ($dates['date_from'] ?? null || $dates['date_to'] ?? null)) {
-            $query->whereProcessedAtIsRecorded();
-        }
-        $dateColumn = $paidClock ? 'processed_at' : 'created_at';
-        if (! empty($dates['date_from'])) {
-            $query->whereDate($dateColumn, '>=', $dates['date_from']);
-        }
-        if (! empty($dates['date_to'])) {
-            $query->whereDate($dateColumn, '<=', $dates['date_to']);
+        if ($request->boolean('finance') && $status === 'completed') {
+            app(\App\Services\Admin\FinanceOverviewService::class)->applyWithdrawalPaidWindow(
+                $query,
+                $dates['date_from'] ?? null,
+                $dates['date_to'] ?? null
+            );
+        } else {
+            $paidClock = $status === 'completed' && Withdrawal::hasProcessedAtColumn();
+            if ($paidClock && ($dates['date_from'] ?? null || $dates['date_to'] ?? null)) {
+                $query->whereProcessedAtIsRecorded();
+            }
+            $dateColumn = $paidClock ? 'processed_at' : 'created_at';
+            if (! empty($dates['date_from'])) {
+                $query->whereDate($dateColumn, '>=', $dates['date_from']);
+            }
+            if (! empty($dates['date_to'])) {
+                $query->whereDate($dateColumn, '<=', $dates['date_to']);
+            }
         }
 
         $waiting = search_text($request->input('waiting'));
