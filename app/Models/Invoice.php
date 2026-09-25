@@ -229,8 +229,8 @@ class Invoice extends Model
 
         if ($this->isWithdrawalPayout() && $this->withdrawalId()) {
             return route('admin.withdrawals', [
-                'search' => (string) $this->withdrawalId(),
-                'queue' => 'history',
+                'search' => 'WD-'.$this->withdrawalId(),
+                'queue' => 'all',
             ]);
         }
 

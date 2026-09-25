@@ -19,70 +19,37 @@ use Illuminate\Support\Facades\Schema;
 
 class InvoiceController extends Controller
 {
+    private const EXPORT_LIMIT = 5000;
+
     public function index(Request $request)
     {
         $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
-        $from = $this->parseDate($request->input('from'));
-        $to = $this->parseDate($request->input('to'));
-        if ($from && $to && $from->gt($to)) {
-            [$from, $to] = [$to, $from];
-        }
-
+        $dateError = null;
         $invoices = new LengthAwarePaginator([], 0, 25);
         $invoices->withPath($request->url())->appends($request->query());
+        $missingOrders = new LengthAwarePaginator([], 0, 25);
+        $missingOrders->withPath($request->url())->appends($request->query());
         $stats = $this->emptyInvoiceStats();
+        $currencyTotals = [];
+        $matchCount = 0;
+        $exportLimited = false;
+        $missingTaxCount = 0;
+        $missingPdfCount = 0;
+        $showMissingOrders = ! $request->boolean('finance') && $request->input('queue') === 'missing';
 
         if (Invoice::tableAvailable()) {
             try {
-                $query = Invoice::query()->with(['user:id,name,email', 'order:id,order_number']);
-
-                if ($search !== '') {
-                    $query->where(function ($q) use ($search) {
-                        $q->where('invoice_number', 'like', "%{$search}%")
-                            ->orWhere('order_number', 'like', "%{$search}%")
-                            ->orWhere('reference_code', 'like', "%{$search}%")
-                            ->orWhere('customer_name', 'like', "%{$search}%")
-                            ->orWhere('customer_email', 'like', "%{$search}%")
-                            ->orWhere('transaction_id', 'like', "%{$search}%")
-                            ->orWhereHas('user', fn ($user) => $user->where('name', 'like', "%{$search}%"));
-                    });
-                }
-
-                $allowedStatuses = [
-                    Invoice::STATUS_PAID,
-                    Invoice::STATUS_ISSUED,
-                    Invoice::STATUS_PENDING,
-                    Invoice::STATUS_FAILED,
-                    Invoice::STATUS_REFUNDED,
-                    Invoice::STATUS_CANCELLED,
-                ];
-                $status = is_string($request->input('status')) ? $request->input('status') : '';
-                if ($status !== '' && in_array($status, $allowedStatuses, true)) {
-                    $query->where('status', $status);
-                }
-
-                $allowedTypes = [
-                    Invoice::TYPE_TAX_INVOICE,
-                    Invoice::TYPE_PAYMENT_RECEIPT,
-                    Invoice::TYPE_REFUND_RECEIPT,
-                    Invoice::TYPE_PAYMENT_FAILURE,
-                    Invoice::TYPE_DEPOSIT_RECEIPT,
-                    Invoice::TYPE_WITHDRAWAL_PAYOUT,
-                ];
-                $type = is_string($request->input('type')) ? $request->input('type') : '';
-                if ($type !== '' && in_array($type, $allowedTypes, true)) {
-                    $query->where('type', $type);
-                }
-
-                if ($from) {
-                    $query->whereDate('invoice_date', '>=', $from->toDateString());
-                }
-                if ($to) {
-                    $query->whereDate('invoice_date', '<=', $to->toDateString());
-                }
-
-                $invoices = $query->latest('invoice_date')->latest('id')->paginate(25)->withQueryString();
+                $filtered = $this->invoicesQuery($request, $dateError);
+                $matchCount = (clone $filtered)->count();
+                $currencyTotals = $this->invoiceCurrencyTotals($filtered);
+                $exportLimited = $matchCount > self::EXPORT_LIMIT;
+                $invoices = $this->applyInvoiceSort(clone $filtered, $request)->paginate(25)->withQueryString();
                 $stats = $this->invoiceIndexStats();
+                $missingTaxCount = $this->missingTaxInvoiceCount();
+                $missingPdfCount = $this->missingPdfPathCount();
+                if ($showMissingOrders && Schema::hasTable('orders')) {
+                    $missingOrders = $this->missingTaxInvoiceOrders()->paginate(25)->withQueryString();
+                }
             } catch (\Throwable $e) {
                 Log::warning('Admin invoices index failed', [
                     'error' => $e->getMessage(),
@@ -94,11 +61,20 @@ class InvoiceController extends Controller
 
         return view('admin.invoices.index', [
             'invoices' => $invoices,
+            'missingOrders' => $missingOrders,
+            'showMissingOrders' => $showMissingOrders,
             'stats' => $stats,
-            'filterSearch' => $search,
-            'filterFrom' => $from?->toDateString(),
-            'filterTo' => $to?->toDateString(),
+            'filterSearch' => $request->boolean('finance') ? '' : $search,
+            'filterFrom' => $this->rawInvoiceDay($request, 'from', 'date_from'),
+            'filterTo' => $this->rawInvoiceDay($request, 'to', 'date_to'),
             'currencySymbol' => (string) config('billing.currency_symbol', '€'),
+            'currencyTotals' => $currencyTotals,
+            'matchCount' => $matchCount,
+            'exportLimited' => $exportLimited,
+            'dateError' => $dateError,
+            'missingTaxCount' => $missingTaxCount,
+            'missingPdfCount' => $missingPdfCount,
+            'financeClock' => $request->boolean('finance'),
         ]);
     }
 
@@ -111,7 +87,13 @@ class InvoiceController extends Controller
             'childInvoices',
             'cancelledBy:id,name,email',
         ];
+        $eventTotal = 0;
         if (BillingEvent::tableAvailable()) {
+            try {
+                $eventTotal = $invoice->events()->count();
+            } catch (\Throwable) {
+                $eventTotal = 0;
+            }
             $with['events'] = fn ($q) => $q->latest()->limit(30);
         }
 
@@ -132,6 +114,7 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'relatedUrl' => $invoice->relatedAdminUrl(),
             'currencySymbol' => (string) config('billing.currency_symbol', '€'),
+            'eventsTruncated' => $invoice->events->isNotEmpty() && $eventTotal > $invoice->events->count(),
         ]);
     }
 
@@ -232,11 +215,25 @@ class InvoiceController extends Controller
             return back()->with('error', 'Cannot generate an invoice because orders are unavailable on this database.');
         }
 
-        $data = $request->validate([
-            'order_id' => 'required|integer|exists:orders,id',
-        ]);
+        $ref = trim((string) ($request->input('order_ref') ?? $request->input('order_id') ?? ''));
+        if ($ref === '') {
+            return back()->with('error', 'Enter an order number.');
+        }
 
-        $order = Order::with(['user', 'items'])->findOrFail($data['order_id']);
+        $order = Order::with(['user', 'items'])->where('order_number', $ref)->first();
+        if (! $order && ctype_digit($ref) && (string) (int) $ref === $ref) {
+            $order = Order::with(['user', 'items'])->find((int) $ref);
+        }
+
+        if (! $order) {
+            return back()->with('error', 'No order matches that number.');
+        }
+
+        if ($order->payment_status !== 'paid' && ! $request->boolean('confirm')) {
+            return back()
+                ->with('warning', 'This order is not paid. Confirm to issue a tax invoice anyway.')
+                ->with('confirm_unpaid_order', $ref);
+        }
 
         $existingId = Invoice::query()
             ->where('order_id', $order->id)
@@ -313,10 +310,11 @@ class InvoiceController extends Controller
         return back()->with(
             'success',
             sprintf(
-                'Backfill complete: %d tax invoices created, %d skipped, %d failed. Payment receipts are not backfilled.',
+                'Backfill complete: %d tax invoices created, %d skipped, %d failed. %d paid orders still have no tax invoice. Payment receipts are not backfilled.',
                 $result['created'],
                 $result['skipped'],
-                $result['failed']
+                $result['failed'],
+                $this->missingTaxInvoiceCount()
             )
         );
     }
@@ -361,9 +359,10 @@ class InvoiceController extends Controller
         return back()->with(
             'success',
             sprintf(
-                'PDF regenerate complete: %d regenerated, %d failed.',
+                'PDF regenerate complete: %d regenerated, %d failed. %d missing files remain.',
                 $result['regenerated'],
-                $result['failed']
+                $result['failed'],
+                (int) ($result['remaining'] ?? 0)
             )
         );
     }
@@ -385,6 +384,267 @@ class InvoiceController extends Controller
         );
 
         return back()->with('success', 'PDF regenerated for '.$invoice->invoice_number);
+    }
+
+    public function export(Request $request)
+    {
+        $dateError = null;
+        $rows = collect();
+        if (Invoice::tableAvailable()) {
+            try {
+                $rows = $this->applyInvoiceSort($this->invoicesQuery($request, $dateError), $request)
+                    ->limit(self::EXPORT_LIMIT)
+                    ->get();
+            } catch (\Throwable $e) {
+                Log::warning('Admin invoice export failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'invoice_number',
+                'type',
+                'status',
+                'currency',
+                'total_amount',
+                'payment_method',
+                'transaction_id',
+                'order_number',
+                'reference_code',
+                'invoice_date',
+                'customer_name',
+                'customer_email',
+            ]);
+            foreach ($rows as $invoice) {
+                fputcsv($out, [
+                    $this->csvCell($invoice->invoice_number),
+                    $this->csvCell($invoice->type),
+                    $this->csvCell($invoice->status),
+                    $this->csvCell($invoice->currency),
+                    number_format((float) $invoice->total_amount, 2, '.', ''),
+                    $this->csvCell($invoice->payment_method),
+                    $this->csvCell($invoice->transaction_id),
+                    $this->csvCell($invoice->order_number),
+                    $this->csvCell($invoice->reference_code),
+                    optional($invoice->invoice_date)->toDateTimeString(),
+                    $this->csvCell($invoice->customer_name),
+                    $this->csvCell($invoice->customer_email),
+                ]);
+            }
+            fclose($out);
+        }, 'invoices-'.now()->format('Y-m-d-His').'.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<Invoice>
+     */
+    private function invoicesQuery(Request $request, ?string &$dateError = null)
+    {
+        $query = Invoice::query()->with(['user:id,name,email', 'order:id,order_number']);
+        [$from, $to, $dateError] = $this->invoiceDateWindow($request);
+
+        if ($request->boolean('finance')) {
+            if ($dateError) {
+                $query->whereRaw('0 = 1');
+
+                return $query;
+            }
+            $this->applyInvoiceDates($query, $from, $to);
+
+            return $query;
+        }
+
+        $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
+        $needle = str_replace(['\\', '%', '_'], '', $search);
+        if ($search !== '' && $needle === '') {
+            $query->whereRaw('0 = 1');
+        } elseif ($search !== '') {
+            $like = like_contains($search);
+            $query->where(function ($q) use ($like, $search) {
+                foreach (['invoice_number', 'order_number', 'reference_code', 'customer_name', 'customer_email', 'transaction_id'] as $column) {
+                    $q->orWhereRaw($column.' LIKE ? ESCAPE ?', [$like, '\\']);
+                }
+                if (ctype_digit($search) && (string) (int) $search === $search) {
+                    $q->orWhere('id', (int) $search);
+                }
+                $q->orWhereHas('user', function ($user) use ($like) {
+                    $user->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
+                        ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\']);
+                    if (Schema::hasColumn('users', 'company_name')) {
+                        $user->orWhereRaw('company_name LIKE ? ESCAPE ?', [$like, '\\']);
+                    }
+                });
+            });
+        }
+
+        $status = is_string($request->input('status')) ? $request->input('status') : '';
+        if ($status !== '' && in_array($status, [
+            Invoice::STATUS_PAID,
+            Invoice::STATUS_ISSUED,
+            Invoice::STATUS_PENDING,
+            Invoice::STATUS_FAILED,
+            Invoice::STATUS_REFUNDED,
+            Invoice::STATUS_CANCELLED,
+        ], true)) {
+            $query->where('status', $status);
+        }
+
+        $type = is_string($request->input('type')) ? $request->input('type') : '';
+        if ($type !== '' && in_array($type, [
+            Invoice::TYPE_TAX_INVOICE,
+            Invoice::TYPE_PAYMENT_RECEIPT,
+            Invoice::TYPE_REFUND_RECEIPT,
+            Invoice::TYPE_PAYMENT_FAILURE,
+            Invoice::TYPE_DEPOSIT_RECEIPT,
+            Invoice::TYPE_WITHDRAWAL_PAYOUT,
+        ], true)) {
+            $query->where('type', $type);
+        }
+
+        if ($request->input('pdf') === 'missing' && Schema::hasColumn('invoices', 'pdf_path')) {
+            $query->where(function ($q) {
+                $q->whereNull('pdf_path')->orWhere('pdf_path', '');
+            });
+        }
+
+        if (! $dateError) {
+            $this->applyInvoiceDates($query, $from, $to);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<Invoice>  $query
+     */
+    private function applyInvoiceDates($query, ?Carbon $from, ?Carbon $to): void
+    {
+        if ($from) {
+            $query->whereDate('invoice_date', '>=', $from->toDateString());
+        }
+        if ($to) {
+            $query->whereDate('invoice_date', '<=', $to->toDateString());
+        }
+    }
+
+    /**
+     * @return array{0: ?Carbon, 1: ?Carbon, 2: ?string}
+     */
+    private function invoiceDateWindow(Request $request): array
+    {
+        $fromRaw = $this->rawInvoiceDay($request, 'from', 'date_from');
+        $toRaw = $this->rawInvoiceDay($request, 'to', 'date_to');
+        $fromOk = $fromRaw === '' || $this->parseDate($fromRaw) !== null;
+        $toOk = $toRaw === '' || $this->parseDate($toRaw) !== null;
+        if (! $fromOk || ! $toOk) {
+            return [null, null, 'Enter real dates.'];
+        }
+        if ($fromRaw !== '' && $toRaw !== '' && $toRaw < $fromRaw) {
+            return [null, null, 'The to date must be on or after the from date.'];
+        }
+
+        return [$this->parseDate($fromRaw), $this->parseDate($toRaw), null];
+    }
+
+    private function rawInvoiceDay(Request $request, string $primary, string $fallback): string
+    {
+        $value = $request->input($primary);
+        if (! is_string($value) || trim($value) === '') {
+            $value = $request->input($fallback);
+        }
+
+        return is_string($value) ? trim($value) : '';
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<Invoice>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<Invoice>
+     */
+    private function applyInvoiceSort($query, Request $request)
+    {
+        $sort = is_string($request->input('sort')) ? $request->input('sort') : '';
+
+        return match ($sort) {
+            'oldest' => $query->orderBy('invoice_date')->orderBy('id'),
+            'amount' => $query->orderByDesc('total_amount')->orderByDesc('id'),
+            default => $query->orderByDesc('invoice_date')->orderByDesc('id'),
+        };
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<Invoice>  $query
+     * @return array<string, float>
+     */
+    private function invoiceCurrencyTotals($query): array
+    {
+        if (! Schema::hasColumn('invoices', 'currency')) {
+            return ['EUR' => round((float) (clone $query)->sum('total_amount'), 2)];
+        }
+
+        $totals = [];
+        $rows = (clone $query)
+            ->setEagerLoads([])
+            ->selectRaw("UPPER(COALESCE(NULLIF(currency, ''), 'EUR')) as code, SUM(total_amount) as total")
+            ->groupByRaw("UPPER(COALESCE(NULLIF(currency, ''), 'EUR'))")
+            ->get();
+        foreach ($rows as $row) {
+            $code = strtoupper(trim((string) $row->code));
+            if ($code !== '') {
+                $totals[$code] = round((float) $row->total, 2);
+            }
+        }
+        ksort($totals);
+
+        return $totals;
+    }
+
+    private function missingTaxInvoiceCount(): int
+    {
+        if (! Schema::hasTable('orders')) {
+            return 0;
+        }
+
+        return $this->missingTaxInvoiceOrders()->count();
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<Order>
+     */
+    private function missingTaxInvoiceOrders()
+    {
+        return Order::query()
+            ->with('user:id,name,email')
+            ->where('payment_status', 'paid')
+            ->whereDoesntHave('invoices', function ($q) {
+                $q->where('type', Invoice::TYPE_TAX_INVOICE)
+                    ->where('status', '!=', Invoice::STATUS_CANCELLED);
+            })
+            ->when(Schema::hasColumn('orders', 'paid_at'), fn ($q) => $q->orderByDesc('paid_at'))
+            ->orderByDesc('id');
+    }
+
+    private function csvCell(mixed $value): string
+    {
+        $text = (string) ($value ?? '');
+        if ($text !== '' && preg_match('/^[=+\-@\t\r]/', $text)) {
+            return "'".$text;
+        }
+
+        return $text;
+    }
+
+    private function missingPdfPathCount(): int
+    {
+        if (! Schema::hasColumn('invoices', 'pdf_path')) {
+            return 0;
+        }
+
+        return Invoice::query()->where(function ($q) {
+            $q->whereNull('pdf_path')->orWhere('pdf_path', '');
+        })->count();
     }
 
     /**

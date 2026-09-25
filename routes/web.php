@@ -1415,10 +1415,12 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::get('/payments', [AdminPaymentController::class, 'index'])->name('payments');
         Route::get('/payments/data', [AdminPaymentController::class, 'getPaymentsData'])->name('payments.data');
         Route::get('/payments/export', [AdminPaymentController::class, 'export'])->name('payments.export');
+        Route::post('/payments/batch-paid', [AdminPaymentController::class, 'batchMarkPaid'])->name('payments.batch-paid');
         Route::get('/payments/{id}', [AdminPaymentController::class, 'show'])->name('payments.show');
         Route::post('/payments/{id}/update-status', [AdminPaymentController::class, 'updatePaymentStatus'])->name('payments.updateStatus');
 
         Route::get('/invoices', [AdminInvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('/invoices/export', [AdminInvoiceController::class, 'export'])->name('invoices.export');
         Route::post('/invoices/generate', [AdminInvoiceController::class, 'generate'])->name('invoices.generate');
         Route::post('/invoices/backfill-missing', [AdminInvoiceController::class, 'backfillMissing'])->name('invoices.backfill-missing');
         Route::post('/invoices/regenerate-missing-pdfs', [AdminInvoiceController::class, 'regenerateMissingPdfs'])->name('invoices.regenerate-missing-pdfs');

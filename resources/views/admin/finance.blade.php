@@ -594,7 +594,7 @@
         <div class="col-md-3"><a href="{{ route('admin.payments') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-money-bill me-1"></i> Order payments</a></div>
         <div class="col-md-3"><a href="{{ route('admin.deposits') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-wallet me-1"></i> Deposits</a></div>
         <div class="col-md-3"><a href="{{ route('admin.withdrawals') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-money-bill-wave me-1"></i> Withdrawals</a></div>
-        <div class="col-md-3"><a href="{{ route('admin.invoices.index') }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-file-invoice-dollar me-1"></i> Invoices</a></div>
+        <div class="col-md-3"><a href="{{ route('admin.invoices.index', array_filter(['finance' => 1, 'from' => $periodStart?->toDateString(), 'to' => $periodEnd?->toDateString()])) }}" class="btn btn-outline-secondary w-100 btn-sm"><i class="fa fa-file-invoice-dollar me-1"></i> Invoices</a></div>
     </div>
 </div>
 @endsection

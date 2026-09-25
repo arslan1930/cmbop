@@ -14,11 +14,12 @@
 
     <div id="paymentsSummary" class="row g-3 mb-4">
         <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100">
+            <div id="openUnpaidQueue" class="card border-0 shadow-sm h-100 text-start w-100" role="button" tabindex="0">
                 <div class="card-body">
                     <div class="small text-muted">Unpaid ops queue</div>
                     <div class="fs-4 fw-semibold" id="summaryUnpaidCount">—</div>
                     <div class="small text-muted" id="summaryUnpaidAmount">Pending confirmation</div>
+                    <div class="small mt-2" id="summaryUnpaidMethods"></div>
                 </div>
             </div>
         </div>
@@ -39,7 +40,7 @@
                         <input type="search"
                                id="searchInput"
                                class="form-control form-control-sm"
-                               placeholder="Order #, Reference, User…"
+                               placeholder="Order, company, site, Stripe, PayPal…"
                                title="Results update as you type"
                                autocomplete="off"
                                enterkeyhint="search"
@@ -97,11 +98,20 @@
                         <option value="completed_at">Filter by completed date</option>
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold small text-muted" for="sortFilter">Sort</label>
+                    <select id="sortFilter" class="form-select form-select-sm">
+                        <option value="">Newest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="amount">Amount</option>
+                        <option value="paid">Paid date</option>
+                    </select>
+                </div>
                 <div class="col-12">
                     <button type="submit" class="btn btn-primary btn-sm px-4">
                         <i class="fa fa-search"></i> Filter
                     </button>
-                    <button type="reset" id="resetFiltersBtn" class="btn btn-secondary btn-sm px-3">
+                    <button type="button" id="resetFiltersBtn" class="btn btn-secondary btn-sm px-3">
                         <i class="fa fa-undo"></i> Reset
                     </button>
                 </div>
@@ -112,10 +122,19 @@
     <!-- Payments Table -->
     <div class="card border-0 shadow-sm admin-table-fit">
         <div class="card-body p-0">
+            <div id="paymentsFinanceBanner" class="alert alert-info rounded-0 border-0 mb-0 d-none">Finance GMV for this period, dated by completed date.</div>
+            <div id="paymentsDateError" class="alert alert-warning rounded-0 border-0 mb-0 d-none"></div>
+            <div id="paymentsExportLimit" class="alert alert-warning rounded-0 border-0 mb-0 d-none">This filter matches more than 5,000 rows. The CSV includes the first 5,000 only.</div>
+            <div id="paymentsMatchLine" class="px-3 py-2 border-bottom small text-muted"></div>
+            <div class="px-3 py-2 border-bottom d-flex align-items-center gap-2">
+                <button type="button" id="batchPaidBtn" class="btn btn-sm btn-primary" disabled>Mark selected paid</button>
+                <span class="small text-muted">Wise, bank, or crypto — one method at a time.</span>
+            </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
+                            <th class="admin-num-col"><input type="checkbox" id="batchSelectAll" aria-label="Select unpaid Wise, bank, or crypto rows"></th>
                             <th class="admin-num-col">#</th>
                             <th class="admin-id-col">Order #</th>
                             <th>User</th>
@@ -130,7 +149,7 @@
                     </thead>
                     <tbody id="paymentsTableBody">
                         <tr>
-                            <td colspan="10" class="text-center py-5">
+                            <td colspan="11" class="text-center py-5">
                                 <div class="spinner-border text-primary" role="status">
                                     <span class="visually-hidden">Loading...</span>
                                 </div>
@@ -257,6 +276,7 @@ function escapeHtml(value) {
 
 const PAYMENTS_DATA = @json(route('admin.payments.data', absolute: false));
 const PAYMENTS_UPDATE = @json(route('admin.payments.updateStatus', ['id' => '__ID__'], absolute: false));
+const PAYMENTS_BATCH = @json(route('admin.payments.batch-paid', absolute: false));
 const PAYMENTS_EXPORT = @json(route('admin.payments.export', absolute: false));
 const ORDERS_SHOW = @json(route('admin.orders.show', ['id' => '__ID__'], absolute: false));
 
@@ -264,7 +284,12 @@ function paymentUrl(template, id) {
     return String(template).replace('__ID__', encodeURIComponent(id));
 }
 
-let financeClock = new URLSearchParams(window.location.search).get('finance') === '1';
+const financeQuery = new URLSearchParams(window.location.search);
+let financeClock = financeQuery.get('finance') === '1';
+const financeDates = {
+    from: financeQuery.get('date_from') || '',
+    to: financeQuery.get('date_to') || '',
+};
 
 function currentFilterParams() {
     const params = {
@@ -275,9 +300,17 @@ function currentFilterParams() {
         date_from: $('#dateFrom').val() || '',
         date_to: $('#dateTo').val() || '',
         date_field: $('#dateFieldFilter').val() || 'created_at',
+        sort: $('#sortFilter').val() || '',
     };
     if (financeClock) {
         params.finance = '1';
+        params.search = '';
+        params.payment_status = '';
+        params.payment_method = '';
+        params.status = '';
+        params.date_from = financeDates.from;
+        params.date_to = financeDates.to;
+        params.date_field = 'completed_at';
     }
     return params;
 }
@@ -293,7 +326,7 @@ function syncFiltersToUrl() {
     const qs = params.toString();
     history.replaceState({}, '', qs ? (window.location.pathname + '?' + qs) : window.location.pathname);
     const exportParams = new URLSearchParams(data);
-    ['search', 'payment_status', 'payment_method', 'status', 'date_from', 'date_to', 'date_field'].forEach(function (key) {
+    ['search', 'payment_status', 'payment_method', 'status', 'date_from', 'date_to', 'date_field', 'sort'].forEach(function (key) {
         if (!data[key]) {
             exportParams.delete(key);
         }
@@ -311,7 +344,13 @@ function applyQueryFilters() {
         $('#paymentStatusFilter').val('unpaid');
     }
     if (params.get('payment_method')) {
-        $('#paymentMethodFilter').val(params.get('payment_method'));
+        var method = params.get('payment_method');
+        if (method === 'stripe') {
+            method = 'card';
+        } else if (method === 'bank_transfer') {
+            method = 'bank';
+        }
+        $('#paymentMethodFilter').val(method);
     }
     if (params.get('status')) {
         $('#orderStatusFilter').val(params.get('status'));
@@ -327,6 +366,12 @@ function applyQueryFilters() {
     }
     if (params.get('date_field')) {
         $('#dateFieldFilter').val(params.get('date_field'));
+    }
+    if (params.get('sort')) {
+        $('#sortFilter').val(params.get('sort'));
+    }
+    if (financeClock) {
+        $('#dateFieldFilter').val('completed_at');
     }
 }
 
@@ -382,8 +427,30 @@ function fillStatusOptions(allowed, current) {
 }
 
 $(document).ready(function() {
+    function openUnpaidQueue(method) {
+        financeClock = false;
+        $('#searchInput').val('');
+        $('#paymentStatusFilter').val('unpaid');
+        $('#paymentMethodFilter').val(method || '');
+        $('#orderStatusFilter').val('');
+        $('#dateFrom').val('');
+        $('#dateTo').val('');
+        $('#dateFieldFilter').val('created_at');
+        $('#sortFilter').val('');
+        currentPage = 1;
+        loadPayments();
+    }
+
     applyQueryFilters();
     loadPayments();
+
+    $('#openUnpaidQueue').on('click', function () {
+        openUnpaidQueue('');
+    });
+    $(document).on('click', '.unpaid-method-chip', function (e) {
+        e.stopPropagation();
+        openUnpaidQueue($(this).data('method') || '');
+    });
 
     $('#filterForm').on('submit', function(e) {
         e.preventDefault();
@@ -398,6 +465,7 @@ $(document).ready(function() {
             statusEl: document.getElementById('adminPaymentsSearchStatus'),
             clearBtn: document.getElementById('adminPaymentsSearchClear'),
             onSearch: function () {
+                financeClock = false;
                 currentPage = 1;
                 loadPayments();
             },
@@ -406,7 +474,8 @@ $(document).ready(function() {
 
     $('#resetFiltersBtn').on('click', function() {
         $('#searchInput').val('');
-        $('#paymentStatusFilter').val('');
+        $('#paymentStatusFilter').val('unpaid');
+        $('#sortFilter').val('');
         $('#paymentMethodFilter').val('');
         $('#orderStatusFilter').val('');
         $('#dateFrom').val('');
@@ -415,6 +484,61 @@ $(document).ready(function() {
         financeClock = false;
         currentPage = 1;
         loadPayments();
+    });
+
+    function selectedBatchIds() {
+        return $('.payment-batch-check:checked').map(function () {
+            return $(this).val();
+        }).get();
+    }
+
+    function refreshBatchButton() {
+        $('#batchPaidBtn').prop('disabled', selectedBatchIds().length === 0);
+    }
+
+    $(document).on('change', '.payment-batch-check', refreshBatchButton);
+
+    $('#batchSelectAll').on('change', function () {
+        $('.payment-batch-check').prop('checked', $(this).is(':checked'));
+        refreshBatchButton();
+    });
+
+    $('#batchPaidBtn').on('click', function () {
+        var ids = selectedBatchIds();
+        if (!ids.length) {
+            return;
+        }
+        Swal.fire({
+            title: 'Mark ' + ids.length + ' payment(s) paid?',
+            text: 'Only unpaid Wise, bank, or crypto rows of one method are accepted. Publishers are notified.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Mark paid',
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+            $.ajax({
+                url: PAYMENTS_BATCH,
+                method: 'POST',
+                data: {
+                    ids: ids,
+                    send_notification: 1,
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function (response) {
+                    Swal.fire('Success!', response.message || 'Marked paid.', 'success');
+                    loadPayments(currentPage);
+                },
+                error: function (xhr) {
+                    var message = xhr.responseJSON && xhr.responseJSON.message
+                        ? xhr.responseJSON.message
+                        : 'Could not mark these payments paid.';
+                    Swal.fire('Error', message, 'error');
+                    loadPayments(currentPage);
+                }
+            });
+        });
     });
 
     $('#update_payment_status').on('change', function () {
@@ -539,7 +663,7 @@ $(document).ready(function() {
         syncFiltersToUrl();
         $('#paymentsTableBody').html(
             '<tr>' +
-                '<td colspan="10" class="text-center py-5">' +
+                '<td colspan="11" class="text-center py-5">' +
                     '<div class="spinner-border text-primary" role="status">' +
                         '<span class="visually-hidden">Loading...</span>' +
                     '</div>' +
@@ -562,7 +686,19 @@ $(document).ready(function() {
                         $('#summaryUnpaidAmount').text(
                             '€' + (parseFloat(response.summary.unpaid_amount || 0).toFixed(2)) + ' waiting'
                         );
+                        var methods = response.summary.methods || {};
+                        var chips = ['wise', 'bank', 'crypto'].map(function (method) {
+                            var label = method.charAt(0).toUpperCase() + method.slice(1);
+                            return '<button type="button" class="btn btn-link btn-sm p-0 me-2 unpaid-method-chip" data-method="'
+                                + method + '">' + label + ' ' + (methods[method] || 0) + '</button>';
+                        }).join('');
+                        $('#summaryUnpaidMethods').html(chips);
                     }
+                    renderMatchLine(response.totals || {});
+                    $('#paymentsFinanceBanner').toggleClass('d-none', !financeClock);
+                    var dateError = response.date_error || '';
+                    $('#paymentsDateError').toggleClass('d-none', !dateError).text(dateError);
+                    $('#paymentsExportLimit').toggleClass('d-none', !response.export_limited);
                     renderPaymentsTable(response.data);
                     renderAdminPagination(response.pagination, {
                         links: '#paginationLinks',
@@ -571,21 +707,40 @@ $(document).ready(function() {
                         onNavigate: loadPayments,
                     });
                 } else {
-                    $('#paymentsTableBody').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load payments') + '</td></tr>');
+                    $('#paymentsTableBody').html('<tr><td colspan="11" class="text-center text-danger py-5">' + escapeHtml(response.message || 'Failed to load payments') + '</td></tr>');
                 }
             },
             error: function(xhr) {
                 var message = xhr.responseJSON && xhr.responseJSON.message
                     ? xhr.responseJSON.message
                     : 'Error loading payments. Please refresh the page.';
-                $('#paymentsTableBody').html('<tr><td colspan="10" class="text-center text-danger py-5">' + escapeHtml(message) + '</td></tr>');
+                $('#paymentsTableBody').html('<tr><td colspan="11" class="text-center text-danger py-5">' + escapeHtml(message) + '</td></tr>');
             }
         });
     }
 
+    function renderMatchLine(totals) {
+        var count = totals.count || 0;
+        var euros = parseFloat(totals.euros || 0);
+        if (isNaN(euros)) {
+            euros = 0;
+        }
+        var text = count + ' match · €' + euros.toFixed(2);
+        var charges = totals.charges || {};
+        Object.keys(charges).forEach(function (code) {
+            text += ' · ' + code + ' ' + parseFloat(charges[code] || 0).toFixed(2);
+        });
+        if (totals.not_recorded) {
+            text += ' · ' + totals.not_recorded + ' card/PayPal charge not recorded';
+        }
+        $('#paymentsMatchLine').text(text);
+    }
+
     function renderPaymentsTable(orders) {
+        $('#batchSelectAll').prop('checked', false);
+        $('#batchPaidBtn').prop('disabled', true);
         if (!orders || orders.length === 0) {
-            $('#paymentsTableBody').html('<tr><td colspan="10" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2">No payments found</p></td></tr>');
+            $('#paymentsTableBody').html('<tr><td colspan="11" class="text-center py-5"><i class="fa fa-inbox fa-3x text-muted"></i><p class="mt-2">No payments found</p></td></tr>');
             return;
         }
 
@@ -607,7 +762,9 @@ $(document).ready(function() {
                     paymentStatusBadge = '<span class="badge bg-info px-3 py-2"><i class="fa fa-undo me-1"></i> Refunded</span>';
                     break;
                 default:
-                    paymentStatusBadge = '<span class="badge bg-secondary px-3 py-2">' + escapeHtml(order.payment_status) + '</span>';
+                    paymentStatusBadge = order.payment_status
+                        ? '<span class="badge bg-secondary px-3 py-2">' + escapeHtml(order.payment_status) + '</span>'
+                        : '<span class="badge bg-secondary px-3 py-2">Unpaid</span>';
             }
 
             // Order Status Badge
@@ -632,12 +789,14 @@ $(document).ready(function() {
                     orderStatusBadge = '<span class="badge bg-warning text-dark px-3 py-2"><i class="fa fa-calendar me-1"></i> Scheduled</span>';
                     break;
                 default:
-                    orderStatusBadge = '<span class="badge bg-secondary px-3 py-2">' + escapeHtml(order.status) + '</span>';
+                    orderStatusBadge = order.status
+                        ? '<span class="badge bg-secondary px-3 py-2">' + escapeHtml(order.status) + '</span>'
+                        : '<span class="badge bg-secondary px-3 py-2">—</span>';
             }
 
             // Payment Method Badge
             var paymentMethodBadge = '';
-            switch(order.payment_method) {
+            switch(order.payment_method_label || order.payment_method) {
                 case 'card':
                     paymentMethodBadge = '<span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2"><i class="fab fa-cc-visa me-1"></i> Card</span>';
                     break;
@@ -657,17 +816,18 @@ $(document).ready(function() {
                     paymentMethodBadge = '<span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2"><i class="fa fa-building me-1"></i> Bank</span>';
                     break;
                 default:
-                    paymentMethodBadge = '<span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2">' + escapeHtml(order.payment_method) + '</span>';
+                    paymentMethodBadge = '<span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2">' + escapeHtml(order.payment_method_label || order.payment_method || '—') + '</span>';
             }
 
-            // Format date without time
             var paidAt = '-';
             if (order.paid_at) {
                 var date = new Date(order.paid_at);
-                paidAt = date.toLocaleDateString('en-US', {
+                paidAt = date.toLocaleString('en-US', {
                     year: 'numeric',
                     month: 'short',
-                    day: 'numeric'
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
                 });
             }
 
@@ -678,19 +838,36 @@ $(document).ready(function() {
                 amount = 0;
             }
 
+            var chargeHtml = '';
+            if (order.charge_currency && order.charge_currency !== 'EUR' && order.charge_amount != null) {
+                chargeHtml = '<div class="small text-muted">' + escapeHtml(order.charge_currency) + ' '
+                    + parseFloat(order.charge_amount).toFixed(2) + '</div>';
+            }
+            var buyerName = escapeHtml(order.user ? order.user.name : 'N/A');
+            if (order.user && order.user.dossier_url) {
+                buyerName = '<a href="' + escapeHtml(order.user.dossier_url) + '">' + buyerName + '</a>';
+            }
+            var siteHtml = order.site_name
+                ? '<div class="small text-muted">' + escapeHtml(order.site_name) + '</div>'
+                : '';
+            var checkCell = order.can_batch_pay
+                ? '<input type="checkbox" class="payment-batch-check" value="' + escapeHtml(order.id) + '" aria-label="Select order">'
+                : '';
+
             html += '<tr>';
+            html += '<td class="text-center">' + checkCell + '</td>';
             html += '<td class="text-center">' + rowNumber + '</td>';
             html += '<td><strong class="admin-id-clamp" title="' + escapeHtml(order.order_number) + '">'
-                + escapeHtml(order.order_number) + '</strong></td>';
+                + escapeHtml(order.order_number) + '</strong>' + siteHtml + '</td>';
             html += '<td>';
             html += '<div class="d-flex flex-column">';
-            html += '<span class="fw-semibold">' + escapeHtml(order.user ? order.user.name : 'N/A') + '</span>';
+            html += '<span class="fw-semibold">' + buyerName + '</span>';
             html += '<small class="text-muted">' + escapeHtml(order.user ? order.user.email : 'No email') + '</small>';
             html += '</div>';
             html += '</td>';
-            html += '<td><code class="small admin-id-clamp" title="' + escapeHtml(order.reference_code) + '">'
-                + escapeHtml(order.reference_code) + '</code></td>';
-            html += '<td class="fw-bold text-primary">€' + amount.toFixed(2) + '</td>';
+            html += '<td><code class="small admin-id-clamp" title="' + escapeHtml(order.reference_code || '') + '">'
+                + escapeHtml(order.reference_code || '—') + '</code></td>';
+            html += '<td class="fw-bold text-primary">€' + amount.toFixed(2) + chargeHtml + '</td>';
             html += '<td>' + paymentMethodBadge + '</td>';
             html += '<td>' + paymentStatusBadge + '</td>';
             html += '<td>' + orderStatusBadge + '</td>';
@@ -707,16 +884,16 @@ $(document).ready(function() {
                 html += '<li><button type="button" class="dropdown-item update-payment-btn" ';
                 html += 'data-id="' + escapeHtml(order.id) + '" ';
                 html += 'data-order="' + escapeHtml(order.order_number) + '" ';
-                html += 'data-status="' + escapeHtml(order.payment_status) + '" ';
-                html += 'data-method="' + escapeHtml(order.payment_method) + '" ';
+                html += 'data-status="' + escapeHtml(order.payment_status || '') + '" ';
+                html += 'data-method="' + escapeHtml(order.payment_method_label || order.payment_method) + '" ';
                 html += 'data-order-status="' + escapeHtml(order.status) + '" ';
                 html += 'data-amount="' + escapeHtml(amount.toFixed(2)) + '" ';
-                html += 'data-notes="' + escapeHtml(order.admin_notes) + '" ';
-                html += 'data-reference="' + escapeHtml(order.payment_reference) + '" ';
+                html += 'data-notes="' + escapeHtml(order.admin_notes || '') + '" ';
+                html += 'data-reference="' + escapeHtml(order.payment_reference || '') + '" ';
                 html += 'data-allowed="' + escapeHtml(JSON.stringify(allowed)) + '">';
                 html += '<i class="fa fa-edit me-2"></i>Update payment</button></li>';
             } else if (order.payment_status === 'paid' && order.status === 'completed') {
-                html += '<li><span class="dropdown-item-text text-muted"><i class="fa fa-gavel me-2"></i>Use a dispute clawback</span></li>';
+                html += '<li><a class="dropdown-item" href="' + escapeHtml(paymentUrl(ORDERS_SHOW, order.id)) + '"><i class="fa fa-gavel me-2"></i>Use a dispute clawback</a></li>';
             } else if (order.payment_status === 'refunded') {
                 html += '<li><span class="dropdown-item-text text-muted"><i class="fa fa-undo me-2"></i>Refunded</span></li>';
             }

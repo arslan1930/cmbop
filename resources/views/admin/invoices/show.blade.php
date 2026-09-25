@@ -53,7 +53,7 @@
                             <span class="text-muted d-block">Customer</span>
                             <strong>
                                 @if($invoice->user_id)
-                                    <a href="{{ route('admin.users.show', $invoice->user_id) }}">{{ $invoice->customer_name ?: $invoice->user?->name ?: '—' }}</a>
+                                    <a href="{{ route('admin.finance.user', $invoice->user_id) }}">{{ $invoice->customer_name ?: $invoice->user?->name ?: '—' }}</a>
                                 @else
                                     {{ $invoice->customer_name ?: '—' }}
                                 @endif
@@ -71,7 +71,13 @@
                         </div>
                         <div class="col-md-4">
                             <span class="text-muted d-block">Amount</span>
-                            <strong>{{ $symbol }}{{ number_format((float) $invoice->total_amount, 2) }}</strong>
+                            <strong>
+                                {{ $symbol }}{{ number_format((float) $invoice->total_amount, 2) }}
+                                @php $invoiceCode = strtoupper(trim((string) ($invoice->currency ?? ''))); @endphp
+                                @if($invoiceCode !== '' && $invoiceCode !== 'EUR')
+                                    <span class="text-muted fw-normal">{{ $invoiceCode }} {{ number_format((float) $invoice->total_amount, 2) }}</span>
+                                @endif
+                            </strong>
                         </div>
                         <div class="col-md-4">
                             <span class="text-muted d-block">Invoice date</span>
@@ -157,7 +163,14 @@
                         <div class="d-flex justify-content-between mb-2"><span class="text-muted">{{ $invoice->tax_label ?: 'Tax' }}</span><span>{{ $symbol }}{{ number_format((float) $invoice->tax_amount, 2) }}</span></div>
                     @endif
                     <div class="d-flex justify-content-between pt-2 border-top fw-bold">
-                        <span>Total</span><span style="color:#1a585e;">{{ $symbol }}{{ number_format((float) $invoice->total_amount, 2) }}</span>
+                        <span>Total</span>
+                        <span style="color:#1a585e;">
+                            {{ $symbol }}{{ number_format((float) $invoice->total_amount, 2) }}
+                            @php $invoiceCode = strtoupper(trim((string) ($invoice->currency ?? ''))); @endphp
+                            @if($invoiceCode !== '' && $invoiceCode !== 'EUR')
+                                <span class="fw-normal text-muted">{{ $invoiceCode }}</span>
+                            @endif
+                        </span>
                     </div>
                 </div>
             </div>
@@ -225,6 +238,9 @@
                     @empty
                         <li class="list-group-item text-muted small">No events logged.</li>
                     @endforelse
+                    @if($eventsTruncated ?? false)
+                        <li class="list-group-item text-muted small">Older events are not listed.</li>
+                    @endif
                 </ul>
             </div>
         </div>

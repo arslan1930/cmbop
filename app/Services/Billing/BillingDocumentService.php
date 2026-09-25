@@ -432,38 +432,43 @@ class BillingDocumentService
     /**
      * Ops: regenerate PDFs that are missing on disk.
      *
-     * @return array{regenerated: int, failed: int}
+     * @return array{regenerated: int, failed: int, remaining: int}
      */
     public function regenerateMissingPdfs(int $limit = 50): array
     {
         $limit = max(1, min(200, $limit));
-        $scan = max(400, $limit * 8);
-
-        $docs = Invoice::query()
-            ->orderByDesc('id')
-            ->limit($scan)
-            ->get()
-            ->filter(fn (Invoice $inv) => ! $inv->pdfExists())
-            ->take($limit)
-            ->values();
-
         $regenerated = 0;
         $failed = 0;
+        $remaining = 0;
 
-        foreach ($docs as $doc) {
-            try {
-                $this->regeneratePdf($doc);
-                $regenerated++;
-            } catch (\Throwable $e) {
-                $failed++;
-                Log::error('Regenerate invoice PDF failed', [
-                    'invoice_id' => $doc->id,
-                    'error' => $e->getMessage(),
-                ]);
+        Invoice::query()->orderBy('id')->chunkById(100, function ($docs) use (&$regenerated, &$failed, &$remaining, $limit) {
+            foreach ($docs as $doc) {
+                if ($doc->pdfExists()) {
+                    continue;
+                }
+                if ($regenerated + $failed >= $limit) {
+                    $remaining++;
+
+                    continue;
+                }
+                try {
+                    $this->regeneratePdf($doc);
+                    $regenerated++;
+                } catch (\Throwable $e) {
+                    $failed++;
+                    Log::error('Regenerate invoice PDF failed', [
+                        'invoice_id' => $doc->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
-        }
+        });
 
-        return compact('regenerated', 'failed');
+        return [
+            'regenerated' => $regenerated,
+            'failed' => $failed,
+            'remaining' => $remaining + $failed,
+        ];
     }
 
     protected function createDocument(Order $order, string $type, string $status, array $extra = []): Invoice

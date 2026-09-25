@@ -60,14 +60,14 @@ class PaymentController extends Controller
 
         try {
             $this->ensurePaymentColumns();
-            $query = $this->paymentsQuery($request);
-
+            $unpaid = Order::query()->unpaidOps();
+            $dateError = null;
+            $filtered = $this->paymentsQuery($request, $dateError);
+            $totals = $this->paymentFilterTotals($filtered);
             $perPage = (int) $request->input('per_page', 20);
             $perPage = max(1, min(100, $perPage));
-            $orders = $query->paginate($perPage);
+            $orders = $this->applyPaymentSort($filtered, $request)->paginate($perPage);
             $this->attachInvoiceDocuments($orders->getCollection());
-
-            $unpaid = Order::query()->unpaidOps();
 
             return response()->json([
                 'success' => true,
@@ -80,10 +80,10 @@ class PaymentController extends Controller
                     'from' => $orders->firstItem(),
                     'to' => $orders->lastItem(),
                 ],
-                'summary' => [
-                    'unpaid_count' => (clone $unpaid)->count(),
-                    'unpaid_amount' => round((float) (clone $unpaid)->sum('total_amount'), 2),
-                ],
+                'summary' => $this->unpaidSummary($unpaid),
+                'totals' => $totals,
+                'date_error' => $dateError,
+                'export_limited' => ($totals['count'] ?? 0) > self::EXPORT_LIMIT,
             ]);
 
         } catch (\Throwable $e) {
@@ -102,8 +102,11 @@ class PaymentController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $this->ensurePaymentColumns();
+        $dateError = null;
         try {
-            $rows = $this->paymentsQuery($request)->limit(self::EXPORT_LIMIT)->get();
+            $rows = $this->applyPaymentSort($this->paymentsQuery($request, $dateError), $request)
+                ->limit(self::EXPORT_LIMIT)
+                ->get();
         } catch (\Throwable $e) {
             Log::warning('Admin payments export query failed', [
                 'error' => $e->getMessage(),
@@ -143,7 +146,13 @@ class PaymentController extends Controller
                 'payment_reference',
                 'admin_notes',
                 'paid_at',
+                'completed_at',
                 'created_at',
+                'charge_currency',
+                'charge_amount',
+                'stripe_session_id',
+                'paypal_order_id',
+                'paypal_capture_id',
             ]);
 
             foreach ($rows as $order) {
@@ -159,7 +168,13 @@ class PaymentController extends Controller
                     $this->csvCell($order->payment_reference),
                     $this->csvCell($order->admin_notes),
                     optional($order->paid_at)->toDateTimeString(),
+                    optional($order->completed_at)->toDateTimeString(),
                     optional($order->created_at)->toDateTimeString(),
+                    $this->csvCell($order->charge_currency),
+                    $order->charge_amount !== null ? number_format((float) $order->charge_amount, 2, '.', '') : '',
+                    $this->csvCell($order->stripe_session_id),
+                    $this->csvCell($order->paypal_order_id),
+                    $this->csvCell($order->paypal_capture_id),
                 ]);
             }
 
@@ -847,37 +862,67 @@ class PaymentController extends Controller
     /**
      * @return Builder<Order>
      */
-    private function paymentsQuery(Request $request): Builder
+    private function paymentsQuery(Request $request, ?string &$dateError = null): Builder
     {
-        $query = Order::query()->with('user:id,name,email')->orderBy('created_at', 'desc');
-
-        $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('order_number', 'like', "%{$search}%")
-                    ->orWhere('reference_code', 'like', "%{$search}%");
-                if (ctype_digit($search) && (string) (int) $search === $search) {
-                    $q->orWhere('id', (int) $search);
-                }
-                $q
-                    ->orWhereHas('user', function ($sub) use ($search) {
-                        $sub->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
-                if (Schema::hasColumn('orders', 'payment_reference')) {
-                    $q->orWhere('payment_reference', 'like', "%{$search}%");
-                }
-            });
-        }
+        $query = Order::query()->with([
+            'user:id,name,email',
+            'items:id,order_id,site_name',
+        ]);
 
         if ($request->boolean('finance')) {
+            $fromRaw = is_string($request->input('date_from')) ? trim($request->input('date_from')) : '';
+            $toRaw = is_string($request->input('date_to')) ? trim($request->input('date_to')) : '';
+            $fromOk = $fromRaw === '' || $this->isPaymentDay($fromRaw);
+            $toOk = $toRaw === '' || $this->isPaymentDay($toRaw);
+            if (! $fromOk || ! $toOk) {
+                $dateError = 'Enter real dates.';
+                $query->whereRaw('0 = 1');
+
+                return $query;
+            }
+            if ($fromRaw !== '' && $toRaw !== '' && $toRaw < $fromRaw) {
+                $dateError = 'The to date must be on or after the from date.';
+                $query->whereRaw('0 = 1');
+
+                return $query;
+            }
             app(\App\Services\Admin\FinanceOverviewService::class)->applyGmvWindow(
                 $query,
-                is_string($request->input('date_from')) ? $request->input('date_from') : null,
-                is_string($request->input('date_to')) ? $request->input('date_to') : null
+                $fromRaw !== '' ? $fromRaw : null,
+                $toRaw !== '' ? $toRaw : null
             );
 
             return $query;
+        }
+
+        $search = is_string($request->input('search')) ? trim($request->input('search')) : '';
+        $needle = str_replace(['\\', '%', '_'], '', $search);
+        if ($search !== '' && $needle === '') {
+            $query->whereRaw('0 = 1');
+        } elseif ($search !== '') {
+            $like = like_contains($search);
+            $query->where(function ($q) use ($like, $search) {
+                $q->whereRaw('order_number LIKE ? ESCAPE ?', [$like, '\\'])
+                    ->orWhereRaw('reference_code LIKE ? ESCAPE ?', [$like, '\\']);
+                if (ctype_digit($search) && (string) (int) $search === $search) {
+                    $q->orWhere('id', (int) $search);
+                }
+                $q->orWhereHas('user', function ($sub) use ($like) {
+                    $sub->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
+                        ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\']);
+                    if (Schema::hasColumn('users', 'company_name')) {
+                        $sub->orWhereRaw('company_name LIKE ? ESCAPE ?', [$like, '\\']);
+                    }
+                });
+                $q->orWhereHas('items', function ($sub) use ($like) {
+                    $sub->whereRaw('site_name LIKE ? ESCAPE ?', [$like, '\\']);
+                });
+                foreach (['payment_reference', 'stripe_session_id', 'paypal_order_id', 'paypal_capture_id'] as $column) {
+                    if (Schema::hasColumn('orders', $column)) {
+                        $q->orWhereRaw($column.' LIKE ? ESCAPE ?', [$like, '\\']);
+                    }
+                }
+            });
         }
 
         $paymentStatus = is_string($request->input('payment_status')) ? $request->input('payment_status') : '';
@@ -888,43 +933,43 @@ class PaymentController extends Controller
         }
 
         $paymentMethod = is_string($request->input('payment_method')) ? $request->input('payment_method') : '';
-        if ($paymentMethod !== '') {
+        if ($paymentMethod === 'card') {
+            $query->whereIn('payment_method', ['card', 'stripe']);
+        } elseif ($paymentMethod === 'bank') {
+            $query->whereIn('payment_method', ['bank', 'bank_transfer']);
+        } elseif ($paymentMethod !== '') {
             $query->where('payment_method', $paymentMethod);
         }
 
         $orderStatus = is_string($request->input('status')) ? $request->input('status') : '';
         if ($orderStatus === 'scheduled') {
-            // Live scheduled rows keep status=pending and store the slot on
-            // publication_mode — the same trap the orders console already fixed.
             $query->awaitingScheduledRelease();
         } elseif ($orderStatus !== '') {
             $query->where('status', $orderStatus);
         }
 
-        $dates = validator(
-            [
-                'date_from' => is_string($request->input('date_from')) ? $request->input('date_from') : null,
-                'date_to' => is_string($request->input('date_to')) ? $request->input('date_to') : null,
-                'date_field' => is_string($request->input('date_field')) ? $request->input('date_field') : 'created_at',
-            ],
-            [
-                'date_from' => 'nullable|date',
-                'date_to' => 'nullable|date|after_or_equal:date_from',
-                'date_field' => 'nullable|in:created_at,paid_at,completed_at',
-            ]
-        )->valid();
-
-        $dateField = in_array($dates['date_field'] ?? 'created_at', ['paid_at', 'completed_at'], true)
-            ? $dates['date_field']
-            : 'created_at';
-        if (in_array($dateField, ['paid_at', 'completed_at'], true) && ! $this->ordersHaveColumn($dateField)) {
-            $dateField = 'created_at';
-        }
-        if (! empty($dates['date_from'])) {
-            $query->whereDate($dateField, '>=', $dates['date_from']);
-        }
-        if (! empty($dates['date_to'])) {
-            $query->whereDate($dateField, '<=', $dates['date_to']);
+        $fromRaw = is_string($request->input('date_from')) ? trim($request->input('date_from')) : '';
+        $toRaw = is_string($request->input('date_to')) ? trim($request->input('date_to')) : '';
+        $fromOk = $fromRaw === '' || $this->isPaymentDay($fromRaw);
+        $toOk = $toRaw === '' || $this->isPaymentDay($toRaw);
+        if (! $fromOk || ! $toOk) {
+            $dateError = 'Enter real dates.';
+        } elseif ($fromRaw !== '' && $toRaw !== '' && $toRaw < $fromRaw) {
+            $dateError = 'The to date must be on or after the from date.';
+        } else {
+            $dateField = is_string($request->input('date_field')) ? $request->input('date_field') : 'created_at';
+            if (! in_array($dateField, ['paid_at', 'completed_at'], true)) {
+                $dateField = 'created_at';
+            }
+            if (in_array($dateField, ['paid_at', 'completed_at'], true) && ! $this->ordersHaveColumn($dateField)) {
+                $dateField = 'created_at';
+            }
+            if ($fromRaw !== '') {
+                $query->whereDate($dateField, '>=', $fromRaw);
+            }
+            if ($toRaw !== '') {
+                $query->whereDate($dateField, '<=', $toRaw);
+            }
         }
 
         return $query;
@@ -933,16 +978,220 @@ class PaymentController extends Controller
     /**
      * @return array<string, mixed>
      */
+    private function applyPaymentSort(Builder $query, Request $request): Builder
+    {
+        $sort = is_string($request->input('sort')) ? $request->input('sort') : '';
+
+        if ($sort === 'paid' && ! $this->ordersHaveColumn('paid_at')) {
+            $sort = '';
+        }
+
+        return match ($sort) {
+            'oldest' => $query->orderBy('created_at')->orderBy('id'),
+            'amount' => $query->orderByDesc('total_amount')->orderByDesc('id'),
+            'paid' => $query->orderByDesc('paid_at')->orderByDesc('id'),
+            default => $query->orderByDesc('created_at')->orderByDesc('id'),
+        };
+    }
+
+    /**
+     * @param  Builder<Order>  $unpaid
+     * @return array<string, mixed>
+     */
+    private function unpaidSummary(Builder $unpaid): array
+    {
+        $methods = ['wise' => 0, 'bank' => 0, 'crypto' => 0];
+        $amounts = ['wise' => 0.0, 'bank' => 0.0, 'crypto' => 0.0];
+        $rows = (clone $unpaid)
+            ->setEagerLoads([])
+            ->selectRaw('payment_method, COUNT(*) as method_count, SUM(total_amount) as method_total')
+            ->groupBy('payment_method')
+            ->get();
+        foreach ($rows as $row) {
+            $method = $this->normalizedPaymentMethod((string) $row->payment_method);
+            if (! array_key_exists($method, $methods)) {
+                continue;
+            }
+            $methods[$method] += (int) $row->method_count;
+            $amounts[$method] = round($amounts[$method] + (float) $row->method_total, 2);
+        }
+
+        return [
+            'unpaid_count' => (clone $unpaid)->count(),
+            'unpaid_amount' => round((float) (clone $unpaid)->sum('total_amount'), 2),
+            'methods' => $methods,
+            'method_amounts' => $amounts,
+        ];
+    }
+
+    /**
+     * @param  Builder<Order>  $query
+     * @return array{count: int, euros: float, charges: array<string, float>, not_recorded: int}
+     */
+    private function paymentFilterTotals(Builder $query): array
+    {
+        $count = (clone $query)->count();
+        $euros = round((float) (clone $query)->sum('total_amount'), 2);
+        $charges = [];
+        $notRecorded = 0;
+        if ($this->ordersHaveColumn('charge_currency') && $this->ordersHaveColumn('charge_amount')) {
+            $external = (clone $query)->whereIn('payment_method', ['card', 'stripe', 'paypal']);
+            $notRecorded = (clone $external)->where(function ($q) {
+                $q->whereNull('charge_currency')
+                    ->orWhere('charge_currency', '')
+                    ->orWhereNull('charge_amount');
+            })->count();
+            $rows = (clone $external)
+                ->setEagerLoads([])
+                ->whereNotNull('charge_currency')
+                ->where('charge_currency', '!=', '')
+                ->whereNotNull('charge_amount')
+                ->selectRaw('UPPER(charge_currency) as code, SUM(charge_amount) as total')
+                ->groupByRaw('UPPER(charge_currency)')
+                ->get();
+            foreach ($rows as $row) {
+                $code = strtoupper(trim((string) $row->code));
+                if ($code !== '') {
+                    $charges[$code] = round((float) $row->total, 2);
+                }
+            }
+            ksort($charges);
+        }
+
+        return [
+            'count' => $count,
+            'euros' => $euros,
+            'charges' => $charges,
+            'not_recorded' => $notRecorded,
+        ];
+    }
+
+    private function normalizedPaymentMethod(string $method): string
+    {
+        $method = strtolower(trim($method));
+
+        return match ($method) {
+            'stripe' => 'card',
+            'bank_transfer' => 'bank',
+            default => $method,
+        };
+    }
+
+    private function isPaymentDay(string $value): bool
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
+            return false;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->toDateString() === $value;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    public function batchMarkPaid(Request $request)
+    {
+        $ids = $request->input('ids');
+        if (! is_array($ids) || $ids === []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Select at least one unpaid Wise, bank, or crypto payment.',
+            ], 422);
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map(
+            fn ($id) => is_numeric($id) ? (int) $id : 0,
+            $ids
+        ))));
+        $orders = Order::query()->whereIn('id', $ids)->get();
+        if ($orders->count() !== count($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Select one payment method at a time. None of these rows were marked paid.',
+            ], 422);
+        }
+
+        $methods = $orders->map(fn (Order $order) => $this->normalizedPaymentMethod((string) $order->payment_method))->unique()->values();
+        $allowed = ['wise', 'bank', 'crypto'];
+        $unpaid = $orders->every(fn (Order $order) => $order->isUnpaidOps() && in_array('paid', $this->allowedPaymentStatuses($order), true));
+        if ($methods->count() !== 1 || ! in_array($methods->first(), $allowed, true) || ! $unpaid) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Select one payment method at a time — Wise, bank, or crypto, still unpaid. None of these rows were marked paid.',
+            ], 422);
+        }
+
+        $payments = app(OrderPaymentService::class);
+        foreach ($orders as $order) {
+            if (! $order->hasCatalogVisibleFulfillment()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This order cannot be marked paid. The listing left the catalog and is no longer fulfillable. None of these rows were marked paid.',
+                ], 422);
+            }
+            $libraryState = $payments->libraryContentStateForSettlement($order);
+            if ($libraryState !== 'ok') {
+                return response()->json([
+                    'success' => false,
+                    'message' => $this->libraryUnreadyForMarkPaidMessage($libraryState).' None of these rows were marked paid.',
+                ], 422);
+            }
+        }
+
+        $marked = 0;
+        foreach ($ids as $id) {
+            try {
+                $sub = Request::create('/', 'POST', [
+                    'payment_status' => 'paid',
+                    'send_notification' => $request->boolean('send_notification', true) ? 1 : 0,
+                    'notes' => is_string($request->input('notes')) ? $request->input('notes') : '',
+                ]);
+                $sub->headers->set('Accept', 'application/json');
+                $sub->setUserResolver(fn () => $request->user());
+                $response = $this->updatePaymentStatus($sub, $id);
+                $payload = $response->getData(true);
+                if (! ($payload['success'] ?? false)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => ($payload['message'] ?? 'Could not mark a payment paid.').' '.$marked.' row(s) were already marked paid.',
+                    ], $response->getStatusCode() ?: 422);
+                }
+            } catch (\Throwable $e) {
+                report($e);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Could not mark a payment paid. '.$marked.' row(s) were already marked paid.',
+                ], 422);
+            }
+            $marked++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $marked.' payment(s) marked paid.',
+        ]);
+    }
+
     private function serializePaymentRow(Order $order): array
     {
+        $method = $this->normalizedPaymentMethod((string) $order->payment_method);
+        $chargeCode = strtoupper(trim((string) ($order->charge_currency ?? '')));
+
         return [
             'id' => $order->id,
             'order_number' => $order->order_number,
             'reference_code' => $order->reference_code,
             'total_amount' => (float) $order->total_amount,
+            'charge_currency' => $chargeCode !== '' ? $chargeCode : null,
+            'charge_amount' => $order->charge_amount !== null ? (float) $order->charge_amount : null,
             'payment_method' => $order->payment_method,
+            'payment_method_label' => $method,
             'payment_status' => $order->payment_status,
-            'status' => $order->status,
+            'status' => $order->isAwaitingScheduledRelease() ? 'scheduled' : $order->status,
+            'site_name' => $order->items->pluck('site_name')->filter()->unique()->implode(', ') ?: null,
+            'can_batch_pay' => $order->isUnpaidOps() && in_array($method, ['wise', 'bank', 'crypto'], true),
             'paid_at' => $order->paid_at?->toIso8601String(),
             'created_at' => $order->created_at?->toIso8601String(),
             'admin_notes' => $order->admin_notes,
@@ -951,6 +1200,7 @@ class PaymentController extends Controller
                 'id' => $order->user->id,
                 'name' => $order->user->name,
                 'email' => $order->user->email,
+                'dossier_url' => route('admin.finance.user', $order->user->id),
             ] : null,
             'allowed_statuses' => $this->allowedPaymentStatuses($order),
             'invoice_url' => $order->invoice_url ?? null,
@@ -1035,7 +1285,12 @@ class PaymentController extends Controller
             'summary' => [
                 'unpaid_count' => 0,
                 'unpaid_amount' => 0.0,
+                'methods' => ['wise' => 0, 'bank' => 0, 'crypto' => 0],
+                'method_amounts' => ['wise' => 0, 'bank' => 0, 'crypto' => 0],
             ],
+            'totals' => ['count' => 0, 'euros' => 0, 'charges' => [], 'not_recorded' => 0],
+            'date_error' => null,
+            'export_limited' => false,
         ]);
     }
 

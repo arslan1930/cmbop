@@ -343,8 +343,8 @@ class AdminInvoiceCrossLinksTest extends TestCase
             ->assertSee($statement->invoice_number, false)
             ->assertSee(e(route('admin.deposits', ['search' => 'DEP-INDEX-9'])), false)
             ->assertSee(e(route('admin.withdrawals', [
-                'search' => '88',
-                'queue' => 'history',
+                'search' => 'WD-88',
+                'queue' => 'all',
             ])), false);
     }
 
