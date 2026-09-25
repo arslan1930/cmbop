@@ -968,11 +968,29 @@ if (class_exists(IrishMoneyLanders::class)
         'irishMoneyLander',
         $prefixedLocales
     );
-    Route::get('/uk', function () {
+    $pinUkEnglish = static function (string $target) {
         $query = request()->getQueryString();
+        $url = $query ? $target.'?'.$query : $target;
+        $redirect = Redirect::to($url, 301);
+        if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'localeCookie')) {
+            $redirect->withCookie(PublicI18n::localeCookie('en', request()));
+        }
 
-        return Redirect::to($query ? '/?'.$query : '/', 301);
-    });
+        return $redirect;
+    };
+    Route::get('/uk', fn () => $pinUkEnglish('/'));
+    Route::get('/uk/{path}', function (string $path) use ($pinUkEnglish) {
+        $path = ltrim($path, '/');
+        $first = explode('/', $path)[0] ?? '';
+        abort_unless(
+            class_exists(PublicI18n::class)
+            && method_exists(PublicI18n::class, 'isUkPinSegment')
+            && PublicI18n::isUkPinSegment($first),
+            404
+        );
+
+        return $pinUkEnglish('/'.$path);
+    })->where('path', '.+');
 }
 
 if (class_exists(DutchMoneyLanders::class)

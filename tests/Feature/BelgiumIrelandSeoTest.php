@@ -116,7 +116,19 @@ class BelgiumIrelandSeoTest extends TestCase
 
         $this->get('/ie')->assertNotFound();
         $this->get('/ie/marketplace')->assertNotFound();
-        $this->get('/uk')->assertRedirect('/');
+        $this->get('/uk')
+            ->assertRedirect('/')
+            ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
+        $this->get('/uk/marketplace')->assertRedirect('/marketplace');
+        $this->get('/uk/pricing')->assertRedirect('/pricing');
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/uk/buy-guest-posts-ireland')
+            ->assertOk()
+            ->assertSee('Buy guest posts in Ireland', false);
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/uk')
+            ->assertRedirect('/')
+            ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
         $this->get('/buy-guest-posts-ireland')->assertRedirect('/uk/buy-guest-posts-ireland');
         $this->get('/de/buy-guest-posts-ireland')->assertRedirect('/uk/buy-guest-posts-ireland');
         $this->get('/uk/guest-post-ireland')->assertRedirect('/uk/buy-guest-posts-ireland');
@@ -214,6 +226,11 @@ class BelgiumIrelandSeoTest extends TestCase
         $this->assertSame(url('/uk/buy-guest-posts-ireland'), PublicI18n::switchUrl($ireland, 'en'));
         $this->assertSame(url('/de'), PublicI18n::switchUrl($ireland, 'de'));
         $this->assertSame(url('/be'), PublicI18n::switchUrl($ireland, 'be'));
+
+        $usHome = Request::create('/us', 'GET');
+        $this->assertSame(url('/uk'), PublicI18n::switchUrl($usHome, 'en'));
+        $usMarket = Request::create('/us/marketplace', 'GET');
+        $this->assertSame(url('/uk/marketplace'), PublicI18n::switchUrl($usMarket, 'en'));
 
         $beGuest = Request::create('/be/koop-guest-post-belgie', 'GET');
         $this->assertSame(url('/be/koop-guest-post-belgie'), PublicI18n::switchUrl($beGuest, 'be'));

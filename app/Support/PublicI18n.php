@@ -7,7 +7,9 @@ use App\Models\BlogTranslation;
 use App\Services\Marketing\GuestPostPriceIndex;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\HttpFoundation\Cookie as SymfonyCookie;
 
 class PublicI18n
 {
@@ -665,11 +667,11 @@ class PublicI18n
             || (method_exists(self::class, 'isEnglishOnlyMarketingPath') && self::isEnglishOnlyMarketingPath($request))) {
             if (method_exists(self::class, 'isEnglishOnlyMarketingPath')
                 && self::isEnglishOnlyMarketingPath($request)
-                && $targetLocale === self::default()) {
+                && self::isDefaultEnglish($targetLocale)) {
                 return $path === '' ? url('/') : url($path);
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
 
         $first = $path === '' ? '' : explode('/', $path, 2)[0];
@@ -691,7 +693,7 @@ class PublicI18n
                 }
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
         $italianSlug = class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isSlug($first);
         $germanSlug = class_exists(GermanMoneyLanders::class) && GermanMoneyLanders::isSlug($first);
@@ -703,25 +705,99 @@ class PublicI18n
                 return url('/de/'.$first);
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
         if ($italianSlug) {
             if ($targetLocale === 'it') {
                 return url('/it/'.$first);
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
         if ($germanSlug) {
             if ($targetLocale === 'de') {
                 return url('/de/'.$first);
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
 
         if (preg_match('#^blog/([^/]+)$#', $path, $matches) === 1) {
             $path = self::blogPathForLocale($matches[1], $targetLocale);
+        }
+
+        return self::switchTargetUrl($path, $targetLocale);
+    }
+
+    /**
+     * `/uk` is not a public locale (unprefixed `/` is UK English), but the
+     * language switcher must hop through it so a leftover `/us` cookie cannot
+     * bounce the visitor back to US English.
+     */
+    public static function isUkPrefixPath(Request $request): bool
+    {
+        return strtolower((string) $request->segment(1)) === 'uk';
+    }
+
+    public static function ukPinUrl(string $path = ''): string
+    {
+        $path = ltrim($path, '/');
+        if ($path === 'uk' || str_starts_with($path, 'uk/')) {
+            return url('/'.$path);
+        }
+
+        return $path === '' ? url('/uk') : url('/uk/'.$path);
+    }
+
+    public static function isUkPinSegment(string $segment): bool
+    {
+        $segment = strtolower(trim($segment, '/'));
+        if ($segment === '' || $segment === 'uk') {
+            return false;
+        }
+        if (class_exists(IrishMoneyLanders::class)
+            && method_exists(IrishMoneyLanders::class, 'isPublicSegment')
+            && IrishMoneyLanders::isPublicSegment($segment)) {
+            return false;
+        }
+
+        $allowed = array_values(array_filter(
+            (array) config('i18n.public_paths', []),
+            static fn ($path) => is_string($path) && $path !== ''
+        ));
+        if (method_exists(self::class, 'englishOnlyMarketingSlugs')) {
+            $allowed = array_merge($allowed, self::englishOnlyMarketingSlugs());
+        }
+
+        return in_array($segment, array_values(array_unique($allowed)), true);
+    }
+
+    public static function localeCookie(string $locale, Request $request): SymfonyCookie
+    {
+        return Cookie::make(
+            config('i18n.cookie', 'public_locale'),
+            $locale,
+            60 * 24 * 365,
+            '/',
+            null,
+            $request->isSecure(),
+            false,
+            false,
+            'Lax'
+        );
+    }
+
+    private static function isDefaultEnglish(string $locale): bool
+    {
+        $locale = strtolower(trim($locale));
+
+        return $locale === self::default() || $locale === 'uk';
+    }
+
+    private static function switchTargetUrl(string $path, string $targetLocale): string
+    {
+        if (self::isDefaultEnglish($targetLocale)) {
+            return self::ukPinUrl($path);
         }
 
         return self::urlForLocale($path, $targetLocale);
