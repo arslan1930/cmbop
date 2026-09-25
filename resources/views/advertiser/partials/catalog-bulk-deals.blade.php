@@ -159,8 +159,8 @@
                             </div>
 
                             <div class="bulk-deal-card__price">
-                                <span class="bulk-deal-card__was">€{{ number_format($list, 2) }}</span>
-                                <strong class="bulk-deal-card__now">€{{ number_format($after, 2) }}</strong>
+                                <span class="bulk-deal-card__was">{{ format_money($list) }}</span>
+                                <strong class="bulk-deal-card__now">{{ format_money($after) }}</strong>
                                 <span class="bulk-deal-card__qty">for {{ $qtyExample }}</span>
                             </div>
 

@@ -92,12 +92,12 @@
                                                     <a href="{{ route('publisher.websites') }}"
                                                        class="btn btn-sm btn-outline-secondary"
                                                        title="{{ \App\Models\Site::cannotOrderOwnListingMessage() }}">
-                                                        Your listing · €{{ number_format((float) $site->display_price, 2) }}
+                                                        Your listing · {{ format_money($site->display_price) }}
                                                     </a>
                                                 @else
                                                     <a href="{{ route('advertiser.catalog', ['site' => $site->id]) }}"
                                                        class="btn btn-sm btn-primary">
-                                                        Order · €{{ number_format((float) $site->display_price, 2) }}
+                                                        Order · {{ format_money($site->display_price) }}
                                                     </a>
                                                 @endif
                                                 <button type="button"
@@ -136,7 +136,7 @@
                                         <div class="saved-site-url">{{ $site->display_host }}</div>
                                         <div class="small text-muted">{{ $site->display_name }}</div>
                                     </div>
-                                    <div class="fw-semibold text-nowrap">€{{ number_format((float) $site->display_price, 2) }}</div>
+                                    <div class="fw-semibold text-nowrap">{{ format_money($site->display_price) }}</div>
                                 </div>
                                 <div class="saved-metrics mb-3">
                                     <div><span>Traffic</span><strong>{{ number_format((int) $site->traffic) }}</strong></div>
@@ -244,7 +244,7 @@
                                         <div class="saved-site-url">{{ $site->display_host }}</div>
                                         <div class="small text-muted">{{ $site->display_name }}</div>
                                     </div>
-                                    <div class="fw-semibold text-nowrap">€{{ number_format((float) $site->display_price, 2) }}</div>
+                                    <div class="fw-semibold text-nowrap">{{ format_money($site->display_price) }}</div>
                                 </div>
                                 <div class="saved-metrics mb-3">
                                     <div><span>Traffic</span><strong>{{ number_format((int) $site->traffic) }}</strong></div>

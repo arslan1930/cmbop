@@ -124,15 +124,16 @@ class MoneyDisplay
     }
 
     /**
-     * @param  array{signed?: bool}  $options
+     * @param  array{signed?: bool, decimals?: int}  $options
      */
     public function format(mixed $euros, array $options = []): string
     {
         $value = $this->amount($euros);
         $signed = ! empty($options['signed']);
         $prefix = $signed && $value > 0 ? '+' : '';
+        $decimals = array_key_exists('decimals', $options) ? max(0, (int) $options['decimals']) : 2;
 
-        return $prefix.$this->symbol().number_format(abs($value), 2);
+        return $prefix.$this->symbol().number_format(abs($value), $decimals);
     }
 
     /**

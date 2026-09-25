@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\PublicI18n;
+use App\Support\ViewerCountry;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
@@ -37,6 +38,13 @@ class SetLocale
         $urlLocale = null;
         if (method_exists(PublicI18n::class, 'splitPath')) {
             [$urlLocale] = PublicI18n::splitPath($request);
+        }
+
+        if ($request->isMethod('GET') && ! $request->ajax()) {
+            $located = $this->redirectForLocation($request, $urlLocale);
+            if ($located !== null) {
+                return $located;
+            }
         }
 
         if (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale)) {
@@ -81,6 +89,51 @@ class SetLocale
         }
 
         return $response;
+    }
+
+    /**
+     * Unprefixed public pages follow the visitor country, then a saved locale cookie.
+     * An explicit /de or /us URL is left alone. Login and the signed-in app stay English.
+     */
+    private function redirectForLocation(Request $request, ?string $urlLocale): ?Response
+    {
+        if (! method_exists(PublicI18n::class, 'isPublicMarketingPath')
+            || ! PublicI18n::isPublicMarketingPath($request)
+            || (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale))
+            || (method_exists(PublicI18n::class, 'isEnglishOnlyMarketingPath') && PublicI18n::isEnglishOnlyMarketingPath($request))) {
+            return null;
+        }
+
+        $cookieName = (string) config('i18n.cookie', 'public_locale');
+        $remembered = $request->cookie($cookieName);
+        $locale = null;
+        if (is_string($remembered) && method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($remembered)) {
+            $locale = $remembered;
+        } elseif ($remembered === null || $remembered === '') {
+            $country = app(ViewerCountry::class)->code($request);
+            $fromCountry = method_exists(PublicI18n::class, 'localeForCountry')
+                ? PublicI18n::localeForCountry($country)
+                : null;
+            if ($fromCountry !== null && PublicI18n::isPrefixed($fromCountry)) {
+                $locale = $fromCountry;
+            }
+        }
+
+        if ($locale === null || ! method_exists(PublicI18n::class, 'switchUrl')) {
+            return null;
+        }
+
+        $target = PublicI18n::switchUrl($request, $locale);
+        $query = $request->getQueryString();
+        if (is_string($query) && $query !== '') {
+            $target .= (str_contains($target, '?') ? '&' : '?').$query;
+        }
+
+        if ($target === $request->fullUrl() || $target === $request->url()) {
+            return null;
+        }
+
+        return redirect()->to($target, 302);
     }
 
     private function isAuthenticatedAppPath(Request $request): bool
