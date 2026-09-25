@@ -686,6 +686,8 @@ return [
     'marketplace_teaser_title' => 'Beispiel für verifiziertes Inventar',
     'marketplace_teaser_subtitle' => 'Eine Vorschau live verfügbarer Placements — erstellen Sie ein kostenloses Konto für den vollständigen Katalog.',
     'marketplace_catalog_note' => 'Der Live-Katalog öffnet sich nach der Anmeldung und bleibt auf Englisch.',
+    'marketplace_eu_index_label' => 'EU-Gastbeitrag-Preisindex',
+    'marketplace_eu_index_caption' => 'medianer Advertiser-Preis nach europäischem Publisher-Land.',
     'become_publisher_kicker' => 'Publisher',
     'become_publisher_title' => 'Ihre Website mit Gastbeiträgen vermarkten',
     'become_publisher_subtitle' => 'Listen Sie Websites, erhalten Sie briefte Aufträge und verdienen Sie mit Qualitätsplacements.',

@@ -219,6 +219,8 @@ return [
     'marketplace_teaser_title' => 'Esempio di inventario verificato',
     'marketplace_teaser_subtitle' => 'Un\'anteprima delle pubblicazioni live: crea un account gratuito per sfogliare il catalogo completo.',
     'marketplace_catalog_note' => 'Il catalogo live si apre dopo l\'accesso e resta in inglese.',
+    'marketplace_eu_index_label' => 'Indice dei prezzi guest post UE',
+    'marketplace_eu_index_caption' => 'prezzi mediani inserzionista per paese editore europeo.',
 
     // Become publisher
     'become_publisher_kicker' => 'Publisher',

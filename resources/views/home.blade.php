@@ -22,7 +22,7 @@
     'applicationCategory' => 'BusinessApplication',
     'operatingSystem' => 'Web',
     'url' => url('/'),
-    'description' => __('messages.meta_home_description'),
+    'description' => welcome_bonus_message('meta_home_description', 'meta_home_description_off'),
     'image' => asset('assets/img/logo1.png'),
     'offers' => [
         '@type' => 'Offer',

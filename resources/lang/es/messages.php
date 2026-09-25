@@ -219,6 +219,8 @@ return [
     'marketplace_teaser_title' => 'Ejemplo de publishers en España',
     'marketplace_teaser_subtitle' => 'Vista previa enmascarada de listings activos de España. Los dominios se ven tras registrarse.',
     'marketplace_catalog_note' => 'El catálogo en vivo se abre después de iniciar sesión y permanece en inglés. Filtro país = España.',
+    'marketplace_eu_index_label' => 'Índice de precios de guest post en la UE',
+    'marketplace_eu_index_caption' => 'precios medianos de anunciante por país editor europeo.',
 
     // Become publisher
     'become_publisher_kicker' => 'Editores',

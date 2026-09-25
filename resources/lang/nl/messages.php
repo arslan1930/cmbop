@@ -686,6 +686,8 @@ return [
     'marketplace_teaser_title' => 'Voorbeeld van publishers in Nederland',
     'marketplace_teaser_subtitle' => 'Gemaskeerde voorvertoning van actieve catalogusregels in Nederland. Domeinen ziet u na registratie.',
     'marketplace_catalog_note' => 'De live catalogus opent na inloggen en blijft Engels. Het landfilter = Nederland.',
+    'marketplace_eu_index_label' => 'EU-prijsindex voor gastblogs',
+    'marketplace_eu_index_caption' => 'mediane adverteerdersprijzen per Europees publisher-land.',
     'become_publisher_kicker' => 'Publishers',
     'become_publisher_title' => 'Plaats uw site en verkoop guestposts',
     'become_publisher_subtitle' => 'Plaats websites, ontvang gebriefe orders en verdien met kwaliteitsplacements.',

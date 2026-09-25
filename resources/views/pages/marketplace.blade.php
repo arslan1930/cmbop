@@ -225,8 +225,8 @@
     @endif
     @if(!function_exists('public_locale') || in_array(public_locale(), ['en', 'us'], true))
     <p class="text-center small mt-2 mb-0">
-        <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
-        — median advertiser prices by European publisher country.
+        <a href="{{ url('/guest-post-prices-europe') }}">{{ __('messages.marketplace_eu_index_label') }}</a>
+        — {{ __('messages.marketplace_eu_index_caption') }}
     </p>
     @endif
 
