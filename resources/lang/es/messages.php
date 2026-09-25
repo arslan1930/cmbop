@@ -211,7 +211,7 @@ return [
     'marketplace_title' => 'Catálogo de medios y publishers en España',
     'marketplace_subtitle' => 'Filtre país España, idioma y nicho — y compre publicaciones a precios claros en EUR.',
     'marketplace_point_1_title' => 'España first, no mix LATAM',
-    'marketplace_point_1_body' => 'La vista previa pública muestra país primario España. México y otros mercados LATAM se filtran aparte tras el login.',
+    'marketplace_point_1_body' => 'La vista previa pública muestra país primario España. México y otros mercados LATAM se filtran aparte después del registro.',
     'marketplace_point_2_title' => 'Monedero en euros',
     'marketplace_point_2_body' => 'Recargue una vez y compre publicaciones españolas y de otros mercados europeos desde el mismo monedero EUR.',
     'marketplace_point_3_title' => '.es y español',

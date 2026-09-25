@@ -201,7 +201,7 @@ class SpanishMoneyLanders
                     ],
                     [
                         'q' => '¿Incluye Latinoamérica?',
-                        'a' => 'No en esta landing. México y otros mercados LATAM tienen su propio filtro de país tras el login.',
+                        'a' => 'No en esta landing. México y otros mercados LATAM tienen su propio filtro de país después del registro.',
                     ],
                 ],
                 'cta_primary' => ['label' => 'Crear cuenta y abrir el catálogo', 'url' => $register],
@@ -279,7 +279,7 @@ class SpanishMoneyLanders
                 'meta_description' => 'Linkbuilding en España: catálogo self-service, DA/DR y precios en EUR, publicaciones con seguimiento. No es un paquete opaco de enlaces.',
                 'teaser_countries' => ['es'],
                 'teaser_title' => 'Inventario para campañas de linkbuilding',
-                'teaser_subtitle' => 'Ejemplo de sitios España. Para fintech u otros nichos, filtre tras el login — no hay doorway por vertical ni por ciudad.',
+                'teaser_subtitle' => 'Ejemplo de sitios España. Para fintech u otros nichos, filtre después del registro — no hay doorway por vertical ni por ciudad.',
                 'intro' => [
                     '«Link building España», «paquetes linkbuilding» y «agencia linkbuilding España» suelen ser páginas de agencia. SEOLinkBuildings es una plataforma: arma la campaña desde el catálogo, con un monedero EUR para ES y el resto de Europa.',
                     'White label o facturas para varias marcas: <a href="'.$agencies.'">linkbuilding para agencias</a>. Comparar marketplaces: <a href="'.$alts.'">alternativas</a>.',
@@ -350,7 +350,7 @@ class SpanishMoneyLanders
                     ],
                     [
                         'title' => 'Dofollow solo según el listing',
-                        'body' => 'Filtre el tipo de enlace tras el login. «Comprar enlaces dofollow» no sustituye nicho, idioma y audiencia.',
+                        'body' => 'Filtre el tipo de enlace después del registro. «Comprar enlaces dofollow» no sustituye nicho, idioma y audiencia.',
                     ],
                     [
                         'title' => 'Sin SKU de niche edit',
@@ -392,15 +392,15 @@ class SpanishMoneyLanders
             'agencias' => [
                 'kicker' => 'Cuenta B2B',
                 'h1' => 'Linkbuilding para agencias en España',
-                'subtitle' => 'Catálogo self-service para agencias SEO, resellers y equipos que refacturan. Monedero EUR, pedidos con seguimiento, facturas donde Billing las emite.',
+                'subtitle' => 'Catálogo self-service para agencias SEO, revendedores y equipos que refacturan. Monedero EUR, pedidos con seguimiento, facturas en la facturación del anunciante.',
                 'meta_title' => 'Linkbuilding para agencias en España | SEOLinkBuildings',
-                'meta_description' => 'White label y guest posts para agencias en España: catálogo EUR, facturas, pedidos por marca — sin un frontend reseller con su logo.',
+                'meta_description' => 'White label y guest posts para agencias en España: catálogo EUR, facturas, pedidos por marca — sin un frontal de revendedor con su logo.',
                 'teaser_countries' => ['es'],
                 'teaser_title' => 'Inventario que puede refacturar',
                 'teaser_subtitle' => 'Los mismos listings que un anunciante interno. Usted es la cuenta; las marcas viven en sus proyectos y pedidos.',
                 'intro' => [
                     '«Agencia linkbuilding España», «guest post para agencias» y «proveedor linkbuilding agencias» buscan un proveedor que ejecute. Aquí la agencia sigue al mando: elige sitios, paga, entrega la URL en vivo al cliente.',
-                    'White label operativo significa: el cliente final no tiene que crear cuenta en el marketplace. No es un programa reseller con su logo en el sitio público.',
+                    'White label operativo significa: el cliente final no tiene que crear cuenta en el marketplace. No es un programa de reventa con su logo en el sitio público.',
                 ],
                 'points' => [
                     [
@@ -409,11 +409,11 @@ class SpanishMoneyLanders
                     ],
                     [
                         'title' => 'Pedido y factura',
-                        'body' => 'Las facturas de cargos de monedero/pedido se descargan en Billing del anunciante cuando el producto las genera. Datos de empresa UK (Topurlz Ltd) en Quiénes somos — no hay entidad legal española inventada.',
+                        'body' => 'Las facturas de cargos de monedero o pedido se descargan en la facturación del anunciante cuando el producto las genera. Datos de empresa UK (Topurlz Ltd) en Quiénes somos — no hay entidad legal española inventada.',
                     ],
                     [
                         'title' => 'Plataforma para equipos SEO',
-                        'body' => 'Filtros, métricas, chat del pedido y URL en vivo. El panel tras el login está en inglés para todos los roles.',
+                        'body' => 'Filtros, métricas, chat del pedido y URL en vivo. El panel después del registro está en inglés para todos los roles.',
                     ],
                 ],
                 'sections' => [
@@ -456,7 +456,7 @@ class SpanishMoneyLanders
                 'meta_description' => 'Digital PR y PR digital en España: publicaciones de catálogo, monedero EUR, URL en vivo, paquetes gestionados — sin garantías de News ni teletipo.',
                 'teaser_countries' => ['es'],
                 'teaser_title' => 'Sitios España en el catálogo (vista previa)',
-                'teaser_subtitle' => 'Algunos publishers se parecen a un media kit; no todos son un diario. Nicho e idioma se filtran tras el login.',
+                'teaser_subtitle' => 'Algunos publishers se parecen a un media kit; no todos son un diario. Nicho e idioma se filtran después del registro.',
                 'intro' => [
                     '«Digital PR España», «PR digital» y «comprar nota de prensa» mezclan PR y linkbuilding. Aquí compra publicaciones en sitios que están de verdad en el catálogo. Si un dominio no está listado, no lo vendemos.',
                     'Los paquetes gestionados de PR digital (importes en Precios, hoy desde 499 €/mes en el plan base si sigue listado) son outreach del equipo, no un botón «salga en un diario nacional».',
@@ -574,7 +574,7 @@ class SpanishMoneyLanders
                 'meta_description' => 'Publisuites alternativa, Getlinko, Growwer, Unancor: compare con SEOLinkBuildings por monedero EUR, URL en vivo y catálogo — sin claims inventados.',
                 'teaser_countries' => ['es'],
                 'teaser_title' => 'El mismo catálogo España',
-                'teaser_subtitle' => 'No clonamos el inventario de un competidor. Tras el login ve listings propios con precio de checkout en euro.',
+                'teaser_subtitle' => 'No clonamos el inventario de un competidor. Después del registro ve fichas propias con precio en euro.',
                 'intro' => [
                     'Las búsquedas «Publisuites alternativa», «Getlinko alternativa» o «mejores plataformas linkbuilding» quieren un comparador. Esta página no afirma ser «mejor» en métricas que no publicamos. Enumera lo que sí puede comprobar en SEOLinkBuildings.',
                     'Sede: Londres, Topurlz Ltd. Catálogo europeo, checkout en EUR. No inventamos una sede española, un CIF ni un monedero en otra divisa.',

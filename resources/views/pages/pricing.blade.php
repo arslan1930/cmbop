@@ -56,7 +56,7 @@
 {!! json_encode([
     '@@context' => 'https://schema.org',
     '@type' => 'Service',
-    'name' => 'SEOLinkBuildings guest-post marketplace',
+    'name' => __('messages.meta_pricing_title'),
     'description' => __('messages.meta_pricing_description'),
     'provider' => [
         '@type' => 'Organization',
@@ -125,6 +125,32 @@
         'links' => \App\Support\AustrianMoneyLanders::clusterLinks('preise'),
         'current' => 'preise',
         'title' => 'Verwandte Seiten',
+    ])
+</div>
+@endif
+@if(function_exists('public_locale') && public_locale() === 'ch' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Was kostet ein Gastbeitrag in der Schweiz</h2>
+    <p class="text-muted">Kein festes PDF und keine CHF-Preisliste: der Preis ist der der Site, in Euro, am Checkout. „Backlinks Preise Schweiz“ und „Linkbuilding-Kosten“ folgen den Listings, die Sie wählen. Die nummerierten Pakete oben sind gemanagte Digital-PR-Kampagnen, kein Sack anonymer URLs.</p>
+    <p class="text-muted">Live-Preise sehen Sie im <a href="{{ localized_url('marketplace') }}">Schweizer Katalog</a> nach der Registrierung. Europäischer Index (englische Seite): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <p class="text-muted">Preis prägen Publisher-Autorität, Traffic, Nische, Land (.ch vs. andere), Content-Anforderungen und redaktionelle Prüfung — jeweils laut Listing, nicht als erfundene Schweiz-Durchschnittswerte. Checkout bleibt EUR; es gibt kein CHF-Wallet.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\SwissMoneyLanders::clusterLinks('preise'),
+        'current' => 'preise',
+        'title' => 'Verwandte Seiten',
+    ])
+</div>
+@endif
+@if(function_exists('public_locale') && public_locale() === 'es' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Qué cuesta un guest post en España</h2>
+    <p class="text-muted">No publicamos un PDF fijo ni una tarifa con IVA español inventado: el precio es el del sitio, en euros, en el checkout. «Precio guest post» y «coste linkbuilding» siguen los listings que elija. Los paquetes numerados de arriba son campañas gestionadas de digital PR, no un saco de URLs anónimas.</p>
+    <p class="text-muted">Los precios en vivo están en el <a href="{{ localized_url('marketplace') }}">catálogo de España</a>, después del registro. Índice europeo (página en inglés): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    <p class="text-muted">El precio lo marcan autoridad, tráfico, nicho, país, requisitos de contenido y revisión editorial — por listing, no como medias inventadas. La sede es Londres (Topurlz Ltd); no hay CIF español.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\SpanishMoneyLanders::clusterLinks('precios'),
+        'current' => 'precios',
+        'title' => 'Páginas relacionadas',
     ])
 </div>
 @endif

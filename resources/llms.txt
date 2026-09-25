@@ -37,7 +37,7 @@ The live canonical host is https://seolinkbuildings.com (www redirects to apex).
 - Sitemap: https://seolinkbuildings.com/sitemap.xml
 - Robots: https://seolinkbuildings.com/robots.txt
 
-Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/it/`, `/us/`, `/pl/` prefixes for the same public pages.
+Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/pt/`, `/it/`, `/us/`, `/pl/`, `/at/`, `/ch/`, `/ro/` prefixes for the same public pages.
 
 ## Pricing (snapshot)
 - Marketplace placements: priced per publisher listing; public pages state placements start from a low EUR amount (catalog after login).

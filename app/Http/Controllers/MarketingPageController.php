@@ -11,6 +11,7 @@ use App\Services\Marketing\CatalogTeaserService;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
+use App\Support\DutchMoneyLanders;
 use App\Support\GermanMoneyLanders;
 use App\Support\IrishMoneyLanders;
 use App\Support\ItalianMoneyLanders;

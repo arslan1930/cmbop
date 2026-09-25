@@ -94,7 +94,9 @@ use App\Models\User;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
+use App\Support\DutchMoneyLanders;
 use App\Support\EnglishOnlyMarketingSlugs;
+use App\Support\FrenchMoneyLanders;
 use App\Support\GermanMoneyLanders;
 use App\Support\HttpCron;
 use App\Support\IrishMoneyLanders;
@@ -717,7 +719,11 @@ if ($portugueseMoneySlugs !== [] && method_exists(MarketingPageController::class
             && GermanMoneyLanders::isSlug($slug);
         $austrianOwnsSlug = class_exists(AustrianMoneyLanders::class)
             && AustrianMoneyLanders::isSlug($slug);
-        if ($italianOwnsSlug || $germanOwnsSlug || $austrianOwnsSlug) {
+        $swissOwnsSlug = class_exists(SwissMoneyLanders::class)
+            && SwissMoneyLanders::isSlug($slug);
+        $spanishOwnsSlug = class_exists(SpanishMoneyLanders::class)
+            && SpanishMoneyLanders::isSlug($slug);
+        if ($italianOwnsSlug || $germanOwnsSlug || $austrianOwnsSlug || $swissOwnsSlug || $spanishOwnsSlug) {
             continue;
         }
 
@@ -794,7 +800,9 @@ if ($romanianMoneySlugs !== [] && method_exists(MarketingPageController::class, 
             || (class_exists(GermanMoneyLanders::class) && GermanMoneyLanders::isSlug($slug))
             || (class_exists(AustrianMoneyLanders::class) && AustrianMoneyLanders::isSlug($slug))
             || (class_exists(SwissMoneyLanders::class) && SwissMoneyLanders::isSlug($slug))
-            || (class_exists(SpanishMoneyLanders::class) && SpanishMoneyLanders::isSlug($slug));
+            || (class_exists(SpanishMoneyLanders::class) && SpanishMoneyLanders::isSlug($slug))
+            || (class_exists(DutchMoneyLanders::class) && DutchMoneyLanders::isSlug($slug))
+            || (class_exists(FrenchMoneyLanders::class) && FrenchMoneyLanders::isSlug($slug));
         if ($ownedElsewhere) {
             continue;
         }

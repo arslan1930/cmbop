@@ -35,7 +35,7 @@
       <h2 class="slb-section-title">{{ $t('pricing_hero_title', 'Buy placements that match your market') }}</h2>
       <p class="slb-section-lead mb-2">{{ $t('pricing_hero_lead', 'Browse verified publisher sites, pick a price that fits, and checkout from your wallet.') }}</p>
       @endif
-      <p class="text-muted mb-4">{{ $t('pricing_hero_from', 'Marketplace placements start from') }} <strong class="slb-price-from">€{{ $fromPrice }}</strong>.</p>
+      <p class="text-muted mb-4">{{ $t('pricing_hero_from', 'Marketplace placements start from') }} <strong class="slb-price-from">{{ format_money((float) $fromPrice, ['decimals' => 0]) }}</strong>.</p>
       <div class="d-flex flex-wrap justify-content-center gap-2">
         <a href="{{ url('/register') }}" class="btn btn-primary btn-lg px-4">
           {{ __('messages.get_started') }}
@@ -65,7 +65,7 @@
           <div class="pricing-card-body">
             <h5 class="mb-2">{{ $card1Title }}</h5>
             <p class="text-muted small mb-3">{{ $t('pricing_card_1_description', 'Ideal for small businesses and startups beginning their Digital PR journey.') }}</p>
-            <div class="pricing-card-price mb-3">€499<span>/mo</span></div>
+            <div class="pricing-card-price mb-3">{{ format_money(499, ['decimals' => 0]) }}<span>/mo</span></div>
             <ul class="list-unstyled small mb-4 flex-grow-1">
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ $t('pricing_card_1_item_1', '2+ editorial backlinks from relevant industry publications') }}</li>
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ $t('pricing_card_1_item_2', 'Average Domain Rating (DR) 30–40') }}</li>
@@ -82,7 +82,7 @@
           <div class="pricing-card-body">
             <h5 class="mb-2">{{ $card2Title }}</h5>
             <p class="text-muted small mb-3">{{ $t('pricing_card_2_description', 'Designed for growing brands seeking consistent expert-led media placements.') }}</p>
-            <div class="pricing-card-price mb-3">€1,499<span>/mo</span></div>
+            <div class="pricing-card-price mb-3">{{ format_money(1499, ['decimals' => 0]) }}<span>/mo</span></div>
             <ul class="list-unstyled small mb-4 flex-grow-1">
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ $t('pricing_card_2_item_1', '5+ editorial backlinks from relevant industry publications') }}</li>
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ $t('pricing_card_2_item_2', 'Average Domain Rating (DR) 40–50') }}</li>
@@ -98,7 +98,7 @@
           <div class="pricing-card-body">
             <h5 class="mb-2">{{ $card3Title }}</h5>
             <p class="text-muted small mb-3">{{ $t('pricing_card_3_description', 'Perfect for established businesses aiming to solidify their authority.') }}</p>
-            <div class="pricing-card-price mb-3">€2,799<span>/mo</span></div>
+            <div class="pricing-card-price mb-3">{{ format_money(2799, ['decimals' => 0]) }}<span>/mo</span></div>
             <ul class="list-unstyled small mb-4 flex-grow-1">
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ $t('pricing_card_3_item_1', '10+ editorial backlinks from relevant industry publications') }}</li>
               <li class="mb-2"><i class="fa-solid fa-check text-primary me-2" aria-hidden="true"></i>{{ $t('pricing_card_3_item_2', 'Average Domain Rating (DR) 50+') }}</li>

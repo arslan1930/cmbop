@@ -87,6 +87,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(SwissMoneyLanders::class, 'clusterLinks')", $controller);
         $this->assertStringContainsString("method_exists(SpanishMoneyLanders::class, 'clusterLinks')", $controller);
         $this->assertStringContainsString("method_exists(RomanianMoneyLanders::class, 'clusterLinks')", $controller);
+        $this->assertStringContainsString("method_exists(DutchMoneyLanders::class, 'clusterLinks')", $controller);
         $this->assertStringContainsString("view()->exists('pages.guest-posts-country')", $controller);
         $this->assertStringContainsString("view()->exists('pages.guest-post-prices-europe')", $controller);
         $this->assertStringNotContainsString('$teasers->teasersForCountries', $controller);
@@ -99,6 +100,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(SwissMoneyLanders::class)', $sitemap);
         $this->assertStringContainsString('class_exists(SpanishMoneyLanders::class)', $sitemap);
         $this->assertStringContainsString('class_exists(RomanianMoneyLanders::class)', $sitemap);
+        $this->assertStringContainsString('class_exists(DutchMoneyLanders::class)', $sitemap);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $sitemap);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $sitemap);
         $this->assertStringContainsString('class_exists(ThinBlogRedirects::class)', $sitemap);
@@ -123,6 +125,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(SwissMoneyLanders::class)', $i18n);
         $this->assertStringContainsString('class_exists(SpanishMoneyLanders::class)', $i18n);
         $this->assertStringContainsString('class_exists(RomanianMoneyLanders::class)', $i18n);
+        $this->assertStringContainsString('class_exists(DutchMoneyLanders::class)', $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'englishOnlyMarketingSlugs')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'moneyLanderLocales')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'isEnglishOnlyMarketingPath')", $i18n);

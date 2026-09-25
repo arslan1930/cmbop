@@ -18,5 +18,5 @@
             DR {{ $site->dr }}@if($showLanguage) · {{ fullLanguage($site->language) }}@endif
         </p>
     </div>
-    <a href="{{ $catalogHref }}" class="rs-price">€{{ number_format($site->display_price, 2) }}</a>
+    <a href="{{ $catalogHref }}" class="rs-price">{{ format_money($site->display_price) }}</a>
 </div>
