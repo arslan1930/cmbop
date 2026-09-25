@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use App\Support\ViewerCountry;
 use Closure;
@@ -41,6 +42,10 @@ class SetLocale
         }
 
         if ($request->isMethod('GET') && ! $request->ajax()) {
+            $explicit = $this->redirectForExplicitLocale($request);
+            if ($explicit !== null) {
+                return $explicit;
+            }
             $located = $this->redirectForLocation($request, $urlLocale);
             if ($located !== null) {
                 return $located;
@@ -92,8 +97,60 @@ class SetLocale
     }
 
     /**
-     * Unprefixed public pages follow the visitor country, then a saved locale cookie.
-     * An explicit /de or /us URL is left alone. Login and the signed-in app stay English.
+     * Language switcher ?locale=en overwrites a leftover /us cookie, then 302s
+     * onto the clean canonical URL.
+     */
+    private function redirectForExplicitLocale(Request $request): ?Response
+    {
+        if (! class_exists(PublicI18n::class) || ! method_exists(PublicI18n::class, 'requestedLocale')) {
+            return null;
+        }
+
+        $explicit = PublicI18n::requestedLocale($request);
+        if ($explicit === null) {
+            return null;
+        }
+
+        $path = method_exists(PublicI18n::class, 'pathWithoutLocale')
+            ? PublicI18n::pathWithoutLocale($request)
+            : ltrim($request->path(), '/');
+        if (class_exists(LocalizedPublicPath::class)) {
+            $path = LocalizedPublicPath::canonicalize($path);
+        }
+
+        $target = method_exists(PublicI18n::class, 'urlForLocale')
+            ? PublicI18n::urlForLocale($path, $explicit)
+            : url('/'.$path);
+        $params = $request->query();
+        unset($params['locale'], $params['hl']);
+        if ($params !== []) {
+            $target .= (str_contains($target, '?') ? '&' : '?').http_build_query($params);
+        }
+
+        $redirect = redirect()->to($target, 302);
+        if (method_exists(PublicI18n::class, 'localeCookie')) {
+            $redirect->withCookie(PublicI18n::localeCookie($explicit, $request));
+        } else {
+            $redirect->withCookie(Cookie::make(
+                config('i18n.cookie', 'public_locale'),
+                $explicit,
+                60 * 24 * 365,
+                '/',
+                null,
+                $request->isSecure(),
+                false,
+                false,
+                'Lax'
+            ));
+        }
+
+        return $redirect;
+    }
+
+    /**
+     * Inner unprefixed pages follow the visitor country, then a saved locale cookie.
+     * The default homepage `/` stays UK English. An explicit /de or /us URL is
+     * left alone. Login and the signed-in app stay English.
      */
     private function redirectForLocation(Request $request, ?string $urlLocale): ?Response
     {
@@ -101,6 +158,13 @@ class SetLocale
             || ! PublicI18n::isPublicMarketingPath($request)
             || (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale))
             || (method_exists(PublicI18n::class, 'isEnglishOnlyMarketingPath') && PublicI18n::isEnglishOnlyMarketingPath($request))) {
+            return null;
+        }
+
+        $path = method_exists(PublicI18n::class, 'pathWithoutLocale')
+            ? PublicI18n::pathWithoutLocale($request)
+            : ltrim($request->path(), '/');
+        if ($path === '') {
             return null;
         }
 

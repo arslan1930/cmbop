@@ -307,6 +307,34 @@ class PublicI18nTest extends TestCase
             ->assertSee('Italiano', false);
     }
 
+    public function test_default_homepage_and_uk_switcher_are_not_stolen_by_us_cookie(): void
+    {
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/')
+            ->assertOk()
+            ->assertSee('lang="en-GB"', false);
+
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/?locale=en')
+            ->assertRedirect('/')
+            ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
+
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'us')
+            ->get('/marketplace?locale=en')
+            ->assertRedirect('/marketplace')
+            ->assertCookie(config('i18n.cookie', 'public_locale'), 'en');
+
+        $this->withCookie(config('i18n.cookie', 'public_locale'), 'en')
+            ->get('/marketplace')
+            ->assertOk()
+            ->assertSee('lang="en-GB"', false);
+
+        $this->get('/us')
+            ->assertOk()
+            ->assertSee(PublicI18n::withExplicitLocaleQuery(url('/'), 'en'), false)
+            ->assertSee('English (UK)', false);
+    }
+
     public function test_us_spanish_and_italian_homes_are_routed(): void
     {
         $this->get('/us')

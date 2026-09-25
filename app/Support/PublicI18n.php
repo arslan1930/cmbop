@@ -7,7 +7,9 @@ use App\Models\BlogTranslation;
 use App\Services\Marketing\GuestPostPriceIndex;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\HttpFoundation\Cookie as SymfonyCookie;
 
 class PublicI18n
 {
@@ -617,11 +619,13 @@ class PublicI18n
             || (method_exists(self::class, 'isEnglishOnlyMarketingPath') && self::isEnglishOnlyMarketingPath($request))) {
             if (method_exists(self::class, 'isEnglishOnlyMarketingPath')
                 && self::isEnglishOnlyMarketingPath($request)
-                && $targetLocale === self::default()) {
-                return $path === '' ? url('/') : url($path);
+                && self::isDefaultEnglish($targetLocale)) {
+                $url = $path === '' ? url('/') : url($path);
+
+                return self::withExplicitLocaleQuery($url, self::default());
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
 
         $first = $path === '' ? '' : explode('/', $path, 2)[0];
@@ -643,7 +647,7 @@ class PublicI18n
                 }
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
         $italianSlug = class_exists(ItalianMoneyLanders::class) && ItalianMoneyLanders::isSlug($first);
         $germanSlug = class_exists(GermanMoneyLanders::class) && GermanMoneyLanders::isSlug($first);
@@ -655,25 +659,87 @@ class PublicI18n
                 return url('/de/'.$first);
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
         if ($italianSlug) {
             if ($targetLocale === 'it') {
                 return url('/it/'.$first);
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
         if ($germanSlug) {
             if ($targetLocale === 'de') {
                 return url('/de/'.$first);
             }
 
-            return self::urlForLocale('', $targetLocale);
+            return self::switchTargetUrl('', $targetLocale);
         }
 
         if (preg_match('#^blog/([^/]+)$#', $path, $matches) === 1) {
             $path = self::blogPathForLocale($matches[1], $targetLocale);
+        }
+
+        return self::switchTargetUrl($path, $targetLocale);
+    }
+
+    /**
+     * Unprefixed `/` is the default UK English homepage.
+     * The language switcher passes ?locale=en so a leftover /us cookie cannot win.
+     */
+    public static function requestedLocale(Request $request): ?string
+    {
+        $raw = strtolower(trim((string) $request->query('locale', '')));
+        if ($raw === '') {
+            $raw = strtolower(trim((string) $request->query('hl', '')));
+        }
+        if ($raw === 'uk') {
+            $raw = 'en';
+        }
+        if ($raw === '' || ! self::isSupported($raw)) {
+            return null;
+        }
+
+        return $raw;
+    }
+
+    public static function withExplicitLocaleQuery(string $url, string $locale): string
+    {
+        $locale = strtolower(trim($locale));
+        if ($locale === 'uk') {
+            $locale = self::default();
+        }
+        $separator = str_contains($url, '?') ? '&' : '?';
+
+        return $url.$separator.'locale='.rawurlencode($locale);
+    }
+
+    public static function localeCookie(string $locale, Request $request): SymfonyCookie
+    {
+        return Cookie::make(
+            config('i18n.cookie', 'public_locale'),
+            $locale,
+            60 * 24 * 365,
+            '/',
+            null,
+            $request->isSecure(),
+            false,
+            false,
+            'Lax'
+        );
+    }
+
+    private static function isDefaultEnglish(string $locale): bool
+    {
+        $locale = strtolower(trim($locale));
+
+        return $locale === self::default() || $locale === 'uk';
+    }
+
+    private static function switchTargetUrl(string $path, string $targetLocale): string
+    {
+        if (self::isDefaultEnglish($targetLocale)) {
+            return self::withExplicitLocaleQuery(self::urlForLocale($path, self::default()), self::default());
         }
 
         return self::urlForLocale($path, $targetLocale);
