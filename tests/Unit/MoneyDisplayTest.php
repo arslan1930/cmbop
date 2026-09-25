@@ -164,6 +164,25 @@ class MoneyDisplayTest extends TestCase
     /**
      * @param  array<string, float>  $rates
      */
+    public function test_public_ip_country_sets_display_currency_without_cloudflare(): void
+    {
+        $this->fakeFrankfurter(['USD' => 1.10, 'GBP' => 0.85]);
+        config(['fx.fake_country' => '', 'fx.force_display' => '']);
+        $this->app['env'] = 'production';
+        Http::fake([
+            'api.frankfurter.app/*' => Http::response(['rates' => ['USD' => 1.10, 'GBP' => 0.85]], 200),
+            'ipwho.is/*' => Http::response(['success' => true, 'country_code' => 'US'], 200),
+        ]);
+
+        $request = Request::create('/', 'GET', [], [], [], [
+            'REMOTE_ADDR' => '8.8.8.8',
+        ]);
+        $this->app->instance('request', $request);
+
+        $this->assertSame('US', app(ViewerCountry::class)->code($request));
+        $this->assertSame('USD', app(ViewerCountry::class)->displayCurrency($request));
+    }
+
     private function fakeFrankfurter(array $rates): void
     {
         Http::fake([
