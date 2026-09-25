@@ -224,6 +224,8 @@ return [
         ],
     ],
     'france' => [
+        'native_url' => '/fr/acheter-guest-post',
+        'native_label' => 'Acheter un guest post en français',
         'slug' => 'guest-posts-france',
         'codes' => ['fr'],
         'market' => 'France',

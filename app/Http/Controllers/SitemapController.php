@@ -95,6 +95,20 @@ class SitemapController extends Controller
             }
         }
 
+        if ($locale === 'ch' && class_exists(SwissMoneyLanders::class)) {
+            foreach (SwissMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['ch']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
+        if ($locale === 'es' && class_exists(SpanishMoneyLanders::class)) {
+            foreach (SpanishMoneyLanders::slugs() as $slug) {
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['es']);
+                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            }
+        }
+
         if ($locale === 'pt' && class_exists(PortugueseMoneyLanders::class)) {
             foreach (PortugueseMoneyLanders::slugs() as $slug) {
                 [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['pt']);

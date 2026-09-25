@@ -558,6 +558,14 @@ class PublicI18n
             return true;
         }
 
+        if (class_exists(SwissMoneyLanders::class) && SwissMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(SpanishMoneyLanders::class) && SpanishMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
         if (class_exists(RomanianMoneyLanders::class) && RomanianMoneyLanders::isPublicSegment($first)) {
             return true;
         }
@@ -819,6 +827,25 @@ class PublicI18n
     public static function shortLabel(string $locale): string
     {
         return $locale === 'en' ? 'UK' : strtoupper($locale);
+    }
+
+    /**
+     * Public locale for a viewer country (US → us, DE → de). Null when unknown.
+     */
+    public static function localeForCountry(?string $country): ?string
+    {
+        $code = strtoupper(trim((string) $country));
+        if ($code === 'UK') {
+            $code = 'GB';
+        }
+        if (preg_match('/^[A-Z]{2}$/', $code) !== 1) {
+            return null;
+        }
+
+        $map = config('i18n.country_locales', []);
+        $locale = is_array($map) ? strtolower((string) ($map[$code] ?? '')) : '';
+
+        return self::isSupported($locale) ? $locale : null;
     }
 
     public static function preferredFromBrowser(Request $request): ?string

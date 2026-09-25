@@ -62,7 +62,7 @@ class AustrianMoneyLanderTest extends TestCase
         $this->get('/de/digital-pr')->assertOk();
         $this->get('/it/digital-pr')->assertOk();
         $this->get('/ch/digital-pr')->assertOk();
-        $this->get('/fr/digital-pr')->assertRedirect('/it/digital-pr');
+        $this->get('/fr/digital-pr')->assertOk();
         $this->get('/at/comprare-guest-post')->assertRedirect('/it/comprare-guest-post');
     }
 
@@ -150,7 +150,7 @@ class AustrianMoneyLanderTest extends TestCase
         $this->assertSame(url('/at/digital-pr'), PublicI18n::switchUrl($shared, 'at'));
         $this->assertSame(url('/ch/digital-pr'), PublicI18n::switchUrl($shared, 'ch'));
         $this->assertSame(url('/es/digital-pr'), PublicI18n::switchUrl($shared, 'es'));
-        $this->assertSame(url('/fr'), PublicI18n::switchUrl($shared, 'fr'));
+        $this->assertSame(url('/fr/digital-pr'), PublicI18n::switchUrl($shared, 'fr'));
     }
 
     public function test_austria_english_lander_links_to_austrian_money_page(): void

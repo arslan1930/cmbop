@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Http\Middleware\SetLocale;
 use App\Support\EnglishOnlyMarketingSlugs;
 use App\Support\PublicI18n;
 use Illuminate\Http\Request;
@@ -112,5 +113,34 @@ class PublicI18nLocaleMapTest extends TestCase
             ],
             $cluster
         );
+    }
+
+    public function test_country_maps_onto_the_public_locale_prefix(): void
+    {
+        $this->assertSame('us', PublicI18n::localeForCountry('US'));
+        $this->assertSame('de', PublicI18n::localeForCountry('DE'));
+        $this->assertSame('en', PublicI18n::localeForCountry('GB'));
+        $this->assertNull(PublicI18n::localeForCountry('CA'));
+    }
+
+    public function test_unprefixed_home_follows_the_visitor_country(): void
+    {
+        config(['fx.fake_country' => 'US', 'fx.force_display' => '']);
+        $request = Request::create('http://localhost/', 'GET');
+        $response = (new SetLocale)->handle($request, fn () => response('ok'));
+
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertStringEndsWith('/us', (string) $response->headers->get('Location'));
+    }
+
+    public function test_uk_and_signed_in_app_stay_on_the_english_url(): void
+    {
+        config(['fx.fake_country' => 'GB', 'fx.force_display' => '']);
+        $home = (new SetLocale)->handle(Request::create('http://localhost/', 'GET'), fn () => response('home'));
+        $this->assertSame(200, $home->getStatusCode());
+
+        config(['fx.fake_country' => 'DE', 'fx.force_display' => '']);
+        $app = (new SetLocale)->handle(Request::create('http://localhost/advertiser/catalog', 'GET'), fn () => response('catalog'));
+        $this->assertSame(200, $app->getStatusCode());
     }
 }

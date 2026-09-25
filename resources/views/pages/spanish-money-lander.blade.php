@@ -91,7 +91,7 @@
                 <div class="col-md-6">
                     <div class="h-100 p-4 rounded-4 bg-white border">
                         <div class="small text-muted mb-1">Desde</div>
-                        <div class="h3 mb-0" style="color:#1a585e;">€{{ number_format((float) $priceFrom, 0) }}</div>
+                        <div class="h3 mb-0" style="color:#1a585e;">{{ format_money($priceFrom, ['decimals' => 0]) }}</div>
                         <p class="small text-muted mb-0 mt-2">Precio de checkout más bajo en listings de España verificados y activos en este momento. No es una tarifa fija.</p>
                     </div>
                 </div>
@@ -153,7 +153,7 @@
                             <td>{{ strtoupper((string) ($site['language'] ?: '—')) }}</td>
                             <td>{{ $site['dr'] ?? '—' }}</td>
                             <td>{{ $site['da'] ?? '—' }}</td>
-                            <td class="fw-semibold" style="color:#1a585e;">€{{ number_format((float) $site['price'], 0) }}</td>
+                            <td class="fw-semibold" style="color:#1a585e;">{{ format_money($site['price'], ['decimals' => 0]) }}</td>
                         </tr>
                     @endforeach
                 </tbody>

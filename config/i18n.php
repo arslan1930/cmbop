@@ -134,6 +134,33 @@ return [
         'up',
     ],
 
+    /**
+     * First visit to an unprefixed public page. GB stays English (no prefix).
+     * Countries without a locale stay English. Prices still follow fx.country_currency.
+     */
+    'country_locales' => [
+        'US' => 'us',
+        'DE' => 'de',
+        'AT' => 'at',
+        'CH' => 'ch',
+        'FR' => 'fr',
+        'NL' => 'nl',
+        'ES' => 'es',
+        'IT' => 'it',
+        'PT' => 'pt',
+        'RO' => 'ro',
+        'GR' => 'gr',
+        'DK' => 'dk',
+        'SE' => 'se',
+        'NO' => 'no',
+        'BG' => 'bg',
+        'HU' => 'hu',
+        'EE' => 'ee',
+        'PL' => 'pl',
+        'GB' => 'en',
+        'UK' => 'en',
+    ],
+
     'cookie' => 'public_locale',
 
     'suggestion_dismiss_cookie' => 'locale_suggest_dismissed',

@@ -56,7 +56,7 @@
 {!! json_encode([
     '@@context' => 'https://schema.org',
     '@type' => 'Service',
-    'name' => 'SEOLinkBuildings guest-post marketplace',
+    'name' => __('messages.meta_pricing_title'),
     'description' => __('messages.meta_pricing_description'),
     'provider' => [
         '@type' => 'Organization',

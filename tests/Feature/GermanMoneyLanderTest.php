@@ -64,7 +64,7 @@ class GermanMoneyLanderTest extends TestCase
         $this->get('/de/digital-pr')->assertOk();
         $this->get('/it/digital-pr')->assertOk();
         $this->get('/digital-pr')->assertRedirect('/it/digital-pr');
-        $this->get('/fr/digital-pr')->assertRedirect('/it/digital-pr');
+        $this->get('/fr/digital-pr')->assertOk();
         $this->get('/fr/link-building')->assertRedirect('/it/link-building');
 
         $this->get('/at/digital-pr')->assertOk();
@@ -228,7 +228,7 @@ class GermanMoneyLanderTest extends TestCase
         $this->assertSame(url('/at/digital-pr'), PublicI18n::switchUrl($shared, 'at'));
         $this->assertSame(url('/ch/digital-pr'), PublicI18n::switchUrl($shared, 'ch'));
         $this->assertSame(url('/es/digital-pr'), PublicI18n::switchUrl($shared, 'es'));
-        $this->assertSame(url('/fr'), PublicI18n::switchUrl($shared, 'fr'));
+        $this->assertSame(url('/fr/digital-pr'), PublicI18n::switchUrl($shared, 'fr'));
     }
 
     public function test_germany_english_lander_links_to_german_money_page(): void
@@ -242,7 +242,7 @@ class GermanMoneyLanderTest extends TestCase
     public function test_german_teaser_countries_stay_germany(): void
     {
         $this->assertSame(['de'], PublicI18n::catalogTeaserCountries('de'));
-        $this->assertSame(['de'], PublicI18n::catalogTeaserCountries('fr'));
+        $this->assertSame(['fr'], PublicI18n::catalogTeaserCountries('fr'));
     }
 
     public function test_german_pillar_translations_render_on_localized_slugs(): void
