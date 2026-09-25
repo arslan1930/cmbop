@@ -93,6 +93,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Support\AustrianMoneyLanders;
+use App\Support\BelgianMoneyLanders;
 use App\Support\CountryLander;
 use App\Support\DutchMoneyLanders;
 use App\Support\EnglishOnlyMarketingSlugs;
@@ -171,14 +172,12 @@ if ($supportedLocalePattern === '') {
 
 $nordicCeeOwnsSegment = static function (string $locale, string $segment): bool {
     if (class_exists(MoneyLanderCatalog::class)
-        && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
         && method_exists(MoneyLanderCatalog::class, 'localeOwnsSegment')
-        && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)
         && MoneyLanderCatalog::localeOwnsSegment($locale, $segment)) {
         return true;
     }
 
-    // Leftover CH/ES landers own prefixed copies; do not 301 them to DE/IT/PT/RO.
+    // Leftover CH/ES/NL/FR/BE landers own prefixed copies; do not 301 them to DE/IT/PT/RO.
     if ($locale === 'ch' && class_exists(SwissMoneyLanders::class)) {
         return (method_exists(SwissMoneyLanders::class, 'capturesLocaleCopy')
                 && SwissMoneyLanders::capturesLocaleCopy($locale, $segment))
@@ -190,6 +189,24 @@ $nordicCeeOwnsSegment = static function (string $locale, string $segment): bool 
                 && SpanishMoneyLanders::capturesLocaleCopy($locale, $segment))
             || (method_exists(SpanishMoneyLanders::class, 'isPublicSegment')
                 && SpanishMoneyLanders::isPublicSegment($segment));
+    }
+    if ($locale === 'nl' && class_exists(DutchMoneyLanders::class)) {
+        return (method_exists(DutchMoneyLanders::class, 'capturesLocaleCopy')
+                && DutchMoneyLanders::capturesLocaleCopy($locale, $segment))
+            || (method_exists(DutchMoneyLanders::class, 'isPublicSegment')
+                && DutchMoneyLanders::isPublicSegment($segment));
+    }
+    if ($locale === 'fr' && class_exists(FrenchMoneyLanders::class)) {
+        return (method_exists(FrenchMoneyLanders::class, 'capturesLocaleCopy')
+                && FrenchMoneyLanders::capturesLocaleCopy($locale, $segment))
+            || (method_exists(FrenchMoneyLanders::class, 'isPublicSegment')
+                && FrenchMoneyLanders::isPublicSegment($segment));
+    }
+    if ($locale === 'be' && class_exists(BelgianMoneyLanders::class)) {
+        return (method_exists(BelgianMoneyLanders::class, 'capturesLocaleCopy')
+                && BelgianMoneyLanders::capturesLocaleCopy($locale, $segment))
+            || (method_exists(BelgianMoneyLanders::class, 'isPublicSegment')
+                && BelgianMoneyLanders::isPublicSegment($segment));
     }
 
     return false;
@@ -959,6 +976,28 @@ if (class_exists(IrishMoneyLanders::class)
 
         return Redirect::to($query ? '/?'.$query : '/', 301);
     });
+}
+
+if (class_exists(DutchMoneyLanders::class)
+    && class_exists(MoneyLanderRoutes::class)
+    && method_exists(MarketingPageController::class, 'dutchMoneyLander')) {
+    MoneyLanderRoutes::register(
+        'nl',
+        DutchMoneyLanders::class,
+        'dutchMoneyLander',
+        $prefixedLocales
+    );
+}
+
+if (class_exists(FrenchMoneyLanders::class)
+    && class_exists(MoneyLanderRoutes::class)
+    && method_exists(MarketingPageController::class, 'frenchMoneyLander')) {
+    MoneyLanderRoutes::register(
+        'fr',
+        FrenchMoneyLanders::class,
+        'frenchMoneyLander',
+        $prefixedLocales
+    );
 }
 
 // SEO: sitemap index + per-locale sitemaps + robots + llms.txt

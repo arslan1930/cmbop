@@ -152,10 +152,11 @@ class BelgiumIrelandSeoTest extends TestCase
             ->assertOk()
             ->assertSee('SKU', false);
 
-        $this->get('/be/gids')
+        $this->get('/be/gids-belgie')
             ->assertOk()
             ->assertSee('Dofollow, nofollow, sponsored', false)
             ->assertSee('PBN', false);
+        $this->get('/be/gids')->assertRedirect('/be/gids-belgie');
     }
 
     public function test_english_country_landers_and_sitemaps(): void

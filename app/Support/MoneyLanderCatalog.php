@@ -30,6 +30,8 @@ class MoneyLanderCatalog
             'hu' => HungarianMoneyLanders::class,
             'pl' => PolishMoneyLanders::class,
             'be' => BelgianMoneyLanders::class,
+            'nl' => DutchMoneyLanders::class,
+            'fr' => FrenchMoneyLanders::class,
         ];
 
         $out = [];

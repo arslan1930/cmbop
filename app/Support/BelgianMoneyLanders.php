@@ -6,7 +6,8 @@ namespace App\Support;
  * Belgium money / B2B landers (Belgian Dutch as the public chrome, with
  * French netlinking terms where they are the natural search language).
  * Marketplace stays /be/marketplace and pricing stays /be/prijzen.
- * Unique slugs must not steal NL marktplaats/prijzen/guest-post-kopen or FR marche/tarifs/acheter-*.
+ * Unique slugs must not steal NL marktplaats/prijzen/gastblog-kopen/gesponsord-artikel/gids/bureaus
+ * or FR marche/tarifs/acheter-* /guide/agences/netlinking. Conversion URLs stay *-belgie.
  */
 class BelgianMoneyLanders
 {
@@ -25,23 +26,25 @@ class BelgianMoneyLanders
             'catalogue-publishers' => '/be/marketplace',
             'guest-post-belgium' => '/be/koop-guest-post-belgie',
             'acheter-guest-post-belgique' => '/be/koop-guest-post-belgie',
-            'publier-sur-blogs' => '/be/koop-guest-post-belgie',
-            'article-sponsorise' => '/be/gesponsord-artikel',
-            'publiredactionnel' => '/be/gesponsord-artikel',
-            'acheter-publiredactionnel' => '/be/gesponsord-artikel',
+            'publier-sur-blogs-belgie' => '/be/koop-guest-post-belgie',
+            'gesponsord-artikel' => '/be/gesponsord-artikel-belgie',
+            'article-sponsorise-belgie' => '/be/gesponsord-artikel-belgie',
+            'publiredactionnel' => '/be/gesponsord-artikel-belgie',
+            'acheter-publiredactionnel-belgie' => '/be/gesponsord-artikel-belgie',
             'acheter-backlinks-belgique' => '/be/koop-backlinks-belgie',
-            'backlinks-kopen' => '/be/koop-backlinks-belgie',
             'acheter-netlinking' => '/be/linkbuilding',
-            'netlinking' => '/be/linkbuilding',
+            'netlinking-belgie' => '/be/linkbuilding',
             'linkbuilding-belgie' => '/be/linkbuilding',
-            'prix' => '/be/prijzen',
+            'prix-belgie' => '/be/prijzen',
             'combien-coute' => '/be/prijzen',
-            'agences' => '/be/bureaus',
-            'white-label' => '/be/bureaus',
+            'bureaus' => '/be/bureaus-belgie',
+            'agences-belgie' => '/be/bureaus-belgie',
+            'white-label' => '/be/bureaus-belgie',
             'insertion-de-lien' => '/be/niche-edits',
-            'link-invoegen' => '/be/niche-edits',
-            'communique-de-presse' => '/be/digital-pr',
-            'guide' => '/be/gids',
+            'link-invoegen-belgie' => '/be/niche-edits',
+            'communique-de-presse-belgie' => '/be/digital-pr',
+            'gids' => '/be/gids-belgie',
+            'guide-belgie' => '/be/gids-belgie',
         ];
     }
 
@@ -73,15 +76,15 @@ class BelgianMoneyLanders
         return self::filterCluster([
             ['slug' => 'home', 'label' => 'Marktplaats België', 'url' => url('/be')],
             ['slug' => 'koop-guest-post-belgie', 'label' => 'Koop guest posts', 'url' => self::url('koop-guest-post-belgie')],
-            ['slug' => 'gesponsord-artikel', 'label' => 'Gesponsord artikel', 'url' => self::url('gesponsord-artikel')],
+            ['slug' => 'gesponsord-artikel-belgie', 'label' => 'Gesponsord artikel', 'url' => self::url('gesponsord-artikel-belgie')],
             ['slug' => 'marketplace', 'label' => 'Catalogus publishers', 'url' => self::marketingUrl('marketplace')],
             ['slug' => 'linkbuilding', 'label' => 'Linkbuilding / netlinking', 'url' => self::url('linkbuilding')],
             ['slug' => 'koop-backlinks-belgie', 'label' => 'Koop backlinks', 'url' => self::url('koop-backlinks-belgie')],
             ['slug' => 'prijzen', 'label' => 'Prijzen', 'url' => self::marketingUrl('pricing')],
-            ['slug' => 'bureaus', 'label' => 'Voor bureaus', 'url' => self::url('bureaus')],
+            ['slug' => 'bureaus-belgie', 'label' => 'Voor bureaus', 'url' => self::url('bureaus-belgie')],
             ['slug' => 'digital-pr', 'label' => 'Digital PR', 'url' => self::url('digital-pr')],
             ['slug' => 'niche-edits', 'label' => 'Niche edits', 'url' => self::url('niche-edits')],
-            ['slug' => 'gids', 'label' => 'Gids', 'url' => self::url('gids')],
+            ['slug' => 'gids-belgie', 'label' => 'Gids', 'url' => self::url('gids-belgie')],
         ], $current);
     }
 
@@ -129,13 +132,13 @@ class BelgianMoneyLanders
         $how = self::marketingUrl('how-it-works');
         $register = '/register';
         $guest = self::url('koop-guest-post-belgie');
-        $sponsored = self::url('gesponsord-artikel');
+        $sponsored = self::url('gesponsord-artikel-belgie');
         $links = self::url('koop-backlinks-belgie');
         $lb = self::url('linkbuilding');
-        $agencies = self::url('bureaus');
+        $agencies = self::url('bureaus-belgie');
         $pr = self::url('digital-pr');
         $niche = self::url('niche-edits');
-        $guide = self::url('gids');
+        $guide = self::url('gids-belgie');
         $publisher = self::marketingUrl('become-a-publisher');
 
         return [
@@ -203,7 +206,7 @@ class BelgianMoneyLanders
                     ['label' => 'Gids', 'url' => $guide],
                 ],
             ],
-            'gesponsord-artikel' => [
+            'gesponsord-artikel-belgie' => [
                 'kicker' => 'Publirédactionnel',
                 'h1' => 'Koop een gesponsord artikel in België',
                 'subtitle' => 'Je koopt een betaald artikel op een site in het catalogus, met prijs in euro en live-URL. We verkopen geen generiek persbericht-abonnement.',
@@ -364,7 +367,7 @@ class BelgianMoneyLanders
                     ['label' => 'Gids', 'url' => $guide],
                 ],
             ],
-            'bureaus' => [
+            'bureaus-belgie' => [
                 'kicker' => 'B2B-account',
                 'h1' => 'Linkbuilding voor bureaus in België',
                 'subtitle' => 'Self-service catalogus voor SEO-bureaus, resellers en teams die doorfactureren. EUR-saldo, gevolgde orders, facturen in de adverteerdersfacturatie.',
@@ -513,7 +516,7 @@ class BelgianMoneyLanders
                     ['label' => 'Gesponsord artikel', 'url' => $sponsored],
                 ],
             ],
-            'gids' => [
+            'gids-belgie' => [
                 'kicker' => 'Eén gids',
                 'h1' => 'Gids: guest posts en linkbuilding in België',
                 'subtitle' => 'Wat een guest post is, hoe je backlinks koopt, dofollow versus nofollow, ankers, PBN en risico’s — op één pagina, niet op dunne artikelen.',

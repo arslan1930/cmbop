@@ -209,6 +209,8 @@ class PublicI18n
             'it' => ['it'],
             'pt' => ['pt'],
             'be' => ['be'],
+            'nl' => ['nl'],
+            'fr' => ['fr'],
             default => ['de'],
         };
     }
@@ -266,6 +268,12 @@ class PublicI18n
         }
         if (class_exists(BelgianMoneyLanders::class) && BelgianMoneyLanders::isSlug($slug)) {
             $locales[] = 'be';
+        }
+        if (class_exists(DutchMoneyLanders::class) && DutchMoneyLanders::isSlug($slug)) {
+            $locales[] = 'nl';
+        }
+        if (class_exists(FrenchMoneyLanders::class) && FrenchMoneyLanders::isSlug($slug)) {
+            $locales[] = 'fr';
         }
 
         return $locales;
@@ -608,6 +616,14 @@ class PublicI18n
         }
 
         if (class_exists(BelgianMoneyLanders::class) && BelgianMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(DutchMoneyLanders::class) && DutchMoneyLanders::isPublicSegment($first)) {
+            return true;
+        }
+
+        if (class_exists(FrenchMoneyLanders::class) && FrenchMoneyLanders::isPublicSegment($first)) {
             return true;
         }
 

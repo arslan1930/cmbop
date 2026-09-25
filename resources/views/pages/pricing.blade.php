@@ -203,6 +203,30 @@
     ])
 </div>
 @endif
+@if(function_exists('public_locale') && public_locale() === 'nl' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Wat kost een gastblog in Nederland</h2>
+    <p class="text-muted">We publiceren geen vaste pdf-prijslijst en verzinnen geen Nederlands KvK-tarief: de prijs is die van de site, in euro. «Prijs guest post» en «kosten linkbuilding» volgen de catalogusregel die u kiest. De genummerde pakketten hierboven zijn beheerde digital-PR-campagnes, geen zak anonieme URL’s.</p>
+    <p class="text-muted">Actuele bedragen staan in de <a href="{{ localized_url('marketplace') }}">Nederlandse catalogus</a> na registratie. Europees index (Engelse pagina): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\DutchMoneyLanders::clusterLinks('prijzen'),
+        'current' => 'prijzen',
+        'title' => 'Gerelateerde pagina’s',
+    ])
+</div>
+@endif
+@if(function_exists('public_locale') && public_locale() === 'fr' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\FrenchMoneyLanders::class) && method_exists(\App\Support\FrenchMoneyLanders::class, 'clusterLinks'))
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">Combien coûte un guest post en France</h2>
+    <p class="text-muted">Nous ne publions pas de PDF fixe et n’inventons pas un tarif TVA français : le prix est celui du site, en euros. « Prix guest post » et « coût netlinking » suivent la fiche que vous choisissez. Les forfaits numérotés ci-dessus sont des campagnes de digital PR gérées, pas un sac d’URL anonymes.</p>
+    <p class="text-muted">Les montants en vigueur sont dans le <a href="{{ localized_url('marketplace') }}">catalogue France</a> après inscription. Index européen (page en anglais) : <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
+    @include('components.italian-seo-cluster-nav', [
+        'links' => \App\Support\FrenchMoneyLanders::clusterLinks('tarifs'),
+        'current' => 'tarifs',
+        'title' => 'Pages liées',
+    ])
+</div>
+@endif
 @php
     $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
         ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')

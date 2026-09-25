@@ -148,6 +148,24 @@
             ])
         </div>
     @endif
+    @if (function_exists('public_locale') && public_locale() === 'nl' && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\DutchMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Pagina’s over gastblogs, backlinks en linkbuilding in Nederland',
+            ])
+        </div>
+    @endif
+    @if (function_exists('public_locale') && public_locale() === 'fr' && class_exists(\App\Support\FrenchMoneyLanders::class) && method_exists(\App\Support\FrenchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\FrenchMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Pages guest posts, backlinks et netlinking en France',
+            ])
+        </div>
+    @endif
     @php
         $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
             ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')

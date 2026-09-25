@@ -154,6 +154,40 @@
             </p>
         </div>
     @endif
+    @if(function_exists('public_locale') && public_locale() === 'nl' && class_exists(\App\Support\DutchMoneyLanders::class) && method_exists(\App\Support\DutchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Catalogus van publishers in Nederland</h2>
+            <p class="text-muted">Dit is de publieke lijst van publishers in Nederland: niche, taal, DA/DR en prijs in euro. We indexeren niet elke filtercombinatie en geen stads-URL (Amsterdam of Rotterdam hebben geen eigen pagina). Het volledige catalogus met domeinen opent na registratie.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\DutchMoneyLanders::clusterLinks('marktplaats'),
+                'current' => 'marktplaats',
+                'title' => 'Gerelateerde pagina’s',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/nl/gastblog-kopen') }}">Gastblog kopen</a>
+                · <a href="{{ url('/nl/backlinks-kopen') }}">Backlinks kopen</a>
+                · <a href="{{ localized_url('pricing') }}">Wat kost een gastblog</a>
+                · <a href="{{ url('/guest-posts-netherlands') }}">Netherlands inventory (English)</a>
+            </p>
+        </div>
+    @endif
+    @if(function_exists('public_locale') && public_locale() === 'fr' && class_exists(\App\Support\FrenchMoneyLanders::class) && method_exists(\App\Support\FrenchMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="mt-5 pt-4 border-top">
+            <h2 class="h4 mb-3" style="color:#1a585e;">Catalogue de médias et d’éditeurs en France</h2>
+            <p class="text-muted">Ceci est la liste publique des éditeurs en France : thématique, langue, DA/DR et prix en euros. Nous n’indexons pas chaque combinaison de filtre ni les villes (Paris et Lyon n’ont pas d’URL propre). Le catalogue complet, avec les domaines, s’ouvre après inscription.</p>
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\FrenchMoneyLanders::clusterLinks('marche'),
+                'current' => 'marche',
+                'title' => 'Pages liées',
+            ])
+            <p class="small mb-0">
+                <a href="{{ url('/fr/acheter-guest-post') }}">Acheter un guest post</a>
+                · <a href="{{ url('/fr/acheter-backlinks') }}">Acheter des backlinks</a>
+                · <a href="{{ localized_url('pricing') }}">Combien coûte un guest post</a>
+                · <a href="{{ url('/guest-posts-france') }}">France inventory (English)</a>
+            </p>
+        </div>
+    @endif
     @php
         $nordicChrome = class_exists(\App\Support\MoneyLanderCatalog::class)
             ? \App\Support\MoneyLanderCatalog::chrome(function_exists('public_locale') ? (string) public_locale() : '')
@@ -189,10 +223,12 @@
             </p>
         </div>
     @endif
+    @if(!function_exists('public_locale') || in_array(public_locale(), ['en', 'us'], true))
     <p class="text-center small mt-2 mb-0">
         <a href="{{ url('/guest-post-prices-europe') }}">EU guest-post price index</a>
         — median advertiser prices by European publisher country.
     </p>
+    @endif
 
     @if(view()->exists('components.country-lander-nav'))
         @include('components.country-lander-nav', [
