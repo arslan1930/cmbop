@@ -28,8 +28,8 @@
 
 <div class="catalog-price catalog-price--{{ $priceAlign }}">
     <div class="catalog-price__row">
-        <span class="catalog-price__pay base-price-display">€{{ number_format((float) $payPrice, 2) }}</span>
-        <span class="catalog-price__list list-price-display" {{ $hasOffer ? '' : 'hidden' }}>€{{ number_format((float) $listPrice, 2) }}</span>
+        <span class="catalog-price__pay base-price-display">{{ format_money($payPrice) }}</span>
+        <span class="catalog-price__list list-price-display" {{ $hasOffer ? '' : 'hidden' }}>{{ format_money($listPrice) }}</span>
     </div>
     @if($hasOffer && $salePercent)
         {{-- salePercent is effective (post floor); list/pay euros are the source of truth --}}

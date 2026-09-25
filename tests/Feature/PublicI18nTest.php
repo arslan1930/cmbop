@@ -11,7 +11,7 @@ class PublicI18nTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_austria_localizes_german_copy_and_switzerland_still_reuses_germany(): void
+    public function test_austria_and_switzerland_localize_german_copy(): void
     {
         $at = $this->get('/at')->assertOk()->getContent();
         $this->assertStringContainsString('Österreichischer Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $at);
@@ -78,8 +78,8 @@ class PublicI18nTest extends TestCase
                 'Marketplace de guest posts, backlinks y link building para España.',
             ],
             '/nl' => [
-                'Guest posts kopen bij geverifieerde publishers | SEOLinkBuildings',
-                'Guest posts kopen bij geverifieerde publishers.',
+                'Linkbuilding-marktplaats Nederland | SEOLinkBuildings',
+                'Marktplaats voor gastblogs, backlinks en linkbuilding in Nederland.',
             ],
         ];
 

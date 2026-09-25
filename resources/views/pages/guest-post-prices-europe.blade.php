@@ -120,7 +120,7 @@
                 <div class="col-md-6">
                     <div class="h-100 p-4 rounded-4 bg-white border">
                         <div class="small text-muted mb-1" data-price-index-kpi="europe-median">Europe median</div>
-                        <div class="h3 mb-0" style="color:#1a585e;">€{{ number_format((float) $index['europe']['median'], 0) }}</div>
+                        <div class="h3 mb-0" style="color:#1a585e;">{{ format_money($index['europe']['median'], ['decimals' => 0]) }}</div>
                         <p class="small text-muted mb-0 mt-2">Median advertiser checkout price across {{ number_format((int) $index['europe']['listings']) }} European catalog listings.</p>
                     </div>
                 </div>
@@ -164,7 +164,7 @@
                                     {{ $row['name'] }}
                                 @endif
                             </td>
-                            <td class="fw-semibold" style="color:#1a585e;">€{{ number_format((float) $row['median'], 0) }}</td>
+                            <td class="fw-semibold" style="color:#1a585e;">{{ format_money($row['median'], ['decimals' => 0]) }}</td>
                             <td>{{ number_format((int) $row['listings']) }}</td>
                         </tr>
                     @endforeach

@@ -86,7 +86,7 @@
                                         @if(!empty($line['country']))
                                             · preferred {{ strtoupper($line['country']) }}
                                         @endif
-                                        · €{{ number_format((float) ($line['price'] ?? 0), 2) }}
+                                        · {{ format_money($line['price'] ?? 0) }}
                                     </div>
                                 </div>
                                 <span class="badge {{ $selectedId ? 'text-bg-success' : 'text-bg-secondary' }} line-status">

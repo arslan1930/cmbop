@@ -270,7 +270,7 @@
                                             <div><strong>Order:</strong> #{{ $libraryOrder->id }}</div>
                                         @endif
                                         @if($placement?->price !== null)
-                                            <div><strong>Price:</strong> €{{ number_format((float) $placement->price, 2) }}</div>
+                                            <div><strong>Price:</strong> {{ format_money($placement->price) }}</div>
                                         @endif
                                         @if($publishedDateLabel)
                                             <div><strong>Published:</strong> {{ $publishedDateLabel }}</div>

@@ -36,8 +36,8 @@ return [
     ],
 
     /*
-    | Local/testing only. Production ignores this and uses CF-IPCountry
-    | from a Cloudflare edge. Examples: US, CA, AU, GB.
+    | Local/testing override. Production uses CF-IPCountry from Cloudflare,
+    | then the visitor's public IP. Examples: US, CA, AU, GB.
     */
     'fake_country' => strtoupper(trim((string) env('FAKE_CF_COUNTRY', ''))),
 

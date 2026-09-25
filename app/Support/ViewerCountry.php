@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpFoundation\IpUtils;
 
 class ViewerCountry
@@ -30,11 +32,14 @@ class ViewerCountry
         }
 
         $peer = $this->sanitizeIp($request->server->get('REMOTE_ADDR'));
-        if ($peer === null || ! $this->isCloudflarePeer($peer)) {
-            return null;
+        if ($peer !== null && $this->isCloudflarePeer($peer)) {
+            $header = $this->headerCountry($request);
+            if ($header !== null) {
+                return $header;
+            }
         }
 
-        return $this->headerCountry($request);
+        return $this->countryFromIp($request);
     }
 
     public function displayCurrency(?Request $request = null): string
@@ -100,6 +105,53 @@ class ViewerCountry
         }
 
         return $ip;
+    }
+
+    /**
+     * Country of the visitor IP. Cloudflare's header wins when the peer is
+     * Cloudflare. Otherwise the public address is looked up. Loopback on a
+     * local machine uses this server's live location. Tests stay on EUR.
+     */
+    private function countryFromIp(Request $request): ?string
+    {
+        $ip = $this->sanitizeIp($request->ip());
+        $lookupSelf = false;
+        if ($ip === null || ! $this->isPublicIp($ip)) {
+            if (! app()->environment('local')) {
+                return null;
+            }
+            $lookupSelf = true;
+            $ip = 'self';
+        }
+
+        try {
+            $country = Cache::remember('viewer-country.'.$ip, 21600, function () use ($ip, $lookupSelf) {
+                $url = $lookupSelf ? 'https://ipwho.is/' : 'https://ipwho.is/'.$ip;
+                $response = Http::timeout(2)->acceptJson()->get($url);
+                if (! $response->ok()) {
+                    return null;
+                }
+                $code = strtoupper(trim((string) $response->json('country_code')));
+                if ($code === 'UK') {
+                    $code = 'GB';
+                }
+
+                return preg_match('/^[A-Z]{2}$/', $code) === 1 ? $code : null;
+            });
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return is_string($country) && $country !== '' ? $country : null;
+    }
+
+    private function isPublicIp(string $ip): bool
+    {
+        return filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) !== false;
     }
 
     private function isCloudflarePeer(string $ip): bool

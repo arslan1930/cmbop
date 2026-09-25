@@ -22,7 +22,7 @@
     'applicationCategory' => 'BusinessApplication',
     'operatingSystem' => 'Web',
     'url' => url('/'),
-    'description' => 'Guest-post and backlink marketplace connecting advertisers with publishers across Europe.',
+    'description' => __('messages.meta_home_description'),
     'image' => asset('assets/img/logo1.png'),
     'offers' => [
         '@type' => 'Offer',
@@ -43,19 +43,19 @@
     '@type' => 'WebSite',
     'name' => 'SEOLinkBuildings',
     'alternateName' => ['SEO Link Buildings', 'Seolink Buildings'],
-    'url' => url('/'),
+    'url' => localized_url('/'),
     'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
         ? \App\Support\PublicI18n::htmlLang()
         : 'en-GB',
     'publisher' => [
         '@type' => 'Organization',
         'name' => 'SEOLinkBuildings',
-        'url' => url('/'),
+        'url' => localized_url('/'),
     ],
     'hasPart' => [
         [
             '@type' => 'AboutPage',
-            'name' => 'About SEOLinkBuildings',
+            'name' => __('messages.about_title'),
             'url' => localized_url('about'),
         ],
     ],
@@ -91,6 +91,24 @@
                 'links' => \App\Support\AustrianMoneyLanders::clusterLinks('home'),
                 'current' => 'home',
                 'title' => 'Seiten für Gastbeiträge, Backlinks und Linkbuilding in Österreich',
+            ])
+        </div>
+    @endif
+    @if (function_exists('public_locale') && public_locale() === 'ch' && class_exists(\App\Support\SwissMoneyLanders::class) && method_exists(\App\Support\SwissMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\SwissMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Seiten für Gastbeiträge, Backlinks und Linkbuilding in der Schweiz',
+            ])
+        </div>
+    @endif
+    @if (function_exists('public_locale') && public_locale() === 'es' && class_exists(\App\Support\SpanishMoneyLanders::class) && method_exists(\App\Support\SpanishMoneyLanders::class, 'clusterLinks') && view()->exists('components.italian-seo-cluster-nav'))
+        <div class="container py-4">
+            @include('components.italian-seo-cluster-nav', [
+                'links' => \App\Support\SpanishMoneyLanders::clusterLinks('home'),
+                'current' => 'home',
+                'title' => 'Páginas de guest posts, backlinks y link building en España',
             ])
         </div>
     @endif

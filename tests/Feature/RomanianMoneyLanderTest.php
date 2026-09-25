@@ -54,7 +54,7 @@ class RomanianMoneyLanderTest extends TestCase
         $this->get('/es/cumpara-guest-post')->assertRedirect('/ro/cumpara-guest-post');
 
         $this->get('/digital-pr')->assertRedirect('/it/digital-pr');
-        $this->get('/fr/digital-pr')->assertRedirect('/it/digital-pr');
+        $this->get('/fr/digital-pr')->assertOk();
         $this->get('/ro/digital-pr')->assertOk();
         $this->get('/ro/link-building')->assertOk();
         $this->get('/ro/niche-edits')->assertOk();
