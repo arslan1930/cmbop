@@ -66,8 +66,8 @@ class PublicI18nTest extends TestCase
                 'Der Publisher-Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.',
             ],
             '/fr' => [
-                'Acheter des guest posts chez des éditeurs vérifiés | SEOLinkBuildings',
-                'Achetez des guest posts sur des sites d’éditeurs vérifiés.',
+                'Marketplace de netlinking en France | SEOLinkBuildings',
+                'Marketplace de guest posts, backlinks et netlinking pour la France.',
             ],
             '/it' => [
                 'Marketplace guest post e link building | SEOLinkBuildings',
