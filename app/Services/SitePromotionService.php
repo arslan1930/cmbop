@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Mail\SiteDiscountEnded;
+use App\Models\FeatureOfferSetting;
 use App\Models\Site;
 use App\Models\SiteFeaturePurchase;
 use App\Models\User;
@@ -29,11 +30,54 @@ class SitePromotionService
     }
 
     /**
+     * Admin-editable monthly and yearly packages. Prices are euros; card checkout
+     * converts them for the publisher's location.
+     *
+     * @return list<array{key:string, label:string, price:float, days:int, active:bool, display:string}>
+     */
+    public function featureOffers(): array
+    {
+        $offers = [];
+        foreach (FeatureOfferSetting::offers() as $offer) {
+            if (! ($offer['active'] ?? false)) {
+                continue;
+            }
+            $offer['display'] = format_money((float) $offer['price']);
+            $offer['euros_label'] = '€'.number_format((float) $offer['price'], 2);
+            $offers[] = $offer;
+        }
+
+        return $offers;
+    }
+
+    /**
+     * @return array{0:float, 1:int}|null
+     */
+    public function priceAndDays(?string $plan): ?array
+    {
+        if ($plan === null || $plan === '') {
+            return [$this->featurePrice(), $this->featureDays()];
+        }
+
+        foreach ($this->featureOffers() as $offer) {
+            if ($offer['key'] === $plan) {
+                return [(float) $offer['price'], (int) $offer['days']];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Refuse to apply a featured placement when Stripe charged a different amount.
+     * charge_amount is the location currency actually sent to Stripe.
      */
     public function assertStripeChargeMatchesFeaturePrice(object $session): void
     {
-        $expected = $this->featurePrice();
+        $meta = $this->sessionMeta($session);
+        $expected = isset($meta['charge_amount']) && $meta['charge_amount'] !== ''
+            ? round((float) $meta['charge_amount'], 2)
+            : $this->featurePrice();
         $stripeCents = null;
         if (isset($session->amount_total)) {
             $stripeCents = (int) $session->amount_total;
@@ -59,10 +103,13 @@ class SitePromotionService
      *
      * @return array{success:bool, message:string, site?:Site, needs_top_up?:bool, balance?:float, price?:float}
      */
-    public function featureWithWallet(Site $site, User $publisher): array
+    public function featureWithWallet(Site $site, User $publisher, ?string $plan = null): array
     {
-        $price = $this->featurePrice();
-        $days = $this->featureDays();
+        $resolved = $this->priceAndDays($plan);
+        if ($resolved === null) {
+            return ['success' => false, 'message' => 'Choose a monthly or yearly feature package.'];
+        }
+        [$price, $days] = $resolved;
         $roleId = Wallet::publisherRoleId();
 
         if (! $roleId) {
@@ -151,9 +198,10 @@ class SitePromotionService
         Site $site,
         User $payer,
         string $stripeSessionId,
-        ?string $reason = null
+        ?string $reason = null,
+        ?float $paidPrice = null
     ): array {
-        $price = $this->featurePrice();
+        $price = $paidPrice !== null && $paidPrice > 0 ? round($paidPrice, 2) : $this->featurePrice();
         $roleId = Wallet::publisherRoleId();
         if (! $roleId) {
             return ['success' => false, 'message' => 'Publisher wallet is not available.'];
@@ -247,10 +295,15 @@ class SitePromotionService
     /**
      * Apply featured placement after a successful Stripe card payment (no wallet debit).
      */
-    public function featureFromStripePayment(Site $site, User $publisher, ?string $stripeSessionId = null): array
-    {
-        $price = $this->featurePrice();
-        $days = $this->featureDays();
+    public function featureFromStripePayment(
+        Site $site,
+        User $publisher,
+        ?string $stripeSessionId = null,
+        ?float $paidPrice = null,
+        ?int $paidDays = null
+    ): array {
+        $price = $paidPrice !== null && $paidPrice > 0 ? round($paidPrice, 2) : $this->featurePrice();
+        $days = $paidDays !== null && $paidDays > 0 ? $paidDays : $this->featureDays();
 
         try {
             return DB::transaction(function () use ($site, $publisher, $price, $days, $stripeSessionId) {
@@ -556,5 +609,31 @@ class SitePromotionService
         }
 
         return $sent;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function sessionMeta(object $session): array
+    {
+        $raw = $session->metadata ?? null;
+        if (is_array($raw)) {
+            $meta = $raw;
+        } elseif (is_object($raw) && method_exists($raw, 'toArray')) {
+            $meta = $raw->toArray();
+        } elseif (is_object($raw)) {
+            $meta = (array) $raw;
+        } else {
+            $meta = [];
+        }
+
+        $out = [];
+        foreach ($meta as $key => $value) {
+            if (is_string($key)) {
+                $out[$key] = is_scalar($value) ? (string) $value : '';
+            }
+        }
+
+        return $out;
     }
 }

@@ -841,7 +841,7 @@
             </td>
             <td data-label="Price" class="text-center">
                 <div class="site-row-price-wrap">
-                    <span class="site-row-price">€{{ number_format((float) $item->price, 2) }}</span>
+                    <span class="site-row-price">{{ format_money($item->price) }}</span>
                 </div>
             </td>
             <td data-label="Actions" class="text-center">
@@ -849,6 +849,12 @@
             </td>
         </tr>
         @endforeach
+        @php
+            $featureOfferSummary = collect(\App\Models\FeatureOfferSetting::offers())
+                ->filter(fn ($offer) => $offer['active'])
+                ->map(fn ($offer) => $offer['label'].' '.format_money((float) $offer['price']).' for '.$offer['days'].' days')
+                ->implode(', or ');
+        @endphp
         @foreach($sites as $index => $site)
         @php
             // Cover first (admin parity), then screenshots. /media → /storage chain.
@@ -1027,7 +1033,7 @@
                 <div class="site-row-price-wrap">
                 @php
                     $fmtPct = static fn ($n) => rtrim(rtrim(number_format((float) $n, 1), '0'), '.');
-                    $fmtEur = static fn ($n) => number_format((float) $n, 2);
+                    $fmtEur = static fn ($n) => format_money($n);
                     $pubCustomPct = $site->activeCustomDiscountPercent();
                     $pubBulkPct = $site->joinsBulkDiscount()
                         ? (float) $site->bulk_discount_percent
@@ -1048,32 +1054,33 @@
                         && (float) $pubCustomPct >= (float) $pubBulkPct;
                     $pubPackUnit = $saleWinsPack ? $pubSalePrice : $pubBulkUnit;
                     $pubSaleTip = $pubShowSaleBadge
-                        ? 'Timed sale −'.$fmtPct($pubCustomPct).'% off your list (€'.$fmtEur($pubListPrice)
-                            .' → €'.$fmtEur($pubSalePrice).'). Advertisers pay your list plus the platform fee, then this same percent. Exclusive better-of with bulk, not stacked.'
+                        ? 'Timed sale −'.$fmtPct($pubCustomPct).'% off your list ('.$fmtEur($pubListPrice)
+                            .' → '.$fmtEur($pubSalePrice).'). Advertisers pay your list plus the platform fee, then this same percent. Exclusive better-of with bulk, not stacked.'
                         : 'Your timed discount is live on this site.';
                     $pubBulkTip = 'Joined the bulk discount programme ('.$bulkMinQty.'–'.$bulkMaxQty.' articles). Exclusive better-of with a timed sale — not stacked.';
                     if ($saleWinsPack) {
                         $pubBulkTip = 'Timed sale is stronger on packs too — exclusive better-of, not stacked.';
                     } elseif ($pubJoinedBulk && $pubBulkUnit !== null) {
-                        $pubBulkTip = 'Bulk −'.$fmtPct($pubBulkPct).'% off your list (€'.$fmtEur($pubListPrice)
-                            .' → €'.$fmtEur($pubBulkUnit).') on '.$bulkMinQty.'–'.$bulkMaxQty
+                        $pubBulkTip = 'Bulk −'.$fmtPct($pubBulkPct).'% off your list ('.$fmtEur($pubListPrice)
+                            .' → '.$fmtEur($pubBulkUnit).') on '.$bulkMinQty.'–'.$bulkMaxQty
                             .' articles. Exclusive better-of with a timed sale — not stacked.';
                     }
                     $featureDaysLeft = ($site->isFeatured() && $site->safeFeaturedUntil())
                         ? max(1, (int) now()->diffInDays($site->safeFeaturedUntil()))
                         : null;
-                    $featurePriceLabel = number_format((float) config('site_promotions.feature.price', 10), 0);
-                    $featureDaysCfg = (int) config('site_promotions.feature.days', 7);
+                    $featureOfferTip = $featureOfferSummary !== ''
+                        ? $featureOfferSummary
+                        : 'Monthly or yearly';
                 @endphp
-                <span class="site-row-price">€{{ $fmtEur($pubListPrice) }}</span>
+                <span class="site-row-price">{{ $fmtEur($pubListPrice) }}</span>
                 @if($pubShowSaleBadge && $pubSalePrice !== null)
-                    <span class="site-row-price-sale">€{{ $fmtEur($pubSalePrice) }}</span>
+                    <span class="site-row-price-sale">{{ $fmtEur($pubSalePrice) }}</span>
                 @elseif($pubJoinedBulk && $pubBulkUnit !== null)
-                    <span class="site-row-price-sale">€{{ $fmtEur($pubBulkUnit) }}</span>
+                    <span class="site-row-price-sale">{{ $fmtEur($pubBulkUnit) }}</span>
                 @endif
                 @if($pubJoinedBulk && $pubPackUnit !== null && $pubShowSaleBadge)
                     <span class="site-row-price-sale site-row-price-sale--pack">
-                        Pack of {{ $bulkMinQty }} from €{{ $fmtEur(round($pubPackUnit * $bulkMinQty, 2)) }}
+                        Pack of {{ $bulkMinQty }} from {{ $fmtEur(round($pubPackUnit * $bulkMinQty, 2)) }}
                     </span>
                 @endif
                 <span class="site-row-price-meta">
@@ -1194,13 +1201,13 @@
                         data-glass-tip
                         data-glass-tip-title="{{ $site->isFeatured() ? 'Featured' : 'Feature this site' }}"
                         data-glass-tip-body="{{ $site->isFeatured()
-                            ? 'Featured until '.optional($site->safeFeaturedUntil())->timezone(config('app.timezone'))->format('j M').'. Click to add another '.$featureDaysCfg.' days (€'.$featurePriceLabel.').'
-                            : 'Pin it higher in the advertiser catalog for '.$featureDaysCfg.' days. Paid from publisher balance or card (€'.$featurePriceLabel.').' }}{{ ! $site->verified ? ' This site is active but not verified. Featuring still works; advertisers may trust it less.' : '' }}"
+                            ? 'Featured until '.optional($site->safeFeaturedUntil())->timezone(config('app.timezone'))->format('j M').'. Extend with '.$featureOfferTip.'.'
+                            : 'Pin it higher in the advertiser catalog. '.$featureOfferTip.'. Paid from publisher balance or card.' }}{{ ! $site->verified ? ' This site is active but not verified. Featuring still works; advertisers may trust it less.' : '' }}"
                         data-glass-tip-placement="top">
                     <i class="fa fa-bolt" aria-hidden="true"></i>
                     <span class="site-offer-chip__label">{{ $site->isFeatured()
                         ? 'Featured'.($featureDaysLeft ? ' · '.$featureDaysLeft.'d left' : '')
-                        : 'Feature · €'.$featurePriceLabel }}</span>
+                        : 'Feature' }}</span>
                 </button>
                 <button type="button"
                         class="site-offer-chip btn-discount-site {{ $site->hasActiveCustomDiscount() ? 'is-on' : '' }}"
@@ -1214,7 +1221,7 @@
                         data-glass-tip
                         data-glass-tip-title="{{ $site->hasActiveCustomDiscount() ? 'Timed sale −'.$fmtPct($pubCustomPct).'%' : 'Set timed sale' }}"
                         data-glass-tip-body="{{ $site->hasActiveCustomDiscount()
-                            ? 'Live until '.optional($site->safeCustomDiscountEndsAt())->timezone(config('app.timezone'))->format('j M').'. Off your list (€'.$fmtEur($pubListPrice).' → €'.$fmtEur($pubSalePrice).'). Advertisers pay list plus the platform fee, then this same percent. Exclusive with bulk — not both.'
+                            ? 'Live until '.optional($site->safeCustomDiscountEndsAt())->timezone(config('app.timezone'))->format('j M').'. Off your list ('.$fmtEur($pubListPrice).' → '.$fmtEur($pubSalePrice).'). Advertisers pay list plus the platform fee, then this same percent. Exclusive with bulk — not both.'
                             : 'Temporary % off your list price. Advertisers pay your list plus the platform fee, then this same percent. Exclusive with bulk — not both.' }}"
                         data-glass-tip-placement="top">
                     <i class="fa fa-percent" aria-hidden="true"></i>
@@ -1305,7 +1312,7 @@
                                     : (is_string($site->sensitive_prices) ? json_decode($site->sensitive_prices, true) : []);
                             @endphp
                             @foreach($prices as $key => $value)
-                                <span class="sensitive-badge">{{ ucfirst($key) }}: €{{ number_format($value, 2) }}</span>
+                                <span class="sensitive-badge">{{ ucfirst($key) }}: {{ format_money($value) }}</span>
                             @endforeach
                         </div>
                     @endif
@@ -1316,7 +1323,7 @@
                             @foreach($site->homepagePlacementOptions() as $days => $fee)
                                 <span class="sensitive-badge">
                                     {{ $days }} day{{ $days > 1 ? 's' : '' }}:
-                                    {{ (float) $fee <= 0 ? 'Free' : '€'.number_format((float) $fee, 2) }}
+                                    {{ (float) $fee <= 0 ? 'Free' : format_money($fee) }}
                                 </span>
                             @endforeach
                         </div>

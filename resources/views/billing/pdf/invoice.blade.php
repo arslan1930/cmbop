@@ -399,6 +399,16 @@
             <td colspan="4" class="num">{{ $isPayout ? 'Net payout' : 'Total' }}</td>
             <td class="num">{{ $symbol }}{{ number_format((float) $invoice->total_amount, 2) }}</td>
         </tr>
+        @php
+            $chargedCurrency = strtoupper((string) data_get($invoice->meta, 'charge_currency', ''));
+            $chargedAmount = data_get($invoice->meta, 'charge_amount');
+        @endphp
+        @if($chargedCurrency !== '' && $chargedCurrency !== 'EUR' && $chargedAmount !== null)
+            <tr>
+                <td colspan="4" class="num label">Charged on card / PayPal</td>
+                <td class="num">{{ $chargedCurrency }} {{ number_format((float) $chargedAmount, 2) }}</td>
+            </tr>
+        @endif
     </tfoot>
 </table>
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdBanner;
+use App\Models\FeatureOfferSetting;
 use App\Models\SiteAnnouncement;
 use App\Models\WelcomeBonusClaim;
 use App\Models\WelcomeBonusSetting;
@@ -92,6 +93,8 @@ class PromotionController extends Controller
             ]);
         }
 
+        $featureOffers = FeatureOfferSetting::offers();
+
         $welcomeBonusClaims = $promotions->welcomeBonusClaimStats();
         $featuredSites = $promotions->marketplaceFeatured();
         $customDiscountSites = $promotions->marketplaceCustomDiscounts();
@@ -114,8 +117,40 @@ class PromotionController extends Controller
             'welcomeBonusClaims',
             'featuredSites',
             'customDiscountSites',
-            'bulkDiscountSites'
+            'bulkDiscountSites',
+            'featureOffers'
         ));
+    }
+
+    public function updateFeatureOffers(Request $request)
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        $data = $request->validate([
+            'offers' => ['required', 'array'],
+            'offers.month.label' => ['required', 'string', 'max:40'],
+            'offers.month.price' => ['required', 'numeric', 'min:0.5', 'max:5000'],
+            'offers.month.days' => ['required', 'integer', 'min:1', 'max:400'],
+            'offers.year.label' => ['required', 'string', 'max:40'],
+            'offers.year.price' => ['required', 'numeric', 'min:0.5', 'max:5000'],
+            'offers.year.days' => ['required', 'integer', 'min:1', 'max:400'],
+        ]);
+
+        $packages = [];
+        foreach (['month', 'year'] as $key) {
+            $row = $data['offers'][$key];
+            $packages[$key] = [
+                'label' => $row['label'],
+                'price' => $row['price'],
+                'days' => $row['days'],
+                'active' => $request->boolean('offers.'.$key.'.active'),
+            ];
+        }
+
+        FeatureOfferSetting::saveOffers($packages);
+
+        return redirect()->route('admin.promotions.index')
+            ->with('success', 'Feature packages updated. Publishers pay these euro prices, converted for their location on card.');
     }
 
     public function preview(Request $request)

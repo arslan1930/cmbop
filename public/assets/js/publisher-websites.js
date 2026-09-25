@@ -2028,11 +2028,11 @@ function promoBetterOfNote() {
     return 'This percent is off your list price. Advertisers pay your list plus the platform fee, then the same percent. Timed sale and bulk are not added together.';
 }
 
-async function startFeatureStripeCheckout(siteId) {
+async function startFeatureStripeCheckout(siteId, plan) {
     const res = await fetch(`/publisher/sites/${siteId}/feature/checkout`, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': promoCsrfToken(), 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ plan: plan || '' }),
     });
     const data = await res.json().catch(() => ({}));
     if (data.success && data.checkout_url) {
@@ -2064,34 +2064,59 @@ $(document).on('click', '.btn-feature-site', async function () {
     } catch (e) {}
 
     const spendable = Number(wallet.withdrawable ?? wallet.balance ?? 0);
-    const canWallet = spendable >= Number(wallet.feature_price || 10);
-    const featureDays = Number(wallet.feature_days || 7);
-    const featurePrice = Number(wallet.feature_price || 10).toFixed(2);
+    const offers = Array.isArray(wallet.offers) && wallet.offers.length
+        ? wallet.offers
+        : [{
+            key: '',
+            label: 'Feature',
+            price: Number(wallet.feature_price || 10),
+            days: Number(wallet.feature_days || 7),
+            display: '€' + Number(wallet.feature_price || 10).toFixed(2),
+            euros_label: '€' + Number(wallet.feature_price || 10).toFixed(2),
+        }];
+    let chosenPlan = String(offers[0].key || '');
+    const planChoices = offers.map((offer, index) => {
+        const shown = String(offer.display || offer.euros_label || '');
+        const ledger = String(offer.euros_label || '');
+        const priceText = shown.startsWith('€') || shown === ledger
+            ? promoEscapeHtml(shown)
+            : `${promoEscapeHtml(shown)} <span class="text-muted">(wallet ${promoEscapeHtml(ledger)})</span>`;
+        return `<label class="d-flex align-items-start gap-2 text-start mb-2">
+            <input type="radio" name="feature-plan" value="${promoEscapeHtml(String(offer.key || ''))}" ${index === 0 ? 'checked' : ''}>
+            <span><strong>${promoEscapeHtml(String(offer.label || 'Feature'))}</strong> — ${priceText} for ${Number(offer.days || 0)} days</span>
+        </label>`;
+    }).join('');
     const unverifiedNote = isVerified
         ? ''
         : '<p class="small text-muted">This site is active but not verified. Featuring still works; advertisers may trust it less.</p>';
     const body = isLive
-        ? `<p><strong>${name}</strong> is already featured until <strong>${promoEscapeHtml(promoFormatDate(featuredUntil))}</strong> (${daysLeft} day${daysLeft === 1 ? '' : 's'} left).</p>
-           <p>Paying <strong>€${featurePrice}</strong> adds another <strong>${featureDays} days</strong>.</p>`
-        : `<p>Feature <strong>${name}</strong> for <strong>${featureDays} days</strong> to boost catalog visibility.</p>
-           <p class="mb-1">Cost: <strong>€${featurePrice}</strong></p>`;
+        ? `<p><strong>${name}</strong> is already featured until <strong>${promoEscapeHtml(promoFormatDate(featuredUntil))}</strong> (${daysLeft} day${daysLeft === 1 ? '' : 's'} left). Pick a package to add more days.</p>`
+        : `<p>Feature <strong>${name}</strong> in the advertiser catalog. Pick a package.</p>`;
     const result = await Swal.fire({
         title: isLive ? 'Extend featuring?' : 'Feature this website?',
         html: `${body}
+               <div class="text-start mx-3">${planChoices}</div>
                ${unverifiedNote}
                <p class="small text-muted">Publisher earnings: €${spendable.toFixed(2)} (bonus cannot be used for featuring)</p>
-               <p class="small text-muted">Pay from earnings, or pay securely by card with Stripe.</p>`,
+               <p class="small text-muted">Wallet pays the euro price. Card pays the amount shown for your location.</p>`,
         showDenyButton: !!wallet.stripe_available,
         showCancelButton: true,
-        confirmButtonText: canWallet ? 'Pay from wallet' : 'Use card / top up',
+        confirmButtonText: 'Pay from wallet',
         denyButtonText: wallet.stripe_available ? 'Pay by card' : undefined,
+        didOpen: () => {
+            document.querySelectorAll('input[name="feature-plan"]').forEach((el) => {
+                el.addEventListener('change', () => { chosenPlan = el.value; });
+            });
+        },
     });
+    const selected = offers.find((offer) => String(offer.key || '') === chosenPlan) || offers[0];
+    const selectedPrice = Number(selected.price || 0);
 
     if (result.isDenied) {
-        return startFeatureStripeCheckout(id);
+        return startFeatureStripeCheckout(id, chosenPlan);
     }
     if (!result.isConfirmed) return;
-    if (!canWallet) {
+    if (spendable < selectedPrice) {
         return Swal.fire({
             icon: 'info',
             title: 'Insufficient balance',
@@ -2099,7 +2124,7 @@ $(document).on('click', '.btn-feature-site', async function () {
                    <button type="button" class="btn btn-sm btn-primary me-1" id="swalPayCard">Pay by card</button>
                    <a class="btn btn-sm btn-outline-secondary" href="${wallet.top_up_url || wallet.balance_url || '#'}">Add Funds</a>`,
             didOpen: () => {
-                document.getElementById('swalPayCard')?.addEventListener('click', () => startFeatureStripeCheckout(id));
+                document.getElementById('swalPayCard')?.addEventListener('click', () => startFeatureStripeCheckout(id, chosenPlan));
             },
             showConfirmButton: false,
             showCancelButton: true,
@@ -2109,7 +2134,7 @@ $(document).on('click', '.btn-feature-site', async function () {
     const res = await fetch(`/publisher/sites/${id}/feature`, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': promoCsrfToken(), 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ plan: chosenPlan }),
     });
     const data = await res.json().catch(() => ({}));
     if (data.success) {
@@ -2120,10 +2145,10 @@ $(document).on('click', '.btn-feature-site', async function () {
             icon: 'info',
             title: 'Top up or pay by card',
             html: `${promoEscapeHtml(data.message || '')}<br><br>
-                   <button type="button" class="btn btn-sm btn-primary me-1" id="swalPayCard2">Pay by card (€${Number(wallet.feature_price || 10).toFixed(2)})</button>
+                   <button type="button" class="btn btn-sm btn-primary me-1" id="swalPayCard2">Pay by card (${promoEscapeHtml(String(selected.display || selected.euros_label || ''))})</button>
                    <a class="btn btn-sm btn-outline-secondary" href="${wallet.top_up_url || wallet.balance_url || '#'}">Add Funds</a>`,
             didOpen: () => {
-                document.getElementById('swalPayCard2')?.addEventListener('click', () => startFeatureStripeCheckout(id));
+                document.getElementById('swalPayCard2')?.addEventListener('click', () => startFeatureStripeCheckout(id, chosenPlan));
             },
             showConfirmButton: false,
             showCancelButton: true,

@@ -79,7 +79,7 @@
         ],
         'debt' => [
             'title' => 'Withdrawals are blocked',
-            'body' => 'Outstanding clawback debt of €'.number_format($debtBalance, 2).'. Contact support before withdrawing.',
+            'body' => 'Outstanding clawback debt of '.format_money($debtBalance).'. Contact support before withdrawing.',
             'href' => route('publisher.balance'),
             'button' => 'Open balance',
         ],
@@ -107,7 +107,7 @@
         ],
         'payout' => [
             'title' => 'Set up payout details',
-            'body' => 'You have €'.number_format((float) $withdrawableBalance, 2).' withdrawable. Save a payout method before requesting a withdrawal.',
+            'body' => 'You have '.format_money($withdrawableBalance).' withdrawable. Save a payout method before requesting a withdrawal.',
             'href' => route('publisher.withdraw'),
             'button' => 'Set up payout',
         ],
@@ -245,8 +245,8 @@
                 <div class="kpi-icon kpi-icon--earnings"><i class="fa fa-euro-sign"></i></div>
                 <div>
                     <span class="kpi-label">Total earnings</span>
-                    <div class="kpi-value" id="totalEarnings">€{{ number_format((float) $stats['total_earnings'], 2) }}</div>
-                    <div class="kpi-sub">Lifetime completed · wallet €{{ number_format((float) $availableBalance, 2) }}</div>
+                    <div class="kpi-value" id="totalEarnings">{{ format_money($stats['total_earnings']) }}</div>
+                    <div class="kpi-sub">Lifetime completed · wallet {{ format_money($availableBalance) }}</div>
                 </div>
             </a>
         </div>
@@ -255,10 +255,10 @@
                 <div class="kpi-icon kpi-icon--pending"><i class="fa fa-hourglass-half"></i></div>
                 <div>
                     <span class="kpi-label">Pending earnings</span>
-                    <div class="kpi-value" id="pendingEarnings">€{{ number_format($pendingWallet, 2) }}</div>
+                    <div class="kpi-value" id="pendingEarnings">{{ format_money($pendingWallet) }}</div>
                     <div class="kpi-sub">
                         @if($inProgressEarnings > 0 && $pendingReview > 0)
-                            €{{ number_format($pendingReview, 2) }} in review · €{{ number_format($inProgressEarnings, 2) }} publishing
+                            {{ format_money($pendingReview) }} in review · {{ format_money($inProgressEarnings) }} publishing
                         @elseif($inProgressEarnings > 0)
                             Publishing, not yet in review
                         @else
@@ -273,14 +273,14 @@
                 <div class="kpi-icon kpi-icon--wallet"><i class="fa fa-wallet"></i></div>
                 <div>
                     <span class="kpi-label">Available balance</span>
-                    <div class="kpi-value" id="availableBalance">€{{ number_format((float) $availableBalance, 2) }}</div>
+                    <div class="kpi-value" id="availableBalance">{{ format_money($availableBalance) }}</div>
                     <div class="kpi-sub">
                         @if($debtBalance > 0)
-                            Debt €{{ number_format($debtBalance, 2) }} blocks withdrawals
+                            Debt {{ format_money($debtBalance) }} blocks withdrawals
                         @elseif($reservedBalance > 0)
-                            Withdrawable €{{ number_format((float) $withdrawableBalance, 2) }} · on hold €{{ number_format($reservedBalance, 2) }}
+                            Withdrawable {{ format_money($withdrawableBalance) }} · on hold {{ format_money($reservedBalance) }}
                         @else
-                            Withdrawable €{{ number_format((float) $withdrawableBalance, 2) }}
+                            Withdrawable {{ format_money($withdrawableBalance) }}
                         @endif
                     </div>
                 </div>
@@ -409,7 +409,7 @@
                             </div>
                             <div class="col-6 mb-3">
                                 <div class="small text-muted">Avg. Payout</div>
-                                <h4 class="mb-0" id="avgOrderValue">€{{ number_format((float) $metrics['avg_order_value'], 2) }}</h4>
+                                <h4 class="mb-0" id="avgOrderValue">{{ format_money($metrics['avg_order_value']) }}</h4>
                                 <div class="small text-muted mt-1">Per completed order</div>
                             </div>
                             <div class="col-6">
@@ -486,7 +486,7 @@
                                                         <div class="small text-muted mt-1">Needs you</div>
                                                     @endif
                                                 </td>
-                                                <td class="text-end fw-semibold">€{{ number_format((float) ($task['payout'] ?? 0), 2) }}</td>
+                                                <td class="text-end fw-semibold">{{ format_money($task['payout'] ?? 0) }}</td>
                                                 <td class="text-end">
                                                     <a href="{{ $openUrl }}" class="btn btn-sm btn-cta-secondary">Open</a>
                                                 </td>
@@ -519,7 +519,7 @@
             data: {
                 labels: data.labels || [],
                 datasets: [{
-                    label: 'Earnings (€)',
+                    label: 'Earnings',
                     data: data.values || [],
                     borderColor: '#0b6266',
                     backgroundColor: 'rgba(11, 98, 102, 0.12)',
@@ -539,7 +539,7 @@
                     tooltip: {
                         callbacks: {
                             label: function (context) {
-                                return '€' + Number(context.parsed.y).toFixed(2);
+                                return (window.slbFormatMoney || function (n) { return '€' + Number(n).toFixed(2); })(context.parsed.y);
                             }
                         }
                     }
@@ -548,7 +548,7 @@
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            callback: function (value) { return '€' + value; }
+                            callback: function (value) { return (window.slbFormatMoney || function (n) { return '€' + n; })(value); }
                         }
                     }
                 }
@@ -564,7 +564,7 @@
             data: {
                 labels: data.labels || [],
                 datasets: [{
-                    label: 'Earnings (€)',
+                    label: 'Earnings',
                     data: data.values || [],
                     backgroundColor: 'rgba(58, 174, 178, 0.75)',
                     borderRadius: 8,
@@ -580,7 +580,7 @@
                     tooltip: {
                         callbacks: {
                             label: function (context) {
-                                return '€' + Number(context.parsed.y).toFixed(2);
+                                return (window.slbFormatMoney || function (n) { return '€' + Number(n).toFixed(2); })(context.parsed.y);
                             }
                         }
                     }
@@ -590,7 +590,7 @@
                         beginAtZero: true,
                         grid: { display: true, drawBorder: false },
                         ticks: {
-                            callback: function (value) { return '€' + value; }
+                            callback: function (value) { return (window.slbFormatMoney || function (n) { return '€' + n; })(value); }
                         }
                     },
                     x: { grid: { display: false } }

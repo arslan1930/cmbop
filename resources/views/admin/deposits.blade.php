@@ -12,7 +12,8 @@
     <!-- Stats Cards -->
     <div class="row mb-4">
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
+            <a href="{{ route('admin.deposits', ['status' => 'pending']) }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -25,9 +26,11 @@
                     </div>
                 </div>
             </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
+            <a href="{{ route('admin.deposits', ['status' => 'pending', 'reported' => 1]) }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -40,9 +43,11 @@
                     </div>
                 </div>
             </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
+            <a href="{{ route('admin.deposits', ['status' => 'approved']) }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -55,9 +60,11 @@
                     </div>
                 </div>
             </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
+            <a href="{{ route('admin.deposits', ['status' => 'completed']) }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -70,9 +77,27 @@
                     </div>
                 </div>
             </div>
+            </a>
         </div>
         <div class="col-md-3 col-lg">
-            <div class="card border-0 shadow-sm">
+            <a href="{{ route('admin.deposits', ['status' => 'rejected']) }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Rejected</h6>
+                            <h2 class="mb-0 text-danger">{{ $stats['rejected'] ?? 0 }}</h2>
+                        </div>
+                        <div class="bg-danger bg-opacity-10 p-3 rounded">
+                            <i class="fa fa-times-circle fa-2x text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </a>
+        </div>
+        <div class="col-md-3 col-lg">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -106,6 +131,34 @@
                 <div class="col-md-4">
                     <x-slb-search-field name="search" id="adminDepositsSearch" :value="request('search')" placeholder="Reference, Name, Email" input-class="form-control" label-class="form-label fw-semibold" />
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold" for="adminDepositsMethod">Method</label>
+                    <select name="payment_method" id="adminDepositsMethod" class="form-select">
+                        <option value="">All</option>
+                        @foreach(['bank' => 'Bank', 'wise' => 'Wise', 'crypto' => 'Crypto', 'card' => 'Card', 'paypal' => 'PayPal'] as $methodValue => $methodLabel)
+                            <option value="{{ $methodValue }}" @selected(request('payment_method') === $methodValue)>{{ $methodLabel }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold" for="adminDepositsFrom">From</label>
+                    <input type="date" name="from" id="adminDepositsFrom" class="form-control" value="{{ request('from') }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold" for="adminDepositsTo">To</label>
+                    <input type="date" name="to" id="adminDepositsTo" class="form-control" value="{{ request('to') }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold" for="adminDepositsSort">Sort</label>
+                    <select name="sort" id="adminDepositsSort" class="form-select">
+                        <option value="newest" @selected(request('sort', 'newest') === 'newest')>Newest</option>
+                        <option value="oldest" @selected(request('sort') === 'oldest')>Oldest</option>
+                        <option value="amount" @selected(request('sort') === 'amount')>Amount</option>
+                    </select>
+                </div>
+                @if(request()->boolean('reported'))
+                    <input type="hidden" name="reported" value="1">
+                @endif
                 <div class="col-md-auto admin-deposits-filters__actions">
                     <label class="form-label fw-semibold" for="adminDepositsFilter">&nbsp;</label>
                     <div class="d-flex gap-2">
@@ -114,6 +167,9 @@
                         </button>
                         <a href="{{ route('admin.deposits') }}" class="btn btn-outline-secondary">
                             <i class="fa fa-refresh me-1"></i> Reset
+                        </a>
+                        <a href="{{ route('admin.deposits.export', request()->query()) }}" class="btn btn-outline-primary">
+                            Export CSV
                         </a>
                     </div>
                 </div>
@@ -153,7 +209,11 @@
                                         {{ $depositUserInitial }}
                                     </div>
                                     <div>
-                                        <strong>{{ $depositUserName }}</strong><br>
+                                        @if($deposit->user_id)
+                                            <a href="{{ route('admin.finance.user', $deposit->user_id) }}"><strong>{{ $depositUserName }}</strong></a><br>
+                                        @else
+                                            <strong>{{ $depositUserName }}</strong><br>
+                                        @endif
                                         @if($depositUser?->email)
                                             <small class="text-muted slb-text-break">{{ $depositUser->email }}</small>
                                         @endif
@@ -161,7 +221,15 @@
                                 </div>
                             </td>
                             <td><code class="font-monospace">{{ $deposit->reference_code }}</code></td>
-                            <td class="fw-semibold text-primary">€{{ number_format($deposit->amount, 2) }}</td>
+                            <td class="fw-semibold text-primary">
+                                €{{ number_format($deposit->amount, 2) }}
+                                @php
+                                    $chargeCurrency = strtoupper(trim((string) ($deposit->charge_currency ?? '')));
+                                @endphp
+                                @if($chargeCurrency !== '' && $chargeCurrency !== 'EUR' && $deposit->charge_amount !== null && $deposit->charge_amount !== '')
+                                    <div class="small text-muted">Charged {{ $chargeCurrency }} {{ number_format((float) $deposit->charge_amount, 2) }}</div>
+                                @endif
+                            </td>
                             <td>
                                 <span class="badge bg-secondary">{{ $deposit->paymentMethodLabel() }}</span>
                             </td>
@@ -183,7 +251,12 @@
                                     <span class="badge bg-secondary">Refunded</span>
                                 @endif
                             </td>
-                            <td>{{ optional($deposit->created_at)?->format('M d, Y') ?: '—' }}</td>
+                            <td>
+                                {{ optional($deposit->created_at)?->format('M d, Y H:i') ?: '—' }}
+                                @if($deposit->user_marked_paid_at)
+                                    <div class="small text-success">Reported {{ $deposit->user_marked_paid_at->format('M d, H:i') }}</div>
+                                @endif
+                            </td>
                             <td>
                                 <div class="d-flex flex-wrap gap-1">
                                     <button class="btn btn-sm btn-outline-primary view-deposit"
@@ -342,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(readJsonResponse)
             .then(data => {
                 if (data.success) {
-                    renderDepositModal(data.deposit, data.invoice, data.can_refund_paypal);
+                    renderDepositModal(data.deposit, data.invoice, data.can_refund_paypal, data.approve_context, data.can_approve_manual, data.finance_url);
                     const modal = new bootstrap.Modal(document.getElementById('depositModal'));
                     modal.show();
                 } else {
@@ -356,7 +429,52 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    function renderDepositModal(deposit, invoice, canRefundPaypal) {
+    function chargeLine(deposit) {
+        const currency = String(deposit.charge_currency || '').toUpperCase();
+        const amount = deposit.charge_amount;
+        if (!currency || currency === 'EUR' || amount === null || amount === undefined || amount === '') {
+            return '';
+        }
+        return `<div class="small text-muted">Charged ${escapeHtml(currency)} ${parseFloat(amount).toFixed(2)}</div>`;
+    }
+
+    function stripeDepositFields(deposit) {
+        const sessionId = deposit.stripe_session_id || '';
+        const intentId = deposit.stripe_payment_intent_id || '';
+        if (!sessionId && !intentId) return '';
+        return `
+            ${sessionId ? `<div class="col-12 mb-2"><small class="text-muted">Stripe session</small><div><code class="font-monospace">${escapeHtml(sessionId)}</code></div></div>` : ''}
+            ${intentId ? `<div class="col-12 mb-2"><small class="text-muted">Stripe payment intent</small><div><code class="font-monospace">${escapeHtml(intentId)}</code></div></div>` : ''}
+        `;
+    }
+
+    function approveContextHtml(context) {
+        if (!context) return '';
+        const dupes = Array.isArray(context.duplicate_matches) ? context.duplicate_matches : [];
+        const prior = Array.isArray(context.prior_deposits) ? context.prior_deposits : [];
+        const warning = context.possible_duplicate
+            ? `<div class="alert alert-warning py-2">Same amount was credited recently${dupes.map(row => ` · #${row.id} ${escapeHtml(row.reference_code || '')}`).join('')}</div>`
+            : '';
+        const priorHtml = prior.length
+            ? `<div class="small text-muted mt-2">Recent completed: ${prior.map(row => `#${row.id} €${parseFloat(row.amount).toFixed(2)}`).join(', ')}</div>`
+            : '';
+        const projected = context.projected_balance === null || context.projected_balance === undefined
+            ? ''
+            : `<div>After approve: <strong>€${parseFloat(context.projected_balance).toFixed(2)}</strong></div>`;
+        return `
+            <div class="mb-3">
+                <label class="fw-semibold text-muted small">Wallet</label>
+                <div class="border rounded p-3 mt-1 bg-light">
+                    ${warning}
+                    <div>Current balance: <strong>€${parseFloat(context.current_balance || 0).toFixed(2)}</strong></div>
+                    ${projected}
+                    ${priorHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderDepositModal(deposit, invoice, canRefundPaypal, approveContext, canApproveManual, financeUrl) {
         let statusBadge = '';
         if (deposit.status === 'pending') {
             statusBadge = '<span class="badge bg-warning">Pending</span>';
@@ -391,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${escapeHtml(userInitial)}
                         </div>
                         <div>
-                            <h6 class="mb-1">${escapeHtml(userName)}</h6>
+                            <h6 class="mb-1">${financeUrl ? `<a href="${escapeHtml(financeUrl)}">${escapeHtml(userName)}</a>` : escapeHtml(userName)}</h6>
                             ${userEmail ? `<small class="text-muted">${escapeHtml(userEmail)}</small>` : ''}
                         </div>
                     </div>
@@ -409,6 +527,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="col-6 mb-2">
                             <small class="text-muted">Amount</small>
                             <div class="fw-bold text-primary">€${parseFloat(deposit.amount).toFixed(2)}</div>
+                            ${chargeLine(deposit)}
                         </div>
                         <div class="col-6 mb-2">
                             <small class="text-muted">Payment Method</small>
@@ -430,6 +549,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div>${escapeHtml(deposit.user_payment_note)}</div>
                         </div>` : ''}
                         ${paypalDepositFields(deposit)}
+                        ${stripeDepositFields(deposit)}
                         <div class="col-12">
                             <small class="text-muted">Submitted Date</small>
                             <div>${formatDateTime(deposit.created_at)}</div>
@@ -462,18 +582,23 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }
         
+        if (deposit.status === 'pending' && canApproveManual) {
+            html += approveContextHtml(approveContext);
+        }
+
         if (deposit.status === 'pending' || canRefundPaypal) {
             html += `
                 <hr>
                 <div class="mb-3">
-                    <label class="fw-semibold text-muted small">Admin Notes (Optional)</label>
-                    <textarea id="adminNotes" class="form-control" rows="3" placeholder="Add notes about this deposit..."></textarea>
+                    <label class="fw-semibold text-muted small">Admin notes${deposit.status === 'pending' ? ' (required to reject, at least 10 characters)' : ' (optional)'}</label>
+                    <textarea id="adminNotes" class="form-control" rows="3" placeholder="Reason the advertiser will see if you reject"></textarea>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                    ${deposit.status === 'pending' ? `
+                    ${deposit.status === 'pending' && canApproveManual ? `
                     <button class="btn btn-success approve-deposit" data-id="${deposit.id}">
                         <i class="fa fa-check"></i> Approve & Add Funds
-                    </button>
+                    </button>` : ''}
+                    ${deposit.status === 'pending' ? `
                     <button class="btn btn-danger reject-deposit" data-id="${deposit.id}">
                         <i class="fa fa-times"></i> Reject
                     </button>` : ''}
@@ -606,18 +731,34 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function rejectDeposit(id) {
-        const notes = document.getElementById('adminNotes')?.value || '';
+        const typed = document.getElementById('adminNotes')?.value || '';
         
         Swal.fire({
             title: 'Reject Deposit?',
-            text: 'This action cannot be undone.',
+            text: 'The advertiser will see this reason.',
             icon: 'warning',
+            input: 'textarea',
+            inputValue: typed,
+            inputPlaceholder: 'Reason (min. 10 characters)',
             showCancelButton: true,
             confirmButtonText: 'Yes, Reject',
             cancelButtonText: 'Cancel',
-            customClass: { confirmButton: 'slb-swal-danger' }
+            customClass: { confirmButton: 'slb-swal-danger' },
+            preConfirm: (value) => {
+                const reason = String(value || '').trim();
+                if (reason.length < 10) {
+                    Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
+                    return false;
+                }
+                if (reason.length > 1000) {
+                    Swal.showValidationMessage('Reason must be 1000 characters or fewer.');
+                    return false;
+                }
+                return reason;
+            }
         }).then((result) => {
             if (result.isConfirmed) {
+                const notes = result.value;
                 // Show loading
                 Swal.fire({
                     title: 'Processing...',

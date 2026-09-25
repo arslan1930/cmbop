@@ -127,23 +127,23 @@
     <div class="an-summary mb-3">
         <div>
             <span class="label">Net spend</span>
-            <span class="value">€{{ number_format((float) ($summary['net'] ?? $a['total_spend'] ?? 0), 2) }}</span>
+            <span class="value">{{ format_money($summary['net'] ?? $a['total_spend'] ?? 0) }}</span>
         </div>
         <div>
             <span class="label">Gross</span>
-            <span class="value">€{{ number_format((float) ($summary['gross'] ?? 0), 2) }}</span>
+            <span class="value">{{ format_money($summary['gross'] ?? 0) }}</span>
         </div>
         <div>
             <span class="label">Refunded</span>
-            <span class="value">€{{ number_format((float) ($summary['refunded'] ?? 0), 2) }}</span>
+            <span class="value">{{ format_money($summary['refunded'] ?? 0) }}</span>
         </div>
         <div>
             <span class="label">Spent (completed)</span>
-            <span class="value">€{{ number_format((float) ($summary['spent'] ?? 0), 2) }}</span>
+            <span class="value">{{ format_money($summary['spent'] ?? 0) }}</span>
         </div>
         <div>
             <span class="label">In progress</span>
-            <span class="value">€{{ number_format((float) ($summary['in_progress'] ?? 0), 2) }}</span>
+            <span class="value">{{ format_money($summary['in_progress'] ?? 0) }}</span>
         </div>
     </div>
 
@@ -208,8 +208,8 @@
                         </div>
                         <p class="small text-muted mb-0">
                             This month committed:
-                            <strong>€{{ number_format((float) $budgetStatus['committed'], 2) }}</strong>
-                            / €{{ number_format((float) $budgetStatus['monthly_limit'], 2) }}
+                            <strong>{{ format_money($budgetStatus['committed']) }}</strong>
+                            / {{ format_money($budgetStatus['monthly_limit']) }}
                             ({{ number_format((float) $budgetStatus['percent'], 1) }}%)
                         </p>
                     </div>
@@ -231,7 +231,7 @@
                             @forelse($breakdown as $row)
                                 <tr>
                                     <td class="small">{{ $row['label'] }}</td>
-                                    <td class="text-end small">€{{ number_format((float) $row['net'], 2) }}</td>
+                                    <td class="text-end small">{{ format_money($row['net']) }}</td>
                                     <td class="text-end small">{{ $row['orders'] }}</td>
                                 </tr>
                             @empty
@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function money(n) {
         const v = Number(n || 0);
-        return v % 1 === 0 ? ('€' + v.toFixed(0)) : ('€' + v.toFixed(2));
+        return (window.slbFormatMoney || function (x) { return '€' + Number(x).toFixed(2); })(v);
     }
 
     new Chart(ctx, {
@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     stacked: true,
                     beginAtZero: true,
                     ticks: {
-                        callback: (v) => '€' + v
+                        callback: (v) => (window.slbFormatMoney || function (x) { return '€' + x; })(v)
                     }
                 }
             }

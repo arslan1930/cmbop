@@ -505,20 +505,20 @@
                                         <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">Your wallet</p>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="small text-muted">Spendable (header total)</span>
-                                            <strong style="color:var(--brand-primary, #1a585e);">€{{ number_format($checkoutSpendable, 2) }}</strong>
+                                            <strong style="color:var(--brand-primary, #1a585e);">{{ format_money($checkoutSpendable) }}</strong>
                                         </div>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="small text-muted">Cash (withdrawable)</span>
-                                            <strong style="color:var(--brand-primary, #1a585e);">€{{ number_format($checkoutCash, 2) }}</strong>
+                                            <strong style="color:var(--brand-primary, #1a585e);">{{ format_money($checkoutCash) }}</strong>
                                         </div>
                                         <div class="d-flex justify-content-between">
                                             <span class="small text-muted">Bonus (purchases only)</span>
-                                            <strong style="color:#d97706;">€{{ number_format($checkoutBonus, 2) }}</strong>
+                                            <strong style="color:#d97706;">{{ format_money($checkoutBonus) }}</strong>
                                         </div>
                                         <p style="font-size: 12px; color: #6b7280; margin: 8px 0 0;">
-                                            Spendable €{{ number_format($checkoutSpendable, 2) }}
-                                            = cash €{{ number_format($checkoutCash, 2) }}
-                                            + bonus €{{ number_format($checkoutBonus, 2) }}.
+                                            Spendable {{ format_money($checkoutSpendable) }}
+                                            = cash {{ format_money($checkoutCash) }}
+                                            + bonus {{ format_money($checkoutBonus) }}.
                                             Wallet pay uses cash unless you enable <strong>Use bonus balance</strong> in Order Total.
                                             Bonus credit cannot be withdrawn.
                                         </p>
@@ -779,7 +779,7 @@
                                     <label class="form-check-label small" for="useBonusBalance" style="cursor:pointer;">
                                         <strong>Use bonus balance</strong>
                                         <span class="d-block text-muted">
-                                            Apply up to €{{ number_format($bonusForCheckout, 2) }} promotional credit (not withdrawable)
+                                            Apply up to {{ format_money($bonusForCheckout) }} promotional credit (not withdrawable)
                                         </span>
                                     </label>
                                 </div>

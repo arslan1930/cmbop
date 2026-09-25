@@ -13,6 +13,14 @@
     </div>
 
     <form method="GET" class="mb-3 d-flex flex-wrap align-items-center gap-2" data-bulk-index-filters>
+        <input type="search"
+               name="q"
+               value="{{ $q ?? '' }}"
+               class="form-control form-control-sm"
+               style="max-width: 18rem;"
+               placeholder="Request #, publisher, email, or domain"
+               aria-label="Search bulk requests">
+        <button type="submit" class="btn btn-sm btn-primary">Search</button>
         <select name="status" class="form-select form-select-sm w-auto d-inline-block" onchange="this.form.submit()">
             <option value="all" @selected($status === 'all')>All statuses</option>
             <option value="{{ \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER }}" @selected($status === \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER)>Waiting on you</option>

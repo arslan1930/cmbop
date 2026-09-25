@@ -68,7 +68,7 @@
                 <p class="publisher-needs-alert__copy mb-0">
                     <svg class="publisher-needs-alert__icon" xmlns="http://www.w3.org/2000/svg" viewBox="118 4 72 244" fill="currentColor" aria-hidden="true" focusable="false"><g transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)"><path d="M 49.083 71.489 l 5.776 -21.96 l 4.186 -15.247 c 3.497 -16.18 -32.704 -2.439 -38.002 1.695 l 0.425 4.853 c 4.824 -3.395 23.091 -7.744 19.449 4.275 l -1.634 6.135 l 0 0 l -8.329 31.071 c -3.497 16.18 32.704 2.439 38.002 -1.695 l -0.425 -4.853 C 63.708 79.159 45.441 83.508 49.083 71.489 z"/><circle cx="53.871" cy="11.201" r="11.201"/></g></svg>
                     <strong>Withdrawals blocked</strong>
-                    <span class="ms-1">you have outstanding clawback debt of <strong>€{{ number_format($debtBalance, 2) }}</strong> from a removed post-completion placement. Contact support at {{ $supportEmail }} to resolve this before withdrawing.</span>
+                    <span class="ms-1">you have outstanding clawback debt of <strong>{{ format_money($debtBalance) }}</strong> from a removed post-completion placement. Contact support at {{ $supportEmail }} to resolve this before withdrawing.</span>
                 </p>
                 <p class="mb-0 mt-3 mt-md-0 ms-md-4">
                     <a class="publisher-needs-alert__link" href="mailto:{{ $supportEmail }}">Contact support</a>
@@ -81,7 +81,7 @@
                 <p class="publisher-needs-alert__copy mb-0">
                     <svg class="publisher-needs-alert__icon" xmlns="http://www.w3.org/2000/svg" viewBox="118 4 72 244" fill="currentColor" aria-hidden="true" focusable="false"><g transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)"><path d="M 49.083 71.489 l 5.776 -21.96 l 4.186 -15.247 c 3.497 -16.18 -32.704 -2.439 -38.002 1.695 l 0.425 4.853 c 4.824 -3.395 23.091 -7.744 19.449 4.275 l -1.634 6.135 l 0 0 l -8.329 31.071 c -3.497 16.18 32.704 2.439 38.002 -1.695 l -0.425 -4.853 C 63.708 79.159 45.441 83.508 49.083 71.489 z"/><circle cx="53.871" cy="11.201" r="11.201"/></g></svg>
                     <strong>Below minimum</strong>
-                    <span class="ms-1">you need at least <strong>€{{ number_format($minWithdrawalAmount, 2) }}</strong> withdrawable balance to request a payout. Available now: €{{ number_format($availableBalance, 2) }}.</span>
+                    <span class="ms-1">you need at least <strong>{{ format_money($minWithdrawalAmount) }}</strong> withdrawable balance to request a payout. Available now: {{ format_money($availableBalance) }}.</span>
                 </p>
                 <p class="mb-0 mt-3 mt-md-0 ms-md-4">
                     <a class="publisher-needs-alert__link" href="{{ route('publisher.balance') }}">View balance</a>
@@ -96,7 +96,7 @@
                 <div class="card-body d-flex justify-content-between">
                     <div>
                         <span class="text-muted small">Can Withdraw</span>
-                        <h3 class="mb-1 fw-bold" style="color: var(--brand-primary, #1a585e);">€{{ number_format($availableBalance, 2) }}</h3>
+                        <h3 class="mb-1 fw-bold" style="color: var(--brand-primary, #1a585e);">{{ format_money($availableBalance) }}</h3>
                         <p class="text-muted small mb-0">Money you can cash out</p>
                     </div>
                     <div class="kpi-icon-mist rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;">
@@ -110,7 +110,7 @@
                 <div class="card-body d-flex justify-content-between">
                     <div>
                         <span class="text-muted small">Free Credit</span>
-                        <h3 class="mb-1 fw-bold">€{{ number_format($bonusBalance, 2) }}</h3>
+                        <h3 class="mb-1 fw-bold">{{ format_money($bonusBalance) }}</h3>
                         <p class="text-muted small mb-0">For orders only — not cash</p>
                     </div>
                     <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#f1f5f9;color: var(--brand-ink-muted, #75787B);border:1px solid #e2e8f0;">
@@ -124,7 +124,7 @@
                 <div class="card-body d-flex justify-content-between">
                     <div>
                         <span class="text-muted small">On Hold</span>
-                        <h3 class="mb-1 fw-bold">€{{ number_format($reservedBalance, 2) }}</h3>
+                        <h3 class="mb-1 fw-bold">{{ format_money($reservedBalance) }}</h3>
                         <p class="text-muted small mb-0">Locked for open orders</p>
                     </div>
                     <div class="rounded-3 d-flex align-items-center justify-content-center" style="width:44px;height:44px;background:#fff;color:#1e293b;border:1px solid #e2e8f0;">
@@ -187,8 +187,8 @@
                                    @disabled($formBlocked)
                                    required>
                             <div class="form-text">
-                                Available: <strong>€{{ number_format($availableBalance, 2) }}</strong>
-                                · Minimum: <strong>€{{ number_format($minWithdrawalAmount, 2) }}</strong>
+                                Available: <strong>{{ format_money($availableBalance) }}</strong>
+                                · Minimum: <strong>{{ format_money($minWithdrawalAmount) }}</strong>
                                 @if($bonusBalance > 0)
                                     <span class="d-block mt-1 text-muted">{{ $promotionalBonusMessage }}</span>
                                 @endif
@@ -380,9 +380,9 @@
                                         <td class="small fw-semibold">WD-{{ $w->id }}</td>
                                         <td class="small">{{ $w->created_at->format('M d, Y') }}</td>
                                         <td class="fw-semibold">
-                                            €{{ number_format($w->amount, 2) }}
+                                            {{ format_money($w->amount) }}
                                             @if((float) $w->fee > 0)
-                                                <div class="small text-muted">Fee €{{ number_format($w->fee, 2) }} · Net €{{ number_format($w->net_amount, 2) }}</div>
+                                                <div class="small text-muted">Fee {{ format_money($w->fee) }} · Net {{ format_money($w->net_amount) }}</div>
                                             @endif
                                         </td>
                                         <td class="small text-muted">{{ $w->destination_snippet }}</td>
@@ -415,7 +415,7 @@
 
             <div class="ui-callout ui-callout--info mt-3 mb-0">
                 <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
-                <div class="ui-callout__body">Withdrawals are processed within 1–2 business days. Minimum request: €{{ number_format($minWithdrawalAmount, 2) }}.</div>
+                <div class="ui-callout__body">Withdrawals are processed within 1–2 business days. Minimum request: {{ format_money($minWithdrawalAmount) }}.</div>
             </div>
         </div>
     </div>

@@ -66,7 +66,7 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body py-3">
                     <h6 class="text-muted mb-1 small">Earnings</h6>
-                    <h3 class="mb-0" id="statTotalEarnings" style="color: #10b981;">€0</h3>
+                    <h3 class="mb-0" id="statTotalEarnings" style="color: #10b981;">{{ format_money(0) }}</h3>
                 </div>
             </div>
         </div>
@@ -361,6 +361,10 @@
 <script src="{{ asset('assets/js/article-preview-tools.js') }}?v={{ @filemtime(public_path('assets/js/article-preview-tools.js')) ?: '1' }}"></script>
 
 <script>
+    function taskMoney(n) {
+        return (window.slbFormatMoney || function (x) { return '€' + Number(x || 0).toFixed(2); })(n);
+    }
+
 let currentPage = 1;
 let currentChatOrderId = null;
 let refreshInterval = null;
@@ -635,7 +639,7 @@ $(document).ready(function() {
         if (homepageDays) {
             parts.push('<p class="mb-1"><strong>Homepage placement:</strong></p><p class="mb-2">'
                 + homepageDays + ' day' + (homepageDays === 1 ? '' : 's')
-                + (homepageFee > 0 ? ' (+€' + homepageFee.toFixed(2) + ')' : ' (Free)')
+                + (homepageFee > 0 ? ' (+' + taskMoney(homepageFee) + ')' : ' (Free)')
                 + '</p>');
         }
         var channels = Array.isArray(item.social_channels) ? item.social_channels : [];
@@ -1222,7 +1226,7 @@ $(document).ready(function() {
             var homepageLine = homepagePrice > 0
                 ? '<div class="text-muted small">Homepage'
                     + (homepageDays ? ' · ' + homepageDays + 'd' : '')
-                    + ' +€' + homepagePrice.toFixed(2) + '</div>'
+                    + ' +' + taskMoney(homepagePrice) + '</div>'
                 : '';
             
             var hasLiveUrl = !!(item.live_url && item.live_url !== '');
@@ -1333,9 +1337,9 @@ $(document).ready(function() {
                         ? '<a class="tasks-site-url" href="' + escapeHtml(siteUrl) + '" target="_blank" rel="noopener noreferrer" title="' + escapeHtml(siteUrl) + '">' + escapeHtml(siteHost) + '</a>'
                         : '') +
                 '</td>' +
-                '<td data-label="Base" class="text-primary text-nowrap publisher-task-col-money">€' + basePrice.toFixed(2) + '</td>' +
-                '<td data-label="Sensitive">' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+€' + additionalPrice.toFixed(2) + ')</span>' : '<span class="text-muted tasks-sensitive-empty">None</span>') + '</td>' +
-                '<td data-label="You earn" class="fw-semibold total-price text-nowrap publisher-task-col-money" style="color: #10b981;">€' + totalPrice.toFixed(2) + homepageLine + '</td>' +
+                '<td data-label="Base" class="text-primary text-nowrap publisher-task-col-money">' + taskMoney(basePrice) + '</td>' +
+                '<td data-label="Sensitive">' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+' + taskMoney(additionalPrice) + ')</span>' : '<span class="text-muted tasks-sensitive-empty">None</span>') + '</td>' +
+                '<td data-label="You earn" class="fw-semibold total-price text-nowrap publisher-task-col-money" style="color: #10b981;">' + taskMoney(totalPrice) + homepageLine + '</td>' +
                 '<td data-label="Status"><span class="status-badge ' + statusMeta.statusClass + '">' + statusMeta.statusText + '</span>' +
                     (nextStep ? '<div class="next-step-hint" title="' + escapeHtml(nextStep) + '">' + escapeHtml(nextStep) + '</div>' : '') +
                 '</td>' +
@@ -1460,14 +1464,14 @@ $(document).ready(function() {
                     '<h6 class="mb-3">Order Status</h6>' +
                     '<p class="mb-1"><strong>Status:</strong> <span class="status-badge ' + statusClass + '">' + statusText + '</span></p>' +
                     '<p class="mb-1 text-muted small">' + statusMeta.nextStep + '</p>' +
-                    '<p class="mb-1"><strong>Base Price:</strong> €' + basePrice.toFixed(2) + '</p>' +
-                    (additionalPrice > 0 ? '<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ €' + additionalPrice.toFixed(2) + ' (' + escapeHtml(sensitiveType) + ')</span></p>' : '') +
+                    '<p class="mb-1"><strong>Base Price:</strong> ' + taskMoney(basePrice) + '</p>' +
+                    (additionalPrice > 0 ? '<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ ' + taskMoney(additionalPrice) + ' (' + escapeHtml(sensitiveType) + ')</span></p>' : '') +
                     (homepagePrice > 0 || (item.homepage_days != null && parseInt(item.homepage_days, 10) > 0)
                         ? '<p class="mb-1"><strong>Homepage:</strong> ' + (parseInt(item.homepage_days, 10) || '') + ' day(s)'
-                            + (homepagePrice > 0 ? ' <span class="text-muted">(+€' + homepagePrice.toFixed(2) + ')</span>' : ' <span class="text-success">(Free)</span>')
+                            + (homepagePrice > 0 ? ' <span class="text-muted">(+' + taskMoney(homepagePrice) + ')</span>' : ' <span class="text-success">(Free)</span>')
                             + '</p>'
                         : '') +
-                    '<p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold text-primary fs-5">€' + totalPrice.toFixed(2) + '</span></p>' +
+                    '<p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold text-primary fs-5">' + taskMoney(totalPrice) + '</span></p>' +
                 '</div>' +
             '</div>' +
         '</div>' +
@@ -1481,15 +1485,15 @@ $(document).ready(function() {
                     '<p class="mb-2">' + escapeHtml(item.site_name) + '</p>' +
                     '<p class="mb-1"><strong>Site URL:</strong></p>' +
                     '<p class="mb-2"><a href="' + escapeHtml(item.site_url) + '" target="_blank" class="text-primary">' + escapeHtml(item.site_url) + ' <i class="fa fa-external-link fa-xs"></i></a></p>' +
-                    (additionalPrice > 0 ? '<p class="mb-1"><strong>Sensitive Type:</strong></p><p class="mb-2 text-warning">' + escapeHtml(sensitiveType) + ' (+€' + additionalPrice.toFixed(2) + ')</p>' : '') +
+                    (additionalPrice > 0 ? '<p class="mb-1"><strong>Sensitive Type:</strong></p><p class="mb-2 text-warning">' + escapeHtml(sensitiveType) + ' (+' + taskMoney(additionalPrice) + ')</p>' : '') +
                     formatPlacementExtrasHtml(item) +
                 '</div>' +
                 '<div class="col-md-6">' +
                     '<p class="mb-1"><strong>Price Breakdown:</strong></p>' +
-                    '<p class="mb-1"><small>Base Price: €' + basePrice.toFixed(2) + '</small></p>' +
-                    (additionalPrice > 0 ? '<p class="mb-1"><small class="text-warning">+ ' + escapeHtml(sensitiveType) + ': €' + additionalPrice.toFixed(2) + '</small></p>' : '') +
-                    (homepagePrice > 0 ? '<p class="mb-1"><small>+ Homepage: €' + homepagePrice.toFixed(2) + '</small></p>' : '') +
-                    '<p class="mb-2"><strong class="text-primary">Total: €' + totalPrice.toFixed(2) + '</strong></p>' +
+                    '<p class="mb-1"><small>Base Price: ' + taskMoney(basePrice) + '</small></p>' +
+                    (additionalPrice > 0 ? '<p class="mb-1"><small class="text-warning">+ ' + escapeHtml(sensitiveType) + ': ' + taskMoney(additionalPrice) + '</small></p>' : '') +
+                    (homepagePrice > 0 ? '<p class="mb-1"><small>+ Homepage: ' + taskMoney(homepagePrice) + '</small></p>' : '') +
+                    '<p class="mb-2"><strong class="text-primary">Total: ' + taskMoney(totalPrice) + '</strong></p>' +
                     '<p class="mb-1"><strong>Uploaded Document:</strong></p>' +
                     '<p class="mb-2">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="text-primary" download><i class="fa fa-download me-1"></i>' + escapeHtml(item.content_original_name || 'Download article') + '</a><br><small class="text-muted">Download only — do not enable macros. Word files can run code on your computer.</small>' : '—') + '</p>' +
                     '<p class="mb-1"><strong>Anchor Text:</strong></p><p class="mb-2">' + escapeHtml(item.anchor_text || '—') + '</p>' +

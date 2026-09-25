@@ -166,11 +166,11 @@
                 $headerEarnings = (float) ($headerPublisherWallet?->balance ?? 0);
                 $headerWithdrawable = $headerPublisherWallet ? $headerPublisherWallet->withdrawableBalance() : 0;
                 $headerReserved = (float) ($headerPublisherWallet?->reserved_balance ?? 0);
-                $headerBalanceTitle = 'Earnings €'.number_format($headerEarnings, 2)
-                    .' · Withdrawable €'.number_format($headerWithdrawable, 2)
-                    .($headerReserved > 0 ? ' · On hold €'.number_format($headerReserved, 2) : '')
+                $headerBalanceTitle = 'Earnings '.format_money($headerEarnings)
+                    .' · Withdrawable '.format_money($headerWithdrawable)
+                    .($headerReserved > 0 ? ' · On hold '.format_money($headerReserved) : '')
                     .($headerAdvertiserWallet
-                        ? ' · Advertiser spendable €'.number_format((float) ($headerAdvertiserWallet->balance ?? 0), 2)
+                        ? ' · Advertiser spendable '.format_money($headerAdvertiserWallet->balance ?? 0)
                         : '');
             } catch (\Throwable $e) {
                 report($e);
@@ -178,7 +178,7 @@
         @endphp
         <a href="{{ route('publisher.balance') }}" class="balance-block text-decoration-none" data-glass-tip data-glass-tip-body="{{ $headerBalanceTitle }}" data-glass-tip-placement="bottom" aria-label="Publisher earnings {{ number_format($headerEarnings, 2) }} euros, withdrawable {{ number_format($headerWithdrawable, 2) }}">
             <span class="balance-label">Earnings</span>
-            <span class="balance-amount">€{{ number_format($headerEarnings, 2) }}</span>
+            <span class="balance-amount">{{ format_money($headerEarnings) }}</span>
         </a>
 
         @include('partials.notification-center')

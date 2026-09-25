@@ -125,7 +125,7 @@ class PublicI18nLocaleMapTest extends TestCase
     public function test_unprefixed_home_follows_the_visitor_country(): void
     {
         config(['fx.fake_country' => 'US', 'fx.force_display' => '']);
-        $request = Request::create('http://localhost/', 'GET');
+        $request = Request::create('http://localhost/', 'GET', [], ['public_locale' => 'en']);
         $response = (new SetLocale)->handle($request, fn () => response('ok'));
 
         $this->assertSame(302, $response->getStatusCode());

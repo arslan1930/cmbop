@@ -381,7 +381,7 @@ class StripeCustomerService
 
         $intent = PaymentIntent::create([
             'amount' => $amountCents,
-            'currency' => 'eur',
+            'currency' => strtolower((string) ($metadata['charge_currency'] ?? 'eur')),
             'customer' => $customerId,
             'payment_method' => $paymentMethodId,
             'payment_method_types' => ['card'],

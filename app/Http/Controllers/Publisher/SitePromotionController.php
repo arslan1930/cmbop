@@ -8,6 +8,7 @@ use App\Models\Wallet;
 use App\Services\ActivityLogger;
 use App\Services\SitePromotionService;
 use App\Services\StripePaymentService;
+use App\Support\PlatformCharge;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -61,15 +62,22 @@ class SitePromotionController extends Controller
             return $site;
         }
 
-        $result = $this->promotions->featureWithWallet($site, auth()->user());
+        $plan = $request->input('plan');
+        $plan = is_string($plan) && $plan !== '' ? $plan : null;
+        $result = $this->promotions->featureWithWallet($site, auth()->user(), $plan);
 
         if ($result['success'] ?? false) {
+            $priced = $this->promotions->priceAndDays($plan);
             try {
                 ActivityLogger::log(
                     'site.featured',
                     auth()->user()->name.' featured "'.$site->site_name.'"',
                     $site,
-                    ['days' => $this->promotions->featureDays(), 'price' => $this->promotions->featurePrice()],
+                    [
+                        'days' => $priced[1] ?? $this->promotions->featureDays(),
+                        'price' => $priced[0] ?? $this->promotions->featurePrice(),
+                        'plan' => $plan,
+                    ],
                     $site->site_name
                 );
             } catch (\Throwable $e) {
@@ -87,7 +95,7 @@ class SitePromotionController extends Controller
     /**
      * Create a Stripe Checkout session to pay for featuring a site by card.
      */
-    public function featureCheckout(int $id)
+    public function featureCheckout(Request $request, int $id)
     {
         $site = $this->ownedPromotableSite($id);
         if ($site instanceof JsonResponse) {
@@ -95,8 +103,17 @@ class SitePromotionController extends Controller
         }
 
         $user = auth()->user();
-        $price = $this->promotions->featurePrice();
-        $days = $this->promotions->featureDays();
+        $plan = $request->input('plan');
+        $plan = is_string($plan) && $plan !== '' ? $plan : null;
+        $priced = $this->promotions->priceAndDays($plan);
+        if ($priced === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Choose a monthly or yearly feature package.',
+            ], 422);
+        }
+        [$price, $days] = $priced;
+        $charge = app(PlatformCharge::class)->quote($price);
 
         if (! config('services.stripe.secret')) {
             return response()->json([
@@ -111,12 +128,12 @@ class SitePromotionController extends Controller
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
-                        'currency' => 'eur',
+                        'currency' => strtolower($charge['code']),
                         'product_data' => [
                             'name' => 'Feature website — '.$site->site_name,
-                            'description' => 'Featured catalog placement for '.$days.' days',
+                            'description' => 'Featured catalog placement for '.$days.' days (ledger EUR '.$price.')',
                         ],
-                        'unit_amount' => StripePaymentService::toCents($price),
+                        'unit_amount' => StripePaymentService::toCents($charge['amount']),
                     ],
                     'quantity' => 1,
                 ]],
@@ -130,6 +147,10 @@ class SitePromotionController extends Controller
                     'user_id' => (string) $user->id,
                     'price' => (string) $price,
                     'days' => (string) $days,
+                    'plan' => (string) ($plan ?? ''),
+                    'eur_amount' => (string) $price,
+                    'charge_currency' => $charge['code'],
+                    'charge_amount' => (string) $charge['amount'],
                 ],
             ]);
 
@@ -173,12 +194,16 @@ class SitePromotionController extends Controller
             }
 
             $this->promotions->assertStripeChargeMatchesFeaturePrice($session);
+            $paidPrice = is_numeric($session->metadata->price ?? null) ? (float) $session->metadata->price : null;
+            $paidDays = is_numeric($session->metadata->days ?? null) ? (int) $session->metadata->days : null;
 
             if ((int) $site->publisher_id !== (int) auth()->id()) {
                 $credit = $this->promotions->creditPayerWhenFeatureCannotApply(
                     $site,
                     auth()->user(),
-                    $sessionId
+                    $sessionId,
+                    null,
+                    $paidPrice
                 );
 
                 return redirect()->route('publisher.websites')
@@ -187,7 +212,7 @@ class SitePromotionController extends Controller
 
             // Apply after payment is confirmed — even if the site was archived meantime —
             // so the publisher is not charged without receiving the feature.
-            $result = $this->promotions->featureFromStripePayment($site, auth()->user(), $sessionId);
+            $result = $this->promotions->featureFromStripePayment($site, auth()->user(), $sessionId, $paidPrice, $paidDays);
 
             if ($result['credited'] ?? false) {
                 return redirect()->route('publisher.websites')
@@ -230,6 +255,7 @@ class SitePromotionController extends Controller
                 'withdrawable' => $withdrawable,
                 'feature_price' => $this->promotions->featurePrice(),
                 'feature_days' => $this->promotions->featureDays(),
+                'offers' => $this->promotions->featureOffers(),
                 'top_up_url' => route('publisher.balance'),
                 'balance_url' => route('publisher.balance'),
                 'stripe_available' => (bool) config('services.stripe.secret'),

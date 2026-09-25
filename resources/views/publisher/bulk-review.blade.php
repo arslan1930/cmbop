@@ -86,7 +86,7 @@
                                         <label class="fw-semibold mb-0" for="review-site-{{ $site->id }}">{{ $site->site_name }}</label>
                                         <div class="small text-muted">
                                             <a href="{{ $site->site_url }}" target="_blank" rel="noopener">{{ $site->site_url }}</a>
-                                            · €{{ number_format((float) $site->price, 2) }}
+                                            · {{ format_money($site->price) }}
                                         </div>
                                     </div>
                                     <a href="{{ route('publisher.bulk-sites.complete') }}#site-{{ $site->id }}"

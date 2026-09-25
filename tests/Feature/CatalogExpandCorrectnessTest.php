@@ -344,7 +344,7 @@ class CatalogExpandCorrectnessTest extends TestCase
 
         $js = file_get_contents(public_path('assets/js/catalog.js'));
         $this->assertIsString($js);
-        $this->assertStringContainsString("You pay: <strong>€'", $js);
+        $this->assertStringContainsString("You pay: <strong>' + catalogMoneyLabel(payTotal)", $js);
         $this->assertStringContainsString('function catalogAdvertiserBasePrice', $js);
         $this->assertStringNotContainsString('Current price:', $js);
     }

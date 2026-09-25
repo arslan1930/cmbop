@@ -344,7 +344,7 @@ class AdminDepositsWithdrawalsCrashTest extends TestCase
         try {
             $this->actingAs($admin)
                 ->postJson(route('admin.deposits.reject', $deposit->id), [
-                    'admin_notes' => 'No proof',
+                    'admin_notes' => 'No proof of this transfer.',
                 ])
                 ->assertOk()
                 ->assertJsonPath('success', true);
@@ -596,7 +596,7 @@ class AdminDepositsWithdrawalsCrashTest extends TestCase
         try {
             $this->actingAs($admin)
                 ->postJson(route('admin.withdrawals.reject', $withdrawal->id), [
-                    'notes' => 'Bad IBAN',
+                    'notes' => 'Bad IBAN details',
                 ])
                 ->assertOk()
                 ->assertJsonPath('success', true);

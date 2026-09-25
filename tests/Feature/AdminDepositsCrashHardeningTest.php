@@ -226,7 +226,9 @@ class AdminDepositsCrashHardeningTest extends TestCase
         });
 
         $this->actingAs($admin)
-            ->postJson(route('admin.deposits.reject', $deposit->id))
+            ->postJson(route('admin.deposits.reject', $deposit->id), [
+                'admin_notes' => 'Notification failed but the rejection stands.',
+            ])
             ->assertOk()
             ->assertJsonPath('success', true);
 

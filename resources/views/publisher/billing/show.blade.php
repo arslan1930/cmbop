@@ -23,13 +23,13 @@
                 <dt class="col-sm-4 text-muted">Reference</dt>
                 <dd class="col-sm-8">{{ $invoice->reference_code }}</dd>
                 <dt class="col-sm-4 text-muted">Gross</dt>
-                <dd class="col-sm-8">€{{ number_format((float) $invoice->subtotal, 2) }}</dd>
+                <dd class="col-sm-8">{{ format_money($invoice->subtotal) }}</dd>
                 @if((float) $invoice->discount_amount > 0)
                     <dt class="col-sm-4 text-muted">Fee</dt>
-                    <dd class="col-sm-8">€{{ number_format((float) $invoice->discount_amount, 2) }}</dd>
+                    <dd class="col-sm-8">{{ format_money($invoice->discount_amount) }}</dd>
                 @endif
                 <dt class="col-sm-4 text-muted">Net payout</dt>
-                <dd class="col-sm-8 fw-semibold">€{{ number_format((float) $invoice->total_amount, 2) }}</dd>
+                <dd class="col-sm-8 fw-semibold">{{ format_money($invoice->total_amount) }}</dd>
                 <dt class="col-sm-4 text-muted">Method</dt>
                 <dd class="col-sm-8">{{ \App\Models\Invoice::paymentMethodLabel($invoice->payment_method) }}</dd>
                 @php

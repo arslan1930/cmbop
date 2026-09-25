@@ -92,36 +92,26 @@ class SetLocale
     }
 
     /**
-     * Unprefixed public pages follow the visitor country, then a saved locale cookie.
-     * An explicit /de or /us URL is left alone. Login and the signed-in app stay English.
+     * Unprefixed public pages follow the visitor IP, same source as display currency.
+     * A saved language cookie does not override that. An explicit /de or /us URL is left alone.
      */
     private function redirectForLocation(Request $request, ?string $urlLocale): ?Response
     {
         if (! method_exists(PublicI18n::class, 'isPublicMarketingPath')
             || ! PublicI18n::isPublicMarketingPath($request)
             || (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale))
-            || (method_exists(PublicI18n::class, 'isEnglishOnlyMarketingPath') && PublicI18n::isEnglishOnlyMarketingPath($request))) {
+            || (method_exists(PublicI18n::class, 'isEnglishOnlyMarketingPath') && PublicI18n::isEnglishOnlyMarketingPath($request))
+            || ! method_exists(PublicI18n::class, 'localeForCountry')
+            || ! method_exists(PublicI18n::class, 'switchUrl')) {
             return null;
         }
 
-        $cookieName = (string) config('i18n.cookie', 'public_locale');
-        $remembered = $request->cookie($cookieName);
-        $locale = null;
-        if (is_string($remembered) && method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($remembered)) {
-            $locale = $remembered;
-        } elseif ($remembered === null || $remembered === '') {
-            $country = app(ViewerCountry::class)->code($request);
-            $fromCountry = method_exists(PublicI18n::class, 'localeForCountry')
-                ? PublicI18n::localeForCountry($country)
-                : null;
-            if ($fromCountry !== null && PublicI18n::isPrefixed($fromCountry)) {
-                $locale = $fromCountry;
-            }
-        }
-
-        if ($locale === null || ! method_exists(PublicI18n::class, 'switchUrl')) {
+        $fromCountry = PublicI18n::localeForCountry(app(ViewerCountry::class)->code($request));
+        if ($fromCountry === null || ! PublicI18n::isPrefixed($fromCountry)) {
             return null;
         }
+
+        $locale = $fromCountry;
 
         $target = PublicI18n::switchUrl($request, $locale);
         $query = $request->getQueryString();

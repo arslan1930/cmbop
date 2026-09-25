@@ -119,6 +119,8 @@ class WalletPaypalDepositService
                     'user_id' => $userId,
                     'reference_code' => $ref,
                     'amount' => $amount,
+                    'charge_currency' => $captured['currency'] ?? null,
+                    'charge_amount' => $captured['charge_amount'] ?? $amount,
                     'payment_method' => 'paypal',
                     'status' => 'completed',
                     'paypal_order_id' => $paypalOrderId !== '' ? $paypalOrderId : null,
@@ -191,7 +193,11 @@ class WalletPaypalDepositService
 
         $captureId = trim((string) $deposit->paypal_capture_id);
         $amount = round((float) $deposit->amount, 2);
-        $refunded = $paypal->refundCapture($captureId, $amount, 'deposit-refund-'.$captureId);
+        $refundCurrency = strtoupper((string) ($deposit->charge_currency ?: 'EUR'));
+        $refundAmount = $refundCurrency === 'EUR'
+            ? $amount
+            : round((float) ($deposit->charge_amount ?: $amount), 2);
+        $refunded = $paypal->refundCapture($captureId, $refundAmount, 'deposit-refund-'.$captureId, $refundCurrency);
         $refundId = trim((string) ($refunded['id'] ?? ''));
         if ($refundId === '') {
             throw new \RuntimeException('PayPal refund did not return an id. The wallet was not changed.');

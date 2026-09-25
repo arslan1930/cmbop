@@ -27,10 +27,13 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class BulkSiteRequestController extends Controller
@@ -39,6 +42,7 @@ class BulkSiteRequestController extends Controller
     {
         $status = search_text($request->input('status'));
         $selectedStatus = $status !== '' ? $status : 'all';
+        $q = search_text($request->input('q'));
 
         try {
             $withCount = [
@@ -58,6 +62,7 @@ class BulkSiteRequestController extends Controller
                 ->latest();
 
             MarketingOpsQueues::applyBulkIndexStatus($query, $status);
+            $this->applyBulkIndexSearch($query, $q);
 
             $requests = $query->paginate(20)->withQueryString();
             $waitingOnYouCount = MarketingOpsQueues::bulkWaitingOnMarketer()->count();
@@ -78,9 +83,30 @@ class BulkSiteRequestController extends Controller
         return view('admin.bulk-site-requests.index', [
             'requests' => $requests,
             'status' => $selectedStatus,
-            'filtersActive' => $selectedStatus !== 'all',
+            'q' => $q,
+            'filtersActive' => $selectedStatus !== 'all' || $q !== '',
             'waitingOnYouCount' => $waitingOnYouCount,
         ]);
+    }
+
+    private function applyBulkIndexSearch($query, string $q): void
+    {
+        if ($q === '') {
+            return;
+        }
+
+        $like = '%'.addcslashes($q, '%_\\').'%';
+        $query->where(function ($outer) use ($q, $like) {
+            if (ctype_digit($q)) {
+                $outer->orWhere('id', (int) $q);
+            }
+            $outer->orWhereHas('publisher', function ($pub) use ($like) {
+                $pub->where('name', 'like', $like)->orWhere('email', 'like', $like);
+            });
+            $outer->orWhereHas('items', function ($items) use ($like) {
+                $items->where('domain', 'like', $like)->orWhere('site_url', 'like', $like);
+            });
+        });
     }
 
     public function show(int $id)
@@ -143,6 +169,20 @@ class BulkSiteRequestController extends Controller
         }
         $canDeleteDrafts = auth()->user()?->isAdmin() || auth()->user()?->isMarketing();
         $pendingItems = $bulkRequest->items->whereNull('site_id')->values();
+        $occupyingMessages = [];
+        foreach ($pendingItems as $item) {
+            $existing = Site::findOccupyingDomain((string) $item->domain);
+            if (! $existing) {
+                continue;
+            }
+            $occupyingMessages[(int) $item->id] = $existing->isArchived()
+                ? $existing->occupyingDomainMessage()
+                : 'Domain already registered: '.$item->domain;
+        }
+        $keptCovers = $this->freshKeptCovers((int) $bulkRequest->id);
+        $textDraft = is_array(old('items')) ? ['items' => []] : $this->loadTextDraft((int) $bulkRequest->id);
+        $homepageDays = config('site_placement.homepage_days', [1, 7, 30]);
+        $socialChannels = config('site_placement.social_channels', ['facebook', 'instagram', 'x']);
 
         return view('admin.bulk-site-requests.show', compact(
             'bulkRequest',
@@ -152,7 +192,12 @@ class BulkSiteRequestController extends Controller
             'countryLanguageMap',
             'history',
             'canDeleteDrafts',
-            'pendingItems'
+            'pendingItems',
+            'occupyingMessages',
+            'keptCovers',
+            'textDraft',
+            'homepageDays',
+            'socialChannels'
         ));
     }
 
@@ -416,7 +461,7 @@ class BulkSiteRequestController extends Controller
             if (! in_array($itemId, $pendingIds, true) || ! is_array($row)) {
                 continue;
             }
-            $fill = $this->classifyDoneRowFill($row);
+            $fill = $this->classifyDoneRowFill($row, $pendingItems->get($itemId), (int) $bulkRequest->id);
             if ($fill === 'empty') {
                 continue;
             }
@@ -448,12 +493,14 @@ class BulkSiteRequestController extends Controller
         $validator->after(function ($validator) use (
             $request,
             $inputItems,
+            $pendingItems,
             $pendingIds,
             $completeItemIds,
             $partialItemIds,
             $rejectedItemIds,
             $allowedCountries,
-            $allowedLanguages
+            $allowedLanguages,
+            $bulkRequest
         ) {
             if ($completeItemIds === [] && $rejectedItemIds === [] && $partialItemIds === []) {
                 $validator->errors()->add(
@@ -475,13 +522,13 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
-                $fill = $this->classifyDoneRowFill($row);
+                $fill = $this->classifyDoneRowFill($row, $pendingItems->get($itemId), (int) $bulkRequest->id);
                 if ($fill === 'empty') {
                     continue;
                 }
 
                 if ($fill === 'partial') {
-                    foreach ($this->missingDoneRowFields($row) as $field) {
+                    foreach ($this->missingDoneRowFields($row, (int) $bulkRequest->id, $itemId) as $field) {
                         $validator->errors()->add(
                             'items.'.$itemId.'.'.$field,
                             'Finish this field, or clear the row and submit only complete blocks.'
@@ -561,12 +608,13 @@ class BulkSiteRequestController extends Controller
                 }
 
                 $image = $row['site_image'] ?? null;
-                if (! $image instanceof UploadedFile || ! $image->isValid()) {
+                $keptCover = $this->keptCoverPath((int) $bulkRequest->id, $itemId, $row);
+                if ($keptCover === null && (! $image instanceof UploadedFile || ! $image->isValid())) {
                     $validator->errors()->add(
                         'items.'.$itemId.'.site_image',
                         'Upload a site image (JPEG, PNG, GIF, or WebP, up to '.SiteImageUpload::maxMegabytesLabel().' MB).'
                     );
-                } else {
+                } elseif ($image instanceof UploadedFile && $image->isValid()) {
                     $extension = strtolower($image->getClientOriginalExtension());
                     if (! in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
                         $validator->errors()->add(
@@ -577,6 +625,32 @@ class BulkSiteRequestController extends Controller
                         $validator->errors()->add(
                             'items.'.$itemId.'.site_image',
                             'Site image must be '.SiteImageUpload::maxMegabytesLabel().' MB or smaller.'
+                        );
+                    }
+                }
+
+                $siteName = trim((string) ($row['site_name'] ?? ''));
+                if (strlen($siteName) > 255) {
+                    $validator->errors()->add('items.'.$itemId.'.site_name', 'Site name must be at most 255 characters.');
+                }
+                $priceRaw = $row['price'] ?? null;
+                if ($priceRaw !== null && $priceRaw !== '' && (! is_numeric($priceRaw) || (float) $priceRaw < 0 || (float) $priceRaw > 99999999.99)) {
+                    $validator->errors()->add('items.'.$itemId.'.price', 'Price must be between 0 and 99999999.99.');
+                }
+
+                foreach (config('site_placement.homepage_days', [1, 7, 30]) as $days) {
+                    $flags = is_array($row['homepage'] ?? null) ? $row['homepage'] : [];
+                    $amounts = is_array($row['price_homepage'] ?? null) ? $row['price_homepage'] : [];
+                    $flag = $flags[$days] ?? $flags[(string) $days] ?? null;
+                    $offered = ! in_array($flag, [null, '', '0', 0, false], true);
+                    if (! $offered) {
+                        continue;
+                    }
+                    $price = $amounts[$days] ?? $amounts[(string) $days] ?? null;
+                    if ($price === null || $price === '' || ! is_numeric($price) || (float) $price < 0 || (float) $price > 999999.99) {
+                        $validator->errors()->add(
+                            'items.'.$itemId.'.price_homepage.'.$days,
+                            'Enter a fee for the '.$days.'-day homepage offer (0 is free).'
                         );
                     }
                 }
@@ -620,6 +694,9 @@ class BulkSiteRequestController extends Controller
                 ? (string) $validator->errors()->first('rejection_note')
                 : 'Finish each started block completely, or clear it and submit only the finished blocks.';
 
+            $this->stashDoneCovers((int) $bulkRequest->id, $inputItems);
+            $this->rememberTextDraft((int) $bulkRequest->id, $request);
+
             return back()
                 ->withErrors($validator)
                 ->withInput()
@@ -646,12 +723,16 @@ class BulkSiteRequestController extends Controller
             }
             $row = $inputItems[$itemId] ?? $inputItems[(string) $itemId] ?? [];
             $categories = Category::resolveNicheNames($row['categories'] ?? [])['resolved'];
+            $siteName = trim((string) ($row['site_name'] ?? ''));
+            $priceRaw = $row['price'] ?? null;
             $rows[] = [
                 'line' => (int) $item->id,
                 'site_url' => $item->site_url,
                 'domain' => $item->domain,
-                'site_name' => $item->domain,
-                'price' => (float) $item->price,
+                'site_name' => $siteName !== '' ? $siteName : $item->domain,
+                'price' => ($priceRaw !== null && $priceRaw !== '' && is_numeric($priceRaw))
+                    ? (float) $priceRaw
+                    : (float) $item->price,
                 'da' => (int) $row['da'],
                 'dr' => (int) $row['dr'],
                 'traffic' => (int) $row['traffic'],
@@ -666,7 +747,10 @@ class BulkSiteRequestController extends Controller
                 'link_type' => (string) ($row['link_type'] ?? ''),
                 'site_tag' => (string) ($row['site_tag'] ?? ''),
                 'sensitive_prices' => $this->doneSensitivePrices($row),
+                'homepage_placement_prices' => $this->doneHomepagePrices($row),
+                'social_promotion' => $this->doneSocialPromotion($row),
                 'site_image_file' => $row['site_image'] ?? null,
+                'kept_image_path' => $this->keptCoverPath((int) $bulkRequest->id, (int) $item->id, $row),
             ];
         }
 
@@ -770,14 +854,25 @@ class BulkSiteRequestController extends Controller
             $parsed['rows'] = $allowed;
         }
 
-        foreach ($parsed['rows'] as $row) {
-            $parsed['failures'][] = [
-                'line' => $row['line'] ?? 0,
-                'url' => $row['site_url'] ?? ($row['domain'] ?? ''),
-                'errors' => ['Upload the site image on Done. A pasted row cannot include the cover, so this website was not published.'],
-            ];
+        $pendingByDomain = [];
+        foreach ($bulkRequest->items()->whereNull('site_id')->get() as $item) {
+            $domain = Site::normalizeMarketplaceDomain((string) $item->domain);
+            if ($domain !== '') {
+                $pendingByDomain[$domain] = $item;
+            }
         }
-        $parsed['rows'] = [];
+
+        if ($pendingByDomain === []) {
+            foreach ($parsed['rows'] as $row) {
+                $domain = (string) ($row['domain'] ?? '');
+                $parsed['failures'][] = [
+                    'line' => $row['line'] ?? 0,
+                    'url' => $row['site_url'] ?? $domain,
+                    'errors' => ['Not in this request’s pending URL + price list: '.$domain],
+                ];
+            }
+            $parsed['rows'] = [];
+        }
 
         if ($parsed['rows'] === []) {
             return back()
@@ -788,7 +883,54 @@ class BulkSiteRequestController extends Controller
                 ->withInput();
         }
 
-        return $this->createDraftSitesAndNotify($bulkRequest, $parsed['rows'], $parsed['failures'], 'bulk_request.seeded');
+        $oldItems = [];
+        foreach ($parsed['rows'] as $row) {
+            $domain = Site::normalizeMarketplaceDomain((string) ($row['domain'] ?? ''));
+            $item = $pendingByDomain[$domain] ?? null;
+            if (! $item) {
+                continue;
+            }
+            $oldItems[(int) $item->id] = [
+                'site_name' => $row['site_name'],
+                'price' => $row['price'],
+                'da' => $row['da'],
+                'dr' => $row['dr'],
+                'traffic' => $row['traffic'],
+                'language' => $row['language'],
+                'country' => $row['country'],
+                'example_url' => $row['example_url'],
+                'turnaround_time' => $row['turnaround_time'],
+                'publication_time' => $row['publication_time'],
+                'link_type' => $row['link_type'],
+                'site_tag' => $row['site_tag'],
+                'categories' => implode('|', $row['categories'] ?? []),
+                'description' => $row['description'],
+            ];
+        }
+
+        $this->rememberTextDraftPayload((int) $bulkRequest->id, [
+            'items' => $oldItems,
+            'rejected' => [],
+            'rejection_note' => '',
+        ]);
+
+        $filled = count($oldItems);
+        $message = $filled === 1
+            ? '1 pasted row is in the Done form. Upload a cover image, then Done.'
+            : $filled.' pasted rows are in the Done form. Upload a cover image on each, then Done.';
+
+        $redirect = back()
+            ->withInput([
+                'items' => $oldItems,
+                'rows' => (string) $request->input('rows'),
+            ])
+            ->with('success', $message);
+
+        if ($parsed['failures'] !== []) {
+            $redirect->with('seed_failures', $parsed['failures']);
+        }
+
+        return $redirect;
     }
 
     /**
@@ -860,26 +1002,30 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
-                $imageFile = $row['site_image_file'] ?? null;
-                $imagePath = $imageFile instanceof UploadedFile
-                    ? app(ImageOptimizationService::class)->storeSafePublicImage($imageFile, 'sites')
-                    : null;
-                if (! is_string($imagePath) || $imagePath === '') {
-                    $failures[] = [
-                        'line' => $row['line'],
-                        'url' => $row['site_url'],
-                        'errors' => ['Upload a site image before this website goes live.'],
-                    ];
-
-                    continue;
-                }
-
                 $categories = $row['categories'] ?? [];
                 if (! is_array($categories) || $categories === []) {
                     $failures[] = [
                         'line' => $row['line'],
                         'url' => $row['site_url'],
                         'errors' => ['Select at least one niche.'],
+                    ];
+
+                    continue;
+                }
+
+                $imageFile = $row['site_image_file'] ?? null;
+                $keptPath = is_string($row['kept_image_path'] ?? null) ? $row['kept_image_path'] : null;
+                $imagePath = $imageFile instanceof UploadedFile
+                    ? app(ImageOptimizationService::class)->storeSafePublicImage($imageFile, 'sites')
+                    : null;
+                if ((! is_string($imagePath) || $imagePath === '') && $keptPath !== null) {
+                    $imagePath = $this->promoteKeptCover($keptPath);
+                }
+                if (! is_string($imagePath) || $imagePath === '') {
+                    $failures[] = [
+                        'line' => $row['line'],
+                        'url' => $row['site_url'],
+                        'errors' => ['Upload a site image before this website goes live.'],
                     ];
 
                     continue;
@@ -913,6 +1059,8 @@ class BulkSiteRequestController extends Controller
                     'link_type' => (string) ($row['link_type'] ?? ''),
                     'description' => $description,
                     'sensitive_prices' => $row['sensitive_prices'] ?? null,
+                    'homepage_placement_prices' => $row['homepage_placement_prices'] ?? null,
+                    'social_promotion' => $row['social_promotion'] ?? null,
                     'site_image' => $imagePath,
                     'verified' => false,
                     'active' => true,
@@ -939,6 +1087,11 @@ class BulkSiteRequestController extends Controller
 
                 $created++;
                 $createdDomains[] = $domain;
+                if ($imageFile instanceof UploadedFile && $keptPath !== null && $keptPath !== $imagePath) {
+                    $this->deletePublicFile($keptPath);
+                }
+                $this->forgetDraftItem((int) $bulkRequest->id, (int) ($row['line'] ?? 0));
+                $this->forgetKeptCover((int) $bulkRequest->id, (int) ($row['line'] ?? 0));
             }
 
             if ($rejectedIds !== []) {
@@ -1133,25 +1286,26 @@ class BulkSiteRequestController extends Controller
      * @param  array<string, mixed>  $row
      * @return 'empty'|'partial'|'complete'
      */
-    private function classifyDoneRowFill(array $row): string
+    private function classifyDoneRowFill(array $row, $item, int $bulkId): string
     {
-        $missing = $this->missingDoneRowFields($row);
+        $itemId = $item ? (int) $item->id : 0;
+        $missing = $this->missingDoneRowFields($row, $bulkId, $itemId);
         if ($missing === []) {
             return 'complete';
         }
 
-        return $this->doneRowStarted($row) ? 'partial' : 'empty';
+        return $this->doneRowStarted($row, $item) ? 'partial' : 'empty';
     }
 
     /**
      * @param  array<string, mixed>  $row
      * @return list<string>
      */
-    private function missingDoneRowFields(array $row): array
+    private function missingDoneRowFields(array $row, int $bulkId = 0, int $itemId = 0): array
     {
         $missing = [];
         foreach ($this->doneRowFields() as $field) {
-            if (! $this->doneRowFieldFilled($row, $field)) {
+            if (! $this->doneRowFieldFilled($row, $field, $bulkId, $itemId)) {
                 $missing[] = $field;
             }
         }
@@ -1184,9 +1338,21 @@ class BulkSiteRequestController extends Controller
     /**
      * @param  array<string, mixed>  $row
      */
-    private function doneRowStarted(array $row): bool
+    private function doneRowStarted(array $row, $item = null): bool
     {
         if (trim((string) ($row['description'] ?? '')) !== '') {
+            return true;
+        }
+
+        $domain = strtolower(trim((string) ($item?->domain ?? '')));
+        $siteName = strtolower(trim((string) ($row['site_name'] ?? '')));
+        if ($siteName !== '' && $siteName !== $domain) {
+            return true;
+        }
+
+        $defaultPrice = $item ? (float) $item->price : null;
+        $priceRaw = $row['price'] ?? null;
+        if ($priceRaw !== null && $priceRaw !== '' && is_numeric($priceRaw) && $defaultPrice !== null && abs((float) $priceRaw - $defaultPrice) > 0.0001) {
             return true;
         }
 
@@ -1194,7 +1360,7 @@ class BulkSiteRequestController extends Controller
             if ($field === 'description') {
                 continue;
             }
-            if ($this->doneRowFieldFilled($row, $field)) {
+            if ($this->doneRowFieldFilled($row, $field, 0, $item ? (int) $item->id : 0)) {
                 return true;
             }
         }
@@ -1205,7 +1371,7 @@ class BulkSiteRequestController extends Controller
     /**
      * @param  array<string, mixed>  $row
      */
-    private function doneRowFieldFilled(array $row, string $field): bool
+    private function doneRowFieldFilled(array $row, string $field, int $bulkId = 0, int $itemId = 0): bool
     {
         if ($field === 'categories') {
             return $this->parseCategoryList($row['categories'] ?? []) !== [];
@@ -1213,8 +1379,11 @@ class BulkSiteRequestController extends Controller
 
         if ($field === 'site_image') {
             $file = $row['site_image'] ?? null;
+            if ($file instanceof UploadedFile && $file->isValid()) {
+                return true;
+            }
 
-            return $file instanceof UploadedFile && $file->isValid();
+            return $bulkId > 0 && $itemId > 0 && $this->keptCoverPath($bulkId, $itemId, $row) !== null;
         }
 
         if ($field === 'description') {
@@ -1455,6 +1624,333 @@ class BulkSiteRequestController extends Controller
         }
 
         return $prices === [] ? null : $prices;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, float>|null
+     */
+    private function doneHomepagePrices(array $row): ?array
+    {
+        $flags = is_array($row['homepage'] ?? null) ? $row['homepage'] : [];
+        $amounts = is_array($row['price_homepage'] ?? null) ? $row['price_homepage'] : [];
+        $out = [];
+        foreach (config('site_placement.homepage_days', [1, 7, 30]) as $days) {
+            $flag = $flags[$days] ?? $flags[(string) $days] ?? null;
+            if (in_array($flag, [null, '', '0', 0, false], true)) {
+                continue;
+            }
+            $price = $amounts[$days] ?? $amounts[(string) $days] ?? null;
+            if ($price === null || $price === '' || ! is_numeric($price)) {
+                continue;
+            }
+            $out[(string) $days] = (float) $price;
+        }
+
+        return $out === [] ? null : $out;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, true>|null
+     */
+    private function doneSocialPromotion(array $row): ?array
+    {
+        $flags = is_array($row['social'] ?? null) ? $row['social'] : [];
+        $channels = [];
+        foreach (config('site_placement.social_channels', ['facebook', 'instagram', 'x']) as $channel) {
+            $flag = $flags[$channel] ?? null;
+            if (! in_array($flag, [null, '', '0', 0, false], true)) {
+                $channels[$channel] = true;
+            }
+        }
+
+        return $channels === [] ? null : $channels;
+    }
+
+    private function coverSessionKey(int $bulkId): string
+    {
+        return 'bulk_done_covers.'.$bulkId;
+    }
+
+    private function draftCacheKey(int $bulkId): string
+    {
+        return 'bulk-done-text:'.$bulkId;
+    }
+
+    private function isBulkDraftCoverPath(int $bulkId, string $path): bool
+    {
+        $path = ltrim(str_replace('\\', '/', $path), '/');
+
+        return $path !== ''
+            && ! str_contains($path, '..')
+            && str_starts_with($path, 'bulk-drafts/'.$bulkId.'/');
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function keptCoverPath(int $bulkId, int $itemId, array $row): ?string
+    {
+        $claimed = trim((string) ($row['kept_image'] ?? ''));
+        if ($claimed === '' || ! $this->isBulkDraftCoverPath($bulkId, $claimed)) {
+            return null;
+        }
+
+        $stored = session($this->coverSessionKey($bulkId), []);
+        $entry = is_array($stored) ? ($stored[$itemId] ?? $stored[(string) $itemId] ?? null) : null;
+        if (! is_array($entry) || (string) ($entry['path'] ?? '') !== $claimed) {
+            return null;
+        }
+
+        $storedAt = (int) ($entry['stored_at'] ?? 0);
+        if ($storedAt > 0 && $storedAt < now()->subDay()->getTimestamp()) {
+            return null;
+        }
+
+        return Storage::disk('public')->exists($claimed) ? $claimed : null;
+    }
+
+    /**
+     * @param  array<mixed>  $inputItems
+     */
+    private function stashDoneCovers(int $bulkId, array $inputItems): void
+    {
+        $kept = session($this->coverSessionKey($bulkId), []);
+        if (! is_array($kept)) {
+            $kept = [];
+        }
+
+        foreach ($inputItems as $itemId => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $itemId = (int) $itemId;
+            $image = $row['site_image'] ?? null;
+            if (! $image instanceof UploadedFile || ! $image->isValid()) {
+                continue;
+            }
+            $path = app(ImageOptimizationService::class)->storeSafePublicImage($image, 'bulk-drafts/'.$bulkId);
+            if (! is_string($path) || $path === '') {
+                continue;
+            }
+            $previous = $kept[$itemId]['path'] ?? null;
+            if (is_string($previous) && $previous !== $path) {
+                $this->deletePublicFile($previous);
+            }
+            $kept[$itemId] = [
+                'path' => $path,
+                'name' => $image->getClientOriginalName(),
+                'stored_at' => now()->getTimestamp(),
+            ];
+        }
+
+        session([$this->coverSessionKey($bulkId) => $this->pruneKeptCovers($bulkId, $kept)]);
+    }
+
+    /**
+     * @return array<int, array{path:string,name:string,stored_at:int}>
+     */
+    private function freshKeptCovers(int $bulkId): array
+    {
+        $kept = session($this->coverSessionKey($bulkId), []);
+        if (! is_array($kept)) {
+            return [];
+        }
+        $fresh = $this->pruneKeptCovers($bulkId, $kept);
+        session([$this->coverSessionKey($bulkId) => $fresh]);
+
+        return $fresh;
+    }
+
+    /**
+     * @param  array<mixed>  $kept
+     * @return array<int, array{path:string,name:string,stored_at:int}>
+     */
+    private function pruneKeptCovers(int $bulkId, array $kept): array
+    {
+        $cutoff = now()->subDay()->getTimestamp();
+        $fresh = [];
+        foreach ($kept as $itemId => $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $path = (string) ($entry['path'] ?? '');
+            $storedAt = (int) ($entry['stored_at'] ?? 0);
+            if ($path === '' || ! $this->isBulkDraftCoverPath($bulkId, $path) || ($storedAt > 0 && $storedAt < $cutoff) || ! Storage::disk('public')->exists($path)) {
+                $this->deletePublicFile($path);
+
+                continue;
+            }
+            $fresh[(int) $itemId] = [
+                'path' => $path,
+                'name' => (string) ($entry['name'] ?? basename($path)),
+                'stored_at' => $storedAt,
+            ];
+        }
+
+        return $fresh;
+    }
+
+    private function forgetKeptCover(int $bulkId, int $itemId): void
+    {
+        if ($itemId < 1) {
+            return;
+        }
+        $kept = session($this->coverSessionKey($bulkId), []);
+        if (! is_array($kept)) {
+            return;
+        }
+        unset($kept[$itemId], $kept[(string) $itemId]);
+        session([$this->coverSessionKey($bulkId) => $kept]);
+    }
+
+    private function dropKeptCover(int $bulkId, int $itemId): void
+    {
+        if ($itemId < 1) {
+            return;
+        }
+        $kept = session($this->coverSessionKey($bulkId), []);
+        $entry = is_array($kept) ? ($kept[$itemId] ?? $kept[(string) $itemId] ?? null) : null;
+        if (is_array($entry) && is_string($entry['path'] ?? null)) {
+            $this->deletePublicFile($entry['path']);
+        }
+        $this->forgetKeptCover($bulkId, $itemId);
+    }
+
+    private function promoteKeptCover(string $path): ?string
+    {
+        $disk = Storage::disk('public');
+        if (! $disk->exists($path)) {
+            return null;
+        }
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION) ?: 'webp');
+        $dest = 'sites/'.Str::uuid()->toString().'.'.$ext;
+        try {
+            $disk->move($path, $dest);
+        } catch (\Throwable $e) {
+            Log::warning('Bulk draft cover promote failed', ['path' => $path, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        return $dest;
+    }
+
+    private function deletePublicFile(string $path): void
+    {
+        if ($path === '' || str_contains($path, '..')) {
+            return;
+        }
+        try {
+            Storage::disk('public')->delete($path);
+        } catch (\Throwable $e) {
+            Log::notice('Bulk draft cover delete skipped', ['path' => $path, 'error' => $e->getMessage()]);
+        }
+    }
+
+    public function saveDraft(Request $request, int $id)
+    {
+        BulkSiteRequest::query()->findOrFail($id);
+        $payload = $request->validate([
+            'items' => 'nullable|array',
+            'rejected' => 'nullable|array',
+            'rejection_note' => 'nullable|string|max:1000',
+            'forget_covers' => 'nullable|array',
+            'forget_covers.*' => 'integer',
+        ]);
+        foreach ($payload['forget_covers'] ?? [] as $itemId) {
+            $this->dropKeptCover($id, (int) $itemId);
+        }
+        $this->rememberTextDraftPayload($id, [
+            'items' => is_array($payload['items'] ?? null) ? $payload['items'] : [],
+            'rejected' => is_array($payload['rejected'] ?? null) ? $payload['rejected'] : [],
+            'rejection_note' => (string) ($payload['rejection_note'] ?? ''),
+        ]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function rememberTextDraft(int $bulkId, Request $request): void
+    {
+        $items = $request->input('items', []);
+        if (! is_array($items)) {
+            $items = [];
+        }
+        foreach ($items as $itemId => $row) {
+            if (! is_array($row)) {
+                unset($items[$itemId]);
+
+                continue;
+            }
+            unset($row['site_image'], $row['kept_image']);
+            $items[$itemId] = $row;
+        }
+        $this->rememberTextDraftPayload($bulkId, [
+            'items' => $items,
+            'rejected' => $request->input('rejected_item_ids', []),
+            'rejection_note' => (string) $request->input('rejection_note', ''),
+        ]);
+    }
+
+    /**
+     * @param  array{items?:array,rejected?:array,rejection_note?:string}  $payload
+     */
+    private function rememberTextDraftPayload(int $bulkId, array $payload): void
+    {
+        $existing = $this->loadTextDraft($bulkId);
+        $items = is_array($existing['items'] ?? null) ? $existing['items'] : [];
+        $incoming = is_array($payload['items'] ?? null) ? $payload['items'] : [];
+        foreach ($incoming as $itemId => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $items[$itemId] = $row;
+        }
+        Cache::put($this->draftCacheKey($bulkId), [
+            'items' => $items,
+            'rejected' => array_values($payload['rejected'] ?? []),
+            'rejection_note' => (string) ($payload['rejection_note'] ?? ''),
+            'saved_at' => now()->getTimestamp(),
+        ], now()->addDays(7));
+    }
+
+    /**
+     * @return array{items:array,rejected:array,rejection_note:string}
+     */
+    private function loadTextDraft(int $bulkId): array
+    {
+        $draft = Cache::get($this->draftCacheKey($bulkId));
+        if (! is_array($draft)) {
+            return ['items' => [], 'rejected' => [], 'rejection_note' => ''];
+        }
+        $savedAt = (int) ($draft['saved_at'] ?? 0);
+        if ($savedAt > 0 && $savedAt < now()->subDays(7)->getTimestamp()) {
+            Cache::forget($this->draftCacheKey($bulkId));
+
+            return ['items' => [], 'rejected' => [], 'rejection_note' => ''];
+        }
+
+        return [
+            'items' => is_array($draft['items'] ?? null) ? $draft['items'] : [],
+            'rejected' => is_array($draft['rejected'] ?? null) ? $draft['rejected'] : [],
+            'rejection_note' => (string) ($draft['rejection_note'] ?? ''),
+        ];
+    }
+
+    private function forgetDraftItem(int $bulkId, int $itemId): void
+    {
+        if ($itemId < 1) {
+            return;
+        }
+        $draft = $this->loadTextDraft($bulkId);
+        unset($draft['items'][$itemId], $draft['items'][(string) $itemId]);
+        if (($draft['items'] ?? []) === [] && ($draft['rejected'] ?? []) === [] && trim((string) ($draft['rejection_note'] ?? '')) === '') {
+            Cache::forget($this->draftCacheKey($bulkId));
+
+            return;
+        }
+        Cache::put($this->draftCacheKey($bulkId), $draft + ['saved_at' => now()->getTimestamp()], now()->addDays(7));
     }
 
     private function normalizeHttpUrl(string $url): string

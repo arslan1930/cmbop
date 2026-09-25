@@ -130,6 +130,49 @@
     </div>
     @endif
 
+    @if(auth()->user()?->isAdmin())
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="h5 mb-1">Featured website packages</h2>
+            <p class="text-muted small mb-3">
+                Publishers choose one of these to feature a site. Prices are stored in euros.
+                A publisher in another country is charged the live converted amount on card.
+                Wallet payment still deducts the euro price.
+            </p>
+            <form method="POST" action="{{ route('admin.promotions.feature-offers.update') }}">
+                @csrf
+                <div class="row g-3">
+                    @foreach(['month' => 'Monthly', 'year' => 'Yearly'] as $key => $fallbackLabel)
+                        @php $offer = $featureOffers[$key] ?? ['label' => $fallbackLabel, 'price' => $key === 'month' ? 15 : 100, 'days' => $key === 'month' ? 30 : 365, 'active' => true]; @endphp
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 h-100">
+                                <div class="fw-semibold mb-2">{{ $fallbackLabel }}</div>
+                                <label class="form-label small mb-1" for="offer-{{ $key }}-label">Name</label>
+                                <input id="offer-{{ $key }}-label" type="text" name="offers[{{ $key }}][label]" class="form-control form-control-sm mb-2" maxlength="40" value="{{ $offer['label'] }}" required>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label class="form-label small mb-1" for="offer-{{ $key }}-price">Price (EUR)</label>
+                                        <input id="offer-{{ $key }}-price" type="number" name="offers[{{ $key }}][price]" class="form-control form-control-sm" min="0.5" max="5000" step="0.01" value="{{ number_format((float) $offer['price'], 2, '.', '') }}" required>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small mb-1" for="offer-{{ $key }}-days">Days</label>
+                                        <input id="offer-{{ $key }}-days" type="number" name="offers[{{ $key }}][days]" class="form-control form-control-sm" min="1" max="400" step="1" value="{{ (int) $offer['days'] }}" required>
+                                    </div>
+                                </div>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="offers[{{ $key }}][active]" value="1" id="offer-{{ $key }}-active" @checked($offer['active'] ?? true)>
+                                    <label class="form-check-label small" for="offer-{{ $key }}-active">Offered to publishers</label>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary mt-3">Save packages</button>
+            </form>
+        </div>
+    </div>
+    @endif
+
     <div class="row g-3 mb-4">
         @foreach($featuredNotices as $key => $notice)
             <div class="col-md-4">

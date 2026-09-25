@@ -10,6 +10,7 @@ use App\Services\Wallet\ManualWithdrawalInvalidTransitionException;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
 use App\Services\Wallet\ManualWithdrawalUnknownWalletException;
 use App\Services\Wallet\WithdrawalDuplicatePayoutWarning;
+use App\Services\Wallet\WithdrawalPayoutContext;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -51,7 +52,7 @@ class AdminWithdrawalController extends Controller
         try {
             $query = Withdrawal::with('user:id,name,email');
             $filters = $this->applyWithdrawalFilters($query, $request);
-            $this->applyWithdrawalOrder($query, $filters['queue'], $filters['status']);
+            $this->applyWithdrawalOrder($query, $filters['queue'], $filters['status'], $filters['sort']);
 
             $perPage = (int) $request->get('per_page', 20);
             $withdrawals = $query->paginate(max(1, min($perPage, 100)));
@@ -117,9 +118,22 @@ class AdminWithdrawalController extends Controller
             $withdrawal->setAttribute('invoice_url', data_get($invoice, 'url'));
             $this->attachDuplicateWarnings(collect([$withdrawal]));
 
+            $payload = $withdrawal->toArray();
+            try {
+                $payload['payout_context'] = app(WithdrawalPayoutContext::class)->modalPayload(
+                    $withdrawal,
+                    $withdrawal->isActionable()
+                );
+            } catch (\Throwable $contextError) {
+                Log::warning('Failed to build withdrawal payout context: '.$contextError->getMessage(), [
+                    'withdrawal_id' => $withdrawal->id,
+                ]);
+                $payload['payout_context'] = null;
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => $withdrawal,
+                'data' => $payload,
             ]);
         } catch (\Throwable $e) {
             Log::error('Error fetching withdrawal: '.$e->getMessage());
@@ -177,11 +191,28 @@ class AdminWithdrawalController extends Controller
      */
     public function reject(Request $request, $id)
     {
-        $request->validate([
-            'notes' => 'nullable|string|max:2000',
-        ]);
+        if (! Withdrawal::tableAvailable()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Withdrawal not found',
+            ], 404);
+        }
 
-        return $this->transitionWithdrawal((int) $id, 'cancelled', $request->input('notes'));
+        $withdrawal = Withdrawal::query()->find($id);
+        if ($withdrawal === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Withdrawal not found',
+            ], 404);
+        }
+
+        if (! $withdrawal->isActionable()) {
+            return $this->transitionWithdrawal((int) $withdrawal->id, 'cancelled', null);
+        }
+
+        $notes = $this->validatedRejectNotes($request);
+
+        return $this->transitionWithdrawal((int) $withdrawal->id, 'cancelled', $notes);
     }
 
     /**
@@ -207,6 +238,26 @@ class AdminWithdrawalController extends Controller
         $ids = $request->input('ids');
         $action = $request->input('action');
         $notes = $request->input('notes');
+
+        if ($action === 'cancelled') {
+            $notes = $this->validatedRejectNotes($request);
+        }
+
+        if ($action === 'completed') {
+            $methods = Withdrawal::query()
+                ->whereIn('id', $ids)
+                ->pluck('payment_method')
+                ->map(fn ($method) => strtolower(trim((string) $method)))
+                ->filter()
+                ->unique()
+                ->values();
+            if ($methods->count() > 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Select one payment method at a time before marking paid. None of these rows were marked paid.',
+                ], 422);
+            }
+        }
 
         if ($action === 'completed' && ! $request->boolean('confirm_duplicates')) {
             $blocked = $this->batchDuplicateBlock($ids);
@@ -385,9 +436,11 @@ class AdminWithdrawalController extends Controller
             $completedThisWeek = Withdrawal::where('status', 'completed');
             if (Withdrawal::hasProcessedAtColumn()) {
                 $completedThisWeek->whereProcessedAtIsRecorded()
-                    ->where('processed_at', '>=', now()->startOfWeek());
+                    ->where('processed_at', '>=', now()->startOfWeek())
+                    ->where('processed_at', '<=', now()->endOfWeek());
             } else {
-                $completedThisWeek->where('created_at', '>=', now()->startOfWeek());
+                $completedThisWeek->where('created_at', '>=', now()->startOfWeek())
+                    ->where('created_at', '<=', now()->endOfWeek());
             }
 
             $stats = [
@@ -401,6 +454,8 @@ class AdminWithdrawalController extends Controller
                 'total_to_pay' => (float) (clone $openQuery)->sum('net_amount'),
                 'completed_this_week' => (clone $completedThisWeek)->count(),
                 'completed_this_week_amount' => (float) (clone $completedThisWeek)->sum('net_amount'),
+                'week_start' => now()->startOfWeek()->toDateString(),
+                'week_end' => now()->endOfWeek()->toDateString(),
                 'total_amount_requested' => (float) Withdrawal::sum('amount'),
                 'total_fees_collected' => (float) Withdrawal::where('status', 'completed')->sum('fee'),
                 'total_amount_paid' => (float) Withdrawal::where('status', 'completed')->sum('net_amount'),
@@ -437,6 +492,8 @@ class AdminWithdrawalController extends Controller
             'total_to_pay' => 0.0,
             'completed_this_week' => 0,
             'completed_this_week_amount' => 0.0,
+            'week_start' => now()->startOfWeek()->toDateString(),
+            'week_end' => now()->endOfWeek()->toDateString(),
             'total_amount_requested' => 0.0,
             'total_fees_collected' => 0.0,
             'total_amount_paid' => 0.0,
@@ -499,7 +556,7 @@ class AdminWithdrawalController extends Controller
      * Shared list/export filters. Arrays and junk dates are ignored (same as Payments).
      *
      * @param  Builder<Withdrawal>  $query
-     * @return array{queue: string, status: string}
+     * @return array{queue: string, status: string, sort: string}
      */
     private function applyWithdrawalFilters(Builder $query, Request $request): array
     {
@@ -540,11 +597,27 @@ class AdminWithdrawalController extends Controller
                 'date_to' => 'nullable|date|after_or_equal:date_from',
             ]
         )->valid();
+        $paidClock = $status === 'completed' && Withdrawal::hasProcessedAtColumn();
+        if ($paidClock && ($dates['date_from'] ?? null || $dates['date_to'] ?? null)) {
+            $query->whereProcessedAtIsRecorded();
+        }
+        $dateColumn = $paidClock ? 'processed_at' : 'created_at';
         if (! empty($dates['date_from'])) {
-            $query->whereDate('created_at', '>=', $dates['date_from']);
+            $query->whereDate($dateColumn, '>=', $dates['date_from']);
         }
         if (! empty($dates['date_to'])) {
-            $query->whereDate('created_at', '<=', $dates['date_to']);
+            $query->whereDate($dateColumn, '<=', $dates['date_to']);
+        }
+
+        $waiting = search_text($request->input('waiting'));
+        if (in_array($waiting, ['7', '14'], true)) {
+            $query->whereIn('status', ['pending', 'processing'])
+                ->where('created_at', '<=', now()->subDays((int) $waiting));
+        }
+
+        $sort = search_text($request->input('sort'));
+        if (! in_array($sort, ['oldest', 'newest', 'amount', 'waiting'], true)) {
+            $sort = '';
         }
 
         $ids = $this->withdrawalExportIds($request->input('ids'));
@@ -555,6 +628,7 @@ class AdminWithdrawalController extends Controller
         return [
             'queue' => $queue,
             'status' => $status,
+            'sort' => $sort,
         ];
     }
 
@@ -582,14 +656,35 @@ class AdminWithdrawalController extends Controller
                 $sub->where('name', 'like', '%'.$search.'%')
                     ->orWhere('email', 'like', '%'.$search.'%');
             });
+
+            $like = '%'.addcslashes(mb_strtolower($search), '%_\\').'%';
+            $inner->orWhereRaw('LOWER(CAST(payment_details AS CHAR(4000))) LIKE ?', [$like]);
         });
     }
 
     /**
      * @param  Builder<Withdrawal>  $query
      */
-    private function applyWithdrawalOrder(Builder $query, string $queue, string $status): void
+    private function applyWithdrawalOrder(Builder $query, string $queue, string $status, string $sort = ''): void
     {
+        if ($sort === 'amount') {
+            $query->orderByDesc('net_amount')->orderByDesc('id');
+
+            return;
+        }
+
+        if ($sort === 'waiting' || $sort === 'oldest') {
+            $query->orderBy('created_at')->orderBy('id');
+
+            return;
+        }
+
+        if ($sort === 'newest') {
+            $query->orderByDesc('created_at')->orderByDesc('id');
+
+            return;
+        }
+
         if (in_array($status, ['completed', 'cancelled'], true) || $queue === 'history') {
             $query->orderBy('created_at', 'desc');
 
@@ -598,6 +693,20 @@ class AdminWithdrawalController extends Controller
 
         $query->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'processing' THEN 1 ELSE 2 END")
             ->orderBy('created_at', 'asc');
+    }
+
+    private function validatedRejectNotes(Request $request): string
+    {
+        $notes = $request->input('notes');
+        if (is_string($notes)) {
+            $request->merge(['notes' => trim($notes)]);
+        }
+
+        $validated = $request->validate([
+            'notes' => 'required|string|min:10|max:2000',
+        ]);
+
+        return $validated['notes'];
     }
 
     /**

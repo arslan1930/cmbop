@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\PlatformCharge;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Illuminate\Http\Client\PendingRequest;
@@ -169,6 +170,8 @@ class PaypalCheckoutService
             throw new RuntimeException('PayPal order type is not allowed.');
         }
 
+        $charge = app(PlatformCharge::class)->quote((float) $euros);
+        $amount = self::formatEuros($charge['amount']);
         $experience = [
             'return_url' => $returnUrl,
             'cancel_url' => $cancelUrl,
@@ -180,9 +183,10 @@ class PaypalCheckoutService
             'intent' => 'CAPTURE',
             'purchase_units' => [[
                 'amount' => [
-                    'currency_code' => self::CURRENCY,
+                    'currency_code' => $charge['code'],
                     'value' => $amount,
                 ],
+                'description' => 'ledger EUR '.self::formatEuros($charge['euros']),
                 'custom_id' => self::customId($type, $userId, $reference),
                 'invoice_id' => $reference,
             ]],
@@ -213,7 +217,7 @@ class PaypalCheckoutService
             'status' => (string) ($data['status'] ?? ''),
             'approve_url' => $approveUrl,
             'amount' => $amount,
-            'currency' => self::CURRENCY,
+            'currency' => $charge['code'],
             'raw' => $data,
         ];
     }
@@ -276,7 +280,7 @@ class PaypalCheckoutService
     /**
      * @return array{id: string, status: string, amount: float, currency: string, raw: array<string, mixed>}
      */
-    public function refundCapture(string $captureId, float $euros, ?string $requestId = null): array
+    public function refundCapture(string $captureId, float $euros, ?string $requestId = null, string $currency = self::CURRENCY): array
     {
         $this->assertConfigured();
 
@@ -299,7 +303,7 @@ class PaypalCheckoutService
             '/v2/payments/captures/'.rawurlencode($captureId).'/refund',
             [
                 'amount' => [
-                    'currency_code' => self::CURRENCY,
+                    'currency_code' => strtoupper($currency),
                     'value' => $amount,
                 ],
             ],
@@ -630,8 +634,17 @@ class PaypalCheckoutService
         if ($status !== 'COMPLETED') {
             throw new RuntimeException('PayPal capture was not completed.');
         }
-        if (strtoupper($currency) !== self::CURRENCY) {
-            throw new RuntimeException('PayPal capture currency is not EUR.');
+        $currency = strtoupper($currency);
+        if (! in_array($currency, ['EUR', 'USD', 'GBP'], true)) {
+            throw new RuntimeException('PayPal capture currency is not supported.');
+        }
+        $ledger = $currency === 'EUR' ? round((float) $amountRaw, 2) : null;
+        $description = (string) ($unit['description'] ?? '');
+        if (preg_match('/ledger EUR ([0-9]+(?:\.[0-9]{1,2})?)/', $description, $match) === 1) {
+            $ledger = round((float) $match[1], 2);
+        }
+        if ($ledger === null) {
+            throw new RuntimeException('PayPal capture is missing the euro ledger amount.');
         }
         if (($custom['user_id'] ?? '') === '') {
             throw new RuntimeException('PayPal capture is missing user_id.');
@@ -641,8 +654,9 @@ class PaypalCheckoutService
             'id' => (string) ($data['id'] ?? $paypalOrderId),
             'capture_id' => $captureId,
             'status' => $status,
-            'amount' => round((float) $amountRaw, 2),
-            'currency' => self::CURRENCY,
+            'amount' => $ledger,
+            'charge_amount' => round((float) $amountRaw, 2),
+            'currency' => $currency,
             'custom' => $custom,
             'raw' => $data,
         ];

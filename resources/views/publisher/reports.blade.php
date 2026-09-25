@@ -26,7 +26,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted mb-1">Total Earned</h6>
-                        <h3 class="mb-0" id="totalEarned" style="color: #10b981;">€0.00</h3>
+                        <h3 class="mb-0" id="totalEarned" style="color: #10b981;">{{ format_money(0) }}</h3>
                     </div>
                     <i class="fa fa-euro-sign reports-stat-icon" aria-hidden="true"></i>
                 </div>
@@ -53,7 +53,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted mb-1">Total Withdrawn</h6>
-                        <h3 class="mb-0" id="totalWithdrawn" style="color: #ef4444;">€0.00</h3>
+                        <h3 class="mb-0" id="totalWithdrawn" style="color: #ef4444;">{{ format_money(0) }}</h3>
                         <div class="text-muted small mt-1" id="withdrawnFeesHint"></div>
                     </div>
                     <i class="fa fa-download reports-stat-icon" aria-hidden="true"></i>
@@ -65,7 +65,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="text-muted mb-1">Available to Withdraw</h6>
-                        <h3 class="mb-0" id="availableToWithdraw">€0.00</h3>
+                        <h3 class="mb-0" id="availableToWithdraw">{{ format_money(0) }}</h3>
                         <a href="{{ route('publisher.withdraw') }}" class="small">Go to Withdraw</a>
                     </div>
                     <i class="fa fa-wallet reports-stat-icon" aria-hidden="true"></i>
@@ -361,8 +361,7 @@
     let withdrawalsPage = 1;
 
     function money(n) {
-        const v = parseFloat(n);
-        return (Number.isFinite(v) ? v : 0).toFixed(2);
+        return (window.slbFormatMoney || function (x) { return '€' + Number(x || 0).toFixed(2); })(n);
     }
 
     function escapeHtml(str) {
@@ -424,7 +423,7 @@
         if (state === 'none' || !label) {
             return '<span class="text-muted">—</span>';
         }
-        const amount = '€' + money(item.price);
+        const amount = '' + money(item.price);
         if (state === 'you_earned') {
             return '<span class="earned-amount">' + escapeHtml(label) + ' ' + amount + '</span>';
         }
@@ -436,7 +435,7 @@
             return '<span class="text-muted">—</span>';
         }
         const daysBit = homepageDays ? ' · ' + homepageDays + 'd' : '';
-        return '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> +€' + money(homepagePrice) + daysBit + '</span>';
+        return '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> +' + money(homepagePrice) + daysBit + '</span>';
     }
 
     function linkOrDash(url, label) {
@@ -454,13 +453,13 @@
             success: function (response) {
                 if (!response.success) return;
                 const d = response.data || {};
-                $('#totalEarned').html('<span style="color:#10b981;">+ €' + money(d.total_earned) + '</span>');
+                $('#totalEarned').html('<span style="color:#10b981;">+ ' + money(d.total_earned) + '</span>');
                 $('#completedOrders').text(d.completed_orders || 0);
                 $('#openOrders').text(d.open_orders != null ? d.open_orders : (d.pending_orders || 0));
-                $('#totalWithdrawn').html('<span style="color:#ef4444;">- €' + money(d.total_withdrawn) + '</span>');
-                $('#availableToWithdraw').text('€' + money(d.available_to_withdraw));
+                $('#totalWithdrawn').html('<span style="color:#ef4444;">- ' + money(d.total_withdrawn) + '</span>');
+                $('#availableToWithdraw').text('' + money(d.available_to_withdraw));
                 const fees = parseFloat(d.total_withdrawal_fees || 0);
-                $('#withdrawnFeesHint').text(fees > 0 ? ('Fees paid: €' + money(fees) + ' · net received') : 'Net received');
+                $('#withdrawnFeesHint').text(fees > 0 ? ('Fees paid: ' + money(fees) + ' · net received') : 'Net received');
             },
             error: function (xhr) {
                 if (typeof slbHandleHttpError === 'function') {
@@ -611,9 +610,9 @@
                 '<td class="fw-semibold"><strong>#' + escapeHtml(orderNumber) + '</strong></td>' +
                 '<td>' + formatDate(item.created_at) + '</td>' +
                 '<td><div class="fw-semibold">' + escapeHtml(item.site_name) + '</div><div class="text-muted small">' + linkOrDash(item.site_url, item.site_url) + '</div></td>' +
-                '<td class="text-primary">€' + money(basePrice) + '</td>' +
+                '<td class="text-primary">' + money(basePrice) + '</td>' +
                 '<td>' + (additionalPrice > 0
-                    ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+€' + money(additionalPrice) + ')</span>'
+                    ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+' + money(additionalPrice) + ')</span>'
                     : '<span class="text-muted">—</span>') + '</td>' +
                 '<td>' + homepageCell(homepagePrice, homepageDays) + '</td>' +
                 '<td>' + payoutCell(item) + '</td>' +
@@ -688,12 +687,12 @@
             '</div></div>' +
             '<div class="col-md-6"><div class="bg-light p-3 rounded">' +
                 '<h6 class="mb-3">Earnings Summary</h6>' +
-                '<p class="mb-1"><strong>Base Price:</strong> €' + money(basePrice) + '</p>' +
+                '<p class="mb-1"><strong>Base Price:</strong> ' + money(basePrice) + '</p>' +
                 (additionalPrice > 0
-                    ? '<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ €' + money(additionalPrice) + ' (' + escapeHtml(sensitiveType || 'Extra') + ')</span></p>'
+                    ? '<p class="mb-1"><strong>Sensitive Price:</strong> <span class="text-warning">+ ' + money(additionalPrice) + ' (' + escapeHtml(sensitiveType || 'Extra') + ')</span></p>'
                     : '') +
                 (homepagePrice > 0
-                    ? '<p class="mb-1"><strong>Homepage:</strong> <span class="text-warning">+ €' + money(homepagePrice)
+                    ? '<p class="mb-1"><strong>Homepage:</strong> <span class="text-warning">+ ' + money(homepagePrice)
                         + (homepageDays
                             ? ' (' + homepageDays + ' day' + (homepageDays === 1 ? '' : 's') + ')'
                             : '')
@@ -702,7 +701,7 @@
                 '<p class="mb-1"><strong>' + escapeHtml((orderItem.payout_label || 'Payout')) + ':</strong> ' +
                     (orderItem.payout_state === 'none'
                         ? '<span class="text-muted">—</span>'
-                        : '<span class="' + (orderItem.payout_state === 'you_earned' ? 'earned-amount fs-4' : 'fw-semibold') + '">€' + money(totalPrice) + '</span>') +
+                        : '<span class="' + (orderItem.payout_state === 'you_earned' ? 'earned-amount fs-4' : 'fw-semibold') + '">' + money(totalPrice) + '</span>') +
                 '</p>' +
                 (orderItem.is_clawed_back ? '<p class="mb-1 text-muted">Clawed back — not counted as earned.</p>' : '') +
             '</div></div></div>' +
@@ -776,9 +775,9 @@
             const w = withdrawals[i];
             html += '<tr>' +
                 '<td>' + formatDate(w.created_at) + '</td>' +
-                '<td>€' + money(w.amount) + '</td>' +
-                '<td class="text-muted">€' + money(w.fee) + '</td>' +
-                '<td class="withdrawn-amount"><strong>- €' + money(w.net_amount) + '</strong></td>' +
+                '<td>' + money(w.amount) + '</td>' +
+                '<td class="text-muted">' + money(w.fee) + '</td>' +
+                '<td class="withdrawn-amount"><strong>- ' + money(w.net_amount) + '</strong></td>' +
                 '<td><span class="badge bg-secondary">' + escapeHtml(w.payment_method || 'Bank Transfer') + '</span></td>' +
                 '<td>' + withdrawalStatusBadge(w) + '</td>' +
                 '<td><span class="text-muted small">' + escapeHtml(w.reference || ('WD-' + w.id)) + '</span></td>' +

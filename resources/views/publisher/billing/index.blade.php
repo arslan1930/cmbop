@@ -54,7 +54,7 @@
                                 <td class="fw-semibold">{{ $doc->invoice_number }}</td>
                                 <td class="small">{{ $doc->reference_code }}</td>
                                 <td class="small">{{ optional($doc->invoice_date)->format('M j, Y') }}</td>
-                                <td class="fw-semibold">€{{ number_format((float) $doc->total_amount, 2) }}</td>
+                                <td class="fw-semibold">{{ format_money($doc->total_amount) }}</td>
                                 <td class="small">{{ \App\Models\Invoice::paymentMethodLabel($doc->payment_method) }}</td>
                                 <td class="text-end">
                                     <div class="d-inline-flex flex-wrap gap-1 justify-content-end">

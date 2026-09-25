@@ -139,6 +139,9 @@ class DepositReceiptService
             'meta' => [
                 'deposit_request_id' => $deposit->id,
                 'document' => 'deposit_receipt',
+                'charge_currency' => $deposit->charge_currency,
+                'charge_amount' => $deposit->charge_amount,
+                'wallet_euros' => $amount,
             ],
         ];
     }

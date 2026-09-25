@@ -47,7 +47,7 @@
                             <strong>{{ $invoice->referenceLabel() }}</strong>
                         </div>
                         <div class="col-md-4"><span class="text-muted d-block">Date</span><strong>{{ optional($invoice->invoice_date)->format('M j, Y g:i A') }}</strong></div>
-                        <div class="col-md-4"><span class="text-muted d-block">Amount</span><strong>€{{ number_format((float) $invoice->total_amount, 2) }}</strong></div>
+                        <div class="col-md-4"><span class="text-muted d-block">Amount</span><strong>{{ format_money($invoice->total_amount) }}</strong></div>
                         <div class="col-md-4"><span class="text-muted d-block">Payment method</span><strong>{{ \App\Models\Invoice::paymentMethodLabel($invoice->payment_method) }}</strong></div>
                         <div class="col-md-4"><span class="text-muted d-block">Payment status</span><strong>{{ ucfirst((string) $invoice->payment_status) }}</strong></div>
                         <div class="col-md-4"><span class="text-muted d-block">Transaction</span><strong class="text-break">{{ $invoice->transaction_id ?: '—' }}</strong></div>
@@ -74,7 +74,7 @@
                                     <tr>
                                         <td>{{ $line['description'] ?? 'Service' }}</td>
                                         <td class="small text-break">{{ $line['publisher_website'] ?? $line['reference'] ?? $line['site_url'] ?? '—' }}</td>
-                                        <td class="text-end text-nowrap">€{{ number_format((float) ($line['line_total'] ?? $line['total'] ?? 0), 2) }}</td>
+                                        <td class="text-end text-nowrap">{{ format_money($line['line_total'] ?? $line['total'] ?? 0) }}</td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -85,23 +85,23 @@
                             <tfoot>
                                 <tr>
                                     <td colspan="2" class="text-end text-muted">Subtotal</td>
-                                    <td class="text-end">€{{ number_format((float) $invoice->subtotal, 2) }}</td>
+                                    <td class="text-end">{{ format_money($invoice->subtotal) }}</td>
                                 </tr>
                                 @if((float) $invoice->discount_amount > 0)
                                     <tr>
                                         <td colspan="2" class="text-end text-muted">Discount</td>
-                                        <td class="text-end">-€{{ number_format((float) $invoice->discount_amount, 2) }}</td>
+                                        <td class="text-end">-{{ format_money($invoice->discount_amount) }}</td>
                                     </tr>
                                 @endif
                                 @if((float) $invoice->tax_amount > 0)
                                     <tr>
                                         <td colspan="2" class="text-end text-muted">{{ $invoice->tax_label ?: 'Tax' }}</td>
-                                        <td class="text-end">€{{ number_format((float) $invoice->tax_amount, 2) }}</td>
+                                        <td class="text-end">{{ format_money($invoice->tax_amount) }}</td>
                                     </tr>
                                 @endif
                                 <tr class="fw-semibold">
                                     <td colspan="2" class="text-end">Total</td>
-                                    <td class="text-end" style="color:#1a585e;">€{{ number_format((float) $invoice->total_amount, 2) }}</td>
+                                    <td class="text-end" style="color:#1a585e;">{{ format_money($invoice->total_amount) }}</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -113,15 +113,15 @@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="text-muted text-uppercase small fw-semibold mb-3">Totals</h6>
-                    <div class="d-flex justify-content-between mb-2"><span class="text-muted">Subtotal</span><span>€{{ number_format((float) $invoice->subtotal, 2) }}</span></div>
+                    <div class="d-flex justify-content-between mb-2"><span class="text-muted">Subtotal</span><span>{{ format_money($invoice->subtotal) }}</span></div>
                     @if((float) $invoice->discount_amount > 0)
-                        <div class="d-flex justify-content-between mb-2"><span class="text-muted">Discount</span><span>-€{{ number_format((float) $invoice->discount_amount, 2) }}</span></div>
+                        <div class="d-flex justify-content-between mb-2"><span class="text-muted">Discount</span><span>-{{ format_money($invoice->discount_amount) }}</span></div>
                     @endif
                     @if((float) $invoice->tax_amount > 0)
-                        <div class="d-flex justify-content-between mb-2"><span class="text-muted">{{ $invoice->tax_label ?: 'Tax' }}</span><span>€{{ number_format((float) $invoice->tax_amount, 2) }}</span></div>
+                        <div class="d-flex justify-content-between mb-2"><span class="text-muted">{{ $invoice->tax_label ?: 'Tax' }}</span><span>{{ format_money($invoice->tax_amount) }}</span></div>
                     @endif
                     <div class="d-flex justify-content-between pt-2 border-top fw-bold">
-                        <span>Total</span><span style="color:#1a585e;">€{{ number_format((float) $invoice->total_amount, 2) }}</span>
+                        <span>Total</span><span style="color:#1a585e;">{{ format_money($invoice->total_amount) }}</span>
                     </div>
                     @if($invoice->parentInvoice)
                         <hr>

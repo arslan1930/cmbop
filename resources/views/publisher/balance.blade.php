@@ -13,10 +13,10 @@
     $roleMoveMinAmount = max(0.01, round((float) ($roleMoveMinAmount ?? config('billing.role_move.min_amount', 0.01)), 2));
     $publisherDebt = (float) ($publisher['debt'] ?? $publisherDebt ?? 0);
     $withdrawDisabledReason = $publisherDebt > 0
-        ? 'Withdrawals are blocked while you have outstanding clawback debt of €'.number_format($publisherDebt, 2).'. Contact support to resolve this before withdrawing.'
-        : 'You need at least €'.number_format($minWithdrawalAmount, 2).' withdrawable balance to request a payout. Available now: €'.number_format((float) $publisher['withdrawable'], 2).'.';
+        ? 'Withdrawals are blocked while you have outstanding clawback debt of '.format_money($publisherDebt).'. Contact support to resolve this before withdrawing.'
+        : 'You need at least '.format_money($minWithdrawalAmount).' withdrawable balance to request a payout. Available now: '.format_money($publisher['withdrawable']).'.';
     $moveDisabledReason = $publisherDebt > 0
-        ? 'Moves are blocked while you have outstanding clawback debt of €'.number_format($publisherDebt, 2).'. Contact support to resolve this before moving earnings.'
+        ? 'Moves are blocked while you have outstanding clawback debt of '.format_money($publisherDebt).'. Contact support to resolve this before moving earnings.'
         : 'No withdrawable earnings to move. Bonus credit cannot be moved.';
     $supportEmail = $supportEmail ?? config('email_notifications.brand.support_email', config('mail.from.address'));
 @endphp

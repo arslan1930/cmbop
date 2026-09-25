@@ -58,6 +58,7 @@ use App\Support\AdvertiserOrderStatus;
 use App\Support\CartDisplayFx;
 use App\Support\CatalogVisitUrl;
 use App\Support\PaypalPaymentError;
+use App\Support\PlatformCharge;
 use App\Support\SiteTag;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
@@ -806,6 +807,13 @@ class CatalogController extends Controller
         // More → On sale — live custom per-article discount (Sale −% chip).
         if ($request->input('on_sale') == '1' || $request->input('on_sale') === 1) {
             $query->onDiscount();
+        }
+
+        if (($request->input('featured') == '1' || $request->input('featured') === 1)
+            && Schema::hasColumn('sites', 'featured_until')) {
+            $query->whereNotNull('featured_until')
+                ->where('featured_until', '>', now())
+                ->where('featured_until', '<=', Site::PLAUSIBLE_SQL_DATETIME_CEIL);
         }
 
         if ($request->filled('new_badge') && $request->new_badge == 1) {
@@ -3566,18 +3574,19 @@ class CatalogController extends Controller
         // Same Stripe Checkout pattern as Add Funds — no pending order rows yet.
         try {
             Stripe::setApiKey(config('services.stripe.secret'));
+            $charge = app(PlatformCharge::class)->quote((float) $amountDue);
 
             $sessionPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
-                        'currency' => 'eur',
+                        'currency' => $charge['stripe'],
                         'product_data' => [
                             'name' => 'Order Package - '.count($packageLines).' item(s)',
                             'description' => 'Order reference: '.$referenceCode
                                 .($bonusApplied > 0 ? ' (bonus −€'.number_format($bonusApplied, 2).')' : ''),
                         ],
-                        'unit_amount' => StripePaymentService::toCents($amountDue),
+                        'unit_amount' => StripePaymentService::toCents($charge['amount']),
                     ],
                     'quantity' => 1,
                 ]],
@@ -3590,6 +3599,9 @@ class CatalogController extends Controller
                     'user_id' => (string) $userId,
                     'order_count' => (string) count($packageLines),
                     'expected_amount' => (string) $amountDue,
+                    'eur_amount' => (string) $charge['euros'],
+                    'charge_currency' => $charge['code'],
+                    'charge_amount' => (string) $charge['amount'],
                     'order_total' => (string) $totalAmount,
                     'bonus_applied' => (string) $bonusApplied,
                 ],
@@ -3600,6 +3612,9 @@ class CatalogController extends Controller
                         'user_id' => (string) $userId,
                         'bonus_applied' => (string) $bonusApplied,
                         'expected_amount' => (string) $amountDue,
+                        'eur_amount' => (string) $charge['euros'],
+                        'charge_currency' => $charge['code'],
+                        'charge_amount' => (string) $charge['amount'],
                         'order_total' => (string) $totalAmount,
                     ],
                 ],
@@ -3690,16 +3705,20 @@ class CatalogController extends Controller
         }
 
         try {
+            $charge = app(PlatformCharge::class)->quote((float) $amountDue);
             $payResult = app(StripeCustomerService::class)->payWithSavedCard(
                 $user,
                 $paymentMethodId,
-                StripePaymentService::toCents($amountDue),
+                StripePaymentService::toCents($charge['amount']),
                 [
                     'type' => 'order_payment',
                     'reference_code' => $referenceCode,
                     'user_id' => (string) $userId,
                     'order_count' => (string) $itemCount,
                     'expected_amount' => (string) $amountDue,
+                    'eur_amount' => (string) $charge['euros'],
+                    'charge_currency' => $charge['code'],
+                    'charge_amount' => (string) $charge['amount'],
                     'order_total' => (string) $totalAmount,
                     'bonus_applied' => (string) $bonusApplied,
                 ],
@@ -5123,17 +5142,18 @@ class CatalogController extends Controller
             }
 
             Stripe::setApiKey(config('services.stripe.secret'));
+            $retryCharge = app(PlatformCharge::class)->quote((float) $chargeAmount);
 
             $retryPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
-                        'currency' => 'eur',
+                        'currency' => $retryCharge['stripe'],
                         'product_data' => [
                             'name' => 'Order retry - '.$package->count().' item(s)',
                             'description' => 'Order reference: '.$referenceCode,
                         ],
-                        'unit_amount' => StripePaymentService::toCents($chargeAmount),
+                        'unit_amount' => StripePaymentService::toCents($retryCharge['amount']),
                     ],
                     'quantity' => 1,
                 ]],
@@ -5150,6 +5170,9 @@ class CatalogController extends Controller
                     'user_id' => (string) auth()->id(),
                     'order_count' => (string) $package->count(),
                     'expected_amount' => (string) $chargeAmount,
+                    'eur_amount' => (string) $retryCharge['euros'],
+                    'charge_currency' => $retryCharge['code'],
+                    'charge_amount' => (string) $retryCharge['amount'],
                     'order_total' => (string) $packageTotal,
                     'bonus_applied' => '0',
                     'is_retry' => '1',

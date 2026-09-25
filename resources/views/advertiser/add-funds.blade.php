@@ -47,39 +47,39 @@
     <div class="af-spendable mb-3" role="status" aria-label="Spendable balance">
         <div class="af-spendable__main">
             <span class="af-spendable__label">Spendable</span>
-            <span class="af-spendable__value" id="kpiSpendable">{{ $walletUnavailable ? '—' : '€'.number_format($spendable, 2) }}</span>
+            <span class="af-spendable__value" id="kpiSpendable">{{ $walletUnavailable ? '—' : format_money($spendable) }}</span>
             <div class="af-spendable__equation small text-muted">{{ $walletUnavailable ? 'Unavailable' : 'Money + Bonus' }}</div>
         </div>
         <div class="af-spendable__breakdown">
             <div class="af-spendable__chip" title="Withdrawable funds from deposits">
                 <span class="af-spendable__chip-label">Money</span>
-                <span class="af-spendable__chip-value" id="kpiAvailable">{{ $walletUnavailable ? '—' : '€'.number_format($available, 2) }}</span>
+                <span class="af-spendable__chip-value" id="kpiAvailable">{{ $walletUnavailable ? '—' : format_money($available) }}</span>
             </div>
             <div class="af-spendable__chip af-spendable__chip--bonus" title="Promotional credit for marketplace purchases only">
                 <span class="af-spendable__chip-label">Bonus</span>
-                <span class="af-spendable__chip-value" id="kpiBonus">{{ $walletUnavailable ? '—' : '€'.number_format($bonus, 2) }}</span>
+                <span class="af-spendable__chip-value" id="kpiBonus">{{ $walletUnavailable ? '—' : format_money($bonus) }}</span>
             </div>
         </div>
         @if(! $walletUnavailable && $pendingDeposits > 0 && $reservedHold > 0)
             <div class="af-spendable__pending">
-                <span id="kpiPending">€{{ number_format($pending, 2) }}</span>
-                pending — €{{ number_format($pendingDeposits, 2) }} deposit confirmation
-                · €{{ number_format($reservedHold, 2) }} on hold for checkout
+                <span id="kpiPending">{{ format_money($pending) }}</span>
+                pending — {{ format_money($pendingDeposits) }} deposit confirmation
+                · {{ format_money($reservedHold) }} on hold for checkout
             </div>
         @elseif(! $walletUnavailable && $pendingDeposits > 0)
             <div class="af-spendable__pending">
-                <span id="kpiPending">€{{ number_format($pendingDeposits, 2) }}</span> pending deposit confirmation
+                <span id="kpiPending">{{ format_money($pendingDeposits) }}</span> pending deposit confirmation
             </div>
         @elseif(! $walletUnavailable && $reservedHold > 0)
             <div class="af-spendable__pending">
-                <span id="kpiPending">€{{ number_format($reservedHold, 2) }}</span> on hold for checkout
+                <span id="kpiPending">{{ format_money($reservedHold) }}</span> on hold for checkout
             </div>
         @else
-            <span id="kpiPending" class="d-none">€{{ number_format($pending, 2) }}</span>
+            <span id="kpiPending" class="d-none">{{ format_money($pending) }}</span>
         @endif
         @if(! $walletUnavailable && $bonus > 0)
             <p class="af-spendable__note mb-0">
-                <strong>Bonus €{{ number_format($bonus, 2) }}</strong>
+                <strong>Bonus {{ format_money($bonus) }}</strong>
                 (purchases only) — {{ $promotionalBonusMessage ?? \App\Models\Wallet::PROMOTIONAL_BONUS_MESSAGE }}
             </p>
         @endif
@@ -89,7 +89,7 @@
         <aside class="af-role-strip mb-3" id="publisherRoleStrip" aria-label="Publisher earnings">
             <div class="af-role-strip__main">
                 <span class="af-role-strip__label">Publisher earnings</span>
-                <span class="af-role-strip__value" id="publisherEarningsKpi">€{{ number_format((float) $publisher['withdrawable'], 2) }}</span>
+                <span class="af-role-strip__value" id="publisherEarningsKpi">{{ format_money($publisher['withdrawable']) }}</span>
                 <p class="af-role-strip__note mb-0">Withdrawable. Transfers into this wallet are off — open Balance or Withdraw.</p>
             </div>
             <div class="af-role-strip__actions">
@@ -98,10 +98,10 @@
             </div>
         </aside>
     @endif
-    <span id="kpiDeposits" class="d-none">€{{ number_format($lifetimeDeposits, 2) }}</span>
-    <span id="bonusReceivedLabel" class="d-none">€{{ number_format($bonusReceived, 2) }}</span>
-    <span id="bonusUsedLabel" class="d-none">€{{ number_format($bonusUsed, 2) }}</span>
-    <span id="bonusRemainingLabel" class="d-none">€{{ number_format($bonus, 2) }}</span>
+    <span id="kpiDeposits" class="d-none">{{ format_money($lifetimeDeposits) }}</span>
+    <span id="bonusReceivedLabel" class="d-none">{{ format_money($bonusReceived) }}</span>
+    <span id="bonusUsedLabel" class="d-none">{{ format_money($bonusUsed) }}</span>
+    <span id="bonusRemainingLabel" class="d-none">{{ format_money($bonus) }}</span>
 
     @php
         $walletSavedCards = $savedCards ?? [];
@@ -126,7 +126,7 @@
                     @endphp
                     <li class="d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 {{ $loop->last && $pendingInvoiceCount <= 3 ? '' : 'border-bottom' }}">
                         <div class="small">
-                            <strong>€{{ number_format((float) $deposit->amount, 2) }}</strong>
+                            <strong>{{ format_money($deposit->amount) }}</strong>
                             <span class="text-muted"> · {{ $depositMethodLabels[$deposit->payment_method] ?? ucfirst($deposit->payment_method) }}</span>
                             <code class="ms-1">{{ $pendingRef }}</code>
                         </div>
@@ -765,8 +765,8 @@
                 <div class="modal-body">
                     <div class="p-3 rounded mb-3" style="background:#e6f5f5;border:1px solid #b8e4e4;">
                         <div class="small text-muted">Available for Withdrawal</div>
-                        <div class="fs-3 fw-bold text-primary" id="withdrawAvailableLabel">€{{ number_format($available, 2) }}</div>
-                        <div class="small text-muted mt-1">Bonus Balance (€{{ number_format($bonus, 2) }}) cannot be withdrawn.</div>
+                        <div class="fs-3 fw-bold text-primary" id="withdrawAvailableLabel">{{ format_money($available) }}</div>
+                        <div class="small text-muted mt-1">Bonus Balance ({{ format_money($bonus) }}) cannot be withdrawn.</div>
                     </div>
 
                     @if(! $canWithdraw)
@@ -878,7 +878,7 @@
     let chartOrderIndex = {};
 
     function money(n) {
-        return '€' + (parseFloat(n || 0)).toFixed(2);
+        return (window.slbFormatMoney || function (x) { return '€' + Number(x).toFixed(2); })(n);
     }
 
     function escapeHtml(str) {
@@ -1297,7 +1297,7 @@
                     y: {
                         beginAtZero: true,
                         grid: { color: 'rgba(148,163,184,.18)' },
-                        ticks: { callback: (v) => '€' + v, color: '#75787B', font: { size: 11 } },
+                        ticks: { callback: (v) => (window.slbFormatMoney || function (x) { return '€' + x; })(v), color: '#75787B', font: { size: 11 } },
                         border: { display: false },
                     },
                     x: {

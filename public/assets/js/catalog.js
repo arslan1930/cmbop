@@ -2346,7 +2346,7 @@ const CatalogUrl = (function () {
             'search', 'category', 'country', 'language',
             'price_min', 'price_max', 'da_min', 'da_max', 'dr_min', 'dr_max',
             'traffic_min', 'traffic_max', 'tag', 'sponsored', 'favorites_filter',
-            'blacklist_filter', 'bulk_deals', 'new_badge', 'on_sale', 'verified', 'quality',
+            'blacklist_filter', 'bulk_deals', 'new_badge', 'on_sale', 'featured', 'verified', 'quality',
             'rating_min', 'has_completions', 'site', 'sort', 'per_page', 'page',
             'wizard',
         ];
@@ -2541,6 +2541,7 @@ const CatalogUrl = (function () {
         setInputValue(form.querySelector('[name="bulk_deals"]'), get('bulk_deals'));
         setInputValue(form.querySelector('[name="new_badge"]'), get('new_badge'));
         setInputValue(form.querySelector('[name="on_sale"]'), get('on_sale'));
+        setInputValue(form.querySelector('[name="featured"]'), get('featured'));
         setInputValue(form.querySelector('[name="quality"]'), get('quality'));
         setInputValue(form.querySelector('[name="rating_min"]'), get('rating_min'));
         setInputValue(form.querySelector('[name="has_completions"]'), get('has_completions'));
@@ -2884,6 +2885,7 @@ const CatalogLive = (function () {
         if (params.get('traffic_min') || params.get('traffic_max')) chips.push({ label: 'Traffic', params: ['traffic_min', 'traffic_max'] });
         if (params.get('new_badge') === '1') chips.push({ label: 'New sites', params: ['new_badge'] });
         if (params.get('on_sale') === '1') chips.push({ label: 'On sale', params: ['on_sale'] });
+        if (params.get('featured') === '1') chips.push({ label: 'Featured', params: ['featured'] });
         if (params.get('quality') === '1') chips.push({ label: 'Quality bar (DA/DR/traffic)', params: ['quality'] });
         if (params.get('rating_min')) chips.push({ label: 'Min rating ' + params.get('rating_min') + '+', params: ['rating_min'] });
         if (params.get('has_completions') === '1') chips.push({ label: 'Has completions', params: ['has_completions'] });
@@ -2947,7 +2949,7 @@ const CatalogLive = (function () {
         const moreKeys = [
             'favorites_filter', 'blacklist_filter', 'bulk_deals',
             'da_min', 'da_max', 'dr_min', 'dr_max',
-            'traffic_min', 'traffic_max', 'new_badge', 'on_sale', 'quality',
+            'traffic_min', 'traffic_max', 'new_badge', 'on_sale', 'featured', 'quality',
             'rating_min', 'has_completions',
         ];
         let count = 0;
@@ -2976,6 +2978,11 @@ const CatalogLive = (function () {
             btn.appendChild(badge);
         }
         badge.textContent = String(count);
+        const drawer = document.getElementById('moreFiltersDrawer');
+        if (drawer && count > 0) {
+            drawer.style.display = '';
+            btn.setAttribute('aria-expanded', 'true');
+        }
     }
 
     function applyResultsHtml(html) {
@@ -3036,6 +3043,7 @@ const CatalogLive = (function () {
         syncMoreFiltersBadge(params);
         syncTagQuick(params);
         syncFavoritesQuick(params);
+        syncFeaturedQuick(params);
         syncSuggestButtons(params);
         if (typeof updateButtonStates === 'function') updateButtonStates();
         if (typeof syncDefaultHomepagePrices === 'function') syncDefaultHomepagePrices();
@@ -3110,6 +3118,7 @@ const CatalogLive = (function () {
             syncMoreFiltersBadge(params);
             syncTagQuick(params);
             syncFavoritesQuick(params);
+            syncFeaturedQuick(params);
             syncSuggestButtons(params);
             return Promise.resolve();
         }
@@ -3354,6 +3363,13 @@ window.scheduleCatalogFilterLive = scheduleCatalogFilterLive;
         });
     }
 
+    const featured = document.getElementById('featured');
+    if (featured) {
+        featured.addEventListener('change', function () {
+            submitCatalogFilters();
+        });
+    }
+
     const onSale = document.getElementById('on_sale');
     if (onSale) {
         onSale.addEventListener('change', function () {
@@ -3411,6 +3427,7 @@ window.scheduleCatalogFilterLive = scheduleCatalogFilterLive;
     initCatalogCategoryToggle();
     initCatalogTagQuick();
     initCatalogFavoritesQuick();
+    initCatalogFeaturedQuick();
 })();
 
 function refreshCatalogThemeSelects() {
@@ -3482,6 +3499,16 @@ function syncTagQuick(params) {
     });
 }
 
+function syncFeaturedQuick(params) {
+    const on = params && params.get
+        ? params.get('featured') === '1'
+        : ((document.getElementById('featured') || {}).checked === true);
+    document.querySelectorAll('[data-catalog-featured]').forEach(function (btn) {
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+}
+
 function syncFavoritesQuick(params) {
     const on = params && params.get
         ? params.get('favorites_filter') === '1'
@@ -3505,6 +3532,24 @@ function initCatalogTagQuick() {
             select.dispatchEvent(new Event('change', { bubbles: true }));
         }
         syncTagQuick({ get: function () { return tag; } });
+    });
+}
+
+function initCatalogFeaturedQuick() {
+    const btn = document.querySelector('[data-catalog-featured]');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        const box = document.getElementById('featured');
+        if (!box) return;
+        box.checked = !box.checked;
+        box.dispatchEvent(new Event('change', { bubbles: true }));
+        syncFeaturedQuick({ get: function (key) { return key === 'featured' && box.checked ? '1' : ''; } });
+        const drawer = document.getElementById('moreFiltersDrawer');
+        const moreBtn = document.getElementById('toggleMoreFiltersBtn');
+        if (box.checked && drawer) {
+            drawer.style.display = '';
+            if (moreBtn) moreBtn.setAttribute('aria-expanded', 'true');
+        }
     });
 }
 
@@ -4508,7 +4553,7 @@ function updateBuyButtonPrice(siteId, basePrice, additionalPrice = 0, sensitiveT
             buyButton.dataset.sensitiveType = sensitiveType;
             buyButton.setAttribute('aria-label',
                 'Buy placement' + (buyButton.dataset.name ? ' for ' + buyButton.dataset.name : '')
-                + ' with ' + sensitiveType + ' add-on, €' + totalPrice.toFixed(2));
+                + ' with ' + sensitiveType + ' add-on, ' + catalogMoneyLabel(totalPrice));
         } else {
             delete buyButton.dataset.sensitiveType;
             if (buyButton.dataset.name) {
@@ -4551,17 +4596,17 @@ function syncSensitiveSelectionUi(siteId) {
     const effectiveOfferPct = catalogEffectiveDiscountPercent(listForLabel, articlePay);
     const homeNote = homepage.days
         ? (' · Homepage ' + homepage.days + 'd'
-            + (homeFee > 0 ? (' add-on +€' + homeFee.toFixed(2)) : ' Free'))
+            + (homeFee > 0 ? (' add-on +' + catalogMoneyLabel(homeFee)) : ' Free'))
         : '';
 
     if (selected.type && selected.additionalPrice > 0) {
         infoHtml =
-            '<small class="text-muted">List price: <strong>€'
-            + listForLabel.toFixed(2)
+            '<small class="text-muted">List price: <strong>'
+            + catalogMoneyLabel(listForLabel)
             + '</strong></small><br>'
             + '<small class="text-muted">Selected: <strong>' + catalogEscapeHtml(selected.type)
-            + '</strong> — You pay: <strong>€' + Number(payTotal).toFixed(2)
-            + '</strong> (add-on +€' + selected.additionalPrice.toFixed(2);
+            + '</strong> — You pay: <strong>' + catalogMoneyLabel(payTotal)
+            + '</strong> (add-on +' + catalogMoneyLabel(selected.additionalPrice);
         if (effectiveOfferPct > 0) {
             infoHtml += ', includes −'
                 + catalogFormatPercentLabel(effectiveOfferPct)
@@ -4570,11 +4615,11 @@ function syncSensitiveSelectionUi(siteId) {
         infoHtml += homeNote + ')</small>';
             } else if (discountPercent > 0 || homeFee > 0 || homepage.days) {
         infoHtml =
-            '<small class="text-muted">You pay: <strong>€' + Number(payTotal).toFixed(2)
+            '<small class="text-muted">You pay: <strong>' + catalogMoneyLabel(payTotal)
             + '</strong>';
         if (discountPercent > 0) {
-            infoHtml += ' <span class="text-decoration-line-through">€'
-                + catalogRoundMoney(listForLabel + homeFee).toFixed(2) + '</span> (offer price)';
+            infoHtml += ' <span class="text-decoration-line-through">'
+                + catalogMoneyLabel(catalogRoundMoney(listForLabel + homeFee)) + '</span> (offer price)';
         } else if (homepage.days) {
             infoHtml += homeNote;
         } else {
@@ -4583,7 +4628,7 @@ function syncSensitiveSelectionUi(siteId) {
         infoHtml += '</small>';
     } else {
         infoHtml =
-            '<small class="text-muted">You pay: <strong>€' + Number(basePrice).toFixed(2)
+            '<small class="text-muted">You pay: <strong>' + catalogMoneyLabel(basePrice)
             + '</strong> (Base price)</small>';
     }
 
@@ -4834,7 +4879,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const selected = getSelectedSensitiveForSite(siteId);
             if (selected.type && selected.additionalPrice > 0) {
                 catalogToast(
-                    selected.type + ' +€' + selected.additionalPrice.toFixed(2),
+                    selected.type + ' +' + catalogMoneyLabel(selected.additionalPrice),
                     'success',
                     { delay: 1200 }
                 );

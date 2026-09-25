@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DepositRequest;
 use App\Models\Wallet;
 use App\Services\Wallet\WalletLedgerService;
+use App\Support\PlatformCharge;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -162,10 +163,8 @@ class WalletStripeDepositService
             return 0.0;
         }
 
-        $stripeAmount = isset($session->amount_total)
-            ? StripePaymentService::fromCents((int) $session->amount_total)
-            : null;
-        $finalAmount = $stripeAmount !== null ? $stripeAmount : ($metaAmount ?? 0.0);
+        $ledgerEuros = app(PlatformCharge::class)->eurosFromStripe($session, $metadata);
+        $finalAmount = $ledgerEuros !== null ? $ledgerEuros : ($metaAmount ?? 0.0);
         if ($finalAmount <= 0) {
             throw new \RuntimeException('Invalid deposit amount from Stripe session');
         }
@@ -231,6 +230,8 @@ class WalletStripeDepositService
                     'user_id' => $userId,
                     'reference_code' => $ref,
                     'amount' => $finalAmount,
+                    'charge_currency' => ($this->metaArray($session->metadata ?? null)['charge_currency'] ?? null),
+                    'charge_amount' => ($this->metaArray($session->metadata ?? null)['charge_amount'] ?? null),
                     'payment_method' => 'card',
                     'status' => 'completed',
                     'stripe_session_id' => $sessionId,

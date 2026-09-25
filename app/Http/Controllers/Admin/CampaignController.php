@@ -187,7 +187,7 @@ class CampaignController extends Controller
         }
 
         $fields = $mailable
-            ? $this->composeFieldsFromMailable($mailable, $meta['name'] ?? $key)
+            ? $this->composeFieldsFromMailable($mailable, $meta['name'] ?? $key, $html)
             : $this->frameworkComposeFields($key, $meta['name'] ?? $key);
 
         if (CampaignHtml::isBlank($fields['body_html'])) {
@@ -458,7 +458,7 @@ class CampaignController extends Controller
     /**
      * @return array{subject: string, body_html: string, cta_label: string, cta_url: string}
      */
-    protected function composeFieldsFromMailable(Mailable $mailable, string $fallbackName): array
+    protected function composeFieldsFromMailable(Mailable $mailable, string $fallbackName, string $renderedHtml = ''): array
     {
         $subject = trim((string) $mailable->subject);
         if ($subject === '' && method_exists($mailable, 'envelope')) {
@@ -469,11 +469,16 @@ class CampaignController extends Controller
             }
         }
 
-        $data = $mailable->viewData;
+        $data = is_array($mailable->viewData) ? $mailable->viewData : [];
         $ctaLabel = trim((string) ($data['ctaLabel'] ?? $data['cta_label'] ?? ''));
-        $ctaUrl = $this->safeComposeCtaUrl(
-            $data['ctaUrl'] ?? $data['cta_url'] ?? $data['resetUrl'] ?? $data['verifyUrl'] ?? null
-        );
+        $explicitUrl = $this->safeComposeCtaUrl($data['ctaUrl'] ?? $data['cta_url'] ?? null);
+        $button = $explicitUrl !== ''
+            ? $this->mailButtonMatchingUrl($renderedHtml, $explicitUrl)
+            : $this->firstMailButton($renderedHtml);
+        $ctaUrl = $explicitUrl !== '' ? $explicitUrl : $this->safeComposeCtaUrl($button['url']);
+        if ($ctaLabel === '' && $button['label'] !== '') {
+            $ctaLabel = $button['label'];
+        }
 
         return [
             'subject' => $subject !== '' ? $subject : $fallbackName,
@@ -481,6 +486,55 @@ class CampaignController extends Controller
             'cta_label' => $ctaLabel,
             'cta_url' => $ctaUrl,
         ];
+    }
+
+    /**
+     * Every mail button, in document order. URL and label stay paired.
+     *
+     * @return list<array{url: string, label: string}>
+     */
+    private function mailButtons(string $html): array
+    {
+        if ($html === '' || preg_match_all('/<a\b[^>]*\bclass="[^"]*\bbutton\b[^"]*"[^>]*>.*?<\/a>/is', $html, $tags) < 1) {
+            return [];
+        }
+
+        $buttons = [];
+        foreach ($tags[0] as $tag) {
+            if (! preg_match('/\bhref="([^"]+)"/i', $tag, $href) || ! preg_match('/>(.*)<\/a>/is', $tag, $text)) {
+                continue;
+            }
+            $label = trim(html_entity_decode(strip_tags($text[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $label = preg_replace('/\s+/u', ' ', $label) ?? $label;
+            $buttons[] = [
+                'url' => html_entity_decode($href[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'label' => $label,
+            ];
+        }
+
+        return $buttons;
+    }
+
+    /**
+     * @return array{url: string, label: string}
+     */
+    private function firstMailButton(string $html): array
+    {
+        return $this->mailButtons($html)[0] ?? ['url' => '', 'label' => ''];
+    }
+
+    /**
+     * @return array{url: string, label: string}
+     */
+    private function mailButtonMatchingUrl(string $html, string $url): array
+    {
+        foreach ($this->mailButtons($html) as $button) {
+            if ($this->safeComposeCtaUrl($button['url']) === $url) {
+                return $button;
+            }
+        }
+
+        return ['url' => '', 'label' => ''];
     }
 
     /**

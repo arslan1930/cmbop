@@ -230,7 +230,8 @@ class OrderRefundService
             $requestId .= '-'.$suffix;
         }
 
-        $refunded = $paypal->refundCapture($captureId, $amount, $requestId);
+        [$refundAmount, $refundCurrency] = $this->paypalRefundAmount($order, $amount);
+        $refunded = $paypal->refundCapture($captureId, $refundAmount, $requestId, $refundCurrency);
         $prepared = [
             'id' => (string) ($refunded['id'] ?? ''),
             'amount' => (float) ($refunded['amount'] ?? $amount),
@@ -246,6 +247,44 @@ class OrderRefundService
         ]);
 
         return $prepared;
+    }
+
+    /**
+     * PayPal must be refunded in the capture currency. The order amount is euros.
+     *
+     * @return array{0: float, 1: string}
+     */
+    private function paypalRefundAmount(Order $order, float $euroAmount): array
+    {
+        $raw = is_array($order->paypal_response) ? $order->paypal_response : [];
+        $unit = is_array($raw['purchase_units'][0] ?? null) ? $raw['purchase_units'][0] : [];
+        $capture = is_array($unit['payments']['captures'][0]['amount'] ?? null)
+            ? $unit['payments']['captures'][0]['amount']
+            : (is_array($unit['amount'] ?? null) ? $unit['amount'] : []);
+        $currency = strtoupper((string) ($capture['currency_code'] ?? 'EUR'));
+        $charged = round((float) ($capture['value'] ?? 0), 2);
+        if (! in_array($currency, ['USD', 'GBP'], true) || $charged < 0.01) {
+            return [$euroAmount, 'EUR'];
+        }
+
+        $ledger = 0.0;
+        if (preg_match('/ledger EUR ([0-9]+(?:\.[0-9]{1,2})?)/', (string) ($unit['description'] ?? ''), $match) === 1) {
+            $ledger = round((float) $match[1], 2);
+        }
+        if ($ledger < 0.01) {
+            throw new \RuntimeException('PayPal refund is missing the euro ledger amount.');
+        }
+
+        $share = min(1.0, $euroAmount / $ledger);
+        $refund = round($charged * $share, 2);
+        if ($refund > $charged) {
+            $refund = $charged;
+        }
+        if ($refund < 0.01) {
+            throw new \RuntimeException('PayPal refund amount is below the minimum.');
+        }
+
+        return [$refund, $currency];
     }
 
     /**

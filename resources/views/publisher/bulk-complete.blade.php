@@ -40,7 +40,7 @@
                     <div>
                         <h5 class="mb-0">{{ $site->site_name }}</h5>
                         <div class="small text-muted">
-                            {{ $site->site_url }} · €{{ number_format((float) $site->price, 2) }}
+                            {{ $site->site_url }} · {{ format_money($site->price) }}
                             · DR {{ $site->dr }} / DA {{ $site->da }}
                             · {{ strtoupper($site->language) }}/{{ strtoupper($site->country) }}
                         </div>

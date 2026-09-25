@@ -43,6 +43,7 @@
         || request()->input('has_completions') == '1'
         || request()->input('bulk_deals') == '1'
         || request()->input('on_sale') == '1'
+        || request()->input('featured') == '1'
         || \App\Services\Catalog\CatalogUrlQuery::perPage(request())
             !== \App\Services\Catalog\CatalogUrlQuery::DEFAULT_PER_PAGE
     );
@@ -310,7 +311,7 @@
                              NEW is the corner ribbon. Listing tags and visit live
                              on the wrapping identity row with the rooted URL. -->
                         <div class="catalog-site-title-row">
-                            <span class="text-dark catalog-site-name"
+                            <span class="text-dark catalog-site-name catalog-site-name--concat"
                                   data-site-name-label
                                   title="{{ $displayName }}">
                                 {{ $displayName }}
@@ -428,15 +429,8 @@
                                 report($e);
                             }
                         @endphp
-                        @if($site->isFeatured() || $showSaleChip)
+                        @if($showSaleChip)
                         <div class="catalog-site-deals">
-                            @if($site->isFeatured())
-                                <span class="site-chip site-chip--featured site-chip--descriptor">
-                                    <i class="fa-solid fa-bolt" aria-hidden="true"></i>
-                                    <span>Featured</span>
-                                </span>
-                            @endif
-
                             @if($showSaleChip)
                                 <span class="site-chip site-chip--sale site-chip--status">
                                     <i class="fa-solid fa-percent" aria-hidden="true"></i>
@@ -557,6 +551,7 @@
                             'align' => 'center',
                             'bulkPercent' => $showBulkChip ? $dealBulkChipPct : null,
                             'siteId' => $site->id,
+                            'featured' => $site->isFeatured(),
                         ])
 
                         @if($isOwnedByMe)
@@ -1119,7 +1114,7 @@
 
                     <div class="catalog-mobile-card__main">
                     <div class="catalog-site-title-row">
-                    <div class="fw-semibold text-dark catalog-site-name"
+                    <div class="fw-semibold text-dark catalog-site-name catalog-site-name--concat"
                          data-site-name-label
                          title="{{ $displayName }}">{{ $displayName }}</div>
                     @if($site->verified)
@@ -1431,6 +1426,7 @@
                     'align' => 'start',
                     'bulkPercent' => ! empty($showMobileBulkChip) ? $mobileBulkChipPct : null,
                     'siteId' => $site->id,
+                    'featured' => $site->isFeatured(),
                 ])
             </div>
 

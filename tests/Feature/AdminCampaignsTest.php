@@ -411,6 +411,36 @@ class AdminCampaignsTest extends TestCase
         $this->assertStringContainsString('password/reset/preview-token', (string) ($payload['html'] ?? ''));
     }
 
+    public function test_from_template_keeps_admin_and_action_buttons(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $cases = [
+            'deposit_submitted' => ['approve-confirm', 'Review & approve'],
+            'withdrawal_request' => ['mark-paid-confirm', 'Mark paid'],
+            'admin_stalled_order' => ['/admin/orders/', 'Open in admin'],
+            'new_site' => ['needs_review', 'Review Site'],
+            'admin_manual_payment' => ['/admin/payments', 'View Payments'],
+            'admin_new_user' => ['/admin/audiences', 'View advertisers'],
+        ];
+
+        foreach ($cases as $template => [$urlPart, $labelPart]) {
+            $payload = $this->actingAs($admin)
+                ->postJson(route('admin.campaigns.from-template'), [
+                    'template' => $template,
+                ])
+                ->assertOk()
+                ->json();
+
+            $url = (string) ($payload['cta_url'] ?? '');
+            $label = (string) ($payload['cta_label'] ?? '');
+            $this->assertNotSame('', $url, $template.' CTA URL was empty');
+            $this->assertStringStartsWith('http', $url, $template.' CTA URL was not absolute');
+            $this->assertStringContainsString($urlPart, $url, $template.' CTA URL');
+            $this->assertStringContainsString($labelPart, $label, $template.' CTA label');
+        }
+    }
+
     public function test_preview_with_template_matches_email_center(): void
     {
         $admin = $this->makeUser('admin');

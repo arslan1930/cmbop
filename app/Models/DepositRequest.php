@@ -22,6 +22,8 @@ class DepositRequest extends Model
         'paypal_capture_id',
         'paypal_response',
         'amount',
+        'charge_currency',
+        'charge_amount',
         'payment_method',
         'status',
         'admin_notes',

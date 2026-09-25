@@ -173,17 +173,32 @@
 
     @if(!empty($flatQueue) && $flatQueueSites)
     <div class="card shadow-sm border-0 mb-3 admin-table-fit" data-flat-queue="1">
-        <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        <div class="card-header bg-white fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span>{{ !empty($waitingOnPublisherFilterActive) ? 'Waiting on publisher' : 'Sites needing review' }}</span>
             <span class="small text-muted" data-flat-queue-count>{{ $flatQueueSites->total() }} in queue</span>
+        </div>
+        @include('admin.sites.partials.list-filters', ['mode' => 'flat'])
+        <div class="px-3 py-2 border-bottom d-flex flex-wrap gap-2 align-items-center" data-staff-bulk-bar="flat">
+            @if(auth()->user()?->isAdmin())
+                <button type="button" class="btn btn-sm btn-outline-success" data-staff-bulk="verify">Verify</button>
+            @endif
+            @if(auth()->user()?->canActivateSites())
+                <button type="button" class="btn btn-sm btn-outline-primary" data-staff-bulk="activate">Activate</button>
+            @endif
+            <button type="button" class="btn btn-sm btn-outline-danger" data-staff-bulk="reject">Reject</button>
+            <span class="small text-muted" data-staff-bulk-count>0 selected</span>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
+                        <th class="admin-num-col"><input type="checkbox" data-staff-bulk-all="flat" aria-label="Select all sites on this page"></th>
                         <th class="admin-num-col">#</th>
                         <th>Site</th>
                         <th>Publisher</th>
+                        <th class="admin-narrow-col">DA / DR</th>
+                        <th class="admin-narrow-col">Country</th>
+                        <th class="admin-narrow-col">Tag</th>
                         <th class="admin-narrow-col">Traffic</th>
                         <th class="admin-narrow-col">Price</th>
                         <th class="admin-actions-col">Actions</th>
@@ -209,6 +224,7 @@
                             && ($site->verified || $site->active);
                     @endphp
                     <tr data-flat-site-row="{{ $site->id }}">
+                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                         <td>{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
@@ -231,6 +247,9 @@
                             <div>{{ $site->publisher?->name ?? 'Unknown' }}</div>
                             <div class="text-muted">{{ $site->publisher?->email }}</div>
                         </td>
+                        <td class="small">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
+                        <td class="small">{{ $site->country ? strtoupper((string) $site->country) : '—' }}</td>
+                        <td class="small">{{ $site->tagLabel('No tags') }}</td>
                         <td>{{ number_format((int) $site->traffic) }}</td>
                         <td>€{{ number_format((float) $site->price, 2) }}</td>
                         <td>
@@ -250,7 +269,7 @@
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-danger delete-site"
                                                 data-id="{{ $site->id }}"
-                                                data-name="{{ $site->site_name }}">{{ $isMarketingEditor ? 'Reject' : 'Delete' }}</button>
+                                                data-name="{{ $site->site_name }}">Reject</button>
                                     @elseif($canArchiveFlat)
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-danger delete-site"
@@ -264,7 +283,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">{{ !empty($waitingOnPublisherFilterActive) ? 'No listings waiting on a publisher.' : 'No sites in the review queue.' }}</td>
+                        <td colspan="10" class="text-center text-muted py-4">{{ !empty($waitingOnPublisherFilterActive) ? 'No listings waiting on a publisher.' : 'No sites in the review queue.' }}</td>
                     </tr>
                 @endforelse
                 </tbody>
@@ -328,9 +347,13 @@
                                         {{ number_format($totalSitesCount) }} total
                                     </span>
                                     @if($publisherSearch !== '' && (int) ($user->matched_sites_count ?? 0) > 0)
-                                        <span class="badge rounded-pill text-bg-primary" title="Sites matching this search">
+                                        <button type="button"
+                                                class="badge rounded-pill text-bg-primary border-0 select-user"
+                                                data-id="{{ $user->id }}"
+                                                data-site-q="{{ $publisherSearch }}"
+                                                title="Open this publisher with the site search filled">
                                             {{ number_format((int) $user->matched_sites_count) }} matched
-                                        </span>
+                                        </button>
                                     @endif
                                 </div>
                             </td>
@@ -388,15 +411,27 @@
                 <input class="form-check-input" type="checkbox" id="sitesNeedsReviewOnly">
                 <label class="form-check-label small" for="sitesNeedsReviewOnly">Needs review only</label>
             </div>
+            @include('admin.sites.partials.list-filters', ['mode' => 'publisher'])
         </div>
 
         <div class="card shadow-sm border-0 admin-table-fit">
+            <div class="px-3 py-2 border-bottom d-flex flex-wrap gap-2 align-items-center" data-staff-bulk-bar="publisher">
+                @if(auth()->user()?->isAdmin())
+                    <button type="button" class="btn btn-sm btn-outline-success" data-staff-bulk="verify">Verify</button>
+                @endif
+                @if(auth()->user()?->canActivateSites())
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-staff-bulk="activate">Activate</button>
+                @endif
+                <button type="button" class="btn btn-sm btn-outline-danger" data-staff-bulk="reject">Reject</button>
+                <span class="small text-muted" data-staff-bulk-count>0 selected</span>
+            </div>
 
             <div class="table-responsive">
                 <table class="table table-striped align-middle mb-0">
 
                     <thead class="table-light">
                         <tr>
+                            <th class="admin-num-col"><input type="checkbox" data-staff-bulk-all="publisher" aria-label="Select all sites on this page"></th>
                             <th class="admin-num-col">#</th>
                             <th>Site Information</th>
                             <th class="admin-narrow-col">Traffic</th>
@@ -491,6 +526,18 @@ function releaseSwalBodyLock() {
 }
 
 /* ================= LOAD SITES ================= */
+let sitesFetchSeq = 0;
+
+function resetPublisherSiteFilters() {
+    document.querySelectorAll('#staffPublisherFilters [data-staff-filter]').forEach(function (el) {
+        if (el.type === 'checkbox') {
+            el.checked = false;
+            return;
+        }
+        el.value = '';
+    });
+}
+
 function fetchUserSites(id, page){
     const userRow = document.querySelector(`.user-row[data-id="${id}"]`);
     const addBtn = document.getElementById('addSiteForPublisherBtn');
@@ -515,7 +562,7 @@ function fetchUserSites(id, page){
     }
 
     document.getElementById('sitesTable').innerHTML =
-        `<tr><td colspan="6">Loading...</td></tr>`;
+        `<tr><td colspan="7">Loading...</td></tr>`;
 
     const pageNum = Number(page) > 1 ? Number(page) : 1;
     const params = new URLSearchParams();
@@ -530,7 +577,16 @@ function fetchUserSites(id, page){
     if (document.getElementById('sitesNeedsReviewOnly')?.checked) {
         params.set('needs_review', '1');
     }
+    document.querySelectorAll('#staffPublisherFilters [data-staff-filter]').forEach(function (el) {
+        if (el.type === 'checkbox') {
+            if (el.checked) params.set(el.getAttribute('data-staff-filter'), '1');
+            return;
+        }
+        const value = (el.value || '').trim();
+        if (value !== '') params.set(el.getAttribute('data-staff-filter'), value);
+    });
     const sitesUrl = `${STAFF_BASE}/users/${id}/sites?${params.toString()}`;
+    const fetchSeq = ++sitesFetchSeq;
 
     return fetch(sitesUrl, {
         method: 'GET',
@@ -547,6 +603,9 @@ function fetchUserSites(id, page){
             // Stale sessionStorage publisher ids (or deleted users) 404 here and
             // used to toast on every Sites Management visit. Clear and go back.
             if (res.status === 404) {
+                if (fetchSeq !== sitesFetchSeq) {
+                    throw new Error('Publisher not found');
+                }
                 sessionStorage.removeItem('selected_user');
                 document.getElementById('sitesSection').classList.add('d-none');
                 document.getElementById('usersSection').classList.remove('d-none');
@@ -573,6 +632,9 @@ function fetchUserSites(id, page){
             return res.json();
         })
         .then(data => {
+            if (fetchSeq !== sitesFetchSeq) {
+                return allSites;
+            }
             // Support legacy bare-array responses and the publisher+sites payload.
             const sites = Array.isArray(data) ? data : (data?.sites || []);
             const publisher = Array.isArray(data) ? null : (data?.publisher || null);
@@ -599,6 +661,9 @@ function fetchUserSites(id, page){
             return allSites;
         })
         .catch((err) => {
+            if (fetchSeq !== sitesFetchSeq) {
+                return allSites;
+            }
             const msg = (err && err.message) ? String(err.message) : 'Failed to load sites';
             // Quietly recover from stale deep links; keep a toast for real failures.
             if (msg !== 'Publisher not found') {
@@ -1065,6 +1130,12 @@ document.addEventListener('click', function(e){
     const btn = e.target.closest('.select-user');
     if(btn){
         let id = btn.dataset.id;
+        const siteQ = btn.dataset.siteQ || '';
+        const siteSearch = document.getElementById('siteSearch');
+        resetPublisherSiteFilters();
+        if (siteSearch) {
+            siteSearch.value = (siteQ !== '' && !siteQ.includes('@')) ? siteQ : '';
+        }
         sessionStorage.setItem('selected_user', id);
         // Publishers list may be queue-filtered; always show every site for this publisher.
         revealAllPublisherSites();
@@ -1096,12 +1167,10 @@ document.addEventListener('click', function(e){
         const name = site?.site_name || btn.dataset.name || 'this site';
         const title = isArchive
             ? 'Archive this site?'
-            : (IS_MARKETING_EDITOR ? 'Reject this site?' : 'Delete this site?');
+            : 'Reject this site?';
         const text = isArchive
             ? `"${name}" will be hidden from the catalog. Explain why — the publisher will see this reason. The listing is kept so order history stays intact.`
-            : (IS_MARKETING_EDITOR
-                ? `Explain why "${name}" is being rejected. The publisher will see this reason.`
-                : `Are you sure you want to delete "${name}"? Explain why — the publisher will see this reason.`);
+            : `Explain why "${name}" is being rejected. The publisher will see this reason.`;
 
         Swal.fire({
             title,
@@ -1112,7 +1181,7 @@ document.addEventListener('click', function(e){
             inputPlaceholder: 'Reason (min. 10 characters)',
             inputAttributes: { 'aria-label': isArchive ? 'Archive reason' : 'Rejection reason', maxlength: '1000' },
             showCancelButton:true,
-            confirmButtonText: isArchive ? 'Archive' : (IS_MARKETING_EDITOR ? 'Reject' : 'Delete'),
+            confirmButtonText: isArchive ? 'Archive' : 'Reject',
             customClass: { confirmButton: 'slb-swal-danger' },
             preConfirm: (value) => {
                 const reason = String(value || '').trim();
@@ -1675,12 +1744,12 @@ function initSitePreviewZoom(root) {
 
 function renderSites(data){
 
-    data = [...(data || [])].sort((a,b) => (b.id || 0) - (a.id || 0));
+    data = [...(data || [])];
 
     let html = '';
 
     if(!data.length){
-        html = `<tr><td colspan="6" class="text-center text-muted">No sites found</td></tr>`;
+        html = `<tr><td colspan="7" class="text-center text-muted">No sites found</td></tr>`;
     } else {
 
         data.forEach((site,i) => {
@@ -1723,6 +1792,7 @@ function renderSites(data){
                         <a href="${escapeHtml(site.site_url ?? '#')}" target="_blank" class="site-url" title="${escapeHtml(site.site_url ?? '')}">
                             ${escapeHtml(site.site_url ?? '-')}
                         </a>
+                        <div class="small text-muted">DA ${site.da ?? '—'} · DR ${site.dr ?? '—'} · ${escapeHtml((site.country || '').toString().toUpperCase() || '—')} · ${escapeHtml((site.language || '').toString().toUpperCase() || '—')} · ${escapeHtml(site.listing_tag_label || 'No tags')}</div>
                     </div>
                 </div>
             `;
@@ -1760,7 +1830,7 @@ function renderSites(data){
                         : '');
 
             const deleteItem = canDeleteSiteRow(site)
-                ? `<li><button type="button" class="dropdown-item text-danger delete-site" data-id="${site.id}"><i class="fa fa-trash me-2"></i>Delete</button></li>`
+                ? `<li><button type="button" class="dropdown-item text-danger delete-site" data-id="${site.id}"><i class="fa fa-trash me-2"></i>Reject</button></li>`
                 : (canArchiveSiteRow(site)
                     ? `<li><button type="button" class="dropdown-item text-danger delete-site" data-id="${site.id}" data-archive="1"><i class="fa fa-archive me-2"></i>Archive</button></li>`
                     : (CAN_DELETE_ANY_SITE && siteHasOrders(site) && !site.archived
@@ -1822,6 +1892,7 @@ function renderSites(data){
 
             html += `
                 <tr class="${needsReview ? 'site-needs-review-row' : ''}" data-site-row="${site.id}">
+                    <td><input type="checkbox" data-staff-bulk-id="${site.id}" aria-label="Select site"></td>
                     <td>${i+1}</td>
                     <td>${siteInfoHtml}</td>
                     <td>${site.traffic ?? '-'}</td>
@@ -1831,7 +1902,7 @@ function renderSites(data){
                 </tr>
 
                 <tr id="details-${site.id}" class="admin-expand-row">
-                    <td colspan="6">
+                    <td colspan="7">
                         <div class="admin-expand-box">
                             <div class="border rounded bg-white shadow-sm p-3">
                                 <div class="row g-3">
@@ -1930,6 +2001,108 @@ function queryLooksLikeSiteSearch(q) {
 
 document.getElementById('sitesNeedsReviewOnly')?.addEventListener('change', function(){
     refetchOpenPublisherSites();
+});
+
+document.getElementById('staffPublisherFilters')?.addEventListener('change', function () {
+    refetchOpenPublisherSites();
+});
+
+function selectedBulkIds(scope) {
+    const root = scope === 'flat'
+        ? document.querySelector('[data-flat-queue]')
+        : document.getElementById('sitesSection');
+    if (!root) return [];
+    return Array.from(root.querySelectorAll('[data-staff-bulk-id]:checked'))
+        .map((el) => Number(el.getAttribute('data-staff-bulk-id')))
+        .filter((id) => id > 0);
+}
+
+function syncBulkCounts() {
+    document.querySelectorAll('[data-staff-bulk-bar]').forEach(function (bar) {
+        const scope = bar.getAttribute('data-staff-bulk-bar');
+        const countEl = bar.querySelector('[data-staff-bulk-count]');
+        if (countEl) countEl.textContent = selectedBulkIds(scope).length + ' selected';
+    });
+}
+
+document.addEventListener('change', function (e) {
+    const all = e.target.closest('[data-staff-bulk-all]');
+    if (all) {
+        const scope = all.getAttribute('data-staff-bulk-all');
+        const root = scope === 'flat'
+            ? document.querySelector('[data-flat-queue]')
+            : document.getElementById('sitesTable');
+        root?.querySelectorAll('[data-staff-bulk-id]').forEach(function (box) {
+            box.checked = all.checked;
+        });
+    }
+    if (e.target.matches('[data-staff-bulk-id], [data-staff-bulk-all]')) {
+        syncBulkCounts();
+    }
+});
+
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-staff-bulk]');
+    if (!btn) return;
+    e.preventDefault();
+    const bar = btn.closest('[data-staff-bulk-bar]');
+    const scope = bar?.getAttribute('data-staff-bulk-bar') || 'publisher';
+    const ids = selectedBulkIds(scope);
+    const action = btn.getAttribute('data-staff-bulk');
+    if (!ids.length) {
+        toast('Select at least one site.', 'warning');
+        return;
+    }
+    const run = function (reason) {
+        const body = { action: action, ids: ids };
+        if (reason) body.reason = reason;
+        fetch(`${STAFF_BASE}/sites/bulk-action`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(body),
+        }).then(async function (res) {
+            const data = await res.json().catch(function () { return {}; });
+            toast(data.message || (res.ok ? 'Updated' : 'Could not update the selection.'), res.ok ? 'success' : 'warning');
+            if (!res.ok) return;
+            if (scope === 'flat') {
+                window.location.reload();
+                return;
+            }
+            const userId = sessionStorage.getItem('selected_user');
+            if (userId) fetchUserSites(userId);
+        }).catch(function () {
+            toast('Could not update the selection.', 'error');
+        });
+    };
+    if (action === 'reject') {
+        Swal.fire({
+            title: 'Reject selected sites?',
+            text: 'The publisher will see this reason.',
+            input: 'textarea',
+            inputPlaceholder: 'Reason (min. 10 characters)',
+            showCancelButton: true,
+            confirmButtonText: 'Reject',
+            customClass: { confirmButton: 'slb-swal-danger' },
+            preConfirm: function (value) {
+                const reason = String(value || '').trim();
+                if (reason.length < 10) {
+                    Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
+                    return false;
+                }
+                return reason;
+            },
+        }).then(function (result) {
+            if (result.isConfirmed) run(result.value);
+        });
+        return;
+    }
+    run(null);
 });
 
 /* ================= RESTORE / DEEP-LINK ================= */

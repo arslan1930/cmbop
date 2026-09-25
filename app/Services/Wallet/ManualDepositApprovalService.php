@@ -57,6 +57,11 @@ class ManualDepositApprovalService
                 throw ManualDepositAlreadyProcessedException::forDeposit((int) $locked->id);
             }
 
+            $method = strtolower((string) $locked->payment_method);
+            if (! in_array($method, ['bank', 'wise', 'crypto'], true)) {
+                throw new RuntimeException('Only bank, Wise, and crypto transfers can be approved by hand.');
+            }
+
             $locked->update(DepositRequest::attributesThatExist([
                 'status' => 'approved',
                 'admin_notes' => $adminNotes,

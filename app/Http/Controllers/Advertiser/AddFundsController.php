@@ -23,6 +23,7 @@ use App\Services\WalletPaypalDepositService;
 use App\Services\WalletStripeDepositService;
 use App\Support\DepositPaymentConfig;
 use App\Support\PaypalPaymentError;
+use App\Support\PlatformCharge;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Endroid\QrCode\Builder\Builder;
@@ -314,8 +315,9 @@ class AddFundsController extends Controller
 
             Stripe::setApiKey(config('services.stripe.secret'));
 
-            $amountEuros = round((float) $request->amount, 2);
-            $amountCents = StripePaymentService::toCents($amountEuros);
+            $charge = app(PlatformCharge::class)->quote(round((float) $request->amount, 2));
+            $amountEuros = $charge['euros'];
+            $amountCents = StripePaymentService::toCents($charge['amount']);
             $referenceCode = $request->reference_code;
             $user = auth()->user();
 
@@ -326,10 +328,10 @@ class AddFundsController extends Controller
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
-                        'currency' => 'eur',
+                        'currency' => $charge['stripe'],
                         'product_data' => [
                             'name' => 'Add Funds to Wallet',
-                            'description' => 'Deposit €'.number_format($amountEuros, 2).' to your wallet',
+                            'description' => 'Deposit '.$charge['code'].' '.number_format($charge['amount'], 2).' (wallet €'.number_format($amountEuros, 2).')',
                         ],
                         'unit_amount' => $amountCents,
                     ],
@@ -342,6 +344,9 @@ class AddFundsController extends Controller
                     'type' => 'wallet_deposit',
                     'user_id' => (string) $user->id,
                     'amount' => (string) $amountEuros,
+                    'eur_amount' => (string) $amountEuros,
+                    'charge_currency' => $charge['code'],
+                    'charge_amount' => (string) $charge['amount'],
                     'reference_code' => $referenceCode,
                     'session_reference' => $sessionReference,
                 ],
@@ -645,18 +650,22 @@ class AddFundsController extends Controller
         }
 
         $user = auth()->user();
-        $amountEuros = round((float) $request->amount, 2);
+        $charge = app(PlatformCharge::class)->quote(round((float) $request->amount, 2));
+        $amountEuros = $charge['euros'];
         $referenceCode = (string) $request->reference_code;
 
         try {
             $payResult = app(StripeCustomerService::class)->payWithSavedCard(
                 $user,
                 (string) $request->payment_method_id,
-                StripePaymentService::toCents($amountEuros),
+                StripePaymentService::toCents($charge['amount']),
                 [
                     'type' => 'wallet_deposit',
                     'user_id' => (string) $user->id,
                     'amount' => (string) $amountEuros,
+                    'eur_amount' => (string) $amountEuros,
+                    'charge_currency' => $charge['code'],
+                    'charge_amount' => (string) $charge['amount'],
                     'reference_code' => $referenceCode,
                 ],
                 route('advertiser.checkout.success').'?ref='.urlencode($referenceCode).'&amount='.$amountEuros,
@@ -664,9 +673,7 @@ class AddFundsController extends Controller
             );
 
             if ($payResult['status'] === 'succeeded') {
-                $chargedEuros = ! empty($payResult['amount_received'])
-                    ? StripePaymentService::fromCents((int) $payResult['amount_received'])
-                    : $amountEuros;
+                $chargedEuros = $amountEuros;
                 app(WalletStripeDepositService::class)->creditFromPaymentIntent(
                     $user->id,
                     $payResult['payment_intent_id'],

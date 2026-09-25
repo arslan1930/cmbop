@@ -1531,6 +1531,8 @@ $registerStaffOpsRoutes = function () {
         ->name('staff-handbook');
     Route::get('/users/{id}/sites', [AdminSiteController::class, 'userSites'])
         ->name('users.sites');
+    Route::post('/sites/bulk-action', [AdminSiteController::class, 'bulkAction'])
+        ->name('sites.bulk-action');
     // Disk-stream preview when public/storage symlink is broken (Hostinger MEDIA_PATH).
     // Must be registered before /sites/{id}… wildcards.
     Route::get('/sites/media/{path}', [PublicMediaController::class, 'show'])
@@ -1558,6 +1560,8 @@ $registerStaffOpsRoutes = function () {
         ->name('bulk-site-requests.seed');
     Route::post('/bulk-site-requests/{id}/done', [AdminBulkSiteRequestController::class, 'done'])
         ->name('bulk-site-requests.done');
+    Route::post('/bulk-site-requests/{id}/draft', [AdminBulkSiteRequestController::class, 'saveDraft'])
+        ->name('bulk-site-requests.draft');
     Route::post('/bulk-site-requests/{id}/cancel', [AdminBulkSiteRequestController::class, 'cancel'])
         ->name('bulk-site-requests.cancel');
 
@@ -1747,6 +1751,7 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/finance/wallets/{wallet}/clear-debt', [AdminFinanceController::class, 'clearDebt'])->name('finance.wallets.clear-debt');
 
         Route::get('/deposits', [AdminDepositController::class, 'index'])->name('deposits');
+        Route::get('/deposits/export', [AdminDepositController::class, 'export'])->name('deposits.export');
         Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
         Route::post('/deposits/{id}/approve', [AdminDepositController::class, 'approve'])->name('deposits.approve');
         Route::post('/deposits/{id}/reject', [AdminDepositController::class, 'reject'])->name('deposits.reject');
@@ -1799,6 +1804,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('promotions.welcome-bonus.toggle');
         Route::post('/promotions/welcome-bonus/amount', [AdminWelcomeBonusSettingController::class, 'updateAmount'])
             ->name('promotions.welcome-bonus.amount');
+        Route::post('/promotions/feature-offers', [AdminPromotionController::class, 'updateFeatureOffers'])
+            ->name('promotions.feature-offers.update');
 
         Route::get('/audiences', [AdminAudienceController::class, 'index'])->name('audiences.index');
         Route::get('/audiences/export', [AdminAudienceController::class, 'export'])

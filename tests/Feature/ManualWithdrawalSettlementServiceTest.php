@@ -231,7 +231,7 @@ class ManualWithdrawalSettlementServiceTest extends TestCase
 
         $this->actingAs($admin)
             ->postJson(route('admin.withdrawals.reject', $withdrawal->id), [
-                'notes' => 'Ambiguous',
+                'notes' => 'Ambiguous wallet',
             ])
             ->assertStatus(422)
             ->assertJsonPath('success', false);
@@ -265,7 +265,7 @@ class ManualWithdrawalSettlementServiceTest extends TestCase
 
         $this->actingAs($admin)
             ->postJson(route('admin.withdrawals.reject', $withdrawal->id), [
-                'notes' => 'Rejected',
+                'notes' => 'Rejected payout',
             ])
             ->assertOk()
             ->assertJsonPath('success', true);

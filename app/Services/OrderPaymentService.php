@@ -16,6 +16,7 @@ use App\Services\Advertiser\SpendBudgetService;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Wallet\WalletLedgerService;
+use App\Support\PlatformCharge;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -2949,6 +2950,20 @@ class OrderPaymentService
             $stripeCents = (int) $session->amount_total;
         } elseif (isset($session->amount_received) || isset($session->amount)) {
             $stripeCents = (int) ($session->amount_received ?: $session->amount);
+        }
+
+        $metadata = [];
+        if (isset($session->metadata)) {
+            $raw = $session->metadata;
+            $metadata = is_array($raw) ? $raw : (method_exists($raw, 'toArray') ? $raw->toArray() : []);
+        }
+        $fromCharge = app(PlatformCharge::class)->eurosFromStripe($session, $metadata);
+        if ($fromCharge !== null) {
+            return $fromCharge;
+        }
+        $currency = strtolower((string) ($session->currency ?? ($metadata['charge_currency'] ?? 'eur')));
+        if ($currency !== '' && $currency !== 'eur') {
+            return null;
         }
 
         return $stripeCents === null ? null : StripePaymentService::fromCents($stripeCents);

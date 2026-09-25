@@ -142,7 +142,7 @@
                                     @endif
                                 </td>
                                 <td class="small">{{ optional($invoice->invoice_date)->format('M j, Y') }}</td>
-                                <td class="fw-semibold">€{{ number_format((float) $invoice->total_amount, 2) }}</td>
+                                <td class="fw-semibold">{{ format_money($invoice->total_amount) }}</td>
                                 <td>
                                     <span class="billing-status billing-status--{{ $invoice->status }}">{{ ucfirst($invoice->status) }}</span>
                                 </td>

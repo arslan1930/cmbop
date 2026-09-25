@@ -205,7 +205,7 @@
 
     <!-- FILTERS SECTION -->
 @php
-    $moreFilterKeys = ['favorites_filter','blacklist_filter','bulk_deals','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge','on_sale','quality','rating_min','has_completions'];
+    $moreFilterKeys = ['favorites_filter','blacklist_filter','bulk_deals','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge','on_sale','featured','quality','rating_min','has_completions'];
     $moreTagActive = \App\Support\SiteTag::catalogFilterFromRequest(request()) !== null;
     $moreFilterCount = collect($moreFilterKeys)->filter(fn ($k) => filled(request($k)))->count()
         + ($moreTagActive ? 1 : 0);
@@ -250,6 +250,7 @@
     if (request('traffic_min') || request('traffic_max')) $activeFilterChips[] = ['label' => 'Traffic', 'key' => 'traffic', 'params' => ['traffic_min', 'traffic_max']];
     if (request('new_badge') == '1') $activeFilterChips[] = ['label' => 'New sites', 'key' => 'new_badge', 'params' => ['new_badge']];
     if (request('on_sale') == '1') $activeFilterChips[] = ['label' => 'On sale', 'key' => 'on_sale', 'params' => ['on_sale']];
+    if (request('featured') == '1') $activeFilterChips[] = ['label' => 'Featured', 'key' => 'featured', 'params' => ['featured']];
     if (request('quality') == '1') $activeFilterChips[] = ['label' => 'Quality bar (DA/DR/traffic)', 'key' => 'quality', 'params' => ['quality']];
     $catalogRatingMin = filter_number(request('rating_min'));
     if ($catalogRatingMin !== null && $catalogRatingMin > 0) $activeFilterChips[] = ['label' => 'Min rating '.$catalogRatingMin.'+', 'key' => 'rating_min', 'params' => ['rating_min']];
@@ -518,14 +519,6 @@
                                 </button>
                             @endforeach
                         </div>
-                        <div class="catalog-fav-quick" role="group" aria-label="Favorites">
-                            <button type="button"
-                                    class="catalog-tag-quick__btn{{ request('favorites_filter') == '1' ? ' is-active' : '' }}"
-                                    data-catalog-favorites="1"
-                                    aria-pressed="{{ request('favorites_filter') == '1' ? 'true' : 'false' }}">
-                                <i class="fa-regular fa-heart me-1" aria-hidden="true"></i> Favorites
-                            </button>
-                        </div>
                     </div>
 
                     <!-- More filters drawer (teal mist theme) -->
@@ -547,7 +540,9 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogFavoritesFilter-trigger">Favorites</label>
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogFavoritesFilter-trigger">
+                                    <i class="fa-regular fa-heart me-1" aria-hidden="true"></i>Favorites
+                                </label>
                                 @include('advertiser.partials.catalog-theme-select', [
                                     'selectId' => 'catalogFavoritesFilter',
                                     'name' => 'favorites_filter',
@@ -613,6 +608,16 @@
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="bulk_deals" id="bulk_deals" value="1" {{ request('bulk_deals') == 1 ? 'checked' : '' }}>
                                     <label class="form-check-label" for="bulk_deals">Show Bulk Deals</label>
+                                </div>
+                            </div>
+
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <label class="form-label fw-semibold small text-muted mb-1">
+                                    <i class="fa-solid fa-bolt-fill me-1" aria-hidden="true"></i>Featured
+                                </label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="featured" id="featured" value="1" {{ request('featured') == 1 ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="featured">Show featured sites</label>
                                 </div>
                             </div>
 

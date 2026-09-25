@@ -338,7 +338,7 @@
                                 <br><small style="color: #0f766e;">
                                     Homepage {{ (int) $item['homepage_days'] }} day{{ (int) $item['homepage_days'] === 1 ? '' : 's' }}
                                     @if(($item['homepage_price'] ?? 0) > 0)
-                                        (+€{{ number_format($item['homepage_price'], 2) }})
+                                        (+{{ format_money($item['homepage_price']) }})
                                     @else
                                         (Free)
                                     @endif
@@ -350,7 +350,7 @@
                                 </small>
                             @endif
                         </td>
-                        <td class="amount">€{{ number_format($item['price'], 2) }}</td>
+                        <td class="amount">{{ format_money($item['price']) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -359,10 +359,10 @@
             @if(isset($totalBaseAmount) && $totalBaseAmount > 0)
             <div style="font-size: 12px; color: #6b7280; margin-top: -10px; margin-bottom: 10px;">
                 <p>
-                    Base Amount: €{{ number_format($totalBaseAmount, 2) }}
-                    | Sensitive Add-ons: €{{ number_format($totalSensitiveAmount, 2) }}
+                    Base Amount: {{ format_money($totalBaseAmount) }}
+                    | Sensitive Add-ons: {{ format_money($totalSensitiveAmount) }}
                     @if(!empty($totalHomepageAmount) && $totalHomepageAmount > 0)
-                        | Homepage: €{{ number_format($totalHomepageAmount, 2) }}
+                        | Homepage: {{ format_money($totalHomepageAmount) }}
                     @endif
                 </p>
             </div>
@@ -381,7 +381,7 @@
                     <tr>
                         <td>Wallet Deposit - Reference: REF{{ $referenceCode }}<br>
                         </td>
-                        <td class="amount">€{{ number_format($amount, 2) }}</td>
+                        <td class="amount">{{ format_money($amount) }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -390,7 +390,7 @@
             <div class="totals">
                 <div class="total-row">
                     <div class="total-label">Subtotal:</div>
-                    <div class="total-value">€{{ number_format($amount, 2) }}</div>
+                    <div class="total-value">{{ format_money($amount) }}</div>
                 </div>
                 <div class="total-row">
                     <div class="total-label">VAT (0%):</div>
@@ -398,7 +398,7 @@
                 </div>
                 <div class="total-row grand-total">
                     <div class="total-label">Total:</div>
-                    <div class="total-value" style="font-size: 18px; color: #2563eb;">€{{ number_format($amount, 2) }}</div>
+                    <div class="total-value" style="font-size: 18px; color: #2563eb;">{{ format_money($amount) }}</div>
                 </div>
             </div>
             

@@ -29,6 +29,11 @@
 <div class="catalog-price catalog-price--{{ $priceAlign }}">
     <div class="catalog-price__row">
         <span class="catalog-price__pay base-price-display">{{ format_money($payPrice) }}</span>
+        @if(! empty($featured))
+            <span class="catalog-site-featured-mark" aria-label="Featured">
+                <i class="fa-solid fa-bolt-fill catalog-site-featured-mark__icon" data-slb-inlined="1" aria-hidden="true"></i>
+            </span>
+        @endif
         <span class="catalog-price__list list-price-display" {{ $hasOffer ? '' : 'hidden' }}>{{ format_money($listPrice) }}</span>
     </div>
     @if($hasOffer && $salePercent)

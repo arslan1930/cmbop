@@ -353,15 +353,15 @@
     <div class="dash-wallet-strip">
         <div class="dw-item">
             <span class="dw-label">Spendable</span>
-            <div class="dw-value">€{{ number_format((float) ($wallet['spendable'] ?? 0), 2) }}</div>
+            <div class="dw-value">{{ format_money($wallet['spendable'] ?? 0) }}</div>
         </div>
         <div class="dw-item">
             <span class="dw-label">Available</span>
-            <div class="dw-value">€{{ number_format((float) ($wallet['available'] ?? 0), 2) }}</div>
+            <div class="dw-value">{{ format_money($wallet['available'] ?? 0) }}</div>
         </div>
         <div class="dw-item">
             <span class="dw-label">Bonus</span>
-            <div class="dw-value">€{{ number_format((float) ($wallet['bonus'] ?? 0), 2) }}</div>
+            <div class="dw-value">{{ format_money($wallet['bonus'] ?? 0) }}</div>
         </div>
         <div class="dw-item d-flex align-items-center">
             <a href="{{ route('advertiser.add-funds') }}" class="btn btn-sm btn-primary">
@@ -374,12 +374,12 @@
         </div>
         @if(!empty($budgetStatus['low_balance']))
             <p class="dw-warn">
-                Spendable is below your €{{ number_format((float) ($budgetStatus['low_balance_threshold'] ?? 0), 2) }} alert threshold.
+                Spendable is below your {{ format_money($budgetStatus['low_balance_threshold'] ?? 0) }} alert threshold.
             </p>
         @elseif(!empty($budgetStatus['monthly_limit']))
             <p class="dw-warn" style="background:#f0fbfb;border-color:#b8e4e4;color:#1a585e;">
-                This month committed €{{ number_format((float) ($budgetStatus['committed'] ?? 0), 2) }}
-                / €{{ number_format((float) $budgetStatus['monthly_limit'], 2) }}
+                This month committed {{ format_money($budgetStatus['committed'] ?? 0) }}
+                / {{ format_money($budgetStatus['monthly_limit']) }}
                 ({{ number_format((float) ($budgetStatus['percent'] ?? 0), 1) }}%)
             </p>
         @endif
@@ -543,7 +543,7 @@
                                     @if(!empty($budgetStatus['low_balance']))
                                         Spendable is below your alert — top up to keep checkout ready
                                     @else
-                                        Spendable €{{ number_format((float) ($wallet['spendable'] ?? 0), 2) }}
+                                        Spendable {{ format_money($wallet['spendable'] ?? 0) }}
                                     @endif
                                 </p>
                             </div>
@@ -553,8 +553,8 @@
                             <div>
                                 <div class="na-title">Spending history</div>
                                 <p class="na-desc">
-                                    Net €{{ number_format((float) ($spendSummary['net'] ?? 0), 2) }}
-                                    · in progress €{{ number_format((float) ($spendSummary['in_progress'] ?? 0), 2) }}
+                                    Net {{ format_money($spendSummary['net'] ?? 0) }}
+                                    · in progress {{ format_money($spendSummary['in_progress'] ?? 0) }}
                                 </p>
                             </div>
                             <i class="fa fa-chevron-right text-muted" aria-hidden="true"></i>
@@ -580,15 +580,15 @@
             <div class="dash-spend-strip mb-3">
                 <div class="dw-item">
                     <span class="dw-label">Net spend</span>
-                    <div class="dw-value">€{{ number_format((float) ($spendSummary['net'] ?? 0), 2) }}</div>
+                    <div class="dw-value">{{ format_money($spendSummary['net'] ?? 0) }}</div>
                 </div>
                 <div class="dw-item">
                     <span class="dw-label">Spent</span>
-                    <div class="dw-value">€{{ number_format((float) ($spendSummary['spent'] ?? 0), 2) }}</div>
+                    <div class="dw-value">{{ format_money($spendSummary['spent'] ?? 0) }}</div>
                 </div>
                 <div class="dw-item">
                     <span class="dw-label">In progress</span>
-                    <div class="dw-value">€{{ number_format((float) ($spendSummary['in_progress'] ?? 0), 2) }}</div>
+                    <div class="dw-value">{{ format_money($spendSummary['in_progress'] ?? 0) }}</div>
                 </div>
                 <div class="dw-item d-flex align-items-center">
                     <a href="{{ route('advertiser.analytics', ['view' => 'day']) }}" class="dash-icon-link" aria-label="Full history" title="Full history">
@@ -681,7 +681,7 @@
                                                 </span>
                                             </td>
                                             <td class="text-end py-3 fw-semibold" style="color:#1a585e;">
-                                                €{{ number_format((float) $order->total_amount, 2) }}
+                                                {{ format_money($order->total_amount) }}
                                             </td>
                                         </tr>
                                     @endforeach
@@ -735,7 +735,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function money(n) {
         const v = Number(n || 0);
-        return v % 1 === 0 ? ('€' + v.toFixed(0)) : ('€' + v.toFixed(2));
+        return (window.slbFormatMoney || function (x) { return '€' + Number(x).toFixed(2); })(v);
     }
 
     try {
@@ -796,7 +796,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     y: {
                         stacked: true,
                         beginAtZero: true,
-                        ticks: { callback: (v) => '€' + v },
+                        ticks: { callback: (v) => (window.slbFormatMoney || function (x) { return '€' + x; })(v) },
                     },
                 },
             },

@@ -24,22 +24,22 @@
     <!-- Stats -->
     <div class="row g-3 mb-3" id="statsRow">
         <div class="col-6 col-lg">
-            <div class="card border-0 shadow-sm h-100">
+            <button type="button" class="card border-0 shadow-sm h-100 w-100 text-start queue-preset" data-queue="open" data-status="pending">
                 <div class="card-body py-3">
                     <div class="text-muted small">Pending</div>
                     <div class="fs-4 fw-bold text-warning" id="statPending">—</div>
                     <div class="small text-muted" id="statPendingAmount">€—</div>
                 </div>
-            </div>
+            </button>
         </div>
         <div class="col-6 col-lg">
-            <div class="card border-0 shadow-sm h-100">
+            <button type="button" class="card border-0 shadow-sm h-100 w-100 text-start queue-preset" data-queue="open" data-status="processing">
                 <div class="card-body py-3">
                     <div class="text-muted small">Processing</div>
                     <div class="fs-4 fw-bold text-info" id="statProcessing">—</div>
                     <div class="small text-muted" id="statProcessingAmount">€—</div>
                 </div>
-            </div>
+            </button>
         </div>
         <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm h-100">
@@ -51,13 +51,13 @@
             </div>
         </div>
         <div class="col-6 col-lg">
-            <div class="card border-0 shadow-sm h-100">
+            <button type="button" class="card border-0 shadow-sm h-100 w-100 text-start queue-preset" data-queue="history" data-status="completed" data-week="1">
                 <div class="card-body py-3">
                     <div class="text-muted small">Paid this week</div>
                     <div class="fs-4 fw-bold text-success" id="statWeek">—</div>
                     <div class="small text-muted" id="statWeekAmount">€—</div>
                 </div>
-            </div>
+            </button>
         </div>
         <div class="col-12 col-lg">
             <div class="card border-0 shadow-sm h-100">
@@ -114,7 +114,7 @@
                         <input type="search"
                                id="searchInput"
                                class="form-control form-control-sm"
-                               placeholder="Name, email, or #ID"
+                               placeholder="Name, email, WD id, or payout destination"
                                title="Results update as you type"
                                autocomplete="off"
                                enterkeyhint="search"
@@ -124,6 +124,26 @@
                         </button>
                     </div>
                     <div id="adminWithdrawalsSearchStatus" class="form-text slb-search-status" role="status" aria-live="polite"></div>
+                </div>
+            </div>
+            <div class="row g-3 align-items-end mt-1">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small text-muted" for="sortFilter">Sort</label>
+                    <select id="sortFilter" class="form-select form-select-sm">
+                        <option value="">Default</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="newest">Newest first</option>
+                        <option value="amount">Net amount</option>
+                        <option value="waiting">Waiting days</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small text-muted" for="waitingFilter">Waiting</label>
+                    <select id="waitingFilter" class="form-select form-select-sm">
+                        <option value="">Any</option>
+                        <option value="7">7+ days</option>
+                        <option value="14">14+ days</option>
+                    </select>
                 </div>
             </div>
             <div class="mt-3 d-flex flex-wrap gap-2">
@@ -236,6 +256,8 @@
 
 <script>
 let currentPage = 1;
+let weekStart = @json(now()->startOfWeek()->toDateString());
+let weekEnd = @json(now()->endOfWeek()->toDateString());
 let selectedIds = new Set();
 let lastDetailsCopyText = '';
 const withdrawalFlags = new Map();
@@ -339,15 +361,14 @@ function filterParams() {
         payment_method: $('#paymentMethodFilter').val(),
         date_from: $('#dateFrom').val(),
         date_to: $('#dateTo').val(),
+        sort: $('#sortFilter').val(),
+        waiting: $('#waitingFilter').val(),
     };
     const status = $('#statusFilter').val();
-    const queue = $('#queueFilter').val();
+    const queue = $('#queueFilter').val() || 'open';
+    params.queue = queue;
     if (status) {
         params.status = status;
-    } else if (queue === 'all') {
-        params.queue = 'all';
-    } else {
-        params.queue = queue || 'open';
     }
     return params;
 }
@@ -366,16 +387,32 @@ function loadStatistics() {
 
         const by = s.by_method || {};
         const labels = { bank: 'Bank', paypal: 'PayPal', wise: 'Wise', crypto: 'Crypto' };
+        weekStart = s.week_start || weekStart;
+        weekEnd = s.week_end || weekEnd;
         const parts = Object.keys(by).map(function(method) {
             const row = by[method];
-            return `<span class="d-inline-block me-2 mb-1"><strong>${row.count}</strong> ${labels[method] || method} · €${Number(row.net_total).toFixed(0)}</span>`;
+            return `<button type="button" class="btn btn-link btn-sm p-0 me-2 mb-1 queue-preset" data-queue="open" data-method="${escapeHtml(method)}"><strong>${row.count}</strong> ${escapeHtml(labels[method] || method)} · €${Number(row.net_total).toFixed(0)}</button>`;
         });
         $('#statByMethod').html(parts.length ? parts.join('') : '<span class="text-muted">No open payouts</span>');
     });
 }
 
+function syncFilterUrl() {
+    const params = filterParams();
+    delete params.page;
+    const q = new URLSearchParams();
+    Object.keys(params).forEach(function (key) {
+        if (params[key] !== '' && params[key] != null) {
+            q.set(key, params[key]);
+        }
+    });
+    const next = q.toString();
+    history.replaceState(null, '', window.location.pathname + (next ? '?' + next : ''));
+}
+
 function loadWithdrawals(page = 1) {
     currentPage = page;
+    syncFilterUrl();
     const params = filterParams();
     params.page = page;
 
@@ -419,6 +456,11 @@ function renderWithdrawals(withdrawals) {
             duplicate_match_ids: matchIds,
         });
 
+        const userId = w.user?.id;
+        const publisherName = escapeHtml(w.user?.name || 'N/A');
+        const nameHtml = userId
+            ? `<a class="fw-semibold" href="${escapeHtml(withdrawalActionUrl(financeUserUrlTemplate, userId))}">${publisherName}</a>`
+            : `<span class="fw-semibold">${publisherName}</span>`;
         html += `
             <tr data-id="${w.id}">
                 <td>
@@ -429,7 +471,7 @@ function renderWithdrawals(withdrawals) {
                 <td class="text-muted small">WD-${w.id}</td>
                 <td>
                     <div class="d-flex flex-column">
-                        <span class="fw-semibold">${escapeHtml(w.user?.name || 'N/A')}</span>
+                        ${nameHtml}
                         <small class="text-muted">${escapeHtml(w.user?.email || '')}</small>
                     </div>
                 </td>
@@ -517,20 +559,41 @@ function refreshAll() {
     loadWithdrawals(currentPage);
 }
 
-async function confirmNotes(title, html, confirmText, confirmClass) {
+async function confirmNotes(title, html, confirmText, confirmClass, requireNotes) {
     const result = await Swal.fire({
         title,
         html,
         input: 'textarea',
-        inputLabel: 'Notes / payment reference (optional)',
-        inputPlaceholder: 'e.g. Wise transfer #12345',
+        inputLabel: requireNotes ? 'Reason (10–2000 characters)' : 'Notes / payment reference (optional)',
+        inputPlaceholder: requireNotes ? 'Why this payout is rejected' : 'e.g. Wise transfer #12345',
         showCancelButton: true,
         confirmButtonText: confirmText,
         cancelButtonText: 'Cancel',
         customClass: { confirmButton: confirmClass || '' },
+        inputValidator: requireNotes ? function (value) {
+            const text = (value || '').trim();
+            if (text.length < 10) return 'Enter at least 10 characters.';
+            if (text.length > 2000) return 'Keep the reason under 2000 characters.';
+        } : undefined,
     });
     if (!result.isConfirmed) return null;
-    return result.value || '';
+    return (result.value || '').trim();
+}
+
+function payoutContextHtml(ctx) {
+    if (!ctx) return '';
+    const prior = (ctx.prior_paid || []).slice(0, 5).map(function (row) {
+        return 'WD-' + row.id + ' €' + money(row.net_amount);
+    }).join(', ');
+    return `<br><span class="small">Wallet balance: <strong>€${money(ctx.current_balance)}</strong>. Recent paid: ${escapeHtml(prior || 'none')}.</span>`;
+}
+
+function loadPayoutContext(id) {
+    return $.getJSON(withdrawalActionUrl(withdrawalsShowUrlTemplate, id)).then(function (response) {
+        return response.data && response.data.payout_context ? response.data.payout_context : null;
+    }).catch(function () {
+        return null;
+    });
 }
 
 // Row actions
@@ -567,9 +630,10 @@ $(document).on('click', '.act-paid', async function() {
     const method = $(this).data('method');
     const isDuplicate = $(this).attr('data-duplicate') === '1';
     const matchRefs = $(this).attr('data-duplicate-ids') || '';
+    const context = await loadPayoutContext(id);
     const notes = await confirmNotes(
         'Mark paid?',
-        `Pay <strong>€${escapeHtml(String(net))}</strong> net to <strong>${escapeHtml(name)}</strong> via <strong>${escapeHtml(method)}</strong>?<br><span class="text-muted small">Only confirm after you sent the money outside the app.</span>${isDuplicate ? duplicateWarningHtml(matchRefs) : ''}`,
+        `Pay <strong>€${escapeHtml(String(net))}</strong> net to <strong>${escapeHtml(name)}</strong> via <strong>${escapeHtml(method)}</strong>?<br><span class="text-muted small">Only confirm after you sent the money outside the app.</span>${payoutContextHtml(context)}${isDuplicate ? duplicateWarningHtml(matchRefs) : ''}`,
         'Yes, mark paid',
         ''
     );
@@ -593,7 +657,8 @@ $(document).on('click', '.act-reject', async function() {
         'Reject & refund?',
         `Reject withdrawal for <strong>${escapeHtml(name)}</strong> and refund <strong>€${escapeHtml(String(amount))}</strong> to their wallet.`,
         'Reject & refund',
-        'slb-swal-danger'
+        'slb-swal-danger',
+        true
     );
     if (notes === null) return;
     postAction(withdrawalActionUrl(withdrawalsRejectUrlTemplate, id), { notes })
@@ -665,7 +730,8 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
         title,
         `Apply to <strong>${selectedIds.size}</strong> selected withdrawal(s).${warn}`,
         confirmText,
-        confirmClass
+        confirmClass,
+        action === 'cancelled'
     );
     if (notes === null) return;
 
@@ -795,8 +861,10 @@ function renderDetails(withdrawal) {
         $('#openInvoiceLink').addClass('d-none').attr('href', '#');
     }
 
+    const contextBlock = payoutContextHtml(withdrawal.payout_context);
     $('#detailsContent').html(`
         ${duplicateAlert}
+        ${contextBlock ? `<div class="mb-3">${contextBlock.replace(/^<br>/, '')}</div>` : ''}
         <div class="row mb-3">
             <div class="col-md-6">
                 <div class="bg-light p-3 rounded">
@@ -846,6 +914,8 @@ $('#resetFiltersBtn').on('click', function() {
     $('#paymentMethodFilter').val('');
     $('#dateFrom').val('');
     $('#dateTo').val('');
+    $('#sortFilter').val('');
+    $('#waitingFilter').val('');
     $('#searchInput').val('');
     selectedIds.clear();
     withdrawalFlags.clear();
@@ -879,7 +949,30 @@ document.addEventListener('DOMContentLoaded', function () {
     if (q.get('status')) $('#statusFilter').val(q.get('status'));
     if (q.get('payment_method')) $('#paymentMethodFilter').val(q.get('payment_method'));
     if (q.get('search')) $('#searchInput').val(q.get('search'));
+    if (q.get('date_from')) $('#dateFrom').val(q.get('date_from'));
+    if (q.get('date_to')) $('#dateTo').val(q.get('date_to'));
+    if (q.get('sort')) $('#sortFilter').val(q.get('sort'));
+    if (q.get('waiting')) $('#waitingFilter').val(q.get('waiting'));
 })();
+
+$(document).on('click', '.queue-preset', function () {
+    const $el = $(this);
+    $('#queueFilter').val($el.attr('data-queue') || 'open');
+    $('#statusFilter').val($el.attr('data-status') || '');
+    $('#paymentMethodFilter').val($el.attr('data-method') || '');
+    $('#sortFilter').val('');
+    $('#waitingFilter').val('');
+    $('#searchInput').val('');
+    document.getElementById('searchInput')?._slbLiveSearch?.refreshClear();
+    if ($el.attr('data-week') === '1') {
+        $('#dateFrom').val(weekStart);
+        $('#dateTo').val(weekEnd);
+    } else {
+        $('#dateFrom').val('');
+        $('#dateTo').val('');
+    }
+    loadWithdrawals(1);
+});
 
 loadStatistics();
 loadWithdrawals(1);

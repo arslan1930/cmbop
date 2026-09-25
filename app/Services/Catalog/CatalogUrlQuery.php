@@ -37,6 +37,7 @@ class CatalogUrlQuery
         'bulk_deals',
         'new_badge',
         'on_sale',
+        'featured',
         'verified',
         'quality',
         'rating_min',

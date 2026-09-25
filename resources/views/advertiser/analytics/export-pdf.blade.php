@@ -27,10 +27,10 @@
 
     <table class="kpi">
         <tr>
-            <td><strong>Net</strong><br>€{{ number_format((float) $summary['net'], 2) }}</td>
-            <td><strong>Gross</strong><br>€{{ number_format((float) $summary['gross'], 2) }}</td>
-            <td><strong>Refunded</strong><br>€{{ number_format((float) $summary['refunded'], 2) }}</td>
-            <td><strong>In progress</strong><br>€{{ number_format((float) $summary['in_progress'], 2) }}</td>
+            <td><strong>Net</strong><br>{{ format_money($summary['net']) }}</td>
+            <td><strong>Gross</strong><br>{{ format_money($summary['gross']) }}</td>
+            <td><strong>Refunded</strong><br>{{ format_money($summary['refunded']) }}</td>
+            <td><strong>In progress</strong><br>{{ format_money($summary['in_progress']) }}</td>
         </tr>
     </table>
 
@@ -43,7 +43,7 @@
             @forelse($methods as $m)
                 <tr>
                     <td>{{ $m['label'] }}</td>
-                    <td class="num">€{{ number_format((float) $m['net'], 2) }}</td>
+                    <td class="num">{{ format_money($m['net']) }}</td>
                     <td class="num">{{ $m['orders'] }}</td>
                 </tr>
             @empty
@@ -79,7 +79,7 @@
                     <td>{{ $row['date'] }}</td>
                     <td>{{ $row['order_number'] }}</td>
                     <td>{{ $row['site'] }}</td>
-                    <td class="num">€{{ number_format((float) $row['net'], 2) }}</td>
+                    <td class="num">{{ format_money($row['net']) }}</td>
                     <td>{{ $row['order_status'] }}</td>
                     <td>{{ $row['invoice_number'] }}</td>
                 </tr>

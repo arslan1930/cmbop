@@ -124,7 +124,7 @@ class AdminMoneyAuditLogTest extends TestCase
 
         $this->actingAs($admin)
             ->postJson(route('admin.withdrawals.reject', $rejected->id), [
-                'notes' => 'Bad IBAN',
+                'notes' => 'Bad IBAN details',
             ])
             ->assertOk()
             ->assertJsonPath('success', true);

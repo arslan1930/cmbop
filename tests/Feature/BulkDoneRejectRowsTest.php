@@ -1423,7 +1423,7 @@ class BulkDoneRejectRowsTest extends TestCase
             ->from(route('marketing.bulk-site-requests.show', $bulk))
             ->post(route('marketing.bulk-site-requests.seed', $bulk), ['rows' => $rows])
             ->assertRedirect()
-            ->assertSessionHas('error', 'All rows failed validation.')
+            ->assertSessionHas('success')
             ->assertSessionHas('seed_failures', function ($failures) {
                 return is_array($failures)
                     && collect($failures)->contains(function ($row) {

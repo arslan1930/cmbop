@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\PlatformCharge;
 use Stripe\Checkout\Session;
 use Stripe\Stripe;
 
@@ -74,16 +75,18 @@ class StripePaymentService
      */
     public function createOrderCheckoutSession(array $orderData, string $referenceCode, int|string $userId): Session
     {
+        $charge = app(PlatformCharge::class)->quote((float) $orderData['total_amount']);
+
         return Session::create([
             'payment_method_types' => ['card'],
             'line_items' => [[
                 'price_data' => [
-                    'currency' => 'eur',
+                    'currency' => $charge['stripe'],
                     'product_data' => [
                         'name' => 'Order Package - '.$orderData['item_count'].' item(s)',
                         'description' => 'Order reference: '.$referenceCode,
                     ],
-                    'unit_amount' => self::toCents($orderData['total_amount']),
+                    'unit_amount' => self::toCents($charge['amount']),
                 ],
                 'quantity' => 1,
             ]],
@@ -95,7 +98,10 @@ class StripePaymentService
                 'reference_code' => $referenceCode,
                 'user_id' => (string) $userId,
                 'order_count' => (string) $orderData['item_count'],
-                'expected_amount' => (string) $orderData['total_amount'],
+                'expected_amount' => (string) $charge['euros'],
+                'eur_amount' => (string) $charge['euros'],
+                'charge_currency' => $charge['code'],
+                'charge_amount' => (string) $charge['amount'],
             ],
         ]);
     }
@@ -109,18 +115,19 @@ class StripePaymentService
         int|string $userId,
         string $referenceCode
     ): Session {
-        $amountEuros = round((float) $amount, 2);
+        $charge = app(PlatformCharge::class)->quote(round((float) $amount, 2));
+        $amountEuros = $charge['euros'];
 
         return Session::create([
             'payment_method_types' => ['card'],
             'line_items' => [[
                 'price_data' => [
-                    'currency' => 'eur',
+                    'currency' => $charge['stripe'],
                     'product_data' => [
                         'name' => 'Add Funds to Wallet',
-                        'description' => 'Deposit €'.number_format($amountEuros, 2).' to your wallet',
+                        'description' => 'Deposit '.$charge['code'].' '.number_format($charge['amount'], 2).' (wallet €'.number_format($amountEuros, 2).')',
                     ],
-                    'unit_amount' => self::toCents($amountEuros),
+                    'unit_amount' => self::toCents($charge['amount']),
                 ],
                 'quantity' => 1,
             ]],
@@ -131,6 +138,9 @@ class StripePaymentService
                 'type' => 'wallet_deposit',
                 'user_id' => (string) $userId,
                 'amount' => (string) $amountEuros,
+                'eur_amount' => (string) $amountEuros,
+                'charge_currency' => $charge['code'],
+                'charge_amount' => (string) $charge['amount'],
                 'reference_code' => $referenceCode,
             ],
         ]);

@@ -3,16 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Services\Wallet\ManualWithdrawalInvalidTransitionException;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
-use App\Services\Wallet\WithdrawalDuplicatePayoutWarning;
+use App\Services\Wallet\WithdrawalPayoutContext;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Email one-click mark-paid: signed GET shows confirm UI; POST settles via
@@ -33,7 +30,7 @@ class WithdrawalMarkPaidConfirmController extends Controller
         }
         $canMarkPaid = $withdrawal->isActionable();
         try {
-            $context = $this->payoutContext($withdrawal, $canMarkPaid);
+            $context = app(WithdrawalPayoutContext::class)->payoutContext($withdrawal, $canMarkPaid);
         } catch (\Throwable $e) {
             Log::warning('Failed to build withdrawal mark-paid confirm context: '.$e->getMessage(), [
                 'withdrawal_id' => $withdrawal->id,
@@ -91,79 +88,6 @@ class WithdrawalMarkPaidConfirmController extends Controller
                 ->route('admin.withdrawals')
                 ->with('error', UserFacingError::message($e, 'Failed to mark withdrawal paid. Please try again.'));
         }
-    }
-
-    /**
-     * @return array{
-     *     currentBalance: float,
-     *     priorPaid: Collection<int, Withdrawal>,
-     *     possibleDuplicate: bool,
-     *     duplicateMatches: Collection<int, Withdrawal>
-     * }
-     */
-    protected function payoutContext(Withdrawal $withdrawal, bool $canMarkPaid): array
-    {
-        $wallet = $this->payoutWallet((int) $withdrawal->user_id);
-        $currentBalance = round((float) ($wallet?->balance ?? 0), 2);
-
-        $priorPaid = Withdrawal::query()
-            ->where('user_id', $withdrawal->user_id)
-            ->where('status', 'completed')
-            ->whereKeyNot($withdrawal->id);
-        if (Withdrawal::hasProcessedAtColumn()) {
-            $priorPaid->orderByDesc('processed_at');
-        }
-        $priorPaid = $priorPaid
-            ->orderByDesc('id')
-            ->limit(5)
-            ->get();
-
-        $duplicateMatches = $canMarkPaid
-            ? app(WithdrawalDuplicatePayoutWarning::class)->matches($withdrawal)
-            : collect();
-
-        return [
-            'currentBalance' => $currentBalance,
-            'priorPaid' => $priorPaid,
-            'possibleDuplicate' => $duplicateMatches->isNotEmpty(),
-            'duplicateMatches' => $duplicateMatches,
-        ];
-    }
-
-    protected function payoutWallet(int $userId): ?Wallet
-    {
-        if ($userId <= 0) {
-            return null;
-        }
-
-        try {
-            if (! Schema::hasTable('wallets')) {
-                return null;
-            }
-        } catch (\Throwable) {
-            return null;
-        }
-
-        $publisherRoleId = Wallet::publisherRoleId();
-        if ($publisherRoleId) {
-            $wallet = Wallet::query()
-                ->where('user_id', $userId)
-                ->where('role_id', $publisherRoleId)
-                ->first();
-            if ($wallet) {
-                return $wallet;
-            }
-        }
-
-        $advertiserRoleId = Wallet::advertiserRoleId();
-        if ($advertiserRoleId) {
-            return Wallet::query()
-                ->where('user_id', $userId)
-                ->where('role_id', $advertiserRoleId)
-                ->first();
-        }
-
-        return null;
     }
 
     protected function hasValidSignature(Request $request): bool

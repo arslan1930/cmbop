@@ -217,11 +217,33 @@
                                     <input type="hidden" name="rejected_item_ids[]" value="{{ $rejectedId }}">
                                 @endforeach
                             </div>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2" data-bulk-row-tools>
+                                <input type="search" id="bulkRowFilter" class="form-control form-control-sm" style="max-width:16rem;" placeholder="Filter domain or URL" aria-label="Filter rows by domain or URL">
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Filter rows by status">
+                                    <button type="button" class="btn btn-outline-secondary active" data-bulk-chip-filter="all">All</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-bulk-chip-filter="empty">Empty</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-bulk-chip-filter="incomplete">Incomplete</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-bulk-chip-filter="ready">Ready</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-bulk-chip-filter="below">Below bar</button>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-expand-all>Expand all</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-collapse-all>Collapse all</button>
+                                <span class="small text-muted">Also copy when applying:</span>
+                                <label class="small mb-0"><input type="checkbox" data-bulk-apply-opt="niches"> Niches</label>
+                                <label class="small mb-0"><input type="checkbox" data-bulk-apply-opt="description"> Description</label>
+                                <label class="small mb-0"><input type="checkbox" data-bulk-apply-opt="sensitive"> Sensitive</label>
+                                <label class="small mb-0"><input type="checkbox" data-bulk-apply-opt="homepage"> Homepage</label>
+                                <label class="small mb-0"><input type="checkbox" data-bulk-apply-opt="social"> Social</label>
+                            </div>
                             <div class="bulk-done-table-wrap bulk-done-list admin-contained-scroll mb-3">
                                 @php $openedFirstEmpty = false; @endphp
                                 @foreach($pendingItems as $item)
                                     @php
-                                        $old = old('items.'.$item->id, []);
+                                        $old = old('items.'.$item->id, null);
+                                        if (! is_array($old)) {
+                                            $draftItems = is_array($textDraft['items'] ?? null) ? $textDraft['items'] : [];
+                                            $old = $draftItems[$item->id] ?? $draftItems[(string) $item->id] ?? [];
+                                        }
                                         if (! is_array($old)) {
                                             $old = [];
                                         }
@@ -233,17 +255,25 @@
                                         $oldCountry = strtolower((string) ($old['country'] ?? ''));
                                         $oldLanguage = strtolower((string) ($old['language'] ?? ''));
                                         $isRejected = in_array((int) $item->id, $oldRejectedIds, true);
-                                        $doneTrack = ['country', 'language', 'da', 'dr', 'traffic', 'example_url', 'turnaround_time', 'publication_time', 'link_type', 'site_tag', 'description'];
-                                        $filledCount = 0;
-                                        foreach ($doneTrack as $doneField) {
-                                            if (trim((string) ($old[$doneField] ?? '')) !== '') {
-                                                $filledCount++;
-                                            }
-                                        }
-                                        if (trim((string) $oldCategories) !== '') {
-                                            $filledCount++;
-                                        }
-                                        $doneTrackTotal = count($doneTrack) + 2;
+                                        $keptCover = $keptCovers[(int) $item->id] ?? $keptCovers[(string) $item->id] ?? null;
+                                        $descriptionReady = mb_strlen(trim((string) ($old['description'] ?? ''))) >= 50;
+                                        $doneChecks = [
+                                            trim((string) ($old['country'] ?? '')) !== '',
+                                            trim((string) ($old['language'] ?? '')) !== '',
+                                            trim((string) ($old['da'] ?? '')) !== '',
+                                            trim((string) ($old['dr'] ?? '')) !== '',
+                                            trim((string) ($old['traffic'] ?? '')) !== '',
+                                            trim((string) $oldCategories) !== '',
+                                            trim((string) ($old['example_url'] ?? '')) !== '',
+                                            trim((string) ($old['turnaround_time'] ?? '')) !== '',
+                                            trim((string) ($old['publication_time'] ?? '')) !== '',
+                                            trim((string) ($old['link_type'] ?? '')) !== '',
+                                            trim((string) ($old['site_tag'] ?? '')) !== '',
+                                            $descriptionReady,
+                                            is_array($keptCover),
+                                        ];
+                                        $filledCount = count(array_filter($doneChecks));
+                                        $doneTrackTotal = count($doneChecks);
                                         $itemErrorPrefix = 'items.'.$item->id.'.';
                                         $rowHasErrors = collect($errors->keys())->contains(
                                             fn ($key) => $key === 'items.'.$item->id || str_starts_with((string) $key, $itemErrorPrefix)
@@ -270,6 +300,8 @@
                                     @endphp
                                     <details class="bulk-done-row" data-bulk-done-row
                                              data-item-id="{{ $item->id }}"
+                                             data-domain="{{ $item->domain }}"
+                                             data-url="{{ $item->site_url }}"
                                              @class(['d-none' => $isRejected])
                                              @if($isRejected) data-bulk-rejected="1" @endif
                                              @if($rowOpen) open @endif>
@@ -287,7 +319,41 @@
                                             </span>
                                         </summary>
                                         <div class="bulk-done-row__body">
+                                            @if(!empty($occupyingMessages[(int) $item->id]))
+                                                <div class="alert alert-danger py-2 px-3 small mb-2" role="alert">
+                                                    {{ $occupyingMessages[(int) $item->id] }}
+                                                </div>
+                                            @endif
                                             <div class="bulk-done-row__fields">
+                                                <div class="bulk-done-field">
+                                                    <label class="form-label" for="bulk-done-name-{{ $item->id }}">Site name</label>
+                                                    <input id="bulk-done-name-{{ $item->id }}"
+                                                           name="items[{{ $item->id }}][site_name]"
+                                                           class="form-control @error('items.'.$item->id.'.site_name') is-invalid @enderror"
+                                                           value="{{ $old['site_name'] ?? $item->domain }}"
+                                                           data-bulk-default="{{ $item->domain }}"
+                                                           maxlength="255"
+                                                           @disabled($isRejected)>
+                                                    @error('items.'.$item->id.'.site_name')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                                <div class="bulk-done-field">
+                                                    <label class="form-label" for="bulk-done-price-{{ $item->id }}">Price (€)</label>
+                                                    <input id="bulk-done-price-{{ $item->id }}"
+                                                           type="number"
+                                                           name="items[{{ $item->id }}][price]"
+                                                           class="form-control @error('items.'.$item->id.'.price') is-invalid @enderror"
+                                                           value="{{ $old['price'] ?? $item->price }}"
+                                                           data-bulk-default="{{ $item->price }}"
+                                                           min="0"
+                                                           max="99999999.99"
+                                                           step="0.01"
+                                                           @disabled($isRejected)>
+                                                    @error('items.'.$item->id.'.price')
+                                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
                                                 <div class="bulk-done-field">
                                                     <label class="form-label" for="bulk-done-country-{{ $item->id }}">Country <span class="text-danger">*</span></label>
                                                     <select id="bulk-done-country-{{ $item->id }}"
@@ -433,7 +499,7 @@
                                                            type="url"
                                                            name="items[{{ $item->id }}][example_url]"
                                                            class="form-control @error('items.'.$item->id.'.example_url') is-invalid @enderror"
-                                                           value="{{ old('items.'.$item->id.'.example_url') }}"
+                                                           value="{{ $old['example_url'] ?? '' }}"
                                                            placeholder="https://…/sample-post"
                                                            required
                                                            data-bulk-required
@@ -452,7 +518,7 @@
                                                             @disabled($isRejected)>
                                                         <option value="">Select…</option>
                                                         @foreach(['24h' => '24 Hours', '48h' => '48 Hours', '3days' => '3 Days', '5days' => '5 Days', '7days' => '7 Days'] as $val => $label)
-                                                            <option value="{{ $val }}" @selected(old('items.'.$item->id.'.turnaround_time') === $val)>{{ $label }}</option>
+                                                            <option value="{{ $val }}" @selected(($old['turnaround_time'] ?? '') === $val)>{{ $label }}</option>
                                                         @endforeach
                                                     </select>
                                                     @error('items.'.$item->id.'.turnaround_time')
@@ -469,7 +535,7 @@
                                                             @disabled($isRejected)>
                                                         <option value="">Select…</option>
                                                         @foreach(['6months' => '6 Months', '1year' => '1 Year', 'permanent' => 'Permanent'] as $val => $label)
-                                                            <option value="{{ $val }}" @selected(old('items.'.$item->id.'.publication_time') === $val)>{{ $label }}</option>
+                                                            <option value="{{ $val }}" @selected(($old['publication_time'] ?? '') === $val)>{{ $label }}</option>
                                                         @endforeach
                                                     </select>
                                                     @error('items.'.$item->id.'.publication_time')
@@ -485,8 +551,8 @@
                                                             data-bulk-required
                                                             @disabled($isRejected)>
                                                         <option value="">Select…</option>
-                                                        <option value="dofollow" @selected(old('items.'.$item->id.'.link_type') === 'dofollow')>DoFollow</option>
-                                                        <option value="nofollow" @selected(old('items.'.$item->id.'.link_type') === 'nofollow')>NoFollow</option>
+                                                        <option value="dofollow" @selected(($old['link_type'] ?? '') === 'dofollow')>DoFollow</option>
+                                                        <option value="nofollow" @selected(($old['link_type'] ?? '') === 'nofollow')>NoFollow</option>
                                                     </select>
                                                     @error('items.'.$item->id.'.link_type')
                                                         <div class="invalid-feedback d-block">{{ $message }}</div>
@@ -501,9 +567,9 @@
                                                             data-bulk-required
                                                             @disabled($isRejected)>
                                                         <option value="">Select…</option>
-                                                        <option value="none" @selected(old('items.'.$item->id.'.site_tag') === 'none')>No tags</option>
+                                                        <option value="none" @selected(($old['site_tag'] ?? '') === 'none')>No tags</option>
                                                         @foreach(\App\Support\SiteTag::LABELS as $value => $label)
-                                                            <option value="{{ $value }}" @selected(old('items.'.$item->id.'.site_tag') === $value)>{{ $label }}</option>
+                                                            <option value="{{ $value }}" @selected(($old['site_tag'] ?? '') === $value)>{{ $label }}</option>
                                                         @endforeach
                                                     </select>
                                                     @error('items.'.$item->id.'.site_tag')
@@ -521,7 +587,7 @@
                                                               placeholder="Shown to advertisers. At least 50 characters."
                                                               required
                                                               data-bulk-required
-                                                              @disabled($isRejected)>{{ old('items.'.$item->id.'.description') }}</textarea>
+                                                              @disabled($isRejected)>{{ $old['description'] ?? '' }}</textarea>
                                                     @error('items.'.$item->id.'.description')
                                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                                     @enderror
@@ -533,10 +599,15 @@
                                                            name="items[{{ $item->id }}][site_image]"
                                                            class="form-control @error('items.'.$item->id.'.site_image') is-invalid @enderror"
                                                            accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
-                                                           required
+                                                           @required(! is_array($keptCover))
                                                            data-bulk-required
+                                                           @if(is_array($keptCover)) data-bulk-kept="1" @endif
                                                            @disabled($isRejected)>
                                                     <div class="form-text">JPEG, PNG, GIF, or WebP, up to {{ \App\Support\SiteImageUpload::maxMegabytesLabel() }} MB. This cover is saved when the site goes live.</div>
+                                                    @if(is_array($keptCover))
+                                                        <input type="hidden" name="items[{{ $item->id }}][kept_image]" value="{{ $keptCover['path'] }}" data-bulk-kept-image>
+                                                        <div class="form-text">Saved cover: {{ $keptCover['name'] }}. You do not need to upload it again unless you want a different image.</div>
+                                                    @endif
                                                     @error('items.'.$item->id.'.site_image')
                                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                                     @enderror
@@ -567,6 +638,50 @@
                                                         @endforeach
                                                     </div>
                                                 </div>
+                                                <div class="bulk-done-field bulk-done-field--wide">
+                                                    <span class="form-label">Homepage placement</span>
+                                                    <div class="d-flex flex-wrap gap-3">
+                                                        @foreach($homepageDays as $days)
+                                                            <label class="small mb-0">
+                                                                <input type="checkbox"
+                                                                       name="items[{{ $item->id }}][homepage][{{ $days }}]"
+                                                                       value="1"
+                                                                       data-bulk-homepage
+                                                                       @checked(old('items.'.$item->id.'.homepage.'.$days, $old['homepage'][$days] ?? $old['homepage'][(string) $days] ?? false))
+                                                                       @disabled($isRejected)>
+                                                                {{ $days }} day{{ (int) $days > 1 ? 's' : '' }}
+                                                                <input type="number"
+                                                                       name="items[{{ $item->id }}][price_homepage][{{ $days }}]"
+                                                                       class="form-control form-control-sm mt-1 @error('items.'.$item->id.'.price_homepage.'.$days) is-invalid @enderror"
+                                                                       value="{{ old('items.'.$item->id.'.price_homepage.'.$days, $old['price_homepage'][$days] ?? $old['price_homepage'][(string) $days] ?? '') }}"
+                                                                       min="0"
+                                                                       step="0.01"
+                                                                       placeholder="Fee (€) — 0 = free"
+                                                                       data-bulk-homepage-price="{{ $days }}"
+                                                                       @disabled($isRejected)>
+                                                                @error('items.'.$item->id.'.price_homepage.'.$days)
+                                                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                                                @enderror
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                                <div class="bulk-done-field bulk-done-field--wide">
+                                                    <span class="form-label">Social sharing</span>
+                                                    <div class="d-flex flex-wrap gap-3">
+                                                        @foreach(['facebook' => 'Facebook', 'instagram' => 'Instagram', 'x' => 'X'] as $channel => $label)
+                                                            <label class="small mb-0">
+                                                                <input type="checkbox"
+                                                                       name="items[{{ $item->id }}][social][{{ $channel }}]"
+                                                                       value="1"
+                                                                       data-bulk-social="{{ $channel }}"
+                                                                       @checked(old('items.'.$item->id.'.social.'.$channel, $old['social'][$channel] ?? false))
+                                                                       @disabled($isRejected)>
+                                                                {{ $label }}
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div class="alert alert-warning border-0 py-2 px-3 small mb-0{{ $belowQuality ? '' : ' d-none' }}"
                                                  data-bulk-quality-warn
@@ -582,6 +697,12 @@
                                                         data-bulk-copy-above
                                                         @disabled($loop->first || $isRejected)>
                                                     Copy from row above
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-secondary"
+                                                        data-bulk-apply-empty
+                                                        @disabled($isRejected)>
+                                                    Apply to empty rows
                                                 </button>
                                                 <button type="button"
                                                         class="btn btn-sm btn-outline-danger bulk-done-reject"
@@ -611,7 +732,7 @@
                             </div>
 
                             <div id="bulkDoneHint" class="alert alert-warning py-2 small mb-3" role="status">
-                                Fill at least one complete block (Language, Country, DA, DR, Traffic, Niches) before Done.
+                                Fill at least one complete block (country, language, DA, DR, traffic, niches, sample article, turnaround, publication, link type, listing tag, description of at least 50 characters, and a site image) before Done.
                             </div>
 
                     <button type="submit"
@@ -633,7 +754,7 @@
                     <h6 class="fw-semibold mb-1">Advanced: seed with per-row metrics</h6>
                     <p class="small text-muted mb-3">
                         Optional paste when the listing details differ per site.
-                        A cover image cannot be pasted, so these rows are not published from here. Upload the image on Done and publish from that form.
+                        A cover image cannot be pasted. Valid rows fill the Done form below. Upload each cover there, then Done.
                         Columns: <code>url,price,da,dr,traffic,country,language,site_name,example_url,turnaround,publication,link_type,tag,niches,description</code>
                         Niches use <code>|</code> inside that column. The description is the rest of the line.
                         Turnaround is <code>24h</code>, <code>48h</code>, <code>3days</code>, <code>5days</code>, or <code>7days</code>.
@@ -756,7 +877,8 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
     const fields = () => Array.from(form.querySelectorAll('[data-bulk-done-row]:not([data-bulk-rejected="1"]) [data-bulk-required]'));
     const multiSelects = {};
     const prefills = {};
-    const hasServerOld = @json((bool) old('items'));
+    const hasServerOld = @json((bool) old('items') || ! empty($textDraft['items'] ?? []));
+    const draftUrl = @json(staff_route('bulk-site-requests.draft', $bulkRequest, false));
     const draftKey = @json('bulkDoneDraft:'.$bulkRequest->id.':'.auth()->id());
     const draftTtlMs = 24 * 60 * 60 * 1000;
     const countryLanguageMap = @json($countryLanguageMap ?? new \stdClass());
@@ -1023,7 +1145,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             const match = name.match(/items\[(\d+)\]/);
             if (!match) return;
             const itemId = match[1];
-            const draftFields = ['example_url', 'turnaround_time', 'publication_time', 'link_type', 'site_tag', 'description'];
+            const draftFields = ['site_name', 'price', 'example_url', 'turnaround_time', 'publication_time', 'link_type', 'site_tag', 'description'];
             const extra = {};
             draftFields.forEach(function (field) {
                 const el = row.querySelector('[name*="[' + field + ']"]');
@@ -1042,12 +1164,31 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
     }
 
     function writeDraft() {
-        saveDraft({
+        const payload = {
             savedAt: Date.now(),
             items: collectItemDrafts(),
             rejected: rejectedIds(),
             rejection_note: String((noteEl && noteEl.value) || ''),
-        });
+        };
+        saveDraft(payload);
+        const token = form.querySelector('input[name="_token"]');
+        if (!draftUrl || !token) return;
+        fetch(draftUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': token.value,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                items: payload.items,
+                rejected: payload.rejected,
+                rejection_note: payload.rejection_note,
+                forget_covers: Array.from(form.querySelectorAll('[data-bulk-done-row][data-forget-cover]')).map(function (row) {
+                    return Number(row.getAttribute('data-forget-cover'));
+                }).filter(function (id) { return id > 0; }),
+            }),
+        }).catch(function () {});
     }
 
     function clearDraft() {
@@ -1085,7 +1226,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             if (da && data.da !== undefined && data.da !== null) da.value = data.da;
             if (dr && data.dr !== undefined && data.dr !== null) dr.value = data.dr;
             if (traffic && data.traffic !== undefined && data.traffic !== null) traffic.value = data.traffic;
-            ['example_url', 'turnaround_time', 'publication_time', 'link_type', 'site_tag', 'description'].forEach(function (field) {
+            ['site_name', 'price', 'example_url', 'turnaround_time', 'publication_time', 'link_type', 'site_tag', 'description'].forEach(function (field) {
                 const el = form.querySelector('[name="items[' + itemId + '][' + field + ']"]');
                 if (el && data[field] !== undefined && data[field] !== null) el.value = data[field];
             });
@@ -1110,7 +1251,9 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
 
     function fieldFilled(el) {
         if (el.type === 'file') {
-            return !!(el.files && el.files.length > 0);
+            if (el.files && el.files.length > 0) return true;
+            return el.getAttribute('data-bulk-kept') === '1'
+                || !!el.closest('[data-bulk-done-row]')?.querySelector('[data-bulk-kept-image]');
         }
         const value = String(el.value ?? '').trim();
         if (value === '') return false;
@@ -1258,6 +1401,14 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         row.querySelectorAll('.is-invalid').forEach(function (el) {
             el.classList.remove('is-invalid');
         });
+        const file = row.querySelector('input[type="file"][data-bulk-required]');
+        if (file) {
+            file.removeAttribute('data-bulk-kept');
+            file.required = true;
+        }
+        row.querySelectorAll('[data-bulk-kept-image]').forEach(function (el) { el.remove(); });
+        const clearedId = row.getAttribute('data-item-id');
+        if (clearedId) row.dataset.forgetCover = clearedId;
         syncBulkThemeSelects(row);
         scheduleDraftSave();
         syncDoneState();
@@ -1312,6 +1463,109 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         }
         scheduleDraftSave();
         syncDoneState();
+    }
+
+    function rowIsEmpty(row) {
+        return !rowStarted(row);
+    }
+
+    function applyBulkRowSharedFields(src, dest) {
+        const srcCountry = src.querySelector('[data-bulk-country]');
+        const destCountry = dest.querySelector('[data-bulk-country]');
+        if (srcCountry && destCountry) destCountry.value = srcCountry.value;
+        const srcLang = src.querySelector('[data-bulk-language]');
+        refreshBulkDoneLanguages(dest, (srcLang && srcLang.value) || '');
+        const destLang = dest.querySelector('[data-bulk-language]');
+        if (srcLang && destLang && srcLang.value) destLang.value = srcLang.value;
+        ['turnaround_time', 'publication_time', 'link_type', 'site_tag'].forEach(function (field) {
+            const from = src.querySelector('[name*="[' + field + ']"]');
+            const to = dest.querySelector('[name*="[' + field + ']"]');
+            if (from && to) to.value = from.value;
+        });
+    }
+
+    function applyOptionalGroups(src, dest) {
+        const opted = function (name) {
+            const box = document.querySelector('[data-bulk-apply-opt="' + name + '"]');
+            return !!(box && box.checked);
+        };
+        if (opted('description')) {
+            const from = src.querySelector('[name*="[description]"]');
+            const to = dest.querySelector('[name*="[description]"]');
+            if (from && to) to.value = from.value;
+        }
+        if (opted('sensitive')) {
+            ['crypto', 'trading', 'CBD', 'forex'].forEach(function (topic) {
+                const srcCheck = src.querySelector('input[name*="[sensitive][' + topic + ']"]');
+                const destCheck = dest.querySelector('input[name*="[sensitive][' + topic + ']"]');
+                if (srcCheck && destCheck) destCheck.checked = srcCheck.checked;
+                const srcPrice = src.querySelector('input[name*="[price_sensitive][' + topic + ']"]');
+                const destPrice = dest.querySelector('input[name*="[price_sensitive][' + topic + ']"]');
+                if (srcPrice && destPrice) destPrice.value = srcPrice.value;
+            });
+        }
+        if (opted('homepage')) {
+            dest.querySelectorAll('[data-bulk-homepage]').forEach(function (box) {
+                const match = (box.name || '').match(/\[homepage]\[([^\]]+)]/);
+                if (!match) return;
+                const srcBox = src.querySelector('[name*="[homepage][' + match[1] + ']"]');
+                if (srcBox) box.checked = srcBox.checked;
+                const srcPrice = src.querySelector('[data-bulk-homepage-price="' + match[1] + '"]');
+                const destPrice = dest.querySelector('[data-bulk-homepage-price="' + match[1] + '"]');
+                if (srcPrice && destPrice) destPrice.value = srcPrice.value;
+            });
+        }
+        if (opted('social')) {
+            dest.querySelectorAll('[data-bulk-social]').forEach(function (box) {
+                const channel = box.getAttribute('data-bulk-social');
+                const srcBox = src.querySelector('[data-bulk-social="' + channel + '"]');
+                if (srcBox) box.checked = srcBox.checked;
+            });
+        }
+        if (opted('niches')) {
+            const srcCats = src.querySelector('input[name*="[categories]"]');
+            const nicheValues = String((srcCats && srcCats.value) || '').split('|').map(function (v) { return v.trim(); }).filter(Boolean);
+            const destId = rowItemId(dest);
+            if (destId && multiSelects[destId]) {
+                multiSelects[destId].setSelectedItems(nicheValues, nicheValues);
+            }
+        }
+    }
+
+    function applyBulkDoneRowToEmpty(row) {
+        doneRows().forEach(function (dest) {
+            if (dest === row || !rowIsEmpty(dest)) return;
+            dest.open = true;
+            applyBulkRowSharedFields(row, dest);
+            applyOptionalGroups(row, dest);
+            syncBulkThemeSelects(dest);
+        });
+        scheduleDraftSave();
+        syncDoneState();
+    }
+
+    function rowChipState(row) {
+        const chip = row.querySelector('[data-bulk-done-chip]');
+        if (!chip) return 'empty';
+        if (chip.classList.contains('is-ready')) return 'ready';
+        if (chip.classList.contains('is-partial')) return 'incomplete';
+        return 'empty';
+    }
+
+    function applyBulkRowFilter() {
+        const query = String((document.getElementById('bulkRowFilter') || {}).value || '').trim().toLowerCase();
+        const active = document.querySelector('[data-bulk-chip-filter].active');
+        const mode = active ? active.getAttribute('data-bulk-chip-filter') : 'all';
+        form.querySelectorAll('[data-bulk-done-row]').forEach(function (row) {
+            if (row.getAttribute('data-bulk-rejected') === '1') return;
+            const hay = (String(row.getAttribute('data-domain') || '') + ' ' + String(row.getAttribute('data-url') || '')).toLowerCase();
+            const textOk = query === '' || hay.indexOf(query) !== -1;
+            const state = rowChipState(row);
+            const below = row.querySelector('[data-bulk-quality-chip]') && !row.querySelector('[data-bulk-quality-chip]').classList.contains('d-none');
+            let chipOk = mode === 'all' || state === mode;
+            if (mode === 'below') chipOk = !!below;
+            row.classList.toggle('is-filtered', !(textOk && chipOk));
+        });
     }
 
     function setIncompleteRowsDisabled(disabled) {
@@ -1402,11 +1656,12 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             } else if (rejected.length > 0 && !noteOk) {
                 hint.textContent = 'Add a note for the publisher about the removed sites (10–1000 characters).';
             } else if (complete.length === 0) {
-                hint.textContent = 'Fill at least one complete block (Country, Language, DA, DR, Traffic, Niches) before Done.';
+                hint.textContent = 'Fill at least one complete block (country, language, DA, DR, traffic, niches, sample article, turnaround, publication, link type, listing tag, description of at least 50 characters, and a site image) before Done.';
             } else {
                 hint.textContent = '';
             }
         }
+        applyBulkRowFilter();
     }
 
     let draftTimer = null;
@@ -1475,6 +1730,41 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             }
         });
     });
+    form.querySelectorAll('[data-bulk-apply-empty]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const row = btn.closest('[data-bulk-done-row]');
+            if (row && row.getAttribute('data-bulk-rejected') !== '1') {
+                applyBulkDoneRowToEmpty(row);
+            }
+        });
+    });
+    const rowFilter = document.getElementById('bulkRowFilter');
+    if (rowFilter) {
+        rowFilter.addEventListener('input', applyBulkRowFilter);
+    }
+    document.querySelectorAll('[data-bulk-chip-filter]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('[data-bulk-chip-filter]').forEach(function (other) {
+                other.classList.remove('active');
+            });
+            btn.classList.add('active');
+            applyBulkRowFilter();
+        });
+    });
+    const expandAll = document.querySelector('[data-bulk-expand-all]');
+    const collapseAll = document.querySelector('[data-bulk-collapse-all]');
+    if (expandAll) {
+        expandAll.addEventListener('click', function () {
+            doneRows().forEach(function (row) {
+                if (!row.classList.contains('is-filtered')) row.open = true;
+            });
+        });
+    }
+    if (collapseAll) {
+        collapseAll.addEventListener('click', function () {
+            doneRows().forEach(function (row) { row.open = false; });
+        });
+    }
     form.querySelectorAll('[data-bulk-reject-row]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             const row = btn.closest('[data-bulk-done-row]');

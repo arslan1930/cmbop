@@ -11,16 +11,19 @@ use App\Services\ActivityLogger;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\InAppNotificationService;
 use App\Services\PaypalCheckoutService;
+use App\Services\Wallet\DepositApproveContext;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
 use App\Services\Wallet\ManualDepositApprovalService;
 use App\Services\WalletPaypalDepositService;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DepositController extends Controller
 {
@@ -43,40 +46,14 @@ class DepositController extends Controller
         }
 
         $query = DepositRequest::with('user');
-
-        $status = scalar_text($request->input('status'));
-        if (in_array($status, ['pending', 'approved', 'completed', 'rejected', 'refunded'], true)) {
-            $query->where('status', $status);
-        }
-
-        $search = search_text($request->input('search'));
-        if ($search !== '') {
-            if (preg_match('/^#?DEP-?(\d+)$/i', $search, $matches) === 1) {
-                $query->whereKey((int) $matches[1]);
-            } else {
-                $query->where(function ($q) use ($search) {
-                    if (ctype_digit($search)) {
-                        $q->whereKey((int) $search);
-                    }
-
-                    $q->orWhere('reference_code', 'like', "%{$search}%")
-                        ->orWhereHas('user', function ($sub) use ($search) {
-                            $sub->where('name', 'like', "%{$search}%")
-                                ->orWhere('email', 'like', "%{$search}%");
-                        });
-                });
-            }
-        }
+        $this->applyDepositIndexFilters($query, $request);
 
         try {
             $userReportedPaid = 0;
             if (DepositRequest::hasUserMarkedPaidAtColumn()) {
                 $userReportedPaid = DepositRequest::where('status', 'pending')->whereUserMarkedPaidAtIsRecorded()->count();
-                $query->orderByRaw(
-                    'CASE WHEN status = ? AND user_marked_paid_at IS NOT NULL AND user_marked_paid_at >= ? AND user_marked_paid_at <= ? THEN 0 WHEN status = ? THEN 1 ELSE 2 END',
-                    ['pending', DepositRequest::PLAUSIBLE_SQL_DATETIME_FLOOR, DepositRequest::PLAUSIBLE_SQL_DATETIME_CEIL, 'pending']
-                );
             }
+            $this->applyDepositIndexSort($query, $request);
 
             $stats = [
                 'pending' => DepositRequest::where('status', 'pending')->count(),
@@ -89,8 +66,9 @@ class DepositController extends Controller
             ];
 
             $deposits = $query
-                ->latest()
-                ->paginate(20);
+                ->paginate(20)
+                ->withPath($request->url())
+                ->appends($request->query());
 
             $invoiceLinks = app(AdminInvoiceLinks::class)->forDeposits($deposits->getCollection());
 
@@ -136,11 +114,26 @@ class DepositController extends Controller
             }
 
             $invoice = app(AdminInvoiceLinks::class)->forDeposits(collect([$deposit]))->get((int) $deposit->id);
+            $manual = in_array(strtolower((string) $deposit->payment_method), ['bank', 'wise', 'crypto'], true);
+            $canApprove = $deposit->isPending() && $manual;
+            $approveContext = null;
+            try {
+                $approveContext = app(DepositApproveContext::class)->modalPayload($deposit, $canApprove);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to build deposit modal context: '.$e->getMessage(), [
+                    'deposit_id' => $deposit->id,
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
                 'deposit' => $deposit,
                 'invoice' => $invoice,
+                'can_approve_manual' => $canApprove,
+                'approve_context' => $approveContext,
+                'finance_url' => $deposit->user_id
+                    ? route('admin.finance.user', $deposit->user_id)
+                    : null,
                 'can_refund_paypal' => $deposit->isPaypalRefundable()
                     && app(PaypalCheckoutService::class)->configured(),
             ]);
@@ -262,10 +255,66 @@ class DepositController extends Controller
         }
     }
 
+    public function export(Request $request): StreamedResponse
+    {
+        $rows = collect();
+        try {
+            if (DepositRequest::tableAvailable()) {
+                $query = DepositRequest::with('user:id,name,email');
+                $this->applyDepositIndexFilters($query, $request);
+                $this->applyDepositIndexSort($query, $request);
+                $rows = $query->limit(5000)->get();
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Admin deposits export query failed', ['error' => $e->getMessage()]);
+            $rows = collect();
+        }
+
+        ActivityLogger::tryLog(
+            'deposit.exported',
+            ($request->user()?->name ?? 'Admin').' exported deposits ('.$rows->count().' row(s)).',
+            null,
+            ['rows_exported' => $rows->count()]
+        );
+
+        $filename = 'deposits-export-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'id',
+                'reference',
+                'advertiser',
+                'email',
+                'method',
+                'wallet_amount',
+                'charge_currency',
+                'charge_amount',
+                'status',
+                'reported_paid_at',
+                'created_at',
+            ]);
+            foreach ($rows as $row) {
+                fputcsv($out, [
+                    $row->id,
+                    $row->reference_code,
+                    $row->user?->name,
+                    $row->user?->email,
+                    $row->payment_method,
+                    $row->amount,
+                    $row->charge_currency,
+                    $row->charge_amount,
+                    $row->status,
+                    optional($row->user_marked_paid_at)?->toDateTimeString(),
+                    optional($row->created_at)?->toDateTimeString(),
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
     public function reject(Request $request, $id)
     {
-        $notes = $this->validatedAdminNotes($request);
-
         if (! DepositRequest::tableAvailable()) {
             return response()->json([
                 'success' => false,
@@ -288,6 +337,8 @@ class DepositController extends Controller
                 'message' => 'This deposit request has already been processed.',
             ]);
         }
+
+        $notes = $this->validatedRejectNotes($request);
 
         DB::beginTransaction();
 
@@ -378,6 +429,94 @@ class DepositController extends Controller
 
         $notes = $data['admin_notes'] ?? null;
 
-        return is_string($notes) ? $notes : null;
+        return is_string($notes) ? trim($notes) : null;
+    }
+
+    private function validatedRejectNotes(Request $request): string
+    {
+        $raw = $request->input('admin_notes');
+        if (is_string($raw)) {
+            $request->merge(['admin_notes' => trim($raw)]);
+        }
+
+        $data = $request->validate([
+            'admin_notes' => ['required', 'string', 'min:10', 'max:1000'],
+        ]);
+
+        return (string) $data['admin_notes'];
+    }
+
+    /**
+     * @param  Builder<DepositRequest>  $query
+     */
+    private function applyDepositIndexFilters($query, Request $request): void
+    {
+        $reported = $request->boolean('reported');
+        $status = scalar_text($request->input('status'));
+        if ($reported && $status === 'pending') {
+            $query->where('status', 'pending');
+            if (DepositRequest::hasUserMarkedPaidAtColumn()) {
+                $query->whereUserMarkedPaidAtIsRecorded();
+            }
+        } elseif (in_array($status, ['pending', 'approved', 'completed', 'rejected', 'refunded'], true)) {
+            $query->where('status', $status);
+        }
+
+        $method = strtolower(scalar_text($request->input('payment_method')));
+        if (in_array($method, ['bank', 'wise', 'crypto', 'card', 'paypal'], true)) {
+            $query->where('payment_method', $method);
+        }
+
+        $from = scalar_text($request->input('from'));
+        if ($from !== '' && strtotime($from) !== false) {
+            $query->whereDate('created_at', '>=', $from);
+        }
+        $to = scalar_text($request->input('to'));
+        if ($to !== '' && strtotime($to) !== false) {
+            $query->whereDate('created_at', '<=', $to);
+        }
+
+        $search = search_text($request->input('search'));
+        if ($search === '') {
+            return;
+        }
+
+        if (preg_match('/^#?DEP-?(\d+)$/i', $search, $matches) === 1) {
+            $query->whereKey((int) $matches[1]);
+
+            return;
+        }
+
+        $query->where(function ($q) use ($search) {
+            if (ctype_digit($search)) {
+                $q->whereKey((int) $search);
+            }
+
+            $q->orWhere('reference_code', 'like', "%{$search}%")
+                ->orWhereHas('user', function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+        });
+    }
+
+    /**
+     * @param  Builder<DepositRequest>  $query
+     */
+    private function applyDepositIndexSort($query, Request $request): void
+    {
+        $sort = scalar_text($request->input('sort'));
+        if ($sort !== 'oldest' && $sort !== 'amount' && DepositRequest::hasUserMarkedPaidAtColumn()) {
+            $query->orderByRaw(
+                'CASE WHEN status = ? AND user_marked_paid_at IS NOT NULL AND user_marked_paid_at >= ? AND user_marked_paid_at <= ? THEN 0 WHEN status = ? THEN 1 ELSE 2 END',
+                ['pending', DepositRequest::PLAUSIBLE_SQL_DATETIME_FLOOR, DepositRequest::PLAUSIBLE_SQL_DATETIME_CEIL, 'pending']
+            );
+        }
+
+        match ($sort) {
+            'oldest' => $query->orderBy('created_at')->orderBy('id'),
+            'amount' => $query->orderByDesc('amount')->orderByDesc('id'),
+            default => $query->latest('created_at')->orderByDesc('id'),
+        };
     }
 }

@@ -408,6 +408,10 @@
   gap: 0.5rem 0.75rem;
 }
 
+.bulk-done-row.is-filtered {
+  display: none !important;
+}
+
 .bulk-done-row__chip {
   display: inline-block;
   padding: 0.15rem 0.55rem;

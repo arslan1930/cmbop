@@ -256,7 +256,7 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString("'Accept': 'application/json'", $html);
         $this->assertStringContainsString('if (!res.ok || !data.success)', $html);
         $this->assertStringContainsString("toast(error.message || (isArchive ? 'Could not archive site' : 'Failed to delete site'), 'error')", $html);
-        $this->assertStringContainsString("IS_MARKETING_EDITOR ? 'Reject this site?' : 'Delete this site?'", $html);
+        $this->assertStringContainsString("'Reject this site?'", $html);
         $this->assertStringContainsString('const isArchive = canArchiveSiteRow(site)', $html);
         $this->assertStringContainsString('JSON.stringify({ reason })', $html);
         $this->assertStringContainsString('${STAFF_BASE}/sites/${site.id}/edit', $html);
@@ -556,7 +556,7 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString('toggle-verify', $html);
         $this->assertStringContainsString('>Verify</button>', $html);
         $this->assertStringContainsString('delete-site', $html);
-        $this->assertStringContainsString('>Delete</button>', $html);
+        $this->assertStringContainsString('>Reject</button>', $html);
         $this->assertStringContainsString('js-mkt-activate', $html);
         $this->assertStringContainsString('queryLooksLikeSiteSearch', $html);
         $this->assertStringContainsString('refetchOpenPublisherSites', $html);
