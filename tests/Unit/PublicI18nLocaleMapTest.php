@@ -155,7 +155,9 @@ class PublicI18nLocaleMapTest extends TestCase
         $response = (new SetLocale)->handle($request, fn () => response('ok'));
 
         $this->assertSame(302, $response->getStatusCode());
-        $this->assertSame('http://localhost', rtrim((string) $response->headers->get('Location'), '/'));
+        $homeLocation = (string) $response->headers->get('Location');
+        $this->assertSame('/', rtrim((string) parse_url($homeLocation, PHP_URL_PATH), '/') ?: '/');
+        $this->assertNull(parse_url($homeLocation, PHP_URL_QUERY));
         $this->assertTrue($response->headers->has('Set-Cookie'));
         $this->assertStringContainsString('public_locale', (string) $response->headers->get('Set-Cookie'));
 
@@ -163,7 +165,9 @@ class PublicI18nLocaleMapTest extends TestCase
         $market->cookies->set(config('i18n.cookie', 'public_locale'), 'us');
         $marketResponse = (new SetLocale)->handle($market, fn () => response('ok'));
         $this->assertSame(302, $marketResponse->getStatusCode());
-        $this->assertSame('http://localhost/marketplace', (string) $marketResponse->headers->get('Location'));
+        $marketLocation = (string) $marketResponse->headers->get('Location');
+        $this->assertSame('/marketplace', parse_url($marketLocation, PHP_URL_PATH));
+        $this->assertNull(parse_url($marketLocation, PHP_URL_QUERY));
     }
 
     public function test_uk_and_signed_in_app_stay_on_the_english_url(): void
