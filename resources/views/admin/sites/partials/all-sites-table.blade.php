@@ -88,6 +88,9 @@
                             @if($site->isArchived())
                                 <span class="badge text-bg-secondary">Archived</span>
                             @endif
+                            @if($site->wasAddedFromBulkRequest())
+                                <span class="badge text-bg-light border">Bulk request</span>
+                            @endif
                         </div>
                     </td>
                     <td class="small">

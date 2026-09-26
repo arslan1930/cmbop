@@ -95,8 +95,8 @@ class ActionConfirmDialogsTest extends TestCase
         $this->assertFileExists($path);
         $html = file_get_contents($path);
 
-        $this->assertStringContainsString("confirmTitle = 'Publish these sites?'", $html);
-        $this->assertStringContainsString("confirmTextBtn = 'Publish sites'", $html);
+        $this->assertStringContainsString("confirmTitle = reviewMode ? 'Send these sites for review?' : 'Publish these sites?'", $html);
+        $this->assertStringContainsString("confirmTextBtn = reviewMode ? 'Send for review' : 'Publish sites'", $html);
         $this->assertStringContainsString('title: confirmTitle', $html);
         $this->assertStringContainsString('confirmText: confirmTextBtn', $html);
         $this->assertStringContainsString('slbBulkAllowSubmit', $html);

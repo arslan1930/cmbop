@@ -2395,6 +2395,36 @@ class InAppNotificationService
         );
     }
 
+    public function notifyPublisherBulkSitesReadyForReview(BulkSiteRequest $bulk, int $createdCount): void
+    {
+        $publisherId = (int) ($bulk->publisher_id ?? 0);
+        if ($publisherId <= 0 || $createdCount <= 0) {
+            return;
+        }
+
+        $this->notify(
+            $publisherId,
+            self::TYPE_SITE_STATUS,
+            $createdCount === 1
+                ? 'Please review a website from your bulk request'
+                : "Please review {$createdCount} websites from your bulk request",
+            'These listings are filled in and waiting for you. They are not live yet. Review them, then submit them for our team to verify.',
+            [
+                'category' => self::CATEGORY_ACCOUNT,
+                'icon' => 'check-circle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $bulk,
+                'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                'action_label' => 'Review & submit',
+                'action_url' => route('publisher.bulk-sites.review', absolute: false),
+                'meta' => [
+                    'bulk_site_request_id' => $bulk->id,
+                    'created_count' => $createdCount,
+                ],
+            ]
+        );
+    }
+
     public function notifyPublisherSiteAssignedForAcceptance(Site $site): void
     {
         $publisherId = (int) ($site->publisher_id ?? 0);

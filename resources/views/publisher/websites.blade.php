@@ -1154,9 +1154,15 @@
                         <span class="form-section-title">Description</span>
                         <div class="row">
                             <div class="col-12">
-                                <label class="form-label">Site Description (500 words max) <span class="req" aria-hidden="true">*</span></label>
+                                <label class="form-label" for="quillEditor">Site Description (500 words max) <span class="req" aria-hidden="true">*</span></label>
                                 <div id="quillEditor" class="border rounded" style="height: 200px;">{!! old_text('siteDescription') !!}</div>
-                                <input type="hidden" name="siteDescription" id="siteDescription" required>
+                                <input type="hidden" name="siteDescription" id="siteDescription" value="">
+                                <div class="site-desc-meta">
+                                    <div class="help-text mb-0" id="siteDescHelp">{{ \App\Support\SiteDescriptionRules::helpText() }}</div>
+                                    <div class="site-desc-counter" id="siteDescCounter" aria-live="polite"></div>
+                                </div>
+                                @php $siteDescError = $errors->first('siteDescription'); @endphp
+                                <div id="siteDescError" class="text-danger small {{ $siteDescError ? 'd-block' : 'd-none' }}" @if($siteDescError) data-server-error="1" @endif>{{ $siteDescError }}</div>
                             </div>
                         </div>
                     </div>
@@ -1602,11 +1608,85 @@ const formHeaderSpan = $('#formHeader');
 
 // Quill editor (guarded so a CDN/CSP failure cannot break the sites table loader)
 var quill = null;
+const SITE_DESC_MIN_CHARS = Number((window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descMinChars) || 50);
+const SITE_DESC_MAX_WORDS = Number((window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descMaxWords) || 500);
+
+function siteDescPlainText(htmlOrText) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = htmlOrText || '';
+    return String(tmp.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function siteDescCharCount(plain) {
+    // Code points, same as PHP mb_strlen, so Arabic, Cyrillic, Greek, and
+    // Chinese match the server minimum. String.length counts UTF-16 units.
+    return Array.from(String(plain || '')).length;
+}
+
+function siteDescWordCount(plain) {
+    const text = String(plain || '').trim();
+    if (!text) return 0;
+    return text.split(/\s+/).filter(Boolean).length;
+}
+
+function currentSiteDescriptionHtml() {
+    if (quill) return quill.root.innerHTML || '';
+    return $('#siteDescription').val() || '';
+}
+
+function siteDescValidationMessage(plain) {
+    if (!plain) return 'Please enter a site description.';
+    if (siteDescCharCount(plain) < SITE_DESC_MIN_CHARS) {
+        return 'Description must be at least ' + SITE_DESC_MIN_CHARS + ' characters (visible text).';
+    }
+    if (siteDescWordCount(plain) > SITE_DESC_MAX_WORDS) {
+        return 'Description must be at most ' + SITE_DESC_MAX_WORDS + ' words.';
+    }
+    return '';
+}
+
+function showSiteDescError(message) {
+    const err = document.getElementById('siteDescError');
+    if (!err) return;
+    delete err.dataset.serverError;
+    if (message) {
+        err.textContent = message;
+        err.classList.remove('d-none');
+        err.classList.add('d-block');
+    } else {
+        err.textContent = '';
+        err.classList.add('d-none');
+        err.classList.remove('d-block');
+    }
+}
+
+function syncSiteDescriptionField() {
+    const html = currentSiteDescriptionHtml();
+    $('#siteDescription').val(html);
+    const plain = siteDescPlainText(html);
+    const words = siteDescWordCount(plain);
+    const msg = siteDescValidationMessage(plain);
+    const counter = document.getElementById('siteDescCounter');
+    if (counter) {
+        counter.textContent = siteDescCharCount(plain) + ' / ' + SITE_DESC_MIN_CHARS + ' chars · ' + words + ' / ' + SITE_DESC_MAX_WORDS + ' words';
+        counter.classList.toggle('is-invalid', !!msg && !!plain);
+        counter.classList.toggle('is-ok', !msg && !!plain);
+    }
+    const err = document.getElementById('siteDescError');
+    if (err && err.dataset.serverError === '1') {
+        return msg;
+    }
+    // Keep the empty-state message for Next/submit. While typing, clear it
+    // so deleting the brief does not leave a stale "at least 50" error.
+    showSiteDescError(plain ? msg : '');
+    return msg;
+}
+
 if (typeof Quill !== 'undefined' && document.getElementById('quillEditor')) {
     try {
         quill = new Quill('#quillEditor', {
             theme: 'snow',
-            placeholder: 'Enter site description...',
+            placeholder: (window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descPlaceholder) || 'Enter site description...',
             modules: {
                 toolbar: [
                     [{ 'header': [1, 2, 3, false] }],
@@ -1616,6 +1696,8 @@ if (typeof Quill !== 'undefined' && document.getElementById('quillEditor')) {
                 ]
             }
         });
+        quill.root.setAttribute('dir', 'auto');
+        syncSiteDescriptionField();
     } catch (e) {
         console.warn('Quill init failed', e);
     }
@@ -2343,6 +2425,7 @@ function validateWizardStep(step) {
     let message = '';
 
     pane.find('input[required], select[required]').each(function() {
+        if (this.type === 'hidden' || this.id === 'siteDescription') return;
         if (!this.checkValidity()) {
             ok = false;
             $(this).addClass('is-invalid');
@@ -2353,12 +2436,18 @@ function validateWizardStep(step) {
     });
 
     if (step === 1) {
-        const desc = quill ? (quill.root.innerText || '').trim() : ($('#siteDescription').val() || '').replace(/<[^>]+>/g,'').trim();
-        if (!desc) {
+        // textContent, not innerText: step 1 is display:none on later steps,
+        // and innerText is empty for hidden editors, so a filled description
+        // was rejected as blank after the publisher picked a language.
+        const plain = siteDescPlainText(currentSiteDescriptionHtml());
+        const descMsg = siteDescValidationMessage(plain);
+        $('#siteDescription').val(currentSiteDescriptionHtml());
+        if (descMsg) {
             ok = false;
-            message = message || 'Please enter a site description.';
+            message = message || descMsg;
+            showSiteDescError(descMsg);
         } else {
-            if (quill) $('#siteDescription').val(quill.root.innerHTML);
+            showSiteDescError('');
         }
     }
 
@@ -2401,6 +2490,9 @@ $('#addSiteForm').on('change input', 'input, select, textarea', function() {
 });
 if (quill) {
     quill.on('text-change', function() {
+        const err = document.getElementById('siteDescError');
+        if (err) delete err.dataset.serverError;
+        syncSiteDescriptionField();
         if ($('#methodField').val() === 'POST') {
             saveSiteDraft();
         }
@@ -2451,6 +2543,7 @@ addBtn.on('click', function() {
             setWizardStep(1);
             $('#wizardDraftHint').text('');
         }
+        syncSiteDescriptionField();
     }
 });
 
@@ -3068,6 +3161,7 @@ function prefillSiteForm(site) {
 
     if (quill) {
         quill.root.innerHTML = site.description || '';
+        syncSiteDescriptionField();
     }
 
     if (site.is_live) {
@@ -3131,10 +3225,11 @@ $(document).ready(function(){
                 window.sitePreviewConfirmed = false;
             }
 
-            if (quill && !quill.root.innerHTML.trim()) {
+            if (quill && !siteDescPlainText(quill.root.innerHTML)) {
                 const oldDesc = @json(old_text('siteDescription'));
                 if (oldDesc) quill.root.innerHTML = oldDesc;
             }
+            syncSiteDescriptionField();
 
             setWizardStep(1);
             $('html, body').animate({ scrollTop: formCard.offset().top - 100 }, 400);

@@ -105,7 +105,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
             ->get(route('admin.bulk-site-requests.show', $bulk))
             ->assertOk()
             ->assertSee('Publisher submitted (URL + price only)', false)
-            ->assertSee('Done — publish sites &amp; notify publisher', false)
+            ->assertSee('Done — publish now, or send to the publisher for review', false)
             ->assertSee('https://bulk-a.example', false)
             ->assertSee('https://bulk-b.example', false);
 

@@ -175,7 +175,7 @@ class MarketingBulkSiteOpsTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Append-only', $html);
-        $this->assertStringContainsString('Done — publish sites', $html);
+        $this->assertStringContainsString('Done — publish now, or send to the publisher for review', $html);
     }
 
     public function test_marketer_seed_rejects_price_that_would_overflow_decimal(): void

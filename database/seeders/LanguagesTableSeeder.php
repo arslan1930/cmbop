@@ -4,12 +4,45 @@ namespace Database\Seeders;
 
 use App\Models\Language;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 
 class LanguagesTableSeeder extends Seeder
 {
-    public function run()
+    /**
+     * Insert marketplace languages that were never migrated onto this database.
+     * Does not delete or rename existing rows. A missing row (Bulgarian, Arabic,
+     * Chinese, …) leaves that country's language menu empty, so the site —
+     * including its description — cannot be saved.
+     */
+    public static function upsertMissing(): void
     {
-        $languages = [
+        if (! Schema::hasTable('languages')) {
+            return;
+        }
+
+        $allowed = array_map('strtolower', (array) config('markets.allowed_language_codes', []));
+        $existing = Language::query()->pluck('code')->map(fn ($code) => strtolower((string) $code))->all();
+
+        foreach (self::definitions() as $language) {
+            $code = strtolower($language['code']);
+            if ($allowed !== [] && ! in_array($code, $allowed, true)) {
+                continue;
+            }
+            if (in_array($code, $existing, true)) {
+                continue;
+            }
+
+            Language::query()->create($language);
+            $existing[] = $code;
+        }
+    }
+
+    /**
+     * @return list<array{code: string, name: string, native_name: string}>
+     */
+    public static function definitions(): array
+    {
+        return [
             ['code' => 'en', 'name' => 'English', 'native_name' => 'English'],
             ['code' => 'de', 'name' => 'German', 'native_name' => 'Deutsch'],
             ['code' => 'fr', 'name' => 'French', 'native_name' => 'Français'],
@@ -45,10 +78,13 @@ class LanguagesTableSeeder extends Seeder
             ['code' => 'zh', 'name' => 'Chinese', 'native_name' => '中文'],
             ['code' => 'ar', 'name' => 'Arabic', 'native_name' => 'العربية'],
         ];
+    }
 
+    public function run()
+    {
         $allowed = config('markets.allowed_language_codes', []);
 
-        foreach ($languages as $language) {
+        foreach (self::definitions() as $language) {
             if (! in_array($language['code'], $allowed, true)) {
                 continue;
             }

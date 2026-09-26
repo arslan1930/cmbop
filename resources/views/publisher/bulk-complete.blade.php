@@ -117,6 +117,7 @@
                                   id="siteDescription-{{ $site->id }}"
                                   class="form-control bulk-site-description"
                                   rows="6"
+                                  dir="auto"
                                   required
                                   placeholder="{{ \App\Support\SiteDescriptionRules::placeholder() }}"
                                   data-min-chars="{{ \App\Support\SiteDescriptionRules::MIN_CHARS }}"
@@ -164,6 +165,9 @@
             .replace(/&quot;/gi, '"');
         return t.replace(/\s+/g, ' ').trim();
     }
+    function chars(text) {
+        return Array.from(String(text || '')).length;
+    }
     function words(text) {
         const t = plain(text);
         return t ? t.split(/\s+/).filter(Boolean).length : 0;
@@ -172,15 +176,16 @@
         const min = parseInt(el.getAttribute('data-min-chars') || '50', 10);
         const max = parseInt(el.getAttribute('data-max-words') || '500', 10);
         const p = plain(el.value);
+        const n = chars(p);
         const w = words(p);
         const counter = el.parentElement.querySelector('.bulk-desc-counter');
         if (counter) {
-            counter.textContent = p.length + ' / ' + min + ' chars · ' + w + ' / ' + max + ' words';
-            counter.style.color = (!p || p.length < min || w > max) ? '#b91c1c' : '#0f766e';
+            counter.textContent = n + ' / ' + min + ' chars · ' + w + ' / ' + max + ' words';
+            counter.style.color = (!p || n < min || w > max) ? '#b91c1c' : '#0f766e';
         }
         el.setCustomValidity(
             !p ? 'Please enter a site description.'
-                : (p.length < min ? 'Description must be at least ' + min + ' characters (visible text).'
+                : (n < min ? 'Description must be at least ' + min + ' characters (visible text).'
                     : (w > max ? 'Description must be at most ' + max + ' words.' : ''))
         );
     }

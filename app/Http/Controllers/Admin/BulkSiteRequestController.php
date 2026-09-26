@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\BulkSiteItemsRejected;
 use App\Mail\BulkSiteRequestCancelled;
+use App\Mail\BulkSitesReadyForPublisherReview;
 use App\Mail\BulkSitesSeededNotification;
 use App\Models\ActivityLog;
 use App\Models\BulkSiteRequest;
@@ -23,6 +24,7 @@ use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
 use App\Support\UserFacingError;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -41,6 +43,9 @@ class BulkSiteRequestController extends Controller
     public function index(Request $request)
     {
         $status = search_text($request->input('status'));
+        if ($status === BulkSiteRequest::STATUS_COMPLETED) {
+            $status = '';
+        }
         $selectedStatus = $status !== '' ? $status : 'all';
         $q = search_text($request->input('q'));
 
@@ -56,12 +61,27 @@ class BulkSiteRequestController extends Controller
                     ->where('onboarding_status', Site::ONBOARDING_READY_FOR_REVIEW);
             }
 
+            $this->healUnfinishedCompletedBulkRequests();
+
             $query = BulkSiteRequest::query()
                 ->with(['publisher', 'handler'])
                 ->withCount($withCount)
                 ->latest();
 
             MarketingOpsQueues::applyBulkIndexStatus($query, $status);
+            if ($status === '' || $status === 'all') {
+                $query->where(function ($visible) {
+                    $visible->whereNotIn('status', [
+                        BulkSiteRequest::STATUS_COMPLETED,
+                        BulkSiteRequest::STATUS_CANCELLED,
+                    ])->orWhere(function ($unfinished) {
+                        $unfinished->where('status', BulkSiteRequest::STATUS_COMPLETED);
+                        $this->constrainBulkRequestStillOpen($unfinished);
+                    });
+                });
+            } elseif ($status !== MarketingOpsQueues::FILTER_NEEDS_MARKETER) {
+                $query->where('status', '!=', BulkSiteRequest::STATUS_COMPLETED);
+            }
             $this->applyBulkIndexSearch($query, $q);
 
             $requests = $query->paginate(20)->withQueryString();
@@ -87,6 +107,47 @@ class BulkSiteRequestController extends Controller
             'filtersActive' => $selectedStatus !== 'all' || $q !== '',
             'waitingOnYouCount' => $waitingOnYouCount,
         ]);
+    }
+
+    /**
+     * A completed label with URL rows or publisher review still open is stuck
+     * work, not history. Correct it before the folder hides finished batches.
+     */
+    private function healUnfinishedCompletedBulkRequests(): void
+    {
+        BulkSiteRequest::query()
+            ->where('status', BulkSiteRequest::STATUS_COMPLETED)
+            ->where(function ($work) {
+                $this->constrainBulkRequestStillOpen($work);
+            })
+            ->orderBy('id')
+            ->limit(50)
+            ->get()
+            ->each(function (BulkSiteRequest $bulk) {
+                try {
+                    $bulk->healProgressStatusIfStale();
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            });
+    }
+
+    /**
+     * @param  Builder<BulkSiteRequest>  $query
+     */
+    private function constrainBulkRequestStillOpen($query): void
+    {
+        $query->where(function ($work) {
+            $work->whereHas('items', fn ($items) => $items->whereNull('site_id'));
+            if (Site::hasSitesColumn('onboarding_status')) {
+                $work->orWhereHas('sites', function ($sites) {
+                    $sites->notArchived()->whereIn('onboarding_status', [
+                        Site::ONBOARDING_AWAITING_DETAILS,
+                        Site::ONBOARDING_DETAILS_COMPLETE,
+                    ]);
+                });
+            }
+        });
     }
 
     private function applyBulkIndexSearch($query, string $q): void
@@ -416,9 +477,10 @@ class BulkSiteRequestController extends Controller
     }
 
     /**
-     * Done: create draft sites from publisher-submitted URL+price items, then notify publisher.
-     * Drafts stay inactive until the publisher finishes details and staff verify/activate.
-     * Marketer can submit one or more fully filled blocks; empty pending rows stay for later.
+     * Done: create sites from publisher-submitted URL+price items.
+     * Publish now makes them active and unverified. Send for review leaves them
+     * inactive so the publisher can check them and submit them to Needs review.
+     * Empty pending rows stay for later.
      */
     public function done(Request $request, int $id)
     {
@@ -771,13 +833,20 @@ class BulkSiteRequestController extends Controller
             ? null
             : trim((string) $request->input('rejection_note', ''));
 
+        $doneModeRaw = $request->input('done_mode');
+        if (is_array($doneModeRaw)) {
+            $doneModeRaw = end($doneModeRaw);
+        }
+        $doneMode = trim((string) (is_scalar($doneModeRaw) ? $doneModeRaw : '')) === 'review' ? 'review' : 'publish';
+
         return $this->createDraftSitesAndNotify(
             $bulkRequest,
             $rows,
             [],
             'bulk_request.done',
             $rejectedItems,
-            $rejectionNote
+            $rejectionNote,
+            $doneMode
         );
     }
 
@@ -938,6 +1007,7 @@ class BulkSiteRequestController extends Controller
      * @param  list<array<string, mixed>>  $failures
      * @param  'bulk_request.done'|'bulk_request.seeded'  $action
      * @param  list<array{id:int,domain:string,site_url:string}>  $rejectedItems
+     * @param  'publish'|'review'  $doneMode
      */
     private function createDraftSitesAndNotify(
         BulkSiteRequest $bulkRequest,
@@ -945,10 +1015,15 @@ class BulkSiteRequestController extends Controller
         array $failures,
         string $action,
         array $rejectedItems = [],
-        ?string $rejectionNote = null
+        ?string $rejectionNote = null,
+        string $doneMode = 'publish'
     ) {
         if (! in_array($action, ['bulk_request.done', 'bulk_request.seeded'], true)) {
             throw new \InvalidArgumentException('Unsupported bulk history action.');
+        }
+
+        if ($doneMode === 'review') {
+            Site::ensureOnboardingStatusColumnAcceptsValues();
         }
 
         $created = 0;
@@ -969,7 +1044,8 @@ class BulkSiteRequestController extends Controller
             &$failures,
             &$createdDomains,
             &$deletedCount,
-            &$deletedDomains
+            &$deletedDomains,
+            $doneMode
         ) {
             foreach ($rows as $row) {
                 $domain = $row['domain'];
@@ -1031,11 +1107,13 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
+                $publishNow = $doneMode !== 'review';
                 $site = new Site;
                 $site->applyMarketplaceListing(array_merge([
                     'publisher_id' => $bulkRequest->publisher_id,
                     'bulk_site_request_id' => $bulkRequest->id,
-                    'publisher_accepted_at' => now(),
+                    'added_from_bulk_request' => true,
+                    'publisher_accepted_at' => $publishNow ? now() : null,
                     'assigned_by_user_id' => null,
                     'site_name' => $row['site_name'],
                     'site_url' => $row['site_url'],
@@ -1063,9 +1141,9 @@ class BulkSiteRequestController extends Controller
                     'social_promotion' => $row['social_promotion'] ?? null,
                     'site_image' => $imagePath,
                     'verified' => false,
-                    'active' => true,
+                    'active' => $publishNow,
                     'enrichment_status' => 'pending',
-                    'onboarding_status' => null,
+                    'onboarding_status' => $publishNow ? null : Site::ONBOARDING_DETAILS_COMPLETE,
                 ], SiteTag::flags(SiteTag::normalize($row['site_tag'] ?? null))));
                 $site->save();
 
@@ -1136,13 +1214,16 @@ class BulkSiteRequestController extends Controller
         $publisher = $fresh?->publisher;
 
         if ($created > 0) {
-            $verb = $action === 'bulk_request.done'
-                ? 'marked Done and published'
-                : 'published';
+            $sentForReview = $doneMode === 'review';
+            $verb = $sentForReview
+                ? 'sent '.$created.' site(s) to the publisher for review on bulk request #'
+                : ($action === 'bulk_request.done'
+                    ? 'marked Done and published '.$created.' active site(s) on bulk request #'
+                    : 'published '.$created.' active site(s) on bulk request #');
 
             ActivityLogger::tryLog(
                 $action,
-                (auth()->user()->name ?? 'Staff').' '.$verb.' '.$created.' active site(s) on bulk request #'.$bulkRequest->id,
+                (auth()->user()->name ?? 'Staff').' '.$verb.$bulkRequest->id,
                 $bulkRequest,
                 [
                     'bulk_site_request_id' => $bulkRequest->id,
@@ -1151,14 +1232,17 @@ class BulkSiteRequestController extends Controller
                     'failed_count' => count($failures),
                     'domains' => $createdDomains,
                     'source' => $action === 'bulk_request.done' ? 'done' : 'seed',
+                    'done_mode' => $sentForReview ? 'review' : 'publish',
                 ],
                 'Bulk request #'.$bulkRequest->id
             );
 
             try {
-                if ($publisher?->email) {
+                if ($publisher?->email && $fresh) {
                     Mail::to($publisher->email)->send(
-                        new BulkSitesSeededNotification($fresh, $created, $publisher, $createdDomains)
+                        $sentForReview
+                            ? new BulkSitesReadyForPublisherReview($fresh, $created, $publisher, $createdDomains)
+                            : new BulkSitesSeededNotification($fresh, $created, $publisher, $createdDomains)
                     );
                 }
             } catch (\Throwable $e) {
@@ -1167,7 +1251,12 @@ class BulkSiteRequestController extends Controller
 
             try {
                 if ($fresh) {
-                    app(InAppNotificationService::class)->notifyPublisherBulkSitesAdded($fresh, $created);
+                    $notifier = app(InAppNotificationService::class);
+                    if ($sentForReview) {
+                        $notifier->notifyPublisherBulkSitesReadyForReview($fresh, $created);
+                    } else {
+                        $notifier->notifyPublisherBulkSitesAdded($fresh, $created);
+                    }
                 }
             } catch (\Throwable $e) {
                 Log::warning('Failed to send in-app bulk Done notice: '.$e->getMessage());
@@ -1214,7 +1303,9 @@ class BulkSiteRequestController extends Controller
         $headline = $action === 'bulk_request.done' ? 'Done' : 'Seed';
         $parts = [];
         if ($created > 0) {
-            $parts[] = "{$headline} — {$created} site(s) are now active on the publisher’s account (not verified). Publisher notified (email + in-app).";
+            $parts[] = $doneMode === 'review'
+                ? "{$created} site(s) were sent to the publisher for review. They are not live yet."
+                : "{$headline} — {$created} site(s) are now active on the publisher’s account (not verified). Publisher notified (email + in-app).";
         }
         if ($deletedCount > 0) {
             $parts[] = $deletedCount === 1

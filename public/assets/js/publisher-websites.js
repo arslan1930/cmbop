@@ -82,7 +82,11 @@ const SITE_DESC_PLACEHOLDER = (window.PublisherWebsitesConfig && window.Publishe
 function siteDescPlainText(htmlOrText) {
     const tmp = document.createElement('div');
     tmp.innerHTML = htmlOrText || '';
-    return String(tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim();
+    return String(tmp.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function siteDescCharCount(plain) {
+    return Array.from(String(plain || '')).length;
 }
 
 function siteDescWordCount(plain) {
@@ -93,7 +97,7 @@ function siteDescWordCount(plain) {
 
 function siteDescValidationMessage(plain) {
     if (!plain) return 'Please enter a site description.';
-    if (plain.length < SITE_DESC_MIN_CHARS) {
+    if (siteDescCharCount(plain) < SITE_DESC_MIN_CHARS) {
         return 'Description must be at least ' + SITE_DESC_MIN_CHARS + ' characters (visible text).';
     }
     if (siteDescWordCount(plain) > SITE_DESC_MAX_WORDS) {
@@ -109,7 +113,7 @@ function syncSiteDescriptionCounter() {
     const el = document.getElementById('siteDescCounter');
     const err = document.getElementById('siteDescError');
     if (el) {
-        el.textContent = plain.length + ' / ' + SITE_DESC_MIN_CHARS + ' chars · ' + words + ' / ' + SITE_DESC_MAX_WORDS + ' words';
+        el.textContent = siteDescCharCount(plain) + ' / ' + SITE_DESC_MIN_CHARS + ' chars · ' + words + ' / ' + SITE_DESC_MAX_WORDS + ' words';
         el.classList.remove('is-invalid', 'is-ok');
         const msg = siteDescValidationMessage(plain);
         if (msg) el.classList.add('is-invalid');
@@ -139,6 +143,7 @@ if (typeof Quill !== 'undefined' && document.getElementById('quillEditor')) {
             }
         });
         const initialDesc = document.getElementById('siteDescription')?.value || '';
+        quill.root.setAttribute('dir', 'auto');
         if (initialDesc) {
             quill.root.innerHTML = initialDesc;
         }

@@ -149,15 +149,17 @@
 
     <div class="card border-0 shadow-sm border-primary-subtle bulk-request-done">
                 <div class="card-body">
-                    <h6 class="fw-semibold mb-1">Done — publish sites &amp; notify publisher</h6>
+                    <h6 class="fw-semibold mb-1">Done — publish now, or send to the publisher for review</h6>
                     <p class="small text-muted mb-3">
                         <strong>{{ $pendingItems->count() }}</strong> website(s) still pending
                         (publisher + marketer share a {{ \App\Models\BulkSiteRequest::MAX_SITES_PER_REQUEST }}-site batch limit).
-                        Fill every required field on a row — language, country, DA, DR, traffic, niches, sample article, turnaround, publication time, link type, listing tag, description, and site image — and click Done, one row, several, or all at once.
-                        Finished rows go live (active, not verified) and the publisher is notified, and the rest stay here until you fill them.
+                        Fill every required field on a row — language, country, DA, DR, traffic, niches, sample article, turnaround, publication time, link type, listing tag, description, and site image — then choose one action for the filled rows.
+                        <strong>Publish now</strong> puts them live (active, not verified) and tells the publisher they are on the account.
+                        <strong>Send for review</strong> leaves them off the catalog. The publisher checks them and submits them, and they then show in Sites → Needs review.
+                        Either way the site is marked Bulk request. Unfilled rows stay here.
                         Sensitive-topic prices are required only when that topic is offered.
                         Delete a row you will not add — those sites leave this batch and the publisher gets one note for all removed sites.
-                        The quality bar is DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Done below this is allowed and the site still goes live.
+                        The quality bar is DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Publishing below this is allowed and the site still goes live.
                     </p>
 
                     @if($errors->any())
@@ -735,13 +737,26 @@
                                 Fill at least one complete block (country, language, DA, DR, traffic, niches, sample article, turnaround, publication, link type, listing tag, description of at least 50 characters, and a site image) before Done.
                             </div>
 
-                    <button type="submit"
-                            id="bulkDoneSubmit"
-                            class="btn btn-primary"
-                            data-open="{{ $bulkRequest->canAddDraftSites() ? '1' : '0' }}"
-                            disabled>
-                        Done — publish filled sites &amp; notify publisher
-                    </button>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit"
+                                name="done_mode"
+                                value="publish"
+                                id="bulkDoneSubmit"
+                                class="btn btn-primary"
+                                data-open="{{ $bulkRequest->canAddDraftSites() ? '1' : '0' }}"
+                                disabled>
+                            Publish filled sites now
+                        </button>
+                        <button type="submit"
+                                name="done_mode"
+                                value="review"
+                                id="bulkReviewSubmit"
+                                class="btn btn-outline-primary"
+                                data-open="{{ $bulkRequest->canAddDraftSites() ? '1' : '0' }}"
+                                disabled>
+                            Send filled sites to publisher for review
+                        </button>
+                    </div>
                 </form>
             @endif
         </div>
@@ -870,6 +885,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
     });
 
     const submitBtn = document.getElementById('bulkDoneSubmit');
+    const reviewBtn = document.getElementById('bulkReviewSubmit');
     const hint = document.getElementById('bulkDoneHint');
     const noteWrap = document.getElementById('bulkRejectionNoteWrap');
     const noteEl = document.getElementById('rejection_note');
@@ -1638,15 +1654,24 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             submitBtn.disabled = !(open && ready);
             if (complete.length > 0) {
                 submitBtn.textContent = complete.length === 1
-                    ? 'Done — add 1 filled site & notify publisher'
-                    : ('Done — add ' + complete.length + ' filled sites & notify publisher');
+                    ? 'Publish 1 site now'
+                    : ('Publish ' + complete.length + ' sites now');
             } else if (rejected.length > 0) {
                 submitBtn.textContent = rejected.length === 1
-                    ? 'Done — remove 1 site & notify publisher'
-                    : ('Done — remove ' + rejected.length + ' sites & notify publisher');
+                    ? 'Remove 1 site & notify publisher'
+                    : ('Remove ' + rejected.length + ' sites & notify publisher');
             } else {
-                submitBtn.textContent = 'Done — add filled sites & notify publisher';
+                submitBtn.textContent = 'Publish filled sites now';
             }
+        }
+        if (reviewBtn) {
+            const canReview = open && ready && complete.length > 0;
+            reviewBtn.disabled = !canReview;
+            reviewBtn.textContent = complete.length === 1
+                ? 'Send 1 site to publisher for review'
+                : (complete.length > 1
+                    ? ('Send ' + complete.length + ' sites to publisher for review')
+                    : 'Send filled sites to publisher for review');
         }
         if (hint) {
             hint.classList.toggle('d-none', ready);
@@ -1846,7 +1871,7 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
                 slbAlert({
                     icon: 'warning',
                     title: 'Fill at least one block',
-                    text: 'Fill every required field, including the site image, on at least one website, then click Done. Other rows can stay empty for later.',
+                    text: 'Fill every required field, including the site image, on at least one website, then choose Publish now or Send for review. Other rows can stay empty for later.',
                 });
             }
             return false;
@@ -1855,18 +1880,25 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         const count = complete.length;
         const remaining = doneRows().length - count;
         const submittedIds = complete.map(rowItemId).filter(Boolean).concat(rejected);
+        const chosenSubmitter = (e.submitter && e.submitter.form === form) ? e.submitter : submitBtn;
+        form._slbDoneSubmitter = chosenSubmitter;
+        const reviewMode = !!(chosenSubmitter && chosenSubmitter.id === 'bulkReviewSubmit');
         e.preventDefault();
-        let confirmTitle = 'Publish these sites?';
-        let confirmText = remaining > 0
-            ? ('Publish ' + count + ' complete site(s) now and notify the publisher? They go live and stay unverified. ' + remaining + ' unfinished row(s) will stay pending.')
-            : ('Publish ' + count + ' site(s) on the publisher’s account and notify them? They go live and stay unverified.');
-        let confirmTextBtn = 'Publish sites';
+        let confirmTitle = reviewMode ? 'Send these sites for review?' : 'Publish these sites?';
+        let confirmText = reviewMode
+            ? (remaining > 0
+                ? ('Send ' + count + ' complete site(s) to the publisher for review? They stay off the catalog until the publisher submits them. ' + remaining + ' unfinished row(s) will stay pending.')
+                : ('Send ' + count + ' site(s) to the publisher for review? They stay off the catalog until the publisher submits them.'))
+            : (remaining > 0
+                ? ('Publish ' + count + ' complete site(s) now and notify the publisher? They go live and stay unverified. ' + remaining + ' unfinished row(s) will stay pending.')
+                : ('Publish ' + count + ' site(s) on the publisher’s account and notify them? They go live and stay unverified.'));
+        let confirmTextBtn = reviewMode ? 'Send for review' : 'Publish sites';
         if (count > 0 && rejected.length > 0) {
-            confirmTitle = 'Publish sites and remove others?';
-            confirmText = 'Publish ' + count + ' site(s) and remove ' + rejected.length
+            confirmTitle = reviewMode ? 'Send for review and remove others?' : 'Publish sites and remove others?';
+            confirmText = (reviewMode ? 'Send ' : 'Publish ') + count + ' site(s) and remove ' + rejected.length
                 + ' site(s)? The publisher gets both notices.'
                 + (remaining > 0 ? (' ' + remaining + ' unfinished row(s) will stay pending.') : '');
-            confirmTextBtn = 'Done';
+            confirmTextBtn = reviewMode ? 'Send for review' : 'Publish sites';
         } else if (count === 0 && rejected.length > 0) {
             confirmTitle = 'Remove sites?';
             confirmText = 'Remove ' + rejected.length + ' site(s) and notify the publisher with your note?'
@@ -1888,11 +1920,25 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             setIncompleteRowsDisabled(true);
             form.dataset.slbBulkSubmittedIds = submittedIds.join(',');
             form.dataset.slbBulkAllowSubmit = '1';
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit();
-            } else {
-                HTMLFormElement.prototype.submit.call(form);
+            const chosen = form._slbDoneSubmitter || submitBtn;
+            if (typeof form.requestSubmit === 'function' && chosen && !chosen.disabled) {
+                try {
+                    form.requestSubmit(chosen);
+                    return;
+                } catch (err) {
+                    // A browser that rejects the submitter falls through and stamps done_mode.
+                }
             }
+            let modeInput = form.querySelector('input[data-bulk-done-mode]');
+            if (!modeInput) {
+                modeInput = document.createElement('input');
+                modeInput.type = 'hidden';
+                modeInput.name = 'done_mode';
+                modeInput.setAttribute('data-bulk-done-mode', '1');
+                form.appendChild(modeInput);
+            }
+            modeInput.value = chosen && chosen.id === 'bulkReviewSubmit' ? 'review' : 'publish';
+            HTMLFormElement.prototype.submit.call(form);
         });
     });
 

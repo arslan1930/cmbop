@@ -13,6 +13,7 @@ use App\Mail\AutoApproveReminderMail;
 use App\Mail\BulkSiteItemsRejected;
 use App\Mail\BulkSiteRequestCancelled;
 use App\Mail\BulkSiteRequestSubmitted;
+use App\Mail\BulkSitesReadyForPublisherReview;
 use App\Mail\BulkSitesSeededNotification;
 use App\Mail\CommunityFeedbackReviewed;
 use App\Mail\ContentEvaluationResult;
@@ -396,6 +397,13 @@ class EmailCatalog
                 'mailable' => BulkSitesSeededNotification::class,
                 'status' => 'active',
             ],
+            'bulk_sites_publisher_review' => [
+                'name' => 'Bulk Sites Ready for Publisher Review',
+                'description' => 'Publisher asked to review bulk sites before they go live.',
+                'category' => 'Publishers',
+                'mailable' => BulkSitesReadyForPublisherReview::class,
+                'status' => 'active',
+            ],
             'admin_assigned_site' => [
                 'name' => 'Admin Assigned Site — Accept Listing',
                 'description' => 'Publisher asked to accept a website staff added for them.',
@@ -679,6 +687,7 @@ class EmailCatalog
             'your payout details were updated' => 'payout_profile_updated',
             'bulk site request from' => 'bulk_site_request_submitted',
             'your bulk sites are active' => 'bulk_sites_seeded',
+            'please review websites from your bulk request' => 'bulk_sites_publisher_review',
             'your sites were added to pending sites' => 'bulk_sites_seeded',
             'please accept a website we added' => 'admin_assigned_site',
             'your bulk website request was cancelled' => 'bulk_request_cancelled',
@@ -894,6 +903,7 @@ class EmailCatalog
                 $user
             ),
             'bulk_sites_seeded' => new BulkSitesSeededNotification(self::sampleBulkSiteRequest(), 3, $user, ['example.com', 'sample-two.example']),
+            'bulk_sites_publisher_review' => new BulkSitesReadyForPublisherReview(self::sampleBulkSiteRequest(), 2, $user, ['example.com', 'sample-two.example']),
             'admin_assigned_site' => new AdminAssignedSiteNotification($site, $user),
             'audience_campaign' => new AudienceCampaignMail(self::sampleCampaign(), $user),
             'bulk_request_cancelled' => new BulkSiteRequestCancelled(self::sampleBulkSiteRequest(), $user, 'Sample cancellation reason for preview.'),

@@ -24,7 +24,7 @@
         <select name="status" class="form-select form-select-sm w-auto d-inline-block" onchange="this.form.submit()">
             <option value="all" @selected($status === 'all')>All statuses</option>
             <option value="{{ \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER }}" @selected($status === \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER)>Waiting on you</option>
-            @foreach(['requested','sheet_sent','seeded','awaiting_publisher','completed','cancelled'] as $s)
+            @foreach(['requested','sheet_sent','seeded','awaiting_publisher'] as $s)
                 <option value="{{ $s }}" @selected($status === $s)>{{ \App\Models\BulkSiteRequest::statusLabelFor($s) }}</option>
             @endforeach
         </select>

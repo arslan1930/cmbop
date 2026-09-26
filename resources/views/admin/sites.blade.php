@@ -273,6 +273,9 @@
                                 @if(! $site->hasGoodMetrics())
                                     <span class="badge text-bg-warning text-dark">Below quality bar</span>
                                 @endif
+                                @if($site->wasAddedFromBulkRequest())
+                                    <span class="badge text-bg-light border">Bulk request</span>
+                                @endif
                             </div>
                         </td>
                         <td class="small">
@@ -1839,6 +1842,9 @@ function renderSites(data){
             const inviteBadge = site.pending_publisher_acceptance
                 ? `<span class="badge text-bg-info badge-needs-review ms-1">Awaiting accept</span>`
                 : '';
+            const bulkOriginBadge = site.added_from_bulk_request
+                ? `<span class="badge text-bg-light border badge-needs-review ms-1">Bulk request</span>`
+                : '';
             const csvMetricsBadge = site.csv_metrics_spot_check
                 ? `<span class="badge text-bg-light border badge-needs-review ms-1" title="Publisher-supplied DA/DR/traffic from agency CSV — spot-check before activate">CSV metrics — spot-check</span>`
                 : '';
@@ -1878,6 +1884,7 @@ function renderSites(data){
                             ${reviewBadge}
                             ${awaitingBadge}
                             ${inviteBadge}
+                            ${bulkOriginBadge}
                             ${csvMetricsBadge}
                             ${missingMarketBadge}
                             ${belowQualityBadge}

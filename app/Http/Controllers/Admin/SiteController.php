@@ -37,6 +37,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1174,7 +1175,7 @@ class SiteController extends Controller
         try {
             $fetched = $site->metrics_fetched_at;
             if ($fetched instanceof \DateTimeInterface) {
-                $metricsLabel = \Illuminate\Support\Carbon::parse($fetched)
+                $metricsLabel = Carbon::parse($fetched)
                     ->timezone((string) config('app.timezone'))
                     ->format('M j, Y');
             }
@@ -1259,6 +1260,7 @@ class SiteController extends Controller
             'sponsored' => (bool) $site->sponsored,
             'listing_tag' => $listingTag,
             'listing_tag_label' => SiteTag::label($listingTag) ?? SiteTag::NONE_LABEL,
+            'added_from_bulk_request' => $site->wasAddedFromBulkRequest(),
             'description' => $site->description,
             'description_textarea' => SiteDescriptionRules::textareaValue((string) $site->description),
             'description_looks_english' => $site->descriptionLooksLikeEnglish(),
@@ -1534,6 +1536,7 @@ class SiteController extends Controller
             'bulk_discount_enabled',
             'bulk_discount_percent',
             'original_price',
+            'added_from_bulk_request',
             'created_at',
             'updated_at',
         ];

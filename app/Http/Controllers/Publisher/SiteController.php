@@ -24,6 +24,7 @@ use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
 use App\Support\UserFacingError;
 use Database\Seeders\CountriesTableSeeder;
+use Database\Seeders\LanguagesTableSeeder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -1565,6 +1566,9 @@ class SiteController extends Controller
         }
 
         try {
+            // Language rows first: country pairing looks them up by code.
+            // A missing Bulgarian/Arabic/Chinese row blocks that market.
+            LanguagesTableSeeder::upsertMissing();
             // Live databases that skipped the North America migration have no
             // Canada row, so the country menu omits it. Insert missing rows only.
             CountriesTableSeeder::upsertMissing();

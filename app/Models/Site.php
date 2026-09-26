@@ -89,6 +89,7 @@ class Site extends Model
         'custom_discount_ends_at',
         'custom_discount_notified_at',
         'bulk_site_request_id',
+        'added_from_bulk_request',
         'onboarding_status',
         'status_reason',
         'status_reason_at',
@@ -124,6 +125,7 @@ class Site extends Model
         'languages' => 'array',
         'site_image' => 'string',
         'metrics_manual' => 'boolean',
+        'added_from_bulk_request' => 'boolean',
         'archived_at' => 'datetime',
         'publisher_accepted_at' => 'datetime',
         'metrics_fetched_at' => 'datetime',
@@ -837,6 +839,19 @@ class Site extends Model
     public function tagLabel(?string $fallback = null): ?string
     {
         return SiteTag::label($this->tagValue()) ?? $fallback;
+    }
+
+    /**
+     * Staff Done created this listing from a bulk request.
+     * Kept on the site so the chip remains after the request leaves the queue.
+     */
+    public function wasAddedFromBulkRequest(): bool
+    {
+        if (! static::hasSitesColumn('added_from_bulk_request')) {
+            return false;
+        }
+
+        return (bool) $this->added_from_bulk_request;
     }
 
     /**

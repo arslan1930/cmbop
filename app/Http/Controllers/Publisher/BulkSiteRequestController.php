@@ -224,7 +224,7 @@ class BulkSiteRequestController extends Controller
 
         return redirect()
             ->route('publisher.websites', ['status' => 'pending'])
-            ->with('success', $saved.' website'.($saved === 1 ? '' : 's').' submitted (URL + price). Our team will fill in the sites they accept and publish them. You’ll be notified when those sites are active.');
+            ->with('success', $saved.' website'.($saved === 1 ? '' : 's').' submitted (URL + price). Our team will fill in the sites they accept. They may publish them, or ask you to review them first. You’ll be notified either way.');
     }
 
     public function completeIndex()
