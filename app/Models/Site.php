@@ -1783,6 +1783,35 @@ class Site extends Model
     }
 
     /**
+     * Inactive, verified, in-bar listings staff can put on sale without a block.
+     * Marketing still applies the quality bar at activate time; this queue already cleared it.
+     */
+    public function scopeReadyToActivate(Builder $query): Builder
+    {
+        $query->notArchived()
+            ->where('verified', 1)
+            ->where(function (Builder $inactive) {
+                $inactive->where('active', 0)->orWhereNull('active');
+            })
+            ->withGoodMetrics()
+            ->hasMarketplaceCountry()
+            ->acceptedByPublisher()
+            ->notFromCancelledBulk();
+
+        if (static::hasSitesColumn('onboarding_status')) {
+            $query->where(function (Builder $onboarding) {
+                $onboarding->whereNull('onboarding_status')
+                    ->orWhereNotIn('onboarding_status', [
+                        self::ONBOARDING_AWAITING_DETAILS,
+                        self::ONBOARDING_DETAILS_COMPLETE,
+                    ]);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
      * Accessor for formatted price.
      */
     public function getFormattedPriceAttribute(): string
@@ -2247,6 +2276,53 @@ class Site extends Model
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Metrics that miss the marketplace bar, named for the staff row.
+     *
+     * @return list<string>
+     */
+    public function qualityBarFailures(): array
+    {
+        $failures = [];
+        $da = $this->qualityMetricInt('da');
+        if ($da < self::GOOD_MIN_DA) {
+            $failures[] = 'DA '.$da.' (need '.self::GOOD_MIN_DA.')';
+        }
+        $dr = $this->qualityMetricInt('dr');
+        if ($dr < self::GOOD_MIN_DR) {
+            $failures[] = 'DR '.$dr.' (need '.self::GOOD_MIN_DR.')';
+        }
+        $traffic = $this->qualityMetricInt('traffic');
+        if ($traffic < self::GOOD_MIN_TRAFFIC) {
+            $failures[] = 'traffic '.number_format($traffic).' (need '.number_format(self::GOOD_MIN_TRAFFIC).')';
+        }
+
+        return $failures;
+    }
+
+    public function qualityBarBadgeText(): string
+    {
+        $summary = implode(', ', $this->qualityBarFailures());
+
+        return $summary === '' ? 'Below quality bar' : 'Below quality bar — '.$summary;
+    }
+
+    /**
+     * Verified, inactive, in-bar, and not blocked from going live.
+     * Quality is required here even for admins — the warning-only activate path stays in Manage.
+     */
+    public function isReadyToActivate(): bool
+    {
+        if ((bool) $this->active || ! (bool) $this->verified || $this->isArchived()) {
+            return false;
+        }
+        if (! $this->hasGoodMetrics() || ! $this->hasMarketplaceCountry()) {
+            return false;
+        }
+
+        return $this->staffGoLiveBlockReason(false) === null;
     }
 
     /**
@@ -3057,6 +3133,37 @@ class Site extends Model
         }
 
         return $query;
+    }
+
+    /**
+     * Inverse of scopeMissingMarketplaceCountry: a country code or a countries list.
+     *
+     * @param  Builder<Site>  $query
+     * @return Builder<Site>
+     */
+    public function scopeHasMarketplaceCountry($query)
+    {
+        $hasCountry = static::hasSitesColumn('country');
+        $hasCountries = static::hasSitesColumn('countries');
+        if (! $hasCountry && ! $hasCountries) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($q) use ($hasCountry, $hasCountries) {
+            if ($hasCountry) {
+                $q->where(function ($inner) {
+                    $inner->whereNotNull('country')->where('country', '!=', '');
+                });
+            }
+            if ($hasCountries) {
+                $q->{$hasCountry ? 'orWhere' : 'where'}(function ($inner) {
+                    $inner->whereNotNull('countries')
+                        ->where('countries', '!=', '')
+                        ->where('countries', '!=', '[]')
+                        ->where('countries', '!=', 'null');
+                });
+            }
+        });
     }
 
     /**

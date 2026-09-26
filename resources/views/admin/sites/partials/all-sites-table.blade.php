@@ -26,7 +26,7 @@
         <span class="small text-muted" data-staff-bulk-count>0 selected</span>
         <label class="form-check small mb-0">
             <input class="form-check-input" type="checkbox" data-staff-bulk-all-matching>
-            All matching (<span data-staff-bulk-match-total>{{ $allSites->total() }}</span>)
+            Apply to all <span data-staff-bulk-match-total>{{ $allSites->total() }}</span> filtered sites
         </label>
     </div>
     <div class="table-responsive">
@@ -41,7 +41,7 @@
                     <th>Markets</th>
                     <th class="admin-narrow-col">Tag</th>
                     <th class="admin-narrow-col">Traffic</th>
-                    <th class="admin-narrow-col">Price</th>
+                    <th class="admin-narrow-col">Buyer price</th>
                     <th class="admin-actions-col">Actions</th>
                 </tr>
             </thead>
@@ -69,7 +69,7 @@
                         && ($site->verified || $site->active);
                 @endphp
                 <tr>
-                    <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+                    <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                     <td>{{ $allSites->firstItem() + $index }}</td>
                     <td>
                         <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
@@ -87,7 +87,10 @@
                                 <span class="badge text-bg-danger">Missing market</span>
                             @endif
                             @if(! $site->hasGoodMetrics())
-                                <span class="badge text-bg-warning text-dark">Below quality bar</span>
+                                <span class="badge text-bg-warning text-dark">{{ $site->qualityBarBadgeText() }}</span>
+                            @endif
+                            @if(! $site->hasCatalogCover())
+                                <span class="badge text-bg-warning text-dark">No cover</span>
                             @endif
                             @if($site->isArchived())
                                 <span class="badge text-bg-secondary">Archived</span>
@@ -115,7 +118,13 @@
                     </td>
                     <td class="small">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
                     <td class="small">@include('admin.sites.partials.row-markets')</td>
-                    <td class="small">{{ $site->tagLabel('No tags') }}</td>
+                    <td class="small">
+                        @if($site->tagValue() === null)
+                            <span class="badge text-bg-warning text-dark">No tags</span>
+                        @else
+                            {{ $site->tagLabel() }}
+                        @endif
+                    </td>
                     <td>{{ number_format((int) $site->traffic) }}</td>
                     <td>@include('admin.sites.partials.row-price')</td>
                     <td>
