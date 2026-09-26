@@ -9,6 +9,7 @@ use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\User;
 use App\Services\Billing\AdminInvoiceLinks;
+use App\Services\ContentUpload\ContentUploadService;
 use App\Services\Orders\AdminOrderStatusOverride;
 use App\Services\Orders\OrderClawbackService;
 use App\Support\ArticleDownload;
@@ -300,6 +301,11 @@ class OrderController extends Controller
         string $mime,
         OrderItem $orderItem,
     ): ?StreamedResponse {
+        $path = $this->safeContentDownloadPath($diskName, $path);
+        if ($path === null) {
+            return null;
+        }
+
         try {
             $disk = Storage::disk($diskName);
             if (! $disk->exists($path)) {
@@ -318,6 +324,79 @@ class OrderController extends Controller
             ]);
 
             abort(404, 'Content file not found.');
+        }
+    }
+
+    /**
+     * Stored article paths may only be the content-upload disk and directory.
+     * Reject traversal, encoded dots, and NUL before the disk is touched.
+     */
+    private function safeContentDownloadPath(string $diskName, string $path): ?string
+    {
+        if ($diskName === '' || ! in_array($diskName, $this->allowedContentDownloadDisks(), true)) {
+            return null;
+        }
+
+        $path = ltrim(str_replace('\\', '/', $path), '/');
+        if ($path === ''
+            || str_contains($path, '..')
+            || str_contains($path, '%')
+            || str_contains($path, "\0")
+        ) {
+            return null;
+        }
+
+        foreach ($this->allowedContentDownloadDirectories() as $directory) {
+            if (str_starts_with($path, $directory.'/')) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allowedContentDownloadDisks(): array
+    {
+        $disks = [(string) (config('content_upload.disk') ?: 'local')];
+        $configured = $this->effectiveContentUploadConfig()['disk'] ?? null;
+        if (is_string($configured) && $configured !== '') {
+            $disks[] = $configured;
+        }
+
+        return array_values(array_unique($disks));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allowedContentDownloadDirectories(): array
+    {
+        $directories = [trim((string) (config('content_upload.directory') ?: 'content-uploads'), '/')];
+        $configured = $this->effectiveContentUploadConfig()['directory'] ?? null;
+        if (is_string($configured)) {
+            $directories[] = trim($configured, '/');
+        }
+
+        return array_values(array_filter(
+            array_unique($directories),
+            fn (string $directory) => $directory !== ''
+        ));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function effectiveContentUploadConfig(): array
+    {
+        try {
+            $config = app(ContentUploadService::class)->effectiveConfig();
+
+            return is_array($config) ? $config : [];
+        } catch (\Throwable) {
+            return [];
         }
     }
 

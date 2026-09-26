@@ -272,7 +272,6 @@ const withdrawalsExportUrl = @json(route('admin.withdrawals.export'));
 const withdrawalsBatchUrl = @json(route('admin.withdrawals.batch'));
 const withdrawalsShowUrlTemplate = @json(route('admin.withdrawals.show', ['id' => '__ID__']));
 const withdrawalsProcessingUrlTemplate = @json(route('admin.withdrawals.processing', ['id' => '__ID__']));
-const withdrawalsPaidUrlTemplate = @json(route('admin.withdrawals.paid', ['id' => '__ID__']));
 const withdrawalsRejectUrlTemplate = @json(route('admin.withdrawals.reject', ['id' => '__ID__']));
 const financeUserUrlTemplate = @json(route('admin.finance.user', ['user' => '__ID__']));
 
@@ -507,6 +506,7 @@ function renderWithdrawals(withdrawals) {
                             ${actionable ? `
                             <li><hr class="dropdown-divider"></li>
                             <li><button type="button" class="dropdown-item act-paid" data-id="${w.id}"
+                                data-confirm-url="${escapeHtml(w.mark_paid_confirm_url || '')}"
                                 data-name="${escapeHtml(w.user?.name || '')}"
                                 data-net="${money(w.net_amount)}"
                                 data-method="${escapeHtml(w.payment_method)}"
@@ -628,29 +628,28 @@ function duplicateWarningHtml(matchRefs) {
 }
 
 $(document).on('click', '.act-paid', async function() {
-    const id = $(this).data('id');
+    const confirmUrl = $(this).attr('data-confirm-url') || '';
     const name = $(this).data('name');
     const net = $(this).data('net');
     const method = $(this).data('method');
     const isDuplicate = $(this).attr('data-duplicate') === '1';
     const matchRefs = $(this).attr('data-duplicate-ids') || '';
+    const id = $(this).data('id');
     const context = await loadPayoutContext(id);
-    const notes = await confirmNotes(
-        'Mark paid?',
-        `Pay <strong>€${escapeHtml(String(net))}</strong> net to <strong>${escapeHtml(name)}</strong> via <strong>${escapeHtml(method)}</strong>?<br><span class="text-muted small">Only confirm after you sent the money outside the app.</span>${payoutContextHtml(context)}${isDuplicate ? duplicateWarningHtml(matchRefs) : ''}`,
-        'Yes, mark paid',
-        ''
-    );
-    if (notes === null) return;
-    postAction(withdrawalActionUrl(withdrawalsPaidUrlTemplate, id), { notes })
-        .done(function(res) {
-            toast(res.message || 'Marked paid');
-            selectedIds.delete(id);
-            refreshAll();
-        })
-        .fail(function(xhr) {
-            toast(xhr.responseJSON?.message || 'Failed', 'error');
-        });
+    const result = await Swal.fire({
+        title: 'Mark paid?',
+        html: `Pay <strong>€${escapeHtml(String(net))}</strong> net to <strong>${escapeHtml(name)}</strong> via <strong>${escapeHtml(method)}</strong>?<br><span class="text-muted small">You will confirm the payout on the next page. Nothing is marked paid until you confirm there.</span>${payoutContextHtml(context)}${isDuplicate ? duplicateWarningHtml(matchRefs) : ''}`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Continue',
+        cancelButtonText: 'Cancel',
+    });
+    if (!result.isConfirmed) return;
+    if (!confirmUrl) {
+        toast('Open the confirm page from this payout row.', 'error');
+        return;
+    }
+    window.location.href = confirmUrl;
 });
 
 $(document).on('click', '.act-reject', async function() {
@@ -767,7 +766,19 @@ async function runBatch(action, title, confirmText, confirmClass, options) {
 }
 
 $('#batchProcessingBtn').on('click', () => runBatch('processing', 'Mark selected processing?', 'Mark processing', ''));
-$('#batchPaidBtn').on('click', () => runBatch('completed', 'Mark selected paid?', 'Mark paid', ''));
+$('#batchPaidBtn').on('click', function () {
+    const ids = Array.from(selectedIds);
+    if (ids.length !== 1) {
+        toast('Confirm each payout on its own page. Use Mark paid on the row.', 'error');
+        return;
+    }
+    const confirmUrl = $(`tr[data-id="${ids[0]}"] .act-paid`).attr('data-confirm-url') || '';
+    if (!confirmUrl) {
+        toast('This payout cannot be confirmed from here.', 'error');
+        return;
+    }
+    window.location.href = confirmUrl;
+});
 $('#batchRejectBtn').on('click', () => runBatch('cancelled', 'Reject selected & refund?', 'Reject & refund', 'slb-swal-danger'));
 
 function buildExportUrl(extra = {}) {

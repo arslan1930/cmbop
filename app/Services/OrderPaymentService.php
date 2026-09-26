@@ -2530,9 +2530,22 @@ class OrderPaymentService
             }
 
             try {
-                $submission = ContentSubmission::query()->whereKey($id)->lockForUpdate()->first();
-            } catch (\Throwable) {
-                return 'missing';
+                $query = ContentSubmission::query()->whereKey($id);
+                if (DB::transactionLevel() > 0) {
+                    $query->lockForUpdate();
+                }
+                $submission = $query->first();
+            } catch (\Throwable $e) {
+                report($e);
+                try {
+                    $submission = ContentSubmission::query()->whereKey($id)->first();
+                } catch (\Throwable $fallback) {
+                    report($fallback);
+                    throw new \RuntimeException('Could not read the Content Library article for settlement.', 0, $fallback);
+                }
+                if (! $submission instanceof ContentSubmission) {
+                    throw new \RuntimeException('Could not read the Content Library article for settlement.');
+                }
             }
             if (! $submission) {
                 return 'missing';

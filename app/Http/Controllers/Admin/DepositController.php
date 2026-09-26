@@ -13,6 +13,7 @@ use App\Services\InAppNotificationService;
 use App\Services\PaypalCheckoutService;
 use App\Services\Wallet\DepositApproveContext;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
+use App\Services\Wallet\ManualDepositApproveLink;
 use App\Services\Wallet\ManualDepositApprovalService;
 use App\Services\WalletPaypalDepositService;
 use App\Support\UserFacingError;
@@ -130,6 +131,7 @@ class DepositController extends Controller
                 'deposit' => $deposit,
                 'invoice' => $invoice,
                 'can_approve_manual' => $canApprove,
+                'approve_confirm_url' => $canApprove ? ManualDepositApproveLink::relativeUrl($deposit) : null,
                 'approve_context' => $approveContext,
                 'finance_url' => $deposit->user_id
                     ? route('admin.finance.user', $deposit->user_id)
@@ -157,7 +159,7 @@ class DepositController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Deposit request not found',
-            ]);
+            ], 404);
         }
 
         $deposit = DepositRequest::find($id);
@@ -166,7 +168,7 @@ class DepositController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Deposit request not found',
-            ]);
+            ], 404);
         }
 
         try {

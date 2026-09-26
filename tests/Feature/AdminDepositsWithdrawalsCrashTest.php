@@ -230,7 +230,7 @@ class AdminDepositsWithdrawalsCrashTest extends TestCase
 
             $this->actingAs($admin)
                 ->postJson(route('admin.deposits.approve', 1))
-                ->assertOk()
+                ->assertNotFound()
                 ->assertJsonPath('success', false);
 
             $this->actingAs($admin)

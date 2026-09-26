@@ -121,6 +121,17 @@
                             <div class="mb-3">
                                 <label for="admin_notes" class="form-label">Admin notes (optional)</label>
                                 <textarea name="admin_notes" id="admin_notes" rows="2" class="form-control" maxlength="1000" placeholder="e.g. Wire matched on statement">{{ old('admin_notes') }}</textarea>
+                                <script>
+                                    document.addEventListener('DOMContentLoaded', function () {
+                                        var field = document.getElementById('admin_notes');
+                                        if (!field || field.value) return;
+                                        var key = 'slb-deposit-approve-notes-{{ (int) $deposit->id }}';
+                                        var notes = sessionStorage.getItem(key);
+                                        if (!notes) return;
+                                        field.value = notes.slice(0, 1000);
+                                        sessionStorage.removeItem(key);
+                                    });
+                                </script>
                                 @error('admin_notes')
                                     <div class="text-danger small mt-1">{{ $message }}</div>
                                 @enderror

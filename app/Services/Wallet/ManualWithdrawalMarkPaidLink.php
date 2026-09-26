@@ -36,13 +36,24 @@ class ManualWithdrawalMarkPaidLink
             return self::previewUrl();
         }
 
-        $relative = URL::temporarySignedRoute(
+        return rtrim(app_public_url(), '/').self::relativeUrl($withdrawal);
+    }
+
+    /**
+     * Path-only signed confirm URL for the logged-in admin panel.
+     */
+    public static function relativeUrl(Withdrawal|int $withdrawal): string
+    {
+        $id = $withdrawal instanceof Withdrawal ? (int) $withdrawal->id : (int) $withdrawal;
+        if ($id === EmailCatalog::PREVIEW_ID) {
+            return '/admin/withdrawals/mark-paid-confirm/preview';
+        }
+
+        return URL::temporarySignedRoute(
             'admin.withdrawals.mark-paid-confirm.show',
             self::expiresAt(),
             ['withdrawal' => $id],
             absolute: false
         );
-
-        return rtrim(app_public_url(), '/').$relative;
     }
 }

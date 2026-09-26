@@ -43,13 +43,24 @@ class ManualDepositApproveLink
             return self::previewUrl();
         }
 
-        $relative = URL::temporarySignedRoute(
+        return rtrim(app_public_url(), '/').self::relativeUrl($deposit);
+    }
+
+    /**
+     * Path-only signed confirm URL for the logged-in admin panel.
+     */
+    public static function relativeUrl(DepositRequest|int $deposit): string
+    {
+        $depositId = $deposit instanceof DepositRequest ? (int) $deposit->id : (int) $deposit;
+        if ($depositId === EmailCatalog::PREVIEW_ID) {
+            return '/admin/deposits/approve-confirm/preview';
+        }
+
+        return URL::temporarySignedRoute(
             'admin.deposits.approve-confirm.show',
             self::expiresAt(),
             ['deposit' => $depositId],
             absolute: false
         );
-
-        return rtrim(app_public_url(), '/').$relative;
     }
 }

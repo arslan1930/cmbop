@@ -114,14 +114,21 @@
     </div>
 
     <!-- Filters -->
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm mb-4 admin-deposits-filter-card">
         <div class="card-body">
-            <form method="GET" class="row g-3 align-items-end admin-deposits-filters">
+            <form method="GET" class="admin-deposits-filters">
                 @if(request()->boolean('finance'))
                     <input type="hidden" name="finance" value="1">
                 @endif
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold" for="adminDepositsStatus">Status</label>
+                @if(request()->boolean('reported'))
+                    <input type="hidden" name="reported" value="1">
+                @endif
+                <div class="admin-deposits-filters__grid">
+                <div class="admin-deposits-filters__search">
+                    <x-slb-search-field name="search" id="adminDepositsSearch" :value="request('search')" placeholder="Reference, Name, Email" input-class="form-control" label-class="form-label" />
+                </div>
+                <div>
+                    <label class="form-label" for="adminDepositsStatus">Status</label>
                     <select name="status" id="adminDepositsStatus" class="form-select">
                         <option value="">All</option>
                         <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
@@ -131,11 +138,8 @@
                         <option value="refunded" {{ request('status') == 'refunded' ? 'selected' : '' }}>Refunded</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <x-slb-search-field name="search" id="adminDepositsSearch" :value="request('search')" placeholder="Reference, Name, Email" input-class="form-control" label-class="form-label fw-semibold" />
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold" for="adminDepositsMethod">Method</label>
+                <div>
+                    <label class="form-label" for="adminDepositsMethod">Method</label>
                     <select name="payment_method" id="adminDepositsMethod" class="form-select">
                         <option value="">All</option>
                         @foreach(['bank' => 'Bank', 'wise' => 'Wise', 'crypto' => 'Crypto', 'card' => 'Card', 'paypal' => 'PayPal'] as $methodValue => $methodLabel)
@@ -143,27 +147,23 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold" for="adminDepositsFrom">{{ request('status') === 'completed' ? 'Approved from' : 'From' }}</label>
+                <div>
+                    <label class="form-label" for="adminDepositsFrom">{{ request('status') === 'completed' ? 'Approved from' : 'From' }}</label>
                     <input type="date" name="from" id="adminDepositsFrom" class="form-control" value="{{ request('from') }}">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold" for="adminDepositsTo">{{ request('status') === 'completed' ? 'Approved to' : 'To' }}</label>
+                <div>
+                    <label class="form-label" for="adminDepositsTo">{{ request('status') === 'completed' ? 'Approved to' : 'To' }}</label>
                     <input type="date" name="to" id="adminDepositsTo" class="form-control" value="{{ request('to') }}">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold" for="adminDepositsSort">Sort</label>
+                <div>
+                    <label class="form-label" for="adminDepositsSort">Sort</label>
                     <select name="sort" id="adminDepositsSort" class="form-select">
                         <option value="newest" @selected(request('sort', 'newest') === 'newest')>Newest</option>
                         <option value="oldest" @selected(request('sort') === 'oldest')>Oldest</option>
                         <option value="amount" @selected(request('sort') === 'amount')>Amount</option>
                     </select>
                 </div>
-                @if(request()->boolean('reported'))
-                    <input type="hidden" name="reported" value="1">
-                @endif
-                <div class="col-md-auto admin-deposits-filters__actions">
-                    <label class="form-label fw-semibold" for="adminDepositsFilter">&nbsp;</label>
+                <div class="admin-deposits-filters__actions">
                     <div class="d-flex gap-2">
                         <button type="submit" id="adminDepositsFilter" class="btn btn-primary">
                             <i class="fa fa-search me-1"></i> Filter
@@ -175,6 +175,7 @@
                             Export CSV
                         </a>
                     </div>
+                </div>
                 </div>
             </form>
         </div>
@@ -200,7 +201,7 @@
                     <tbody>
                         @forelse($deposits as $deposit)
                         <tr>
-                            <td>#{{ $deposit->id }}</td>
+                            <td class="admin-deposit-id">#{{ $deposit->id }}</td>
                             <td>
                                 @php
                                     $depositUser = $deposit->user;
@@ -223,7 +224,7 @@
                                     </div>
                                 </div>
                             </td>
-                            <td><code class="font-monospace">{{ $deposit->reference_code }}</code></td>
+                            <td><code class="ref-code">{{ $deposit->reference_code }}</code></td>
                             <td class="fw-semibold text-primary">
                                 €{{ number_format($deposit->amount, 2) }}
                                 @php
@@ -234,34 +235,39 @@
                                 @endif
                             </td>
                             <td>
-                                <span class="badge bg-secondary">{{ $deposit->paymentMethodLabel() }}</span>
+                                <span class="admin-deposit-method">{{ $deposit->paymentMethodLabel() }}</span>
                             </td>
                             <td>
                                 @if($deposit->status == 'pending')
-                                    <span class="badge bg-warning text-dark">Pending</span>
+                                    <span class="status-badge status-pending">Pending</span>
                                     @if($deposit->user_marked_paid_at)
                                         <div class="small text-success mt-1">
                                             <i class="fa fa-check-circle"></i> User reported paid
                                         </div>
                                     @endif
                                 @elseif($deposit->status == 'approved')
-                                    <span class="badge bg-info text-dark">Approved</span>
+                                    <span class="status-badge status-processing">Approved</span>
                                 @elseif($deposit->status == 'completed')
-                                    <span class="badge bg-success">Completed</span>
+                                    <span class="status-badge status-completed">Completed</span>
                                 @elseif($deposit->status == 'rejected')
-                                    <span class="badge bg-danger">Rejected</span>
+                                    <span class="status-badge status-cancelled">Rejected</span>
                                 @elseif($deposit->status == 'refunded')
-                                    <span class="badge bg-secondary">Refunded</span>
+                                    <span class="status-badge status-refunded">Refunded</span>
                                 @endif
                             </td>
-                            <td>
-                                {{ optional($deposit->created_at)?->format('M d, Y H:i') ?: '—' }}
+                            <td class="admin-deposit-date">
+                                @if($deposit->created_at)
+                                    <div>{{ $deposit->created_at->format('M d, Y') }}</div>
+                                    <div class="admin-deposit-date__time">{{ $deposit->created_at->format('H:i') }}</div>
+                                @else
+                                    —
+                                @endif
                                 @if($deposit->user_marked_paid_at)
                                     <div class="small text-success">Reported {{ $deposit->user_marked_paid_at->format('M d, H:i') }}</div>
                                 @endif
                             </td>
                             <td>
-                                <div class="d-flex flex-wrap gap-1">
+                                <div class="admin-deposit-actions">
                                     <button class="btn btn-sm btn-outline-primary view-deposit"
                                             data-id="{{ $deposit->id }}"
                                             data-show-url="{{ route('admin.deposits.show', $deposit->id) }}">
@@ -296,7 +302,7 @@
 
 <!-- Deposit Details Modal -->
 <div class="modal fade" id="depositModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable deposit-sheet-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="depositModalTitle">Deposit request details</h5>
@@ -319,8 +325,94 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.admin-deposits-filters select').forEach(function (select) {
+        if (select.closest('.admin-deposits-theme-select')) return;
+        const parent = select.parentNode;
+        if (!parent) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'single-select-wrapper admin-deposits-theme-select';
+        parent.insertBefore(wrap, select);
+        wrap.appendChild(select);
+        select.classList.add('visually-hidden');
+        select.tabIndex = -1;
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'single-select-input';
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('aria-expanded', 'false');
+        const labelled = select.id ? document.querySelector('label[for="' + select.id + '"]') : null;
+        trigger.setAttribute('aria-label', labelled ? labelled.textContent.trim() : 'Choose');
+
+        const valueEl = document.createElement('span');
+        valueEl.className = 'single-select-value';
+        const arrow = document.createElement('i');
+        arrow.className = 'fa fa-chevron-down single-select-arrow';
+        arrow.setAttribute('aria-hidden', 'true');
+        trigger.append(valueEl, arrow);
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'single-select-dropdown';
+        const options = document.createElement('div');
+        options.className = 'single-select-options';
+        options.setAttribute('role', 'listbox');
+        dropdown.appendChild(options);
+        wrap.append(trigger, dropdown);
+
+        function sync() {
+            const current = String(select.value || '');
+            options.replaceChildren();
+            Array.from(select.options).forEach(function (opt) {
+                const el = document.createElement('div');
+                const on = opt.value === current;
+                el.className = 'single-select-option' + (on ? ' selected' : '');
+                el.setAttribute('role', 'option');
+                el.setAttribute('data-value', opt.value);
+                el.setAttribute('aria-selected', on ? 'true' : 'false');
+                el.textContent = (opt.textContent || '').trim();
+                options.appendChild(el);
+            });
+            const selected = select.options[select.selectedIndex];
+            valueEl.textContent = selected ? String(selected.textContent || '').trim() : 'All';
+        }
+
+        trigger.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const willOpen = !dropdown.classList.contains('show');
+            document.querySelectorAll('.admin-deposits-filters .single-select-dropdown.show').forEach(function (dd) {
+                if (dd === dropdown) return;
+                dd.classList.remove('show');
+                const other = dd.parentElement && dd.parentElement.querySelector('.single-select-input');
+                if (other) other.setAttribute('aria-expanded', 'false');
+            });
+            dropdown.classList.toggle('show', willOpen);
+            trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        });
+
+        dropdown.addEventListener('click', function (event) {
+            const opt = event.target.closest('.single-select-option');
+            if (!opt) return;
+            event.stopPropagation();
+            select.value = opt.getAttribute('data-value') || '';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            dropdown.classList.remove('show');
+            trigger.setAttribute('aria-expanded', 'false');
+            sync();
+        });
+
+        sync();
+    });
+
+    document.addEventListener('click', function () {
+        document.querySelectorAll('.admin-deposits-filters .single-select-dropdown.show').forEach(function (dd) {
+            dd.classList.remove('show');
+            const trigger = dd.parentElement && dd.parentElement.querySelector('.single-select-input');
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        });
+    });
+
     const csrfToken = @json(csrf_token());
-    const approveUrlTemplate = @json(route('admin.deposits.approve', ['id' => '__ID__']));
     const rejectUrlTemplate = @json(route('admin.deposits.reject', ['id' => '__ID__']));
     const paypalRefundUrlTemplate = @json(route('admin.deposits.paypal-refund', ['id' => '__ID__']));
 
@@ -338,19 +430,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let html = '';
         if (orderId) {
-            html += `<div class="col-6 mb-2"><small class="text-muted">PayPal order ID</small><div><code class="font-monospace">${escapeHtml(orderId)}</code></div></div>`;
+            html += depositFact('PayPal order ID', `<code class="ref-code">${escapeHtml(orderId)}</code>`, true);
         }
         if (captureId) {
-            html += `<div class="col-6 mb-2"><small class="text-muted">PayPal capture ID</small><div><code class="font-monospace">${escapeHtml(captureId)}</code></div></div>`;
+            html += depositFact('PayPal capture ID', `<code class="ref-code">${escapeHtml(captureId)}</code>`, true);
         }
         if (refundId) {
-            html += `<div class="col-6 mb-2"><small class="text-muted">PayPal refund ID</small><div><code class="font-monospace">${escapeHtml(refundId)}</code></div></div>`;
+            html += depositFact('PayPal refund ID', `<code class="ref-code">${escapeHtml(refundId)}</code>`, true);
         }
         if (refund.debited != null && refund.debited !== '') {
-            html += `<div class="col-6 mb-2"><small class="text-muted">Wallet debit</small><div>€${parseFloat(refund.debited).toFixed(2)}</div></div>`;
+            html += depositFact('Wallet debit', `€${parseFloat(refund.debited).toFixed(2)}`);
         }
         if (refund.debt_created != null && parseFloat(refund.debt_created) > 0.009) {
-            html += `<div class="col-6 mb-2"><small class="text-muted">Wallet debt created</small><div>€${parseFloat(refund.debt_created).toFixed(2)}</div></div>`;
+            html += depositFact('Wallet debt created', `€${parseFloat(refund.debt_created).toFixed(2)}`);
         }
 
         return html;
@@ -418,7 +510,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(readJsonResponse)
             .then(data => {
                 if (data.success) {
-                    renderDepositModal(data.deposit, data.invoice, data.can_refund_paypal, data.approve_context, data.can_approve_manual, data.finance_url);
+                    renderDepositModal(data.deposit, data.invoice, data.can_refund_paypal, data.approve_context, data.can_approve_manual, data.finance_url, data.approve_confirm_url);
                     const modal = new bootstrap.Modal(document.getElementById('depositModal'));
                     modal.show();
                 } else {
@@ -446,8 +538,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const intentId = deposit.stripe_payment_intent_id || '';
         if (!sessionId && !intentId) return '';
         return `
-            ${sessionId ? `<div class="col-12 mb-2"><small class="text-muted">Stripe session</small><div><code class="font-monospace">${escapeHtml(sessionId)}</code></div></div>` : ''}
-            ${intentId ? `<div class="col-12 mb-2"><small class="text-muted">Stripe payment intent</small><div><code class="font-monospace">${escapeHtml(intentId)}</code></div></div>` : ''}
+            ${sessionId ? depositFact('Stripe session', `<code class="ref-code">${escapeHtml(sessionId)}</code>`, true) : ''}
+            ${intentId ? depositFact('Stripe payment intent', `<code class="ref-code">${escapeHtml(intentId)}</code>`, true) : ''}
         `;
     }
 
@@ -465,31 +557,37 @@ document.addEventListener('DOMContentLoaded', function() {
             ? ''
             : `<div>After approve: <strong>€${parseFloat(context.projected_balance).toFixed(2)}</strong></div>`;
         return `
-            <div class="mb-3">
-                <label class="fw-semibold text-muted small">Wallet</label>
-                <div class="border rounded p-3 mt-1 bg-light">
+            <section class="deposit-sheet__block">
+                <h6 class="deposit-sheet__label">Wallet</h6>
+                <div class="deposit-sheet__panel">
                     ${warning}
                     <div>Current balance: <strong>€${parseFloat(context.current_balance || 0).toFixed(2)}</strong></div>
                     ${projected}
                     ${priorHtml}
                 </div>
-            </div>
+            </section>
         `;
     }
 
-    function renderDepositModal(deposit, invoice, canRefundPaypal, approveContext, canApproveManual, financeUrl) {
-        let statusBadge = '';
-        if (deposit.status === 'pending') {
-            statusBadge = '<span class="badge bg-warning">Pending</span>';
-        } else if (deposit.status === 'approved') {
-            statusBadge = '<span class="badge bg-info">Approved</span>';
-        } else if (deposit.status === 'completed') {
-            statusBadge = '<span class="badge bg-success">Completed</span>';
-        } else if (deposit.status === 'rejected') {
-            statusBadge = '<span class="badge bg-danger">Rejected</span>';
-        } else if (deposit.status === 'refunded') {
-            statusBadge = '<span class="badge bg-secondary">Refunded</span>';
-        }
+    function depositFact(label, valueHtml, wide) {
+        return `<div class="${wide ? 'is-wide' : ''}"><dt>${label}</dt><dd>${valueHtml}</dd></div>`;
+    }
+
+    function statusBadgeHtml(status) {
+        const map = {
+            pending: ['status-pending', 'Pending'],
+            approved: ['status-processing', 'Approved'],
+            completed: ['status-completed', 'Completed'],
+            rejected: ['status-cancelled', 'Rejected'],
+            refunded: ['status-refunded', 'Refunded'],
+        };
+        const row = map[status];
+        if (!row) return '';
+        return `<span class="status-badge ${row[0]}">${row[1]}</span>`;
+    }
+
+    function renderDepositModal(deposit, invoice, canRefundPaypal, approveContext, canApproveManual, financeUrl, approveConfirmUrl) {
+        const statusBadge = statusBadgeHtml(deposit.status);
 
         const method = String(deposit.payment_method || '').toLowerCase();
         const isInstant = method === 'card' || method === 'paypal';
@@ -504,84 +602,48 @@ document.addEventListener('DOMContentLoaded', function() {
         const userInitial = String(userName).charAt(0).toUpperCase() || '?';
 
         let html = `
-            <div class="mb-3">
-                <label class="fw-semibold text-muted small">User Information</label>
-                <div class="border rounded p-3 mt-1 bg-light">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar-circle me-3" style="width: 48px; height: 48px; background: linear-gradient(135deg, #1a585e 0%, #3faeb2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; font-weight: 600;">
-                            ${escapeHtml(userInitial)}
-                        </div>
-                        <div>
-                            <h6 class="mb-1">${financeUrl ? `<a href="${escapeHtml(financeUrl)}">${escapeHtml(userName)}</a>` : escapeHtml(userName)}</h6>
-                            ${userEmail ? `<small class="text-muted">${escapeHtml(userEmail)}</small>` : ''}
-                        </div>
+            <div class="deposit-sheet">
+                <div class="deposit-sheet__user">
+                    <div class="deposit-sheet__avatar" aria-hidden="true">${escapeHtml(userInitial)}</div>
+                    <div>
+                        <div class="deposit-sheet__name">${financeUrl ? `<a href="${escapeHtml(financeUrl)}">${escapeHtml(userName)}</a>` : escapeHtml(userName)}</div>
+                        ${userEmail ? `<div class="deposit-sheet__email">${escapeHtml(userEmail)}</div>` : ''}
                     </div>
                 </div>
-            </div>
-            
-            <div class="mb-3">
-                <label class="fw-semibold text-muted small">Deposit Details</label>
-                <div class="border rounded p-3 mt-1 bg-light">
-                    <div class="row">
-                        <div class="col-6 mb-2">
-                            <small class="text-muted">Reference Code</small>
-                            <div><code class="font-monospace">${escapeHtml(deposit.reference_code)}</code></div>
-                        </div>
-                        <div class="col-6 mb-2">
-                            <small class="text-muted">Amount</small>
-                            <div class="fw-bold text-primary">€${parseFloat(deposit.amount).toFixed(2)}</div>
-                            ${chargeLine(deposit)}
-                        </div>
-                        <div class="col-6 mb-2">
-                            <small class="text-muted">Payment Method</small>
-                            <div>${escapeHtml(paymentMethodLabel(deposit.payment_method))}</div>
-                        </div>
-                        <div class="col-6 mb-2">
-                            <small class="text-muted">Status</small>
-                            <div>${statusBadge}</div>
-                        </div>
-                        <div class="col-6 mb-2">
-                            <small class="text-muted">User reported paid</small>
-                            <div>${deposit.user_marked_paid_at
-                                ? `<span class="badge bg-success">Yes</span> <small class="text-muted">${formatDateTime(deposit.user_marked_paid_at)}</small>`
-                                : '<span class="text-muted">Not yet</span>'}</div>
-                        </div>
-                        ${deposit.user_payment_note ? `
-                        <div class="col-12 mb-2">
-                            <small class="text-muted">User payment note</small>
-                            <div>${escapeHtml(deposit.user_payment_note)}</div>
-                        </div>` : ''}
-                        ${paypalDepositFields(deposit)}
-                        ${stripeDepositFields(deposit)}
-                        <div class="col-12">
-                            <small class="text-muted">Submitted Date</small>
-                            <div>${formatDateTime(deposit.created_at)}</div>
-                        </div>
-                    </div>
-                </div>
+                <dl class="deposit-sheet__facts">
+                    ${depositFact('Reference', `<code class="ref-code">${escapeHtml(deposit.reference_code)}</code>`)}
+                    ${depositFact('Amount', `<div class="deposit-sheet__amount">€${parseFloat(deposit.amount).toFixed(2)}</div>${chargeLine(deposit)}`)}
+                    ${depositFact('Payment method', `<span class="admin-deposit-method">${escapeHtml(paymentMethodLabel(deposit.payment_method))}</span>`)}
+                    ${depositFact('Status', statusBadge || '—')}
+                    ${depositFact('Reported paid', deposit.user_marked_paid_at
+                        ? `<span class="status-badge status-completed">Yes</span> <span class="deposit-sheet__meta">${formatDateTime(deposit.user_marked_paid_at)}</span>`
+                        : '<span class="deposit-sheet__meta">Not yet</span>')}
+                    ${depositFact('Submitted', formatDateTime(deposit.created_at))}
+                    ${deposit.user_payment_note ? depositFact('Payment note', escapeHtml(deposit.user_payment_note), true) : ''}
+                    ${paypalDepositFields(deposit)}
+                    ${stripeDepositFields(deposit)}
+                </dl>
             </div>
         `;
 
         if (invoice && invoice.url) {
             html += `
-                <div class="mb-3">
-                    <label class="fw-semibold text-muted small">Invoice</label>
-                    <div class="border rounded p-3 mt-1 bg-light">
+                <section class="deposit-sheet__block">
+                    <h6 class="deposit-sheet__label">Invoice</h6>
+                    <div class="deposit-sheet__panel">
                         <a href="${escapeHtml(invoice.url)}">${escapeHtml(invoice.invoice_number || 'Open invoice')}</a>
-                        <span class="text-muted"> · ${escapeHtml(invoice.type_label || 'Deposit Receipt')}</span>
+                        <span class="deposit-sheet__meta"> · ${escapeHtml(invoice.type_label || 'Deposit Receipt')}</span>
                     </div>
-                </div>
+                </section>
             `;
         }
         
         if (deposit.admin_notes) {
             html += `
-                <div class="mb-3">
-                    <label class="fw-semibold text-muted small">Admin Notes</label>
-                    <div class="border rounded p-3 mt-1 bg-light">
-                        ${escapeHtml(deposit.admin_notes)}
-                    </div>
-                </div>
+                <section class="deposit-sheet__block">
+                    <h6 class="deposit-sheet__label">Admin notes</h6>
+                    <div class="deposit-sheet__panel">${escapeHtml(deposit.admin_notes)}</div>
+                </section>
             `;
         }
         
@@ -589,16 +651,18 @@ document.addEventListener('DOMContentLoaded', function() {
             html += approveContextHtml(approveContext);
         }
 
+        let footerActions = '';
         if (deposit.status === 'pending' || canRefundPaypal) {
             html += `
-                <hr>
-                <div class="mb-3">
-                    <label class="fw-semibold text-muted small">Admin notes${deposit.status === 'pending' ? ' (required to reject, at least 10 characters)' : ' (optional)'}</label>
+                <section class="deposit-sheet__block">
+                    <label class="deposit-sheet__label" for="adminNotes">Admin notes${deposit.status === 'pending' ? ' (required to reject, at least 10 characters)' : ' (optional)'}</label>
                     <textarea id="adminNotes" class="form-control" rows="3" placeholder="Reason the advertiser will see if you reject"></textarea>
-                </div>
-                <div class="d-flex gap-2 flex-wrap">
+                </section>
+            `;
+            footerActions = `
+                <div class="deposit-sheet__actions">
                     ${deposit.status === 'pending' && canApproveManual ? `
-                    <button class="btn btn-success approve-deposit" data-id="${deposit.id}">
+                    <button class="btn btn-success approve-deposit" data-id="${deposit.id}" data-confirm-url="${escapeHtml(approveConfirmUrl || '')}">
                         <i class="fa fa-check"></i> Approve & Add Funds
                     </button>` : ''}
                     ${deposit.status === 'pending' ? `
@@ -614,11 +678,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         document.getElementById('depositModalBody').innerHTML = html;
+        const footer = document.querySelector('#depositModal .modal-footer');
+        if (footer) {
+            footer.innerHTML = footerActions + '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>';
+        }
         
         // Attach event listeners to new buttons
         document.querySelectorAll('.approve-deposit').forEach(btn => {
             btn.addEventListener('click', function() {
-                approveDeposit(this.dataset.id);
+                approveDeposit(this.dataset.confirmUrl);
             });
         });
         
@@ -635,54 +703,29 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    function approveDeposit(id) {
-        const notes = document.getElementById('adminNotes')?.value || '';
-        
+    function approveDeposit(confirmUrl) {
+        if (!confirmUrl) {
+            Swal.fire('Error', 'Open the confirm page from a pending deposit.', 'error');
+            return;
+        }
+
         Swal.fire({
             title: 'Approve Deposit?',
-            text: 'This will add funds to the user\'s wallet.',
+            text: 'You will confirm the wallet credit on the next page. Nothing is added until you confirm there.',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Yes, Approve',
+            confirmButtonText: 'Continue',
             cancelButtonText: 'Cancel',
         }).then((result) => {
-            if (result.isConfirmed) {
-                // Show loading
-                Swal.fire({
-                    title: 'Processing...',
-                    text: 'Please wait',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                fetch(depositActionUrl(approveUrlTemplate, id), {
-                    method: 'POST',
-                    headers: jsonHeaders({ 'Content-Type': 'application/json' }),
-                    body: JSON.stringify({ admin_notes: notes })
-                })
-                .then(readJsonResponse)
-                .then(data => {
-                    if (data.success) {
-                        let message = data.message;
-                        if (data.email_sent) {
-                            message += ' ✓ Email sent to user.';
-                        } else {
-                            message += ' ⚠ Email could not be sent.';
-                        }
-                        Swal.fire('Success', message, 'success').then(() => {
-                            location.reload();
-                        });
-                    } else {
-                        Swal.fire('Error', data.message || 'Failed to approve deposit', 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire('Error', error.message || 'Failed to approve deposit', 'error');
-                });
+            if (!result.isConfirmed) {
+                return;
             }
+            const notes = (document.getElementById('adminNotes')?.value || '').trim();
+            const idMatch = String(confirmUrl).match(/\/deposits\/(\d+)\/approve-confirm/);
+            if (idMatch && notes !== '') {
+                sessionStorage.setItem('slb-deposit-approve-notes-' + idMatch[1], notes);
+            }
+            window.location.href = confirmUrl;
         });
     }
     

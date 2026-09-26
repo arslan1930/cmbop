@@ -7,6 +7,7 @@ use App\Models\Withdrawal;
 use App\Services\ActivityLogger;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Wallet\ManualWithdrawalInvalidTransitionException;
+use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
 use App\Services\Wallet\ManualWithdrawalSettlementService;
 use App\Services\Wallet\ManualWithdrawalUnknownWalletException;
 use App\Services\Wallet\WithdrawalDuplicatePayoutWarning;
@@ -68,6 +69,10 @@ class AdminWithdrawalController extends Controller
                 $invoice = $invoiceLinks->get((int) $withdrawal->id);
                 $withdrawal->setAttribute('invoice', $invoice);
                 $withdrawal->setAttribute('invoice_url', data_get($invoice, 'url'));
+                $withdrawal->setAttribute(
+                    'mark_paid_confirm_url',
+                    $withdrawal->isActionable() ? ManualWithdrawalMarkPaidLink::relativeUrl($withdrawal) : null
+                );
 
                 return $withdrawal;
             });
@@ -116,6 +121,10 @@ class AdminWithdrawalController extends Controller
             $invoice = app(AdminInvoiceLinks::class)->forWithdrawals(collect([$withdrawal]))->get((int) $withdrawal->id);
             $withdrawal->setAttribute('invoice', $invoice);
             $withdrawal->setAttribute('invoice_url', data_get($invoice, 'url'));
+            $withdrawal->setAttribute(
+                'mark_paid_confirm_url',
+                $withdrawal->isActionable() ? ManualWithdrawalMarkPaidLink::relativeUrl($withdrawal) : null
+            );
             $this->attachDuplicateWarnings(collect([$withdrawal]));
 
             $payload = $withdrawal->toArray();

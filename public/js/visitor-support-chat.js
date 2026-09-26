@@ -77,14 +77,32 @@
     }
   }
 
+  function ensureIds() {
+    messages.forEach(function (m) {
+      if (!m.id) m.id = uuid();
+    });
+  }
+
   function ensureWelcome() {
     if (messages.length) return;
     messages.push({
+      id: uuid(),
       role: 'assistant',
       content: welcome,
       at: nowIso(),
+      reaction: '',
+      edited: false,
     });
     saveState();
+  }
+
+  function canEdit(index) {
+    var m = messages[index];
+    if (!m || m.role !== 'user') return false;
+    for (var i = index + 1; i < messages.length; i++) {
+      if (messages[i].role === 'assistant') return false;
+    }
+    return true;
   }
 
   function historyForApi() {
@@ -99,10 +117,48 @@
     });
   }
 
+  function startEdit(row, bubble, message) {
+    if (row.classList.contains('is-editing')) return;
+    row.classList.add('is-editing');
+    var closed = false;
+    var field = document.createElement('textarea');
+    field.className = 'slb-live-chat__edit-input';
+    field.value = message.content || '';
+    field.rows = 2;
+    bubble.textContent = '';
+    bubble.appendChild(field);
+    field.focus();
+    function finish(save) {
+      if (closed) return;
+      var next = String(field.value || '').trim();
+      if (save && next.length > 4000) {
+        setError('Please keep messages under 4,000 characters.');
+        return;
+      }
+      closed = true;
+      if (save && next && next !== message.content) {
+        message.content = next;
+        message.edited = true;
+        saveState();
+      }
+      render();
+    }
+    field.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        finish(false);
+      }
+    });
+    field.addEventListener('blur', function () { finish(true); });
+  }
+
   function render() {
     if (!logEl) return;
     logEl.innerHTML = '';
-    messages.forEach(function (m) {
+    messages.forEach(function (m, index) {
       var row = document.createElement('div');
       var isUser = m.role === 'user';
       row.className = 'slb-live-chat__row ' + (isUser ? 'slb-live-chat__row--user' : 'slb-live-chat__row--support');
@@ -113,10 +169,28 @@
 
       var meta = document.createElement('div');
       meta.className = 'slb-live-chat__meta';
-      meta.textContent = (isUser ? 'You · ' : 'Support · ') + formatTime(m.at);
+      meta.textContent = (isUser ? 'You · ' : 'Support · ') + formatTime(m.at) + (m.edited ? ' · edited' : '');
 
       row.appendChild(bubble);
       row.appendChild(meta);
+
+      if (m.reaction) {
+        var picked = document.createElement('span');
+        picked.className = 'slb-live-chat__picked';
+        picked.textContent = m.reaction;
+        row.appendChild(picked);
+      }
+
+      if (canEdit(index)) {
+        var edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'slb-live-chat__edit';
+        edit.textContent = 'Edit';
+        edit.addEventListener('click', function () {
+          startEdit(row, bubble, m);
+        });
+        row.appendChild(edit);
+      }
 
       var reactions = document.createElement('div');
       reactions.className = 'slb-live-chat__reactions';
@@ -134,6 +208,17 @@
         reactions.appendChild(button);
       });
       row.appendChild(reactions);
+      var hold;
+      row.addEventListener('pointerdown', function (event) {
+        if (event.target.closest && event.target.closest('button, textarea')) return;
+        hold = window.setTimeout(function () { row.classList.add('is-reacting'); }, 450);
+      });
+      row.addEventListener('pointerup', function () { window.clearTimeout(hold); });
+      row.addEventListener('pointerleave', function (event) {
+        window.clearTimeout(hold);
+        if (event.pointerType === 'touch') return;
+        row.classList.remove('is-reacting');
+      });
       logEl.appendChild(row);
     });
     if (typing) {
@@ -265,7 +350,7 @@
     sending = true;
     if (sendBtn) sendBtn.disabled = true;
     setError('');
-    messages.push({ role: 'user', content: text, at: nowIso() });
+    messages.push({ id: uuid(), role: 'user', content: text, at: nowIso(), reaction: '', edited: false });
     input.value = '';
     saveState();
     render();
@@ -275,7 +360,7 @@
     sendChatMessage(text).then(function (result) {
       setTyping(false);
       if (result.ok && result.reply) {
-        messages.push({ role: 'assistant', content: result.reply, at: nowIso() });
+        messages.push({ id: uuid(), role: 'assistant', content: result.reply, at: nowIso(), reaction: '', edited: false });
       } else {
         setError(result.error || 'We could not send that message.');
       }
@@ -291,6 +376,7 @@
   if (!sessionId) sessionId = uuid();
   loadState();
   if (!sessionId) sessionId = uuid();
+  ensureIds();
   ensureWelcome();
   if (panel) {
     panel.setAttribute('aria-hidden', 'true');
@@ -341,6 +427,13 @@
       }
     });
   }
+
+  document.addEventListener('pointerdown', function (event) {
+    if (!logEl) return;
+    logEl.querySelectorAll('.slb-live-chat__row.is-reacting').forEach(function (row) {
+      if (!row.contains(event.target)) row.classList.remove('is-reacting');
+    });
+  });
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && isOpen()) {

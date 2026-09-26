@@ -195,8 +195,42 @@
 }
 
 .slb-live-chat__reactions {
-  display: flex;
+  display: none;
   gap: 4px;
+}
+
+.slb-live-chat__row:hover .slb-live-chat__reactions,
+.slb-live-chat__row.is-reacting .slb-live-chat__reactions,
+.slb-live-chat__row.is-editing .slb-live-chat__reactions {
+  display: flex;
+}
+
+.slb-live-chat__picked {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.slb-live-chat__row--user .slb-live-chat__picked {
+  align-self: flex-end;
+}
+
+.slb-live-chat__edit {
+  border: 0;
+  background: transparent;
+  color: var(--brand-ink-muted, #697078);
+  font-size: 0.75rem;
+  padding: 0;
+  cursor: pointer;
+}
+
+.slb-live-chat__edit-input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: none;
 }
 
 .slb-live-chat__reaction {

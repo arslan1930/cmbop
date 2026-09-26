@@ -146,10 +146,22 @@ Tawk_API.visitor = {!! json_encode($tawkVisitor, JSON_UNESCAPED_SLASHES | JSON_U
       autoplay: false,
       path: @json(asset('assets/vendor/lottie/chat-box.json').'?v='.(@filemtime(public_path('assets/vendor/lottie/chat-box.json')) ?: '1'))
     });
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var hovering = false;
     function restMark() {
+      hovering = false;
       anim.loop = false;
       anim.goToAndStop(40, true);
     }
+    function playMark() {
+      if (reduceMotion || !anim.isLoaded) return;
+      hovering = true;
+      anim.loop = false;
+      anim.goToAndPlay(1, true);
+    }
+    anim.addEventListener('complete', function () {
+      if (hovering) anim.goToAndPlay(1, true);
+    });
     anim.addEventListener('DOMLoaded', function () {
       restMark();
       var svg = launcher.querySelector('svg');
@@ -158,10 +170,7 @@ Tawk_API.visitor = {!! json_encode($tawkVisitor, JSON_UNESCAPED_SLASHES | JSON_U
         svg.style.height = '84px';
       }
     });
-    launcher.addEventListener('mouseenter', function () {
-      anim.loop = true;
-      anim.play();
-    });
+    launcher.addEventListener('mouseenter', playMark);
     launcher.addEventListener('mouseleave', restMark);
   }
   if (document.readyState === 'complete') paintMark();

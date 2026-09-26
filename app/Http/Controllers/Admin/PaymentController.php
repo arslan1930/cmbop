@@ -37,6 +37,9 @@ class PaymentController extends Controller
 {
     public const EXPORT_LIMIT = 5000;
 
+    /** @var list<\Closure> */
+    private array $deferredPaymentSideEffects = [];
+
     /**
      * Display payments list page
      */
@@ -284,7 +287,16 @@ class PaymentController extends Controller
             ) {
                 // Scan before the payment TX. abortPaymentUpdate() rolls back, so a
                 // reject written inside that TX would leave the library row approved.
-                $libraryState = app(OrderPaymentService::class)->libraryContentStateForSettlement($preview);
+                try {
+                    $libraryState = app(OrderPaymentService::class)->libraryContentStateForSettlement($preview);
+                } catch (\Throwable $e) {
+                    report($e);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Could not check the Content Library article for this order.',
+                    ], 422);
+                }
                 if ($libraryState !== 'ok') {
                     return response()->json([
                         'success' => false,
@@ -484,22 +496,37 @@ class PaymentController extends Controller
 
             DB::commit();
 
-            try {
-                $this->runPostCommitPaymentSideEffects(
-                    $order,
-                    (string) $oldStatus,
-                    $newStatus,
-                    $sendNotification,
-                    $notes,
-                    $paymentReference,
-                    $refundAmount
-                );
-            } catch (\Throwable $e) {
-                Log::error('Post-commit payment side effects failed: '.$e->getMessage(), [
-                    'order_id' => $order->id,
-                    'from' => $oldStatus,
-                    'to' => $newStatus,
-                ]);
+            $effect = function () use ($order, $oldStatus, $newStatus, $sendNotification, $notes, $paymentReference, $refundAmount) {
+                $billingSuppressor = app(BillingCustomerMailSuppressor::class);
+                if (! $sendNotification) {
+                    $billingSuppressor->enable();
+                }
+                try {
+                    $this->runPostCommitPaymentSideEffects(
+                        $order,
+                        (string) $oldStatus,
+                        $newStatus,
+                        $sendNotification,
+                        $notes,
+                        $paymentReference,
+                        $refundAmount
+                    );
+                } catch (\Throwable $e) {
+                    Log::error('Post-commit payment side effects failed: '.$e->getMessage(), [
+                        'order_id' => $order->id,
+                        'from' => $oldStatus,
+                        'to' => $newStatus,
+                    ]);
+                } finally {
+                    if (! $sendNotification) {
+                        $billingSuppressor->disable();
+                    }
+                }
+            };
+            if (DB::transactionLevel() > 0) {
+                $this->deferredPaymentSideEffects[] = $effect;
+            } else {
+                $effect();
             }
 
             return response()->json([
@@ -1104,6 +1131,12 @@ class PaymentController extends Controller
             fn ($id) => is_numeric($id) ? (int) $id : 0,
             $ids
         ))));
+        if ($ids === []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Select at least one unpaid Wise, bank, or crypto payment.',
+            ], 422);
+        }
         $orders = Order::query()->whereIn('id', $ids)->get();
         if ($orders->count() !== count($ids)) {
             return response()->json([
@@ -1123,25 +1156,18 @@ class PaymentController extends Controller
         }
 
         $payments = app(OrderPaymentService::class);
-        foreach ($orders as $order) {
-            if (! $order->hasCatalogVisibleFulfillment()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This order cannot be marked paid. The listing left the catalog and is no longer fulfillable. None of these rows were marked paid.',
-                ], 422);
-            }
-            $libraryState = $payments->libraryContentStateForSettlement($order);
-            if ($libraryState !== 'ok') {
-                return response()->json([
-                    'success' => false,
-                    'message' => $this->libraryUnreadyForMarkPaidMessage($libraryState).' None of these rows were marked paid.',
-                ], 422);
-            }
+        $blocked = $this->precheckBatchMarkPaid($orders, $payments);
+        if ($blocked !== null) {
+            return response()->json([
+                'success' => false,
+                'message' => $blocked,
+            ], 422);
         }
 
         $marked = 0;
-        foreach ($ids as $id) {
-            try {
+        DB::beginTransaction();
+        try {
+            foreach ($ids as $id) {
                 $sub = Request::create('/', 'POST', [
                     'payment_status' => 'paid',
                     'send_notification' => $request->boolean('send_notification', true) ? 1 : 0,
@@ -1152,26 +1178,105 @@ class PaymentController extends Controller
                 $response = $this->updatePaymentStatus($sub, $id);
                 $payload = $response->getData(true);
                 if (! ($payload['success'] ?? false)) {
+                    $this->discardDeferredPaymentSideEffects();
+                    $this->rollBackOpenTransaction();
+
                     return response()->json([
                         'success' => false,
-                        'message' => ($payload['message'] ?? 'Could not mark a payment paid.').' '.$marked.' row(s) were already marked paid.',
-                    ], $response->getStatusCode() ?: 422);
+                        'message' => $this->batchNoneMarkedMessage($payload['message'] ?? null),
+                    ], 422);
                 }
-            } catch (\Throwable $e) {
-                report($e);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Could not mark a payment paid. '.$marked.' row(s) were already marked paid.',
-                ], 422);
+                $marked++;
             }
-            $marked++;
+            DB::commit();
+        } catch (\Throwable $e) {
+            report($e);
+            $this->discardDeferredPaymentSideEffects();
+            $this->rollBackOpenTransaction();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not mark a payment paid. None of these rows were marked paid.',
+            ], 422);
         }
+
+        $this->flushDeferredPaymentSideEffects();
 
         return response()->json([
             'success' => true,
             'message' => $marked.' payment(s) marked paid.',
         ]);
+    }
+
+    /**
+     * Catalog and library checks share one transaction that is always rolled back.
+     * A lock error must not be reported as a missing article.
+     *
+     * @param  Collection<int, Order>  $orders
+     */
+    private function precheckBatchMarkPaid(Collection $orders, OrderPaymentService $payments): ?string
+    {
+        $blocked = null;
+        try {
+            DB::beginTransaction();
+            foreach ($orders as $order) {
+                $locked = Order::query()->whereKey($order->id)->lockForUpdate()->first();
+                if (! $locked instanceof Order || ! $locked->hasCatalogVisibleFulfillment()) {
+                    $blocked = 'This order cannot be marked paid. The listing left the catalog and is no longer fulfillable. None of these rows were marked paid.';
+                    break;
+                }
+                $libraryState = $payments->libraryContentStateForSettlement($locked);
+                if ($libraryState !== 'ok') {
+                    $blocked = $this->libraryUnreadyForMarkPaidMessage($libraryState).' None of these rows were marked paid.';
+                    break;
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            $blocked = 'Could not check these payments. None of these rows were marked paid.';
+        } finally {
+            $this->rollBackOpenTransaction();
+        }
+
+        return $blocked;
+    }
+
+    private function batchNoneMarkedMessage(?string $message): string
+    {
+        $message = trim((string) $message);
+        if ($message === '') {
+            $message = 'Could not mark a payment paid.';
+        }
+        if (! str_contains($message, 'None of these rows were marked paid.')) {
+            $message = rtrim($message, '.').'. None of these rows were marked paid.';
+        }
+
+        return $message;
+    }
+
+    private function flushDeferredPaymentSideEffects(): void
+    {
+        $effects = $this->deferredPaymentSideEffects;
+        $this->deferredPaymentSideEffects = [];
+        foreach ($effects as $effect) {
+            $effect();
+        }
+    }
+
+    private function discardDeferredPaymentSideEffects(): void
+    {
+        $this->deferredPaymentSideEffects = [];
+    }
+
+    private function rollBackOpenTransaction(): void
+    {
+        try {
+            while (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function serializePaymentRow(Order $order): array
