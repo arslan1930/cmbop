@@ -16,25 +16,523 @@ Public marketing site languages: English UK (default, unprefixed), English US (/
 The live canonical host is https://seolinkbuildings.com (www redirects to apex). Brand country-code domains 301 onto seolinkbuildings.com locale paths; they are not separate indexable sites.
 
 ## Key URLs
-- Home: https://seolinkbuildings.com/
-- Marketplace: https://seolinkbuildings.com/marketplace
-- Pricing: https://seolinkbuildings.com/pricing
-- How it works: https://seolinkbuildings.com/how-it-works
-- Why choose us: https://seolinkbuildings.com/why-choose-us
-- FAQ: https://seolinkbuildings.com/faq
-- About: https://seolinkbuildings.com/about
-- Contact: https://seolinkbuildings.com/contact
-- Blog: https://seolinkbuildings.com/blog
-- Become a publisher: https://seolinkbuildings.com/become-a-publisher
-- Guest posts by market: https://seolinkbuildings.com/marketplace
-- Guest posts in Poland: https://seolinkbuildings.com/guest-posts-poland
-- EU guest-post prices: https://seolinkbuildings.com/guest-post-prices-europe
-- Register: https://seolinkbuildings.com/register
-- Login: https://seolinkbuildings.com/login
-- Sitemap: https://seolinkbuildings.com/sitemap.xml
+The indexable public pages and published blog posts are the sitemap. Account pages (`/login`, `/register`) stay out of the sitemap.
+
+- Sitemap index: https://seolinkbuildings.com/sitemap.xml
+- English: https://seolinkbuildings.com/sitemap-en.xml
+- German: https://seolinkbuildings.com/sitemap-de.xml
+- French: https://seolinkbuildings.com/sitemap-fr.xml
+- Dutch: https://seolinkbuildings.com/sitemap-nl.xml
+- Spanish: https://seolinkbuildings.com/sitemap-es.xml
+- Italian: https://seolinkbuildings.com/sitemap-it.xml
+- Portuguese: https://seolinkbuildings.com/sitemap-pt.xml
+- US English: https://seolinkbuildings.com/sitemap-us.xml
+- Austrian: https://seolinkbuildings.com/sitemap-at.xml
+- Swiss: https://seolinkbuildings.com/sitemap-ch.xml
+- Romanian: https://seolinkbuildings.com/sitemap-ro.xml
+- Greek: https://seolinkbuildings.com/sitemap-gr.xml
+- Danish: https://seolinkbuildings.com/sitemap-dk.xml
+- Swedish: https://seolinkbuildings.com/sitemap-se.xml
+- Norwegian: https://seolinkbuildings.com/sitemap-no.xml
+- Bulgarian: https://seolinkbuildings.com/sitemap-bg.xml
+- Hungarian: https://seolinkbuildings.com/sitemap-hu.xml
+- Estonian: https://seolinkbuildings.com/sitemap-ee.xml
+- Polish: https://seolinkbuildings.com/sitemap-pl.xml
 - Robots: https://seolinkbuildings.com/robots.txt
 
-Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/pt/`, `/it/`, `/us/`, `/pl/`, `/at/`, `/ch/`, `/ro/` prefixes for the same public pages.
+### English
+- https://seolinkbuildings.com/
+- https://seolinkbuildings.com/marketplace
+- https://seolinkbuildings.com/pricing
+- https://seolinkbuildings.com/how-it-works
+- https://seolinkbuildings.com/why-choose-us
+- https://seolinkbuildings.com/become-a-publisher
+- https://seolinkbuildings.com/about
+- https://seolinkbuildings.com/faq
+- https://seolinkbuildings.com/contact
+- https://seolinkbuildings.com/blog
+- https://seolinkbuildings.com/privacy-policy
+- https://seolinkbuildings.com/terms-of-services
+- https://seolinkbuildings.com/cookie-policy
+- https://seolinkbuildings.com/refund-policy
+- https://seolinkbuildings.com/guest-posts-germany
+- https://seolinkbuildings.com/guest-posts-uk
+- https://seolinkbuildings.com/guest-posts-italy
+- https://seolinkbuildings.com/guest-posts-spain
+- https://seolinkbuildings.com/guest-posts-portugal
+- https://seolinkbuildings.com/guest-posts-france
+- https://seolinkbuildings.com/guest-posts-netherlands
+- https://seolinkbuildings.com/guest-posts-switzerland
+- https://seolinkbuildings.com/guest-posts-austria
+- https://seolinkbuildings.com/guest-posts-romania
+- https://seolinkbuildings.com/guest-posts-greece
+- https://seolinkbuildings.com/guest-posts-denmark
+- https://seolinkbuildings.com/guest-posts-sweden
+- https://seolinkbuildings.com/guest-posts-norway
+- https://seolinkbuildings.com/guest-posts-bulgaria
+- https://seolinkbuildings.com/guest-posts-hungary
+- https://seolinkbuildings.com/guest-posts-estonia
+- https://seolinkbuildings.com/guest-posts-poland
+- https://seolinkbuildings.com/guest-post-prices-europe
+- https://seolinkbuildings.com/blog/guest-posting-guide
+- https://seolinkbuildings.com/blog/how-to-get-backlinks
+- https://seolinkbuildings.com/blog/link-building-guide
+- https://seolinkbuildings.com/blog/sponsored-post-guide
+- https://seolinkbuildings.com/blog/faster-publisher-payouts-turnaround-quality-revisions
+- https://seolinkbuildings.com/blog/how-to-price-your-site-and-sensitive-niches
+- https://seolinkbuildings.com/blog/why-sites-get-rejected-and-how-to-get-approved
+- https://seolinkbuildings.com/blog/wallet-escrow-and-refunds-explained
+- https://seolinkbuildings.com/blog/ai-aeo-seo-why-guest-posts-and-brand-mentions-matter
+- https://seolinkbuildings.com/blog/buy-guest-posts-in-europe-how-to-choose-publisher-sites
+- https://seolinkbuildings.com/blog/dofollow-nofollow-and-anchor-text-for-marketplace-links
+- https://seolinkbuildings.com/blog/guest-post-brief-anchors-urls-images-sensitive-topics
+- https://seolinkbuildings.com/blog/guest-posting-in-the-uk-and-us-what-to-buy-and-what-to-skip
+- https://seolinkbuildings.com/blog/marketplace-vs-cold-outreach-vs-digital-pr
+- https://seolinkbuildings.com/blog/what-happens-if-a-live-link-is-removed
+- https://seolinkbuildings.com/blog/how-to-choose-a-publisher-site-dr-da-traffic-niche
+- https://seolinkbuildings.com/blog/how-to-buy-guest-posts-on-seolinkbuildings-advertiser-guide
+- https://seolinkbuildings.com/blog/publisher-guide-add-sites-complete-orders-withdraw
+- https://seolinkbuildings.com/blog/what-to-check-after-the-live-link-indexation-attributes-rankings
+
+### German (`/de/`)
+- https://seolinkbuildings.com/de/
+- https://seolinkbuildings.com/de/marktplatz
+- https://seolinkbuildings.com/de/preise
+- https://seolinkbuildings.com/de/so-funktioniert-es
+- https://seolinkbuildings.com/de/warum-wir
+- https://seolinkbuildings.com/de/publisher-werden
+- https://seolinkbuildings.com/de/ueber-uns
+- https://seolinkbuildings.com/de/haeufige-fragen
+- https://seolinkbuildings.com/de/kontakt
+- https://seolinkbuildings.com/de/blog
+- https://seolinkbuildings.com/de/datenschutz
+- https://seolinkbuildings.com/de/agb
+- https://seolinkbuildings.com/de/cookie-richtlinie
+- https://seolinkbuildings.com/de/rueckerstattung
+- https://seolinkbuildings.com/de/gastbeitrag-kaufen
+- https://seolinkbuildings.com/de/advertorial
+- https://seolinkbuildings.com/de/linkbuilding
+- https://seolinkbuildings.com/de/backlinks-kaufen
+- https://seolinkbuildings.com/de/agenturen
+- https://seolinkbuildings.com/de/digital-pr
+- https://seolinkbuildings.com/de/niche-edits
+- https://seolinkbuildings.com/de/blog/gesponserte-beitraege-leitfaden
+- https://seolinkbuildings.com/de/blog/linkaufbau-strategien
+- https://seolinkbuildings.com/de/blog/was-ist-ein-gastbeitrag
+- https://seolinkbuildings.com/de/blog/was-sind-backlinks
+- https://seolinkbuildings.com/de/blog/dofollow-vs-nofollow-ankertext
+- https://seolinkbuildings.com/de/blog/gastbeitraege-kaufen-auf-seolinkbuildings-advertiser-leitfaden
+- https://seolinkbuildings.com/de/blog/publisher-leitfaden-websites-hinzufuegen-auftraege-auszahlen
+- https://seolinkbuildings.com/de/blog/dofollow-nofollow-ankertexte-marketplace-links
+- https://seolinkbuildings.com/de/blog/gastbeitraege-kaufen-europa-publisher-sites-richtig-waehlen
+- https://seolinkbuildings.com/de/blog/backlinks-aufbauen-die-echte-rankings-erzielen-nicht-nur-zahlen
+
+### French (`/fr/`)
+- https://seolinkbuildings.com/fr/
+- https://seolinkbuildings.com/fr/marche
+- https://seolinkbuildings.com/fr/tarifs
+- https://seolinkbuildings.com/fr/comment-ca-marche
+- https://seolinkbuildings.com/fr/pourquoi-nous
+- https://seolinkbuildings.com/fr/devenir-editeur
+- https://seolinkbuildings.com/fr/a-propos
+- https://seolinkbuildings.com/fr/faq
+- https://seolinkbuildings.com/fr/contact
+- https://seolinkbuildings.com/fr/blog
+- https://seolinkbuildings.com/fr/confidentialite
+- https://seolinkbuildings.com/fr/conditions-generales
+- https://seolinkbuildings.com/fr/cookies
+- https://seolinkbuildings.com/fr/remboursement
+- https://seolinkbuildings.com/fr/acheter-guest-post
+- https://seolinkbuildings.com/fr/article-sponsorise
+- https://seolinkbuildings.com/fr/acheter-backlinks
+- https://seolinkbuildings.com/fr/netlinking
+- https://seolinkbuildings.com/fr/agences
+- https://seolinkbuildings.com/fr/digital-pr
+- https://seolinkbuildings.com/fr/niche-edits
+- https://seolinkbuildings.com/fr/guide
+- https://seolinkbuildings.com/fr/blog/articles-sponsorises-guide
+- https://seolinkbuildings.com/fr/blog/comment-obtenir-des-backlinks
+- https://seolinkbuildings.com/fr/blog/guide-guest-posting
+- https://seolinkbuildings.com/fr/blog/guide-netlinking
+- https://seolinkbuildings.com/fr/blog/acheter-des-guest-posts-sur-seolinkbuildings-guide-annonceur
+- https://seolinkbuildings.com/fr/blog/choisir-un-editeur-dr-da-trafic-et-pertinence
+
+### Dutch (`/nl/`)
+- https://seolinkbuildings.com/nl/
+- https://seolinkbuildings.com/nl/marktplaats
+- https://seolinkbuildings.com/nl/prijzen
+- https://seolinkbuildings.com/nl/hoe-het-werkt
+- https://seolinkbuildings.com/nl/waarom-wij
+- https://seolinkbuildings.com/nl/publisher-worden
+- https://seolinkbuildings.com/nl/over-ons
+- https://seolinkbuildings.com/nl/veelgestelde-vragen
+- https://seolinkbuildings.com/nl/contact
+- https://seolinkbuildings.com/nl/blog
+- https://seolinkbuildings.com/nl/privacybeleid
+- https://seolinkbuildings.com/nl/voorwaarden
+- https://seolinkbuildings.com/nl/cookiebeleid
+- https://seolinkbuildings.com/nl/restitutie
+- https://seolinkbuildings.com/nl/gastblog-kopen
+- https://seolinkbuildings.com/nl/gesponsord-artikel
+- https://seolinkbuildings.com/nl/backlinks-kopen
+- https://seolinkbuildings.com/nl/linkbuilding
+- https://seolinkbuildings.com/nl/bureaus
+- https://seolinkbuildings.com/nl/digital-pr
+- https://seolinkbuildings.com/nl/niche-edits
+- https://seolinkbuildings.com/nl/gids
+- https://seolinkbuildings.com/nl/blog/gastbloggen-gids
+- https://seolinkbuildings.com/nl/blog/gesponsorde-posts-gids
+- https://seolinkbuildings.com/nl/blog/hoe-krijg-je-backlinks
+- https://seolinkbuildings.com/nl/blog/linkbuilding-gids
+- https://seolinkbuildings.com/nl/blog/gastposts-kopen-op-seolinkbuildings-adverteerdersgids
+- https://seolinkbuildings.com/nl/blog/uitgevers-kiezen-dr-da-verkeer-en-niche
+
+### Spanish (`/es/`)
+- https://seolinkbuildings.com/es/
+- https://seolinkbuildings.com/es/mercado
+- https://seolinkbuildings.com/es/precios
+- https://seolinkbuildings.com/es/como-funciona
+- https://seolinkbuildings.com/es/por-que-elegirnos
+- https://seolinkbuildings.com/es/convertirse-en-publisher
+- https://seolinkbuildings.com/es/sobre-nosotros
+- https://seolinkbuildings.com/es/preguntas-frecuentes
+- https://seolinkbuildings.com/es/contacto
+- https://seolinkbuildings.com/es/blog
+- https://seolinkbuildings.com/es/privacidad
+- https://seolinkbuildings.com/es/terminos
+- https://seolinkbuildings.com/es/cookies
+- https://seolinkbuildings.com/es/reembolso
+- https://seolinkbuildings.com/es/comprar-guest-post
+- https://seolinkbuildings.com/es/articulo-patrocinado
+- https://seolinkbuildings.com/es/link-building
+- https://seolinkbuildings.com/es/comprar-backlinks
+- https://seolinkbuildings.com/es/agencias
+- https://seolinkbuildings.com/es/digital-pr
+- https://seolinkbuildings.com/es/niche-edits
+- https://seolinkbuildings.com/es/alternativas
+
+### Italian (`/it/`)
+- https://seolinkbuildings.com/it/
+- https://seolinkbuildings.com/it/mercato
+- https://seolinkbuildings.com/it/prezzi
+- https://seolinkbuildings.com/it/come-funziona
+- https://seolinkbuildings.com/it/perche-sceglierci
+- https://seolinkbuildings.com/it/diventa-publisher
+- https://seolinkbuildings.com/it/chi-siamo
+- https://seolinkbuildings.com/it/domande-frequenti
+- https://seolinkbuildings.com/it/contatto
+- https://seolinkbuildings.com/it/blog
+- https://seolinkbuildings.com/it/privacy
+- https://seolinkbuildings.com/it/termini
+- https://seolinkbuildings.com/it/cookie
+- https://seolinkbuildings.com/it/rimborso
+- https://seolinkbuildings.com/it/comprare-guest-post
+- https://seolinkbuildings.com/it/articoli-sponsorizzati
+- https://seolinkbuildings.com/it/link-building
+- https://seolinkbuildings.com/it/comprare-backlink
+- https://seolinkbuildings.com/it/agenzie
+- https://seolinkbuildings.com/it/digital-pr
+- https://seolinkbuildings.com/it/blog/come-fare-link-building
+- https://seolinkbuildings.com/it/blog/come-ottenere-backlink
+- https://seolinkbuildings.com/it/blog/cose-un-guest-post
+- https://seolinkbuildings.com/it/blog/guest-post-vs-articolo-sponsorizzato
+- https://seolinkbuildings.com/it/blog/dofollow-vs-nofollow
+
+### Portuguese (`/pt/`)
+- https://seolinkbuildings.com/pt/
+- https://seolinkbuildings.com/pt/marketplace
+- https://seolinkbuildings.com/pt/precos
+- https://seolinkbuildings.com/pt/como-funciona
+- https://seolinkbuildings.com/pt/porque-nos
+- https://seolinkbuildings.com/pt/tornar-se-publisher
+- https://seolinkbuildings.com/pt/sobre-nos
+- https://seolinkbuildings.com/pt/perguntas-frequentes
+- https://seolinkbuildings.com/pt/contacto
+- https://seolinkbuildings.com/pt/blog
+- https://seolinkbuildings.com/pt/privacidade
+- https://seolinkbuildings.com/pt/termos
+- https://seolinkbuildings.com/pt/cookies
+- https://seolinkbuildings.com/pt/reembolso
+- https://seolinkbuildings.com/pt/comprar-guest-post
+- https://seolinkbuildings.com/pt/artigo-patrocinado
+- https://seolinkbuildings.com/pt/link-building
+- https://seolinkbuildings.com/pt/comprar-backlinks
+- https://seolinkbuildings.com/pt/agencias
+- https://seolinkbuildings.com/pt/digital-pr
+- https://seolinkbuildings.com/pt/niche-edits
+- https://seolinkbuildings.com/pt/guia
+
+### US English (`/us/`)
+- https://seolinkbuildings.com/us/
+- https://seolinkbuildings.com/us/marketplace
+- https://seolinkbuildings.com/us/pricing
+- https://seolinkbuildings.com/us/how-it-works
+- https://seolinkbuildings.com/us/why-choose-us
+- https://seolinkbuildings.com/us/become-a-publisher
+- https://seolinkbuildings.com/us/about
+- https://seolinkbuildings.com/us/faq
+- https://seolinkbuildings.com/us/contact
+- https://seolinkbuildings.com/us/blog
+- https://seolinkbuildings.com/us/privacy-policy
+- https://seolinkbuildings.com/us/terms-of-services
+- https://seolinkbuildings.com/us/cookie-policy
+- https://seolinkbuildings.com/us/refund-policy
+
+### Austrian (`/at/`)
+- https://seolinkbuildings.com/at/
+- https://seolinkbuildings.com/at/marktplatz
+- https://seolinkbuildings.com/at/preise
+- https://seolinkbuildings.com/at/so-funktioniert-es
+- https://seolinkbuildings.com/at/warum-wir
+- https://seolinkbuildings.com/at/publisher-werden
+- https://seolinkbuildings.com/at/ueber-uns
+- https://seolinkbuildings.com/at/haeufige-fragen
+- https://seolinkbuildings.com/at/kontakt
+- https://seolinkbuildings.com/at/blog
+- https://seolinkbuildings.com/at/datenschutz
+- https://seolinkbuildings.com/at/agb
+- https://seolinkbuildings.com/at/cookie-richtlinie
+- https://seolinkbuildings.com/at/rueckerstattung
+- https://seolinkbuildings.com/at/gastbeitrag-kaufen
+- https://seolinkbuildings.com/at/advertorial
+- https://seolinkbuildings.com/at/linkbuilding
+- https://seolinkbuildings.com/at/backlinks-kaufen
+- https://seolinkbuildings.com/at/agenturen
+- https://seolinkbuildings.com/at/digital-pr
+- https://seolinkbuildings.com/at/niche-edits
+
+### Swiss (`/ch/`)
+- https://seolinkbuildings.com/ch/
+- https://seolinkbuildings.com/ch/marktplatz
+- https://seolinkbuildings.com/ch/preise
+- https://seolinkbuildings.com/ch/so-funktioniert-es
+- https://seolinkbuildings.com/ch/warum-wir
+- https://seolinkbuildings.com/ch/publisher-werden
+- https://seolinkbuildings.com/ch/ueber-uns
+- https://seolinkbuildings.com/ch/haeufige-fragen
+- https://seolinkbuildings.com/ch/kontakt
+- https://seolinkbuildings.com/ch/blog
+- https://seolinkbuildings.com/ch/datenschutz
+- https://seolinkbuildings.com/ch/agb
+- https://seolinkbuildings.com/ch/cookie-richtlinie
+- https://seolinkbuildings.com/ch/rueckerstattung
+- https://seolinkbuildings.com/ch/gastbeitrag-kaufen
+- https://seolinkbuildings.com/ch/advertorial
+- https://seolinkbuildings.com/ch/linkbuilding
+- https://seolinkbuildings.com/ch/backlinks-kaufen
+- https://seolinkbuildings.com/ch/agenturen
+- https://seolinkbuildings.com/ch/digital-pr
+- https://seolinkbuildings.com/ch/niche-edits
+
+### Romanian (`/ro/`)
+- https://seolinkbuildings.com/ro/
+- https://seolinkbuildings.com/ro/piata
+- https://seolinkbuildings.com/ro/preturi
+- https://seolinkbuildings.com/ro/cum-functioneaza
+- https://seolinkbuildings.com/ro/de-ce-noi
+- https://seolinkbuildings.com/ro/devino-publisher
+- https://seolinkbuildings.com/ro/despre-noi
+- https://seolinkbuildings.com/ro/intrebari-frecvente
+- https://seolinkbuildings.com/ro/contact
+- https://seolinkbuildings.com/ro/blog
+- https://seolinkbuildings.com/ro/confidentialitate
+- https://seolinkbuildings.com/ro/termeni
+- https://seolinkbuildings.com/ro/cookie
+- https://seolinkbuildings.com/ro/rambursare
+- https://seolinkbuildings.com/ro/cumpara-guest-post
+- https://seolinkbuildings.com/ro/articol-sponsorizat
+- https://seolinkbuildings.com/ro/cumpara-backlink
+- https://seolinkbuildings.com/ro/link-building
+- https://seolinkbuildings.com/ro/agentii
+- https://seolinkbuildings.com/ro/digital-pr
+- https://seolinkbuildings.com/ro/niche-edits
+- https://seolinkbuildings.com/ro/ghid
+
+### Greek (`/gr/`)
+- https://seolinkbuildings.com/gr/
+- https://seolinkbuildings.com/gr/agora
+- https://seolinkbuildings.com/gr/times
+- https://seolinkbuildings.com/gr/pos-leitourgei
+- https://seolinkbuildings.com/gr/giati-emas
+- https://seolinkbuildings.com/gr/gine-ekdotis
+- https://seolinkbuildings.com/gr/sxetika-me-emas
+- https://seolinkbuildings.com/gr/syxnes-erotiseis
+- https://seolinkbuildings.com/gr/epikoinonia
+- https://seolinkbuildings.com/gr/blog
+- https://seolinkbuildings.com/gr/aporrito
+- https://seolinkbuildings.com/gr/oroi
+- https://seolinkbuildings.com/gr/cookies
+- https://seolinkbuildings.com/gr/epistrofi
+
+### Danish (`/dk/`)
+- https://seolinkbuildings.com/dk/
+- https://seolinkbuildings.com/dk/markedsplads
+- https://seolinkbuildings.com/dk/priser
+- https://seolinkbuildings.com/dk/saadan-virker-det
+- https://seolinkbuildings.com/dk/derfor-os
+- https://seolinkbuildings.com/dk/bliv-publisher
+- https://seolinkbuildings.com/dk/om-os
+- https://seolinkbuildings.com/dk/ofte-stillede-spoergsmaal
+- https://seolinkbuildings.com/dk/kontakt
+- https://seolinkbuildings.com/dk/blog
+- https://seolinkbuildings.com/dk/privatlivspolitik
+- https://seolinkbuildings.com/dk/vilkaar
+- https://seolinkbuildings.com/dk/cookiepolitik
+- https://seolinkbuildings.com/dk/refundering
+- https://seolinkbuildings.com/dk/koeb-gaesteindlaeg
+- https://seolinkbuildings.com/dk/sponsoreret-artikel
+- https://seolinkbuildings.com/dk/koeb-backlinks
+- https://seolinkbuildings.com/dk/linkbuilding
+- https://seolinkbuildings.com/dk/bureauer
+- https://seolinkbuildings.com/dk/digital-pr
+- https://seolinkbuildings.com/dk/niche-edits
+- https://seolinkbuildings.com/dk/vejledning
+
+### Swedish (`/se/`)
+- https://seolinkbuildings.com/se/
+- https://seolinkbuildings.com/se/marknadsplats
+- https://seolinkbuildings.com/se/priser
+- https://seolinkbuildings.com/se/sa-fungerar-det
+- https://seolinkbuildings.com/se/varfor-vi
+- https://seolinkbuildings.com/se/bli-publisher
+- https://seolinkbuildings.com/se/om-oss
+- https://seolinkbuildings.com/se/vanliga-fragor
+- https://seolinkbuildings.com/se/kontakt
+- https://seolinkbuildings.com/se/blog
+- https://seolinkbuildings.com/se/integritetspolicy
+- https://seolinkbuildings.com/se/villkor
+- https://seolinkbuildings.com/se/cookiepolicy
+- https://seolinkbuildings.com/se/aterbetalning
+- https://seolinkbuildings.com/se/kopa-gastinlagg
+- https://seolinkbuildings.com/se/sponsrat-inlagg
+- https://seolinkbuildings.com/se/kopa-backlinks
+- https://seolinkbuildings.com/se/linkbuilding
+- https://seolinkbuildings.com/se/byraer
+- https://seolinkbuildings.com/se/digital-pr
+- https://seolinkbuildings.com/se/niche-edits
+- https://seolinkbuildings.com/se/handledning
+
+### Norwegian (`/no/`)
+- https://seolinkbuildings.com/no/
+- https://seolinkbuildings.com/no/markedsplass
+- https://seolinkbuildings.com/no/priser
+- https://seolinkbuildings.com/no/slik-fungerer-det
+- https://seolinkbuildings.com/no/hvorfor-oss
+- https://seolinkbuildings.com/no/bli-publisher
+- https://seolinkbuildings.com/no/om-oss
+- https://seolinkbuildings.com/no/ofte-stilte-sporsmal
+- https://seolinkbuildings.com/no/kontakt
+- https://seolinkbuildings.com/no/blog
+- https://seolinkbuildings.com/no/personvern
+- https://seolinkbuildings.com/no/vilkar
+- https://seolinkbuildings.com/no/informasjonskapsler
+- https://seolinkbuildings.com/no/refusjon
+- https://seolinkbuildings.com/no/kjope-gjesteinnlegg
+- https://seolinkbuildings.com/no/sponset-artikkel
+- https://seolinkbuildings.com/no/kjope-backlinks
+- https://seolinkbuildings.com/no/linkbuilding
+- https://seolinkbuildings.com/no/for-byraer
+- https://seolinkbuildings.com/no/digital-pr
+- https://seolinkbuildings.com/no/niche-edits
+- https://seolinkbuildings.com/no/veiledning
+
+### Bulgarian (`/bg/`)
+- https://seolinkbuildings.com/bg/
+- https://seolinkbuildings.com/bg/pazar
+- https://seolinkbuildings.com/bg/ceni
+- https://seolinkbuildings.com/bg/kak-raboti
+- https://seolinkbuildings.com/bg/zashto-nie
+- https://seolinkbuildings.com/bg/stani-publisher
+- https://seolinkbuildings.com/bg/za-nas
+- https://seolinkbuildings.com/bg/chesti-vaprosi
+- https://seolinkbuildings.com/bg/kontakt
+- https://seolinkbuildings.com/bg/blog
+- https://seolinkbuildings.com/bg/poveritelnost
+- https://seolinkbuildings.com/bg/usloviya
+- https://seolinkbuildings.com/bg/cookies
+- https://seolinkbuildings.com/bg/vrashtane
+- https://seolinkbuildings.com/bg/kupi-guest-post
+- https://seolinkbuildings.com/bg/sponsorirana-statiya
+- https://seolinkbuildings.com/bg/kupi-backlinks
+- https://seolinkbuildings.com/bg/linkbuilding
+- https://seolinkbuildings.com/bg/agencii
+- https://seolinkbuildings.com/bg/digital-pr
+- https://seolinkbuildings.com/bg/niche-edits
+- https://seolinkbuildings.com/bg/rukovodstvo
+
+### Hungarian (`/hu/`)
+- https://seolinkbuildings.com/hu/
+- https://seolinkbuildings.com/hu/piac
+- https://seolinkbuildings.com/hu/arak
+- https://seolinkbuildings.com/hu/hogyan-mukodik
+- https://seolinkbuildings.com/hu/miert-minket
+- https://seolinkbuildings.com/hu/legy-publisher
+- https://seolinkbuildings.com/hu/rolunk
+- https://seolinkbuildings.com/hu/gyakori-kerdesek
+- https://seolinkbuildings.com/hu/kapcsolat
+- https://seolinkbuildings.com/hu/blog
+- https://seolinkbuildings.com/hu/adatvedelem
+- https://seolinkbuildings.com/hu/feltetelek
+- https://seolinkbuildings.com/hu/sutik
+- https://seolinkbuildings.com/hu/visszaterites
+- https://seolinkbuildings.com/hu/vendegposzt
+- https://seolinkbuildings.com/hu/szponzoralt-cikk
+- https://seolinkbuildings.com/hu/backlink-vasarlas
+- https://seolinkbuildings.com/hu/linkepites
+- https://seolinkbuildings.com/hu/ugynoksegek
+- https://seolinkbuildings.com/hu/digital-pr
+- https://seolinkbuildings.com/hu/niche-edits
+- https://seolinkbuildings.com/hu/utmutato
+
+### Estonian (`/ee/`)
+- https://seolinkbuildings.com/ee/
+- https://seolinkbuildings.com/ee/turg
+- https://seolinkbuildings.com/ee/hinnad
+- https://seolinkbuildings.com/ee/kuidas-tootab
+- https://seolinkbuildings.com/ee/miks-meie
+- https://seolinkbuildings.com/ee/saa-kirjastajaks
+- https://seolinkbuildings.com/ee/meist
+- https://seolinkbuildings.com/ee/kkk
+- https://seolinkbuildings.com/ee/kontakt
+- https://seolinkbuildings.com/ee/blog
+- https://seolinkbuildings.com/ee/privaatsus
+- https://seolinkbuildings.com/ee/tingimused
+- https://seolinkbuildings.com/ee/kupsised
+- https://seolinkbuildings.com/ee/tagastus
+- https://seolinkbuildings.com/ee/osta-kulalispostitus
+- https://seolinkbuildings.com/ee/sponsoreeritud-artikkel
+- https://seolinkbuildings.com/ee/osta-backlinke
+- https://seolinkbuildings.com/ee/linkbuilding
+- https://seolinkbuildings.com/ee/agentuurid
+- https://seolinkbuildings.com/ee/digital-pr
+- https://seolinkbuildings.com/ee/niche-edits
+- https://seolinkbuildings.com/ee/juhend
+
+### Polish (`/pl/`)
+- https://seolinkbuildings.com/pl/
+- https://seolinkbuildings.com/pl/rynek
+- https://seolinkbuildings.com/pl/cennik
+- https://seolinkbuildings.com/pl/jak-to-dziala
+- https://seolinkbuildings.com/pl/dlaczego-my
+- https://seolinkbuildings.com/pl/zostan-wydawca
+- https://seolinkbuildings.com/pl/o-nas
+- https://seolinkbuildings.com/pl/faq
+- https://seolinkbuildings.com/pl/kontakt
+- https://seolinkbuildings.com/pl/blog
+- https://seolinkbuildings.com/pl/polityka-prywatnosci
+- https://seolinkbuildings.com/pl/regulamin
+- https://seolinkbuildings.com/pl/polityka-cookies
+- https://seolinkbuildings.com/pl/zwroty
+- https://seolinkbuildings.com/pl/wpis-goscinny
+- https://seolinkbuildings.com/pl/artykul-sponsorowany
+- https://seolinkbuildings.com/pl/kup-backlinki
+- https://seolinkbuildings.com/pl/link-building
+- https://seolinkbuildings.com/pl/agencje
+- https://seolinkbuildings.com/pl/digital-pr
+- https://seolinkbuildings.com/pl/niche-edits
+- https://seolinkbuildings.com/pl/przewodnik
+
+Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/pt/`, `/it/`, `/us/`, `/pl/`, `/at/`, `/ch/`, `/ro/`, `/gr/`, `/dk/`, `/se/`, `/no/`, `/bg/`, `/hu/`, and `/ee/` prefixes for the same public pages. Blog posts appear under a locale only when that language has a published translation.
 
 ## Pricing (snapshot)
 - Marketplace placements: priced per publisher listing; public pages state placements start from a low EUR amount (catalog after login).
