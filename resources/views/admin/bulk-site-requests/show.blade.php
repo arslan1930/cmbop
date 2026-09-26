@@ -159,7 +159,7 @@
                         Either way the site is marked Bulk request. Unfilled rows stay here.
                         Sensitive-topic prices are required only when that topic is offered.
                         Delete a row you will not add — those sites leave this batch and the publisher gets one note for all removed sites.
-                        The quality bar is DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Publishing below this is allowed and the site still goes live.
+                        The quality bar is DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Publish now is allowed below that bar and the site goes live unverified. Send for review does not put it live.
                     </p>
 
                     @if($errors->any())
@@ -605,7 +605,7 @@
                                                            data-bulk-required
                                                            @if(is_array($keptCover)) data-bulk-kept="1" @endif
                                                            @disabled($isRejected)>
-                                                    <div class="form-text">JPEG, PNG, GIF, or WebP, up to {{ \App\Support\SiteImageUpload::maxMegabytesLabel() }} MB. This cover is saved when the site goes live.</div>
+                                                    <div class="form-text">JPEG, PNG, GIF, or WebP, up to {{ \App\Support\SiteImageUpload::maxMegabytesLabel() }} MB. This cover is saved with the site.</div>
                                                     @if(is_array($keptCover))
                                                         <input type="hidden" name="items[{{ $item->id }}][kept_image]" value="{{ $keptCover['path'] }}" data-bulk-kept-image>
                                                         <div class="form-text">Saved cover: {{ $keptCover['name'] }}. You do not need to upload it again unless you want a different image.</div>
@@ -688,7 +688,7 @@
                                             <div class="alert alert-warning border-0 py-2 px-3 small mb-0{{ $belowQuality ? '' : ' d-none' }}"
                                                  data-bulk-quality-warn
                                                  role="status">
-                                                These metrics are below the quality bar. You can still Done this row — the site goes live and stays unverified.
+                                                These metrics are below the quality bar. You can still submit this row. Publish now puts it live unverified. Send for review leaves it off the catalog.
                                             </div>
                                             <div class="bulk-done-row__actions">
                                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-clear-row @disabled($isRejected)>
@@ -1817,6 +1817,13 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         scheduleDraftSave();
     });
 
+    form.addEventListener('click', function (e) {
+        const btn = e.target && e.target.closest ? e.target.closest('button[type="submit"]') : null;
+        if (btn && btn.form === form && !btn.disabled) {
+            form._slbDoneSubmitter = btn;
+        }
+    });
+
     form.addEventListener('submit', function (e) {
         // Dedicated flag so shared slb-confirm.js cannot clear imperative allows.
         if (form.dataset.slbBulkAllowSubmit === '1') {
@@ -1880,7 +1887,10 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         const count = complete.length;
         const remaining = doneRows().length - count;
         const submittedIds = complete.map(rowItemId).filter(Boolean).concat(rejected);
-        const chosenSubmitter = (e.submitter && e.submitter.form === form) ? e.submitter : submitBtn;
+        const clicked = form._slbDoneSubmitter;
+        const chosenSubmitter = (e.submitter && e.submitter.form === form)
+            ? e.submitter
+            : (clicked && clicked.form === form ? clicked : submitBtn);
         form._slbDoneSubmitter = chosenSubmitter;
         const reviewMode = !!(chosenSubmitter && chosenSubmitter.id === 'bulkReviewSubmit');
         e.preventDefault();
@@ -1922,6 +1932,10 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
             form.dataset.slbBulkAllowSubmit = '1';
             const chosen = form._slbDoneSubmitter || submitBtn;
             if (typeof form.requestSubmit === 'function' && chosen && !chosen.disabled) {
+                const staleMode = form.querySelector('input[data-bulk-done-mode]');
+                if (staleMode) {
+                    staleMode.remove();
+                }
                 try {
                     form.requestSubmit(chosen);
                     return;

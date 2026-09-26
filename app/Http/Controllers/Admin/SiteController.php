@@ -111,6 +111,8 @@ class SiteController extends Controller
             && ! $request->filled('site');
         $listingTagOptions = SiteTag::catalogFilterOptions();
         $marketplaceCountries = $this->staffMarketplaceCountries();
+        $marketplaceLanguages = $this->staffMarketplaceLanguages();
+        $nicheOptions = $this->staffNicheOptions();
 
         if ($publisherSearch !== ''
             && ! $request->filled('publisher')
@@ -137,7 +139,40 @@ class SiteController extends Controller
         $needsReviewFilterActive = $needsReviewFilter;
         $waitingOnPublisherFilterActive = $waitingOnPublisherFilter;
         $openReviewCount = MarketingOpsQueues::sitesReadyForStaffCount();
-        $waitingOnPublisherCount = MarketingOpsQueues::sitesWaitingOnPublisherCount();
+        $waitingListNarrows = $waitingOnPublisherFilter
+            && ($publisherSearch !== '' || $this->staffSitesListNarrows($staffSiteFilters));
+        if ($waitingListNarrows) {
+            $countWaitingStage = function (?string $stage) use ($publisherSearch, $staffSiteFilters): int {
+                $stageQuery = MarketingOpsQueues::sitesWaitingOnPublisher($stage);
+                $this->applyStaffIndexSiteOrPublisherSearch($stageQuery, $publisherSearch);
+                $this->applyStaffSitesListFilters($stageQuery, $staffSiteFilters);
+
+                return (int) $stageQuery->count();
+            };
+            $waitingOnPublisherCount = $countWaitingStage(null);
+            $waitingStageCounts = [
+                'filling' => $countWaitingStage('filling'),
+                'reviewing' => $countWaitingStage('reviewing'),
+                'accept' => $countWaitingStage('accept'),
+            ];
+        } else {
+            $waitingOnPublisherCount = MarketingOpsQueues::sitesWaitingOnPublisherCount();
+            $waitingStageCounts = MarketingOpsQueues::sitesWaitingStageCounts();
+        }
+        $waitingStage = $waitingOnPublisherFilter
+            ? (string) ($staffSiteFilters['waiting_stage'] ?? '')
+            : '';
+        $liveUnverifiedCount = $this->staffSitesFilterTotal([
+            'listing_active' => '1',
+            'listing_verified' => '0',
+        ]);
+        $belowQualityListCount = $this->staffSitesFilterTotal(['below_quality' => true]);
+        $placeholderListCount = $this->staffSitesFilterTotal(['placeholder' => true]);
+        $missingCoverListCount = $this->staffSitesFilterTotal(['missing_cover' => true]);
+        $missingMarketListCount = $this->staffSitesFilterTotal([
+            'listing_active' => '1',
+            'missing_market' => true,
+        ]);
         $healthCounts = CatalogHealthQueue::counts();
         $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
         $flatQueueSites = null;
@@ -149,7 +184,7 @@ class SiteController extends Controller
                 'path' => $request->url(),
                 'query' => $request->query(),
             ]);
-            $flatQueueSites = MarketingOpsQueues::sitesWaitingOnPublisher()
+            $flatQueueSites = MarketingOpsQueues::sitesWaitingOnPublisher($waitingStage !== '' ? $waitingStage : null)
                 ->with($this->staffPublisherWith())
                 ->when(Schema::hasTable('order_items'), fn ($q) => $q->withCount('orderItems'));
             $this->applyStaffIndexSiteOrPublisherSearch($flatQueueSites, $publisherSearch);
@@ -183,24 +218,72 @@ class SiteController extends Controller
             $sitesExportLimited = $allSites->total() > self::EXPORT_LIMIT;
         } else {
             // Counts only — do not eager-load every site row for the publisher list.
+            $reviewListNarrows = $needsReviewFilter
+                && ($publisherSearch !== '' || $this->staffSitesListNarrows($staffSiteFilters));
+            $narrowQueueSites = function ($q) use ($publisherSearch, $staffSiteFilters) {
+                if ($publisherSearch !== '') {
+                    $this->applyStaffIndexSiteOrPublisherSearch($q, $publisherSearch);
+                }
+                $this->applyStaffSitesListFilters($q, $staffSiteFilters);
+            };
+            $waitingStageForList = $waitingStage !== '' ? $waitingStage : null;
+
             $query = User::query()
                 ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
                 ->withCount(['sites' => fn ($q) => $q->notArchived()])
-                ->withCount(['sites as needs_review_sites_count' => $reviewQueue])
-                ->withCount(['sites as waiting_on_publisher_sites_count' => function ($q) {
+                ->withCount(['sites as needs_review_sites_count' => function ($q) use ($reviewQueue, $reviewListNarrows, $narrowQueueSites) {
+                    $reviewQueue($q);
+                    if ($reviewListNarrows) {
+                        $narrowQueueSites($q);
+                    }
+                }])
+                ->withCount(['sites as waiting_on_publisher_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
                     MarketingOpsQueues::constrainSitesWaitingOnPublisher($q);
+                    if ($waitingListNarrows) {
+                        $narrowQueueSites($q);
+                    }
+                }])
+                ->withCount(['sites as waiting_filling_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
+                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'filling');
+                    if ($waitingListNarrows) {
+                        $narrowQueueSites($q);
+                    }
+                }])
+                ->withCount(['sites as waiting_reviewing_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
+                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'reviewing');
+                    if ($waitingListNarrows) {
+                        $narrowQueueSites($q);
+                    }
+                }])
+                ->withCount(['sites as waiting_accept_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
+                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'accept');
+                    if ($waitingListNarrows) {
+                        $narrowQueueSites($q);
+                    }
                 }]);
 
-            if ($publisherSearch !== '') {
-                $query->withCount(['sites as matched_sites_count' => function ($q) use ($publisherSearch, $staffSiteFilters) {
-                    $this->applyStaffSitesArchiveScope($q, $staffSiteFilters);
-                    $this->constrainStaffSiteSearch($q, $publisherSearch);
-                    $this->applyStaffSitesListFilters($q, $staffSiteFilters);
+            if ($publisherSearch !== '' || $this->staffSitesListNarrows($staffSiteFilters)) {
+                $query->withCount(['sites as matched_sites_count' => function ($q) use ($publisherSearch, $staffSiteFilters, $needsReviewFilter, $waitingOnPublisherFilter, $waitingStageForList, $reviewQueue, $narrowQueueSites) {
+                    if ($waitingOnPublisherFilter) {
+                        MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, $waitingStageForList);
+                        $narrowQueueSites($q);
+                    } elseif ($needsReviewFilter) {
+                        $reviewQueue($q);
+                        $narrowQueueSites($q);
+                    } else {
+                        $this->applyStaffSitesArchiveScope($q, $staffSiteFilters);
+                        if ($publisherSearch !== '') {
+                            $this->constrainStaffSiteSearch($q, $publisherSearch);
+                        }
+                        $this->applyStaffSitesListFilters($q, $staffSiteFilters);
+                    }
                 }]);
+            }
+            if ($publisherSearch !== '' && ! $needsReviewFilter && ! $waitingOnPublisherFilter) {
                 $this->applyStaffPublisherSearch($query, $publisherSearch, $staffSiteFilters);
             }
 
-            if ($this->staffSitesListNarrows($staffSiteFilters)) {
+            if ($this->staffSitesListNarrows($staffSiteFilters) && ! $needsReviewFilter && ! $waitingOnPublisherFilter) {
                 $query->whereHas('sites', function ($sites) use ($staffSiteFilters) {
                     $this->applyStaffSitesArchiveScope($sites, $staffSiteFilters);
                     $this->applyStaffSitesListFilters($sites, $staffSiteFilters);
@@ -209,18 +292,37 @@ class SiteController extends Controller
 
             // Ops queue: publishers with sites ready for admin decision (not unfinished drafts)
             if ($needsReviewFilter) {
-                $query->whereHas('sites', $reviewQueue)
-                    ->withCount(['sites as unverified_sites_count' => $reviewQueue]);
+                $query->whereHas('sites', function ($q) use ($reviewQueue, $reviewListNarrows, $narrowQueueSites) {
+                    $reviewQueue($q);
+                    if ($reviewListNarrows) {
+                        $narrowQueueSites($q);
+                    }
+                })->withCount(['sites as unverified_sites_count' => function ($q) use ($reviewQueue, $reviewListNarrows, $narrowQueueSites) {
+                    $reviewQueue($q);
+                    if ($reviewListNarrows) {
+                        $narrowQueueSites($q);
+                    }
+                }]);
             }
 
             if ($waitingOnPublisherFilter) {
-                $query->whereHas('sites', function ($q) {
-                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q);
+                $query->whereHas('sites', function ($q) use ($waitingStageForList, $waitingListNarrows, $narrowQueueSites) {
+                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, $waitingStageForList);
+                    if ($waitingListNarrows) {
+                        $narrowQueueSites($q);
+                    }
                 });
             }
 
+            $waitingSort = match ($waitingStageForList) {
+                'filling' => 'waiting_filling_sites_count',
+                'reviewing' => 'waiting_reviewing_sites_count',
+                'accept' => 'waiting_accept_sites_count',
+                default => 'waiting_on_publisher_sites_count',
+            };
+
             $users = $query
-                ->orderByDesc($waitingOnPublisherFilter ? 'waiting_on_publisher_sites_count' : 'needs_review_sites_count')
+                ->orderByDesc($waitingOnPublisherFilter ? $waitingSort : 'needs_review_sites_count')
                 ->orderByDesc('sites_count')
                 ->orderBy('name')
                 ->paginate(20)
@@ -236,6 +338,13 @@ class SiteController extends Controller
             'waitingOnPublisherFilterActive',
             'openReviewCount',
             'waitingOnPublisherCount',
+            'waitingStageCounts',
+            'waitingStage',
+            'liveUnverifiedCount',
+            'belowQualityListCount',
+            'placeholderListCount',
+            'missingCoverListCount',
+            'missingMarketListCount',
             'missingMarketCount',
             'healthCounts',
             'publisherSearch',
@@ -247,7 +356,9 @@ class SiteController extends Controller
             'sitesExportUrl',
             'staffSiteFilters',
             'listingTagOptions',
-            'marketplaceCountries'
+            'marketplaceCountries',
+            'marketplaceLanguages',
+            'nicheOptions'
         ));
     }
 
@@ -276,7 +387,13 @@ class SiteController extends Controller
             'listing_verified' => ($filters['listing_verified'] ?? '') !== '' ? $filters['listing_verified'] : null,
             'below_quality' => ! empty($filters['below_quality']) ? 1 : null,
             'missing_market' => ! empty($filters['missing_market']) ? 1 : null,
+            'placeholder' => ! empty($filters['placeholder']) ? 1 : null,
+            'missing_cover' => ! empty($filters['missing_cover']) ? 1 : null,
+            'bulk_request' => ! empty($filters['bulk_request']) ? 1 : null,
+            'language' => ($filters['language'] ?? '') !== '' ? $filters['language'] : null,
+            'niche' => ($filters['niche'] ?? '') !== '' ? $filters['niche'] : null,
             'archived' => ! empty($filters['archived']) ? 1 : null,
+            'waiting_stage' => $waiting && ($filters['waiting_stage'] ?? '') !== '' ? $filters['waiting_stage'] : null,
             'sort' => ($filters['sort'] ?? '') !== '' ? $filters['sort'] : null,
         ], static fn ($value) => $value !== null && $value !== '');
     }
@@ -379,6 +496,7 @@ class SiteController extends Controller
                 'sale_eur',
                 'featured',
                 'bulk',
+                'bulk_request',
                 'orders',
                 'active',
                 'verified',
@@ -408,6 +526,7 @@ class SiteController extends Controller
                     $this->csvCell($facts['sale_price']),
                     $this->csvCell($facts['featured'] ? 'yes' : 'no'),
                     $this->csvCell($facts['bulk_discount'] ? 'yes' : 'no'),
+                    $this->csvCell($site->wasAddedFromBulkRequest() ? 'yes' : 'no'),
                     $this->csvCell($site->orderItemsCount()),
                     $this->csvCell($site->active ? 'yes' : 'no'),
                     $this->csvCell($site->verified ? 'yes' : 'no'),
@@ -1802,14 +1921,26 @@ class SiteController extends Controller
         $active = trim(scalar_text($request->query('listing_active', $request->input('listing_active', ''))));
         $verified = trim(scalar_text($request->query('listing_verified', $request->input('listing_verified', ''))));
 
+        $language = strtolower(trim(scalar_text($request->query('language', $request->input('language', '')))));
+        if ($language === 'all') {
+            $language = '';
+        }
+        $niche = trim(scalar_text($request->query('niche', $request->input('niche', ''))));
+
         return [
             'tag' => $tag,
             'country' => $country,
+            'language' => $language,
+            'niche' => $niche,
             'listing_active' => in_array($active, ['0', '1'], true) ? $active : '',
             'listing_verified' => in_array($verified, ['0', '1'], true) ? $verified : '',
             'below_quality' => $this->requestFlag($request, 'below_quality'),
             'missing_market' => $this->requestFlag($request, 'missing_market'),
+            'placeholder' => $this->requestFlag($request, 'placeholder'),
+            'missing_cover' => $this->requestFlag($request, 'missing_cover'),
+            'bulk_request' => $this->requestFlag($request, 'bulk_request'),
             'archived' => $this->requestFlag($request, 'archived'),
+            'waiting_stage' => MarketingOpsQueues::normalizeWaitingStage($request->query('waiting_stage', $request->input('waiting_stage'))) ?? '',
             'sort' => $this->staffSitesListSortKey($request->query('sort', $request->input('sort'))),
         ];
     }
@@ -1821,10 +1952,15 @@ class SiteController extends Controller
     {
         return (($filter['tag'] ?? null) !== null && ($filter['tag'] ?? '') !== '')
             || ($filter['country'] ?? '') !== ''
+            || ($filter['language'] ?? '') !== ''
+            || ($filter['niche'] ?? '') !== ''
             || ($filter['listing_active'] ?? '') !== ''
             || ($filter['listing_verified'] ?? '') !== ''
             || ! empty($filter['below_quality'])
-            || ! empty($filter['missing_market']);
+            || ! empty($filter['missing_market'])
+            || ! empty($filter['placeholder'])
+            || ! empty($filter['missing_cover'])
+            || ! empty($filter['bulk_request']);
     }
 
     private function staffSitesListSortKey(mixed $sort): string
@@ -1862,6 +1998,16 @@ class SiteController extends Controller
         }
 
         $this->applyRecordsCountryFilter($query, scalar_text($filter['country'] ?? ''));
+        $this->applyStaffLanguageFilter($query, scalar_text($filter['language'] ?? ''));
+        $this->applyStaffNicheFilter($query, scalar_text($filter['niche'] ?? ''));
+
+        if (! empty($filter['bulk_request'])) {
+            if (Site::hasSitesColumn('added_from_bulk_request')) {
+                $query->where('added_from_bulk_request', 1);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
 
         if (($filter['listing_active'] ?? '') === '1') {
             $query->where('active', 1);
@@ -1885,6 +2031,14 @@ class SiteController extends Controller
 
         if (! empty($filter['missing_market'])) {
             $query->missingMarketplaceCountry();
+        }
+
+        if (! empty($filter['placeholder'])) {
+            CatalogHealthQueue::apply($query, CatalogHealthQueue::PLACEHOLDER);
+        }
+
+        if (! empty($filter['missing_cover'])) {
+            CatalogHealthQueue::apply($query, CatalogHealthQueue::MISSING_COVER);
         }
     }
 
@@ -1968,6 +2122,160 @@ class SiteController extends Controller
 
             return collect();
         }
+    }
+
+    /**
+     * @return Collection<int, Language>
+     */
+    private function staffMarketplaceLanguages()
+    {
+        try {
+            return Language::marketplace()->orderBy('name')->get(['code', 'name']);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return collect();
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function staffNicheOptions(): array
+    {
+        try {
+            return Category::catalogPickerNames();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /**
+     * Row count for one Sites list filter, with the same archive and filter
+     * rules the All sites page uses when that filter is the only one on.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    private function staffSitesFilterTotal(array $overrides): int
+    {
+        $filter = array_merge([
+            'tag' => null,
+            'country' => '',
+            'language' => '',
+            'niche' => '',
+            'listing_active' => '',
+            'listing_verified' => '',
+            'below_quality' => false,
+            'missing_market' => false,
+            'placeholder' => false,
+            'missing_cover' => false,
+            'bulk_request' => false,
+            'archived' => false,
+        ], $overrides);
+
+        try {
+            $query = Site::query();
+            $this->applyStaffSitesArchiveScope($query, $filter);
+            $this->applyStaffSitesListFilters($query, $filter);
+
+            return (int) $query->count();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return 0;
+        }
+    }
+
+    /**
+     * @param  Builder<Site>  $query
+     */
+    private function applyStaffLanguageFilter($query, string $languageCode): void
+    {
+        $code = strtolower(trim(scalar_text($languageCode)));
+        if ($code === '') {
+            return;
+        }
+
+        try {
+            $hasLanguage = Site::hasSitesColumn('language');
+            $hasLanguagesJson = Site::hasSitesColumn('languages');
+        } catch (\Throwable $e) {
+            report($e);
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+        if (! $hasLanguage && ! $hasLanguagesJson) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->where(function ($q) use ($code, $hasLanguage, $hasLanguagesJson) {
+            if ($hasLanguage) {
+                $q->whereRaw('LOWER(language) = ?', [$code]);
+            }
+            if ($hasLanguagesJson) {
+                $like = like_contains('"'.$code.'"');
+                $jsonClause = function ($inner) use ($code, $like) {
+                    $inner->whereRaw('LOWER(SUBSTRING(languages, 1, 8000)) LIKE ? ESCAPE ?', [$like, '\\'])
+                        ->orWhereRaw('LOWER(SUBSTRING(languages, 1, 8000)) = ?', [$code]);
+                };
+                if ($hasLanguage) {
+                    $q->orWhere($jsonClause);
+                } else {
+                    $q->where($jsonClause);
+                }
+            }
+        });
+    }
+
+    /**
+     * @param  Builder<Site>  $query
+     */
+    private function applyStaffNicheFilter($query, string $niche): void
+    {
+        $name = trim(scalar_text($niche));
+        if ($name === '') {
+            return;
+        }
+
+        try {
+            $hasCategory = Site::hasSitesColumn('category');
+            $hasCategories = Site::hasSitesColumn('categories');
+        } catch (\Throwable $e) {
+            report($e);
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+        if (! $hasCategory && ! $hasCategories) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $lower = mb_strtolower($name);
+        $query->where(function ($q) use ($name, $lower, $hasCategory, $hasCategories) {
+            if ($hasCategory) {
+                $q->whereRaw('LOWER(category) = ?', [$lower]);
+            }
+            if ($hasCategories && ! str_contains($name, '"') && ! str_contains($name, '\\')) {
+                $like = mb_strtolower(like_contains('"'.$name.'"'));
+                $json = function ($inner) use ($like) {
+                    $inner->whereRaw('LOWER(SUBSTRING(categories, 1, 8000)) LIKE ? ESCAPE ?', [$like, '\\']);
+                };
+                if ($hasCategory) {
+                    $q->orWhere($json);
+                } else {
+                    $q->where($json);
+                }
+            } elseif (! $hasCategory) {
+                $q->whereRaw('1 = 0');
+            }
+        });
     }
 
     private function staffSearchHost(string $search): ?string
@@ -4268,12 +4576,31 @@ class SiteController extends Controller
     // VERIFY / UNVERIFY (approve / reject) — admin only
     public function bulkAction(Request $request): JsonResponse
     {
-        $data = $request->validate([
+        $matchAll = $request->boolean('match_all');
+        $rules = [
             'action' => ['required', 'in:verify,activate,reject,deactivate,archive'],
-            'ids' => ['required', 'array', 'min:1', 'max:50'],
-            'ids.*' => ['integer', 'distinct'],
             'reason' => ['nullable', 'string', 'max:1000'],
-        ]);
+            'match_all' => ['nullable', 'boolean'],
+            'scope' => ['nullable', 'in:publisher,flat,all'],
+            'publisher_id' => ['nullable', 'integer'],
+        ];
+        if (! $matchAll) {
+            $rules['ids'] = ['required', 'array', 'min:1', 'max:50'];
+            $rules['ids.*'] = ['integer', 'distinct'];
+        }
+        $data = $request->validate($rules);
+        $matchedTotal = null;
+        if ($matchAll) {
+            $matched = $this->staffBulkMatchIds($request);
+            $data['ids'] = $matched['ids'];
+            $matchedTotal = $matched['total'];
+            if ($data['ids'] === []) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No matching sites to update.',
+                ], 422);
+            }
+        }
 
         $actor = $request->user();
         if ($data['action'] === 'verify' && ! $actor?->isAdmin()) {
@@ -4374,13 +4701,81 @@ class SiteController extends Controller
             }
         }
 
+        $message = count($updated).' updated'
+            .($skipped !== [] ? ', '.count($skipped).' skipped' : '');
+        if ($matchedTotal !== null && $matchedTotal > count($data['ids'])) {
+            $message .= ' First '.count($data['ids']).' of '.$matchedTotal.'.';
+        }
+
         return response()->json([
             'success' => $updated !== [],
             'updated' => $updated,
             'skipped' => $skipped,
-            'message' => count($updated).' updated'
-                .($skipped !== [] ? ', '.count($skipped).' skipped' : ''),
+            'message' => $message,
         ], $updated !== [] ? 200 : 422);
+    }
+
+    /**
+     * @return array{ids: list<int>, total: int}
+     */
+    private function staffBulkMatchIds(Request $request): array
+    {
+        $limit = 500;
+        $scope = trim(scalar_text($request->input('scope')));
+        $filters = $this->staffSitesListFilterState($request);
+        $search = trim(scalar_text($request->input('q', '')));
+
+        try {
+            if ($scope === 'publisher') {
+                $publisherId = (int) $request->input('publisher_id');
+                if ($publisherId < 1) {
+                    return ['ids' => [], 'total' => 0];
+                }
+                $needsReviewOnly = $request->boolean('needs_review');
+                $focusSiteId = $this->canonicalStaffId(trim(scalar_text($request->input('site', ''))));
+                $query = Site::query()
+                    ->where('publisher_id', $publisherId)
+                    ->where(function ($outer) use ($filters, $search, $needsReviewOnly, $focusSiteId) {
+                        $outer->where(function ($matched) use ($filters, $search, $needsReviewOnly) {
+                            $matched->whereRaw('1 = 1');
+                            $this->applyStaffSitesArchiveScope($matched, $filters);
+                            if ($search !== '') {
+                                $this->constrainStaffSiteSearch($matched, $search);
+                            }
+                            if ($needsReviewOnly) {
+                                $matched->needsAdminReview();
+                            }
+                            $this->applyStaffSitesListFilters($matched, $filters);
+                        });
+                        if ($focusSiteId !== null) {
+                            $outer->orWhere($outer->getModel()->getTable().'.id', $focusSiteId);
+                        }
+                    });
+                $this->applyStaffSitesListSort($query, (string) ($filters['sort'] ?? ''), 'newest', $focusSiteId);
+            } elseif ($request->boolean('waiting_on_publisher')) {
+                $stage = ($filters['waiting_stage'] ?? '') !== '' ? $filters['waiting_stage'] : null;
+                $query = MarketingOpsQueues::sitesWaitingOnPublisher($stage);
+                $this->applyStaffIndexSiteOrPublisherSearch($query, $search);
+                $this->applyStaffSitesListFilters($query, $filters);
+                $this->applyStaffSitesListSort($query, (string) ($filters['sort'] ?? ''), 'oldest');
+            } elseif ($request->boolean('needs_review')) {
+                $query = MarketingOpsQueues::sitesReadyForStaff();
+                $this->applyStaffIndexSiteOrPublisherSearch($query, $search);
+                $this->applyStaffSitesListFilters($query, $filters);
+                $this->applyStaffSitesListSort($query, (string) ($filters['sort'] ?? ''), 'oldest');
+            } else {
+                $query = $this->staffAllSitesQuery($request, $search, $filters);
+            }
+
+            $total = (int) (clone $query)->count();
+            $ids = $query->limit($limit)->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+            return ['ids' => $ids, 'total' => $total];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['ids' => [], 'total' => 0];
+        }
     }
 
     public function verify(Request $request, $id)

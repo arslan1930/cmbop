@@ -6,7 +6,7 @@
         <div>
             <h3 class="mb-1">Bulk site requests</h3>
             <p class="text-muted small mb-0">
-                Publishers submit <strong>URL + price</strong>. Press <strong>Done</strong> to publish the sites you fill in. Those listings go active and stay unverified. The publisher is notified.
+                Publishers submit <strong>URL + price</strong>. On Done, <strong>Publish now</strong> puts the filled sites live (active, not verified). <strong>Send for review</strong> leaves them off the catalog until the publisher submits them. Finished requests leave this list.
             </p>
         </div>
         <span class="badge text-bg-secondary align-self-center" data-bulk-waiting-on-you>{{ $waitingOnYouCount }} waiting on you</span>

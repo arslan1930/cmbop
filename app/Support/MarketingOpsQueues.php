@@ -57,21 +57,55 @@ class MarketingOpsQueues
     /**
      * Unpublished listings still with the publisher (details or accept).
      *
+     * @param  'filling'|'reviewing'|'accept'|null  $stage
      * @return Builder<Site>
      */
-    public static function sitesWaitingOnPublisher(): Builder
+    public static function sitesWaitingOnPublisher(?string $stage = null): Builder
     {
         $query = Site::query();
-        self::constrainSitesWaitingOnPublisher($query);
+        self::constrainSitesWaitingOnPublisher($query, $stage);
 
         return $query;
     }
 
     /**
-     * @param  Builder<Site>  $q
+     * Filling details, publisher review, and the old accept invite, counted apart.
+     *
+     * @return array{filling: int, reviewing: int, accept: int}
      */
-    public static function constrainSitesWaitingOnPublisher(Builder $q): void
+    public static function sitesWaitingStageCounts(): array
     {
+        return [
+            'filling' => self::rememberCount(
+                'marketing.ops.waiting_filling_count',
+                fn () => self::sitesWaitingOnPublisher('filling')->count()
+            ),
+            'reviewing' => self::rememberCount(
+                'marketing.ops.waiting_reviewing_count',
+                fn () => self::sitesWaitingOnPublisher('reviewing')->count()
+            ),
+            'accept' => self::rememberCount(
+                'marketing.ops.waiting_accept_count',
+                fn () => self::sitesWaitingOnPublisher('accept')->count()
+            ),
+        ];
+    }
+
+    public static function normalizeWaitingStage(mixed $stage): ?string
+    {
+        $value = strtolower(trim(scalar_text($stage)));
+
+        return in_array($value, ['filling', 'reviewing', 'accept'], true) ? $value : null;
+    }
+
+    /**
+     * @param  Builder<Site>  $q
+     * @param  'filling'|'reviewing'|'accept'|null  $stage
+     */
+    public static function constrainSitesWaitingOnPublisher(Builder $q, ?string $stage = null): void
+    {
+        $stage = self::normalizeWaitingStage($stage);
+
         $q->notArchived()
             ->where(function ($inner) {
                 $inner->where('verified', 0)->orWhereNull('verified');
@@ -79,18 +113,39 @@ class MarketingOpsQueues
             ->where(function ($inner) {
                 $inner->where('active', 0)->orWhereNull('active');
             })
-            ->where(function ($inner) {
-                $inner->whereIn('onboarding_status', [
-                    Site::ONBOARDING_AWAITING_DETAILS,
-                    Site::ONBOARDING_DETAILS_COMPLETE,
-                ]);
+            ->where(function ($inner) use ($stage) {
+                $started = false;
+                $add = function ($branch) use ($inner, &$started) {
+                    if ($started) {
+                        $inner->orWhere($branch);
 
-                if (Site::hasSitesColumn('publisher_accepted_at')
-                    && Site::hasSitesColumn('assigned_by_user_id')) {
-                    $inner->orWhere(function ($invite) {
-                        $invite->wherePublisherAcceptanceIsMissing()
-                            ->whereNotNull('assigned_by_user_id');
+                        return;
+                    }
+                    $inner->where($branch);
+                    $started = true;
+                };
+
+                if ($stage === null || $stage === 'filling') {
+                    $add(function ($filling) {
+                        $filling->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS)
+                            ->acceptedByPublisher();
                     });
+                }
+                if ($stage === null || $stage === 'reviewing') {
+                    $add(function ($reviewing) {
+                        $reviewing->where('onboarding_status', Site::ONBOARDING_DETAILS_COMPLETE)
+                            ->acceptedByPublisher();
+                    });
+                }
+                if (($stage === null || $stage === 'accept')
+                    && Site::hasSitesColumn('publisher_accepted_at')
+                    && Site::hasSitesColumn('assigned_by_user_id')) {
+                    $add(function ($invite) {
+                        $invite->pendingPublisherAcceptance();
+                    });
+                }
+                if (! $started) {
+                    $inner->whereRaw('1 = 0');
                 }
             });
     }

@@ -1101,7 +1101,9 @@ class BulkSiteRequestController extends Controller
                     $failures[] = [
                         'line' => $row['line'],
                         'url' => $row['site_url'],
-                        'errors' => ['Upload a site image before this website goes live.'],
+                        'errors' => [$doneMode === 'review'
+                            ? 'Upload a site image before sending this website for review.'
+                            : 'Upload a site image before this website goes live.'],
                     ];
 
                     continue;

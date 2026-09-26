@@ -24,6 +24,10 @@
             <button type="button" class="btn btn-sm btn-outline-dark" data-staff-bulk="archive">Archive</button>
         @endif
         <span class="small text-muted" data-staff-bulk-count>0 selected</span>
+        <label class="form-check small mb-0">
+            <input class="form-check-input" type="checkbox" data-staff-bulk-all-matching>
+            All matching (<span data-staff-bulk-match-total>{{ $allSites->total() }}</span>)
+        </label>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -88,6 +92,15 @@
                             @if($site->isArchived())
                                 <span class="badge text-bg-secondary">Archived</span>
                             @endif
+                            @if($site->awaitsPublisherDetails())
+                                <span class="badge text-bg-secondary">Awaiting publisher</span>
+                            @endif
+                            @if($site->hasDetailsComplete())
+                                <span class="badge text-bg-secondary">Publisher reviewing</span>
+                            @endif
+                            @if($site->isPendingPublisherAcceptance())
+                                <span class="badge text-bg-info">Awaiting accept</span>
+                            @endif
                             @if($site->wasAddedFromBulkRequest())
                                 <span class="badge text-bg-light border">Bulk request</span>
                             @endif
@@ -114,7 +127,8 @@
                                         class="btn btn-sm btn-outline-success toggle-verify"
                                         data-id="{{ $site->id }}"
                                         data-status="1"
-                                        data-name="{{ $site->site_name }}">Verify</button>
+                                        data-name="{{ $site->site_name }}"
+                                        @if($site->hasDetailsComplete()) data-publisher-reviewing="1" @endif>Verify</button>
                             @endif
                             @include('partials.staff-site-activate-button', ['site' => $site])
                             @if($canDeleteRow)
