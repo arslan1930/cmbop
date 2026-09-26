@@ -2,7 +2,9 @@
 
 namespace App\Services\Reminders;
 
+use App\Models\Order;
 use App\Models\OrderItem;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -69,6 +71,55 @@ class StalledOrderQueue
                 ->values();
         } catch (\Throwable) {
             return collect();
+        }
+    }
+
+    /**
+     * Same stalled lines as items(), applied to an orders query.
+     *
+     * @param  Builder<Order>  $orders
+     */
+    public function constrainStalledOrders(Builder $orders): void
+    {
+        try {
+            if (! Schema::hasColumn('order_items', 'publish_nudge_stage')) {
+                $orders->whereRaw('0 = 1');
+
+                return;
+            }
+
+            $stalledFrom = (int) config('reminders.publisher_publish.stalled_from_stage', 4);
+            $acceptStages = count((array) config('reminders.publisher_accept.stages_hours', [12, 36, 72]));
+            $hasAccept = Schema::hasColumn('order_items', 'accept_nudge_stage');
+
+            $orders->where(function ($outer) use ($stalledFrom, $acceptStages, $hasAccept) {
+                $outer->where(function ($publish) use ($stalledFrom) {
+                    $publish->where('payment_status', 'paid')
+                        ->whereIn('status', ['processing', 'pending'])
+                        ->notAwaitingScheduledRelease()
+                        ->whereHas('items', function ($item) use ($stalledFrom) {
+                            $item->whereAcceptedAtIsRecorded()
+                                ->where(function ($q) {
+                                    $q->whereNull('live_url')->orWhere('live_url', '');
+                                })
+                                ->where('publish_nudge_stage', '>=', $stalledFrom);
+                        });
+                });
+
+                if ($hasAccept) {
+                    $outer->orWhere(function ($accept) use ($acceptStages) {
+                        $accept->where('payment_status', 'paid')
+                            ->where('status', 'pending')
+                            ->notAwaitingScheduledRelease()
+                            ->whereHas('items', function ($item) use ($acceptStages) {
+                                $item->whereAcceptedAtIsMissing()
+                                    ->where('accept_nudge_stage', '>=', $acceptStages);
+                            });
+                    });
+                }
+            });
+        } catch (\Throwable) {
+            $orders->whereRaw('0 = 1');
         }
     }
 

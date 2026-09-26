@@ -114,7 +114,7 @@ class FinanceOverviewService
      *
      * @return array<string, mixed>
      */
-    public function overview(array $period, bool $allWallets = false, bool $allDebt = false, float $minWallet = 0): array
+    public function overview(array $period, bool $allWallets = false, bool $allDebt = false, float $minWallet = 0, bool $throwOnFailure = false): array
     {
         try {
             $start = $period['start'];
@@ -159,6 +159,12 @@ class FinanceOverviewService
             ];
         } catch (\Throwable $e) {
             report($e);
+
+            // The finance page can show a zeroed hub. The dashboard must not
+            // treat that failure as a real €0.00 month.
+            if ($throwOnFailure) {
+                throw $e;
+            }
 
             return $this->emptyOverview($period);
         }

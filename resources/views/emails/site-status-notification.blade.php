@@ -1,5 +1,5 @@
 @component('mail::message')
-Dear {{ $site->publisher?->name ?? 'Publisher' }},
+Dear {{ $site->publisherName ?? 'Publisher' }},
 
 {{-- Markdown mail treats 4+ space indents as a code block, which prints leftover **asterisks** instead of bold. Keep body lines at column 0. --}}
 @switch($action)

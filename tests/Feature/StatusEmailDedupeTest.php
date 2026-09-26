@@ -32,7 +32,7 @@ class StatusEmailDedupeTest extends TestCase
         $method = new \ReflectionMethod($mail, 'defaultDedupeKey');
         $method->setAccessible(true);
 
-        return (string) $method->invoke($mail, 'site_status', $mail->site->publisher);
+        return (string) $method->invoke($mail, 'site_status', $mail->recipientUser);
     }
 
     private function wouldBeSuppressed(SiteStatusNotification $mail): bool

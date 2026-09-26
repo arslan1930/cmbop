@@ -201,7 +201,7 @@
                                 <td class="small">{{ optional($order->paid_at)->format('Y-m-d H:i') ?: '—' }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="text-center text-muted py-5">No paid orders are missing a tax invoice.</td></tr>
+                            <tr><td colspan="4" class="text-center text-muted py-5">{{ ($filterSearch ?? '') !== '' ? 'No missing tax invoices match this search.' : 'No paid orders are missing a tax invoice.' }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

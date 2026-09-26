@@ -23,7 +23,7 @@ use Illuminate\Validation\Rule;
 
 class CampaignController extends Controller
 {
-    public function index(AudienceInventoryService $inventory)
+    public function index(Request $request, AudienceInventoryService $inventory)
     {
         try {
             EmailCampaign::recoverStalled();
@@ -38,10 +38,34 @@ class CampaignController extends Controller
             $stats = $this->emptyCampaignStats();
         }
 
+        $campaignStatus = search_text($request->query('status'));
+        $attentionStatuses = [
+            EmailCampaign::STATUS_QUEUED,
+            EmailCampaign::STATUS_SENDING,
+            EmailCampaign::STATUS_FAILED,
+        ];
+        if ($campaignStatus !== 'attention' && ! in_array($campaignStatus, $attentionStatuses, true)) {
+            $campaignStatus = '';
+        }
+
         try {
-            $campaigns = EmailCampaign::tableAvailable()
-                ? EmailCampaign::query()->with('creator')->latest('id')->paginate(15)
-                : new LengthAwarePaginator([], 0, 15);
+            if (! EmailCampaign::tableAvailable()) {
+                $campaigns = new LengthAwarePaginator([], 0, 15);
+            } else {
+                $campaignQuery = EmailCampaign::query()->with('creator');
+                if ($campaignStatus === 'attention') {
+                    $campaignQuery->whereIn('status', $attentionStatuses)
+                        ->orderBy('created_at')
+                        ->orderBy('id');
+                } elseif ($campaignStatus !== '') {
+                    $campaignQuery->where('status', $campaignStatus)
+                        ->orderBy('created_at')
+                        ->orderBy('id');
+                } else {
+                    $campaignQuery->latest('id');
+                }
+                $campaigns = $campaignQuery->paginate(15)->withQueryString();
+            }
         } catch (\Throwable $e) {
             Log::warning('Campaign list failed', ['error' => $e->getMessage()]);
             $campaigns = new LengthAwarePaginator([], 0, 15);
@@ -66,6 +90,7 @@ class CampaignController extends Controller
         return view('admin.campaigns.index', compact(
             'stats',
             'campaigns',
+            'campaignStatus',
             'advertisers',
             'publishers',
             'pickerCapped',

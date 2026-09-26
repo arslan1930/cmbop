@@ -6,7 +6,7 @@ use App\Models\Site;
 
 class SiteStatusNotification extends PlatformMailable
 {
-    public $site;
+    public SiteStatusMailView $site;
 
     public $action;
 
@@ -17,7 +17,8 @@ class SiteStatusNotification extends PlatformMailable
     public function __construct(Site $site, $action, $oldData = null, ?string $reason = null)
     {
         parent::__construct();
-        $this->site = $site;
+        $publisher = $site->publisher;
+        $this->site = SiteStatusMailView::fromSite($site);
         $this->action = $action;
         $this->oldData = $oldData;
         $this->reason = $reason ? trim($reason) : null;
@@ -25,7 +26,7 @@ class SiteStatusNotification extends PlatformMailable
             $this->reason = null;
         }
         $this->notificationType = 'site_status';
-        $this->recipientUser = $site->publisher;
+        $this->recipientUser = $publisher;
     }
 
     protected function dedupeVariant(): ?string

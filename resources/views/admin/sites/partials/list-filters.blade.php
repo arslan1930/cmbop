@@ -3,9 +3,10 @@
     $filters = $staffSiteFilters ?? [];
     $tagOptions = $listingTagOptions ?? [];
     $countries = $marketplaceCountries ?? collect();
+    $getForm = in_array($mode, ['flat', 'all', 'publishers'], true);
 @endphp
-@if($mode === 'flat')
-<form method="GET" action="{{ staff_route('sites.index') }}" class="d-flex flex-wrap align-items-end gap-2 px-3 py-2 border-bottom bg-white" id="staffFlatFilters">
+@if($getForm)
+<form method="GET" action="{{ staff_route('sites.index') }}" class="d-flex flex-wrap align-items-end gap-2 px-3 py-2 border-bottom bg-white" id="staff{{ ucfirst($mode) }}Filters">
 @else
 <div class="d-flex flex-wrap align-items-end gap-2 mb-2" id="staffPublisherFilters" data-staff-publisher-filters="1">
 @endif
@@ -17,6 +18,21 @@
             <input type="hidden" name="waiting_on_publisher" value="1">
         @endif
         <input type="hidden" name="flat" value="1">
+        @if(($publisherSearch ?? '') !== '')
+            <input type="hidden" name="q" value="{{ $publisherSearch }}">
+        @endif
+    @elseif($mode === 'all')
+        <input type="hidden" name="all" value="1">
+        @if(($publisherSearch ?? '') !== '')
+            <input type="hidden" name="q" value="{{ $publisherSearch }}">
+        @endif
+    @elseif($mode === 'publishers')
+        @if(!empty($needsReviewFilterActive))
+            <input type="hidden" name="needs_review" value="1">
+        @endif
+        @if(!empty($waitingOnPublisherFilterActive))
+            <input type="hidden" name="waiting_on_publisher" value="1">
+        @endif
         @if(($publisherSearch ?? '') !== '')
             <input type="hidden" name="q" value="{{ $publisherSearch }}">
         @endif
@@ -75,14 +91,14 @@
     </label>
     @if($mode !== 'flat')
         <label class="form-check small mb-1">
-            <input class="form-check-input" type="checkbox" data-staff-filter="archived" @checked(!empty($filters['archived']))>
+            <input class="form-check-input" type="checkbox" name="archived" value="1" data-staff-filter="archived" @checked(!empty($filters['archived']))>
             Show archived
         </label>
     @endif
-    @if($mode === 'flat')
+    @if($getForm)
         <button type="submit" class="btn btn-sm btn-outline-dark">Apply</button>
     @endif
-@if($mode === 'flat')
+@if($getForm)
 </form>
 @else
 </div>

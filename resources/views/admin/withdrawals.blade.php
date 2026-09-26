@@ -262,6 +262,7 @@ let weekEnd = @json(now()->endOfWeek()->toDateString());
 let selectedIds = new Set();
 let lastDetailsCopyText = '';
 const withdrawalFlags = new Map();
+const markPaidConfirmUrls = new Map();
 const duplicateLookbackDays = {{ max(1, (int) config('billing.withdrawal_mark_paid_duplicate_lookback_days', 30)) }};
 
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
@@ -458,6 +459,11 @@ function renderWithdrawals(withdrawals) {
             possible_duplicate: !!w.possible_duplicate,
             duplicate_match_ids: matchIds,
         });
+        if (w.mark_paid_confirm_url) {
+            markPaidConfirmUrls.set(Number(w.id), w.mark_paid_confirm_url);
+        } else {
+            markPaidConfirmUrls.delete(Number(w.id));
+        }
 
         const userId = w.user?.id;
         const publisherName = escapeHtml(w.user?.name || 'N/A');
@@ -772,7 +778,9 @@ $('#batchPaidBtn').on('click', function () {
         toast('Confirm each payout on its own page. Use Mark paid on the row.', 'error');
         return;
     }
-    const confirmUrl = $(`tr[data-id="${ids[0]}"] .act-paid`).attr('data-confirm-url') || '';
+    const confirmUrl = markPaidConfirmUrls.get(Number(ids[0]))
+        || $(`tr[data-id="${ids[0]}"] .act-paid`).attr('data-confirm-url')
+        || '';
     if (!confirmUrl) {
         toast('This payout cannot be confirmed from here.', 'error');
         return;

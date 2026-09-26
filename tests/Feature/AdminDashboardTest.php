@@ -54,7 +54,20 @@ class AdminDashboardTest extends TestCase
             ->assertSee('GMV (paid orders)')
             ->assertSee('in review')
             ->assertSee('live in catalog')
-            ->assertSee('Margin & wallets')
+            ->assertSee('All-time euro order totals')
+            ->assertSee('last 7 days')
+            ->assertSee('Collected this month')
+            ->assertSee('Rolling paid-order euros by paid date')
+            ->assertSee('Missing tax invoices')
+            ->assertSee('Articles in review')
+            ->assertSee('refreshAdminDashboardQueues')
+            ->assertSee('data-queue-meta="deposits"', false)
+            ->assertSee(route('admin.finance', ['period' => 'month']), false)
+            ->assertSee(route('admin.finance', ['period' => 'all']), false)
+            ->assertSee(route('admin.invoices.index', ['queue' => 'missing']), false)
+            ->assertSee(route('admin.invoices.index', ['pdf' => 'missing']), false)
+            ->assertSee(route('admin.content-library.index', ['availability' => 'evaluating']), false)
+            ->assertSee(route('admin.campaigns.index', ['status' => 'attention']), false)
             ->assertSee('pending_community')
             ->assertSee('Remind the publisher, or open the order to refund.')
             ->assertDontSee('Chase again or refund the advertiser.')
@@ -150,6 +163,10 @@ class AdminDashboardTest extends TestCase
                 'moderation_errors' => 0,
                 'enrichment_failed' => 0,
                 'catalog_hide' => 0,
+                'missing_tax_invoices' => 0,
+                'missing_pdf_invoices' => 0,
+                'library_evaluating' => 0,
+                'campaigns_attention' => 0,
                 'needs_attention' => 0,
             ]);
     }
@@ -445,9 +462,11 @@ class AdminDashboardTest extends TestCase
         $queue = $this->actingAs($admin)
             ->getJson(route('admin.dashboard.action-queue'))
             ->assertOk()
-            ->assertJsonPath('deposits.0.url', route('admin.deposits', ['status' => 'pending']))
+            ->assertJsonPath('deposits.0.url', route('admin.deposits', ['status' => 'pending', 'search' => 'DEP-'.$deposit->id]))
+            ->assertJsonPath('deposits.0.method_label', 'wise')
             ->assertJsonPath('deposits.0.action_label', 'Review')
-            ->assertJsonPath('withdrawals.0.url', route('admin.withdrawals', ['queue' => 'open']))
+            ->assertJsonPath('withdrawals.0.url', route('admin.withdrawals', ['queue' => 'open', 'search' => 'WD-'.$withdrawal->id]))
+            ->assertJsonPath('withdrawals.0.method_label', 'paypal')
             ->assertJsonPath('withdrawals.0.action_label', 'Mark paid')
             ->assertJsonPath('withdrawals.0.id', $withdrawal->id)
             ->assertJsonPath('sites.0.url', route('admin.sites.edit', $site->id))
@@ -511,7 +530,7 @@ class AdminDashboardTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.period_label', $overview['period']['label'])
-            ->assertJsonPath('data.url', route('admin.finance'))
+            ->assertJsonPath('data.url', route('admin.finance', ['period' => 'month']))
             ->json('data');
 
         $this->assertEquals($overview['due_to_pay_now'], $json['due_to_pay_now']);
@@ -629,7 +648,11 @@ class AdminDashboardTest extends TestCase
             ->getJson(route('admin.dashboard.action-queue'))
             ->assertOk()
             ->assertJsonPath('unpaid.0.order_number', 'ORD-UNPAID-1')
-            ->assertJsonPath('unpaid.0.url', route('admin.orders.show', $order->id))
+            ->assertJsonPath('unpaid.0.method_label', 'bank')
+            ->assertJsonPath('unpaid.0.url', route('admin.payments', [
+                'payment_status' => 'unpaid',
+                'search' => 'ORD-UNPAID-1',
+            ]))
             ->assertJsonPath('disputes.0.order_number', 'ORD-DSP-1')
             ->assertJsonPath('disputes.0.url', route('admin.orders.show', $paid->id))
             ->assertJsonPath('community.0.type', 'problem')

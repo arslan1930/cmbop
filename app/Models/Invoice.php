@@ -7,10 +7,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ViewErrorBag;
@@ -123,6 +125,40 @@ class Invoice extends Model
     public function events(): HasMany
     {
         return $this->hasMany(BillingEvent::class);
+    }
+
+    /**
+     * Orders list joins invoices on order_id. A live table created before that
+     * column existed must not 500 the whole page.
+     */
+    public static function orderLinkReady(): bool
+    {
+        try {
+            return Schema::hasTable('invoices') && Schema::hasColumn('invoices', 'order_id');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Add invoices.order_id when the table exists without it. No foreign key:
+     * a constraint against a drifted orders table is what blocks the heal.
+     */
+    public static function ensureOrderLinkColumn(): void
+    {
+        try {
+            if (! Schema::hasTable('invoices') || Schema::hasColumn('invoices', 'order_id')) {
+                return;
+            }
+
+            Schema::table('invoices', function (Blueprint $table) {
+                $table->unsignedBigInteger('order_id')->nullable()->index();
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Could not add invoices.order_id', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public static function tableAvailable(): bool

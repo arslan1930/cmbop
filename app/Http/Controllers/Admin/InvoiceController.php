@@ -10,16 +10,21 @@ use App\Models\Order;
 use App\Services\ActivityLogger;
 use App\Services\Billing\BillingDocumentService;
 use App\Services\Billing\InvoicePdfGenerator;
+use App\Services\Billing\InvoiceRepairQueue;
 use App\Support\UserFacingError;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class InvoiceController extends Controller
 {
     private const EXPORT_LIMIT = 5000;
+
+    public function __construct(private InvoiceRepairQueue $repairQueue) {}
 
     public function index(Request $request)
     {
@@ -45,10 +50,12 @@ class InvoiceController extends Controller
                 $exportLimited = $matchCount > self::EXPORT_LIMIT;
                 $invoices = $this->applyInvoiceSort(clone $filtered, $request)->paginate(25)->withQueryString();
                 $stats = $this->invoiceIndexStats();
-                $missingTaxCount = $this->missingTaxInvoiceCount();
-                $missingPdfCount = $this->missingPdfPathCount();
+                $missingTaxCount = $this->repairQueue->missingTaxInvoiceCount();
+                $missingPdfCount = $this->repairQueue->missingPdfPathCount();
                 if ($showMissingOrders && Schema::hasTable('orders')) {
-                    $missingOrders = $this->missingTaxInvoiceOrders()->paginate(25)->withQueryString();
+                    $missingQuery = $this->repairQueue->missingTaxInvoiceOrders();
+                    $this->repairQueue->constrainMissingOrderSearch($missingQuery, $search);
+                    $missingOrders = $missingQuery->paginate(25)->withQueryString();
                 }
             } catch (\Throwable $e) {
                 Log::warning('Admin invoices index failed', [
@@ -314,7 +321,7 @@ class InvoiceController extends Controller
                 $result['created'],
                 $result['skipped'],
                 $result['failed'],
-                $this->missingTaxInvoiceCount()
+                $this->repairQueue->missingTaxInvoiceCount()
             )
         );
     }
@@ -439,7 +446,7 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<Invoice>
+     * @return Builder<Invoice>
      */
     private function invoicesQuery(Request $request, ?string &$dateError = null)
     {
@@ -518,7 +525,7 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<Invoice>  $query
+     * @param  Builder<Invoice>  $query
      */
     private function applyInvoiceDates($query, ?Carbon $from, ?Carbon $to): void
     {
@@ -560,8 +567,8 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<Invoice>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<Invoice>
+     * @param  Builder<Invoice>  $query
+     * @return Builder<Invoice>
      */
     private function applyInvoiceSort($query, Request $request)
     {
@@ -575,7 +582,7 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<Invoice>  $query
+     * @param  Builder<Invoice>  $query
      * @return array<string, float>
      */
     private function invoiceCurrencyTotals($query): array
@@ -585,10 +592,13 @@ class InvoiceController extends Controller
         }
 
         $totals = [];
-        $rows = (clone $query)
-            ->setEagerLoads([])
-            ->selectRaw("UPPER(COALESCE(NULLIF(currency, ''), 'EUR')) as code, SUM(total_amount) as total")
-            ->groupByRaw("UPPER(COALESCE(NULLIF(currency, ''), 'EUR'))")
+        $inner = (clone $query)->setEagerLoads([])->reorder();
+        $inner->getQuery()->columns = null;
+        $inner->selectRaw("UPPER(COALESCE(NULLIF(currency, ''), 'EUR')) as code, total_amount");
+        $rows = DB::query()
+            ->fromSub($inner, 'invoice_currency_rows')
+            ->selectRaw('code, SUM(total_amount) as total')
+            ->groupBy('code')
             ->get();
         foreach ($rows as $row) {
             $code = strtoupper(trim((string) $row->code));
@@ -601,31 +611,6 @@ class InvoiceController extends Controller
         return $totals;
     }
 
-    private function missingTaxInvoiceCount(): int
-    {
-        if (! Schema::hasTable('orders')) {
-            return 0;
-        }
-
-        return $this->missingTaxInvoiceOrders()->count();
-    }
-
-    /**
-     * @return \Illuminate\Database\Eloquent\Builder<Order>
-     */
-    private function missingTaxInvoiceOrders()
-    {
-        return Order::query()
-            ->with('user:id,name,email')
-            ->where('payment_status', 'paid')
-            ->whereDoesntHave('invoices', function ($q) {
-                $q->where('type', Invoice::TYPE_TAX_INVOICE)
-                    ->where('status', '!=', Invoice::STATUS_CANCELLED);
-            })
-            ->when(Schema::hasColumn('orders', 'paid_at'), fn ($q) => $q->orderByDesc('paid_at'))
-            ->orderByDesc('id');
-    }
-
     private function csvCell(mixed $value): string
     {
         $text = (string) ($value ?? '');
@@ -634,17 +619,6 @@ class InvoiceController extends Controller
         }
 
         return $text;
-    }
-
-    private function missingPdfPathCount(): int
-    {
-        if (! Schema::hasColumn('invoices', 'pdf_path')) {
-            return 0;
-        }
-
-        return Invoice::query()->where(function ($q) {
-            $q->whereNull('pdf_path')->orWhere('pdf_path', '');
-        })->count();
     }
 
     /**

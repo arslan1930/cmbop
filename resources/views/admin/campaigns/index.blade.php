@@ -330,8 +330,20 @@
             </div>
 
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0">
-                    <strong><i class="fa fa-history me-2 text-primary"></i>Recent campaigns</strong>
+                <div class="card-header bg-white border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    @php
+                        $campaignListTitle = match ($campaignStatus ?? '') {
+                            'attention' => 'Queued, sending, or failed',
+                            'queued', 'sending', 'failed' => ucfirst($campaignStatus),
+                            default => 'Recent campaigns',
+                        };
+                    @endphp
+                    <strong><i class="fa fa-history me-2 text-primary"></i>{{ $campaignListTitle }}</strong>
+                    @if(($campaignStatus ?? '') !== '')
+                        <a href="{{ route('admin.campaigns.index') }}" class="small">Show all</a>
+                    @else
+                        <a href="{{ route('admin.campaigns.index', ['status' => 'attention']) }}" class="small">Queued, sending, or failed</a>
+                    @endif
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -366,7 +378,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="text-center text-muted py-4">No campaigns sent yet.</td>
+                                        <td colspan="3" class="text-center text-muted py-4">{{ ($campaignStatus ?? '') !== '' ? 'None in this list.' : 'No campaigns sent yet.' }}</td>
                                     </tr>
                                 @endforelse
                             </tbody>

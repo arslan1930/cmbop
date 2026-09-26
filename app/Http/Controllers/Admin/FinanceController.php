@@ -9,7 +9,9 @@ use App\Models\WalletTransaction;
 use App\Services\ActivityLogger;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Orders\OrderClawbackService;
+use App\Services\Wallet\WalletLedgerService;
 use App\Support\UserFacingError;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -130,7 +132,7 @@ class FinanceController extends Controller
         $dateError = null;
         $totals = ['count' => 0, 'by_currency' => []];
         try {
-            app(\App\Services\Wallet\WalletLedgerService::class)->backfillWithdrawalStatuses();
+            app(WalletLedgerService::class)->backfillWithdrawalStatuses();
             $filtered = $this->ledgerQuery($request, $dateError);
             $totals = $this->ledgerTotals($filtered);
             $transactions = $this->applyLedgerSort($filtered, $request)
@@ -198,7 +200,7 @@ class FinanceController extends Controller
         }
 
         try {
-            app(\App\Services\Wallet\WalletLedgerService::class)->backfillWithdrawalStatuses();
+            app(WalletLedgerService::class)->backfillWithdrawalStatuses();
             $ignoredDateError = null;
             $exportWith = ['user:id,name,email'];
             if (Schema::hasTable('wallets')) {
@@ -563,9 +565,13 @@ class FinanceController extends Controller
         $count = (clone $query)->count();
         $hasCurrency = Schema::hasColumn('wallet_transactions', 'currency');
         if ($hasCurrency) {
-            $rows = (clone $query)
-                ->selectRaw("COALESCE(NULLIF(currency, ''), 'EUR') as code, direction, SUM(amount) as total")
-                ->groupByRaw("COALESCE(NULLIF(currency, ''), 'EUR'), direction")
+            $inner = (clone $query)->reorder();
+            $inner->getQuery()->columns = null;
+            $inner->selectRaw("COALESCE(NULLIF(currency, ''), 'EUR') as code, direction, amount");
+            $rows = DB::query()
+                ->fromSub($inner, 'ledger_currency_rows')
+                ->selectRaw('code, direction, SUM(amount) as total')
+                ->groupBy('code', 'direction')
                 ->get();
         } else {
             $rows = (clone $query)
@@ -606,7 +612,7 @@ class FinanceController extends Controller
         }
 
         try {
-            return \Carbon\Carbon::parse($value)->toDateString() === $value;
+            return Carbon::parse($value)->toDateString() === $value;
         } catch (\Throwable) {
             return false;
         }

@@ -11,6 +11,7 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Wallet;
 use App\Services\ActivityLogger;
+use App\Services\Admin\FinanceOverviewService;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Billing\BillingDocumentService;
@@ -22,6 +23,7 @@ use App\Services\Orders\OrderRefundService;
 use App\Support\BillingCustomerMailSuppressor;
 use App\Support\OrderLifecycleMailSuppressor;
 use App\Support\UserFacingError;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
@@ -913,7 +915,7 @@ class PaymentController extends Controller
 
                 return $query;
             }
-            app(\App\Services\Admin\FinanceOverviewService::class)->applyGmvWindow(
+            app(FinanceOverviewService::class)->applyGmvWindow(
                 $query,
                 $fromRaw !== '' ? $fromRaw : null,
                 $toRaw !== '' ? $toRaw : null
@@ -1068,13 +1070,18 @@ class PaymentController extends Controller
                     ->orWhere('charge_currency', '')
                     ->orWhereNull('charge_amount');
             })->count();
-            $rows = (clone $external)
+            $inner = (clone $external)
                 ->setEagerLoads([])
+                ->reorder()
                 ->whereNotNull('charge_currency')
                 ->where('charge_currency', '!=', '')
-                ->whereNotNull('charge_amount')
-                ->selectRaw('UPPER(charge_currency) as code, SUM(charge_amount) as total')
-                ->groupByRaw('UPPER(charge_currency)')
+                ->whereNotNull('charge_amount');
+            $inner->getQuery()->columns = null;
+            $inner->selectRaw('UPPER(charge_currency) as code, charge_amount');
+            $rows = DB::query()
+                ->fromSub($inner, 'payment_charge_rows')
+                ->selectRaw('code, SUM(charge_amount) as total')
+                ->groupBy('code')
                 ->get();
             foreach ($rows as $row) {
                 $code = strtoupper(trim((string) $row->code));
@@ -1111,7 +1118,7 @@ class PaymentController extends Controller
         }
 
         try {
-            return \Carbon\Carbon::parse($value)->toDateString() === $value;
+            return Carbon::parse($value)->toDateString() === $value;
         } catch (\Throwable) {
             return false;
         }
@@ -1188,16 +1195,38 @@ class PaymentController extends Controller
                 }
                 $marked++;
             }
-            DB::commit();
+            // Invoice and lifecycle mail are registered as afterCommit hooks.
+            // They run inside this outer commit, after each row's own
+            // transaction has already released the "don't email" flag.
+            $suppressCustomerMail = ! $request->boolean('send_notification', true);
+            if ($suppressCustomerMail) {
+                app(BillingCustomerMailSuppressor::class)->enable();
+            }
+            try {
+                DB::commit();
+            } finally {
+                if ($suppressCustomerMail) {
+                    app(BillingCustomerMailSuppressor::class)->disable();
+                }
+            }
         } catch (\Throwable $e) {
             report($e);
-            $this->discardDeferredPaymentSideEffects();
-            $this->rollBackOpenTransaction();
+            if (DB::transactionLevel() > 0) {
+                $this->discardDeferredPaymentSideEffects();
+                $this->rollBackOpenTransaction();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Could not mark a payment paid. None of these rows were marked paid.',
+                ], 422);
+            }
+
+            $this->flushDeferredPaymentSideEffects();
 
             return response()->json([
                 'success' => false,
-                'message' => 'Could not mark a payment paid. None of these rows were marked paid.',
-            ], 422);
+                'message' => 'Payments were marked paid, but a follow-up invoice or email step failed.',
+            ], 500);
         }
 
         $this->flushDeferredPaymentSideEffects();

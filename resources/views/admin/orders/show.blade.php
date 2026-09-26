@@ -2,9 +2,15 @@
 
 @section('content')
 @php
+    $order->setRelation('items', $order->items->sortBy('id')->values());
     $item = $order->items->first();
     $site = $item?->site;
-    $publisher = $site?->publisher;
+    $linePublishers = $order->items
+        ->map(fn ($line) => $line->site?->publisher)
+        ->filter()
+        ->unique('id')
+        ->values();
+    $publisher = $site?->publisher ?? $linePublishers->first();
     $statusClass = match ($order->status) {
         'completed' => 'success',
         'cancelled' => 'danger',
@@ -35,6 +41,9 @@
         : null;
     $advertiserAdminUrl = $order->user?->adminShowUrl();
     $publisherAdminUrl = $publisher?->adminShowUrl();
+    $advertiserDossierUrl = $order->user ? route('admin.finance.user', $order->user) : null;
+    $chargeCode = strtoupper(trim((string) ($order->charge_currency ?? '')));
+    $showCharge = $chargeCode !== '' && $chargeCode !== 'EUR' && $order->charge_amount !== null;
 @endphp
 <div class="container-fluid">
     @include('admin.partials.page-header', [
@@ -94,6 +103,9 @@
                                     @endif
                                 </div>
                                 <div class="small text-muted">{{ $order->user?->email ?? '' }}</div>
+                                @if($advertiserDossierUrl)
+                                    <div class="small"><a href="{{ $advertiserDossierUrl }}">Finance dossier</a></div>
+                                @endif
                             </div>
                             <div>
                                 <div class="small text-muted">Publisher</div>
@@ -105,6 +117,22 @@
                                     @endif
                                 </div>
                                 <div class="small text-muted">{{ $publisher?->email ?? '' }}</div>
+                                @if($publisher)
+                                    <div class="small"><a href="{{ route('admin.finance.user', $publisher) }}">Finance dossier</a></div>
+                                @endif
+                                @if(($publisher === null && $linePublishers->isNotEmpty()) || $linePublishers->count() > 1)
+                                    <div class="mt-2">
+                                        @foreach($linePublishers as $linePublisher)
+                                            @if((int) $linePublisher->id === (int) ($publisher?->id ?? 0))
+                                                @continue
+                                            @endif
+                                            <div class="small">
+                                                <a href="{{ $linePublisher->adminShowUrl() }}" class="link-dark">{{ $linePublisher->name }}</a>
+                                                · <a href="{{ route('admin.finance.user', $linePublisher) }}">Finance</a>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
                                 @if($remindableItems->isNotEmpty())
                                     <div class="mt-3 d-flex flex-wrap gap-2 align-items-center" id="remind-publisher">
                                         @foreach($remindableItems as $remindItem)
@@ -140,6 +168,9 @@
                                 @if(! $loop->first)
                                     <hr class="my-3">
                                 @endif
+                                <div class="mb-2"><span class="text-muted small">Publisher stage</span>
+                                    <div>{{ $line->publisher_status ? ucfirst((string) $line->publisher_status) : '—' }}</div>
+                                </div>
                                 <div class="mb-2"><span class="text-muted small">Site</span>
                                     <div class="fw-semibold">
                                         @if($lineSite)
@@ -488,8 +519,28 @@
                     <div class="row g-3 mb-3">
                         <div class="col-md-3"><span class="text-muted small">Payment status</span><div class="fw-semibold">{{ $order->payment_status }}</div></div>
                         <div class="col-md-3"><span class="text-muted small">Method</span><div class="fw-semibold">{{ \App\Models\Invoice::paymentMethodLabel($order->payment_method) }}</div></div>
-                        <div class="col-md-3"><span class="text-muted small">Total</span><div class="fw-semibold">€{{ number_format((float) $order->total_amount, 2) }}</div></div>
+                        <div class="col-md-3"><span class="text-muted small">Total</span>
+                            <div class="fw-semibold">€{{ number_format((float) $order->total_amount, 2) }}</div>
+                            @if($showCharge)
+                                <div class="small text-muted">{{ number_format((float) $order->charge_amount, 2) }} {{ $chargeCode }}</div>
+                            @endif
+                        </div>
                         <div class="col-md-3"><span class="text-muted small">Paid at</span><div>{{ optional($order->paid_at)->format('M j, Y g:i A') ?: '—' }}</div></div>
+                        @if(filled($order->stripe_session_id))
+                            <div class="col-md-6"><span class="text-muted small">Stripe session</span><div class="text-break">{{ $order->stripe_session_id }}</div></div>
+                        @endif
+                        @if(filled($order->stripe_payment_intent_id))
+                            <div class="col-md-6"><span class="text-muted small">Stripe payment</span><div class="text-break">{{ $order->stripe_payment_intent_id }}</div></div>
+                        @endif
+                        @if(filled($order->paypal_order_id))
+                            <div class="col-md-4"><span class="text-muted small">PayPal order</span><div class="text-break">{{ $order->paypal_order_id }}</div></div>
+                        @endif
+                        @if(filled($order->paypal_capture_id))
+                            <div class="col-md-4"><span class="text-muted small">PayPal capture</span><div class="text-break">{{ $order->paypal_capture_id }}</div></div>
+                        @endif
+                        @if(filled($order->paypal_refund_id))
+                            <div class="col-md-4"><span class="text-muted small">PayPal refund</span><div class="text-break">{{ $order->paypal_refund_id }}</div></div>
+                        @endif
                         <div class="col-md-3"><span class="text-muted small">Transfer reference</span><div>{{ $order->payment_reference ?: '—' }}</div></div>
                         <div class="col-md-9"><span class="text-muted small">Admin notes</span><div>{{ $order->admin_notes ?: '—' }}</div></div>
                     </div>

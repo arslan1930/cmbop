@@ -48,7 +48,7 @@ class AdminInvoiceLinks
     public function forOrders(Collection $orders): Collection
     {
         $ids = $orders->pluck('id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
-        if ($ids->isEmpty() || ! $this->invoicesTableReady()) {
+        if ($ids->isEmpty() || ! Invoice::orderLinkReady()) {
             return collect();
         }
 

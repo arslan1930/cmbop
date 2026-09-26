@@ -5,6 +5,19 @@
     $publisherSearch = trim((string) ($publisherSearch ?? ''));
     $publisherSearchQuery = array_filter(['q' => $publisherSearch !== '' ? $publisherSearch : null]);
     $flatQueue = $flatQueue ?? false;
+    $allSitesMode = $allSitesMode ?? false;
+    $staffSiteFilters = $staffSiteFilters ?? [];
+    $listQuery = array_filter([
+        'q' => $publisherSearch !== '' ? $publisherSearch : null,
+        'tag' => ($staffSiteFilters['tag'] ?? null) !== null && ($staffSiteFilters['tag'] ?? '') !== '' ? $staffSiteFilters['tag'] : null,
+        'country' => ($staffSiteFilters['country'] ?? '') !== '' ? $staffSiteFilters['country'] : null,
+        'listing_active' => ($staffSiteFilters['listing_active'] ?? '') !== '' ? $staffSiteFilters['listing_active'] : null,
+        'listing_verified' => ($staffSiteFilters['listing_verified'] ?? '') !== '' ? $staffSiteFilters['listing_verified'] : null,
+        'below_quality' => !empty($staffSiteFilters['below_quality']) ? 1 : null,
+        'missing_market' => !empty($staffSiteFilters['missing_market']) ? 1 : null,
+        'archived' => !empty($staffSiteFilters['archived']) ? 1 : null,
+        'sort' => ($staffSiteFilters['sort'] ?? '') !== '' ? $staffSiteFilters['sort'] : null,
+    ], static fn ($value) => $value !== null && $value !== '');
 @endphp
 <div class="container-fluid py-3">
 
@@ -87,6 +100,11 @@
                         <span class="badge text-bg-dark ms-1">{{ $waitingOnPublisherCount }}</span>
                     @endif
                 </a>
+                @if(!empty($allSitesMode))
+                    <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
+                @else
+                    <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
+                @endif
             @endif
             @if(auth()->user()?->isAdmin())
                 <a href="{{ route('admin.sites.records', array_filter(['missing_market' => ($missingMarketCount ?? 0) > 0 ? 1 : null])) }}"
@@ -160,6 +178,14 @@
             @if(!empty($flatQueue))
                 <input type="hidden" name="flat" value="1">
             @endif
+            @if(!empty($allSitesMode))
+                <input type="hidden" name="all" value="1">
+            @endif
+            @foreach($listQuery as $filterKey => $filterValue)
+                @if($filterKey !== 'q')
+                    <input type="hidden" name="{{ $filterKey }}" value="{{ $filterValue }}">
+                @endif
+            @endforeach
             <x-slb-search-field
                 name="q"
                 id="userSearch"
@@ -186,6 +212,12 @@
                 <button type="button" class="btn btn-sm btn-outline-primary" data-staff-bulk="activate">Activate</button>
             @endif
             <button type="button" class="btn btn-sm btn-outline-danger" data-staff-bulk="reject">Reject</button>
+            @if(auth()->user()?->canActivateSites())
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-staff-bulk="deactivate">Deactivate</button>
+            @endif
+            @if(auth()->user()?->isAdmin())
+                <button type="button" class="btn btn-sm btn-outline-dark" data-staff-bulk="archive">Archive</button>
+            @endif
             <span class="small text-muted" data-staff-bulk-count>0 selected</span>
         </div>
         <div class="table-responsive">
@@ -197,7 +229,7 @@
                         <th>Site</th>
                         <th>Publisher</th>
                         <th class="admin-narrow-col">DA / DR</th>
-                        <th class="admin-narrow-col">Country</th>
+                        <th>Markets</th>
                         <th class="admin-narrow-col">Tag</th>
                         <th class="admin-narrow-col">Traffic</th>
                         <th class="admin-narrow-col">Price</th>
@@ -246,12 +278,15 @@
                         <td class="small">
                             <div>{{ $site->publisher?->name ?? 'Unknown' }}</div>
                             <div class="text-muted">{{ $site->publisher?->email }}</div>
+                            @if($site->publisher?->inCatalogHideMode())
+                                <span class="badge text-bg-dark">Copy-strike hide</span>
+                            @endif
                         </td>
                         <td class="small">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
-                        <td class="small">{{ $site->country ? strtoupper((string) $site->country) : '—' }}</td>
+                        <td class="small">@include('admin.sites.partials.row-markets')</td>
                         <td class="small">{{ $site->tagLabel('No tags') }}</td>
                         <td>{{ number_format((int) $site->traffic) }}</td>
-                        <td>€{{ number_format((float) $site->price, 2) }}</td>
+                        <td>@include('admin.sites.partials.row-price')</td>
                         <td>
                             <div class="d-flex flex-wrap gap-1">
                                 <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
@@ -295,8 +330,10 @@
     </div>
     @endif
 
+    @include('admin.sites.partials.all-sites-table')
+
     <!-- ================= USERS TABLE ================= -->
-    <div id="usersSection" class="{{ !empty($flatQueue) ? 'd-none' : '' }}">
+    <div id="usersSection" class="{{ (!empty($flatQueue) || !empty($allSitesMode)) ? 'd-none' : '' }}">
 
         <div class="card shadow-sm border-0 mb-3 admin-table-fit">
             <div class="card-header bg-white fw-semibold">
@@ -304,6 +341,7 @@
                     ? 'Publishers with listings waiting on the publisher'
                     : (!empty($needsReviewFilterActive) || !empty($unverifiedFilter) ? 'Publishers with sites needing review' : 'Publishers') }}
             </div>
+            @include('admin.sites.partials.list-filters', ['mode' => 'publishers'])
 
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -322,7 +360,12 @@
                     @forelse($users as $index => $user)
                         <tr class="user-row" data-id="{{ $user->id }}" style="height:60px;">
                             <td>{{ $users->firstItem() + $index }}</td>
-                            <td class="fw-semibold">{{ $user->name }}</td>
+                            <td class="fw-semibold" data-publisher-name="{{ $user->name }}">
+                                {{ $user->name }}
+                                @if($user->inCatalogHideMode())
+                                    <span class="badge text-bg-dark ms-1">Copy-strike hide</span>
+                                @endif
+                            </td>
                             <td class="slb-text-break">{{ $user->email }}</td>
                             <td class="admin-sites-count-col">
                                 @php
@@ -387,6 +430,7 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div>
                 <h5 class="mb-0 fw-bold" id="siteUserName"></h5>
+                <span id="siteUserCopyStrike" class="badge text-bg-dark ms-2 d-none">Copy-strike hide</span>
                 <small class="text-muted" id="siteUserEmail"></small>
             </div>
 
@@ -423,6 +467,12 @@
                     <button type="button" class="btn btn-sm btn-outline-primary" data-staff-bulk="activate">Activate</button>
                 @endif
                 <button type="button" class="btn btn-sm btn-outline-danger" data-staff-bulk="reject">Reject</button>
+                @if(auth()->user()?->canActivateSites())
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-staff-bulk="deactivate">Deactivate</button>
+                @endif
+                @if(auth()->user()?->isAdmin())
+                    <button type="button" class="btn btn-sm btn-outline-dark" data-staff-bulk="archive">Archive</button>
+                @endif
                 <span class="small text-muted" data-staff-bulk-count>0 selected</span>
             </div>
 
@@ -467,6 +517,7 @@ const CAN_VERIFY_SITES = @json(auth()->user()->isAdmin());
 const CAN_TOGGLE_ACTIVE = @json(auth()->user()->canActivateSites());
 const IS_MARKETING_EDITOR = @json(auth()->user()->isMarketing() && ! auth()->user()->isAdmin());
 const FLAT_QUEUE = @json(! empty($flatQueue));
+const ALL_SITES = @json(! empty($allSitesMode));
 const QUALITY_MIN_DA = {{ (int) \App\Models\Site::GOOD_MIN_DA }};
 const QUALITY_MIN_DR = {{ (int) \App\Models\Site::GOOD_MIN_DR }};
 const QUALITY_MIN_TRAFFIC = {{ (int) \App\Models\Site::GOOD_MIN_TRAFFIC }};
@@ -547,13 +598,16 @@ function fetchUserSites(id, page){
     document.getElementById('staffIndexSearchWrap')?.classList.add('d-none');
 
     if (userRow) {
-        document.getElementById('siteUserName').innerText =
-            userRow.children[1].innerText + " websites";
+        const nameCell = userRow.children[1];
+        const publisherName = (nameCell?.getAttribute('data-publisher-name') || '').trim() || 'Publisher';
+        document.getElementById('siteUserName').innerText = publisherName + " websites";
         document.getElementById('siteUserEmail').innerText =
             userRow.children[2].innerText;
+        document.getElementById('siteUserCopyStrike')?.classList.toggle('d-none', !nameCell?.querySelector('.badge'));
     } else {
         document.getElementById('siteUserName').innerText = 'Publisher websites';
         document.getElementById('siteUserEmail').innerText = '';
+        document.getElementById('siteUserCopyStrike')?.classList.add('d-none');
     }
 
     if (addBtn) {
@@ -576,6 +630,14 @@ function fetchUserSites(id, page){
     }
     if (document.getElementById('sitesNeedsReviewOnly')?.checked) {
         params.set('needs_review', '1');
+    }
+    const pageQuery = new URLSearchParams(window.location.search);
+    const focusSite = pageQuery.get('site') || '';
+    const indexQ = (pageQuery.get('q') || '').trim();
+    // Keep the opened site on the list while the box still has that search.
+    // A new search must not drag the old site back in.
+    if (/^[1-9]\d*$/.test(focusSite) && (siteQ === '' || siteQ === indexQ)) {
+        params.set('site', focusSite);
     }
     document.querySelectorAll('#staffPublisherFilters [data-staff-filter]').forEach(function (el) {
         if (el.type === 'checkbox') {
@@ -644,6 +706,7 @@ function fetchUserSites(id, page){
                     (publisher.name || 'Publisher') + ' websites';
                 document.getElementById('siteUserEmail').innerText =
                     publisher.email || '';
+                document.getElementById('siteUserCopyStrike')?.classList.toggle('d-none', !publisher.copy_strike);
             }
 
             const meta = Array.isArray(data) ? null : (data?.meta || null);
@@ -1132,7 +1195,6 @@ document.addEventListener('click', function(e){
         let id = btn.dataset.id;
         const siteQ = btn.dataset.siteQ || '';
         const siteSearch = document.getElementById('siteSearch');
-        resetPublisherSiteFilters();
         if (siteSearch) {
             siteSearch.value = (siteQ !== '' && !siteQ.includes('@')) ? siteQ : '';
         }
@@ -1742,6 +1804,18 @@ function initSitePreviewZoom(root) {
     });
 }
 
+function formatJoined(values, upper, limit) {
+    const list = (Array.isArray(values) ? values : [])
+        .map(function (value) { return String(value || '').trim(); })
+        .filter(Boolean)
+        .map(function (value) { return upper ? value.toUpperCase() : value; });
+    if (!list.length) return '—';
+    const cap = limit === 0 ? list.length : 3;
+    const shown = list.slice(0, cap);
+    const extra = list.length - shown.length;
+    return escapeHtml(shown.join(', ')) + (extra > 0 ? ' <span class="text-muted">+' + extra + ' more</span>' : '');
+}
+
 function renderSites(data){
 
     data = [...(data || [])];
@@ -1774,6 +1848,25 @@ function renderSites(data){
             const belowQualityBadge = site.below_quality_bar
                 ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="DA ≥ ${QUALITY_MIN_DA}, DR ≥ ${QUALITY_MIN_DR}, traffic ≥ ${QUALITY_MIN_TRAFFIC.toLocaleString('en-US')}">Below quality bar</span>`
                 : '';
+            const scanBadge = site.enrichment_failed
+                ? `<span class="badge text-bg-danger badge-needs-review ms-1">Scan failed</span>`
+                : '';
+            const copyStrikeBadge = site.publisher_copy_strike
+                ? `<span class="badge text-bg-dark badge-needs-review ms-1">Copy-strike hide</span>`
+                : '';
+            const ordersCount = Number(site.orders_count) || 0;
+            const ordersLabel = ordersCount + (ordersCount === 1 ? ' order' : ' orders');
+            const ordersHtml = site.orders_url
+                ? `<a href="${escapeHtml(site.orders_url)}">${ordersLabel}</a>`
+                : ordersLabel;
+            const metricsHtml = site.metrics_fetched_label
+                ? ` · Metrics ${escapeHtml(site.metrics_fetched_label)}`
+                : '';
+            const saleHtml = site.sale_price != null
+                ? `<div class="small text-muted">Sale €${Number(site.sale_price).toFixed(2)}</div>`
+                : '';
+            const offerBadges = (site.featured ? `<span class="badge text-bg-primary">Featured</span>` : '')
+                + (site.bulk_discount ? `<span class="badge text-bg-info">Bulk</span>` : '');
 
             // Publisher-style 16:10 preview + site identity
             let siteInfoHtml = `
@@ -1788,11 +1881,14 @@ function renderSites(data){
                             ${csvMetricsBadge}
                             ${missingMarketBadge}
                             ${belowQualityBadge}
+                            ${scanBadge}
+                            ${copyStrikeBadge}
                         </div>
                         <a href="${escapeHtml(site.site_url ?? '#')}" target="_blank" class="site-url" title="${escapeHtml(site.site_url ?? '')}">
                             ${escapeHtml(site.site_url ?? '-')}
                         </a>
-                        <div class="small text-muted">DA ${site.da ?? '—'} · DR ${site.dr ?? '—'} · ${escapeHtml((site.country || '').toString().toUpperCase() || '—')} · ${escapeHtml((site.language || '').toString().toUpperCase() || '—')} · ${escapeHtml(site.listing_tag_label || 'No tags')}</div>
+                        <div class="small text-muted">DA ${site.da ?? '—'} · DR ${site.dr ?? '—'} · ${formatJoined((site.countries_list && site.countries_list.length) ? site.countries_list : [site.country], true)} · ${formatJoined((site.languages_list && site.languages_list.length) ? site.languages_list : [site.language], true)} · ${formatJoined((site.categories_list && site.categories_list.length) ? site.categories_list : [site.category], false)} · ${escapeHtml(site.listing_tag_label || 'No tags')}${site.link_type_label ? ' · ' + escapeHtml(site.link_type_label) : ''}${site.sponsored ? ' · Sponsored' : ''}${metricsHtml}</div>
+                        <div class="small">${ordersHtml}</div>
                     </div>
                 </div>
             `;
@@ -1896,7 +1992,7 @@ function renderSites(data){
                     <td>${i+1}</td>
                     <td>${siteInfoHtml}</td>
                     <td>${site.traffic ?? '-'}</td>
-                    <td>€${site.price ?? '-'}</td>
+                    <td><div>€${site.price ?? '-'}</div>${saleHtml}${offerBadges}</td>
                     <td>${statusHtml}</td>
                     <td>${manageHtml}</td>
                 </tr>
@@ -1912,10 +2008,10 @@ function renderSites(data){
                                     <div class="col-md-4"><strong>Enrichment</strong><div>${escapeHtml(site.enrichment_status ?? 'pending')}${site.metrics_fetched_at ? ' · metrics ' + new Date(site.metrics_fetched_at).toLocaleString() : ''}</div></div>
                                     <div class="col-md-4"><strong>Screenshot</strong><div>${(paths.full || paths.thumb) ? `<div class="site-preview-detail"><img data-detail-src="${escapeHtml(paths.full || paths.thumb)}" alt="Site preview" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'"></div>` : '—'}</div></div>
                                     ${site.enrichment_error ? `<div class="col-12"><strong>Last scan error</strong><div class="text-danger small slb-text-break">${escapeHtml(site.enrichment_error)}</div></div>` : ''}
-                                    <div class="col-md-4"><strong>Countries</strong><div>${(site.countries && site.countries.length ? site.countries : [site.country]).filter(Boolean).map(c => String(c).toUpperCase()).join(', ') || '-'}</div></div>
-                                    <div class="col-md-4"><strong>Languages</strong><div>${(site.languages && site.languages.length ? site.languages : [site.language]).filter(Boolean).map(l => String(l).toUpperCase()).join(', ') || '-'}</div></div>
-                                    <div class="col-md-4"><strong>Category</strong><div>${escapeHtml(site.category ?? '-')}</div></div>
-                                    <div class="col-md-4"><strong>Link Type</strong><div>${site.link_type ?? '-'}</div></div>
+                                    <div class="col-md-4"><strong>Countries</strong><div>${formatJoined(site.countries_list, true, 0)}</div></div>
+                                    <div class="col-md-4"><strong>Languages</strong><div>${formatJoined(site.languages_list, true, 0)}</div></div>
+                                    <div class="col-md-4"><strong>Categories</strong><div>${formatJoined(site.categories_list, false, 0)}</div></div>
+                                    <div class="col-md-4"><strong>Link Type</strong><div>${escapeHtml(site.link_type_label || site.link_type || '-')}</div></div>
                                     <div class="col-md-4"><strong>Sponsored</strong><div>${site.sponsored ? 'Yes':'No'}</div></div>
                                     <div class="col-md-4"><strong>Price</strong><div>€${site.price ?? '-'}</div></div>
                                     <div class="col-12"><strong>Description</strong><div class="slb-text-break">${escapeHtml(site.description_textarea || site.description_excerpt || site.description || '-')}</div><a class="small" href="${STAFF_BASE}/sites/${site.id}/edit#description">Edit description</a></div>
@@ -1947,6 +2043,14 @@ function renderSites(data){
 
 /* ================= BACK ================= */
 document.getElementById('backBtn').addEventListener('click', function(){
+    try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('all') === '1') {
+            ['publisher', 'site', 'edit_site'].forEach((key) => url.searchParams.delete(key));
+            window.location = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
+            return;
+        }
+    } catch (e) {}
     document.getElementById('sitesSection').classList.add('d-none');
     const usersSection = document.getElementById('usersSection');
     if (usersSection) {
@@ -2004,13 +2108,31 @@ document.getElementById('sitesNeedsReviewOnly')?.addEventListener('change', func
 });
 
 document.getElementById('staffPublisherFilters')?.addEventListener('change', function () {
-    refetchOpenPublisherSites();
+    const params = new URLSearchParams(window.location.search);
+    document.querySelectorAll('#staffPublisherFilters [data-staff-filter]').forEach(function (el) {
+        const key = el.getAttribute('data-staff-filter');
+        if (!key) return;
+        if (el.type === 'checkbox') {
+            if (el.checked) params.set(key, el.value || '1');
+            else params.delete(key);
+            return;
+        }
+        const value = String(el.value || '').trim();
+        if (value === '') params.delete(key);
+        else params.set(key, value);
+    });
+    params.delete('page');
+    window.location = STAFF_BASE + '/sites' + (params.toString() ? '?' + params.toString() : '');
 });
 
+function bulkRoot(scope) {
+    if (scope === 'flat') return document.querySelector('[data-flat-queue]');
+    if (scope === 'all') return document.querySelector('[data-all-sites]');
+    return document.getElementById('sitesSection');
+}
+
 function selectedBulkIds(scope) {
-    const root = scope === 'flat'
-        ? document.querySelector('[data-flat-queue]')
-        : document.getElementById('sitesSection');
+    const root = bulkRoot(scope);
     if (!root) return [];
     return Array.from(root.querySelectorAll('[data-staff-bulk-id]:checked'))
         .map((el) => Number(el.getAttribute('data-staff-bulk-id')))
@@ -2029,9 +2151,9 @@ document.addEventListener('change', function (e) {
     const all = e.target.closest('[data-staff-bulk-all]');
     if (all) {
         const scope = all.getAttribute('data-staff-bulk-all');
-        const root = scope === 'flat'
-            ? document.querySelector('[data-flat-queue]')
-            : document.getElementById('sitesTable');
+        const root = scope === 'publisher'
+            ? document.getElementById('sitesTable')
+            : bulkRoot(scope);
         root?.querySelectorAll('[data-staff-bulk-id]').forEach(function (box) {
             box.checked = all.checked;
         });
@@ -2070,7 +2192,7 @@ document.addEventListener('click', function (e) {
             const data = await res.json().catch(function () { return {}; });
             toast(data.message || (res.ok ? 'Updated' : 'Could not update the selection.'), res.ok ? 'success' : 'warning');
             if (!res.ok) return;
-            if (scope === 'flat') {
+            if (scope === 'flat' || scope === 'all') {
                 window.location.reload();
                 return;
             }
@@ -2080,14 +2202,21 @@ document.addEventListener('click', function (e) {
             toast('Could not update the selection.', 'error');
         });
     };
-    if (action === 'reject') {
+    const reasonPrompts = {
+        reject: ['Reject selected sites?', 'Reject'],
+        deactivate: ['Deactivate selected sites?', 'Deactivate'],
+        archive: ['Archive selected sites?', 'Archive'],
+    };
+    if (reasonPrompts[action]) {
         Swal.fire({
-            title: 'Reject selected sites?',
-            text: 'The publisher will see this reason.',
+            title: reasonPrompts[action][0],
+            text: action === 'archive'
+                ? 'Only listings that can be archived one at a time are archived. The publisher will see this reason.'
+                : 'The publisher will see this reason.',
             input: 'textarea',
             inputPlaceholder: 'Reason (min. 10 characters)',
             showCancelButton: true,
-            confirmButtonText: 'Reject',
+            confirmButtonText: reasonPrompts[action][1],
             customClass: { confirmButton: 'slb-swal-danger' },
             preConfirm: function (value) {
                 const reason = String(value || '').trim();
@@ -2117,7 +2246,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     // queue, then immediately covered it with whichever publisher you happened
     // to open last, and the button looked dead.
     const wantsReviewQueue = params.has('needs_review') || params.get('verified') === '0' || params.has('waiting_on_publisher');
-    if (wantsReviewQueue && !params.get('publisher') && !siteId) {
+    if ((wantsReviewQueue || ALL_SITES) && !params.get('publisher') && !siteId) {
         sessionStorage.removeItem('selected_user');
     }
 
@@ -2150,7 +2279,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     }
 
     let id = sessionStorage.getItem('selected_user');
-    if(id && !FLAT_QUEUE) {
+    if(id && !FLAT_QUEUE && !ALL_SITES) {
         revealAllPublisherSites();
         fetchUserSites(id);
     }

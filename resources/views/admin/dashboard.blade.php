@@ -67,16 +67,15 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'all']) }}">
                 <div class="card-body">
                     <div class="text-muted small">GMV (paid orders)</div>
                     <div class="d-flex align-items-end justify-content-between">
                         <h3 class="mb-0" id="kpiRevenue">—</h3>
-                        <span class="badge bg-success-subtle text-success" id="kpiRevenue7d">€0 / 7d</span>
+                        <span class="badge bg-success-subtle text-success" id="kpiRevenue7d">last 7 days</span>
                     </div>
                     <div class="small text-muted mt-2">
-                        <span id="kpiPaidOrders">0</span> paid orders
-                        · Margin &amp; wallets
+                        All-time euro order totals · <span id="kpiPaidOrders">0</span> paid
                     </div>
                 </div>
             </div>
@@ -119,6 +118,12 @@
                         <span id="kpiEnrichment">0</span> enrichment ·
                         <span id="kpiCatalogHide">0</span> hide-mode
                     </div>
+                    <div class="small text-muted mt-1">
+                        <span id="kpiMissingTax">0</span> invoices ·
+                        <span id="kpiMissingPdf">0</span> PDFs ·
+                        <span id="kpiLibrary">0</span> articles ·
+                        <span id="kpiCampaigns">0</span> campaigns
+                    </div>
                 </div>
             </div>
         </div>
@@ -128,7 +133,7 @@
     <div class="row g-3 mb-4">
         <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <strong class="text-muted small"><span class="text-uppercase">Finance</span> <span id="financePeriod" class="fw-normal"></span></strong>
-            <a href="{{ route('admin.finance') }}" class="small">Open finance</a>
+            <a href="{{ route('admin.finance', ['period' => 'month']) }}" class="small">Open finance</a>
         </div>
         <div class="col-12 d-none" id="financeRetry"></div>
         <div class="col-6 col-xl-3">
@@ -141,7 +146,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">In publisher wallets</div>
                     <div class="fs-4 fw-semibold" id="financeInWallets">—</div>
@@ -150,7 +155,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Total publisher liability</div>
                     <div class="fs-4 fw-semibold" id="financeLiability">—</div>
@@ -159,11 +164,12 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance') }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Fee margin (this month)</div>
                     <div class="fs-4 fw-semibold" id="financeMargin">—</div>
                     <div class="small text-muted">Fees − fee reversals − bonuses</div>
+                    <div class="small text-muted" id="financeCollected">Collected this month: —</div>
                 </div>
             </div>
         </div>
@@ -179,7 +185,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="deposits">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-wallet me-2 text-success"></i>Pending Deposits</strong>
+                    <strong><i class="fa fa-wallet me-2 text-success"></i>Pending Deposits <span class="text-muted fw-normal small" data-queue-meta="deposits"></span></strong>
                     <a href="{{ route('admin.deposits', ['status' => 'pending']) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -199,7 +205,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="withdrawals">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-money-bill-wave me-2 text-warning"></i>Pending Withdrawals</strong>
+                    <strong><i class="fa fa-money-bill-wave me-2 text-warning"></i>Pending Withdrawals <span class="text-muted fw-normal small" data-queue-meta="withdrawals"></span></strong>
                     <a href="{{ route('admin.withdrawals', ['queue' => 'open']) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -219,7 +225,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="sites">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-globe me-2 text-primary"></i>Sites Awaiting Verify</strong>
+                    <strong><i class="fa fa-globe me-2 text-primary"></i>Sites Awaiting Verify <span class="text-muted fw-normal small" data-queue-meta="sites"></span></strong>
                     <a href="{{ route('admin.sites.index', ['needs_review' => 1]) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -242,7 +248,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="unpaid">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-money-bill me-2 text-info"></i>Unpaid orders</strong>
+                    <strong><i class="fa fa-money-bill me-2 text-info"></i>Unpaid orders <span class="text-muted fw-normal small" data-queue-meta="unpaid"></span></strong>
                     <a href="{{ route('admin.payments', ['payment_status' => 'unpaid']) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -262,7 +268,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="disputes">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-gavel me-2 text-danger"></i>Open disputes</strong>
+                    <strong><i class="fa fa-gavel me-2 text-danger"></i>Open disputes <span class="text-muted fw-normal small" data-queue-meta="disputes"></span></strong>
                     <a href="{{ route('admin.orders.index', ['dispute' => 'open']) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -282,7 +288,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="community">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-comments me-2 text-secondary"></i>Community inbox</strong>
+                    <strong><i class="fa fa-comments me-2 text-secondary"></i>Community inbox <span class="text-muted fw-normal small" data-queue-meta="community"></span></strong>
                     <a href="{{ route('admin.community.index', ['status' => 'pending']) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -302,7 +308,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="enrichment">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-chart-line me-2 text-warning"></i>Enrichment failed</strong>
+                    <strong><i class="fa fa-chart-line me-2 text-warning"></i>Enrichment failed <span class="text-muted fw-normal small" data-queue-meta="enrichment"></span></strong>
                     <a href="{{ route('admin.site-enrichment.index') }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -325,7 +331,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="bulk">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-layer-group me-2 text-primary"></i>Bulk requests</strong>
+                    <strong><i class="fa fa-layer-group me-2 text-primary"></i>Bulk requests <span class="text-muted fw-normal small" data-queue-meta="bulk"></span></strong>
                     <a href="{{ route('admin.bulk-site-requests.index', ['status' => 'needs_marketer']) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -345,7 +351,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="mail">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-envelope-open-text me-2 text-danger"></i>Failed mail</strong>
+                    <strong><i class="fa fa-envelope-open-text me-2 text-danger"></i>Failed mail <span class="text-muted fw-normal small" data-queue-meta="mail"></span></strong>
                     <a href="{{ route('admin.emails.index') }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -365,7 +371,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="moderation">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-shield-alt me-2 text-danger"></i>Moderation errors</strong>
+                    <strong><i class="fa fa-shield-alt me-2 text-danger"></i>Moderation errors <span class="text-muted fw-normal small" data-queue-meta="moderation"></span></strong>
                     <a href="{{ route('admin.moderation.index', ['status' => 'error']) }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -385,7 +391,7 @@
         <div class="col-12 col-lg js-queue-panel" data-queue="catalog_hide">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-                    <strong><i class="fa fa-eye-slash me-2 text-warning"></i>Catalog hide-mode</strong>
+                    <strong><i class="fa fa-eye-slash me-2 text-warning"></i>Catalog hide-mode <span class="text-muted fw-normal small" data-queue-meta="catalog_hide"></span></strong>
                     <a href="{{ route('admin.catalog-activity') }}" class="small">View all</a>
                 </div>
                 <div class="card-body p-0">
@@ -396,6 +402,89 @@
                             </thead>
                             <tbody id="queueCatalogHide">
                                 <tr><td colspan="2" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4 js-queue-row">
+        <div class="col-12 col-lg js-queue-panel" data-queue="missing_tax">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-file-invoice me-2 text-danger"></i>Missing tax invoices <span class="text-muted fw-normal small" data-queue-meta="missing_tax"></span></strong>
+                    <a href="{{ route('admin.invoices.index', ['queue' => 'missing']) }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>Order</th><th>Amount</th><th>Waiting</th></tr>
+                            </thead>
+                            <tbody id="queueMissingTax">
+                                <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg js-queue-panel" data-queue="missing_pdf">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-file-pdf me-2 text-warning"></i>Missing PDFs <span class="text-muted fw-normal small" data-queue-meta="missing_pdf"></span></strong>
+                    <a href="{{ route('admin.invoices.index', ['pdf' => 'missing']) }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>Invoice</th><th>Amount</th><th>Waiting</th></tr>
+                            </thead>
+                            <tbody id="queueMissingPdf">
+                                <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg js-queue-panel" data-queue="library">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-book me-2 text-primary"></i>Articles in review <span class="text-muted fw-normal small" data-queue-meta="library"></span></strong>
+                    <a href="{{ route('admin.content-library.index', ['availability' => 'evaluating']) }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>Article</th><th>Waiting</th></tr>
+                            </thead>
+                            <tbody id="queueLibrary">
+                                <tr><td colspan="2" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg js-queue-panel" data-queue="campaigns">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <strong><i class="fa fa-bullhorn me-2 text-danger"></i>Campaigns <span class="text-muted fw-normal small" data-queue-meta="campaigns"></span></strong>
+                    <a href="{{ route('admin.campaigns.index', ['status' => 'attention']) }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr><th>Campaign</th><th>Status</th><th>Waiting</th></tr>
+                            </thead>
+                            <tbody id="queueCampaigns">
+                                <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -446,7 +535,7 @@
                 <div class="card-header bg-white border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <strong><i class="fa fa-chart-line me-2 text-primary"></i>Revenue &amp; Orders (<span class="js-chart-range-label">30 days</span>)</strong>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="text-muted small">Paid revenue vs paid order volume</span>
+                        <span class="text-muted small">Paid-order euros by paid date</span>
                         <div class="btn-group btn-group-sm js-chart-range" role="group" aria-label="Chart range">
                             <button type="button" class="btn btn-outline-secondary" data-days="7">7</button>
                             <button type="button" class="btn btn-primary" data-days="30">30</button>
@@ -456,6 +545,7 @@
                 </div>
                 <div class="card-body">
                     <canvas id="trendChart" height="110"></canvas>
+                    <div class="small text-muted mt-2">Rolling paid-order euros by paid date. A day on Finance uses recognized completion, so that total can differ from this point.</div>
                     <div id="trendRetry" class="d-none text-center text-muted py-2"></div>
                 </div>
             </div>
@@ -574,11 +664,109 @@
 <script>
 const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = (n) => Number(n || 0).toLocaleString();
+const financeDayUrl = @json(route('admin.finance'));
+const ordersIndexUrl = @json(route('admin.orders.index'));
+const usersIndexUrl = @json(route('admin.users.index'));
+const queueTotalKeys = {
+    deposits: 'pending_deposits',
+    withdrawals: 'pending_withdrawals',
+    sites: 'unverified_sites',
+    unpaid: 'pending_payments',
+    disputes: 'open_disputes',
+    community: 'pending_community',
+    enrichment: 'enrichment_failed',
+    bulk: 'open_bulk_requests',
+    mail: 'failed_mail',
+    moderation: 'moderation_errors',
+    catalog_hide: 'catalog_hide',
+    missing_tax: 'missing_tax_invoices',
+    missing_pdf: 'missing_pdf_invoices',
+    library: 'library_evaluating',
+    campaigns: 'campaigns_attention',
+};
 
 let trendChart, signupChart, orderStatusChart, roleChart;
 let chartDays = 30;
+let trendDates = [];
 
-async function dashboardFetch(url) {
+function goWithQuery(path, params) {
+    const url = new URL(path, window.location.origin);
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== '' && value != null) url.searchParams.set(key, value);
+    });
+    window.location.href = url.toString();
+}
+
+function chartPointer(event, elements) {
+    const canvas = event.native && event.native.target;
+    if (canvas) canvas.style.cursor = elements.length ? 'pointer' : 'default';
+}
+
+function applyAttentionCounts(d) {
+    setText('kpiDeposits', num(d.pending_deposits));
+    setText('kpiWithdrawals', num(d.pending_withdrawals));
+    setText('kpiPayments', num(d.pending_payments));
+    setText('kpiSitesReview', num(d.unverified_sites));
+    setText('kpiCommunity', num(d.pending_community));
+    setText('kpiDisputes', num(d.open_disputes));
+    setText('kpiStalled', num(d.stalled_orders));
+    setText('kpiBulk', num(d.open_bulk_requests));
+    setText('kpiMail', num(d.failed_mail));
+    setText('kpiModeration', num(d.moderation_errors));
+    setText('kpiEnrichment', num(d.enrichment_failed));
+    setText('kpiCatalogHide', num(d.catalog_hide));
+    setText('kpiMissingTax', num(d.missing_tax_invoices));
+    setText('kpiMissingPdf', num(d.missing_pdf_invoices));
+    setText('kpiLibrary', num(d.library_evaluating));
+    setText('kpiCampaigns', num(d.campaigns_attention));
+    setText('kpiAttention', num(d.needs_attention));
+}
+
+function collectedLine(d) {
+    const rows = Array.isArray(d.collected) ? d.collected : [];
+    const parts = rows
+        .filter((row) => row && row.currency)
+        .map((row) => row.currency + ' ' + Number(row.amount || 0).toFixed(2));
+    let text = parts.length ? 'Collected this month: ' + parts.join(' · ') : 'Collected this month: none';
+    const notes = [];
+    if (Number(d.orders_not_recorded) > 0) {
+        notes.push(num(d.orders_not_recorded) + ' card or PayPal charges not recorded');
+    }
+    if (Number(d.features_not_recorded) > 0) {
+        notes.push(num(d.features_not_recorded) + ' featured-site charges not recorded');
+    }
+    if (notes.length) text += ' · ' + notes.join(' · ');
+    return text;
+}
+
+function setQueueMeta(name, shown, total) {
+    const el = document.querySelector(`[data-queue-meta="${name}"]`);
+    if (!el) return;
+    const count = Number(total) || 0;
+    el.textContent = count > shown ? (shown + ' of ' + count) : '';
+}
+
+function chargeLine(item) {
+    const code = String(item && item.charge_currency || '').toUpperCase();
+    if (!code || code === 'EUR' || item.charge_amount == null || item.charge_amount === '') return '';
+    return `<div class="small text-muted">${escapeHtml(Number(item.charge_amount).toFixed(2) + ' ' + code)}</div>`;
+}
+
+function methodLine(item) {
+    const label = (item && (item.method_label || item.method)) || '';
+    if (!label) return '';
+    return `<div class="small text-muted">${escapeHtml(label)}</div>`;
+}
+
+function rowMoney(item) {
+    const code = String(item && item.currency || '').toUpperCase();
+    if (code && code !== 'EUR') {
+        return escapeHtml(Number(item.amount || 0).toFixed(2) + ' ' + code);
+    }
+    return money(item && item.amount);
+}
+
+async function dashboardFetch(url, options = {}) {
     const res = await fetch(url, {
         headers: { 'Accept': 'application/json' },
         credentials: 'same-origin',
@@ -591,7 +779,7 @@ async function dashboardFetch(url) {
     }
     if (!res.ok || !json || !json.success) {
         const message = (json && json.message) ? json.message : 'Could not load this panel';
-        if (window.showAppToast) {
+        if (!options.silent && window.showAppToast) {
             window.showAppToast(message, 'error');
         }
         throw new Error(message);
@@ -648,24 +836,12 @@ async function loadStatistics() {
         setText('kpiAdmins', num(d.admins));
         setText('kpiMarketers', num(d.marketers));
         setText('kpiRevenue', money(d.revenue));
-        setText('kpiRevenue7d', money(d.revenue_7d) + ' / 7d');
+        setText('kpiRevenue7d', money(d.revenue_7d) + ' last 7 days');
         setText('kpiPaidOrders', num(d.paid_orders));
         setText('kpiSites', num(d.total_sites));
         setText('kpiVerified', num(d.live_sites ?? d.verified_sites));
         setText('kpiUnverified', num(d.unverified_sites) + ' in review');
-        setText('kpiDeposits', num(d.pending_deposits));
-        setText('kpiWithdrawals', num(d.pending_withdrawals));
-        setText('kpiPayments', num(d.pending_payments));
-        setText('kpiSitesReview', num(d.unverified_sites));
-        setText('kpiCommunity', num(d.pending_community));
-        setText('kpiDisputes', num(d.open_disputes));
-        setText('kpiStalled', num(d.stalled_orders));
-        setText('kpiBulk', num(d.open_bulk_requests));
-        setText('kpiMail', num(d.failed_mail));
-        setText('kpiModeration', num(d.moderation_errors));
-        setText('kpiEnrichment', num(d.enrichment_failed));
-        setText('kpiCatalogHide', num(d.catalog_hide));
-        setText('kpiAttention', num(d.needs_attention));
+        applyAttentionCounts(d);
         hideRetry(retryEl);
     } catch (err) {
         showRetry(retryEl, 'loadStatistics');
@@ -683,6 +859,7 @@ async function loadFinanceStrip() {
         document.getElementById('financeInWallets').textContent = money(d.in_publisher_wallets);
         document.getElementById('financeLiability').textContent = money(d.total_publisher_liability);
         document.getElementById('financeMargin').textContent = money(d.margin);
+        setText('financeCollected', collectedLine(d));
         hideRetry(retryEl);
     } catch (err) {
         showRetry(retryEl, 'loadFinanceStrip');
@@ -697,6 +874,7 @@ async function loadTrends() {
     ];
     try {
         const json = await dashboardFetch(`{{ route('admin.dashboard.trends') }}?days=${chartDays}`);
+        trendDates = Array.isArray(json.dates) ? json.dates : [];
 
         const commonOpts = {
             responsive: true,
@@ -732,6 +910,13 @@ async function loadTrends() {
             },
             options: {
                 ...commonOpts,
+                onClick(event, elements) {
+                    if (!elements.length) return;
+                    const day = trendDates[elements[0].index];
+                    if (!day) return;
+                    goWithQuery(financeDayUrl, { date_from: day, date_to: day });
+                },
+                onHover: chartPointer,
                 scales: {
                     y:  { beginAtZero: true, position: 'left', title: { display: true, text: 'Revenue (€)' } },
                     y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Paid orders' } }
@@ -772,6 +957,9 @@ async function loadDistributions() {
 
         const palette = ['#1a585e', '#0ea5e9', '#3faeb2', '#75787B', '#0f766e', '#b8e4e4', '#94a3b8'];
 
+        const orderKeys = (json.orders && json.orders.keys) || [];
+        const roleKeys = (json.roles && json.roles.keys) || [];
+
         orderStatusChart = makeChart(orderStatusChart, 'orderStatusChart', {
             type: 'doughnut',
             data: {
@@ -781,7 +969,16 @@ async function loadDistributions() {
                     backgroundColor: palette
                 }]
             },
-            options: { plugins: { legend: { position: 'bottom' } } }
+            options: {
+                plugins: { legend: { position: 'bottom' } },
+                onClick(event, elements) {
+                    if (!elements.length) return;
+                    const status = orderKeys[elements[0].index];
+                    if (!status) return;
+                    goWithQuery(ordersIndexUrl, { status: status });
+                },
+                onHover: chartPointer,
+            }
         });
 
         roleChart = makeChart(roleChart, 'roleChart', {
@@ -793,7 +990,16 @@ async function loadDistributions() {
                     backgroundColor: palette
                 }]
             },
-            options: { plugins: { legend: { position: 'bottom' } } }
+            options: {
+                plugins: { legend: { position: 'bottom' } },
+                onClick(event, elements) {
+                    if (!elements.length) return;
+                    const role = roleKeys[elements[0].index];
+                    if (!role) return;
+                    goWithQuery(usersIndexUrl, { role: role });
+                },
+                onHover: chartPointer,
+            }
         });
         retryEls.forEach(hideRetry);
     } catch (err) {
@@ -860,7 +1066,16 @@ function refreshQueueLayout() {
     }
 }
 
-async function loadActionQueue() {
+let actionQueueTick = 0;
+let actionQueueInFlight = 0;
+
+async function loadActionQueue(options = {}) {
+    const quiet = options.quiet === true;
+    // A badge refresh must not cancel the first load. If that first response
+    // is dropped and the refresh then fails quietly, the tables stay on Loading.
+    if (quiet && actionQueueInFlight > 0) return;
+    const tick = ++actionQueueTick;
+    actionQueueInFlight++;
     const depBody = document.getElementById('queueDeposits');
     const wBody = document.getElementById('queueWithdrawals');
     const sBody = document.getElementById('queueSites');
@@ -872,9 +1087,14 @@ async function loadActionQueue() {
     const mailBody = document.getElementById('queueMail');
     const moderationBody = document.getElementById('queueModeration');
     const catalogBody = document.getElementById('queueCatalogHide');
+    const taxBody = document.getElementById('queueMissingTax');
+    const pdfBody = document.getElementById('queueMissingPdf');
+    const libraryBody = document.getElementById('queueLibrary');
+    const campaignBody = document.getElementById('queueCampaigns');
 
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.action-queue') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.action-queue') }}`, { silent: quiet });
+        if (tick !== actionQueueTick) return;
         const deposits = json.deposits || [];
         const withdrawals = json.withdrawals || [];
         const sites = json.sites || [];
@@ -886,8 +1106,15 @@ async function loadActionQueue() {
         const mail = json.mail || [];
         const moderation = json.moderation || [];
         const catalogHide = json.catalog_hide || [];
+        const missingTax = json.missing_tax || [];
+        const missingPdf = json.missing_pdf || [];
+        const library = json.library || [];
+        const campaigns = json.campaigns || [];
+        const totals = json.totals || {};
+        const meta = (name, shown) => setQueueMeta(name, shown, totals[queueTotalKeys[name]]);
 
         setQueuePanel('deposits', deposits.length > 0);
+        meta('deposits', deposits.length);
         if (!deposits.length) {
             depBody.innerHTML = emptyRow(4, 'No pending deposits');
         } else {
@@ -897,13 +1124,14 @@ async function loadActionQueue() {
                         <div class="fw-semibold">${cellLink(d.url, d.user)}</div>
                         <div class="small text-muted">${escapeHtml(d.email || '')}</div>
                     </td>
-                    <td>${money(d.amount)}</td>
+                    <td>${money(d.amount)}${chargeLine(d)}${methodLine(d)}</td>
                     ${waitingCell(d)}
                     ${actionCell(d)}
                 </tr>`).join('');
         }
 
         setQueuePanel('withdrawals', withdrawals.length > 0);
+        meta('withdrawals', withdrawals.length);
         if (!withdrawals.length) {
             wBody.innerHTML = emptyRow(4, 'No pending withdrawals');
         } else {
@@ -913,13 +1141,14 @@ async function loadActionQueue() {
                         <div class="fw-semibold">${cellLink(w.url, w.user)}</div>
                         <div class="small text-muted">${escapeHtml(w.email || '')}${w.status && w.status !== 'pending' ? ' · ' + escapeHtml(w.status) : ''}</div>
                     </td>
-                    <td>${money(w.amount)}</td>
+                    <td>${money(w.amount)}${methodLine(w)}</td>
                     ${waitingCell(w)}
                     ${actionCell(w)}
                 </tr>`).join('');
         }
 
         setQueuePanel('sites', sites.length > 0);
+        meta('sites', sites.length);
         if (!sites.length) {
             sBody.innerHTML = emptyRow(3, 'No sites awaiting verification');
         } else {
@@ -935,18 +1164,23 @@ async function loadActionQueue() {
         }
 
         setQueuePanel('unpaid', unpaid.length > 0);
+        meta('unpaid', unpaid.length);
         if (!unpaid.length) {
             unpaidBody.innerHTML = emptyRow(3, 'No unpaid orders');
         } else {
             unpaidBody.innerHTML = unpaid.map(o => `
                 <tr>
-                    <td class="fw-semibold">${cellLink(o.url, '#' + o.order_number)}</td>
+                    <td>
+                        <div class="fw-semibold">${cellLink(o.url, '#' + o.order_number)}</div>
+                        ${methodLine(o)}
+                    </td>
                     <td>${money(o.amount)}</td>
                     ${waitingCell(o)}
                 </tr>`).join('');
         }
 
         setQueuePanel('disputes', disputes.length > 0);
+        meta('disputes', disputes.length);
         if (!disputes.length) {
             disputeBody.innerHTML = emptyRow(3, 'No open disputes');
         } else {
@@ -959,6 +1193,7 @@ async function loadActionQueue() {
         }
 
         setQueuePanel('community', community.length > 0);
+        meta('community', community.length);
         if (!community.length) {
             communityBody.innerHTML = emptyRow(3, 'Inbox is clear');
         } else {
@@ -971,6 +1206,7 @@ async function loadActionQueue() {
         }
 
         setQueuePanel('enrichment', enrichment.length > 0);
+        meta('enrichment', enrichment.length);
         if (!enrichment.length) {
             enrichmentBody.innerHTML = emptyRow(3, 'No failed scans');
         } else {
@@ -983,6 +1219,7 @@ async function loadActionQueue() {
         }
 
         setQueuePanel('bulk', bulk.length > 0);
+        meta('bulk', bulk.length);
         if (!bulk.length) {
             bulkBody.innerHTML = emptyRow(3, 'No bulk requests waiting');
         } else {
@@ -998,6 +1235,7 @@ async function loadActionQueue() {
         }
 
         setQueuePanel('mail', mail.length > 0);
+        meta('mail', mail.length);
         if (!mail.length) {
             mailBody.innerHTML = emptyRow(2, 'No failed mail');
         } else {
@@ -1009,6 +1247,7 @@ async function loadActionQueue() {
         }
 
         setQueuePanel('moderation', moderation.length > 0);
+        meta('moderation', moderation.length);
         if (!moderation.length) {
             moderationBody.innerHTML = emptyRow(2, 'No scan errors');
         } else {
@@ -1020,6 +1259,7 @@ async function loadActionQueue() {
         }
 
         setQueuePanel('catalog_hide', catalogHide.length > 0);
+        meta('catalog_hide', catalogHide.length);
         if (!catalogHide.length) {
             catalogBody.innerHTML = emptyRow(2, 'Nobody in hide-mode');
         } else {
@@ -1032,9 +1272,66 @@ async function loadActionQueue() {
                     ${waitingCell(c)}
                 </tr>`).join('');
         }
+
+        setQueuePanel('missing_tax', missingTax.length > 0);
+        meta('missing_tax', missingTax.length);
+        if (taxBody) {
+            taxBody.innerHTML = !missingTax.length
+                ? emptyRow(3, 'No paid orders missing a tax invoice')
+                : missingTax.map(o => `
+                <tr>
+                    <td>
+                        <div class="fw-semibold">${cellLink(o.url, '#' + (o.order_number || o.id))}</div>
+                        <div class="small text-muted">${escapeHtml(o.user || '')}</div>
+                    </td>
+                    <td>${money(o.amount)}</td>
+                    ${waitingCell(o)}
+                </tr>`).join('');
+        }
+
+        setQueuePanel('missing_pdf', missingPdf.length > 0);
+        meta('missing_pdf', missingPdf.length);
+        if (pdfBody) {
+            pdfBody.innerHTML = !missingPdf.length
+                ? emptyRow(3, 'No invoices missing a PDF')
+                : missingPdf.map(inv => `
+                <tr>
+                    <td class="fw-semibold">${cellLink(inv.url, inv.label)}</td>
+                    <td>${rowMoney(inv)}</td>
+                    ${waitingCell(inv)}
+                </tr>`).join('');
+        }
+
+        setQueuePanel('library', library.length > 0);
+        meta('library', library.length);
+        if (libraryBody) {
+            libraryBody.innerHTML = !library.length
+                ? emptyRow(2, 'No articles waiting for review')
+                : library.map(a => `
+                <tr>
+                    <td class="fw-semibold">${cellLink(a.url, a.label)}</td>
+                    ${waitingCell(a)}
+                </tr>`).join('');
+        }
+
+        setQueuePanel('campaigns', campaigns.length > 0);
+        meta('campaigns', campaigns.length);
+        if (campaignBody) {
+            campaignBody.innerHTML = !campaigns.length
+                ? emptyRow(3, 'No queued, sending, or failed campaigns')
+                : campaigns.map(c => `
+                <tr>
+                    <td class="fw-semibold">${cellLink(c.url, c.label)}</td>
+                    <td class="small">${escapeHtml(c.status || '')}</td>
+                    ${waitingCell(c)}
+                </tr>`).join('');
+        }
+
         refreshQueueLayout();
     } catch (err) {
-        ['deposits', 'withdrawals', 'sites', 'unpaid', 'disputes', 'community', 'enrichment', 'bulk', 'mail', 'moderation', 'catalog_hide']
+        if (tick !== actionQueueTick) return;
+        if (quiet) throw err;
+        ['deposits', 'withdrawals', 'sites', 'unpaid', 'disputes', 'community', 'enrichment', 'bulk', 'mail', 'moderation', 'catalog_hide', 'missing_tax', 'missing_pdf', 'library', 'campaigns']
             .forEach((name) => setQueuePanel(name, true));
         depBody.innerHTML = retryRow(4, 'loadActionQueue');
         wBody.innerHTML = retryRow(4, 'loadActionQueue');
@@ -1047,8 +1344,14 @@ async function loadActionQueue() {
         mailBody.innerHTML = retryRow(2, 'loadActionQueue');
         moderationBody.innerHTML = retryRow(2, 'loadActionQueue');
         catalogBody.innerHTML = retryRow(2, 'loadActionQueue');
+        if (taxBody) taxBody.innerHTML = retryRow(3, 'loadActionQueue');
+        if (pdfBody) pdfBody.innerHTML = retryRow(3, 'loadActionQueue');
+        if (libraryBody) libraryBody.innerHTML = retryRow(2, 'loadActionQueue');
+        if (campaignBody) campaignBody.innerHTML = retryRow(3, 'loadActionQueue');
         refreshQueueLayout();
         throw err;
+    } finally {
+        actionQueueInFlight = Math.max(0, actionQueueInFlight - 1);
     }
 }
 
@@ -1209,6 +1512,13 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     followKpiLink(kpi);
 });
+
+window.refreshAdminDashboardQueues = function (counts) {
+    if (counts && counts.success) {
+        applyAttentionCounts(counts);
+    }
+    loadActionQueue({ quiet: true }).catch(err => console.error('Dashboard queue refresh failed', err));
+};
 
 Promise.all([loadStatistics(), loadFinanceStrip(), loadTrends(), loadDistributions(), loadActionQueue(), loadStalledOrders()])
     .catch(err => console.error('Dashboard load failed', err));

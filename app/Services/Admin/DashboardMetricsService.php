@@ -4,7 +4,9 @@ namespace App\Services\Admin;
 
 use App\Models\BulkSiteRequest;
 use App\Models\ContentModerationLog;
+use App\Models\ContentSubmission;
 use App\Models\DepositRequest;
+use App\Models\EmailCampaign;
 use App\Models\Order;
 use App\Models\OrderItemDispute;
 use App\Models\ProblemReport;
@@ -16,6 +18,7 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Models\Withdrawal;
+use App\Services\Billing\InvoiceRepairQueue;
 use App\Services\Reminders\StalledOrderQueue;
 use App\Services\Wallet\ManualDepositApproveLink;
 use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
@@ -38,6 +41,7 @@ class DashboardMetricsService
     public function __construct(
         private FinanceOverviewService $finance,
         private StalledOrderQueue $stalled,
+        private InvoiceRepairQueue $repairQueue,
     ) {}
 
     /**
@@ -77,6 +81,10 @@ class DashboardMetricsService
             'moderation_errors' => $queues['moderation_errors'],
             'enrichment_failed' => $queues['enrichment_failed'],
             'catalog_hide' => $queues['catalog_hide'],
+            'missing_tax_invoices' => $queues['missing_tax_invoices'],
+            'missing_pdf_invoices' => $queues['missing_pdf_invoices'],
+            'library_evaluating' => $queues['library_evaluating'],
+            'campaigns_attention' => $queues['campaigns_attention'],
             'needs_attention' => $queues['needs_attention'],
             'new_users_7d' => $this->safeInt(fn () => User::where('created_at', '>=', now()->subDays(7))->count()),
             'orders_7d' => $this->safeInt(fn () => Order::where('payment_status', 'paid')
@@ -145,6 +153,7 @@ class DashboardMetricsService
 
         return [
             'labels' => array_map(fn ($d) => Carbon::parse($d)->format('M j'), $labels),
+            'dates' => $labels,
             'revenue' => $revenue,
             'signups' => $signups,
             'orders' => $orders,
@@ -174,11 +183,13 @@ class DashboardMetricsService
 
         return [
             'orders' => [
-                'labels' => $orderStatus->keys()->map(fn ($s) => ucfirst($s))->values(),
+                'keys' => $orderStatus->keys()->map(fn ($s) => (string) $s)->values(),
+                'labels' => $orderStatus->keys()->map(fn ($s) => ucfirst((string) $s))->values(),
                 'values' => $orderStatus->values()->map(fn ($v) => (int) $v)->values(),
             ],
             'roles' => [
-                'labels' => $roleCounts->keys()->map(fn ($s) => ucfirst($s))->values(),
+                'keys' => $roleCounts->keys()->map(fn ($s) => (string) $s)->values(),
+                'labels' => $roleCounts->keys()->map(fn ($s) => ucfirst((string) $s))->values(),
                 'values' => $roleCounts->values()->map(fn ($v) => (int) $v)->values(),
                 'note' => 'Users with more than one role appear in more than one slice.',
             ],
@@ -209,6 +220,10 @@ class DashboardMetricsService
         $moderationErrors = $this->moderationErrorsCount();
         $enrichmentFailed = $this->enrichmentFailedCount();
         $catalogHide = $this->catalogHideCount();
+        $missingTaxInvoices = $this->safeInt(fn () => $this->repairQueue->missingTaxInvoiceCount());
+        $missingPdfInvoices = $this->safeInt(fn () => $this->repairQueue->missingPdfPathCount());
+        $libraryEvaluating = $this->libraryEvaluatingCount();
+        $campaignsAttention = $this->campaignsAttentionCount();
         $needsAttention = $pendingDeposits
             + $pendingWithdrawals
             + $unverifiedSites
@@ -220,7 +235,11 @@ class DashboardMetricsService
             + $failedMail
             + $moderationErrors
             + $enrichmentFailed
-            + $catalogHide;
+            + $catalogHide
+            + $missingTaxInvoices
+            + $missingPdfInvoices
+            + $libraryEvaluating
+            + $campaignsAttention;
 
         return [
             'pending_deposits' => $pendingDeposits,
@@ -239,6 +258,10 @@ class DashboardMetricsService
             'moderation_errors' => $moderationErrors,
             'enrichment_failed' => $enrichmentFailed,
             'catalog_hide' => $catalogHide,
+            'missing_tax_invoices' => $missingTaxInvoices,
+            'missing_pdf_invoices' => $missingPdfInvoices,
+            'library_evaluating' => $libraryEvaluating,
+            'campaigns_attention' => $campaignsAttention,
             'needs_attention' => $needsAttention,
         ];
     }
@@ -250,31 +273,38 @@ class DashboardMetricsService
      */
     public function financeStrip(): array
     {
-        $empty = [
-            'period_label' => '',
-            'due_to_pay_now' => 0.0,
-            'in_publisher_wallets' => 0.0,
-            'total_publisher_liability' => 0.0,
-            'margin' => 0.0,
-            'url' => $this->safeRoute('admin.finance') ?? '',
-        ];
-
-        try {
-            $overview = $this->finance->overview($this->finance->resolvePeriod('month'));
-
-            return [
-                'period_label' => (string) data_get($overview, 'period.label', ''),
-                'due_to_pay_now' => (float) ($overview['due_to_pay_now'] ?? 0),
-                'in_publisher_wallets' => (float) ($overview['in_publisher_wallets'] ?? 0),
-                'total_publisher_liability' => (float) ($overview['total_publisher_liability'] ?? 0),
-                'margin' => (float) data_get($overview, 'platform.margin', 0),
-                'url' => $this->safeRoute('admin.finance') ?? $empty['url'],
+        $monthUrl = $this->safeRoute('admin.finance', ['period' => 'month']) ?? '';
+        $overview = $this->finance->overview($this->finance->resolvePeriod('month'), throwOnFailure: true);
+        $collected = data_get($overview, 'money_in.collected', []);
+        $lines = [];
+        foreach ((array) data_get($collected, 'by_currency', []) as $code => $parts) {
+            if (! is_array($parts)) {
+                continue;
+            }
+            $sum = round(
+                (float) ($parts['card'] ?? 0) + (float) ($parts['paypal'] ?? 0) + (float) ($parts['other'] ?? 0),
+                2
+            );
+            if ($sum == 0.0) {
+                continue;
+            }
+            $lines[] = [
+                'currency' => strtoupper((string) $code),
+                'amount' => $sum,
             ];
-        } catch (\Throwable $e) {
-            Log::warning('Dashboard finance strip failed', ['error' => $e->getMessage()]);
-
-            return $empty;
         }
+
+        return [
+            'period_label' => (string) data_get($overview, 'period.label', ''),
+            'due_to_pay_now' => (float) ($overview['due_to_pay_now'] ?? 0),
+            'in_publisher_wallets' => (float) ($overview['in_publisher_wallets'] ?? 0),
+            'total_publisher_liability' => (float) ($overview['total_publisher_liability'] ?? 0),
+            'margin' => (float) data_get($overview, 'platform.margin', 0),
+            'url' => $monthUrl,
+            'collected' => $lines,
+            'orders_not_recorded' => (int) data_get($collected, 'orders_not_recorded', 0),
+            'features_not_recorded' => (int) data_get($collected, 'features_not_recorded', 0),
+        ];
     }
 
     /**
@@ -290,9 +320,9 @@ class DashboardMetricsService
         $sites = collect();
         try {
             if (Schema::hasTable('sites')) {
-                $sites = Site::with('publisher:id,name,email')
-                    ->needsAdminReview()
-                    ->latest()
+                $sites = $this->oldestWaiting(
+                    Site::with('publisher:id,name,email')->needsAdminReview()
+                )
                     ->take(5)
                     ->get()
                     ->map(fn ($s) => [
@@ -322,6 +352,11 @@ class DashboardMetricsService
             'mail' => $this->failedMailQueue(),
             'moderation' => $this->moderationQueue(),
             'catalog_hide' => $this->catalogHideQueue(),
+            'missing_tax' => $this->missingTaxQueue(),
+            'missing_pdf' => $this->missingPdfQueue(),
+            'library' => $this->libraryQueue(),
+            'campaigns' => $this->campaignQueue(),
+            'totals' => $this->queueCounts(),
         ];
     }
 
@@ -343,24 +378,42 @@ class DashboardMetricsService
                 return collect();
             }
 
-            return DepositRequest::with('user:id,name,email')
-                ->where('status', 'pending')
-                ->latest()
+            $hasCharge = Schema::hasColumn('deposit_requests', 'charge_currency')
+                && Schema::hasColumn('deposit_requests', 'charge_amount');
+
+            return $this->oldestWaiting(
+                DepositRequest::with('user:id,name,email')->where('status', 'pending')
+            )
                 ->take(5)
                 ->get()
-                ->map(fn ($d) => [
-                    'id' => $d->id,
-                    'user' => $d->user?->name ?? 'Unknown',
-                    'email' => $d->user?->email,
-                    'amount' => (float) $d->amount,
-                    'method' => $d->payment_method,
-                    'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
-                    'age' => $this->ageLabel($d->created_at),
-                    // deposits.show is JSON for the list-page modal; the HTML queue is the working page.
-                    'url' => route('admin.deposits', ['status' => 'pending']),
-                    'action_url' => $this->depositActionUrl((int) $d->id),
-                    'action_label' => 'Review',
-                ]);
+                ->map(function ($d) use ($hasCharge) {
+                    $chargeCurrency = null;
+                    $chargeAmount = null;
+                    if ($hasCharge) {
+                        $code = strtoupper(trim((string) ($d->charge_currency ?? '')));
+                        if ($code !== '' && $code !== 'EUR' && $d->charge_amount !== null) {
+                            $chargeCurrency = $code;
+                            $chargeAmount = (float) $d->charge_amount;
+                        }
+                    }
+
+                    return [
+                        'id' => $d->id,
+                        'user' => $d->user?->name ?? 'Unknown',
+                        'email' => $d->user?->email,
+                        'amount' => (float) $d->amount,
+                        'charge_currency' => $chargeCurrency,
+                        'charge_amount' => $chargeAmount,
+                        'method' => $d->payment_method,
+                        'method_label' => $this->paymentMethodLabel((string) $d->payment_method),
+                        'date' => $this->formatDate($d->created_at, 'd M Y H:i'),
+                        'age' => $this->ageLabel($d->created_at),
+                        // deposits.show is JSON for the list-page modal; the HTML queue is the working page.
+                        'url' => route('admin.deposits', ['status' => 'pending', 'search' => 'DEP-'.$d->id]),
+                        'action_url' => $this->depositActionUrl((int) $d->id),
+                        'action_label' => 'Review',
+                    ];
+                });
         } catch (\Throwable $e) {
             Log::warning('Dashboard deposits queue failed', ['error' => $e->getMessage()]);
 
@@ -378,9 +431,9 @@ class DashboardMetricsService
                 return collect();
             }
 
-            return Withdrawal::with('user:id,name,email')
-                ->whereIn('status', ['pending', 'processing'])
-                ->latest()
+            return $this->oldestWaiting(
+                Withdrawal::with('user:id,name,email')->whereIn('status', ['pending', 'processing'])
+            )
                 ->take(5)
                 ->get()
                 ->map(fn ($w) => [
@@ -389,11 +442,12 @@ class DashboardMetricsService
                     'email' => $w->user?->email,
                     'amount' => (float) $w->net_amount,
                     'method' => $w->payment_method,
+                    'method_label' => $this->paymentMethodLabel((string) $w->payment_method),
                     'status' => $w->status,
                     'date' => $this->formatDate($w->created_at, 'd M Y H:i'),
                     'age' => $this->ageLabel($w->created_at),
                     // withdrawals.show is JSON for the list-page modal; the HTML queue is the working page.
-                    'url' => route('admin.withdrawals', ['queue' => 'open']),
+                    'url' => route('admin.withdrawals', ['queue' => 'open', 'search' => 'WD-'.$w->id]),
                     'action_url' => $this->withdrawalActionUrl((int) $w->id),
                     'action_label' => 'Mark paid',
                 ]);
@@ -441,9 +495,9 @@ class DashboardMetricsService
     private function unpaidQueue(): Collection
     {
         try {
-            return $this->unpaidOrdersQuery()
-                ->with('user:id,name,email')
-                ->latest()
+            return $this->oldestWaiting(
+                $this->unpaidOrdersQuery()->with('user:id,name,email')
+            )
                 ->take(5)
                 ->get()
                 ->map(fn (Order $o) => [
@@ -452,9 +506,14 @@ class DashboardMetricsService
                     'user' => $o->user?->name ?? 'Unknown',
                     'email' => $o->user?->email,
                     'amount' => (float) $o->total_amount,
+                    'method' => $o->payment_method,
+                    'method_label' => $this->paymentMethodLabel((string) $o->payment_method),
                     'date' => $this->formatDate($o->created_at, 'd M Y H:i'),
                     'age' => $this->ageLabel($o->created_at),
-                    'url' => route('admin.orders.show', $o->id),
+                    'url' => route('admin.payments', [
+                        'payment_status' => 'unpaid',
+                        'search' => (string) ($o->order_number ?: $o->id),
+                    ]),
                 ]);
         } catch (\Throwable $e) {
             Log::warning('Dashboard unpaid queue failed', ['error' => $e->getMessage()]);
@@ -473,10 +532,11 @@ class DashboardMetricsService
         }
 
         try {
-            return OrderItemDispute::query()
-                ->where('status', OrderItemDispute::STATUS_OPEN)
-                ->with(['order:id,order_number,user_id', 'order.user:id,name', 'orderItem:id,site_name'])
-                ->latest()
+            return $this->oldestWaiting(
+                OrderItemDispute::query()
+                    ->where('status', OrderItemDispute::STATUS_OPEN)
+                    ->with(['order:id,order_number,user_id', 'order.user:id,name', 'orderItem:id,site_name'])
+            )
                 ->take(5)
                 ->get()
                 ->map(fn (OrderItemDispute $d) => [
@@ -510,7 +570,8 @@ class DashboardMetricsService
                 'from' => $r->name ?: ($r->email ?: 'Unknown'),
                 'date' => $this->formatDate($r->created_at, 'd M Y'),
                 'age' => $this->ageLabel($r->created_at),
-                'sort_at' => optional($r->created_at)?->timestamp ?? 0,
+                'sort_at' => $this->sortStamp($r->created_at),
+                'sort_id' => (int) $r->id,
                 'url' => route('admin.community.index', ['tab' => 'problems', 'status' => 'pending']),
             ]))
             ->concat($this->communityQueueRows(Suggestion::class, 'suggestions', fn (Suggestion $r) => [
@@ -519,7 +580,8 @@ class DashboardMetricsService
                 'from' => $r->name ?: ($r->email ?: 'Unknown'),
                 'date' => $this->formatDate($r->created_at, 'd M Y'),
                 'age' => $this->ageLabel($r->created_at),
-                'sort_at' => optional($r->created_at)?->timestamp ?? 0,
+                'sort_at' => $this->sortStamp($r->created_at),
+                'sort_id' => (int) $r->id,
                 'url' => route('admin.community.index', ['tab' => 'suggestions', 'status' => 'pending']),
             ]))
             ->concat($this->communityQueueRows(WebsiteSuggestion::class, 'website_suggestions', fn (WebsiteSuggestion $r) => [
@@ -528,7 +590,8 @@ class DashboardMetricsService
                 'from' => $r->website_url ?: 'Unknown',
                 'date' => $this->formatDate($r->created_at, 'd M Y'),
                 'age' => $this->ageLabel($r->created_at),
-                'sort_at' => optional($r->created_at)?->timestamp ?? 0,
+                'sort_at' => $this->sortStamp($r->created_at),
+                'sort_id' => (int) $r->id,
                 'url' => route('admin.community.index', ['tab' => 'websites', 'status' => 'pending']),
             ]))
             ->concat($this->communityQueueRows(SiteClaim::class, 'site_claims', fn (SiteClaim $r) => [
@@ -537,12 +600,16 @@ class DashboardMetricsService
                 'from' => $r->contact_email ?: 'Unknown',
                 'date' => $this->formatDate($r->created_at, 'd M Y'),
                 'age' => $this->ageLabel($r->created_at),
-                'sort_at' => optional($r->created_at)?->timestamp ?? 0,
+                'sort_at' => $this->sortStamp($r->created_at),
+                'sort_id' => (int) $r->id,
                 'url' => route('admin.community.index', ['tab' => 'claims', 'status' => 'pending']),
             ]));
 
-        return $rows->sortByDesc('sort_at')->take(5)->values()->map(function (array $row) {
-            unset($row['sort_at']);
+        return $rows->sortBy([
+            ['sort_at', 'asc'],
+            ['sort_id', 'asc'],
+        ])->take(5)->values()->map(function (array $row) {
+            unset($row['sort_at'], $row['sort_id']);
 
             return $row;
         });
@@ -560,10 +627,11 @@ class DashboardMetricsService
                 return collect();
             }
 
-            return SiteEnrichmentRun::query()
-                ->with('site:id,site_name,site_url')
-                ->needsAttention()
-                ->latest('id')
+            return $this->oldestWaiting(
+                SiteEnrichmentRun::query()
+                    ->with('site:id,site_name,site_url')
+                    ->needsAttention()
+            )
                 ->take(5)
                 ->get()
                 ->map(fn (SiteEnrichmentRun $run) => [
@@ -598,9 +666,10 @@ class DashboardMetricsService
                 return collect();
             }
 
-            return MarketingOpsQueues::bulkWaitingOnMarketer()
-                ->with('publisher:id,name,email')
-                ->latest('id')
+            return $this->oldestWaiting(
+                MarketingOpsQueues::bulkWaitingOnMarketer()
+                    ->with('publisher:id,name,email')
+            )
                 ->take(5)
                 ->get()
                 ->map(fn (BulkSiteRequest $bulk) => [
@@ -634,7 +703,9 @@ class DashboardMetricsService
 
             return collect(DB::table('failed_jobs')
                 ->where('payload', 'like', '%SendQueuedMailable%')
-                ->orderByDesc('id')
+                ->orderByRaw('CASE WHEN failed_at IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('failed_at')
+                ->orderBy('id')
                 ->take(5)
                 ->get())
                 ->map(function ($row) {
@@ -667,9 +738,10 @@ class DashboardMetricsService
                 return collect();
             }
 
-            return ContentModerationLog::query()
-                ->where('status', ContentModerationLog::STATUS_ERROR)
-                ->latest('id')
+            return $this->oldestWaiting(
+                ContentModerationLog::query()
+                    ->where('status', ContentModerationLog::STATUS_ERROR)
+            )
                 ->take(5)
                 ->get()
                 ->map(fn (ContentModerationLog $log) => [
@@ -702,10 +774,11 @@ class DashboardMetricsService
             return User::query()
                 ->whereNotNull('catalog_hide_until')
                 ->where('catalog_hide_until', '>', now())
-                ->orderByDesc('catalog_hide_until')
-                ->take(5)
+                ->orderBy('catalog_hide_until')
+                ->orderBy('id')
                 ->get(['id', 'name', 'email', 'catalog_hide_until'])
                 ->filter(fn (User $user) => $user->inCatalogHideMode())
+                ->take(5)
                 ->values()
                 ->map(fn (User $user) => [
                     'id' => $user->id,
@@ -899,7 +972,9 @@ class DashboardMetricsService
                 return collect();
             }
 
-            return $model::query()->where('status', 'pending')->latest('id')->take(5)->get()->map($mapper);
+            return $this->oldestWaiting(
+                $model::query()->where('status', 'pending')
+            )->take(5)->get()->map($mapper);
         } catch (\Throwable) {
             return collect();
         }
@@ -933,6 +1008,197 @@ class DashboardMetricsService
         } catch (\Throwable) {
             return 0;
         }
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function missingTaxQueue(): Collection
+    {
+        try {
+            return $this->repairQueue->oldestMissingTaxOrders(5)
+                ->map(fn (Order $order) => [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'user' => $order->user?->name ?? 'Unknown',
+                    'amount' => (float) $order->total_amount,
+                    'date' => $this->formatDate($order->paid_at ?? $order->created_at, 'd M Y H:i'),
+                    'age' => $this->ageLabel($order->paid_at ?? $order->created_at),
+                    'url' => route('admin.invoices.index', [
+                        'queue' => 'missing',
+                        'search' => (string) ($order->order_number ?: $order->id),
+                    ]),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard missing-tax queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function missingPdfQueue(): Collection
+    {
+        try {
+            return $this->repairQueue->oldestMissingPdfInvoices(5)
+                ->map(function ($invoice) {
+                    $code = strtoupper(trim((string) ($invoice->currency ?? '')));
+
+                    return [
+                        'id' => $invoice->id,
+                        'label' => $invoice->invoice_number ?: ('Invoice '.$invoice->id),
+                        'amount' => (float) $invoice->total_amount,
+                        'currency' => $code !== '' && $code !== 'EUR' ? $code : null,
+                        'date' => $this->formatDate($invoice->invoice_date ?? $invoice->created_at, 'd M Y'),
+                        'age' => $this->ageLabel($invoice->invoice_date ?? $invoice->created_at),
+                        'url' => route('admin.invoices.index', [
+                            'pdf' => 'missing',
+                            'search' => (string) ($invoice->invoice_number ?: $invoice->id),
+                        ]),
+                    ];
+                });
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard missing-pdf queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function libraryQueue(): Collection
+    {
+        try {
+            if (! Schema::hasTable('content_submissions')) {
+                return collect();
+            }
+
+            $columns = ['id'];
+            foreach (['title', 'original_filename', 'created_at'] as $column) {
+                if (Schema::hasColumn('content_submissions', $column)) {
+                    $columns[] = $column;
+                }
+            }
+
+            return $this->oldestWaiting(ContentSubmission::query()->evaluatingInLibrary())
+                ->take(5)
+                ->get($columns)
+                ->map(fn (ContentSubmission $submission) => [
+                    'id' => $submission->id,
+                    'label' => $submission->title ?: ($submission->original_filename ?: 'Article'),
+                    'date' => $this->formatDate($submission->created_at, 'd M Y'),
+                    'age' => $this->ageLabel($submission->created_at),
+                    'url' => route('admin.content-library.show', $submission->id),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard library queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function campaignQueue(): Collection
+    {
+        try {
+            if (! EmailCampaign::tableAvailable()) {
+                return collect();
+            }
+
+            return $this->oldestWaiting(
+                EmailCampaign::query()->whereIn('status', $this->campaignAttentionStatuses())
+            )
+                ->take(5)
+                ->get(['id', 'subject', 'status', 'created_at'])
+                ->map(fn (EmailCampaign $campaign) => [
+                    'id' => $campaign->id,
+                    'label' => Str::limit((string) ($campaign->subject ?: 'Campaign'), 80),
+                    'status' => $campaign->status,
+                    'date' => $this->formatDate($campaign->created_at, 'd M Y'),
+                    'age' => $this->ageLabel($campaign->created_at),
+                    'url' => route('admin.campaigns.show', $campaign->id),
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard campaign queue failed', ['error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    private function libraryEvaluatingCount(): int
+    {
+        return $this->safeInt(function () {
+            if (! Schema::hasTable('content_submissions')) {
+                return 0;
+            }
+
+            return ContentSubmission::query()->evaluatingInLibrary()->count();
+        });
+    }
+
+    private function campaignsAttentionCount(): int
+    {
+        return $this->safeInt(function () {
+            if (! EmailCampaign::tableAvailable()) {
+                return 0;
+            }
+
+            return EmailCampaign::query()
+                ->whereIn('status', $this->campaignAttentionStatuses())
+                ->count();
+        });
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function campaignAttentionStatuses(): array
+    {
+        return [
+            EmailCampaign::STATUS_QUEUED,
+            EmailCampaign::STATUS_SENDING,
+            EmailCampaign::STATUS_FAILED,
+        ];
+    }
+
+    /**
+     * Rows with no usable date sort after dated rows, so a blank timestamp
+     * does not take a slot ahead of work that has actually been waiting.
+     */
+    private function sortStamp(mixed $value): int
+    {
+        $date = $this->parseDate($value);
+
+        return $date ? $date->getTimestamp() : PHP_INT_MAX;
+    }
+
+    private function oldestWaiting($query, string $column = 'created_at')
+    {
+        if (! preg_match('/^[A-Za-z0-9_]+$/', $column)) {
+            $column = 'created_at';
+        }
+
+        return $query
+            ->orderByRaw('CASE WHEN '.$column.' IS NULL THEN 1 ELSE 0 END')
+            ->orderBy($column)
+            ->orderBy('id');
+    }
+
+    private function paymentMethodLabel(string $method): string
+    {
+        $method = strtolower(trim($method));
+
+        return match ($method) {
+            'stripe' => 'card',
+            'bank_transfer' => 'bank',
+            '' => '',
+            default => $method,
+        };
     }
 
     private function ageLabel(mixed $value): ?string
@@ -983,9 +1249,8 @@ class DashboardMetricsService
     private function depositActionUrl(int $id): ?string
     {
         try {
-            if ($id > 0 && class_exists(ManualDepositApproveLink::class) && method_exists(ManualDepositApproveLink::class, 'url')) {
-                return $this->sameOriginSignedUrl(ManualDepositApproveLink::url($id))
-                    ?? $this->safeRoute('admin.deposits', ['status' => 'pending']);
+            if ($id > 0 && class_exists(ManualDepositApproveLink::class) && method_exists(ManualDepositApproveLink::class, 'relativeUrl')) {
+                return ManualDepositApproveLink::relativeUrl($id);
             }
         } catch (\Throwable $e) {
             Log::warning('Dashboard deposit action URL failed', ['error' => $e->getMessage()]);
@@ -997,27 +1262,14 @@ class DashboardMetricsService
     private function withdrawalActionUrl(int $id): ?string
     {
         try {
-            if ($id > 0 && class_exists(ManualWithdrawalMarkPaidLink::class) && method_exists(ManualWithdrawalMarkPaidLink::class, 'url')) {
-                return $this->sameOriginSignedUrl(ManualWithdrawalMarkPaidLink::url($id))
-                    ?? $this->safeRoute('admin.withdrawals', ['queue' => 'open']);
+            if ($id > 0 && class_exists(ManualWithdrawalMarkPaidLink::class) && method_exists(ManualWithdrawalMarkPaidLink::class, 'relativeUrl')) {
+                return ManualWithdrawalMarkPaidLink::relativeUrl($id);
             }
         } catch (\Throwable $e) {
             Log::warning('Dashboard withdrawal action URL failed', ['error' => $e->getMessage()]);
         }
 
         return $this->safeRoute('admin.withdrawals', ['queue' => 'open']);
-    }
-
-    private function sameOriginSignedUrl(string $absolute): ?string
-    {
-        $parts = parse_url($absolute);
-        if (! is_array($parts) || empty($parts['path'])) {
-            return null;
-        }
-
-        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
-
-        return $parts['path'].$query;
     }
 
     private function safeRoute(string $name, mixed $parameters = []): ?string

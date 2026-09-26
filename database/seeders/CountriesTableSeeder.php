@@ -3,13 +3,63 @@
 namespace Database\Seeders;
 
 use App\Models\Country;
+use App\Models\Language;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 
 class CountriesTableSeeder extends Seeder
 {
-    public function run()
+    /**
+     * Insert marketplace countries that were never migrated onto this database.
+     * Does not delete or rename existing rows.
+     */
+    public static function upsertMissing(): void
     {
-        $countries = [
+        if (! Schema::hasTable('countries')) {
+            return;
+        }
+
+        $allowed = array_map('strtolower', (array) config('markets.allowed_country_codes', []));
+        $existing = Country::query()->pluck('code')->map(fn ($code) => strtolower((string) $code))->all();
+
+        foreach (self::definitions() as $country) {
+            $code = strtolower($country['code']);
+            if ($allowed !== [] && ! in_array($code, $allowed, true)) {
+                continue;
+            }
+            if (in_array($code, $existing, true)) {
+                continue;
+            }
+
+            $row = Country::query()->create($country);
+            $existing[] = $code;
+            self::attachLanguages($row);
+        }
+    }
+
+    private static function attachLanguages(Country $country): void
+    {
+        $codes = array_values((array) config('markets.allowed_languages_by_country.'.$country->code, []));
+        $sync = [];
+        foreach ($codes as $index => $langCode) {
+            $language = Language::query()->where('code', strtolower((string) $langCode))->first();
+            if (! $language) {
+                continue;
+            }
+            $sync[$language->id] = ['is_primary' => $index === 0];
+        }
+
+        if ($sync !== []) {
+            $country->languages()->syncWithoutDetaching($sync);
+        }
+    }
+
+    /**
+     * @return list<array{code: string, name: string, region: string}>
+     */
+    public static function definitions(): array
+    {
+        return [
             // Europe
             ['code' => 'al', 'name' => 'Albania', 'region' => 'Europe'],
             ['code' => 'at', 'name' => 'Austria', 'region' => 'Europe'],
@@ -95,6 +145,11 @@ class CountriesTableSeeder extends Seeder
             ['code' => 'bh', 'name' => 'Bahrain', 'region' => 'Middle East'],
             ['code' => 'om', 'name' => 'Oman', 'region' => 'Middle East'],
         ];
+    }
+
+    public function run()
+    {
+        $countries = self::definitions();
 
         $allowed = config('markets.allowed_country_codes', []);
 

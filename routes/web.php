@@ -1219,6 +1219,9 @@ $registerStaffOpsRoutes = function () {
         ->name('users.sites');
     Route::post('/sites/bulk-action', [AdminSiteController::class, 'bulkAction'])
         ->name('sites.bulk-action');
+    // Static path: must stay before /sites/{id} wildcards.
+    Route::get('/sites/export', [AdminSiteController::class, 'export'])
+        ->name('sites.export');
     // Disk-stream preview when public/storage symlink is broken (Hostinger MEDIA_PATH).
     // Must be registered before /sites/{id}… wildcards.
     Route::get('/sites/media/{path}', [PublicMediaController::class, 'show'])
@@ -1548,6 +1551,7 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
 
         Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/data', [AdminOrderController::class, 'data'])->name('orders.data');
+        Route::get('/orders/export', [AdminOrderController::class, 'export'])->name('orders.export');
         Route::get('/orders/items/{orderItem}/content', [AdminOrderController::class, 'downloadContent'])
             ->name('orders.content.download');
         Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->name('orders.show');

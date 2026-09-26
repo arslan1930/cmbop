@@ -338,6 +338,9 @@
             setNavBadge('navBadgeMail', data.failed_mail || 0);
             setNavBadge('navBadgeModeration', data.moderation_errors || 0);
             setNavBadge('navBadgeCatalog', data.catalog_hide || 0);
+            if (typeof window.refreshAdminDashboardQueues === 'function') {
+                window.refreshAdminDashboardQueues(data);
+            }
         })
         .catch(() => {});
     }

@@ -165,4 +165,21 @@ class AdminRejectionNotifiesPublisherTest extends TestCase
 
         Mail::assertQueued(SiteStatusNotification::class, fn ($mail) => $mail->hasTo($publisher->email));
     }
+
+    public function test_removed_status_mail_renders_after_the_site_row_is_gone(): void
+    {
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->site($publisher);
+        $mail = new SiteStatusNotification($site, 'removed', null, 'Traffic could not be verified.');
+
+        $site->delete();
+
+        $restored = unserialize(serialize($mail));
+        $this->assertInstanceOf(SiteStatusNotification::class, $restored);
+        $html = $restored->render();
+
+        $this->assertStringContainsString('Rejected Site', $html);
+        $this->assertStringContainsString('Traffic could not be verified.', $html);
+        $this->assertStringContainsString($publisher->name, $html);
+    }
 }

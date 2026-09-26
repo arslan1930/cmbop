@@ -50,6 +50,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SiteController extends Controller
 {
+    private const EXPORT_LIMIT = 5000;
+
     public function index(Request $request)
     {
         try {
@@ -76,6 +78,10 @@ class SiteController extends Controller
                 'publisherSearch' => trim(scalar_text($request->query('q', ''))),
                 'flatQueue' => $request->boolean('flat'),
                 'flatQueueSites' => null,
+                'allSitesMode' => false,
+                'allSites' => null,
+                'sitesExportLimited' => false,
+                'sitesExportUrl' => staff_route('sites.export'),
                 'staffSiteFilters' => $this->staffSitesListFilterState($request),
                 'listingTagOptions' => SiteTag::catalogFilterOptions(),
                 'marketplaceCountries' => collect(),
@@ -97,6 +103,11 @@ class SiteController extends Controller
         $publisherSearch = trim(scalar_text($request->query('q', '')));
         $flatQueue = $request->boolean('flat');
         $staffSiteFilters = $this->staffSitesListFilterState($request);
+        $allSitesMode = $this->requestFlag($request, 'all')
+            && ! $needsReviewFilter
+            && ! $waitingOnPublisherFilter
+            && ! $request->filled('publisher')
+            && ! $request->filled('site');
         $listingTagOptions = SiteTag::catalogFilterOptions();
         $marketplaceCountries = $this->staffMarketplaceCountries();
 
@@ -106,13 +117,14 @@ class SiteController extends Controller
         ) {
             $exactSite = $this->uniqueStaffSiteForExactSearch($publisherSearch);
             if ($exactSite) {
-                return redirect()->to(staff_route('sites.index', array_filter([
-                    'q' => $publisherSearch,
-                    'publisher' => $exactSite->publisher_id,
-                    'site' => $exactSite->id,
-                    'needs_review' => $needsReviewFilter ? 1 : null,
-                    'waiting_on_publisher' => $waitingOnPublisherFilter ? 1 : null,
-                ], static fn ($value) => $value !== null && $value !== '')));
+                return redirect()->to(staff_route('sites.index', $this->staffSitesIndexRedirectQuery(
+                    $publisherSearch,
+                    $exactSite,
+                    $needsReviewFilter,
+                    $waitingOnPublisherFilter,
+                    $staffSiteFilters,
+                    $allSitesMode
+                )));
             }
         }
 
@@ -128,6 +140,8 @@ class SiteController extends Controller
         $healthCounts = CatalogHealthQueue::counts();
         $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
         $flatQueueSites = null;
+        $allSites = null;
+        $sitesExportLimited = false;
 
         if ($flatQueue && $waitingOnPublisherFilter) {
             $users = new LengthAwarePaginator([], 0, 20, 1, [
@@ -135,7 +149,7 @@ class SiteController extends Controller
                 'query' => $request->query(),
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesWaitingOnPublisher()
-                ->with('publisher:id,name,email')
+                ->with($this->staffPublisherWith())
                 ->when(Schema::hasTable('order_items'), fn ($q) => $q->withCount('orderItems'));
             $this->applyStaffIndexSiteOrPublisherSearch($flatQueueSites, $publisherSearch);
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
@@ -149,7 +163,7 @@ class SiteController extends Controller
                 'query' => $request->query(),
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesReadyForStaff()
-                ->with('publisher:id,name,email')
+                ->with($this->staffPublisherWith())
                 ->when(Schema::hasTable('order_items'), fn ($q) => $q->withCount('orderItems'));
             $this->applyStaffIndexSiteOrPublisherSearch($flatQueueSites, $publisherSearch);
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
@@ -157,6 +171,15 @@ class SiteController extends Controller
             $flatQueueSites = $flatQueueSites
                 ->paginate(30)
                 ->appends($request->query());
+        } elseif ($allSitesMode) {
+            $users = new LengthAwarePaginator([], 0, 20, 1, [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]);
+            $allSites = $this->staffAllSitesQuery($request, $publisherSearch, $staffSiteFilters)
+                ->paginate(30)
+                ->appends($request->query());
+            $sitesExportLimited = $allSites->total() > self::EXPORT_LIMIT;
         } else {
             // Counts only — do not eager-load every site row for the publisher list.
             $query = User::query()
@@ -168,11 +191,19 @@ class SiteController extends Controller
                 }]);
 
             if ($publisherSearch !== '') {
-                $query->withCount(['sites as matched_sites_count' => function ($q) use ($publisherSearch) {
-                    $q->notArchived();
+                $query->withCount(['sites as matched_sites_count' => function ($q) use ($publisherSearch, $staffSiteFilters) {
+                    $this->applyStaffSitesArchiveScope($q, $staffSiteFilters);
                     $this->constrainStaffSiteSearch($q, $publisherSearch);
+                    $this->applyStaffSitesListFilters($q, $staffSiteFilters);
                 }]);
-                $this->applyStaffPublisherSearch($query, $publisherSearch);
+                $this->applyStaffPublisherSearch($query, $publisherSearch, $staffSiteFilters);
+            }
+
+            if ($this->staffSitesListNarrows($staffSiteFilters)) {
+                $query->whereHas('sites', function ($sites) use ($staffSiteFilters) {
+                    $this->applyStaffSitesArchiveScope($sites, $staffSiteFilters);
+                    $this->applyStaffSitesListFilters($sites, $staffSiteFilters);
+                });
             }
 
             // Ops queue: publishers with sites ready for admin decision (not unfinished drafts)
@@ -195,6 +226,8 @@ class SiteController extends Controller
                 ->appends($request->query());
         }
 
+        $sitesExportUrl = staff_route('sites.export', $this->staffSitesExportQuery($request));
+
         return view('admin.sites', compact(
             'users',
             'unverifiedFilter',
@@ -207,10 +240,195 @@ class SiteController extends Controller
             'publisherSearch',
             'flatQueue',
             'flatQueueSites',
+            'allSitesMode',
+            'allSites',
+            'sitesExportLimited',
+            'sitesExportUrl',
             'staffSiteFilters',
             'listingTagOptions',
             'marketplaceCountries'
         ));
+    }
+
+    /**
+     * @param  array{tag: ?string, country: string, listing_active: string, listing_verified: string, below_quality: bool, missing_market: bool, archived: bool, sort: string}  $filters
+     * @return array<string, mixed>
+     */
+    private function staffSitesIndexRedirectQuery(
+        string $search,
+        Site $exact,
+        bool $needsReview,
+        bool $waiting,
+        array $filters,
+        bool $allSitesMode
+    ): array {
+        return array_filter([
+            'q' => $search,
+            'publisher' => $exact->publisher_id,
+            'site' => $exact->id,
+            'needs_review' => $needsReview ? 1 : null,
+            'waiting_on_publisher' => $waiting ? 1 : null,
+            'all' => $allSitesMode ? 1 : null,
+            'tag' => ($filters['tag'] ?? null) !== null && ($filters['tag'] ?? '') !== '' ? $filters['tag'] : null,
+            'country' => ($filters['country'] ?? '') !== '' ? $filters['country'] : null,
+            'listing_active' => ($filters['listing_active'] ?? '') !== '' ? $filters['listing_active'] : null,
+            'listing_verified' => ($filters['listing_verified'] ?? '') !== '' ? $filters['listing_verified'] : null,
+            'below_quality' => ! empty($filters['below_quality']) ? 1 : null,
+            'missing_market' => ! empty($filters['missing_market']) ? 1 : null,
+            'archived' => ! empty($filters['archived']) ? 1 : null,
+            'sort' => ($filters['sort'] ?? '') !== '' ? $filters['sort'] : null,
+        ], static fn ($value) => $value !== null && $value !== '');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function staffSitesExportQuery(Request $request): array
+    {
+        $query = [];
+        foreach ($request->query() as $key => $value) {
+            if ($key === 'page' || is_array($value)) {
+                continue;
+            }
+            $query[$key] = $value;
+        }
+
+        return $query;
+    }
+
+    private function staffPublisherWith(): string
+    {
+        $columns = ['id', 'name', 'email'];
+        try {
+            if (Schema::hasColumn('users', 'catalog_hide_until')) {
+                $columns[] = 'catalog_hide_until';
+            }
+        } catch (\Throwable) {
+            // Hide chip stays off when the column cannot be read.
+        }
+
+        return 'publisher:'.implode(',', $columns);
+    }
+
+    /**
+     * @param  array{tag: ?string, country: string, listing_active: string, listing_verified: string, below_quality: bool, missing_market: bool, archived: bool, sort: string}  $filters
+     * @return Builder<Site>
+     */
+    private function staffAllSitesQuery(Request $request, ?string $search = null, ?array $filters = null): Builder
+    {
+        $filters ??= $this->staffSitesListFilterState($request);
+        $search ??= trim(scalar_text($request->query('q', '')));
+
+        $query = Site::query()->with($this->staffPublisherWith());
+        if (Schema::hasTable('order_items')) {
+            $query->withCount('orderItems');
+        }
+        $this->applyStaffSitesArchiveScope($query, $filters);
+        $this->applyStaffIndexSiteOrPublisherSearch($query, $search);
+        $this->applyStaffSitesListFilters($query, $filters);
+        $this->applyStaffSitesListSort($query, $filters['sort'], 'newest');
+
+        return $query;
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $matchCount = 0;
+        try {
+            $query = $this->staffAllSitesQuery($request);
+            $matchCount = (clone $query)->count();
+            $rows = $query->limit(self::EXPORT_LIMIT)->get();
+        } catch (\Throwable $e) {
+            Log::warning('Admin sites export query failed', ['error' => $e->getMessage()]);
+            $rows = collect();
+            $matchCount = 0;
+        }
+
+        ActivityLogger::tryLog(
+            'sites.exported',
+            ($request->user()?->name ?? 'Staff').' exported sites ('.$rows->count().' row(s)).',
+            null,
+            [
+                'rows_exported' => $rows->count(),
+                'truncated' => $matchCount > self::EXPORT_LIMIT,
+            ]
+        );
+
+        $filename = 'sites-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'id',
+                'site_name',
+                'domain',
+                'site_url',
+                'publisher',
+                'publisher_email',
+                'countries',
+                'languages',
+                'categories',
+                'link_type',
+                'sponsored',
+                'tag',
+                'da',
+                'dr',
+                'traffic',
+                'price_eur',
+                'sale_eur',
+                'featured',
+                'bulk',
+                'orders',
+                'active',
+                'verified',
+                'enrichment_status',
+                'metrics_fetched_at',
+                'copy_strike_hide',
+            ]);
+            foreach ($rows as $site) {
+                $facts = $this->staffListingFacts($site);
+                fputcsv($out, [
+                    $this->csvCell($site->id),
+                    $this->csvCell($site->site_name),
+                    $this->csvCell($site->domain),
+                    $this->csvCell($site->site_url),
+                    $this->csvCell($site->publisher?->name),
+                    $this->csvCell($site->publisher?->email),
+                    $this->csvCell(implode('|', $facts['countries_list'])),
+                    $this->csvCell(implode('|', $facts['languages_list'])),
+                    $this->csvCell(implode('|', $facts['categories_list'])),
+                    $this->csvCell($facts['link_type_label']),
+                    $this->csvCell($site->sponsored ? 'yes' : 'no'),
+                    $this->csvCell($site->tagLabel('')),
+                    $this->csvCell($site->da),
+                    $this->csvCell($site->dr),
+                    $this->csvCell($site->traffic),
+                    $this->csvCell($site->price),
+                    $this->csvCell($facts['sale_price']),
+                    $this->csvCell($facts['featured'] ? 'yes' : 'no'),
+                    $this->csvCell($facts['bulk_discount'] ? 'yes' : 'no'),
+                    $this->csvCell($site->orderItemsCount()),
+                    $this->csvCell($site->active ? 'yes' : 'no'),
+                    $this->csvCell($site->verified ? 'yes' : 'no'),
+                    $this->csvCell($site->enrichment_status),
+                    $this->csvCell($facts['metrics_fetched_label']),
+                    $this->csvCell($facts['publisher_copy_strike'] ? 'yes' : 'no'),
+                ]);
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    private function csvCell(mixed $value): string
+    {
+        $text = (string) ($value ?? '');
+        if ($text !== '' && preg_match('/^[=+\-@\t\r]/', $text)) {
+            return "'".$text;
+        }
+
+        return $text;
     }
 
     /**
@@ -772,9 +990,11 @@ class SiteController extends Controller
             }
             if ($hasCountriesJson) {
                 $like = like_contains('"'.$code.'"');
+                // CAST AS CHAR is CHAR(1) on MariaDB. SUBSTRING keeps the whole
+                // list on MariaDB, MySQL, and SQLite.
                 $jsonClause = function ($inner) use ($code, $like) {
-                    $inner->whereRaw('LOWER(CAST(countries AS CHAR)) LIKE ? ESCAPE ?', [$like, '\\'])
-                        ->orWhereRaw('LOWER(CAST(countries AS CHAR)) = ?', [$code]);
+                    $inner->whereRaw('LOWER(SUBSTRING(countries, 1, 8000)) LIKE ? ESCAPE ?', [$like, '\\'])
+                        ->orWhereRaw('LOWER(SUBSTRING(countries, 1, 8000)) = ?', [$code]);
                 };
                 if ($hasCountry) {
                     $q->orWhere($jsonClause);
@@ -912,6 +1132,100 @@ class SiteController extends Controller
     }
 
     /**
+     * Advertiser offer, every market, and scan/hide facts for a staff row.
+     *
+     * @return array<string, mixed>
+     */
+    private function staffListingFacts(Site $site): array
+    {
+        $sale = null;
+        try {
+            $prices = $site->catalogPricesForViewer(null);
+            if (array_key_exists('sale', $prices) && $prices['sale'] !== null) {
+                $sale = round((float) $prices['sale'], 2);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $countries = [];
+        $languages = [];
+        $categories = [];
+        try {
+            $countries = array_values($site->countryCodesForDisplay());
+        } catch (\Throwable $e) {
+            report($e);
+        }
+        try {
+            $languages = array_values($site->languageCodes());
+        } catch (\Throwable $e) {
+            report($e);
+        }
+        try {
+            $categories = array_values(array_filter(array_map(
+                static fn ($value) => trim(scalar_text($value)),
+                (array) $site->categories_array
+            ), static fn ($value) => $value !== ''));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $metricsLabel = null;
+        try {
+            $fetched = $site->metrics_fetched_at;
+            if ($fetched instanceof \DateTimeInterface) {
+                $metricsLabel = \Illuminate\Support\Carbon::parse($fetched)
+                    ->timezone((string) config('app.timezone'))
+                    ->format('M j, Y');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $ordersSearch = trim(scalar_text($site->domain ?: ($site->site_name ?: '')));
+        $ordersUrl = null;
+        if ($ordersSearch !== '' && auth()->user()?->isAdmin()) {
+            try {
+                $ordersUrl = route('admin.orders.index', ['search' => $ordersSearch]);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $featured = false;
+        $bulk = false;
+        $linkLabel = null;
+        try {
+            $featured = $site->isFeatured();
+            $bulk = $site->joinsBulkDiscount();
+            $linkLabel = $site->linkTypeLabel();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $copyStrike = false;
+        try {
+            $copyStrike = (bool) $site->publisher?->inCatalogHideMode();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return [
+            'sale_price' => $sale,
+            'featured' => $featured,
+            'bulk_discount' => $bulk,
+            'link_type_label' => $linkLabel,
+            'countries_list' => $countries,
+            'languages_list' => $languages,
+            'categories_list' => $categories,
+            'orders_url' => $ordersUrl,
+            'enrichment_failed' => (string) ($site->enrichment_status ?? '') === 'failed',
+            'metrics_fetched_label' => $metricsLabel,
+            'publisher_copy_strike' => $copyStrike,
+        ];
+    }
+
+    /**
      * Slim JSON row for Sites Management (avoid full model dumps + disk I/O).
      *
      * @return array<string, mixed>
@@ -977,6 +1291,7 @@ class SiteController extends Controller
             'screenshot_url' => $preview['full'],
             'screenshot_thumb_url' => $preview['thumb'],
             'image_url' => $imageUrl,
+            ...$this->staffListingFacts($site),
         ];
     }
 
@@ -1212,6 +1527,13 @@ class SiteController extends Controller
             'screenshot_thumb_path',
             'agency_site_import_id',
             'metrics_manual',
+            'featured_until',
+            'custom_discount_percent',
+            'custom_discount_starts_at',
+            'custom_discount_ends_at',
+            'bulk_discount_enabled',
+            'bulk_discount_percent',
+            'original_price',
             'created_at',
             'updated_at',
         ];
@@ -1243,21 +1565,30 @@ class SiteController extends Controller
         $siteSearch = trim(scalar_text($request->query('q', '')));
         $needsReviewOnly = $request->boolean('needs_review');
         $filters = $this->staffSitesListFilterState($request);
+        // Deep link: keep this row on page 1 even when the list filters would hide it.
+        $focusSiteId = $this->canonicalStaffId(trim(scalar_text($request->query('site', ''))));
 
         $sitesQuery = Site::query()
-            ->where('publisher_id', $user->id);
-        $this->applyStaffSitesArchiveScope($sitesQuery, $filters);
-
-        if ($siteSearch !== '') {
-            $this->constrainStaffSiteSearch($sitesQuery, $siteSearch);
-        }
-
-        if ($needsReviewOnly) {
-            $sitesQuery->needsAdminReview();
-        }
-
-        $this->applyStaffSitesListFilters($sitesQuery, $filters);
-        $this->applyStaffSitesListSort($sitesQuery, $filters['sort'], 'newest');
+            ->where('publisher_id', $user->id)
+            ->where(function ($outer) use ($filters, $siteSearch, $needsReviewOnly, $focusSiteId) {
+                $outer->where(function ($matched) use ($filters, $siteSearch, $needsReviewOnly) {
+                    // Show archived adds no predicate. An empty group compiles to "()"
+                    // and the publisher site list 500s.
+                    $matched->whereRaw('1 = 1');
+                    $this->applyStaffSitesArchiveScope($matched, $filters);
+                    if ($siteSearch !== '') {
+                        $this->constrainStaffSiteSearch($matched, $siteSearch);
+                    }
+                    if ($needsReviewOnly) {
+                        $matched->needsAdminReview();
+                    }
+                    $this->applyStaffSitesListFilters($matched, $filters);
+                });
+                if ($focusSiteId !== null) {
+                    $outer->orWhere($outer->getModel()->getTable().'.id', $focusSiteId);
+                }
+            });
+        $this->applyStaffSitesListSort($sitesQuery, $filters['sort'], 'newest', $focusSiteId);
 
         if (Schema::hasTable('order_items')) {
             $sitesQuery->withCount('orderItems');
@@ -1266,7 +1597,11 @@ class SiteController extends Controller
         $paginator = $sitesQuery->paginate($perPage, $select);
 
         $sites = $paginator->getCollection()
-            ->map(fn (Site $site) => $this->staffSiteListRow($site))
+            ->map(function (Site $site) use ($user) {
+                $site->setRelation('publisher', $user);
+
+                return $this->staffSiteListRow($site);
+            })
             ->values();
 
         // Include publisher meta so the detail view still loads when the publisher
@@ -1276,6 +1611,7 @@ class SiteController extends Controller
                 'id' => (int) $user->id,
                 'name' => (string) $user->name,
                 'email' => (string) $user->email,
+                'copy_strike' => $user->inCatalogHideMode(),
             ],
             'sites' => $sites,
             'meta' => [
@@ -1298,23 +1634,35 @@ class SiteController extends Controller
     }
 
     /**
-     * Publishers whose name/email match, or who own a matching not-archived site.
+     * Publishers whose name, email, or company match, or who own a matching site.
+     * Archived sites stay out unless Show archived is on.
+     *
+     * @param  array{archived?: bool, tag?: ?string, country?: string, listing_active?: string, listing_verified?: string, below_quality?: bool, missing_market?: bool}  $filters
      */
-    private function applyStaffPublisherSearch($query, string $search): void
+    private function applyStaffPublisherSearch($query, string $search, array $filters = []): void
     {
         if ($search === '') {
             return;
         }
 
         $like = like_contains($search);
-        $query->where(function ($q) use ($search, $like) {
+        $query->where(function ($q) use ($search, $like, $filters) {
             $q->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
                 ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\']);
-            if (ctype_digit($search)) {
-                $q->orWhere('users.id', (int) $search);
+            if ($this->usersHaveColumn('company_name')) {
+                $q->orWhereRaw('company_name LIKE ? ESCAPE ?', [$like, '\\']);
             }
-            $q->orWhereHas('sites', function ($sites) use ($search) {
-                $sites->notArchived();
+            $publisherId = $this->canonicalStaffId($search);
+            if ($publisherId !== null) {
+                $q->orWhere('users.id', $publisherId);
+            }
+            $q->orWhereHas('sites', function ($sites) use ($search, $filters) {
+                if ($filters === []) {
+                    $sites->notArchived();
+                } else {
+                    $this->applyStaffSitesArchiveScope($sites, $filters);
+                    $this->applyStaffSitesListFilters($sites, $filters);
+                }
                 $this->constrainStaffSiteSearch($sites, $search);
             });
         });
@@ -1335,6 +1683,9 @@ class SiteController extends Controller
             $q->orWhereHas('publisher', function ($publisher) use ($like) {
                 $publisher->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
                     ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\']);
+                if ($this->usersHaveColumn('company_name')) {
+                    $publisher->orWhereRaw('company_name LIKE ? ESCAPE ?', [$like, '\\']);
+                }
             });
         });
     }
@@ -1352,13 +1703,52 @@ class SiteController extends Controller
             $q->whereRaw('site_name LIKE ? ESCAPE ?', [$like, '\\'])
                 ->orWhereRaw('domain LIKE ? ESCAPE ?', [$like, '\\'])
                 ->orWhereRaw('site_url LIKE ? ESCAPE ?', [$like, '\\']);
-            if (ctype_digit($search)) {
-                $q->orWhere('id', (int) $search);
+            foreach (['category', 'language', 'description', 'example_url'] as $column) {
+                if (Site::hasSitesColumn($column)) {
+                    $q->orWhereRaw($column.' LIKE ? ESCAPE ?', [$like, '\\']);
+                }
+            }
+            // CAST AS CHAR is CHAR(1) on MariaDB. SUBSTRING keeps the stored text.
+            foreach (['categories', 'languages'] as $column) {
+                if (Site::hasSitesColumn($column)) {
+                    $q->orWhereRaw('SUBSTRING('.$column.', 1, 8000) LIKE ? ESCAPE ?', [$like, '\\']);
+                }
+            }
+            $siteId = $this->canonicalStaffId($search);
+            if ($siteId !== null) {
+                $q->orWhere('id', $siteId);
             }
             if ($candidates !== []) {
                 $q->orWhereIn('domain', $candidates);
             }
         });
+    }
+
+    /**
+     * A bare id matches only when the digits are the canonical integer.
+     * 000042 must not also match site or publisher 42.
+     */
+    private function canonicalStaffId(string $search): ?int
+    {
+        if ($search === '' || ! ctype_digit($search)) {
+            return null;
+        }
+
+        $id = (int) $search;
+        if ((string) $id !== $search) {
+            return null;
+        }
+
+        return $id > 0 ? $id : null;
+    }
+
+    private function usersHaveColumn(string $column): bool
+    {
+        try {
+            return Schema::hasColumn('users', $column);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
@@ -1368,8 +1758,9 @@ class SiteController extends Controller
     {
         $query = Site::query()->notArchived();
 
-        if (ctype_digit($search)) {
-            $matches = $query->where('id', (int) $search)->limit(2)->get();
+        $siteId = $this->canonicalStaffId($search);
+        if ($siteId !== null) {
+            $matches = $query->where('id', $siteId)->limit(2)->get();
         } else {
             $host = $this->staffSearchHost($search);
             if ($host === null) {
@@ -1418,6 +1809,19 @@ class SiteController extends Controller
             'archived' => $this->requestFlag($request, 'archived'),
             'sort' => $this->staffSitesListSortKey($request->query('sort', $request->input('sort'))),
         ];
+    }
+
+    /**
+     * @param  array{tag?: ?string, country?: string, listing_active?: string, listing_verified?: string, below_quality?: bool, missing_market?: bool}  $filter
+     */
+    private function staffSitesListNarrows(array $filter): bool
+    {
+        return (($filter['tag'] ?? null) !== null && ($filter['tag'] ?? '') !== '')
+            || ($filter['country'] ?? '') !== ''
+            || ($filter['listing_active'] ?? '') !== ''
+            || ($filter['listing_verified'] ?? '') !== ''
+            || ! empty($filter['below_quality'])
+            || ! empty($filter['missing_market']);
     }
 
     private function staffSitesListSortKey(mixed $sort): string
@@ -1516,19 +1920,36 @@ class SiteController extends Controller
     /**
      * @param  Builder<Site>  $query
      */
-    private function applyStaffSitesListSort($query, string $sort, string $default): void
+    private function applyStaffSitesListSort($query, string $sort, string $default, ?int $pinId = null): void
     {
         $key = $sort !== '' ? $sort : $default;
         if (method_exists($query, 'reorder')) {
             $query->reorder();
         }
 
+        $table = $query->getModel()->getTable();
+        if ($pinId !== null && $pinId > 0) {
+            $query->orderByRaw('CASE WHEN '.$table.'.id = ? THEN 0 ELSE 1 END', [$pinId]);
+        }
+
+        $nullsLast = function (string $column) use ($query, $table): void {
+            if (! Site::hasSitesColumn($column)) {
+                $query->orderByDesc($table.'.id');
+
+                return;
+            }
+
+            $query->orderByRaw('CASE WHEN '.$table.'.'.$column.' IS NULL THEN 1 ELSE 0 END')
+                ->orderByDesc($table.'.'.$column)
+                ->orderByDesc($table.'.id');
+        };
+
         match ($key) {
-            'oldest' => $query->orderBy('created_at')->orderBy('id'),
-            'price' => $query->orderByDesc('price')->orderByDesc('id'),
-            'traffic' => $query->orderByDesc('traffic')->orderByDesc('id'),
-            'da' => $query->orderByDesc('da')->orderByDesc('id'),
-            default => $query->orderByDesc('id'),
+            'oldest' => $query->orderBy($table.'.created_at')->orderBy($table.'.id'),
+            'price' => $nullsLast('price'),
+            'traffic' => $nullsLast('traffic'),
+            'da' => $nullsLast('da'),
+            default => $query->orderByDesc($table.'.id'),
         };
     }
 
@@ -3832,11 +4253,20 @@ class SiteController extends Controller
         return (int) round((float) $raw);
     }
 
+    private function staffSiteQualifiesForBulkArchive(Site $site): bool
+    {
+        if ($site->isArchived() || $site->orderItemsCount() > 0) {
+            return false;
+        }
+
+        return (bool) $site->verified || (bool) $site->active;
+    }
+
     // VERIFY / UNVERIFY (approve / reject) — admin only
     public function bulkAction(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'action' => ['required', 'in:verify,activate,reject'],
+            'action' => ['required', 'in:verify,activate,reject,deactivate,archive'],
             'ids' => ['required', 'array', 'min:1', 'max:50'],
             'ids.*' => ['integer', 'distinct'],
             'reason' => ['nullable', 'string', 'max:1000'],
@@ -3861,7 +4291,19 @@ class SiteController extends Controller
                 'message' => 'You are not allowed to reject sites.',
             ], 403);
         }
-        if ($data['action'] === 'reject') {
+        if ($data['action'] === 'deactivate' && ! $actor?->canActivateSites()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not allowed to deactivate sites.',
+            ], 403);
+        }
+        if ($data['action'] === 'archive' && ! $actor?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can archive sites.',
+            ], 403);
+        }
+        if (in_array($data['action'], ['reject', 'deactivate', 'archive'], true)) {
             $request->validate([
                 'reason' => ['required', 'string', 'min:10', 'max:1000'],
             ]);
@@ -3876,10 +4318,23 @@ class SiteController extends Controller
                 continue;
             }
 
+            if ($data['action'] === 'archive') {
+                $candidate = Site::query()->find($id);
+                if (! $candidate || ! $this->staffSiteQualifiesForBulkArchive($candidate)) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'message' => 'This site cannot be archived from the bulk bar.',
+                    ];
+
+                    continue;
+                }
+            }
+
             $payload = match ($data['action']) {
                 'verify' => ['verified' => 1],
                 'activate' => ['active' => 1],
-                'reject' => ['reason' => $data['reason']],
+                'reject', 'archive' => ['reason' => $data['reason']],
+                'deactivate' => ['active' => 0, 'reason' => $data['reason']],
             };
             $sub = Request::create($request->url(), 'POST', $payload);
             $sub->headers->set('Accept', 'application/json');
@@ -3888,8 +4343,8 @@ class SiteController extends Controller
             try {
                 $response = match ($data['action']) {
                     'verify' => $this->verify($sub, $id),
-                    'activate' => $this->toggleActive($sub, $id),
-                    'reject' => $this->destroy($sub, $id),
+                    'activate', 'deactivate' => $this->toggleActive($sub, $id),
+                    'reject', 'archive' => $this->destroy($sub, $id),
                 };
             } catch (ValidationException $e) {
                 $skipped[] = [

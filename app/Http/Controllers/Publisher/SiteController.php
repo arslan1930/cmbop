@@ -23,6 +23,7 @@ use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
 use App\Support\UserFacingError;
+use Database\Seeders\CountriesTableSeeder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -1559,6 +1560,16 @@ class SiteController extends Controller
             app(CheckoutSchemaService::class)->ensureCheckoutTables();
         } catch (\Throwable $e) {
             Log::warning('Publisher listing schema ensure failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            // Live databases that skipped the North America migration have no
+            // Canada row, so the country menu omits it. Insert missing rows only.
+            CountriesTableSeeder::upsertMissing();
+        } catch (\Throwable $e) {
+            Log::warning('Publisher marketplace country ensure failed', [
                 'error' => $e->getMessage(),
             ]);
         }
