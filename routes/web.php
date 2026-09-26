@@ -169,10 +169,10 @@ if ($supportedLocalePattern === '') {
 }
 
 $nordicCeeOwnsSegment = static function (string $locale, string $segment): bool {
+    // Any registered money-lander locale keeps its own copy. This covers
+    // French, Dutch, and future classes without another skip block per country.
     if (class_exists(MoneyLanderCatalog::class)
-        && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
         && method_exists(MoneyLanderCatalog::class, 'localeOwnsSegment')
-        && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)
         && MoneyLanderCatalog::localeOwnsSegment($locale, $segment)) {
         return true;
     }
@@ -924,6 +924,53 @@ if (class_exists(MoneyLanderCatalog::class)
             $nordicLocale,
             $nordicClass,
             'nordicCeeMoneyLander',
+            $prefixedLocales
+        );
+    }
+}
+
+// Locales that already have a named money route stay on their existing
+// controller. Every other catalog class (French, Dutch, and future files)
+// is registered here so a new lander does not need a hand-written route block.
+if (class_exists(MoneyLanderCatalog::class)
+    && class_exists(MoneyLanderRoutes::class)
+    && method_exists(MoneyLanderCatalog::class, 'classes')
+    && method_exists(MarketingPageController::class, 'catalogMoneyLander')) {
+    foreach (MoneyLanderCatalog::classes() as $moneyLocale => $moneyClass) {
+        if (! is_string($moneyLocale) || ! is_string($moneyClass) || ! class_exists($moneyClass)) {
+            continue;
+        }
+        if (! method_exists($moneyClass, 'slugs')) {
+            continue;
+        }
+
+        try {
+            $moneySlugs = $moneyClass::slugs();
+        } catch (Throwable) {
+            continue;
+        }
+
+        $probe = $moneySlugs[0] ?? null;
+        if (! is_string($probe) || $probe === '') {
+            continue;
+        }
+        // Route names are stored before ->name() runs, so Route::has() misses
+        // these. Match the URI that the existing country block already added.
+        $alreadyRegistered = false;
+        foreach (app('router')->getRoutes() as $existingMoneyRoute) {
+            if ($existingMoneyRoute->uri() === $moneyLocale.'/'.$probe) {
+                $alreadyRegistered = true;
+                break;
+            }
+        }
+        if ($alreadyRegistered) {
+            continue;
+        }
+
+        MoneyLanderRoutes::register(
+            $moneyLocale,
+            $moneyClass,
+            'catalogMoneyLander',
             $prefixedLocales
         );
     }

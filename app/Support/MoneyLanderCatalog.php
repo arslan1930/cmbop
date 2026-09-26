@@ -22,6 +22,8 @@ class MoneyLanderCatalog
             'es' => SpanishMoneyLanders::class,
             'pt' => PortugueseMoneyLanders::class,
             'ro' => RomanianMoneyLanders::class,
+            'fr' => FrenchMoneyLanders::class,
+            'nl' => DutchMoneyLanders::class,
             'dk' => DanishMoneyLanders::class,
             'se' => SwedishMoneyLanders::class,
             'no' => NorwegianMoneyLanders::class,
@@ -38,7 +40,49 @@ class MoneyLanderCatalog
             }
         }
 
+        // A new App\Support\*MoneyLanders class with a LOCALE constant joins
+        // the registry without another edit to this list.
+        foreach (self::discoveredClasses() as $locale => $class) {
+            if (! isset($out[$locale])) {
+                $out[$locale] = $class;
+            }
+        }
+
         return $out;
+    }
+
+    /**
+     * @return array<string, class-string>
+     */
+    private static function discoveredClasses(): array
+    {
+        $found = [];
+        $files = glob(app_path('Support/*MoneyLanders.php')) ?: [];
+        sort($files);
+
+        foreach ($files as $file) {
+            $base = basename((string) $file, '.php');
+            if ($base === '' || preg_match('/^[A-Za-z0-9_]+$/', $base) !== 1) {
+                continue;
+            }
+
+            $class = 'App\\Support\\'.$base;
+            if (! class_exists($class) || ! method_exists($class, 'isSlug') || ! method_exists($class, 'slugs')) {
+                continue;
+            }
+            if (! defined($class.'::LOCALE')) {
+                continue;
+            }
+
+            $locale = strtolower(trim((string) constant($class.'::LOCALE')));
+            if ($locale === '' || isset($found[$locale])) {
+                continue;
+            }
+
+            $found[$locale] = $class;
+        }
+
+        return $found;
     }
 
     /**

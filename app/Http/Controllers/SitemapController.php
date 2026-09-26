@@ -9,8 +9,10 @@ use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\AustrianMoneyLanders;
 use App\Support\CountryLander;
 use App\Support\DutchMoneyLanders;
+use App\Support\FrenchMoneyLanders;
 use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
+use App\Support\LocalizedPublicPath;
 use App\Support\MoneyLanderCatalog;
 use App\Support\PortugueseMoneyLanders;
 use App\Support\PublicI18n;
@@ -25,7 +27,7 @@ class SitemapController extends Controller
     /** @return list<array{path: string, changefreq: string, priority: string}> */
     private function staticPages(): array
     {
-        return [
+        $pages = [
             ['path' => '', 'changefreq' => 'daily', 'priority' => '1.0'],
             ['path' => 'marketplace', 'changefreq' => 'weekly', 'priority' => '0.8'],
             ['path' => 'pricing', 'changefreq' => 'weekly', 'priority' => '0.8'],
@@ -41,6 +43,30 @@ class SitemapController extends Controller
             ['path' => 'cookie-policy', 'changefreq' => 'yearly', 'priority' => '0.3'],
             ['path' => 'refund-policy', 'changefreq' => 'yearly', 'priority' => '0.3'],
         ];
+
+        if (! class_exists(LocalizedPublicPath::class) || ! method_exists(LocalizedPublicPath::class, 'map')) {
+            return $pages;
+        }
+
+        $known = [];
+        foreach ($pages as $page) {
+            $known[$page['path']] = true;
+        }
+
+        foreach (LocalizedPublicPath::map() as $localeMap) {
+            if (! is_array($localeMap)) {
+                continue;
+            }
+            foreach (array_keys($localeMap) as $path) {
+                if (! is_string($path) || $path === '' || $path === 'newsletter' || isset($known[$path])) {
+                    continue;
+                }
+                $pages[] = ['path' => $path, 'changefreq' => 'monthly', 'priority' => '0.6'];
+                $known[$path] = true;
+            }
+        }
+
+        return $pages;
     }
 
     public function index(): Response
@@ -75,78 +101,20 @@ class SitemapController extends Controller
             $urls[] = $this->urlEntry($page['path'], $locale, $page['changefreq'], $page['priority']);
         }
 
-        if ($locale === 'it' && class_exists(ItalianMoneyLanders::class)) {
-            foreach (ItalianMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['it']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+        $moneyClass = $this->moneyLanderClasses()[$locale] ?? null;
+        if (is_string($moneyClass) && class_exists($moneyClass) && method_exists($moneyClass, 'slugs')) {
+            try {
+                $moneySlugs = $moneyClass::slugs();
+            } catch (\Throwable) {
+                $moneySlugs = [];
             }
-        }
-
-        if ($locale === 'de' && class_exists(GermanMoneyLanders::class)) {
-            foreach (GermanMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['de']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-            }
-        }
-
-        if ($locale === 'at' && class_exists(AustrianMoneyLanders::class)) {
-            foreach (AustrianMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['at']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-            }
-        }
-
-        if ($locale === 'ch' && class_exists(SwissMoneyLanders::class)) {
-            foreach (SwissMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['ch']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-            }
-        }
-
-        if ($locale === 'es' && class_exists(SpanishMoneyLanders::class)) {
-            foreach (SpanishMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['es']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-            }
-        }
-
-        if ($locale === 'pt' && class_exists(PortugueseMoneyLanders::class)) {
-            foreach (PortugueseMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['pt']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-            }
-        }
-
-        if ($locale === 'ro' && class_exists(RomanianMoneyLanders::class)) {
-            foreach (RomanianMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['ro']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-            }
-        }
-
-        if ($locale === 'ch' && class_exists(SwissMoneyLanders::class)) {
-            foreach (SwissMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['ch']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-            }
-        }
-
-        if ($locale === 'es' && class_exists(SpanishMoneyLanders::class)) {
-            foreach (SpanishMoneyLanders::slugs() as $slug) {
-                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, ['es']);
-                $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-            }
-        }
-
-        if (class_exists(MoneyLanderCatalog::class)
-            && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
-            && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)) {
-            $class = MoneyLanderCatalog::classFor($locale);
-            if (is_string($class) && class_exists($class) && method_exists($class, 'slugs')) {
-                foreach ($class::slugs() as $slug) {
-                    [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, [$locale]);
-                    $urls[] = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+            foreach ($moneySlugs as $slug) {
+                if (! is_string($slug) || $slug === '') {
+                    continue;
                 }
+                [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, [$locale]);
+                $entry = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
+                $urls[] = $this->withMoneyLanderXDefault($entry, $slug, $paths);
             }
         }
 
@@ -209,9 +177,109 @@ class SitemapController extends Controller
             $urls[] = $entry;
         }
 
+        $urls = $this->uniqueUrls($urls);
+
         $xml = view('sitemap', compact('urls'))->render();
 
         return response($xml, 200)->header('Content-Type', 'application/xml');
+    }
+
+    /**
+     * Every money-lander class that can publish indexable URLs.
+     * The catalog is the source of truth and also picks up a new
+     * *MoneyLanders.php file. The class_exists checks keep a missing
+     * class from taking down the sitemap.
+     *
+     * @return array<string, class-string>
+     */
+    private function moneyLanderClasses(): array
+    {
+        $classes = [];
+        if (class_exists(MoneyLanderCatalog::class) && method_exists(MoneyLanderCatalog::class, 'classes')) {
+            foreach (MoneyLanderCatalog::classes() as $locale => $class) {
+                if (! is_string($locale) || $locale === '' || ! is_string($class)) {
+                    continue;
+                }
+                if (class_exists($class) && method_exists($class, 'slugs')) {
+                    $classes[$locale] = $class;
+                }
+            }
+        }
+
+        if (! isset($classes['it']) && class_exists(ItalianMoneyLanders::class) && method_exists(ItalianMoneyLanders::class, 'slugs')) {
+            $classes['it'] = ItalianMoneyLanders::class;
+        }
+        if (! isset($classes['de']) && class_exists(GermanMoneyLanders::class) && method_exists(GermanMoneyLanders::class, 'slugs')) {
+            $classes['de'] = GermanMoneyLanders::class;
+        }
+        if (! isset($classes['at']) && class_exists(AustrianMoneyLanders::class) && method_exists(AustrianMoneyLanders::class, 'slugs')) {
+            $classes['at'] = AustrianMoneyLanders::class;
+        }
+        if (! isset($classes['ch']) && class_exists(SwissMoneyLanders::class) && method_exists(SwissMoneyLanders::class, 'slugs')) {
+            $classes['ch'] = SwissMoneyLanders::class;
+        }
+        if (! isset($classes['es']) && class_exists(SpanishMoneyLanders::class) && method_exists(SpanishMoneyLanders::class, 'slugs')) {
+            $classes['es'] = SpanishMoneyLanders::class;
+        }
+        if (! isset($classes['pt']) && class_exists(PortugueseMoneyLanders::class) && method_exists(PortugueseMoneyLanders::class, 'slugs')) {
+            $classes['pt'] = PortugueseMoneyLanders::class;
+        }
+        if (! isset($classes['ro']) && class_exists(RomanianMoneyLanders::class) && method_exists(RomanianMoneyLanders::class, 'slugs')) {
+            $classes['ro'] = RomanianMoneyLanders::class;
+        }
+        if (! isset($classes['fr']) && class_exists(FrenchMoneyLanders::class) && method_exists(FrenchMoneyLanders::class, 'slugs')) {
+            $classes['fr'] = FrenchMoneyLanders::class;
+        }
+        if (! isset($classes['nl']) && class_exists(DutchMoneyLanders::class) && method_exists(DutchMoneyLanders::class, 'slugs')) {
+            $classes['nl'] = DutchMoneyLanders::class;
+        }
+
+        return $classes;
+    }
+
+    /**
+     * @param  array{loc: string, changefreq: string, priority: string, alternates: list<array{hreflang: string, href: string}>}  $entry
+     * @param  array<string, string>  $paths
+     * @return array{loc: string, changefreq: string, priority: string, alternates: list<array{hreflang: string, href: string}>}
+     */
+    private function withMoneyLanderXDefault(array $entry, string $slug, array $paths): array
+    {
+        if (! class_exists(PublicI18n::class)
+            || ! method_exists(PublicI18n::class, 'moneyLanderXDefault')
+            || ! method_exists(PublicI18n::class, 'urlForLocale')) {
+            return $entry;
+        }
+
+        $xDefault = PublicI18n::moneyLanderXDefault($slug);
+        $xPath = ltrim((string) ($paths[$xDefault] ?? $slug), '/');
+        foreach ($entry['alternates'] as $index => $alternate) {
+            if (($alternate['hreflang'] ?? '') !== 'x-default') {
+                continue;
+            }
+            $entry['alternates'][$index]['href'] = PublicI18n::urlForLocale($xPath, $xDefault);
+        }
+
+        return $entry;
+    }
+
+    /**
+     * @param  list<array{loc: string, changefreq: string, priority: string, alternates: list<array{hreflang: string, href: string}>}>  $urls
+     * @return list<array{loc: string, changefreq: string, priority: string, alternates: list<array{hreflang: string, href: string}>}>
+     */
+    private function uniqueUrls(array $urls): array
+    {
+        $seen = [];
+        $unique = [];
+        foreach ($urls as $entry) {
+            $loc = (string) ($entry['loc'] ?? '');
+            if ($loc === '' || isset($seen[$loc])) {
+                continue;
+            }
+            $seen[$loc] = true;
+            $unique[] = $entry;
+        }
+
+        return $unique;
     }
 
     /**

@@ -72,12 +72,27 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// Quill editor (guarded so a CDN/CSP failure cannot break the sites table loader)
+// Quill is created only after the add-site card is visible. Building it while
+// #formCard is display:none leaves the editor unable to record typing.
 var quill = null;
+var siteDescUsesTextarea = false;
 const SITE_DESC_MIN_CHARS = Number((window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descMinChars) || 50);
 const SITE_DESC_MAX_WORDS = Number((window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descMaxWords) || 500);
 const SITE_DESC_PLACEHOLDER = (window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descPlaceholder)
     || 'Describe your audience, niches, and why advertisers should buy a placement here…';
+
+function markSiteDescUntranslated(el) {
+    if (!el) return;
+    el.setAttribute('translate', 'no');
+    el.classList.add('notranslate');
+}
+
+function currentSiteDescriptionHtml() {
+    if (quill) return quill.root.innerHTML || '';
+    const area = document.getElementById('siteDescTextarea');
+    if (area) return area.value || '';
+    return $('#siteDescription').val() || '';
+}
 
 function siteDescPlainText(htmlOrText) {
     const tmp = document.createElement('div');
@@ -107,7 +122,7 @@ function siteDescValidationMessage(plain) {
 }
 
 function syncSiteDescriptionCounter() {
-    const html = quill ? quill.root.innerHTML : ($('#siteDescription').val() || '');
+    const html = currentSiteDescriptionHtml();
     const plain = siteDescPlainText(html);
     const words = siteDescWordCount(plain);
     const el = document.getElementById('siteDescCounter');
@@ -116,8 +131,8 @@ function syncSiteDescriptionCounter() {
         el.textContent = siteDescCharCount(plain) + ' / ' + SITE_DESC_MIN_CHARS + ' chars · ' + words + ' / ' + SITE_DESC_MAX_WORDS + ' words';
         el.classList.remove('is-invalid', 'is-ok');
         const msg = siteDescValidationMessage(plain);
-        if (msg) el.classList.add('is-invalid');
-        else if (plain) el.classList.add('is-ok');
+        if (msg && plain) el.classList.add('is-invalid');
+        else if (!msg && plain) el.classList.add('is-ok');
     }
     if (err && !err.dataset.serverError) {
         const msg = siteDescValidationMessage(plain);
@@ -129,9 +144,100 @@ function syncSiteDescriptionCounter() {
     }
 }
 
-if (typeof Quill !== 'undefined' && document.getElementById('quillEditor')) {
+function onSiteDescEdited(delta, oldDelta, source) {
+    if (source === 'silent') return;
+    const err = document.getElementById('siteDescError');
+    if (err && err.dataset.serverError) {
+        delete err.dataset.serverError;
+        err.classList.add('d-none');
+        err.classList.remove('d-block');
+        err.textContent = '';
+    }
+    syncSiteDescriptionCounter();
+    if ($('#methodField').val() === 'POST') {
+        saveSiteDraft();
+    }
+}
+
+function siteDescHostIsVisible() {
+    const card = document.getElementById('formCard');
+    if (!card || card.classList.contains('d-none')) return false;
+    const pane = document.querySelector('.wizard-pane[data-wizard-pane="1"]');
+    if (pane && !pane.classList.contains('active')) return false;
+    return true;
+}
+
+function installSiteDescTextarea(initial) {
+    let area = document.getElementById('siteDescTextarea');
+    if (area) {
+        siteDescUsesTextarea = true;
+        return area;
+    }
+    area = document.createElement('textarea');
+    area.id = 'siteDescTextarea';
+    area.className = 'form-control notranslate';
+    area.rows = 8;
+    area.placeholder = SITE_DESC_PLACEHOLDER;
+    area.value = siteDescPlainText(initial || '');
+    markSiteDescUntranslated(area);
+    area.setAttribute('dir', 'auto');
+    const label = document.querySelector('label[for="quillEditor"]');
+    if (label) label.setAttribute('for', 'siteDescTextarea');
+    const host = document.getElementById('quillEditor');
+    if (host && host.previousElementSibling && host.previousElementSibling.classList.contains('ql-toolbar')) {
+        host.previousElementSibling.remove();
+    }
+    if (host) host.replaceWith(area);
+    else {
+        const hidden = document.getElementById('siteDescription');
+        if (hidden) hidden.insertAdjacentElement('beforebegin', area);
+    }
+    area.addEventListener('input', onSiteDescEdited);
+    siteDescUsesTextarea = true;
+    syncSiteDescriptionCounter();
+    return area;
+}
+
+function setSiteDescriptionHtml(html) {
+    const value = html == null ? '' : String(html);
+    if (quill) {
+        if (!siteDescPlainText(value)) {
+            quill.setText('', 'silent');
+        } else {
+            quill.setContents(quill.clipboard.convert(value), 'silent');
+        }
+    } else if (siteDescUsesTextarea || document.getElementById('siteDescTextarea')) {
+        const area = document.getElementById('siteDescTextarea');
+        if (area) area.value = siteDescPlainText(value);
+    } else {
+        const host = document.getElementById('quillEditor');
+        if (host) host.innerHTML = value;
+    }
+    const hidden = document.getElementById('siteDescription');
+    const area = document.getElementById('siteDescTextarea');
+    if (hidden) {
+        if (quill) hidden.value = quill.root.innerHTML || '';
+        else if (area) hidden.value = area.value || '';
+        else hidden.value = value;
+    }
+    syncSiteDescriptionCounter();
+}
+
+function ensureQuillEditor() {
+    if (quill || siteDescUsesTextarea) return quill;
+    if (!siteDescHostIsVisible()) return null;
+    const host = document.getElementById('quillEditor');
+    if (!host) return null;
+    markSiteDescUntranslated(host);
+    const hiddenVal = (document.getElementById('siteDescription') || {}).value || '';
+    const seed = siteDescPlainText(hiddenVal) ? hiddenVal : (host.innerHTML || '');
+    if (typeof Quill === 'undefined') {
+        installSiteDescTextarea(seed);
+        return null;
+    }
     try {
-        quill = new Quill('#quillEditor', {
+        if (siteDescPlainText(seed)) host.innerHTML = seed;
+        quill = new Quill(host, {
             theme: 'snow',
             placeholder: SITE_DESC_PLACEHOLDER,
             modules: {
@@ -142,19 +248,23 @@ if (typeof Quill !== 'undefined' && document.getElementById('quillEditor')) {
                 ]
             }
         });
-        const initialDesc = document.getElementById('siteDescription')?.value || '';
         quill.root.setAttribute('dir', 'auto');
-        if (initialDesc) {
-            quill.root.innerHTML = initialDesc;
-        }
+        markSiteDescUntranslated(quill.root);
+        markSiteDescUntranslated(quill.container);
+        const toolbarModule = quill.getModule('toolbar');
+        if (toolbarModule && toolbarModule.container) markSiteDescUntranslated(toolbarModule.container);
         const serverErr = document.getElementById('siteDescError');
         if (serverErr && serverErr.getAttribute('data-server-error') === '1') {
             serverErr.dataset.serverError = '1';
         }
+        quill.on('text-change', onSiteDescEdited);
         syncSiteDescriptionCounter();
     } catch (e) {
         console.warn('Quill init failed', e);
+        quill = null;
+        installSiteDescTextarea(seed);
     }
+    return quill;
 }
 
 // FR1 — progressive disclosure for sensitive topics
@@ -560,6 +670,8 @@ function setWizardStep(step) {
     $('#wizardBackBtn').toggleClass('d-none', wizardStep === 1);
     $('#wizardNextBtn').toggleClass('d-none', wizardStep === wizardTotalSteps);
     $('#submitBtn').toggleClass('d-none', wizardStep !== wizardTotalSteps);
+
+    if (wizardStep === 1) ensureQuillEditor();
 }
 
 function saveSiteDraft() {
@@ -579,7 +691,7 @@ function saveSiteDraft() {
             country: $('#selectedCountry').val(),
             categories: $('#selectedCategories').val(),
             site_tag: $('input[name="site_tag"]:checked').val() || '',
-            siteDescription: quill ? quill.root.innerHTML : ($('#siteDescription').val() || ''),
+            siteDescription: currentSiteDescriptionHtml(),
             sensitive: {},
             price_sensitive: {},
             homepage: {},
@@ -640,8 +752,7 @@ function loadSiteDraft() {
         $(`input[name="site_tag"][value="${draftTag}"]`).prop('checked', true);
         if (!draftTag) $('#tagNone').prop('checked', true);
         if (draft.siteDescription) {
-            if (quill) quill.root.innerHTML = draft.siteDescription;
-            $('#siteDescription').val(draft.siteDescription);
+            setSiteDescriptionHtml(draft.siteDescription);
             syncSiteDescriptionCounter();
         }
         ['crypto','trading','CBD','forex'].forEach(topic => {
@@ -713,7 +824,7 @@ function validateWizardStep(step) {
     });
 
     if (step === 1) {
-        const html = quill ? quill.root.innerHTML : ($('#siteDescription').val() || '');
+        const html = currentSiteDescriptionHtml();
         const desc = siteDescPlainText(html);
         const msg = siteDescValidationMessage(desc);
         if (msg) {
@@ -726,8 +837,8 @@ function validateWizardStep(step) {
                 err.classList.add('d-block');
                 delete err.dataset.serverError;
             }
-        } else if (quill) {
-            $('#siteDescription').val(quill.root.innerHTML);
+        } else {
+            $('#siteDescription').val(html);
         }
         syncSiteDescriptionCounter();
     }
@@ -765,25 +876,11 @@ $('#wizardBackBtn').on('click', function() {
 });
 
 $('#addSiteForm').on('change input', 'input, select, textarea', function() {
+    if (this.id === 'siteDescTextarea') return;
     if ($('#methodField').val() === 'POST') {
         saveSiteDraft();
     }
 });
-if (quill) {
-    quill.on('text-change', function() {
-        const err = document.getElementById('siteDescError');
-        if (err && err.dataset.serverError) {
-            delete err.dataset.serverError;
-            err.classList.add('d-none');
-            err.classList.remove('d-block');
-            err.textContent = '';
-        }
-        syncSiteDescriptionCounter();
-        if ($('#methodField').val() === 'POST') {
-            saveSiteDraft();
-        }
-    });
-}
 
 // Toggle form for CREATE
 addBtn.on('click', function() {
@@ -800,7 +897,7 @@ addBtn.on('click', function() {
         $('#addSiteForm')[0].reset();
         $('#methodField').val('POST');
         $('#addSiteForm').attr('action', (window.PublisherWebsitesConfig.routes.store));
-        if (quill) quill.root.innerHTML = '';
+        setSiteDescriptionHtml('');
         submitBtn.prop('disabled', false).text('Review & submit');
         
         // Reset selects
@@ -1013,9 +1110,7 @@ function buildSitePreview() {
 
 $('#sitePreviewConfirmBtn').on('click', function () {
     sitePreviewConfirmed = true;
-    if (quill) {
-        $('#siteDescription').val(quill.root.innerHTML);
-    }
+    $('#siteDescription').val(currentSiteDescriptionHtml());
     if ($('#methodField').val() !== 'PUT') {
         clearSiteDraft();
     }
@@ -1057,7 +1152,7 @@ window.addEventListener('pageshow', function () {
 });
 
 $('#addSiteForm').submit(function(e){
-    if (quill) $('#siteDescription').val(quill.root.innerHTML);
+    $('#siteDescription').val(currentSiteDescriptionHtml());
 
     for (let s = 1; s <= wizardTotalSteps; s++) {
         if (!validateWizardStep(s)) {
@@ -1491,7 +1586,7 @@ closeBtn.on('click', function(){
     formHeaderSpan.text('Add New Website');
     sitePreviewConfirmed = false;
     $('#addSiteForm')[0].reset();
-    if (quill) quill.root.innerHTML = '';
+    setSiteDescriptionHtml('');
     $('.tag-checkbox').prop('checked', false);
     $('.sensitive-checkbox').prop('checked', false);
     $('.sensitive-price').val('');
@@ -1660,10 +1755,8 @@ $(document).on('click', '.btn-edit', function() {
         });
     }
     
-    // Description
-    if (quill) {
-        quill.root.innerHTML = site.description || '';
-    }
+    setSiteDescriptionHtml(site.description || '');
+    syncSiteDescriptionCounter();
     
     $('#submitBtn').prop('disabled', false).text('Review & update');
     
@@ -2418,10 +2511,10 @@ function publisherQuill() {
 
 function buildSitePreview() {
     const price = previewValue('#addSiteForm [name="price"]');
-    const q = publisherQuill();
-    const description = q
-        ? $.trim($(q.root).text())
-        : $.trim($('<div>').html($('#siteDescription').val() || '').text());
+    const descriptionHtml = (typeof window.getPublisherSiteDescriptionHtml === 'function')
+        ? window.getPublisherSiteDescriptionHtml()
+        : (publisherQuill() ? publisherQuill().root.innerHTML : ($('#siteDescription').val() || ''));
+    const description = $.trim($('<div>').html(descriptionHtml || '').text());
 
     let html = '<div class="mb-3">' +
         '<div class="fw-semibold fs-5">' + previewEscape(previewValue('#addSiteForm [name="siteName"]') || 'Untitled site') + '</div>' +
@@ -2482,9 +2575,11 @@ function resetPublisherSubmitButton() {
 
 $('#sitePreviewConfirmBtn').on('click', function () {
     window.sitePreviewConfirmed = true;
-    const q = publisherQuill();
-    if (q) {
-        $('#siteDescription').val(q.root.innerHTML);
+    if (typeof window.getPublisherSiteDescriptionHtml === 'function') {
+        $('#siteDescription').val(window.getPublisherSiteDescriptionHtml());
+    } else {
+        const q = publisherQuill();
+        if (q) $('#siteDescription').val(q.root.innerHTML);
     }
     if ($('#methodField').val() !== 'PUT' && typeof window.clearSiteDraft === 'function') {
         window.clearSiteDraft();

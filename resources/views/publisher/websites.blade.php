@@ -64,9 +64,14 @@
         color: #525f7f;
     }
 
-    #quillEditor {
+    #quillEditor,
+    #siteDescTextarea {
         border-radius: 8px;
         border: 1px solid #dfe3e8;
+    }
+
+    #siteDescTextarea {
+        min-height: 200px;
     }
 
     .text-danger {
@@ -1155,7 +1160,7 @@
                         <div class="row">
                             <div class="col-12">
                                 <label class="form-label" for="quillEditor">Site Description (500 words max) <span class="req" aria-hidden="true">*</span></label>
-                                <div id="quillEditor" class="border rounded" style="height: 200px;">{!! old_text('siteDescription') !!}</div>
+                                <div id="quillEditor" class="border rounded notranslate" translate="no" style="height: 200px;">{!! old_text('siteDescription') !!}</div>
                                 <input type="hidden" name="siteDescription" id="siteDescription" value="">
                                 <div class="site-desc-meta">
                                     <div class="help-text mb-0" id="siteDescHelp">{{ \App\Support\SiteDescriptionRules::helpText() }}</div>
@@ -1606,10 +1611,23 @@ const submitBtn = $('#submitBtn');
 const closeBtn = $('#closeBtn');
 const formHeaderSpan = $('#formHeader');
 
-// Quill editor (guarded so a CDN/CSP failure cannot break the sites table loader)
+// Quill is created only after the add-site card is visible. Building it while
+// #formCard is display:none leaves the editor unable to record typing, so the
+// counter stays at 0 and Next reports an empty description.
 var quill = null;
+var siteDescUsesTextarea = false;
 const SITE_DESC_MIN_CHARS = Number((window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descMinChars) || 50);
 const SITE_DESC_MAX_WORDS = Number((window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descMaxWords) || 500);
+
+function siteDescPlaceholder() {
+    return (window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descPlaceholder) || 'Enter site description...';
+}
+
+function markSiteDescUntranslated(el) {
+    if (!el) return;
+    el.setAttribute('translate', 'no');
+    el.classList.add('notranslate');
+}
 
 function siteDescPlainText(htmlOrText) {
     const tmp = document.createElement('div');
@@ -1631,6 +1649,8 @@ function siteDescWordCount(plain) {
 
 function currentSiteDescriptionHtml() {
     if (quill) return quill.root.innerHTML || '';
+    const area = document.getElementById('siteDescTextarea');
+    if (area) return area.value || '';
     return $('#siteDescription').val() || '';
 }
 
@@ -1682,11 +1702,100 @@ function syncSiteDescriptionField() {
     return msg;
 }
 
-if (typeof Quill !== 'undefined' && document.getElementById('quillEditor')) {
+function onSiteDescEdited(delta, oldDelta, source) {
+    if (source === 'silent') return;
+    const err = document.getElementById('siteDescError');
+    if (err) delete err.dataset.serverError;
+    syncSiteDescriptionField();
+    if ($('#methodField').val() === 'POST') {
+        saveSiteDraft();
+    }
+}
+
+function siteDescHostIsVisible() {
+    const card = document.getElementById('formCard');
+    if (!card || card.classList.contains('d-none')) return false;
+    const pane = document.querySelector('.wizard-pane[data-wizard-pane="1"]');
+    if (pane && !pane.classList.contains('active')) return false;
+    return true;
+}
+
+function installSiteDescTextarea(initial) {
+    let area = document.getElementById('siteDescTextarea');
+    if (area) {
+        siteDescUsesTextarea = true;
+        return area;
+    }
+    area = document.createElement('textarea');
+    area.id = 'siteDescTextarea';
+    area.className = 'form-control notranslate';
+    area.rows = 8;
+    area.placeholder = siteDescPlaceholder();
+    area.value = siteDescPlainText(initial || '');
+    markSiteDescUntranslated(area);
+    area.setAttribute('dir', 'auto');
+    const label = document.querySelector('label[for="quillEditor"]');
+    if (label) label.setAttribute('for', 'siteDescTextarea');
+    const host = document.getElementById('quillEditor');
+    if (host && host.previousElementSibling && host.previousElementSibling.classList.contains('ql-toolbar')) {
+        host.previousElementSibling.remove();
+    }
+    if (host) {
+        host.replaceWith(area);
+    } else {
+        const hidden = document.getElementById('siteDescription');
+        if (hidden) hidden.insertAdjacentElement('beforebegin', area);
+    }
+    area.addEventListener('input', onSiteDescEdited);
+    siteDescUsesTextarea = true;
+    syncSiteDescriptionField();
+    return area;
+}
+
+function setSiteDescriptionHtml(html) {
+    const value = html == null ? '' : String(html);
+    if (quill) {
+        // innerHTML bypasses Quill's document, so the next keystrokes never
+        // update the counter and Next reports an empty description.
+        if (!siteDescPlainText(value)) {
+            quill.setText('', 'silent');
+        } else {
+            quill.setContents(quill.clipboard.convert(value), 'silent');
+        }
+    } else if (siteDescUsesTextarea || document.getElementById('siteDescTextarea')) {
+        const area = document.getElementById('siteDescTextarea');
+        if (area) area.value = siteDescPlainText(value);
+    } else {
+        const host = document.getElementById('quillEditor');
+        if (host) host.innerHTML = value;
+    }
+    const hidden = document.getElementById('siteDescription');
+    const area = document.getElementById('siteDescTextarea');
+    if (hidden) {
+        if (quill) hidden.value = quill.root.innerHTML || '';
+        else if (area) hidden.value = area.value || '';
+        else hidden.value = value;
+    }
+    syncSiteDescriptionField();
+}
+
+function ensureQuillEditor() {
+    if (quill || siteDescUsesTextarea) return quill;
+    if (!siteDescHostIsVisible()) return null;
+    const host = document.getElementById('quillEditor');
+    if (!host) return null;
+    markSiteDescUntranslated(host);
+    const hiddenVal = (document.getElementById('siteDescription') || {}).value || '';
+    const seed = siteDescPlainText(hiddenVal) ? hiddenVal : (host.innerHTML || '');
+    if (typeof Quill === 'undefined') {
+        installSiteDescTextarea(seed);
+        return null;
+    }
     try {
-        quill = new Quill('#quillEditor', {
+        if (siteDescPlainText(seed)) host.innerHTML = seed;
+        quill = new Quill(host, {
             theme: 'snow',
-            placeholder: (window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.descPlaceholder) || 'Enter site description...',
+            placeholder: siteDescPlaceholder(),
             modules: {
                 toolbar: [
                     [{ 'header': [1, 2, 3, false] }],
@@ -1697,10 +1806,18 @@ if (typeof Quill !== 'undefined' && document.getElementById('quillEditor')) {
             }
         });
         quill.root.setAttribute('dir', 'auto');
+        markSiteDescUntranslated(quill.root);
+        markSiteDescUntranslated(quill.container);
+        const toolbarModule = quill.getModule('toolbar');
+        if (toolbarModule && toolbarModule.container) markSiteDescUntranslated(toolbarModule.container);
+        quill.on('text-change', onSiteDescEdited);
         syncSiteDescriptionField();
     } catch (e) {
         console.warn('Quill init failed', e);
+        quill = null;
+        installSiteDescTextarea(seed);
     }
+    return quill;
 }
 
 // FR1 — progressive disclosure for sensitive topics
@@ -2281,6 +2398,8 @@ function setWizardStep(step) {
     $('#wizardBackBtn').toggleClass('d-none', wizardStep === 1);
     $('#wizardNextBtn').toggleClass('d-none', wizardStep === wizardTotalSteps);
     $('#submitBtn').toggleClass('d-none', wizardStep !== wizardTotalSteps);
+
+    if (wizardStep === 1) ensureQuillEditor();
 }
 
 function saveSiteDraft() {
@@ -2300,7 +2419,7 @@ function saveSiteDraft() {
             country: $('#selectedCountry').val(),
             categories: $('#selectedCategories').val(),
             site_tag: $('input[name="site_tag"]:checked').val() || '',
-            siteDescription: quill ? quill.root.innerHTML : ($('#siteDescription').val() || ''),
+            siteDescription: currentSiteDescriptionHtml(),
             sensitive: {},
             price_sensitive: {},
             homepage: {},
@@ -2334,6 +2453,7 @@ function clearSiteDraft() {
 }
 window.clearSiteDraft = clearSiteDraft;
 window.getPublisherQuill = function () { return quill; };
+window.getPublisherSiteDescriptionHtml = function () { return currentSiteDescriptionHtml(); };
 
 function loadSiteDraft() {
     try {
@@ -2363,8 +2483,7 @@ function loadSiteDraft() {
         $(`input[name="site_tag"][value="${draftTag}"]`).prop('checked', true);
         if (!draftTag) $('#tagNone').prop('checked', true);
         if (draft.siteDescription) {
-            if (quill) quill.root.innerHTML = draft.siteDescription;
-            $('#siteDescription').val(draft.siteDescription);
+            setSiteDescriptionHtml(draft.siteDescription);
         }
         ['crypto','trading','CBD','forex'].forEach(topic => {
             $(`#sensitive${topic}`).prop('checked', !!(draft.sensitive && draft.sensitive[topic]));
@@ -2484,20 +2603,11 @@ $('#wizardBackBtn').on('click', function() {
 });
 
 $('#addSiteForm').on('change input', 'input, select, textarea', function() {
+    if (this.id === 'siteDescTextarea') return;
     if ($('#methodField').val() === 'POST') {
         saveSiteDraft();
     }
 });
-if (quill) {
-    quill.on('text-change', function() {
-        const err = document.getElementById('siteDescError');
-        if (err) delete err.dataset.serverError;
-        syncSiteDescriptionField();
-        if ($('#methodField').val() === 'POST') {
-            saveSiteDraft();
-        }
-    });
-}
 
 // Toggle form for CREATE
 addBtn.on('click', function() {
@@ -2522,7 +2632,7 @@ addBtn.on('click', function() {
             $('#methodField').val('POST');
         }
         $('#addSiteForm').attr('action', (window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.routes.store) || '/publisher/websites/store');
-        if (quill) quill.root.innerHTML = '';
+        setSiteDescriptionHtml('');
         submitBtn.prop('disabled', false).text('Review & submit');
         window.sitePreviewConfirmed = false;
         
@@ -2567,7 +2677,7 @@ closeBulkBtn.on('click', function() {
 
 // Form validation + listing preview gate (modal handlers live in always-on JS)
 $('#addSiteForm').submit(function(e){
-    if (quill) $('#siteDescription').val(quill.root.innerHTML);
+    $('#siteDescription').val(currentSiteDescriptionHtml());
 
     for (let s = 1; s <= wizardTotalSteps; s++) {
         if (!validateWizardStep(s)) {
@@ -3159,10 +3269,8 @@ function prefillSiteForm(site) {
         }
     });
 
-    if (quill) {
-        quill.root.innerHTML = site.description || '';
-        syncSiteDescriptionField();
-    }
+    setSiteDescriptionHtml(site.description || '');
+    syncSiteDescriptionField();
 
     if (site.is_live) {
         $('#wizardDraftHint').text('Changing country, language, or categories will send this site for re-review and take it offline.');
@@ -3188,6 +3296,7 @@ $(document).ready(function(){
             bulkRequestBtn.addClass('d-none');
             claimBtn.addClass('d-none');
             closeBtn.removeClass('d-none');
+            setWizardStep(1);
 
             const editingSiteId = @json(session('editing_site_id'));
             if (editingSiteId) {
@@ -3225,13 +3334,11 @@ $(document).ready(function(){
                 window.sitePreviewConfirmed = false;
             }
 
-            if (quill && !siteDescPlainText(quill.root.innerHTML)) {
+            if (!siteDescPlainText(currentSiteDescriptionHtml())) {
                 const oldDesc = @json(old_text('siteDescription'));
-                if (oldDesc) quill.root.innerHTML = oldDesc;
+                if (oldDesc) setSiteDescriptionHtml(oldDesc);
             }
             syncSiteDescriptionField();
-
-            setWizardStep(1);
             $('html, body').animate({ scrollTop: formCard.offset().top - 100 }, 400);
         })();
     @endif
@@ -3312,7 +3419,7 @@ closeBtn.on('click', function(){
     claimBtn.removeClass('d-none');
     formHeaderSpan.text('Add New Website');
     $('#addSiteForm')[0].reset();
-    if (quill) quill.root.innerHTML = '';
+    setSiteDescriptionHtml('');
     $('.tag-checkbox').prop('checked', false);
     $('.sensitive-checkbox').prop('checked', false);
     $('.sensitive-price').val('');

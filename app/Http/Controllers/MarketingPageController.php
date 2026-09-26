@@ -326,6 +326,63 @@ class MarketingPageController extends Controller
         ]);
     }
 
+    public function catalogMoneyLander(string $slug, ?string $landerLocale = null)
+    {
+        abort_unless(class_exists(MoneyLanderCatalog::class), 404);
+
+        $locale = strtolower(trim((string) $landerLocale));
+        $class = method_exists(MoneyLanderCatalog::class, 'classFor')
+            ? MoneyLanderCatalog::classFor($locale)
+            : null;
+        abort_unless(is_string($class) && class_exists($class) && method_exists($class, 'find'), 404);
+
+        $page = $class::find($slug);
+        abort_unless(is_array($page), 404);
+
+        $view = $this->moneyLanderView($class);
+        abort_unless(view()->exists($view), 404);
+
+        $codes = array_values(array_filter(array_map(
+            static fn ($code) => strtolower(trim((string) $code)),
+            $page['teaser_countries'] ?? [$locale]
+        )));
+        if ($codes === []) {
+            $codes = [$locale];
+        }
+
+        $cluster = [];
+        if ($class === DutchMoneyLanders::class && method_exists(DutchMoneyLanders::class, 'clusterLinks')) {
+            $cluster = DutchMoneyLanders::clusterLinks($slug);
+        } elseif (method_exists($class, 'clusterLinks')) {
+            $cluster = $class::clusterLinks($slug);
+        }
+
+        $teasers = $this->catalogTeaserService();
+
+        return view($view, [
+            'slug' => $slug,
+            'landerLocale' => $locale,
+            'page' => $page,
+            'ui' => method_exists($class, 'ui') ? $class::ui() : [],
+            'teasers' => $teasers?->teasersForCountries($codes, 8) ?? collect(),
+            'siteCount' => $teasers?->countForCountries($codes),
+            'priceFrom' => $teasers?->priceFromForCountries($codes),
+            'cluster' => $cluster,
+        ]);
+    }
+
+    private function moneyLanderView(string $class): string
+    {
+        $short = preg_replace('/MoneyLanders$/', '', class_basename($class));
+        $short = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', (string) $short));
+        $specific = 'pages.'.$short.'-money-lander';
+        if ($short !== '' && view()->exists($specific)) {
+            return $specific;
+        }
+
+        return 'pages.money-lander';
+    }
+
     public function europePriceIndex()
     {
         abort_unless(view()->exists('pages.guest-post-prices-europe'), 404);
