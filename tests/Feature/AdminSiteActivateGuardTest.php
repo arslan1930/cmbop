@@ -598,7 +598,7 @@ class AdminSiteActivateGuardTest extends TestCase
 
         $this->assertStringContainsString('js-mkt-activate', $html);
         $this->assertStringContainsString('data-id="'.$site->id.'"', $html);
-        $this->assertStringNotContainsString('disabled', substr($html, (int) strpos($html, 'Admin Thin Queue Site'), 1200));
+        $this->assertStringNotContainsString('disabled', substr($html, (int) strpos($html, 'Admin Thin Queue Site'), 3200));
     }
 
     public function test_marketer_flat_queue_disables_activate_below_quality_bar(): void
@@ -622,7 +622,7 @@ class AdminSiteActivateGuardTest extends TestCase
             ->assertSee('Mkt Thin Queue Site', false)
             ->getContent();
 
-        $slice = substr($html, (int) strpos($html, 'Mkt Thin Queue Site'), 1600);
+        $slice = substr($html, (int) strpos($html, 'Mkt Thin Queue Site'), 3200);
         $this->assertStringNotContainsString('js-mkt-activate', $slice);
         $this->assertStringContainsString('disabled', $slice);
         $this->assertStringContainsString('This listing is below the quality bar', $html);

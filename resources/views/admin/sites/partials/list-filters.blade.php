@@ -112,6 +112,10 @@
         Below quality bar
     </label>
     <label class="form-check small mb-1">
+        <input class="form-check-input" type="checkbox" name="ready_to_activate" value="1" data-staff-filter="ready_to_activate" @checked(!empty($filters['ready_to_activate']))>
+        Ready to activate
+    </label>
+    <label class="form-check small mb-1">
         <input class="form-check-input" type="checkbox" name="missing_market" value="1" data-staff-filter="missing_market" @checked(!empty($filters['missing_market']))>
         Missing market
     </label>

@@ -14,6 +14,7 @@
         'listing_active' => ($staffSiteFilters['listing_active'] ?? '') !== '' ? $staffSiteFilters['listing_active'] : null,
         'listing_verified' => ($staffSiteFilters['listing_verified'] ?? '') !== '' ? $staffSiteFilters['listing_verified'] : null,
         'below_quality' => !empty($staffSiteFilters['below_quality']) ? 1 : null,
+        'ready_to_activate' => !empty($staffSiteFilters['ready_to_activate']) ? 1 : null,
         'missing_market' => !empty($staffSiteFilters['missing_market']) ? 1 : null,
         'placeholder' => !empty($staffSiteFilters['placeholder']) ? 1 : null,
         'missing_cover' => !empty($staffSiteFilters['missing_cover']) ? 1 : null,
@@ -115,7 +116,7 @@
                     </a>
                 @endif
             @else
-                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-warning">
+                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
                     <i class="fa fa-bell me-1"></i> Needs review
                     @if(($openReviewCount ?? 0) > 0)
                         <span class="badge text-bg-dark ms-1">{{ $openReviewCount }}</span>
@@ -131,10 +132,7 @@
                     @endif
                 </a>
                 @php
-                    $onLiveUnverified = !empty($allSitesMode)
-                        && ($staffSiteFilters['listing_active'] ?? '') === '1'
-                        && ($staffSiteFilters['listing_verified'] ?? '') === '0'
-                        && $publisherSearch === ''
+                    $queueFiltersClear = $publisherSearch === ''
                         && ($staffSiteFilters['country'] ?? '') === ''
                         && ($staffSiteFilters['language'] ?? '') === ''
                         && ($staffSiteFilters['niche'] ?? '') === ''
@@ -145,7 +143,23 @@
                         && empty($staffSiteFilters['missing_cover'])
                         && empty($staffSiteFilters['bulk_request'])
                         && empty($staffSiteFilters['archived']);
+                    $onLiveUnverified = !empty($allSitesMode)
+                        && ($staffSiteFilters['listing_active'] ?? '') === '1'
+                        && ($staffSiteFilters['listing_verified'] ?? '') === '0'
+                        && $queueFiltersClear
+                        && empty($staffSiteFilters['ready_to_activate']);
+                    $onReadyToActivate = !empty($allSitesMode)
+                        && !empty($staffSiteFilters['ready_to_activate'])
+                        && $queueFiltersClear
+                        && ($staffSiteFilters['listing_active'] ?? '') === ''
+                        && ($staffSiteFilters['listing_verified'] ?? '') === '';
                 @endphp
+                <a href="{{ staff_route('sites.index', ['all' => 1, 'ready_to_activate' => 1]) }}" class="btn btn-sm {{ $onReadyToActivate ? 'btn-success' : 'btn-outline-success' }}">
+                    Ready to activate
+                    @if(($readyToActivateCount ?? 0) > 0)
+                        <span class="badge text-bg-dark ms-1">{{ $readyToActivateCount }}</span>
+                    @endif
+                </a>
                 <a href="{{ $liveUnverifiedUrl }}" class="btn btn-sm {{ $onLiveUnverified ? 'btn-secondary' : 'btn-outline-secondary' }}">
                     Live unverified
                     @if(($liveUnverifiedCount ?? 0) > 0)
@@ -299,7 +313,7 @@
             <span class="small text-muted" data-staff-bulk-count>0 selected</span>
             <label class="form-check small mb-0">
                 <input class="form-check-input" type="checkbox" data-staff-bulk-all-matching>
-                All matching (<span data-staff-bulk-match-total>{{ $flatQueueSites->total() }}</span>)
+                Apply to all <span data-staff-bulk-match-total>{{ $flatQueueSites->total() }}</span> filtered sites
             </label>
         </div>
         <div class="table-responsive">
@@ -314,7 +328,7 @@
                         <th>Markets</th>
                         <th class="admin-narrow-col">Tag</th>
                         <th class="admin-narrow-col">Traffic</th>
-                        <th class="admin-narrow-col">Price</th>
+                        <th class="admin-narrow-col">Buyer price</th>
                         <th class="admin-actions-col">Actions</th>
                     </tr>
                 </thead>
@@ -338,7 +352,7 @@
                             && ($site->verified || $site->active);
                     @endphp
                     <tr data-flat-site-row="{{ $site->id }}">
-                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                         <td>{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
@@ -353,7 +367,10 @@
                                     <span class="badge text-bg-danger">Missing market</span>
                                 @endif
                                 @if(! $site->hasGoodMetrics())
-                                    <span class="badge text-bg-warning text-dark">Below quality bar</span>
+                                    <span class="badge text-bg-warning text-dark">{{ $site->qualityBarBadgeText() }}</span>
+                                @endif
+                                @if(! $site->hasCatalogCover())
+                                    <span class="badge text-bg-warning text-dark">No cover</span>
                                 @endif
                                 @if($site->awaitsPublisherDetails())
                                     <span class="badge text-bg-secondary">Awaiting publisher</span>
@@ -378,7 +395,13 @@
                         </td>
                         <td class="small">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
                         <td class="small">@include('admin.sites.partials.row-markets')</td>
-                        <td class="small">{{ $site->tagLabel('No tags') }}</td>
+                        <td class="small">
+                            @if($site->tagValue() === null)
+                                <span class="badge text-bg-warning text-dark">No tags</span>
+                            @else
+                                {{ $site->tagLabel() }}
+                            @endif
+                        </td>
                         <td>{{ number_format((int) $site->traffic) }}</td>
                         <td>@include('admin.sites.partials.row-price')</td>
                         <td>
@@ -551,6 +574,7 @@
                 <h5 class="mb-0 fw-bold" id="siteUserName"></h5>
                 <span id="siteUserCopyStrike" class="badge text-bg-dark ms-2 d-none">Copy-strike hide</span>
                 <small class="text-muted" id="siteUserEmail"></small>
+                <small class="text-muted d-block" id="siteUserSummary"></small>
             </div>
 
             <div class="d-flex flex-wrap gap-2">
@@ -595,7 +619,7 @@
                 <span class="small text-muted" data-staff-bulk-count>0 selected</span>
                 <label class="form-check small mb-0">
                     <input class="form-check-input" type="checkbox" data-staff-bulk-all-matching>
-                    All matching (<span data-staff-bulk-match-total>0</span>)
+                    Apply to all <span data-staff-bulk-match-total>0</span> filtered sites
                 </label>
             </div>
 
@@ -608,7 +632,7 @@
                             <th class="admin-num-col">#</th>
                             <th>Site Information</th>
                             <th class="admin-narrow-col">Traffic</th>
-                            <th class="admin-narrow-col">Price</th>
+                            <th class="admin-narrow-col">Buyer price</th>
                             <th class="admin-status-col">Status</th>
                             <th class="admin-actions-col">Actions</th>
                         </tr>
@@ -732,6 +756,8 @@ function fetchUserSites(id, page){
         document.getElementById('siteUserEmail').innerText = '';
         document.getElementById('siteUserCopyStrike')?.classList.add('d-none');
     }
+    const summaryEl = document.getElementById('siteUserSummary');
+    if (summaryEl) summaryEl.textContent = '';
 
     if (addBtn) {
         addBtn.href = `${STAFF_BASE}/sites/create?publisher=${encodeURIComponent(id)}`;
@@ -830,6 +856,19 @@ function fetchUserSites(id, page){
                 document.getElementById('siteUserEmail').innerText =
                     publisher.email || '';
                 document.getElementById('siteUserCopyStrike')?.classList.toggle('d-none', !publisher.copy_strike);
+            }
+            const summaryEl = document.getElementById('siteUserSummary');
+            const summary = Array.isArray(data) ? null : (data?.summary || null);
+            if (summaryEl) {
+                if (summary && summary.total != null) {
+                    const total = Number(summary.total) || 0;
+                    const ready = Number(summary.ready_to_activate) || 0;
+                    const below = Number(summary.below_quality) || 0;
+                    summaryEl.textContent = total + (total === 1 ? ' site' : ' sites')
+                        + ' · ' + ready + ' ready to activate · ' + below + ' below quality bar';
+                } else {
+                    summaryEl.textContent = '';
+                }
             }
 
             const meta = Array.isArray(data) ? null : (data?.meta || null);
@@ -1989,8 +2028,17 @@ function renderSites(data){
             const missingMarketBadge = site.missing_market
                 ? `<span class="badge text-bg-danger badge-needs-review ms-1" title="Set a marketplace country before marketing can activate">Missing market</span>`
                 : '';
+            const qualityFailures = (Array.isArray(site.quality_failures) ? site.quality_failures : [])
+                .map(function (item) { return String(item || '').trim(); })
+                .filter(Boolean);
             const belowQualityBadge = site.below_quality_bar
-                ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="DA ≥ ${QUALITY_MIN_DA}, DR ≥ ${QUALITY_MIN_DR}, traffic ≥ ${QUALITY_MIN_TRAFFIC.toLocaleString('en-US')}">Below quality bar</span>`
+                ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="DA ≥ ${QUALITY_MIN_DA}, DR ≥ ${QUALITY_MIN_DR}, traffic ≥ ${QUALITY_MIN_TRAFFIC.toLocaleString('en-US')}">Below quality bar${qualityFailures.length ? ' — ' + escapeHtml(qualityFailures.join(', ')) : ''}</span>`
+                : '';
+            const missingCoverBadge = site.missing_cover
+                ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1">No cover</span>`
+                : '';
+            const missingTagsBadge = site.missing_tags
+                ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1">No tags</span>`
                 : '';
             const scanBadge = site.enrichment_failed
                 ? `<span class="badge text-bg-danger badge-needs-review ms-1">Scan failed</span>`
@@ -2003,9 +2051,11 @@ function renderSites(data){
             const ordersHtml = site.orders_url
                 ? `<a href="${escapeHtml(site.orders_url)}">${ordersLabel}</a>`
                 : ordersLabel;
-            const metricsHtml = site.metrics_fetched_label
-                ? ` · Metrics ${escapeHtml(site.metrics_fetched_label)}`
+            const metricsSource = site.metrics_manual ? 'Manual' : (site.metrics_fetched_label ? 'Scan' : '');
+            const metricsHtml = metricsSource
+                ? ` · ${metricsSource}${site.metrics_fetched_label ? ' ' + escapeHtml(site.metrics_fetched_label) : ''}`
                 : '';
+            const tagMeta = site.missing_tags ? '' : (site.listing_tag_label ? ` · ${escapeHtml(site.listing_tag_label)}` : '');
             const saleHtml = site.sale_price != null
                 ? `<div class="small text-muted">Sale €${Number(site.sale_price).toFixed(2)}</div>`
                 : '';
@@ -2027,13 +2077,15 @@ function renderSites(data){
                             ${csvMetricsBadge}
                             ${missingMarketBadge}
                             ${belowQualityBadge}
+                            ${missingCoverBadge}
+                            ${missingTagsBadge}
                             ${scanBadge}
                             ${copyStrikeBadge}
                         </div>
                         <a href="${escapeHtml(site.site_url ?? '#')}" target="_blank" class="site-url" title="${escapeHtml(site.site_url ?? '')}">
                             ${escapeHtml(site.site_url ?? '-')}
                         </a>
-                        <div class="small text-muted">DA ${site.da ?? '—'} · DR ${site.dr ?? '—'} · ${formatJoined((site.countries_list && site.countries_list.length) ? site.countries_list : [site.country], true)} · ${formatJoined((site.languages_list && site.languages_list.length) ? site.languages_list : [site.language], true)} · ${formatJoined((site.categories_list && site.categories_list.length) ? site.categories_list : [site.category], false)} · ${escapeHtml(site.listing_tag_label || 'No tags')}${site.link_type_label ? ' · ' + escapeHtml(site.link_type_label) : ''}${site.sponsored ? ' · Sponsored' : ''}${metricsHtml}</div>
+                        <div class="small text-muted">DA ${site.da ?? '—'} · DR ${site.dr ?? '—'} · ${formatJoined((site.countries_list && site.countries_list.length) ? site.countries_list : [site.country], true)} · ${formatJoined((site.languages_list && site.languages_list.length) ? site.languages_list : [site.language], true)} · ${formatJoined((site.categories_list && site.categories_list.length) ? site.categories_list : [site.category], false)}${tagMeta}${site.link_type_label ? ' · ' + escapeHtml(site.link_type_label) : ''}${site.sponsored ? ' · Sponsored' : ''}${metricsHtml}</div>
                         <div class="small">${ordersHtml}</div>
                     </div>
                 </div>
@@ -2044,11 +2096,11 @@ function renderSites(data){
 
             const statusHtml = `
                 <div class="admin-status-stack">
-                    <span>${isActive
-                        ? '<span class="pulse-dot pulse-green"></span>Active'
-                        : '<span class="pulse-dot pulse-red"></span>Inactive'}</span>
-                    <span class="badge rounded-pill ${isVerified ? 'bg-success' : 'bg-secondary'}">
-                        ${isVerified ? 'Verified' : 'Unverified'}
+                    <span title="${isActive ? 'Active' : 'Inactive'}">${isActive
+                        ? '<span class="pulse-dot pulse-green"></span>For sale'
+                        : '<span class="pulse-dot pulse-red"></span>Not for sale'}</span>
+                    <span class="badge rounded-pill ${isVerified ? 'bg-success' : 'bg-secondary'}" title="${isVerified ? 'Verified' : 'Unverified'}">
+                        ${isVerified ? 'Checked' : 'Not checked'}
                     </span>
                 </div>
             `;
@@ -2087,6 +2139,14 @@ function renderSites(data){
             );
             const activateBlocked = site.can_activate === false || marketingActivateBlocked;
             const activateBlockReason = site.activate_block_reason || 'Cannot activate this listing yet.';
+            let primaryAction = '';
+            if (!isActive && site.below_quality_bar) {
+                primaryAction = IS_MARKETING_EDITOR
+                    ? `<a class="btn btn-sm btn-outline-warning" href="${STAFF_BASE}/sites/${site.id}/edit">Fix metrics</a>`
+                    : `<button type="button" class="btn btn-sm btn-outline-warning edit-site" data-id="${site.id}">Fix metrics</button>`;
+            } else if (!isActive && !activateBlocked && CAN_TOGGLE_ACTIVE) {
+                primaryAction = `<button type="button" class="btn btn-sm btn-outline-primary toggle-active" data-id="${site.id}" data-status="1">Activate</button>`;
+            }
             const activeItem = CAN_TOGGLE_ACTIVE
                 ? (isActive
                     ? `<li><button type="button" class="dropdown-item toggle-active" data-id="${site.id}" data-status="0"><i class="fa fa-pause me-2"></i>Deactivate</button></li>`
@@ -2134,13 +2194,13 @@ function renderSites(data){
 
             html += `
                 <tr class="${needsReview ? 'site-needs-review-row' : ''}" data-site-row="${site.id}">
-                    <td><input type="checkbox" data-staff-bulk-id="${site.id}" aria-label="Select site"></td>
+                    <td><input type="checkbox" data-staff-bulk-id="${site.id}" data-verified="${isVerified ? '1' : '0'}" data-active="${isActive ? '1' : '0'}" data-can-activate="${(!isActive && !activateBlocked && CAN_TOGGLE_ACTIVE) ? '1' : '0'}" aria-label="Select site"></td>
                     <td>${i+1}</td>
                     <td>${siteInfoHtml}</td>
                     <td>${site.traffic ?? '-'}</td>
                     <td><div>€${site.price ?? '-'}</div>${saleHtml}${offerBadges}</td>
                     <td>${statusHtml}</td>
-                    <td>${manageHtml}</td>
+                    <td><div class="d-flex flex-wrap gap-1 align-items-center">${primaryAction}${manageHtml}</div></td>
                 </tr>
 
                 <tr id="details-${site.id}" class="admin-expand-row">
@@ -2150,8 +2210,7 @@ function renderSites(data){
                                 <div class="row g-3">
                                     <div class="col-md-4"><strong>Domain</strong><div class="slb-text-break">${escapeHtml(site.domain ?? '-')}</div></div>
                                     <div class="col-md-4"><strong>DA/DR</strong><div>${site.da ?? '-'} / ${site.dr ?? '-'}</div></div>
-                                    <div class="col-md-4"><strong>Traffic</strong><div>${site.traffic ?? '-'}</div></div>
-                                    <div class="col-md-4"><strong>Enrichment</strong><div>${escapeHtml(site.enrichment_status ?? 'pending')}${site.metrics_fetched_at ? ' · metrics ' + new Date(site.metrics_fetched_at).toLocaleString() : ''}</div></div>
+                                    <div class="col-md-4"><strong>Metrics</strong><div>${metricsSource || '—'}${site.metrics_fetched_label ? ' · ' + escapeHtml(site.metrics_fetched_label) : ''}</div></div>
                                     <div class="col-md-4"><strong>Screenshot</strong><div>${(paths.full || paths.thumb) ? `<div class="site-preview-detail"><img data-detail-src="${escapeHtml(paths.full || paths.thumb)}" alt="Site preview" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'"></div>` : '—'}</div></div>
                                     ${site.enrichment_error ? `<div class="col-12"><strong>Last scan error</strong><div class="text-danger small slb-text-break">${escapeHtml(site.enrichment_error)}</div></div>` : ''}
                                     <div class="col-md-4"><strong>Countries</strong><div>${formatJoined(site.countries_list, true, 0)}</div></div>
@@ -2159,7 +2218,7 @@ function renderSites(data){
                                     <div class="col-md-4"><strong>Categories</strong><div>${formatJoined(site.categories_list, false, 0)}</div></div>
                                     <div class="col-md-4"><strong>Link Type</strong><div>${escapeHtml(site.link_type_label || site.link_type || '-')}</div></div>
                                     <div class="col-md-4"><strong>Sponsored</strong><div>${site.sponsored ? 'Yes':'No'}</div></div>
-                                    <div class="col-md-4"><strong>Price</strong><div>€${site.price ?? '-'}</div></div>
+                                    <div class="col-md-4"><strong>Buyer price</strong><div>€${site.price ?? '-'}</div></div>
                                     <div class="col-12"><strong>Description</strong><div class="slb-text-break">${escapeHtml(site.description_textarea || site.description_excerpt || site.description || '-')}</div><a class="small" href="${STAFF_BASE}/sites/${site.id}/edit#description">Edit description</a></div>
                                     ${(site.image_url || siteMediaUrl(site.site_image) || siteStorageUrl(site.site_image)) ? `<div class="col-12"><strong>Site Image</strong><div class="site-preview-detail"><img data-detail-src="${escapeHtml(site.image_url || siteMediaUrl(site.site_image) || siteStorageUrl(site.site_image))}" alt="Site image" loading="lazy" decoding="async"></div></div>` : ''}
                                 </div>
@@ -2173,6 +2232,7 @@ function renderSites(data){
 
     document.getElementById('sitesTable').innerHTML = html;
     initSitePreviewZoom(document.getElementById('sitesTable'));
+    syncBulkCounts();
 
     if (pendingHighlightSiteId) {
         const highlightId = String(pendingHighlightSiteId);
@@ -2285,11 +2345,44 @@ function selectedBulkIds(scope) {
         .filter((id) => id > 0);
 }
 
+function selectedBulkBoxes(scope) {
+    const root = bulkRoot(scope);
+    if (!root) return [];
+    return Array.from(root.querySelectorAll('[data-staff-bulk-id]:checked'));
+}
+
 function syncBulkCounts() {
     document.querySelectorAll('[data-staff-bulk-bar]').forEach(function (bar) {
         const scope = bar.getAttribute('data-staff-bulk-bar');
+        const boxes = selectedBulkBoxes(scope);
         const countEl = bar.querySelector('[data-staff-bulk-count]');
-        if (countEl) countEl.textContent = selectedBulkIds(scope).length + ' selected';
+        if (countEl) countEl.textContent = boxes.length + ' selected';
+        const verifyBtn = bar.querySelector('[data-staff-bulk="verify"]');
+        const deactivateBtn = bar.querySelector('[data-staff-bulk="deactivate"]');
+        const activateBtn = bar.querySelector('[data-staff-bulk="activate"]');
+        const matchAll = !!bar.querySelector('[data-staff-bulk-all-matching]')?.checked;
+        const reset = function (btn) {
+            if (!btn) return;
+            btn.classList.remove('d-none');
+            btn.disabled = false;
+            btn.removeAttribute('title');
+        };
+        if (matchAll || !boxes.length) {
+            reset(verifyBtn);
+            reset(deactivateBtn);
+            reset(activateBtn);
+            return;
+        }
+        const allVerified = boxes.every(function (el) { return el.getAttribute('data-verified') === '1'; });
+        const allInactive = boxes.every(function (el) { return el.getAttribute('data-active') !== '1'; });
+        const anyCanActivate = boxes.some(function (el) { return el.getAttribute('data-can-activate') === '1'; });
+        if (verifyBtn) verifyBtn.classList.toggle('d-none', allVerified);
+        if (deactivateBtn) deactivateBtn.classList.toggle('d-none', allInactive);
+        if (activateBtn) {
+            activateBtn.disabled = !anyCanActivate;
+            if (anyCanActivate) activateBtn.removeAttribute('title');
+            else activateBtn.title = 'None of the selected sites can be activated.';
+        }
     });
 }
 
@@ -2304,7 +2397,7 @@ document.addEventListener('change', function (e) {
             box.checked = all.checked;
         });
     }
-    if (e.target.matches('[data-staff-bulk-id], [data-staff-bulk-all]')) {
+    if (e.target.matches('[data-staff-bulk-id], [data-staff-bulk-all], [data-staff-bulk-all-matching]')) {
         syncBulkCounts();
     }
 });
