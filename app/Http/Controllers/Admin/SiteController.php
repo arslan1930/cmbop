@@ -4768,7 +4768,7 @@ class SiteController extends Controller
             }
         }
         if ($warnings !== []) {
-            $message .= ' '.$warnings[0];
+            $message = rtrim($message, ". \t").'. '.$warnings[0];
         }
         if ($matchedTotal !== null && $matchedTotal > count($data['ids'])) {
             $message .= ' First '.count($data['ids']).' of '.$matchedTotal.'.';

@@ -41,13 +41,20 @@
         $linkLabel = null;
     }
     $metricsLabel = null;
+    $metricsSource = null;
     try {
         $fetched = $site->metrics_fetched_at;
         if ($fetched instanceof \DateTimeInterface) {
             $metricsLabel = \Illuminate\Support\Carbon::parse($fetched)->timezone(config('app.timezone'))->format('M j, Y');
         }
+        if (\App\Models\Site::hasSitesColumn('metrics_manual') && (bool) $site->metrics_manual) {
+            $metricsSource = 'Manual';
+        } elseif ($metricsLabel) {
+            $metricsSource = 'Scan';
+        }
     } catch (\Throwable $e) {
         $metricsLabel = null;
+        $metricsSource = null;
     }
     $ordersCount = (int) $site->orderItemsCount();
     $ordersSearch = trim((string) ($site->domain ?: $site->site_name ?: ''));
@@ -65,8 +72,8 @@
     @if($site->sponsored)
         · Sponsored
     @endif
-    @if($metricsLabel)
-        · Metrics {{ $metricsLabel }}
+    @if($metricsSource)
+        · {{ $metricsSource }}@if($metricsLabel) {{ $metricsLabel }}@endif
     @endif
 </div>
 <div class="small mt-1">

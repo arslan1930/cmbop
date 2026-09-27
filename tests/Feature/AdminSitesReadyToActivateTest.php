@@ -164,14 +164,16 @@ class AdminSitesReadyToActivateTest extends TestCase
             ->assertOk()
             ->assertSee('Byothe.fr', false)
             ->assertDontSee('Maman de 4', false)
-            ->assertSee('btn-success', false);
+            ->assertSee('btn-success', false)
+            ->assertSee('· Manual', false);
 
         $this->actingAs($admin)
             ->get(route('admin.sites.index', ['all' => 1, 'below_quality' => 1]))
             ->assertOk()
             ->assertSee('Below quality bar — DR 10 (need 30), traffic 3,000 (need 10,000)', false)
             ->assertSee('No cover', false)
-            ->assertSee('No tags', false);
+            ->assertSee('No tags', false)
+            ->assertSee('· Scan', false);
 
         $this->actingAs($admin)
             ->postJson(route('admin.sites.active', $thin->id), ['active' => 1])
