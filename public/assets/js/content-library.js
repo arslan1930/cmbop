@@ -274,7 +274,7 @@ function librarySizeAwareUploadMessage(fileBytes, serverMessage) {
     if (bytes > 10240 * 1024) {
         return 'That file is over the 10 MB limit.';
     }
-    if (text && !/under 10 MB/i.test(text) && !/over the 10 MB limit/i.test(text)) {
+    if (text) {
         return text;
     }
     return 'The article could not be uploaded. Please try again.';
