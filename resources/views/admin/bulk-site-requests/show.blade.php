@@ -156,7 +156,7 @@
                         Fill every required field on a row — language, country, DA, DR, traffic, niches, sample article, turnaround, publication time, link type, listing tag, description, and site image — then choose one action for the filled rows.
                         <strong>Publish now</strong> puts them live (active, not verified) and tells the publisher they are on the account.
                         <strong>Send for review</strong> leaves them off the catalog. The publisher checks them and submits them, and they then show in Sites → Needs review.
-                        Either way the site is marked Bulk request. Unfilled rows stay here.
+                        Either way the site is marked Bulk request. Submit one row, several, or all at once; the rest stay here until you fill them.
                         Sensitive-topic prices are required only when that topic is offered.
                         Delete a row you will not add — those sites leave this batch and the publisher gets one note for all removed sites.
                         The quality bar is DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Publish now is allowed below that bar and the site goes live unverified. Send for review does not put it live.
