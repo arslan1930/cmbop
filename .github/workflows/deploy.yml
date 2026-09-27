@@ -24,13 +24,31 @@ jobs:
           HOST: ${{ secrets.HOSTINGER_HOST }}
           PORT: ${{ secrets.HOSTINGER_PORT }}
         run: |
+          if [ -z "${SSH_PRIVATE_KEY}" ] || [ -z "${HOST}" ] || [ -z "${PORT}" ]; then
+            echo "Missing Hostinger SSH secret (key, host, or port)."
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/hostinger_deploy
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/hostinger_deploy
           chmod 600 ~/.ssh/hostinger_deploy
 
-          ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts
+          # ssh-keyscan's default 5s wait often dies on IPv6 before it tries
+          # Hostinger's IPv4 address, and the step exits 1.
+          known=0
+          for attempt in 1 2 3; do
+            if ssh-keyscan -4 -T 15 -p "$PORT" "$HOST" >> ~/.ssh/known_hosts; then
+              known=1
+              break
+            fi
+            echo "Host key scan attempt ${attempt} did not return a key."
+            sleep 2
+          done
+          if [ "$known" -ne 1 ]; then
+            echo "No host key yet. The SSH steps will accept the server key on first connect."
+          fi
 
       - name: Test Hostinger SSH
         env:
@@ -39,9 +57,12 @@ jobs:
           USER: ${{ secrets.HOSTINGER_USER }}
         run: |
           ssh \
+            -4 \
             -i ~/.ssh/hostinger_deploy \
             -p "$PORT" \
             -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=20 \
             "$USER@$HOST" \
             'echo "SSH connection successful"'
 
@@ -67,12 +88,16 @@ jobs:
           USER: ${{ secrets.HOSTINGER_USER }}
         run: |
           scp \
+            -4 \
             -i ~/.ssh/hostinger_deploy \
             -P "$PORT" \
             -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=20 \
             "$RUNNER_TEMP/seolinkbuildings-deployment.tar.gz" \
             "$USER@$HOST:/tmp/seolinkbuildings-deployment.tar.gz"
-
+Run mkdir -p ~/.ssh
+Error: Process completed with exit code 1.
       - name: Deploy on Hostinger
         env:
           HOST: ${{ secrets.HOSTINGER_HOST }}
@@ -80,9 +105,12 @@ jobs:
           USER: ${{ secrets.HOSTINGER_USER }}
         run: |
           ssh \
+            -4 \
             -i ~/.ssh/hostinger_deploy \
             -p "$PORT" \
             -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=20 \
             "$USER@$HOST" \
             'bash -s' <<'REMOTE_SCRIPT'
 
