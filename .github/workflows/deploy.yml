@@ -96,8 +96,7 @@ jobs:
             -o ConnectTimeout=20 \
             "$RUNNER_TEMP/seolinkbuildings-deployment.tar.gz" \
             "$USER@$HOST:/tmp/seolinkbuildings-deployment.tar.gz"
-Run mkdir -p ~/.ssh
-Error: Process completed with exit code 1.
+
       - name: Deploy on Hostinger
         env:
           HOST: ${{ secrets.HOSTINGER_HOST }}
