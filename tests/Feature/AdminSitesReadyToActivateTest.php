@@ -155,6 +155,8 @@ class AdminSitesReadyToActivateTest extends TestCase
             ->assertSee('Not for sale', false)
             ->assertSee('data-staff-filter="ready_to_activate"', false)
             ->assertSee('id="siteUserSummary"', false)
+            ->assertSee('id="staffCatalogWide"', false)
+            ->assertSee('setPublisherChrome', false)
             ->assertSee('formatJoined(site.categories_list, false, 0)', false)
             ->getContent();
         $this->assertStringNotContainsString('btn btn-sm btn-warning', $index);
@@ -165,7 +167,8 @@ class AdminSitesReadyToActivateTest extends TestCase
             ->assertSee('Byothe.fr', false)
             ->assertDontSee('Maman de 4', false)
             ->assertSee('btn-success', false)
-            ->assertSee('· Manual', false);
+            ->assertSee('· Manual', false)
+            ->assertSee('title="Inactive">Not for sale', false);
 
         $this->actingAs($admin)
             ->get(route('admin.sites.index', ['all' => 1, 'below_quality' => 1]))
@@ -175,8 +178,25 @@ class AdminSitesReadyToActivateTest extends TestCase
             ->assertSee('No tags', false)
             ->assertSee('· Scan', false)
             ->assertSee('href="'.e(route('admin.sites.edit', $thin)).'#da"', false)
+            ->assertSee('href="'.e(route('admin.sites.edit', $thin)).'#site_image"', false)
+            ->assertSee('href="'.e(route('admin.sites.edit', $thin)).'#site_tag"', false)
             ->assertSee('>Fix metrics</a>', false)
             ->assertDontSee('btn-success js-mkt-activate', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.sites.edit', $thin))
+            ->assertOk()
+            ->assertSee('id="site_tag"', false)
+            ->assertSee('name="site_tag"', false);
+
+        $this->actingAs($admin)
+            ->putJson(route('admin.sites.update', $thin), ['site_tag' => 'sponsored'])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+        $thin->refresh();
+        $this->assertTrue((bool) $thin->sponsored);
+        $this->assertFalse((bool) $thin->partner_material);
+        $this->assertFalse((bool) $thin->as_you_prefer);
 
         $this->actingAs($admin)
             ->postJson(route('admin.sites.active', $thin->id), ['active' => 1])

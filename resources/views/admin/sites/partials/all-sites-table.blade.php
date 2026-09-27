@@ -69,20 +69,14 @@
                         && ($site->verified || $site->active);
                 @endphp
                 <tr>
-                    <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+                    <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                     <td>{{ $allSites->firstItem() + $index }}</td>
                     <td>
                         <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
                         <div class="small text-muted text-break">{{ $site->site_url }}</div>
                         <div class="d-flex flex-wrap gap-1 mt-1">
-                            @if($site->verified)
-                                <span class="badge rounded-pill bg-success">Verified</span>
-                            @else
-                                <span class="badge rounded-pill bg-secondary">Unverified</span>
-                            @endif
-                            @if($site->active)
-                                <span class="badge rounded-pill bg-primary">Active</span>
-                            @endif
+                            <span class="badge rounded-pill {{ $site->active ? 'bg-success' : 'bg-secondary' }}" title="{{ $site->active ? 'Active' : 'Inactive' }}">{{ $site->active ? 'For sale' : 'Not for sale' }}</span>
+                            <span class="badge rounded-pill {{ $site->verified ? 'bg-success' : 'bg-secondary' }}" title="{{ $site->verified ? 'Verified' : 'Unverified' }}">{{ $site->verified ? 'Checked' : 'Not checked' }}</span>
                             @if(! $site->hasMarketplaceCountry())
                                 <span class="badge text-bg-danger">Missing market</span>
                             @endif
@@ -90,7 +84,7 @@
                                 <span class="badge text-bg-warning text-dark">{{ $site->qualityBarBadgeText() }}</span>
                             @endif
                             @if(! $site->hasCatalogCover())
-                                <span class="badge text-bg-warning text-dark">No cover</span>
+                                <a href="{{ staff_route('sites.edit', $site->id) }}#site_image" class="badge text-bg-warning text-dark text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>
                             @endif
                             @if($site->isArchived())
                                 <span class="badge text-bg-secondary">Archived</span>
@@ -120,7 +114,7 @@
                     <td class="small">@include('admin.sites.partials.row-markets')</td>
                     <td class="small">
                         @if($site->tagValue() === null)
-                            <span class="badge text-bg-warning text-dark">No tags</span>
+                            <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
                         @else
                             {{ $site->tagLabel() }}
                         @endif

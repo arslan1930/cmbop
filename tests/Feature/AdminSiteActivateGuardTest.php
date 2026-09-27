@@ -624,7 +624,7 @@ class AdminSiteActivateGuardTest extends TestCase
 
         $slice = substr($html, (int) strpos($html, 'Mkt Thin Queue Site'), 3200);
         $this->assertStringNotContainsString('js-mkt-activate', $slice);
-        $this->assertStringContainsString('disabled', $slice);
-        $this->assertStringContainsString('This listing is below the quality bar', $html);
+        $this->assertStringContainsString('Fix metrics', $slice);
+        $this->assertStringContainsString('This listing is below the quality bar', $slice);
     }
 }

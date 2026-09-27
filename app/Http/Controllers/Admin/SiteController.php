@@ -3387,6 +3387,7 @@ class SiteController extends Controller
             'publication_time' => 'sometimes|nullable|string|max:20',
             // Dedicated editor is free text; modal may send dofollow/nofollow.
             'link_type' => 'sometimes|nullable|string|max:50',
+            'site_tag' => 'sometimes|nullable|in:sponsored,partner_material,as_you_prefer,none',
             'sponsored' => 'sometimes|nullable|boolean',
             'partner_material' => 'sometimes|nullable|boolean',
             'as_you_prefer' => 'sometimes|nullable|boolean',
@@ -3650,7 +3651,7 @@ class SiteController extends Controller
             return $data;
         }
 
-        return SiteTag::exclusiveAttributePatch($data, $site);
+        return SiteTag::exclusiveAttributePatch($this->mergePostedSiteTag($data, $request), $site);
     }
 
     /**
@@ -3743,6 +3744,7 @@ class SiteController extends Controller
             'country' => 'required|string|max:10',
             'categories' => 'required|array|min:1|max:7',
             'site_image' => SiteImageUpload::fieldRules($request->hasFile('site_image')),
+            'site_tag' => 'sometimes|nullable|in:sponsored,partner_material,as_you_prefer,none',
         ];
         if ($canFixListing) {
             $rules['site_name'] = 'sometimes|required|string|max:255';
@@ -3953,7 +3955,26 @@ class SiteController extends Controller
             }
         }
 
-        return $payload;
+        return $this->mergePostedSiteTag($payload, $request);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function mergePostedSiteTag(array $data, Request $request): array
+    {
+        if (! $request->exists('site_tag') || ! class_exists(SiteTag::class)) {
+            return $data;
+        }
+
+        $raw = $request->input('site_tag');
+        $tag = is_string($raw) ? strtolower(trim($raw)) : '';
+        if ($tag === '' || $tag === 'none') {
+            $tag = null;
+        }
+
+        return array_merge($data, SiteTag::flags($tag));
     }
 
     private function domainAlreadyRegisteredMessage(Site $existing): string

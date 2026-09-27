@@ -25,11 +25,13 @@
         'sort' => ($staffSiteFilters['sort'] ?? '') !== '' ? $staffSiteFilters['sort'] : null,
     ], static fn ($value) => $value !== null && $value !== '');
 @endphp
-<div class="container-fluid py-3">
+<div class="container-fluid py-3 {{ request()->filled('publisher') ? 'staff-publisher-open' : '' }}" id="staffSitesPage">
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
             <h4 class="mb-0 fw-bold">Sites Management</h4>
+            <div id="staffCatalogWide">
+            <div class="small text-muted mt-1">Catalog-wide</div>
             @if(($openReviewCount ?? 0) > 0)
                 <small class="text-muted">
                     <span class="badge text-bg-warning">{{ $openReviewCount }}</span>
@@ -81,6 +83,7 @@
                     @endforeach
                 </small>
             @endif
+            </div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             @if(!empty($needsReviewFilterActive))
@@ -119,7 +122,7 @@
                 <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
                     <i class="fa fa-bell me-1"></i> Needs review
                     @if(($openReviewCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1">{{ $openReviewCount }}</span>
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $openReviewCount }}</span>
                     @endif
                 </a>
                 <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
@@ -128,7 +131,7 @@
                 <a href="{{ staff_route('sites.index', array_filter(['waiting_on_publisher' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-secondary">
                     Waiting on publisher
                     @if(($waitingOnPublisherCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1">{{ $waitingOnPublisherCount }}</span>
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $waitingOnPublisherCount }}</span>
                     @endif
                 </a>
                 @php
@@ -157,13 +160,13 @@
                 <a href="{{ staff_route('sites.index', ['all' => 1, 'ready_to_activate' => 1]) }}" class="btn btn-sm {{ $onReadyToActivate ? 'btn-success' : 'btn-outline-success' }}">
                     Ready to activate
                     @if(($readyToActivateCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1">{{ $readyToActivateCount }}</span>
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $readyToActivateCount }}</span>
                     @endif
                 </a>
                 <a href="{{ $liveUnverifiedUrl }}" class="btn btn-sm {{ $onLiveUnverified ? 'btn-secondary' : 'btn-outline-secondary' }}">
                     Live unverified
                     @if(($liveUnverifiedCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1">{{ $liveUnverifiedCount }}</span>
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $liveUnverifiedCount }}</span>
                     @endif
                 </a>
                 @if(!empty($allSitesMode))
@@ -177,7 +180,7 @@
                    class="btn btn-sm {{ ($missingMarketCount ?? 0) > 0 ? 'btn-outline-danger' : 'btn-outline-secondary' }}">
                     <i class="fa fa-table me-1"></i> Websites records sheet
                     @if(($missingMarketCount ?? 0) > 0)
-                        <span class="badge text-bg-danger ms-1">{{ $missingMarketCount }} missing</span>
+                        <span class="badge text-bg-danger ms-1 staff-catalog-count">{{ $missingMarketCount }} missing</span>
                     @endif
                 </a>
                 <a href="{{ staff_route('site-enrichment.index') }}" class="btn btn-sm btn-outline-primary">
@@ -352,17 +355,14 @@
                             && ($site->verified || $site->active);
                     @endphp
                     <tr data-flat-site-row="{{ $site->id }}">
-                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                         <td>{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
                             <div class="small text-muted text-break">{{ $site->site_url }}</div>
                             <div class="d-flex flex-wrap gap-1 mt-1">
-                                @if($site->verified)
-                                    <span class="badge rounded-pill bg-success">Verified</span>
-                                @else
-                                    <span class="badge rounded-pill bg-secondary">Unverified</span>
-                                @endif
+                                <span class="badge rounded-pill {{ $site->active ? 'bg-success' : 'bg-secondary' }}" title="{{ $site->active ? 'Active' : 'Inactive' }}">{{ $site->active ? 'For sale' : 'Not for sale' }}</span>
+                                <span class="badge rounded-pill {{ $site->verified ? 'bg-success' : 'bg-secondary' }}" title="{{ $site->verified ? 'Verified' : 'Unverified' }}">{{ $site->verified ? 'Checked' : 'Not checked' }}</span>
                                 @if(! $site->hasMarketplaceCountry())
                                     <span class="badge text-bg-danger">Missing market</span>
                                 @endif
@@ -370,7 +370,7 @@
                                     <span class="badge text-bg-warning text-dark">{{ $site->qualityBarBadgeText() }}</span>
                                 @endif
                                 @if(! $site->hasCatalogCover())
-                                    <span class="badge text-bg-warning text-dark">No cover</span>
+                                    <a href="{{ staff_route('sites.edit', $site->id) }}#site_image" class="badge text-bg-warning text-dark text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>
                                 @endif
                                 @if($site->awaitsPublisherDetails())
                                     <span class="badge text-bg-secondary">Awaiting publisher</span>
@@ -397,7 +397,7 @@
                         <td class="small">@include('admin.sites.partials.row-markets')</td>
                         <td class="small">
                             @if($site->tagValue() === null)
-                                <span class="badge text-bg-warning text-dark">No tags</span>
+                                <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
                             @else
                                 {{ $site->tagLabel() }}
                             @endif
@@ -671,6 +671,10 @@ const QUALITY_MIN_TRAFFIC = {{ (int) \App\Models\Site::GOOD_MIN_TRAFFIC }};
 let allSites = [];
 let pendingHighlightSiteId = null;
 
+function setPublisherChrome(open) {
+    document.getElementById('staffSitesPage')?.classList.toggle('staff-publisher-open', !!open);
+}
+
 function siteIsVerified(site) {
     return Number(site?.verified) === 1 || site?.verified === true;
 }
@@ -742,6 +746,7 @@ function fetchUserSites(id, page){
 
     document.getElementById('usersSection').classList.add('d-none');
     document.getElementById('sitesSection').classList.remove('d-none');
+    setPublisherChrome(true);
     document.getElementById('staffIndexSearchWrap')?.classList.add('d-none');
 
     if (userRow) {
@@ -820,6 +825,7 @@ function fetchUserSites(id, page){
                 sessionStorage.removeItem('selected_user');
                 document.getElementById('sitesSection').classList.add('d-none');
                 document.getElementById('usersSection').classList.remove('d-none');
+                setPublisherChrome(false);
                 document.getElementById('staffIndexSearchWrap')?.classList.remove('d-none');
                 document.getElementById('sitesTable').innerHTML = '';
                 throw new Error('Publisher not found');
@@ -1827,7 +1833,11 @@ function sitePreviewImgOnError(img) {
 function sitePreviewHtml(site) {
     const paths = sitePreviewPaths(site);
     if (!paths.thumb) {
-        return `<span class="site-row-preview is-empty" aria-label="No preview"><i class="fa fa-image" aria-hidden="true"></i></span>`;
+        const empty = `<span class="site-row-preview is-empty" aria-label="No preview"><i class="fa fa-image" aria-hidden="true"></i></span>`;
+        if (site.missing_cover) {
+            return `<a href="${STAFF_BASE}/sites/${site.id}/edit#site_image" class="text-decoration-none" title="Add a cover. This does not block going live.">${empty}</a>`;
+        }
+        return empty;
     }
 
     const name = escapeHtml(site.site_name || 'Site');
@@ -2039,10 +2049,10 @@ function renderSites(data){
                 ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="DA ≥ ${QUALITY_MIN_DA}, DR ≥ ${QUALITY_MIN_DR}, traffic ≥ ${QUALITY_MIN_TRAFFIC.toLocaleString('en-US')}">Below quality bar${qualityFailures.length ? ' — ' + escapeHtml(qualityFailures.join(', ')) : ''}</span>`
                 : '';
             const missingCoverBadge = site.missing_cover
-                ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1">No cover</span>`
+                ? `<a href="${STAFF_BASE}/sites/${site.id}/edit#site_image" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>`
                 : '';
             const missingTagsBadge = site.missing_tags
-                ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1">No tags</span>`
+                ? `<a href="${STAFF_BASE}/sites/${site.id}/edit#site_tag" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>`
                 : '';
             const scanBadge = site.enrichment_failed
                 ? `<span class="badge text-bg-danger badge-needs-review ms-1">Scan failed</span>`
@@ -2145,11 +2155,15 @@ function renderSites(data){
             const activateBlockReason = site.activate_block_reason || 'Cannot activate this listing yet.';
             let primaryAction = '';
             if (!isActive && site.below_quality_bar) {
-                primaryAction = IS_MARKETING_EDITOR
-                    ? `<a class="btn btn-sm btn-outline-warning" href="${STAFF_BASE}/sites/${site.id}/edit">Fix metrics</a>`
-                    : `<button type="button" class="btn btn-sm btn-outline-warning edit-site" data-id="${site.id}">Fix metrics</button>`;
+                const fixTitle = site.activate_block_reason
+                    ? escapeHtml(site.activate_block_reason)
+                    : 'Update DA, DR, or traffic.';
+                primaryAction = `<a class="btn btn-sm btn-outline-warning" href="${STAFF_BASE}/sites/${site.id}/edit#da" title="${fixTitle}">Fix metrics</a>`;
+            } else if (!isActive && site.missing_market) {
+                primaryAction = `<a class="btn btn-sm btn-outline-danger" href="${STAFF_BASE}/sites/${site.id}/edit#country">Set country</a>`;
             } else if (!isActive && !activateBlocked && CAN_TOGGLE_ACTIVE) {
-                primaryAction = `<button type="button" class="btn btn-sm btn-outline-primary toggle-active" data-id="${site.id}" data-status="1">Activate</button>`;
+                const thinListing = !!site.missing_cover || !!site.missing_tags;
+                primaryAction = `<button type="button" class="btn btn-sm ${thinListing ? 'btn-outline-success' : 'btn-outline-primary'} toggle-active" data-id="${site.id}" data-status="1"${thinListing ? ' title="Can go live. Cover or tags are still missing."' : ''}>Activate</button>`;
             }
             const activeItem = CAN_TOGGLE_ACTIVE
                 ? (isActive
@@ -2198,7 +2212,7 @@ function renderSites(data){
 
             html += `
                 <tr class="${needsReview ? 'site-needs-review-row' : ''}" data-site-row="${site.id}">
-                    <td><input type="checkbox" data-staff-bulk-id="${site.id}" data-verified="${isVerified ? '1' : '0'}" data-active="${isActive ? '1' : '0'}" data-can-activate="${(!isActive && !activateBlocked && CAN_TOGGLE_ACTIVE) ? '1' : '0'}" aria-label="Select site"></td>
+                    <td><input type="checkbox" data-staff-bulk-id="${site.id}" data-verified="${isVerified ? '1' : '0'}" data-active="${isActive ? '1' : '0'}" data-below-bar="${site.below_quality_bar ? '1' : '0'}" data-can-activate="${(!isActive && !activateBlocked && CAN_TOGGLE_ACTIVE) ? '1' : '0'}" aria-label="Select site"></td>
                     <td>${i+1}</td>
                     <td>${siteInfoHtml}</td>
                     <td>${site.traffic ?? '-'}</td>
@@ -2262,6 +2276,7 @@ document.getElementById('backBtn').addEventListener('click', function(){
         }
     } catch (e) {}
     document.getElementById('sitesSection').classList.add('d-none');
+    setPublisherChrome(false);
     const usersSection = document.getElementById('usersSection');
     if (usersSection) {
         usersSection.classList.remove('d-none');
@@ -2384,8 +2399,12 @@ function syncBulkCounts() {
         if (deactivateBtn) deactivateBtn.classList.toggle('d-none', allInactive);
         if (activateBtn) {
             activateBtn.disabled = !anyCanActivate;
-            if (anyCanActivate) activateBtn.removeAttribute('title');
-            else activateBtn.title = 'None of the selected sites can be activated.';
+            const anyBelowCanActivate = boxes.some(function (el) {
+                return el.getAttribute('data-below-bar') === '1' && el.getAttribute('data-can-activate') === '1';
+            });
+            if (!anyCanActivate) activateBtn.title = 'None of the selected sites can be activated.';
+            else if (anyBelowCanActivate) activateBtn.title = 'Includes a site below the quality bar. Activating it will put it on sale with a warning.';
+            else activateBtn.removeAttribute('title');
         }
     });
 }
