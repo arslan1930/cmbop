@@ -204,5 +204,18 @@ class AdminSitesReadyToActivateTest extends TestCase
         $this->assertStringContainsString('below the quality bar', (string) $bulk->json('message'));
         $this->assertTrue((bool) $ready->fresh()->active);
         $this->assertFalse((bool) $thin->fresh()->active);
+
+        $adminBulk = $this->actingAs($admin)
+            ->postJson(route('admin.sites.bulk-action'), [
+                'action' => 'activate',
+                'ids' => [$thin->id],
+            ])
+            ->assertOk();
+
+        $this->assertStringContainsString(
+            'Activated below the quality bar (DA ≥ 30, DR ≥ 30, traffic ≥ 10,000).',
+            (string) $adminBulk->json('message')
+        );
+        $this->assertTrue((bool) $thin->fresh()->active);
     }
 }

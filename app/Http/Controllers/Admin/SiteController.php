@@ -4692,6 +4692,7 @@ class SiteController extends Controller
 
         $updated = [];
         $skipped = [];
+        $warnings = [];
 
         foreach (array_values(array_unique(array_map('intval', $data['ids']))) as $id) {
             if ($id < 1) {
@@ -4743,6 +4744,10 @@ class SiteController extends Controller
             $body = $response->getData(true);
             if ($status >= 200 && $status < 300 && ! empty($body['success'])) {
                 $updated[] = $id;
+                $warning = trim((string) ($body['warning'] ?? ''));
+                if ($warning !== '' && ! in_array($warning, $warnings, true)) {
+                    $warnings[] = $warning;
+                }
             } else {
                 $skipped[] = [
                     'id' => $id,
@@ -4761,6 +4766,9 @@ class SiteController extends Controller
                     $message .= ' (+'.(count($skipped) - 1).' more)';
                 }
             }
+        }
+        if ($warnings !== []) {
+            $message .= ' '.$warnings[0];
         }
         if ($matchedTotal !== null && $matchedTotal > count($data['ids'])) {
             $message .= ' First '.count($data['ids']).' of '.$matchedTotal.'.';
