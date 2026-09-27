@@ -173,7 +173,10 @@ class AdminSitesReadyToActivateTest extends TestCase
             ->assertSee('Below quality bar — DR 10 (need 30), traffic 3,000 (need 10,000)', false)
             ->assertSee('No cover', false)
             ->assertSee('No tags', false)
-            ->assertSee('· Scan', false);
+            ->assertSee('· Scan', false)
+            ->assertSee('href="'.e(route('admin.sites.edit', $thin)).'#da"', false)
+            ->assertSee('>Fix metrics</a>', false)
+            ->assertDontSee('btn-success js-mkt-activate', false);
 
         $this->actingAs($admin)
             ->postJson(route('admin.sites.active', $thin->id), ['active' => 1])

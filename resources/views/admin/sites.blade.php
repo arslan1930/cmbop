@@ -1384,9 +1384,13 @@ document.addEventListener('click', function(e){
     }
 
     /* EDIT - Using new file upload method */
-    if(e.target.closest('.edit-site')){
-        let id = e.target.closest('button').dataset.id;
-        editSiteWithImage(id);
+    const editBtn = e.target.closest('.edit-site');
+    if (editBtn && editBtn.tagName !== 'A') {
+        const id = editBtn.dataset.id;
+        if (id) {
+            editSiteWithImage(id);
+        }
+        return;
     }
 
     /* DELETE / ARCHIVE */
