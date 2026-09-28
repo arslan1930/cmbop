@@ -1506,6 +1506,19 @@
                         placement="top"
                     />
                 </div>
+                <div class="site-status-filter-group">
+                    <button type="button" class="btn btn-sm site-status-filter" data-status="archived" id="sitesFilterArchived" aria-pressed="false">
+                        <span class="filter-main">
+                            Archived <span class="badge text-bg-secondary" id="sitesArchivedCount">0</span>
+                        </span>
+                    </button>
+                    <x-glass-tip
+                        title="Archived"
+                        body="Sites hidden from Active, Pending, and Invites. Archived sites can be restored. Sites from a cancelled bulk request stay listed here."
+                        label="What Archived means"
+                        placement="top"
+                    />
+                </div>
             </div>
         </div>
         <p class="small text-muted mb-2" id="sitesFilterHint">Approved and live sites on your panel.</p>
@@ -2729,7 +2742,7 @@ let sitesStatusFilter = (function () {
         const params = new URLSearchParams(window.location.search);
         sitesStatusExplicit = params.has('status');
         const raw = (params.get('status') || 'active').toLowerCase();
-        return (raw === 'pending' || raw === 'active' || raw === 'invites') ? raw : 'active';
+        return (raw === 'pending' || raw === 'active' || raw === 'invites' || raw === 'archived') ? raw : 'active';
     } catch (e) {
         return 'active';
     }
@@ -2748,7 +2761,7 @@ function syncSitesStatusUrl(status) {
 }
 
 window.setSitesStatusFilter = function (status) {
-    const next = (status === 'pending' || status === 'invites') ? status : 'active';
+    const next = (status === 'pending' || status === 'invites' || status === 'archived') ? status : 'active';
     sitesStatusFilter = next;
     syncSitesStatusUrl(next);
     syncSitesFilterUi(
@@ -2835,15 +2848,19 @@ function syncNewActiveBadges(activeIds, markSeen) {
     return newIdSet.size;
 }
 
-function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteCount) {
+function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteCount, archivedCount) {
     const pendingCountEl = document.getElementById('sitesPendingCount');
     const activeCountEl = document.getElementById('sitesActiveCount');
     const inviteCountEl = document.getElementById('sitesInviteCount');
+    const archivedCountEl = document.getElementById('sitesArchivedCount');
     const hint = document.getElementById('sitesFilterHint');
     const meta = document.getElementById('sitesStatusMeta');
     const bulkWaiting = parseInt(meta?.getAttribute('data-bulk-waiting') || '0', 10);
     const openBulk = meta?.getAttribute('data-open-bulk') === '1';
     const invites = inviteCount ?? parseInt(meta?.getAttribute('data-invites') || '0', 10);
+    const archived = archivedCount == null
+        ? parseInt(archivedCountEl?.textContent || '0', 10)
+        : archivedCount;
 
     if (pendingCountEl) {
         pendingCountEl.textContent = String(pendingCount ?? 0);
@@ -2855,6 +2872,11 @@ function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteC
         inviteCountEl.textContent = String(invites || 0);
         inviteCountEl.classList.toggle('text-bg-secondary', !(invites > 0));
         inviteCountEl.classList.toggle('text-bg-info', invites > 0);
+    }
+    if (archivedCountEl) {
+        archivedCountEl.textContent = String(archived || 0);
+        archivedCountEl.classList.toggle('text-bg-secondary', !(archived > 0));
+        archivedCountEl.classList.toggle('text-bg-dark', archived > 0);
     }
 
     document.querySelectorAll('.site-status-filter').forEach(function (btn) {
@@ -2877,9 +2899,13 @@ function syncSitesFilterUi(pendingCount, activeCount, status, activeIds, inviteC
                     : 'No live sites in this tab. ' + pendingCount + ' are in Pending.';
             } else if ((invites || 0) > 0 && !(activeCount > 0)) {
                 hint.textContent = 'No live sites in this tab. ' + invites + ' are in Invites.';
+            } else if ((archived || 0) > 0 && !(activeCount > 0)) {
+                hint.textContent = 'No live sites in this tab. ' + archived + ' are in Archived.';
             } else {
                 hint.textContent = 'Approved and live sites on your panel.';
             }
+        } else if (status === 'archived') {
+            hint.textContent = 'Sites hidden from the other tabs. Restore an archived site to bring it back.';
         } else if (status === 'invites') {
             hint.textContent = 'Sites our team added for you — accept to move them into My Sites, or decline to remove them.';
         } else if (bulkWaiting > 0) {
@@ -3046,28 +3072,40 @@ function fetchSites(page = 1, query = '', opts = {}) {
                 if (meta) {
                     const pendingFromMeta = parseInt(meta.getAttribute('data-pending') || '0', 10);
                     const activeFromMeta = parseInt(meta.getAttribute('data-active') || '0', 10);
+                    const inviteFromMeta = parseInt(meta.getAttribute('data-invites') || '0', 10);
+                    const archivedFromMeta = parseInt(meta.getAttribute('data-archived') || '0', 10);
                     syncSitesFilterUi(
                         pendingFromMeta,
                         activeFromMeta,
                         meta.getAttribute('data-status') || sitesStatusFilter,
                         activeIds,
-                        parseInt(meta.getAttribute('data-invites') || '0', 10)
+                        inviteFromMeta,
+                        archivedFromMeta
                     );
                     // Auto-open Pending when Active is empty and the URL did not set ?status=
+                    // If nothing is pending or invited either, open Archived so hidden sites are visible.
                     if (!sitesAutoOpenPendingChecked) {
                         sitesAutoOpenPendingChecked = true;
                         if (
                             !sitesStatusExplicit
                             && sitesStatusFilter === 'active'
                             && activeFromMeta === 0
-                            && pendingFromMeta > 0
                             && !String(query || '').trim()
                         ) {
-                            if (typeof window.setSitesStatusFilter === 'function') {
-                                window.setSitesStatusFilter('pending');
+                            if (pendingFromMeta > 0) {
+                                if (typeof window.setSitesStatusFilter === 'function') {
+                                    window.setSitesStatusFilter('pending');
+                                }
+                                fetchSites(1, query, opts);
+                                return;
                             }
-                            fetchSites(1, query, opts);
-                            return;
+                            if (inviteFromMeta === 0 && archivedFromMeta > 0) {
+                                if (typeof window.setSitesStatusFilter === 'function') {
+                                    window.setSitesStatusFilter('archived');
+                                }
+                                fetchSites(1, query, opts);
+                                return;
+                            }
                         }
                     }
                 }
@@ -3106,7 +3144,7 @@ let delayTimer;
 $(document).ready(function(){
     syncSitesFilterUi(0, 0, sitesStatusFilter);
     fetchSites();
-    if (sitesStatusFilter === 'pending' || sitesStatusFilter === 'invites') {
+    if (sitesStatusFilter === 'pending' || sitesStatusFilter === 'invites' || sitesStatusFilter === 'archived') {
         const section = document.getElementById('sitesTableWrapper');
         if (section && typeof section.scrollIntoView === 'function') {
             setTimeout(function () {
@@ -3393,6 +3431,11 @@ $(document).ready(function(){
         const data = await res.json().catch(() => ({}));
         Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });
         if (data.success) loadSites();
+    });
+
+    $(document).on('click', '.btn-restore-blocked', function () {
+        const message = String($(this).data('message') || 'This site is verified and cannot be restored.');
+        Swal.fire({ icon: 'error', title: message });
     });
 
     $(document).on('click', '.btn-unarchive-site', async function () {
