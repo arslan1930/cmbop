@@ -12,14 +12,15 @@
         @endif
     </div>
 
-    <form method="get" class="card border-0 shadow-sm mb-3">
-        <div class="card-body row g-2 align-items-end">
-            <div class="col-md-4">
-                <x-slb-search-field name="q" id="adminSiteRatingsSearch" :value="request('q')" placeholder="Site, user, comment…" />
+    <form method="get" class="card border-0 shadow-sm mb-3 admin-deposits-filter-card admin-deposits-filters admin-orders-filters">
+        <div class="card-body">
+            <div class="admin-orders-filters__grid">
+            <div class="admin-orders-filters__search">
+                <x-slb-search-field name="q" id="adminSiteRatingsSearch" :value="request('q')" placeholder="Site, user, comment…" input-class="form-control" label-class="form-label" />
             </div>
-            <div class="col-md-3">
-                <label class="form-label small text-muted mb-1">Site</label>
-                <select name="site_id" class="form-select form-select-sm">
+            <div>
+                <label class="form-label" for="adminRatingsSite">Site</label>
+                <select name="site_id" id="adminRatingsSite" class="form-select">
                     <option value="">All sites</option>
                     @foreach($sites as $site)
                         <option value="{{ $site->id }}" @selected((string) (is_scalar(request('site_id')) ? request('site_id') : '') === (string) $site->id)>
@@ -28,18 +29,21 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label small text-muted mb-1">Status</label>
-                <select name="status" class="form-select form-select-sm">
+            <div>
+                <label class="form-label" for="adminRatingsStatus">Status</label>
+                <select name="status" id="adminRatingsStatus" class="form-select">
                     <option value="">All</option>
                     @foreach(['approved','hidden','pending'] as $st)
                         <option value="{{ $st }}" @selected(request('status') === $st)>{{ ucfirst($st) }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-sm btn-outline-primary">Filter</button>
-                <a href="{{ route('admin.site-ratings.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+            <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-primary">Filter</button>
+                <a href="{{ route('admin.site-ratings.index') }}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </div>
             </div>
         </div>
     </form>

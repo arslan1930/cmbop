@@ -53,7 +53,7 @@ class InvoiceSellerDetailsTest extends TestCase
             'totalSensitiveAmount' => 0,
         ])->render();
 
-        $this->assertStringContainsString('SEOLinkBuildings Partners with (Topurlz LTD)', $html);
+        $this->assertStringContainsString('SEOLinkBuildings Partners with (Teqno LTD)', $html);
         $this->assertStringContainsString('20 Wenlock Road, London, England, N1 7GU', $html);
         $this->assertStringContainsString('Registration No:', $html);
         $this->assertStringContainsString('16607074', $html);
@@ -92,15 +92,17 @@ class InvoiceSellerDetailsTest extends TestCase
             'markPaidUrl' => null,
         ])->render();
 
-        $this->assertStringContainsString('SEOLinkBuildings Partner', $html);
+        $this->assertStringContainsString('SEOLinkBuildings Partners with (Teqno LTD)', $html);
+        $this->assertStringContainsString('20 Wenlock Road, London, England, N1 7GU', $html);
+        $this->assertStringContainsString('Registration No:', $html);
         $this->assertStringContainsString('Beneficiary:', $html);
         $this->assertStringContainsString('Teqno Ltd', $html);
         $this->assertStringContainsString('TRWIBEB1XXX', $html);
         $this->assertStringContainsString('BE40 9059 9538 0863', $html);
         $this->assertStringContainsString('+447445152374', $html);
         $this->assertStringContainsString('16607074', $html);
+        $this->assertStringContainsString('support@seolinkbuildings.com', $html);
         $this->assertStringContainsString('Not VAT registered', $html);
-        $this->assertStringNotContainsString('SEOLinkBuildings Partners with (Topurlz LTD)', $html);
     }
 
     public function test_pdf_tax_invoice_shows_registration_and_vat_note(): void
@@ -141,7 +143,7 @@ class InvoiceSellerDetailsTest extends TestCase
             'currencySymbol' => '€',
         ])->render();
 
-        $this->assertStringContainsString('SEOLinkBuildings Partners with (Topurlz LTD)', $html);
+        $this->assertStringContainsString('SEOLinkBuildings Partners with (Teqno LTD)', $html);
         $this->assertStringContainsString('Registration No: 16607074', $html);
         $this->assertStringContainsString('Not VAT registered', $html);
         $this->assertStringContainsString('20 Wenlock Road', $html);
@@ -379,6 +381,96 @@ class InvoiceSellerDetailsTest extends TestCase
 
         $this->assertStringStartsWith('%PDF', $binary);
         $this->assertStringContainsString('DejaVu', $binary);
+        $this->assertStringContainsString('/FontFile2', $binary);
         $this->assertStringNotContainsString('Helvetica core font leftover', $binary);
+        $this->assertPdfFlateStreamsDecode($binary);
+    }
+
+    public function test_ensure_customer_pdf_rebuilds_dejavu_file_with_a_broken_character_map(): void
+    {
+        Storage::fake('local');
+        config(['billing.storage.disk' => 'local']);
+
+        $role = Role::where('name', 'advertiser')->firstOrFail();
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        $relative = 'invoices/garbled-dejavu-map.pdf';
+        Storage::disk('local')->put($relative, "%PDF-1.4\n/BaseFont /DejaVuSans\n/FontFile2 21 0 R\n"
+            ."<<\n/Filter /FlateDecode\n/Length 8>>\nstream\n"
+            ."\xc7\xc2\x1f}\xf7\xdf}\xf7"
+            ."\nendstream\n");
+
+        $invoice = Invoice::create([
+            'user_id' => $user->id,
+            'invoice_number' => 'RCT-2026-000199',
+            'type' => Invoice::TYPE_DEPOSIT_RECEIPT,
+            'status' => Invoice::STATUS_PAID,
+            'invoice_date' => now(),
+            'customer_name' => $user->name,
+            'customer_email' => $user->email,
+            'currency' => 'EUR',
+            'subtotal' => 25,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 25,
+            'payment_method' => 'wise',
+            'payment_status' => 'paid',
+            'reference_code' => '337199',
+            'transaction_id' => '337199',
+            'pdf_disk' => 'local',
+            'pdf_path' => $relative,
+            'line_items' => [
+                [
+                    'description' => 'Wallet top-up',
+                    'quantity' => 1,
+                    'unit_price' => 25,
+                    'line_total' => 25,
+                ],
+            ],
+            'billing_snapshot' => [],
+        ]);
+
+        $healed = app(InvoicePdfGenerator::class)->ensureCustomerPdf($invoice->fresh());
+        $binary = (string) Storage::disk('local')->get($healed->pdf_path);
+
+        $this->assertStringStartsWith('%PDF', $binary);
+        $this->assertStringContainsString('DejaVu', $binary);
+        $this->assertStringContainsString('/FontFile2', $binary);
+        $this->assertStringNotContainsString("\xc7\xc2\x1f}\xf7\xdf}\xf7", $binary);
+        $this->assertPdfFlateStreamsDecode($binary);
+    }
+
+    private function assertPdfFlateStreamsDecode(string $binary): void
+    {
+        $offset = 0;
+        $seen = 0;
+
+        while (($filter = strpos($binary, '/Filter /FlateDecode', $offset)) !== false) {
+            $streamAt = strpos($binary, 'stream', $filter);
+            $end = $streamAt === false ? false : strpos($binary, "\nendstream", $streamAt);
+            $this->assertNotFalse($streamAt);
+            $this->assertNotFalse($end);
+
+            $start = $streamAt + strlen('stream');
+            if (($binary[$start] ?? '') === "\r") {
+                $start++;
+            }
+            if (($binary[$start] ?? '') === "\n") {
+                $start++;
+            }
+
+            $data = substr($binary, $start, $end - $start);
+            $this->assertNotSame('', $data);
+            $this->assertSame(0x78, ord($data[0]));
+            $this->assertNotFalse(@gzuncompress($data));
+            $seen++;
+            $offset = $end + strlen("\nendstream");
+        }
+
+        $this->assertGreaterThan(0, $seen);
     }
 }

@@ -352,6 +352,15 @@
   overflow-y: auto;
 }
 
+.admin-deposits-filters .single-select-group {
+  padding: 8px 12px 2px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--brand-ink-muted, #697078);
+}
+
 .admin-deposits-filters .single-select-option {
   padding: 8px 12px;
   cursor: pointer;
@@ -411,6 +420,19 @@
   border-radius: 10px;
   color: var(--brand-primary, #1a585e);
   background-color: #fff;
+}
+
+.admin-deposits-filters textarea.form-control,
+.admin-deposits-filters input[type="file"].form-control {
+  height: auto;
+}
+
+.admin-deposits-filters textarea.form-control {
+  min-height: 6rem;
+}
+
+.admin-deposits-filters textarea.site-description-editor__input {
+  min-height: 140px;
 }
 
 .admin-deposits-filters .form-control::placeholder {
@@ -476,6 +498,57 @@
   .admin-deposits-filters__grid {
     grid-template-columns: 1fr;
   }
+}
+
+.admin-orders-filters__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+}
+
+.admin-orders-filters__grid > * {
+  min-width: 0;
+}
+
+.admin-orders-filters__grid > input[type="hidden"] {
+  display: none;
+}
+
+.admin-orders-filters__search {
+  grid-column: span 2;
+}
+
+.admin-orders-filters__actions {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 991.98px) {
+  .admin-orders-filters__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-orders-filters__search {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .admin-orders-filters__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.staff-site-filters {
+  overflow: visible;
+}
+
+.staff-site-filters > label {
+  min-width: 10.5rem;
+}
+
+.staff-site-filters .single-select-wrapper {
+  min-width: 10.5rem;
 }
 
 /* ——— Deposit details popout ——— */
@@ -921,7 +994,7 @@
 /* Scope to action buttons only — the search clear control is also .btn. */
 .admin-finance-toolbar__action .btn,
 .admin-finance-period__action .btn {
-  min-height: calc(1.5em + 0.5rem + 2px);
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
 }

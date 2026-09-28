@@ -32,21 +32,23 @@
 
 
 <!-- SEARCH -->
-<div class="card border-0 shadow-sm mb-3">
+<div class="card border-0 shadow-sm mb-3 admin-deposits-filter-card">
     <div class="card-body">
-        <form method="GET" action="{{ route('admin.users.index') }}" class="row g-3 align-items-end">
-            <div class="col-md-4">
+        <form method="GET" action="{{ route('admin.users.index') }}" class="admin-deposits-filters admin-orders-filters">
+            <div class="admin-orders-filters__grid">
+            <div class="admin-orders-filters__search">
                 <x-slb-search-field
                     name="q"
                     id="userSearch"
                     :value="$filters['q'] ?? ''"
                     placeholder="Search name, email, company, phone, ID…"
                     input-class="form-control"
+                    label-class="form-label"
                     mode="form"
                 />
             </div>
-            <div class="col-md-2">
-                <label class="form-label fw-semibold small text-muted mb-1" for="userRoleFilter">Role</label>
+            <div>
+                <label class="form-label" for="userRoleFilter">Role</label>
                 <select name="role" id="userRoleFilter" class="form-select">
                     <option value="">All roles</option>
                     <option value="advertiser" @selected(($filters['role'] ?? '') === 'advertiser')>Advertiser</option>
@@ -55,8 +57,8 @@
                     <option value="admin" @selected(($filters['role'] ?? '') === 'admin')>Admin</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label fw-semibold small text-muted mb-1" for="userStatusFilter">Status</label>
+            <div>
+                <label class="form-label" for="userStatusFilter">Status</label>
                 <select name="status" id="userStatusFilter" class="form-select">
                     <option value="">All statuses</option>
                     <option value="active" @selected(($filters['status'] ?? '') === 'active')>Active</option>
@@ -65,8 +67,8 @@
                     <option value="unverified" @selected(($filters['status'] ?? '') === 'unverified')>Unverified</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label fw-semibold small text-muted mb-1" for="userSortFilter">Sort</label>
+            <div>
+                <label class="form-label" for="userSortFilter">Sort</label>
                 <select name="sort" id="userSortFilter" class="form-select">
                     <option value="newest" @selected(($filters['sort'] ?? 'newest') === 'newest')>Newest</option>
                     <option value="oldest" @selected(($filters['sort'] ?? '') === 'oldest')>Oldest</option>
@@ -74,13 +76,16 @@
                     <option value="last_seen" @selected(($filters['sort'] ?? '') === 'last_seen')>Last activity</option>
                 </select>
             </div>
-            <div class="col-md-auto d-flex gap-2">
+            <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                <div class="d-flex flex-wrap gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="fa fa-search me-1"></i> Filter
                 </button>
                 @if($hasActiveFilters)
                     <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">Clear filters</a>
                 @endif
+                </div>
+            </div>
             </div>
         </form>
     </div>

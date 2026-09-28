@@ -18,31 +18,39 @@
     @include('admin.promotions.partials.undo-bar')
     @include('admin.promotions.partials.filter-chips', ['statusCounts' => $statusCounts ?? []])
 
-    <form method="GET" class="row g-2 mb-3">
+    <div class="card border-0 shadow-sm mb-3 admin-deposits-filter-card">
+    <div class="card-body">
+    <form method="GET" class="admin-deposits-filters admin-orders-filters">
+        <div class="admin-orders-filters__grid">
         <input type="hidden" name="status" value="{{ search_text(request('status')) }}">
-        <div class="col-md-4">
-            <x-slb-search-field name="q" id="adminPromoAnnouncementsSearch" :value="search_text(request('q'))" placeholder="Search title or message" :show-label="false" />
+        <div class="admin-orders-filters__search">
+            <x-slb-search-field name="q" id="adminPromoAnnouncementsSearch" :value="search_text(request('q'))" placeholder="Search title or message" input-class="form-control" label-class="form-label" />
         </div>
-        <div class="col-md-3">
-            <select name="audience" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminAnnouncementAudience">Audience</label>
+            <select name="audience" id="adminAnnouncementAudience" class="form-select">
                 <option value="">All audiences</option>
                 @foreach(config('promotions.audiences') as $key => $label)
                     <option value="{{ $key }}" @selected(search_text(request('audience')) === $key)>{{ $label }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="col-md-3">
-            <select name="type" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminAnnouncementType">Type</label>
+            <select name="type" id="adminAnnouncementType" class="form-select">
                 <option value="">All types</option>
                 @foreach(config('promotions.announcement_types') as $key => $meta)
                     <option value="{{ $key }}" @selected(search_text(request('type')) === $key)>{{ $meta['label'] }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="col-md-2">
-            <button class="btn btn-sm btn-outline-primary w-100" type="submit">Filter</button>
+        <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+            <button class="btn btn-primary" type="submit">Filter</button>
+        </div>
         </div>
     </form>
+    </div>
+    </div>
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">

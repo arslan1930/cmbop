@@ -35,9 +35,8 @@ return [
     'trusted_proxies' => (string) env('TRUSTED_PROXIES', ''),
 
     /*
-    | Hostinger often has no SSH cron. When true (default), production web
-    | traffic runs pending migrations / MEDIA_PATH / APP_URL repair and
-    | schedule:run after the response is flushed.
+    | When true (default), production web traffic repairs MEDIA_PATH, APP_URL,
+    | and the storage link. It does not migrate or run the scheduler.
     */
     'web_heal' => (bool) env('HOSTINGER_WEB_HEAL', true),
 

@@ -422,16 +422,6 @@ class ProductionReadiness
             );
         }
 
-        if ((bool) config('app.web_heal', true)) {
-            return $this->item(
-                'scheduler',
-                self::SEVERITY_OK,
-                'Scheduler',
-                'Web traffic runs schedule:run about once a minute (HOSTINGER_WEB_HEAL). Add system cron if the site is quiet overnight.',
-                ''
-            );
-        }
-
         if (! $this->isProduction()) {
             return $this->item(
                 'scheduler',
@@ -446,8 +436,8 @@ class ProductionReadiness
             'scheduler',
             self::SEVERITY_WARN,
             'Confirm the scheduler is running',
-            'CRON_SECRET is empty and HOSTINGER_WEB_HEAL is off. Auto-approve, nudges, and mail:drain-queue need `* * * * * php artisan schedule:run`.',
-            'Set HOSTINGER_WEB_HEAL=true, add a system cron for schedule:run, or set CRON_SECRET (≥ 32 chars) and POST /cron/run with X-Cron-Key. See docs/ops-mail-reminders.md.'
+            'CRON_SECRET is empty. Page views do not run the scheduler. Auto-approve, nudges, and mail:drain-queue need a system cron or HTTP cron.',
+            'Add `* * * * * php artisan schedule:run`, or set CRON_SECRET (≥ 32 chars) and POST /cron/run with X-Cron-Key. See docs/ops-mail-reminders.md.'
         );
     }
 

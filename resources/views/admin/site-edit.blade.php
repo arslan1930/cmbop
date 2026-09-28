@@ -156,7 +156,7 @@
                         </div>
                     </div>
                 @else
-                <form method="POST" action="{{ staff_route('sites.update', $site->id, false) }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ staff_route('sites.update', $site->id, false) }}" enctype="multipart/form-data" class="admin-deposits-filters" data-admin-filter-live="1">
                     @csrf
                     @method('PUT')
 
@@ -375,7 +375,7 @@
                         Save the advertiser brief, then use Activate. Save does not change status.
                     </div>
                 @endif
-                <form method="POST" action="{{ staff_route('sites.update', $site->id, false) }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ staff_route('sites.update', $site->id, false) }}" enctype="multipart/form-data" class="admin-deposits-filters" data-admin-filter-live="1">
                     @csrf
                     @method('PUT')
 

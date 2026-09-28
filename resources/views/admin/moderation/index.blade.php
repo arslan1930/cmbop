@@ -181,18 +181,19 @@
         </div>
 
         <div class="col-lg-7">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm admin-deposits-filter-card">
                 <div class="card-header bg-white border-0">
                     <strong>Moderation Logs</strong>
                 </div>
                 <div class="card-body border-bottom py-3">
-                    <form method="GET" action="{{ route('admin.moderation.index') }}" class="row g-2 align-items-end">
-                        <div class="col-md-4">
-                            <x-slb-search-field name="q" id="adminModerationSearch" :value="$search ?? ''" placeholder="Email, upload id, URL" />
+                    <form method="GET" action="{{ route('admin.moderation.index') }}" class="admin-deposits-filters admin-orders-filters">
+                        <div class="admin-orders-filters__grid">
+                        <div class="admin-orders-filters__search">
+                            <x-slb-search-field name="q" id="adminModerationSearch" :value="$search ?? ''" placeholder="Email, upload id, URL" input-class="form-control" label-class="form-label" />
                         </div>
-                        <div class="col-6 col-md-3">
-                            <label class="form-label small text-muted mb-1">Status</label>
-                            <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <div>
+                            <label class="form-label" for="adminModerationStatus">Status</label>
+                            <select name="status" id="adminModerationStatus" class="form-select">
                                 <option value="all" @selected(($status ?? 'all') === 'all')>All ({{ (int) ($stats['total'] ?? 0) }})</option>
                                 <option value="approved" @selected(($status ?? '') === 'approved')>Approved ({{ (int) ($stats['approved'] ?? 0) }})</option>
                                 <option value="rejected" @selected(($status ?? '') === 'rejected')>Rejected ({{ (int) ($stats['rejected'] ?? 0) }})</option>
@@ -201,9 +202,9 @@
                                 <option value="overridden" @selected(($status ?? '') === 'overridden')>Overridden ({{ (int) ($stats['overridden'] ?? 0) }})</option>
                             </select>
                         </div>
-                        <div class="col-6 col-md-3">
-                            <label class="form-label small text-muted mb-1">Category</label>
-                            <select name="category" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <div>
+                            <label class="form-label" for="adminModerationCategory">Category</label>
+                            <select name="category" id="adminModerationCategory" class="form-select">
                                 <option value="all" @selected(($category ?? 'all') === 'all')>All</option>
                                 @foreach(config('content_moderation.categories', []) as $key => $cat)
                                     <option value="{{ $key }}" @selected(($category ?? '') === $key)>{{ $cat['label'] ?? $key }}</option>
@@ -211,17 +212,20 @@
                                 <option value="custom" @selected(($category ?? '') === 'custom')>Extra prohibited keywords</option>
                             </select>
                         </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small text-muted mb-1">From</label>
-                            <input type="date" name="from" class="form-control form-control-sm" value="{{ $from ?? '' }}">
+                        <div>
+                            <label class="form-label" for="adminModerationFrom">From</label>
+                            <input type="date" id="adminModerationFrom" name="from" class="form-control" value="{{ $from ?? '' }}">
                         </div>
-                        <div class="col-6 col-md-2">
-                            <label class="form-label small text-muted mb-1">To</label>
-                            <input type="date" name="to" class="form-control form-control-sm" value="{{ $to ?? '' }}">
+                        <div>
+                            <label class="form-label" for="adminModerationTo">To</label>
+                            <input type="date" id="adminModerationTo" name="to" class="form-control" value="{{ $to ?? '' }}">
                         </div>
-                        <div class="col-auto">
-                            <button type="submit" class="btn btn-sm btn-primary">Apply</button>
-                            <a href="{{ route('admin.moderation.index') }}" class="btn btn-sm btn-link">Reset</a>
+                        <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                            <div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-primary">Apply</button>
+                            <a href="{{ route('admin.moderation.index') }}" class="btn btn-outline-secondary">Reset</a>
+                            </div>
+                        </div>
                         </div>
                     </form>
                 </div>

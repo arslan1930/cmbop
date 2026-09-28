@@ -84,6 +84,38 @@ class ContentLibraryModerationUxTest extends TestCase
         ));
     }
 
+    public function test_html_sanitizer_drops_unquoted_event_handlers(): void
+    {
+        $sanitizer = new ArticleHtmlSanitizer;
+        $clean = $sanitizer->sanitize(
+            '<p>Body</p><img src="/storage/a.png" onerror=alert(1) alt="Chart">'
+            .'<a href="https://example.com/x" onclick=alert(1)>keyword</a>'
+            .'<script>alert(1)</script>'
+        );
+
+        $this->assertStringContainsString('Body', $clean);
+        $this->assertStringContainsString('src="/storage/a.png"', $clean);
+        $this->assertStringContainsString('href="https://example.com/x"', $clean);
+        $this->assertStringNotContainsString('onerror', $clean);
+        $this->assertStringNotContainsString('onclick', $clean);
+        $this->assertStringNotContainsString('<script', $clean);
+        $this->assertStringNotContainsString('alert(1)', $clean);
+    }
+
+    public function test_html_sanitizer_keeps_content_after_a_body_close(): void
+    {
+        $sanitizer = new ArticleHtmlSanitizer;
+        $clean = $sanitizer->sanitize(
+            '<p>Before</p></body><script>alert(1)</script><p>After</p><img src=x onerror=alert(1)>'
+        );
+
+        $this->assertStringContainsString('Before', $clean);
+        $this->assertStringContainsString('After', $clean);
+        $this->assertStringNotContainsString('<script', $clean);
+        $this->assertStringNotContainsString('onerror', $clean);
+        $this->assertStringNotContainsString('alert(1)', $clean);
+    }
+
     public function test_html_sanitizer_drops_embedded_data_images(): void
     {
         $sanitizer = new ArticleHtmlSanitizer;

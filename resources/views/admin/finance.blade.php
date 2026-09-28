@@ -59,7 +59,7 @@
             </p>
         </div>
         <div class="admin-finance-toolbar d-flex flex-wrap align-items-end gap-2">
-            <form method="GET" action="{{ route('admin.finance') }}" class="admin-finance-toolbar__form d-flex flex-nowrap align-items-end gap-2">
+            <form method="GET" action="{{ route('admin.finance') }}" class="admin-finance-toolbar__form d-flex flex-nowrap align-items-end gap-2 admin-deposits-filters">
                 @if($dateFrom)
                     <input type="hidden" name="date_from" value="{{ $dateFrom }}">
                 @endif
@@ -76,11 +76,13 @@
                         :value="$userQuery"
                         placeholder="Name, email, company, payout, or user id…"
                         label="Find user dossier"
+                        label-class="form-label"
+                        input-class="form-control"
                     />
                 </div>
                 <div class="admin-finance-toolbar__action">
                     <label class="form-label fw-semibold small text-muted mb-1" for="adminFinanceUserOpen">&nbsp;</label>
-                    <button type="submit" id="adminFinanceUserOpen" class="btn btn-sm btn-outline-primary">Open</button>
+                    <button type="submit" id="adminFinanceUserOpen" class="btn btn-primary">Open</button>
                 </div>
             </form>
             <div class="admin-finance-toolbar__action">
@@ -98,7 +100,7 @@
         </div>
     </div>
 
-    <form method="GET" action="{{ route('admin.finance') }}" class="card border-0 shadow-sm mb-3 admin-finance-period">
+    <form method="GET" action="{{ route('admin.finance') }}" class="card border-0 shadow-sm mb-3 admin-finance-period admin-deposits-filter-card admin-deposits-filters">
         <div class="card-body py-3">
             <div class="row g-2 align-items-end">
                 @if($userQuery !== '')
@@ -121,12 +123,12 @@
                     </div>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small text-muted mb-1" for="adminFinanceDateFrom">From</label>
-                    <input type="date" id="adminFinanceDateFrom" name="date_from" value="{{ $dateFrom }}" class="form-control form-control-sm">
+                    <label class="form-label" for="adminFinanceDateFrom">From</label>
+                    <input type="date" id="adminFinanceDateFrom" name="date_from" value="{{ $dateFrom }}" class="form-control">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small text-muted mb-1" for="adminFinanceDateTo">To</label>
-                    <input type="date" id="adminFinanceDateTo" name="date_to" value="{{ $dateTo }}" class="form-control form-control-sm">
+                    <label class="form-label" for="adminFinanceDateTo">To</label>
+                    <input type="date" id="adminFinanceDateTo" name="date_to" value="{{ $dateTo }}" class="form-control">
                 </div>
                 <div class="col-auto admin-finance-period__action">
                     <label class="form-label small text-muted mb-1" for="adminFinanceApplyRange">&nbsp;</label>
@@ -270,14 +272,14 @@
                                 @if(($d['liability']['publisher_wallets_total'] ?? 0) > count($d['liability']['top_publisher_wallets']))
                                     <a href="{{ $walletListUrl }}#finance-wallets" class="small">{{ count($d['liability']['top_publisher_wallets']) }} of {{ $d['liability']['publisher_wallets_total'] }}</a>
                                 @endif
-                                <form method="GET" action="{{ route('admin.finance') }}" class="d-flex align-items-center gap-1">
+                                <form method="GET" action="{{ route('admin.finance') }}" class="admin-deposits-filters d-flex align-items-end gap-2">
                                     @foreach($financeQuery as $queryKey => $queryValue)
                                         <input type="hidden" name="{{ $queryKey }}" value="{{ $queryValue }}">
                                     @endforeach
                                     <input type="hidden" name="wallets" value="all">
-                                    <label class="small text-muted mb-0" for="adminFinanceMinWallet">At least €</label>
-                                    <input type="number" min="0" step="0.01" name="min_wallet" id="adminFinanceMinWallet" value="{{ ($minWallet ?? 0) > 0 ? $minWallet : '' }}" class="form-control form-control-sm" style="width:6rem">
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Apply</button>
+                                    <label class="form-label mb-0" for="adminFinanceMinWallet">At least €</label>
+                                    <input type="number" min="0" step="0.01" name="min_wallet" id="adminFinanceMinWallet" value="{{ ($minWallet ?? 0) > 0 ? $minWallet : '' }}" class="form-control" style="width:7rem">
+                                    <button type="submit" class="btn btn-primary">Apply</button>
                                 </form>
                             </span>
                         </div>

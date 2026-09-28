@@ -18,31 +18,39 @@
     @include('admin.promotions.partials.undo-bar')
     @include('admin.promotions.partials.filter-chips', ['statusCounts' => $statusCounts ?? []])
 
-    <form method="GET" class="row g-2 mb-3">
+    <div class="card border-0 shadow-sm mb-3 admin-deposits-filter-card">
+    <div class="card-body">
+    <form method="GET" class="admin-deposits-filters admin-orders-filters">
+        <div class="admin-orders-filters__grid">
         <input type="hidden" name="status" value="{{ search_text(request('status')) }}">
-        <div class="col-md-4">
-            <x-slb-search-field name="q" id="adminPromoBannersSearch" :value="search_text(request('q'))" placeholder="Search name" :show-label="false" />
+        <div class="admin-orders-filters__search">
+            <x-slb-search-field name="q" id="adminPromoBannersSearch" :value="search_text(request('q'))" placeholder="Search name" input-class="form-control" label-class="form-label" />
         </div>
-        <div class="col-md-3">
-            <select name="audience" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminBannerAudience">Audience</label>
+            <select name="audience" id="adminBannerAudience" class="form-select">
                 <option value="">All audiences</option>
                 @foreach(config('promotions.audiences') as $key => $label)
                     <option value="{{ $key }}" @selected(search_text(request('audience')) === $key)>{{ $label }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="col-md-3">
-            <select name="placement" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminBannerPlacement">Placement</label>
+            <select name="placement" id="adminBannerPlacement" class="form-select">
                 <option value="">All placements</option>
                 @foreach(config('promotions.banner_placements') as $key => $label)
                     <option value="{{ $key }}" @selected(search_text(request('placement')) === $key)>{{ $label }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="col-md-2">
-            <button class="btn btn-sm btn-outline-primary w-100" type="submit">Filter</button>
+        <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+            <button class="btn btn-primary" type="submit">Filter</button>
+        </div>
         </div>
     </form>
+    </div>
+    </div>
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">

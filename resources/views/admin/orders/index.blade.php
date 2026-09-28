@@ -10,15 +10,16 @@
         'actionIcon' => 'fa-money-bill',
     ])
 
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm mb-4 admin-deposits-filter-card">
         <div class="card-body">
-            <form id="orderFilterForm" class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted" for="searchInput">Search</label>
+            <form id="orderFilterForm" class="admin-deposits-filters admin-orders-filters" data-admin-filter-live="1">
+                <div class="admin-orders-filters__grid">
+                <div class="admin-orders-filters__search">
+                    <label class="form-label" for="searchInput">Search</label>
                     <div class="slb-search-wrap">
                         <input type="search"
                                id="searchInput"
-                               class="form-control form-control-sm"
+                               class="form-control"
                                placeholder="Order #, reference, user, site, publisher…"
                                title="Results update as you type"
                                autocomplete="off"
@@ -30,9 +31,9 @@
                     </div>
                     <div id="adminOrdersSearchStatus" class="form-text slb-search-status" role="status" aria-live="polite"></div>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Order status</label>
-                    <select id="statusFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="statusFilter">Order status</label>
+                    <select id="statusFilter" class="form-select">
                         <option value="">All</option>
                         <option value="pending">Pending</option>
                         <option value="processing">Processing</option>
@@ -42,9 +43,9 @@
                         <option value="scheduled">Scheduled</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Payment status</label>
-                    <select id="paymentStatusFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="paymentStatusFilter">Payment status</label>
+                    <select id="paymentStatusFilter" class="form-select">
                         <option value="">All</option>
                         <option value="unpaid">Unpaid (ops queue)</option>
                         <option value="pending">Pending</option>
@@ -53,16 +54,16 @@
                         <option value="refunded">Refunded</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Disputes</label>
-                    <select id="disputeFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="disputeFilter">Disputes</label>
+                    <select id="disputeFilter" class="form-select">
                         <option value="">All</option>
                         <option value="open">Open</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted" for="paymentMethodFilter">Method</label>
-                    <select id="paymentMethodFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="paymentMethodFilter">Method</label>
+                    <select id="paymentMethodFilter" class="form-select">
                         <option value="">All</option>
                         <option value="card">Card</option>
                         <option value="paypal">PayPal</option>
@@ -72,9 +73,9 @@
                         <option value="crypto">Crypto</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted" for="sortFilter">Sort</label>
-                    <select id="sortFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="sortFilter">Sort</label>
+                    <select id="sortFilter" class="form-select">
                         <option value="">Newest created</option>
                         <option value="oldest">Oldest created</option>
                         <option value="amount">Amount</option>
@@ -82,36 +83,43 @@
                         <option value="completed">Completed date</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Date range</label>
-                    <div class="input-group input-group-sm mb-1">
-                        <input type="date" id="dateFrom" class="form-control" aria-label="From date">
-                        <input type="date" id="dateTo" class="form-control" aria-label="To date">
-                    </div>
-                    <select id="dateFieldFilter" class="form-select form-select-sm" aria-label="Date field">
+                <div>
+                    <label class="form-label" for="dateFrom">From</label>
+                    <input type="date" id="dateFrom" class="form-control" aria-label="From date">
+                </div>
+                <div>
+                    <label class="form-label" for="dateTo">To</label>
+                    <input type="date" id="dateTo" class="form-control" aria-label="To date">
+                </div>
+                <div>
+                    <label class="form-label" for="dateFieldFilter">Date applies to</label>
+                    <select id="dateFieldFilter" class="form-select">
                         <option value="created_at">Created</option>
                         <option value="paid_at">Paid</option>
                         <option value="completed_at">Completed</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted" for="stalledFilter">Stalled</label>
-                    <select id="stalledFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="stalledFilter">Stalled</label>
+                    <select id="stalledFilter" class="form-select">
                         <option value="">All</option>
                         <option value="1">Stalled only</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted" for="modificationFilter">Revision</label>
-                    <select id="modificationFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="modificationFilter">Revision</label>
+                    <select id="modificationFilter" class="form-select">
                         <option value="">All</option>
                         <option value="yes">Modification requested</option>
                     </select>
                 </div>
-                <div class="col-md-2 d-flex align-items-end gap-2">
-                    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-                    <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary btn-sm">Reset</button>
-                    <a href="{{ route('admin.orders.export') }}" id="ordersExport" class="btn btn-outline-secondary btn-sm">CSV</a>
+                <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                        <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary">Reset</button>
+                        <a href="{{ route('admin.orders.export') }}" id="ordersExport" class="btn btn-outline-primary">CSV</a>
+                    </div>
+                </div>
                 </div>
             </form>
             <div id="ordersDateError" class="text-danger small mt-2 d-none" role="alert"></div>
@@ -193,12 +201,16 @@
         if (!el) return;
         const charges = totals.charges && typeof totals.charges === 'object' ? totals.charges : {};
         const parts = Object.keys(charges).map((code) => code + ' ' + Number(charges[code] || 0).toFixed(2));
-        let text = num(totals.count) + ' orders · ' + money(totals.euros) + ' euro order totals';
-        if (parts.length) text += ' · Collected ' + parts.join(' · ');
+        const summary = document.createElement('div');
+        let summaryText = num(totals.count) + ' orders · ' + money(totals.euros) + ' euro order totals';
+        if (parts.length) summaryText += ' · Collected ' + parts.join(' · ');
+        summary.textContent = summaryText;
+        el.replaceChildren(summary);
         if (Number(totals.not_recorded) > 0) {
-            text += ' · ' + num(totals.not_recorded) + ' card or PayPal charges not recorded';
+            const extra = document.createElement('div');
+            extra.textContent = num(totals.not_recorded) + ' card or PayPal charges not recorded';
+            el.appendChild(extra);
         }
-        el.textContent = text;
     }
 
     function syncOrdersUrl(page) {
@@ -413,6 +425,9 @@
         document.getElementById('dateFrom').value = '';
         document.getElementById('dateTo').value = '';
         document.getElementById('dateFieldFilter').value = 'created_at';
+        document.querySelectorAll('#orderFilterForm select').forEach(function (select) {
+            select.dispatchEvent(new Event('change'));
+        });
         loadOrders(1);
     });
     {{-- Page clicks are handled by renderAdminPagination's delegated listener. --}}
@@ -449,8 +464,12 @@
     if (boot.get('date_from')) document.getElementById('dateFrom').value = boot.get('date_from');
     if (boot.get('date_to')) document.getElementById('dateTo').value = boot.get('date_to');
     if (boot.get('date_field')) document.getElementById('dateFieldFilter').value = boot.get('date_field');
+
     const bootPage = parseInt(boot.get('page') || '1', 10);
 
+    document.getElementById('orderFilterForm').addEventListener('admin-filter-pick', function () {
+        loadOrders(1);
+    });
     loadOrders(Number.isFinite(bootPage) && bootPage > 0 ? bootPage : 1);
 })();
 </script>

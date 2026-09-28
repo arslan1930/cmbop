@@ -24,22 +24,23 @@
             </div>
         </div>
         <div class="col-md-8 d-flex align-items-end justify-content-md-end gap-2">
-            <a id="exportPaymentsBtn" href="{{ route('admin.payments.export', absolute: false) }}" class="btn btn-outline-secondary btn-sm">
+            <a id="exportPaymentsBtn" href="{{ route('admin.payments.export', absolute: false) }}" class="btn btn-outline-primary">
                 <i class="fa fa-download me-1"></i> Export CSV
             </a>
         </div>
     </div>
 
     <!-- Filters -->
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm mb-4 admin-deposits-filter-card">
         <div class="card-body">
-            <form id="filterForm" class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted" for="searchInput">Search</label>
+            <form id="filterForm" class="admin-deposits-filters admin-orders-filters">
+                <div class="admin-orders-filters__grid">
+                <div class="admin-orders-filters__search">
+                    <label class="form-label" for="searchInput">Search</label>
                     <div class="slb-search-wrap">
                         <input type="search"
                                id="searchInput"
-                               class="form-control form-control-sm"
+                               class="form-control"
                                placeholder="Order, company, site, Stripe, PayPal…"
                                title="Results update as you type"
                                autocomplete="off"
@@ -51,9 +52,9 @@
                     </div>
                     <div id="adminPaymentsSearchStatus" class="form-text slb-search-status" role="status" aria-live="polite"></div>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted" for="paymentStatusFilter">Payment Status</label>
-                    <select id="paymentStatusFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="paymentStatusFilter">Payment Status</label>
+                    <select id="paymentStatusFilter" class="form-select">
                         <option value="">All</option>
                         <option value="unpaid">Unpaid (ops queue)</option>
                         <option value="pending">Pending</option>
@@ -62,9 +63,9 @@
                         <option value="refunded">Refunded</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted" for="paymentMethodFilter">Payment Method</label>
-                    <select id="paymentMethodFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="paymentMethodFilter">Payment Method</label>
+                    <select id="paymentMethodFilter" class="form-select">
                         <option value="">All</option>
                         <option value="card">Credit/Debit Card</option>
                         <option value="paypal">PayPal</option>
@@ -74,9 +75,9 @@
                         <option value="bank">Bank Transfer</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted" for="orderStatusFilter">Order Status</label>
-                    <select id="orderStatusFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="orderStatusFilter">Order Status</label>
+                    <select id="orderStatusFilter" class="form-select">
                         <option value="">All</option>
                         <option value="pending">Pending</option>
                         <option value="processing">Processing</option>
@@ -86,34 +87,41 @@
                         <option value="cancelled">Cancelled</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted" for="dateFrom">Date range</label>
-                    <div class="input-group input-group-sm mb-1">
-                        <input type="date" id="dateFrom" class="form-control" placeholder="From" aria-label="From date">
-                        <input type="date" id="dateTo" class="form-control" placeholder="To" aria-label="To date">
-                    </div>
-                    <select id="dateFieldFilter" class="form-select form-select-sm" aria-label="Date field">
-                        <option value="created_at">Filter by created date</option>
-                        <option value="paid_at">Filter by paid date</option>
-                        <option value="completed_at">Filter by completed date</option>
+                <div>
+                    <label class="form-label" for="dateFrom">From</label>
+                    <input type="date" id="dateFrom" class="form-control" aria-label="From date">
+                </div>
+                <div>
+                    <label class="form-label" for="dateTo">To</label>
+                    <input type="date" id="dateTo" class="form-control" aria-label="To date">
+                </div>
+                <div>
+                    <label class="form-label" for="dateFieldFilter">Date applies to</label>
+                    <select id="dateFieldFilter" class="form-select" aria-label="Date field">
+                        <option value="created_at">Created</option>
+                        <option value="paid_at">Paid</option>
+                        <option value="completed_at">Completed</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted" for="sortFilter">Sort</label>
-                    <select id="sortFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="sortFilter">Sort</label>
+                    <select id="sortFilter" class="form-select">
                         <option value="">Newest</option>
                         <option value="oldest">Oldest</option>
                         <option value="amount">Amount</option>
                         <option value="paid">Paid date</option>
                     </select>
                 </div>
-                <div class="col-12">
-                    <button type="submit" class="btn btn-primary btn-sm px-4">
+                <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                    <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary">
                         <i class="fa fa-search"></i> Filter
                     </button>
-                    <button type="button" id="resetFiltersBtn" class="btn btn-secondary btn-sm px-3">
+                    <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary">
                         <i class="fa fa-undo"></i> Reset
                     </button>
+                    </div>
+                </div>
                 </div>
             </form>
         </div>
@@ -206,19 +214,14 @@
                     </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-semibold" for="update_payment_status">New Payment Status</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0">
-                            <i class="fa fa-exchange-alt text-muted"></i>
-                        </span>
-                        <select id="update_payment_status" class="form-select border-start-0">
-                            <option value="pending">Pending</option>
-                            <option value="paid">Paid</option>
-                            <option value="failed">Failed</option>
-                            <option value="refunded">Refunded</option>
-                        </select>
-                    </div>
+                <div class="mb-3 admin-deposits-filters" data-admin-filter-live="1">
+                    <label class="form-label" for="update_payment_status">New Payment Status</label>
+                    <select id="update_payment_status" class="form-select">
+                        <option value="pending">Pending</option>
+                        <option value="paid">Paid</option>
+                        <option value="failed">Failed</option>
+                        <option value="refunded">Refunded</option>
+                    </select>
                 </div>
 
                 <div class="mb-3" id="paymentReferenceWrap">
@@ -437,6 +440,9 @@ $(document).ready(function() {
         $('#dateTo').val('');
         $('#dateFieldFilter').val('created_at');
         $('#sortFilter').val('');
+        document.querySelectorAll('#filterForm select').forEach(function (select) {
+            select.dispatchEvent(new Event('change'));
+        });
         currentPage = 1;
         loadPayments();
     }
@@ -481,6 +487,9 @@ $(document).ready(function() {
         $('#dateFrom').val('');
         $('#dateTo').val('');
         $('#dateFieldFilter').val('created_at');
+        document.querySelectorAll('#filterForm select').forEach(function (select) {
+            select.dispatchEvent(new Event('change'));
+        });
         financeClock = false;
         currentPage = 1;
         loadPayments();

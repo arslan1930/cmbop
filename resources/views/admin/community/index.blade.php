@@ -24,24 +24,28 @@
         @endforeach
     </nav>
 
-    <form method="get" class="card border-0 shadow-sm mb-3 community-inbox-filters">
-        <div class="card-body row g-2 align-items-end">
+    <form method="get" class="card border-0 shadow-sm mb-3 community-inbox-filters admin-deposits-filter-card admin-deposits-filters admin-orders-filters">
+        <div class="card-body">
+            <div class="admin-orders-filters__grid">
             <input type="hidden" name="tab" value="{{ $tab }}">
-            <div class="col-md-5">
-                <x-slb-search-field name="q" id="adminCommunitySearch" :value="$q" placeholder="Search…" />
+            <div class="admin-orders-filters__search">
+                <x-slb-search-field name="q" id="adminCommunitySearch" :value="$q" placeholder="Search…" input-class="form-control" label-class="form-label" />
             </div>
-            <div class="col-md-3">
-                <label class="form-label small text-muted mb-1" for="communityStatusFilter">Status</label>
-                <select name="status" id="communityStatusFilter" class="form-select form-select-sm" aria-label="Status">
+            <div>
+                <label class="form-label" for="communityStatusFilter">Status</label>
+                <select name="status" id="communityStatusFilter" class="form-select" aria-label="Status">
                     <option value="">All</option>
                     @foreach($statuses as $st)
                         <option value="{{ $st }}" @selected($status === $st)>{{ ucfirst($st) }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-4 d-flex gap-2">
-                <button class="btn btn-sm btn-primary">Filter</button>
-                <a href="{{ route('admin.community.index', ['tab' => $tab]) }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+            <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-primary">Filter</button>
+                <a href="{{ route('admin.community.index', ['tab' => $tab]) }}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </div>
             </div>
         </div>
     </form>
@@ -469,7 +473,6 @@ function mountCommunityThemeSelect(select) {
     sync();
 }
 
-mountCommunityThemeSelect(document.getElementById('communityStatusFilter'));
 
 function communityFetchMessage(res, data, fallback) {
     if (data.message) {

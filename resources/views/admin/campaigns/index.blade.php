@@ -145,7 +145,7 @@
                                 <label class="form-label">Internal name (optional)</label>
                                 <input type="text" name="name" class="form-control" value="{{ old_text('name') }}" maxlength="120" placeholder="BF25 advertiser blast">
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-6 admin-deposits-filters" data-admin-filter-live="1">
                                 <label class="form-label" for="campaignAudienceTrigger">Audience</label>
                                 <input type="hidden" name="audience" id="campaignAudience" value="{{ $audienceCurrent }}" required>
                                 <div class="single-select-wrapper" id="campaignAudienceWrap">

@@ -109,7 +109,6 @@ use App\Support\RobotsTxt;
 use App\Support\RomanianMoneyLanders;
 use App\Support\SpanishMoneyLanders;
 use App\Support\SwissMoneyLanders;
-use App\Support\UserMessages;
 use App\Support\WelcomeBonusCopy;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
@@ -1070,35 +1069,12 @@ Route::post('/support/chat', [VisitorSupportChatController::class, 'store'])
     ->middleware('throttle:20,1')
     ->name('support.chat');
 
-// External cron fallback for hosts without a real scheduler. This completes orders
-// and releases publisher payouts, so it stays closed unless a strong secret is set
-// (the app scheduler already runs orders:auto-approve on its own).
-Route::get('/cron/orders-auto-approve/{key}', function ($key) {
-    $secret = (string) config('app.cron_secret', '');
-
-    if (strlen($secret) < 32) {
-        abort(404, UserMessages::get('cron.disabled'));
-    }
-
-    if (! hash_equals($secret, (string) $key)) {
-        abort(403, UserMessages::get('cron.forbidden'));
-    }
-
-    Artisan::call('orders:auto-approve');
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Orders auto-approved',
-    ]);
-})->middleware('throttle:6,1')->name('cron.orders-auto-approve');
-
 // Whole scheduler for hosts that cannot run `php artisan schedule:run` every
-// minute. Point an external pinger here and everything scheduled runs — mail
-// drain, auto-approve, scheduled publishing, reminders and digests. Same secret
-// gate as above, since these tasks move money and send mail.
-// Prefer POST /cron/run with X-Cron-Key so the secret is not in access logs.
-$runHttpScheduler = function (Request $request, string $key = '') {
-    HttpCron::authorize($request, $key);
+// minute. POST /cron/run with header X-Cron-Key. The secret must not be in the
+// path: access logs and Referer would keep a copy, and this run completes
+// orders and releases publisher payouts.
+Route::post('/cron/run', function (Request $request) {
+    HttpCron::authorize($request);
 
     Artisan::call('schedule:run');
 
@@ -1106,14 +1082,6 @@ $runHttpScheduler = function (Request $request, string $key = '') {
         'status' => 'success',
         'message' => 'Scheduler run',
     ]);
-};
-
-Route::match(['GET', 'POST'], '/cron/run', function (Request $request) use ($runHttpScheduler) {
-    return $runHttpScheduler($request);
-})->middleware('throttle:6,1')->name('cron.run.header');
-
-Route::get('/cron/run/{key}', function (Request $request, $key) use ($runHttpScheduler) {
-    return $runHttpScheduler($request, (string) $key);
 })->middleware('throttle:6,1')->name('cron.run');
 
 // ✅ UPDATED: Guest middleware for login/register pages
@@ -1980,7 +1948,11 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         // Route::get('/reports/funds-data', [ReportsController::class, 'getFundsActivity'])->name('reports.funds');
         // Route::get('/reports/orders-data', [ReportsController::class, 'getOrderReport'])->name('reports.orders');
 
-        // Invoice route
+        // Invoice route. The .pdf URL is what Add Funds downloads, so the
+        // browser saves a PDF instead of the HTML pay page.
+        Route::get('/invoice/{referenceCode}/invoice.pdf', [InvoiceController::class, 'downloadPdf'])
+            ->where('referenceCode', '[A-Za-z0-9_-]+')
+            ->name('invoice.pdf');
         Route::get('/invoice/{referenceCode}', [InvoiceController::class, 'showInvoice'])->name('invoice');
 
         // Billing & Invoices (automated PDF invoices / receipts)

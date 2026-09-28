@@ -25,6 +25,7 @@
     <link href="{{ asset('assets/css/dialog-system.css') }}?v={{ @filemtime(public_path('assets/css/dialog-system.css')) ?: '1' }}" rel="stylesheet">
     {{-- Sites list / bulk request screens are shared with the admin shell.
          Marketing overrides sit before hover-system.css, which must remain last. --}}
+    <link href="{{ asset('assets/css/admin-components.css') }}?v={{ @filemtime(public_path('assets/css/admin-components.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/staff-sites.css') }}?v={{ @filemtime(public_path('assets/css/staff-sites.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/marketing-shell.css') }}?v={{ @filemtime(public_path('assets/css/marketing-shell.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/slb-live-search.css') }}?v={{ @filemtime(public_path('assets/css/slb-live-search.css')) ?: '1' }}" rel="stylesheet">
@@ -279,6 +280,7 @@
     window.refreshAdminQueueBadges();
 </script>
 <script src="{{ asset('js/role-switch.js') }}?v={{ @filemtime(public_path('js/role-switch.js')) ?: '1' }}"></script>
+<script src="{{ asset('assets/js/admin-theme-selects.js') }}?v={{ @filemtime(public_path('assets/js/admin-theme-selects.js')) ?: '1' }}"></script>
 <script src="{{ asset('assets/js/notification-center.js') }}?v={{ @filemtime(public_path('assets/js/notification-center.js')) ?: '8' }}" defer></script>
 @stack('scripts')
 </body>

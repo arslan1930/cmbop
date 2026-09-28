@@ -473,12 +473,30 @@ class OrderController extends Controller
                 ], 422);
             }
 
-            if ($order->status !== 'pending') {
+            if ($order->status === 'cancelled' || $order->payment_status === 'refunded') {
                 DB::rollBack();
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Only new (pending) orders can be accepted.',
+                    'message' => 'This order is no longer open.',
+                ], 422);
+            }
+
+            if (! in_array($order->status, ['pending', 'processing', 'review'], true)) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only open orders can be accepted.',
+                ], 422);
+            }
+
+            if ($this->placementAlreadyAccepted($orderItem)) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This placement was already accepted.',
                 ], 422);
             }
 
@@ -487,10 +505,13 @@ class OrderController extends Controller
             $suppressedOrderId = (int) $order->id;
             $suppressor->suppress($suppressedOrderId, ['advertiser']);
 
-            // Update the order status to 'processing' (accepted)
-            $order->update([
-                'status' => 'processing',
-            ]);
+            // First acceptance opens the parent order. A sibling placement on
+            // another site can still be accepted after that.
+            if ($order->status === 'pending') {
+                $order->update([
+                    'status' => 'processing',
+                ]);
+            }
 
             // accepted_at drives advertiser "Accepted" UI and turnaround windows.
             $orderItem->update([
@@ -551,6 +572,15 @@ class OrderController extends Controller
      * - Wallet: Move from reserved_balance to balance
      * - All other payments: Direct refund to advertiser's balance
      */
+    private function placementAlreadyAccepted(OrderItem $orderItem): bool
+    {
+        if (in_array($orderItem->publisher_status, ['accepted', 'completed', 'rejected'], true)) {
+            return true;
+        }
+
+        return $orderItem->accepted_at !== null;
+    }
+
     private function refundAdvertiser($order, $orderAmount, $reason)
     {
         try {

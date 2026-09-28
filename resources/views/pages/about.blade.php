@@ -22,7 +22,7 @@
         $supportEmail = 'support@seolinkbuildings.com';
     }
     $registrationNo = $company['registration_no'] ?? '16607074';
-    $legalName = $company['legal_name'] ?? 'SEOLinkBuildings Partners with (Topurlz LTD)';
+    $legalName = $company['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)';
     $address = implode(', ', $company['address_lines'] ?? ['20 Wenlock Road, London, England, N1 7GU']);
 
     $faqEntities = [];

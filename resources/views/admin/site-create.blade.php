@@ -53,7 +53,7 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <form method="POST" action="{{ staff_route('sites.store', [], false) }}" enctype="multipart/form-data" id="staffAssignSiteForm">
+            <form method="POST" action="{{ staff_route('sites.store', [], false) }}" enctype="multipart/form-data" id="staffAssignSiteForm" class="admin-deposits-filters" data-admin-filter-live="1">
                 @csrf
                 @if((int) old_text('suggestion_id', $suggestionId) > 0)
                     <input type="hidden" name="suggestion_id" value="{{ (int) old_text('suggestion_id', $suggestionId) }}">

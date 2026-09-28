@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -12,18 +13,20 @@ class AuthAndMoneyHardeningTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_cron_auto_approve_is_disabled_without_a_strong_secret(): void
-    {
-        config(['app.cron_secret' => 'short']);
-
-        $this->get('/cron/orders-auto-approve/short')->assertNotFound();
-    }
-
-    public function test_cron_auto_approve_rejects_a_wrong_secret(): void
+    public function test_cron_secret_in_the_path_is_not_a_route(): void
     {
         config(['app.cron_secret' => str_repeat('a', 40)]);
 
-        $this->get('/cron/orders-auto-approve/'.str_repeat('b', 40))->assertForbidden();
+        $this->get('/cron/orders-auto-approve/'.str_repeat('a', 40))->assertNotFound();
+        $this->get('/cron/run/'.str_repeat('a', 40))->assertNotFound();
+        $this->get('/cron/run')->assertNotFound();
+    }
+
+    public function test_cron_post_without_header_is_rejected(): void
+    {
+        config(['app.cron_secret' => str_repeat('a', 40)]);
+
+        $this->post('/cron/run')->assertForbidden();
     }
 
     public function test_cron_accepts_header_secret_without_path_key(): void
@@ -110,5 +113,14 @@ class AuthAndMoneyHardeningTest extends TestCase
         $this->assertNull($fresh->stripe_customer_id);
         $this->assertNull($fresh->payout_paypal_email);
         $this->assertFalse((bool) $fresh->catalog_reveal_exempt);
+    }
+
+    public function test_wallet_money_columns_are_not_fillable(): void
+    {
+        $wallet = new Wallet;
+
+        foreach (Wallet::MONEY_ATTRIBUTES as $column) {
+            $this->assertNotContains($column, $wallet->getFillable(), $column.' must not be mass-assignable');
+        }
     }
 }

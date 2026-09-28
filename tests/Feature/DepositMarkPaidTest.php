@@ -125,10 +125,15 @@ class DepositMarkPaidTest extends TestCase
                 'is_live_pending' => true,
             ]);
 
-        $this->actingAs($user)
-            ->get(route('advertiser.invoice', ['referenceCode' => $deposit->reference_code, 'download' => 1]))
-            ->assertOk()
-            ->assertHeader('content-disposition');
+        $download = $this->actingAs($user)
+            ->get(route('advertiser.invoice', ['referenceCode' => $deposit->reference_code, 'download' => 1]));
+
+        $download->assertOk();
+        $this->assertSame('application/pdf', $download->headers->get('content-type'));
+        $disposition = (string) $download->headers->get('content-disposition');
+        $this->assertStringContainsString('invoice-REF'.$deposit->reference_code.'.pdf', $disposition);
+        $this->assertStringNotContainsString('.html', $disposition);
+        $this->assertStringStartsWith('%PDF', $download->getContent());
     }
 
     public function test_invoice_page_shows_mark_paid_button(): void

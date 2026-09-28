@@ -17,6 +17,17 @@ class SiteDescriptionSanitizer
             return '';
         }
 
+        $html = preg_replace(
+            '/<(script|style|iframe|object|embed|svg|math)\b[^>]*>[\s\S]*?<\/\1>/iu',
+            '',
+            $html
+        ) ?? $html;
+        $html = preg_replace(
+            '/<(script|style|iframe|object|embed|svg|math)\b[^>]*>[\s\S]*$/iu',
+            '',
+            $html
+        ) ?? $html;
+
         $clean = strip_tags($html, self::ALLOWED);
 
         // Drop event handlers / javascript: URLs from remaining tags

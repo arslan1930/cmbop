@@ -7,11 +7,6 @@ namespace App\Services\ContentUpload;
  */
 class ArticleHtmlSanitizer
 {
-    /**
-     * Allowed tags for article body (docs-style editor output).
-     */
-    private const ALLOWED = '<p><br><strong><b><em><i><u><s><strike><ul><ol><li><a><h1><h2><h3><h4><blockquote><img><span><div>';
-
     public function sanitize(string $html): string
     {
         $html = trim($html);
@@ -21,64 +16,135 @@ class ArticleHtmlSanitizer
 
         $html = $this->stripPreviewChrome($html);
 
-        $clean = strip_tags($html, self::ALLOWED);
+        return trim($this->allowlist($html));
+    }
 
-        // Drop event handlers / javascript: URLs from remaining tags
-        $clean = preg_replace('/\son\w+\s*=\s*("|\').*?\1/iu', '', $clean) ?? $clean;
-        $clean = preg_replace('/\s(href|src)\s*=\s*("|\')\s*javascript:[^"\']*\2/iu', '', $clean) ?? $clean;
+    /**
+     * Rebuild the fragment from an allowlist. Attributes that are not copied
+     * (including unquoted event handlers) do not survive the parser.
+     */
+    private function allowlist(string $html): string
+    {
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadHTML(
+            '<?xml encoding="UTF-8"><body>'.$html.'</body>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
 
-        // Normalize anchors
-        $clean = preg_replace_callback(
-            '/<a\b([^>]*)>/iu',
-            function (array $m): string {
-                $attrs = $m[1];
-                $href = '';
-                if (preg_match('/\bhref\s*=\s*("|\')(.*?)\1/iu', $attrs, $hm)) {
-                    $href = trim(html_entity_decode($hm[2], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-                }
-                if ($href === '' || ! preg_match('#^https?://#i', $href)) {
-                    return '<a>';
-                }
+        if (! $loaded) {
+            return '';
+        }
 
-                return '<a href="'.e($href).'" target="_blank" rel="noopener noreferrer">';
-            },
-            $clean
-        ) ?? $clean;
+        $out = '';
+        foreach ($dom->childNodes as $child) {
+            $out .= $this->renderDocumentNode($child);
+        }
 
-        // Normalize images
-        $clean = preg_replace_callback(
-            '/<img\b([^>]*)>/iu',
-            function (array $m): string {
-                $attrs = $m[1];
-                $src = '';
-                if (preg_match('/\bsrc\s*=\s*("|\')(.*?)\1/iu', $attrs, $sm)) {
-                    $src = trim(html_entity_decode($sm[2], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-                }
-                if ($src === '') {
-                    return '';
-                }
-                // Editor/preview may load /media (Hostinger fallback) then persist /storage.
-                if (str_starts_with($src, '/media/')) {
-                    $src = '/storage/'.substr($src, strlen('/media/'));
-                }
-                // Persist hosted files only. data:image paste would store megabytes in HTML.
-                $ok = preg_match('#^https?://#i', $src)
-                    || str_starts_with($src, '/storage/')
-                    || str_starts_with($src, '/media/');
-                if (! $ok) {
-                    return '';
-                }
-                $alt = '';
-                if (preg_match('/\balt\s*=\s*("|\')(.*?)\1/iu', $attrs, $am)) {
-                    $alt = $am[2];
-                }
+        return $out;
+    }
 
-                return '<img src="'.e($src).'" alt="'.e($alt).'">';
-            },
-            $clean
-        ) ?? $clean;
+    /**
+     * A pasted </body> or </html> makes libxml lift later nodes out of the
+     * wrapper. Walk the whole document so that content is kept and script
+     * siblings are still dropped.
+     */
+    private function renderDocumentNode(\DOMNode $node): string
+    {
+        if ($node instanceof \DOMElement && in_array(strtolower($node->tagName), ['html', 'body', 'head'], true)) {
+            return $this->renderChildren($node);
+        }
 
-        return trim($clean);
+        return $this->renderNode($node);
+    }
+
+    private function renderNode(\DOMNode $node): string
+    {
+        if ($node instanceof \DOMText) {
+            return e($node->textContent ?? '');
+        }
+
+        if (! $node instanceof \DOMElement) {
+            return '';
+        }
+
+        $tag = strtolower($node->tagName);
+        if (in_array($tag, ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math'], true)) {
+            return '';
+        }
+
+        if (! in_array($tag, ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'img', 'span', 'div'], true)) {
+            return $this->renderChildren($node);
+        }
+
+        if ($tag === 'br') {
+            return '<br>';
+        }
+
+        if ($tag === 'img') {
+            return $this->renderImage($node);
+        }
+
+        if ($tag === 'a') {
+            return $this->renderAnchor($node);
+        }
+
+        return '<'.$tag.'>'.$this->renderChildren($node).'</'.$tag.'>';
+    }
+
+    private function renderChildren(\DOMNode $node): string
+    {
+        $out = '';
+        foreach ($node->childNodes as $child) {
+            $out .= $this->renderNode($child);
+        }
+
+        return $out;
+    }
+
+    private function renderAnchor(\DOMElement $node): string
+    {
+        $href = $this->safeHttpUrl($node->getAttribute('href'));
+        $inner = $this->renderChildren($node);
+        if ($href === null) {
+            return '<a>'.$inner.'</a>';
+        }
+
+        return '<a href="'.e($href).'" target="_blank" rel="noopener noreferrer">'.$inner.'</a>';
+    }
+
+    private function renderImage(\DOMElement $node): string
+    {
+        $src = trim(html_entity_decode($node->getAttribute('src'), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if (str_starts_with($src, '/media/')) {
+            $src = '/storage/'.substr($src, strlen('/media/'));
+        }
+
+        $ok = $this->safeHttpUrl($src) !== null
+            || (str_starts_with($src, '/storage/') && ! str_contains($src, '..'));
+        if (! $ok) {
+            return '';
+        }
+
+        $alt = $node->getAttribute('alt');
+
+        return '<img src="'.e($src).'" alt="'.e($alt).'">';
+    }
+
+    private function safeHttpUrl(string $value): ?string
+    {
+        $value = trim(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if ($value === '' || preg_match('/[\s\x00-\x1F]/', $value) === 1) {
+            return null;
+        }
+
+        if (! preg_match('#^https?://#i', $value)) {
+            return null;
+        }
+
+        return $value;
     }
 
     /**

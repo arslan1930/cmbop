@@ -31,46 +31,52 @@
         Code deploy alone does not insert blog rows. Click <em>Sync curated SEO blogs</em> (or run <code>php artisan blog:upsert-curated</code>) to load pillar posts so you can edit, unpublish, or delete them here.
     </div>
 
-    <form method="GET" action="{{ route('admin.blogs.index') }}" class="row g-2 align-items-end mb-4">
-        <div class="col-md-3">
-            <x-slb-search-field name="q" id="adminBlogsSearch" :value="request('q')" placeholder="Title, slug, author…" />
+    <div class="card border-0 shadow-sm mb-4 admin-deposits-filter-card">
+    <div class="card-body">
+    <form method="GET" action="{{ route('admin.blogs.index') }}" class="admin-deposits-filters admin-orders-filters">
+        <div class="admin-orders-filters__grid">
+        <div class="admin-orders-filters__search">
+            <x-slb-search-field name="q" id="adminBlogsSearch" :value="request('q')" placeholder="Title, slug, author…" input-class="form-control" label-class="form-label" />
         </div>
-        <div class="col-6 col-md-2">
-            <label class="form-label small text-muted mb-1" for="adminBlogsStatus">Status</label>
-            <select name="status" id="adminBlogsStatus" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminBlogsStatus">Status</label>
+            <select name="status" id="adminBlogsStatus" class="form-select">
                 <option value="">All</option>
                 <option value="published" @selected(request('status') === 'published')>Published</option>
                 <option value="draft" @selected(request('status') === 'draft')>Draft</option>
             </select>
         </div>
-        <div class="col-6 col-md-2">
-            <label class="form-label small text-muted mb-1" for="adminBlogsLocale">Primary locale</label>
-            <select name="locale" id="adminBlogsLocale" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminBlogsLocale">Primary locale</label>
+            <select name="locale" id="adminBlogsLocale" class="form-select">
                 <option value="">All</option>
                 @foreach(((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en']) as $code)
                     <option value="{{ $code }}" @selected(request('locale') === $code)>{{ strtoupper($code) }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="col-6 col-md-2">
-            <label class="form-label small text-muted mb-1" for="adminBlogsKind">Kind</label>
-            <select name="kind" id="adminBlogsKind" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminBlogsKind">Kind</label>
+            <select name="kind" id="adminBlogsKind" class="form-select">
                 <option value="">All</option>
                 <option value="curated" @selected(request('kind') === 'curated')>Curated</option>
                 <option value="custom" @selected(request('kind') === 'custom')>Custom</option>
             </select>
         </div>
-        <div class="col-6 col-md-2">
+        <div>
             <div class="form-check mt-4">
                 <input type="checkbox" name="missing_translations" value="1" id="adminBlogsMissing"
                        class="form-check-input" @checked(request()->boolean('missing_translations'))>
-                <label class="form-check-label small" for="adminBlogsMissing">Missing translations</label>
+                <label class="form-check-label" for="adminBlogsMissing">Missing translations</label>
             </div>
         </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
+        <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </div>
         </div>
     </form>
+    </div>
+    </div>
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">

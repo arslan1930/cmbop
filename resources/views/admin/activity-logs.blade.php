@@ -9,38 +9,40 @@
             <p class="text-muted mb-0">Append-only log of actions recorded by ActivityLogger (sites, bulk onboarding, selected money and growth events). History cannot be deleted.</p>
         </div>
         @if(empty($dateErrors) && empty($exportCapped))
-            <a href="{{ route('admin.activity-logs.export', $exportQuery ?? []) }}" class="btn btn-sm btn-outline-secondary">Export CSV</a>
+            <a href="{{ route('admin.activity-logs.export', $exportQuery ?? []) }}" class="btn btn-outline-primary">Export CSV</a>
         @elseif(!empty($exportCapped))
             <p class="small text-muted mb-0">More than {{ number_format($exportLimit ?? \App\Http\Controllers\Admin\ActivityLogController::EXPORT_LIMIT) }} events match — narrow filters to export.</p>
         @endif
     </div>
 
-    <form method="GET" class="card border-0 shadow-sm mb-3">
+    <form method="GET" class="card border-0 shadow-sm mb-3 admin-deposits-filter-card admin-deposits-filters admin-orders-filters">
         <div class="card-body py-3">
-            <div class="row g-3 align-items-end">
-                <div class="col-12 col-lg-3">
+            <div class="admin-orders-filters__grid">
+                <div class="admin-orders-filters__search">
                     <x-slb-search-field
                         name="user"
                         id="logUser"
                         :value="request('user')"
                         placeholder="Filter by user name / email"
                         label="User"
-                        label-class="form-label small mb-1"
+                        label-class="form-label"
+                        input-class="form-control"
                     />
                 </div>
-                <div class="col-12 col-lg-3">
+                <div class="admin-orders-filters__search">
                     <x-slb-search-field
                         name="q"
                         id="logQ"
                         :value="request('q')"
                         placeholder="Search subject, details, or action"
                         label="Search"
-                        label-class="form-label small mb-1"
+                        label-class="form-label"
+                        input-class="form-control"
                     />
                 </div>
-                <div class="col-12 col-md-6 col-lg-2">
-                    <label class="form-label small mb-1" for="logAction">Action</label>
-                    <select id="logAction" name="action" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="logAction">Action</label>
+                    <select id="logAction" name="action" class="form-select">
                         <option value="">All actions</option>
                         @foreach($actions as $action)
                             <option value="{{ $action }}" @selected($selectedAction === $action)>
@@ -49,28 +51,30 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-6 col-md-3 col-lg-2">
-                    <label class="form-label small mb-1" for="logRole">Role</label>
-                    <select id="logRole" name="role" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="logRole">Role</label>
+                    <select id="logRole" name="role" class="form-select">
                         <option value="">All roles</option>
                         @foreach(\App\Http\Controllers\Admin\ActivityLogController::ROLES as $role)
                             <option value="{{ $role }}" @selected($selectedRole === $role)>{{ ucfirst($role) }}</option>
                         @endforeach
                     </select>
                 </div>
-                <div class="col-6 col-md-3 col-lg-1">
-                    <label class="form-label small mb-1" for="logFrom">From</label>
-                    <input type="date" id="logFrom" name="from" value="{{ search_text(request('from')) }}" class="form-control form-control-sm">
+                <div>
+                    <label class="form-label" for="logFrom">From</label>
+                    <input type="date" id="logFrom" name="from" value="{{ search_text(request('from')) }}" class="form-control">
                 </div>
-                <div class="col-6 col-md-3 col-lg-1">
-                    <label class="form-label small mb-1" for="logTo">To</label>
-                    <input type="date" id="logTo" name="to" value="{{ search_text(request('to')) }}" class="form-control form-control-sm">
+                <div>
+                    <label class="form-label" for="logTo">To</label>
+                    <input type="date" id="logTo" name="to" value="{{ search_text(request('to')) }}" class="form-control">
                 </div>
-                <div class="col-12 col-lg-auto d-flex flex-wrap gap-2">
-                    <button class="btn btn-sm btn-primary" type="submit">Apply filters</button>
+                <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                    <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-primary" type="submit">Apply filters</button>
                     @if(!empty($filtersActive))
-                        <a href="{{ route('admin.activity-logs.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                        <a href="{{ route('admin.activity-logs.index') }}" class="btn btn-outline-secondary">Reset</a>
                     @endif
+                    </div>
                 </div>
             </div>
         </div>
@@ -159,7 +163,7 @@
                             <td colspan="6" class="text-center text-muted py-4">
                                 @if(!empty($filtersActive))
                                     <div class="mb-2">No events match these filters.</div>
-                                    <a href="{{ route('admin.activity-logs.index') }}" class="btn btn-sm btn-outline-secondary">Reset filters</a>
+                                    <a href="{{ route('admin.activity-logs.index') }}" class="btn btn-outline-secondary">Reset filters</a>
                                 @else
                                     No activity recorded yet.
                                 @endif

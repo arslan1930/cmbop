@@ -11,10 +11,10 @@
             <p class="text-muted mb-0">Tax invoices, receipts, deposits, payouts, failures, and refunds.</p>
         </div>
         <div class="col-md-5">
-            <form method="POST" action="{{ route('admin.invoices.generate') }}" class="d-flex gap-2 justify-content-md-end mb-2">
+            <form method="POST" action="{{ route('admin.invoices.generate') }}" class="admin-deposits-filters d-flex gap-2 justify-content-md-end align-items-end mb-2">
                 @csrf
-                <input type="text" name="order_ref" class="form-control form-control-sm" style="max-width:180px;" placeholder="Order number" required>
-                <button type="submit" class="btn btn-sm btn-primary">Generate invoice</button>
+                <input type="text" name="order_ref" class="form-control" style="max-width:14rem;" placeholder="Order number" aria-label="Order number" required>
+                <button type="submit" class="btn btn-primary">Generate invoice</button>
             </form>
             @if(session('confirm_unpaid_order'))
                 <form method="POST" action="{{ route('admin.invoices.generate') }}" class="d-flex gap-2 justify-content-md-end mb-2">
@@ -95,30 +95,31 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-3">
+    <div class="card border-0 shadow-sm mb-3 admin-deposits-filter-card">
         <div class="card-body">
-            <form method="GET" class="row g-3 align-items-end">
+            <form method="GET" class="admin-deposits-filters admin-orders-filters">
+                <div class="admin-orders-filters__grid">
                 @if(request('pdf') === 'missing')
                     <input type="hidden" name="pdf" value="missing">
                 @endif
                 @if(request('queue') === 'missing')
                     <input type="hidden" name="queue" value="missing">
                 @endif
-                <div class="col-md-4">
-                    <x-slb-search-field name="search" id="adminInvoicesSearch" :value="$filterSearch ?? ''" placeholder="Invoice, customer, order, email…" />
+                <div class="admin-orders-filters__search">
+                    <x-slb-search-field name="search" id="adminInvoicesSearch" :value="$filterSearch ?? ''" placeholder="Invoice, customer, order, email…" input-class="form-control" label-class="form-label" />
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small text-muted mb-1">Status</label>
-                    <select name="status" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="adminInvoicesStatus">Status</label>
+                    <select name="status" id="adminInvoicesStatus" class="form-select">
                         <option value="">All</option>
                         @foreach(['paid','issued','pending','failed','refunded','cancelled'] as $status)
                             <option value="{{ $status }}" @selected(!($financeClock ?? false) && request('status')===$status)>{{ ucfirst($status) }}</option>
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small text-muted mb-1">Type</label>
-                    <select name="type" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="adminInvoicesType">Type</label>
+                    <select name="type" id="adminInvoicesType" class="form-select">
                         <option value="">All</option>
                         <option value="tax_invoice" @selected(!($financeClock ?? false) && request('type')==='tax_invoice')>Invoice</option>
                         <option value="payment_receipt" @selected(!($financeClock ?? false) && request('type')==='payment_receipt')>Receipt</option>
@@ -128,28 +129,31 @@
                         <option value="withdrawal_payout" @selected(!($financeClock ?? false) && request('type')==='withdrawal_payout')>Payout</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small text-muted mb-1">From</label>
-                    <input type="date" name="from" value="{{ $filterFrom }}" class="form-control form-control-sm">
+                <div>
+                    <label class="form-label" for="adminInvoicesFrom">From</label>
+                    <input type="date" id="adminInvoicesFrom" name="from" value="{{ $filterFrom }}" class="form-control">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small text-muted mb-1">To</label>
-                    <input type="date" name="to" value="{{ $filterTo }}" class="form-control form-control-sm">
+                <div>
+                    <label class="form-label" for="adminInvoicesTo">To</label>
+                    <input type="date" id="adminInvoicesTo" name="to" value="{{ $filterTo }}" class="form-control">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small text-muted mb-1">Sort</label>
-                    <select name="sort" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="adminInvoicesSort">Sort</label>
+                    <select name="sort" id="adminInvoicesSort" class="form-select">
                         <option value="">Newest</option>
                         <option value="oldest" @selected(request('sort')==='oldest')>Oldest</option>
                         <option value="amount" @selected(request('sort')==='amount')>Amount</option>
                     </select>
                 </div>
-                <div class="col-12 d-flex gap-2">
-                    <button class="btn btn-sm btn-primary">Filter</button>
-                    <a href="{{ route('admin.invoices.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                    <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-primary">Filter</button>
+                    <a href="{{ route('admin.invoices.index') }}" class="btn btn-outline-secondary">Reset</a>
                     @unless($showMissingOrders ?? false)
-                        <a href="{{ route('admin.invoices.export', request()->query()) }}" class="btn btn-sm btn-outline-secondary">Export CSV</a>
+                        <a href="{{ route('admin.invoices.export', request()->query()) }}" class="btn btn-outline-primary">Export CSV</a>
                     @endunless
+                    </div>
+                </div>
                 </div>
             </form>
         </div>

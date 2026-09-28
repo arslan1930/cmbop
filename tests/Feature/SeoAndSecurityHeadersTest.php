@@ -126,7 +126,8 @@ class SeoAndSecurityHeadersTest extends TestCase
 
         $this->get('/register')
             ->assertOk()
-            ->assertSee('€20 Welcome Credit', false)
+            ->assertSee('Create Account | SEOLinkBuildings', false)
+            ->assertDontSee('€20 Welcome Credit', false)
             ->assertSee('name="robots" content="noindex, nofollow', false)
             ->assertDontSee('meta_register_title');
     }

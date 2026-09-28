@@ -25,7 +25,7 @@
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <form method="POST" enctype="multipart/form-data" id="bannerForm"
+                    <form method="POST" enctype="multipart/form-data" id="bannerForm" class="admin-deposits-filters" data-admin-filter-live="1"
                           action="{{ $mode === 'create' ? staff_route('promotions.banners.store') : staff_route('promotions.banners.update', $banner) }}">
                         @csrf
                         @if($mode === 'edit')

@@ -243,7 +243,7 @@
     @endif
 
     <div id="staffIndexSearchWrap">
-        <form method="GET" action="{{ staff_route('sites.index') }}" class="mb-2" style="max-width: 320px;" role="search">
+        <form method="GET" action="{{ staff_route('sites.index') }}" class="admin-deposits-filters mb-3" role="search" style="max-width: 36rem;">
             @if(!empty($needsReviewFilterActive) || !empty($unverifiedFilter))
                 <input type="hidden" name="needs_review" value="1">
             @endif
@@ -270,7 +270,8 @@
                 :value="$publisherSearch"
                 placeholder="Search publishers or sites…"
                 label="Search publishers or sites"
-                label-class="visually-hidden"
+                label-class="form-label"
+                input-class="form-control"
             />
         </form>
     </div>

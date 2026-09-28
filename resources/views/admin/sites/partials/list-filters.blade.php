@@ -8,9 +8,9 @@
     $getForm = in_array($mode, ['flat', 'all', 'publishers'], true);
 @endphp
 @if($getForm)
-<form method="GET" action="{{ staff_route('sites.index') }}" class="d-flex flex-wrap align-items-end gap-2 px-3 py-2 border-bottom bg-white" id="staff{{ ucfirst($mode) }}Filters">
+<form method="GET" action="{{ staff_route('sites.index') }}" class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2 px-3 py-2 border-bottom bg-white" id="staff{{ ucfirst($mode) }}Filters">
 @else
-<div class="d-flex flex-wrap align-items-end gap-2 mb-2" id="staffPublisherFilters" data-staff-publisher-filters="1">
+<div class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2 mb-2" id="staffPublisherFilters" data-staff-publisher-filters="1" data-admin-filter-live="1">
 @endif
     @if($mode === 'flat')
         @if(!empty($needsReviewFilterActive))
@@ -47,7 +47,7 @@
     @endif
     <label class="small mb-0">
         Tag
-        <select class="form-select form-select-sm" name="tag" data-staff-filter="tag">
+        <select class="form-select" name="tag" data-staff-filter="tag">
             @foreach($tagOptions as $value => $label)
                 <option value="{{ $value }}" @selected(($filters['tag'] ?? '') === $value)>{{ $label }}</option>
             @endforeach
@@ -55,7 +55,7 @@
     </label>
     <label class="small mb-0">
         Country
-        <select class="form-select form-select-sm" name="country" data-staff-filter="country">
+        <select class="form-select" name="country" data-staff-filter="country">
             <option value="">All</option>
             @foreach($countries as $country)
                 <option value="{{ strtolower((string) $country->code) }}" @selected(strtolower((string) ($filters['country'] ?? '')) === strtolower((string) $country->code))>{{ $country->name }}</option>
@@ -64,7 +64,7 @@
     </label>
     <label class="small mb-0">
         Language
-        <select class="form-select form-select-sm" name="language" data-staff-filter="language">
+        <select class="form-select" name="language" data-staff-filter="language">
             <option value="">All</option>
             @foreach($languages as $language)
                 <option value="{{ strtolower((string) $language->code) }}" @selected(strtolower((string) ($filters['language'] ?? '')) === strtolower((string) $language->code))>{{ $language->name }}</option>
@@ -73,7 +73,7 @@
     </label>
     <label class="small mb-0">
         Niche
-        <select class="form-select form-select-sm" name="niche" data-staff-filter="niche">
+        <select class="form-select" name="niche" data-staff-filter="niche">
             <option value="">All</option>
             @foreach($niches as $nicheName)
                 <option value="{{ $nicheName }}" @selected(($filters['niche'] ?? '') === $nicheName)>{{ $nicheName }}</option>
@@ -82,7 +82,7 @@
     </label>
     <label class="small mb-0">
         Active
-        <select class="form-select form-select-sm" name="listing_active" data-staff-filter="listing_active">
+        <select class="form-select" name="listing_active" data-staff-filter="listing_active">
             <option value="" @selected(($filters['listing_active'] ?? '') === '')>Any</option>
             <option value="1" @selected(($filters['listing_active'] ?? '') === '1')>Active</option>
             <option value="0" @selected(($filters['listing_active'] ?? '') === '0')>Inactive</option>
@@ -90,7 +90,7 @@
     </label>
     <label class="small mb-0">
         Verified
-        <select class="form-select form-select-sm" name="listing_verified" data-staff-filter="listing_verified">
+        <select class="form-select" name="listing_verified" data-staff-filter="listing_verified">
             <option value="" @selected(($filters['listing_verified'] ?? '') === '')>Any</option>
             <option value="1" @selected(($filters['listing_verified'] ?? '') === '1')>Verified</option>
             <option value="0" @selected(($filters['listing_verified'] ?? '') === '0')>Unverified</option>
@@ -98,7 +98,7 @@
     </label>
     <label class="small mb-0">
         Sort
-        <select class="form-select form-select-sm" name="sort" data-staff-filter="sort">
+        <select class="form-select" name="sort" data-staff-filter="sort">
             <option value="" @selected(($filters['sort'] ?? '') === '')>{{ $mode === 'flat' ? 'Oldest waiting' : 'Newest' }}</option>
             <option value="newest" @selected(($filters['sort'] ?? '') === 'newest')>Newest</option>
             <option value="oldest" @selected(($filters['sort'] ?? '') === 'oldest')>Oldest</option>
@@ -134,7 +134,7 @@
         </label>
     @endif
     @if($getForm)
-        <button type="submit" class="btn btn-sm btn-outline-dark">Apply</button>
+        <button type="submit" class="btn btn-primary">Apply</button>
     @endif
 @if($getForm)
 </form>

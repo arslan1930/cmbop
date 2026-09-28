@@ -24,16 +24,16 @@
         'subtitle' => 'Who is in catalog hide mode or on a copy warning. Open-catalog browsing is not logged.',
     ])
 
-    <form method="GET" action="{{ route('admin.catalog-activity') }}" class="mb-3">
+    <form method="GET" action="{{ route('admin.catalog-activity') }}" class="admin-deposits-filters mb-3">
         <input type="hidden" name="days" value="{{ $days }}">
         @if($copyFilter === 'all')
             <input type="hidden" name="copy" value="all">
         @endif
         <div class="d-flex flex-wrap align-items-end gap-2" style="max-width: 28rem;">
             <div class="flex-grow-1">
-                <x-slb-search-field name="q" id="adminCatalogActivitySearch" :value="$q" placeholder="Search email or name" label="Search accounts" label-class="visually-hidden" />
+                <x-slb-search-field name="q" id="adminCatalogActivitySearch" :value="$q" placeholder="Search email or name" label="Search accounts" label-class="form-label" input-class="form-control" />
             </div>
-            <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
+            <button type="submit" class="btn btn-primary">Search</button>
         </div>
     </form>
 

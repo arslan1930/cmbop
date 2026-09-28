@@ -3,8 +3,9 @@
 return [
 
     /*
-    | Advertiser welcome credit granted on first qualifying signup.
-    | Admin can disable this from Promotions Center without a deploy.
+    | Advertiser welcome credit on first qualifying signup.
+    | Off unless an admin turns it on from Promotions Center.
+    | The amount is only used while that switch is on.
     */
     'amount' => 20.00,
 
@@ -14,7 +15,7 @@ return [
     */
     'max_amount' => 500.00,
 
-    'enabled_default' => true,
+    'enabled_default' => false,
 
     'cookie_name' => 'slb_welcome_claimed',
 

@@ -11,21 +11,25 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * The Hostinger steps this agent cannot SSH in to run: migrate, MEDIA_PATH,
- * public/storage, APP_URL, and roles. Safe to call from artisan or a web
- * request (locked by HealHostingerProduction).
+ * public/storage, APP_URL, and roles. Artisan repair migrates. A web request
+ * calls run(persistEnv: true, migrate: false) and only repairs files and URLs.
  */
 class ProductionRepair
 {
     /**
      * @return list<string>
      */
-    public function run(bool $persistEnv = true): array
+    public function run(bool $persistEnv = true, bool $migrate = true): array
     {
         $notes = [];
 
         $wroteEnv = false;
 
-        $this->migrate($notes);
+        if ($migrate) {
+            $this->migrate($notes);
+        } else {
+            $notes[] = 'migrate skipped on web request';
+        }
         $this->seedRoles($notes);
         $this->ensureMedia($notes, $persistEnv, $wroteEnv);
         $this->ensureAppUrl($notes, $persistEnv, $wroteEnv);

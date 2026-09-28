@@ -74,37 +74,46 @@
                         <h5 class="mb-0">Recent Emails</h5>
                         <span class="text-muted small">{{ $recentLogs->total() }} matching · 50 per page</span>
                     </div>
-                    <form method="get" action="{{ route('admin.emails.index') }}#ec-recent" class="row g-2 mb-3">
-                        <div class="col-6 col-md-3">
-                            <select name="status" class="form-select form-select-sm">
+                    <form method="get" action="{{ route('admin.emails.index') }}#ec-recent" class="admin-deposits-filters admin-orders-filters mb-3">
+                        <div class="admin-orders-filters__grid">
+                        <div>
+                            <label class="form-label" for="ecLogStatus">Status</label>
+                            <select name="status" id="ecLogStatus" class="form-select">
                                 <option value="">All statuses</option>
                                 @foreach(['delivered', 'pending', 'failed'] as $status)
                                     <option value="{{ $status }}" @selected(($logFilters['status'] ?? '') === $status)>{{ ucfirst($status) }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-6 col-md-3">
-                            <select name="template_key" class="form-select form-select-sm">
+                        <div>
+                            <label class="form-label" for="ecLogTemplate">Template</label>
+                            <select name="template_key" id="ecLogTemplate" class="form-select">
                                 <option value="">All templates</option>
                                 @foreach($templates as $tpl)
                                     <option value="{{ $tpl['key'] }}" @selected(($logFilters['template_key'] ?? '') === $tpl['key'])>{{ $tpl['name'] }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-6 col-md-3">
-                            <input type="text" name="to_email" class="form-control form-control-sm" placeholder="To email" value="{{ $logFilters['to_email'] ?? '' }}">
+                        <div>
+                            <label class="form-label" for="ecLogEmail">To email</label>
+                            <input type="text" id="ecLogEmail" name="to_email" class="form-control" placeholder="To email" value="{{ $logFilters['to_email'] ?? '' }}">
                         </div>
-                        <div class="col-3 col-md-1">
-                            <input type="date" name="date_from" class="form-control form-control-sm" value="{{ $logFilters['date_from'] ?? '' }}" aria-label="From date">
+                        <div>
+                            <label class="form-label" for="ecLogFrom">From</label>
+                            <input type="date" id="ecLogFrom" name="date_from" class="form-control" value="{{ $logFilters['date_from'] ?? '' }}" aria-label="From date">
                         </div>
-                        <div class="col-3 col-md-2">
-                            <div class="d-flex gap-1">
-                                <input type="date" name="date_to" class="form-control form-control-sm" value="{{ $logFilters['date_to'] ?? '' }}" aria-label="To date">
-                                <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
+                        <div>
+                            <label class="form-label" for="ecLogTo">To</label>
+                            <input type="date" id="ecLogTo" name="date_to" class="form-control" value="{{ $logFilters['date_to'] ?? '' }}" aria-label="To date">
+                        </div>
+                        <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-primary" type="submit">Filter</button>
                                 @if(collect($logFilters)->filter()->isNotEmpty())
-                                    <a href="{{ route('admin.emails.index') }}#ec-recent" class="btn btn-sm btn-outline-secondary">Clear</a>
+                                    <a href="{{ route('admin.emails.index') }}#ec-recent" class="btn btn-outline-secondary">Clear</a>
                                 @endif
                             </div>
+                        </div>
                         </div>
                     </form>
                     @if($recentLogs->isEmpty())
@@ -200,12 +209,12 @@
                         </button>
                     </form>
 
-                    <form method="post" action="{{ route('admin.emails.test') }}" class="border rounded-3 p-3 bg-light">
+                    <form method="post" action="{{ route('admin.emails.test') }}" class="border rounded-3 p-3 bg-light admin-deposits-filters" data-admin-filter-live="1">
                         @csrf
                         <h6 class="mb-2">Send Test Email</h6>
                         <div class="mb-2">
-                            <label class="form-label small mb-1">Template</label>
-                            <select name="template" class="form-select form-select-sm" required>
+                            <label class="form-label" for="ecTestTemplate">Template</label>
+                            <select name="template" id="ecTestTemplate" class="form-select" required>
                                 @foreach($templatesByCategory as $category => $group)
                                     <optgroup label="{{ $category }}">
                                         @foreach($group as $tpl)
@@ -216,11 +225,11 @@
                             </select>
                         </div>
                         <div class="mb-2">
-                            <label class="form-label small mb-1">Send to</label>
-                            <input type="email" name="email" class="form-control form-control-sm" value="{{ $adminEmail }}" readonly required>
+                            <label class="form-label">Send to</label>
+                            <input type="email" name="email" class="form-control" value="{{ $adminEmail }}" readonly required>
                         </div>
                         <p class="small text-muted mb-2">Sends a synthetic preview to your admin inbox — not a live customer email.</p>
-                        <button class="btn btn-primary btn-sm w-100" type="submit">
+                        <button class="btn btn-primary w-100" type="submit">
                             <i class="fa fa-paper-plane me-1"></i> Send Test Email
                         </button>
                     </form>
@@ -334,12 +343,14 @@
                     <h5 class="mb-1">Notification Settings</h5>
                     <p class="small text-muted mb-0">Enable or disable specific notification types globally. User preferences still apply on top.</p>
                 </div>
-                <select id="ec-settings-audience" class="form-select form-select-sm" style="max-width:12rem" aria-label="Filter settings by audience">
+                <div class="admin-deposits-filters" data-admin-filter-live="1" style="min-width:12rem;max-width:16rem">
+                <select id="ec-settings-audience" class="form-select" aria-label="Filter settings by audience">
                     <option value="">All audiences</option>
                     @foreach($settings->pluck('audience')->unique()->sort() as $audience)
                         <option value="{{ $audience }}">{{ $audience }}</option>
                     @endforeach
                 </select>
+                </div>
             </div>
             <form method="post" action="{{ route('admin.emails.settings') }}" id="ec-settings-form" data-ec-critical="{{ implode(',', $criticalTypes) }}">
                 @csrf

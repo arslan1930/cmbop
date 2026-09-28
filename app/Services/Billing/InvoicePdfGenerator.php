@@ -11,7 +11,7 @@ class InvoicePdfGenerator
 {
     public function generateAndStore(Invoice $invoice): Invoice
     {
-        $binary = $this->renderPdf($invoice)->output();
+        $binary = $this->stampCurrentSeller($this->renderPdfBinary($invoice));
 
         $disk = (string) config('billing.storage.disk', 'local');
         $directory = trim((string) config('billing.storage.directory', 'invoices'), '/');
@@ -52,7 +52,7 @@ class InvoicePdfGenerator
             );
         }
 
-        return $this->renderPdf($invoice)->stream($invoice->invoice_number.'.pdf');
+        return $this->pdfResponse($invoice, 'inline');
     }
 
     public function download(Invoice $invoice)
@@ -67,22 +67,71 @@ class InvoicePdfGenerator
             );
         }
 
-        return $this->renderPdf($invoice)->download($invoice->invoice_number.'.pdf');
+        return $this->pdfResponse($invoice, 'attachment');
     }
 
     /**
-     * Rebuild a stored PDF that still prints leftover APP_URL (localhost)
-     * or used a core font so completed invoices show as garbled glyphs.
+     * A one-off PDF for a payment page that has no stored billing document yet.
+     * The model is not saved. output() runs once so the character map stays intact.
+     */
+    public function attachment(Invoice $invoice, string $filename)
+    {
+        $binary = $this->renderPdfBinary($invoice);
+        $safe = preg_replace('/[^A-Za-z0-9._-]/', '', $filename) ?: 'invoice.pdf';
+        if (! str_ends_with(strtolower($safe), '.pdf')) {
+            $safe .= '.pdf';
+        }
+
+        return response($binary, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$safe.'"',
+        ]);
+    }
+
+    /**
+     * Rebuild a stored PDF that still prints leftover APP_URL (localhost),
+     * used a core font so completed invoices show as garbled glyphs, or
+     * was saved before the current seller and pay-in account.
      */
     public function ensureCustomerPdf(Invoice $invoice): Invoice
     {
         if ($invoice->pdfExists()
             && ! $this->storedPdfHasLeftoverHost($invoice)
-            && $this->storedPdfEmbedsUnicodeFont($invoice)) {
+            && $this->storedPdfEmbedsUnicodeFont($invoice)
+            && $this->storedPdfMatchesCurrentSeller($invoice)) {
             return $invoice;
         }
 
         return $this->generateAndStore($invoice);
+    }
+
+    private function currentSellerMark(): string
+    {
+        $legal = preg_replace('/\s+/', ' ', trim((string) config('billing.company.legal_name'))) ?: '';
+        $iban = preg_replace('/\s+/', '', (string) config('billing.deposit_payment.iban')) ?: '';
+
+        return '% CMBOP-SELLER '.$legal.' '.$iban;
+    }
+
+    private function stampCurrentSeller(string $binary): string
+    {
+        $mark = $this->currentSellerMark();
+        if ($mark === '% CMBOP-SELLER  ' || str_contains($binary, $mark)) {
+            return $binary;
+        }
+
+        return $binary."\n".$mark."\n";
+    }
+
+    private function storedPdfMatchesCurrentSeller(Invoice $invoice): bool
+    {
+        try {
+            $binary = (string) Storage::disk($invoice->pdfStorageDisk())->get($invoice->pdf_path);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return str_contains($binary, $this->currentSellerMark());
     }
 
     private function storedPdfHasLeftoverHost(Invoice $invoice): bool
@@ -106,7 +155,46 @@ class InvoicePdfGenerator
             return false;
         }
 
-        return str_contains($binary, 'DejaVu');
+        return str_contains($binary, 'DejaVu')
+            && str_contains($binary, '/FontFile2')
+            && $this->pdfFlateStreamsDecode($binary);
+    }
+
+    /**
+     * A second Dompdf output() re-decodes the CIDToGID map and stores it as
+     * FlateDecode. The file still says DejaVu, but the viewer draws the wrong glyphs.
+     */
+    private function pdfFlateStreamsDecode(string $binary): bool
+    {
+        $offset = 0;
+        $marker = '/Filter /FlateDecode';
+
+        while (($filter = strpos($binary, $marker, $offset)) !== false) {
+            $streamAt = strpos($binary, 'stream', $filter);
+            $end = $streamAt === false ? false : strpos($binary, "\nendstream", $streamAt);
+            if ($streamAt === false || $end === false || $end <= $streamAt) {
+                return false;
+            }
+
+            $start = $streamAt + strlen('stream');
+            if (($binary[$start] ?? '') === "\r") {
+                $start++;
+            }
+            if (($binary[$start] ?? '') === "\n") {
+                $start++;
+            } else {
+                return false;
+            }
+
+            $data = substr($binary, $start, $end - $start);
+            if ($data === '' || ord($data[0]) !== 0x78 || @gzuncompress($data) === false) {
+                return false;
+            }
+
+            $offset = $end + strlen("\nendstream");
+        }
+
+        return true;
     }
 
     public function absolutePath(Invoice $invoice): ?string
@@ -122,22 +210,33 @@ class InvoicePdfGenerator
      * Dompdf's CPDF adapter needs PHP GD to embed PNG logos. Hostinger /
      * this VM can lack gd — still produce the invoice, just without the raster.
      */
-    private function renderPdf(Invoice $invoice)
+    private function pdfResponse(Invoice $invoice, string $disposition)
+    {
+        $binary = $this->renderPdfBinary($invoice);
+        $filename = $invoice->invoice_number.'.pdf';
+
+        return response($binary, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => $disposition.'; filename="'.$filename.'"',
+        ]);
+    }
+
+    private function renderPdfBinary(Invoice $invoice): string
     {
         $includeLogo = extension_loaded('gd');
 
         try {
-            return $this->makePdf($invoice, $includeLogo);
+            return $this->makePdfBinary($invoice, $includeLogo);
         } catch (\Throwable $e) {
             if (! $includeLogo || ! $this->isMissingGdException($e)) {
                 throw $e;
             }
 
-            return $this->makePdf($invoice, false);
+            return $this->makePdfBinary($invoice, false);
         }
     }
 
-    private function makePdf(Invoice $invoice, bool $includeLogo)
+    private function makePdfBinary(Invoice $invoice, bool $includeLogo): string
     {
         $previousConvert = config('dompdf.convert_entities');
         config(['dompdf.convert_entities' => false]);
@@ -167,11 +266,11 @@ class InvoicePdfGenerator
                     'fontDir' => $fontDir,
                     'fontCache' => $fontCache,
                 ]);
-            // Force rasterization now so a missing-GD throw happens here,
-            // not inside stream()/download() after headers may have started.
-            $pdf->output();
 
-            return $pdf;
+            // Call output() once. Dompdf decodes the CIDToGID map in place;
+            // a second output() on this instance stores a broken map and the
+            // downloaded PDF draws the wrong glyphs.
+            return $pdf->output();
         } finally {
             config(['dompdf.convert_entities' => $previousConvert]);
         }

@@ -12,40 +12,43 @@
         </a>
     </div>
 
-    <form method="GET" action="{{ route('admin.content-library.index') }}" id="adminLibraryFilterForm" class="row g-2 align-items-end mb-3">
+    <div class="card border-0 shadow-sm mb-3 admin-deposits-filter-card">
+    <div class="card-body">
+    <form method="GET" action="{{ route('admin.content-library.index') }}" id="adminLibraryFilterForm" class="admin-deposits-filters admin-orders-filters">
+        <div class="admin-orders-filters__grid">
         @if($userId)
             <input type="hidden" name="user_id" value="{{ $userId }}">
         @endif
         <input type="hidden" name="availability" value="{{ $availability }}" id="adminLibraryAvailability">
-        <div class="col-md-3">
-            <x-slb-search-field name="q" id="adminContentLibrarySearch" :value="$search" placeholder="Title, file, email" />
+        <div class="admin-orders-filters__search">
+            <x-slb-search-field name="q" id="adminContentLibrarySearch" :value="$search" placeholder="Title, file, email" input-class="form-control" label-class="form-label" />
         </div>
-        <div class="col-md-3">
-            <label class="form-label small text-muted mb-1" for="adminLibraryAdvertiser">Advertiser</label>
-            <input type="search" name="advertiser" id="adminLibraryAdvertiser" class="form-control form-control-sm"
+        <div>
+            <label class="form-label" for="adminLibraryAdvertiser">Advertiser</label>
+            <input type="search" name="advertiser" id="adminLibraryAdvertiser" class="form-control"
                    value="{{ $advertiserQuery ?? '' }}" placeholder="Name or email" autocomplete="off">
         </div>
-        <div class="col-6 col-md-2">
-            <label class="form-label small text-muted mb-1" for="adminLibraryCountry">Country</label>
-            <select name="country" id="adminLibraryCountry" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminLibraryCountry">Country</label>
+            <select name="country" id="adminLibraryCountry" class="form-select">
                 <option value="all" @selected($country === 'all')>All countries</option>
                 @foreach($countries as $code)
                     <option value="{{ $code }}" @selected($country === $code)>{{ strtoupper($code) }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="col-6 col-md-2">
-            <label class="form-label small text-muted mb-1" for="adminLibraryLanguage">Language</label>
-            <select name="language" id="adminLibraryLanguage" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminLibraryLanguage">Language</label>
+            <select name="language" id="adminLibraryLanguage" class="form-select">
                 <option value="all" @selected($language === 'all')>All languages</option>
                 @foreach($languages as $code)
                     <option value="{{ $code }}" @selected($language === $code)>{{ strtoupper($code) }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="col-6 col-md-2">
-            <label class="form-label small text-muted mb-1" for="adminLibrarySort">Sort</label>
-            <select name="sort" id="adminLibrarySort" class="form-select form-select-sm">
+        <div>
+            <label class="form-label" for="adminLibrarySort">Sort</label>
+            <select name="sort" id="adminLibrarySort" class="form-select">
                 <option value="latest" @selected(($sort ?? 'latest') === 'latest')>Newest</option>
                 <option value="title" @selected(($sort ?? '') === 'title')>Title</option>
                 <option value="expires" @selected(($sort ?? '') === 'expires')>Expiry</option>
@@ -53,11 +56,16 @@
                 <option value="quality" @selected(($sort ?? '') === 'quality')>Quality</option>
             </select>
         </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-sm btn-primary">Apply</button>
-            <a href="{{ route('admin.content-library.index') }}" class="btn btn-sm btn-link">Reset</a>
+        <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+            <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">Apply</button>
+            <a href="{{ route('admin.content-library.index') }}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </div>
         </div>
     </form>
+    </div>
+    </div>
 
     @if($filterUser)
         <div class="alert alert-light border py-2 px-3 small mb-3 d-flex flex-wrap align-items-center gap-2">

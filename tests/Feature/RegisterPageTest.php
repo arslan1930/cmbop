@@ -33,10 +33,10 @@ class RegisterPageTest extends TestCase
             ->assertSee('Create Account', false)
             ->assertDontSee('Continue with Apple', false)
             ->assertSee('Continue with Google', false)
-            ->assertSee('€20 welcome credit', false)
-            ->assertSee('Start with €20 free credit', false)
-            ->assertSee('Welcome bonus for first orders', false)
-            ->assertSee('const welcomeBonusEnabled = true', false);
+            ->assertDontSee('€20 welcome credit', false)
+            ->assertDontSee('Start with €20 free credit', false)
+            ->assertSee('Free to start — no card required', false)
+            ->assertSee('const welcomeBonusEnabled = false', false);
     }
 
     public function test_register_page_defines_role_benefits_helper_before_use(): void
@@ -64,7 +64,7 @@ class RegisterPageTest extends TestCase
             ->assertSee('Continue with Google', false);
     }
 
-    public function test_register_succeeds_for_advertiser_with_welcome_bonus(): void
+    public function test_register_succeeds_for_advertiser_without_welcome_bonus(): void
     {
         Notification::fake();
 
@@ -94,10 +94,10 @@ class RegisterPageTest extends TestCase
         $advertiserRoleId = Role::where('name', 'advertiser')->value('id');
         $wallet = $user->wallets()->where('role_id', $advertiserRoleId)->first();
         $this->assertNotNull($wallet);
-        $this->assertEquals(20.0, (float) $wallet->bonus_balance);
-        $this->assertEquals(20.0, (float) $wallet->balance);
+        $this->assertEquals(0.0, (float) $wallet->bonus_balance);
+        $this->assertEquals(0.0, (float) $wallet->balance);
         $this->assertSame(0.0, $wallet->withdrawableBalance());
-        $this->assertSame(20.0, $wallet->lockedBonusBalance());
+        $this->assertSame(0.0, $wallet->lockedBonusBalance());
     }
 
     public function test_register_validation_returns_json_errors(): void

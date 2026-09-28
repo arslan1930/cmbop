@@ -8,7 +8,7 @@ marketplace ("Seolinkbuildings") connecting **advertisers** (buy placements) wit
 internal EUR wallet system with optional Stripe card payments. The UI is server-
 rendered Blade with hand-written CSS in `public/assets/css` (Bootstrap 5 + jQuery
 from CDN); Vite/Tailwind are configured but not wired into any view yet.
-New advertisers get a €20 welcome bonus.
+New advertisers do not get a welcome bonus unless an admin turns it on under Promotions.
 
 Standard commands live in `composer.json` (`scripts`) and `package.json`
 (`scripts`). Common ones:
@@ -46,9 +46,10 @@ After migrate + seed (or `composer setup`), confirm the launch path:
 php artisan ops:production-ready --repair
 ```
 `--repair` runs `migrate --force`, seeds roles, sets Hostinger `MEDIA_PATH` /
-`APP_URL`, and recreates `public/storage`. Production page views do the same
-(`HOSTINGER_WEB_HEAL`, default on) so live Hostinger does not need SSH from
-this agent. `--strict` fails on warnings too.
+`APP_URL`, and recreates `public/storage`. Production page views
+(`HOSTINGER_WEB_HEAL`, default on) refresh `MEDIA_PATH`, `APP_URL`, and
+`public/storage` only. They do not migrate and they do not run the scheduler.
+`--strict` fails on warnings too.
 
 ### Seeders
 `php artisan db:seed` now includes `RolesTableSeeder` (advertiser, publisher,
