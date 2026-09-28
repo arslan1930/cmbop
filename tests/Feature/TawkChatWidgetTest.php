@@ -83,6 +83,8 @@ class TawkChatWidgetTest extends TestCase
         $this->assertStringContainsString('class_exists(\\App\\Support\\VisitorSupportChat::class)', $tawk);
         $this->assertStringContainsString('class_exists(\\App\\Support\\TawkChat::class)', $tawk);
         $this->assertStringContainsString("view()->exists('partials.visitor-support-chat')", $tawk);
+        $this->assertStringContainsString('function restorePageTitle', $tawk);
+        $this->assertStringContainsString('new message', $tawk);
 
         $admin = (string) file_get_contents(resource_path('views/admin/layouts/app.blade.php'));
         $this->assertStringNotContainsString('partials.tawk', $admin);

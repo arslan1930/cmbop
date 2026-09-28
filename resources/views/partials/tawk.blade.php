@@ -238,6 +238,24 @@ Tawk_API.visitor = {!! json_encode($tawkVisitor, JSON_UNESCAPED_SLASHES | JSON_U
     closeChat();
   });
 
+  var pageTitle = document.title;
+  function restorePageTitle() {
+    var current = document.title;
+    if (!current || current === pageTitle) return;
+    if (/new message/i.test(current) || /^\(\d+\)/.test(current)) {
+      document.title = pageTitle;
+    }
+  }
+  var titleNode = document.querySelector('title');
+  if (titleNode && window.MutationObserver) {
+    new MutationObserver(restorePageTitle).observe(titleNode, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+  }
+  setInterval(restorePageTitle, 800);
+
   Tawk_API.onLoad = function () {
     if (window.slbTawkKeepOpen) return;
     if (typeof Tawk_API.minimize === 'function') Tawk_API.minimize();
