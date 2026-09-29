@@ -97,11 +97,11 @@ class GuestPostingGuideI18n
                     '/de/blog/dofollow-vs-nofollow-ankertext',
                 ],
                 'image' => [
-                    'filename' => null,
-                    'alt' => null,
-                    'caption' => null,
+                    'filename' => 'guest-posting-guide-workflow-de.svg',
+                    'alt' => 'Ablauf eines Gastbeitrags von der Themenwahl über die Host-Prüfung bis zur Live-URL',
+                    'caption' => 'Der Host behält die URL. Der Autor liefert den Text und prüft danach Attribut und Zielseite.',
                     'ai_generated' => false,
-                    'note' => 'No inline diagram. The bundled workflow graphic is English and would contradict the German article.',
+                    'note' => 'Authored German SVG. Not a photograph and not an AI image.',
                 ],
             ],
         ];
@@ -123,6 +123,7 @@ class GuestPostingGuideI18n
         $sponsored = '/de/blog/gesponserte-beitraege-leitfaden';
         $dofollow = '/de/blog/dofollow-vs-nofollow-ankertext';
         $buyDe = '/de/gastbeitrag-kaufen';
+        $img = BlogLocaleImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW, 'de');
 
         return <<<HTML
 <p class="glossary-definition">Ein Gastbeitrag ist ein redaktioneller Artikel, den eine Person oder ein Unternehmen auf einer fremden Website veröffentlicht. Der Host behält die Adresse und die Leser. Der Autor liefert den Text und steht in der Regel mit Namen darunter. Oft führt ein Link auf die eigene Seite. Das Format ist kein Advertorial und kein unabhängiges Zitat.</p>
@@ -182,6 +183,10 @@ class GuestPostingGuideI18n
 <li><strong>Für deren Leser schreiben.</strong> Ein Beispiel aus der Branche des Hosts. Eine primäre URL. Ein Anker, den ein Mensch in einem Satz setzen würde: Markenname, nackte URL oder eine beschreibende Wendung.</li>
 <li><strong>Die Live-URL prüfen.</strong> Ob die Seite indexierbar ist, welches <code>rel</code>-Attribut am Link steht, ob der Anker zum Satz passt und ob die Zielseite das Versprechen hält. Notieren Sie ein Datum für die spätere Kontrolle.</li>
 </ol>
+<figure>
+<img src="{$img}" alt="Ablauf eines Gastbeitrags von der Themenwahl über die Host-Prüfung bis zur Live-URL" loading="lazy" width="1200" height="675">
+<figcaption>Der Host behält die URL. Der Autor liefert den Text und prüft danach Attribut und Zielseite.</figcaption>
+</figure>
 <p><strong>Beispiel.</strong> Eine Steuerkanzlei in Köln will nicht auf zwanzig Blogs denselben kommerziellen Anker streuen. Sie schreibt auf einem Mittelstandsportal über die Frist, die GmbH-Geschäftsführer im ersten Quartal regelmäßig verpassen, und verlinkt den eigenen Fristenrechner mit dem Anker „Fristenrechner für GmbH-Geschäftsführer“. Der Satz wäre auch ohne SEO-Absicht so formuliert. Das ist eine brauchbare Ankertext-Strategie: beschreibend, einmalig, an die Zielseite gebunden. Dieselbe exakte Geld-Phrase auf jeder Platzierung ist ein Muster, keine Strategie.</p>
 <p>Die Ankertext-Strategie scheitert meist nicht am einzelnen Wort, sondern an der Wiederholung. Marke, URL und eine sachliche Umschreibung im Wechsel sehen aus wie Sätze. Ein immer gleicher Exact-Match sieht aus wie eine Liste.</p>
 
@@ -277,7 +282,7 @@ HTML;
         $live = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
         $catalog = '/marketplace';
         $how = '/how-it-works';
-        $img = BlogInlineImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW);
+        $img = BlogLocaleImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW, 'fr');
 
         return <<<HTML
 <p>Un guest post est un article sur un site que vous ne possédez pas, en général avec une signature et, si l’hôte l’autorise, un lien retour.</p>
@@ -357,7 +362,7 @@ HTML;
         $live = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
         $catalog = '/marketplace';
         $how = '/how-it-works';
-        $img = BlogInlineImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW);
+        $img = BlogLocaleImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW, 'nl');
 
         return <<<HTML
 <p>Een gastpost is een artikel op een site die je niet bezit, meestal met byline en, als de host het toestaat, een link terug.</p>
@@ -436,7 +441,7 @@ HTML;
         $live = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
         $catalog = '/it/mercato';
         $how = '/it/come-funziona';
-        $img = BlogInlineImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW);
+        $img = BlogLocaleImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW, 'it');
 
         return <<<HTML
 <p>Un guest post è un articolo su un sito che non possiedi — di solito con byline e, se l’host lo consente, un link di ritorno.</p>

@@ -62,7 +62,7 @@ class SponsoredPostGuideI18n
         $removed = '/blog/what-happens-if-a-live-link-is-removed';
         $catalog = '/marketplace';
         $how = '/how-it-works';
-        $img = BlogInlineImages::publicUrl(SponsoredPostGuideBlogPost::IMAGE_COMPARE);
+        $img = BlogLocaleImages::publicUrl(SponsoredPostGuideBlogPost::IMAGE_COMPARE, 'de');
 
         return <<<HTML
 <p>Ein gesponserter Beitrag ist ein Artikel (oder ein Abschnitt), den ein Publisher schaltet, weil jemand dafür bezahlt, getauscht oder anderweitig vergütet hat. Das ist Werbung im redaktionellen Gewand. Erlaubt. So zu tun, als wäre es eine unbezahlte Empfehlung, nicht.</p>
@@ -136,7 +136,7 @@ HTML;
         $removed = '/blog/what-happens-if-a-live-link-is-removed';
         $catalog = '/marketplace';
         $how = '/how-it-works';
-        $img = BlogInlineImages::publicUrl(SponsoredPostGuideBlogPost::IMAGE_COMPARE);
+        $img = BlogLocaleImages::publicUrl(SponsoredPostGuideBlogPost::IMAGE_COMPARE, 'fr');
 
         return <<<HTML
 <p>Un article sponsorisé est un texte (ou une section) qu’un éditeur publie parce que quelqu’un a payé, troqué ou autrement compensé le placement. C’est de la publicité qui ressemble à de l’éditorial. Autorisé. Faire semblant que c’est une recommandation gratuite: non.</p>
@@ -207,7 +207,7 @@ HTML;
         $removed = '/blog/what-happens-if-a-live-link-is-removed';
         $catalog = '/marketplace';
         $how = '/how-it-works';
-        $img = BlogInlineImages::publicUrl(SponsoredPostGuideBlogPost::IMAGE_COMPARE);
+        $img = BlogLocaleImages::publicUrl(SponsoredPostGuideBlogPost::IMAGE_COMPARE, 'nl');
 
         return <<<HTML
 <p>Een gesponsorde post is een artikel (of een deel ervan) dat een publisher plaatst omdat iemand ervoor betaalde, ruilde of anderszins vergoedde. Reclame in redactionele vorm. Toegestaan. Doen alsof het een onbetaalde aanbeveling is: niet.</p>
@@ -279,7 +279,7 @@ HTML;
         $removed = '/blog/what-happens-if-a-live-link-is-removed';
         $catalog = '/it/mercato';
         $how = '/it/come-funziona';
-        $img = BlogInlineImages::publicUrl(SponsoredPostGuideBlogPost::IMAGE_COMPARE);
+        $img = BlogLocaleImages::publicUrl(SponsoredPostGuideBlogPost::IMAGE_COMPARE, 'it');
 
         return <<<HTML
 <p>Un articolo sponsorizzato (pubbliredazionale, post sponsorizzato, pubblicazione a pagamento) è un pezzo che il publisher mette online perché qualcuno ha pagato, scambiato o altrimenti compensato. È pubblicità in veste editoriale. Lecito. Fingerlo come raccomandazione gratuita, no.</p>

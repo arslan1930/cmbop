@@ -55,11 +55,14 @@ class GermanGuestPostGlossaryTest extends TestCase
         $this->assertStringContainsString('id="gastbeitrag-oder-nicht"', $clean);
         $this->assertStringContainsString('href="#gastbeitrag-oder-nicht"', $clean);
         $this->assertDoesNotMatchRegularExpression('/<a href="#[^"]*"[^>]*target="_blank"/', $clean);
-        $this->assertStringNotContainsString('guest-posting-guide-workflow', $clean);
+        $this->assertStringContainsString('guest-posting-guide-workflow-de.svg', $clean);
+        $this->assertStringNotContainsString('guest-posting-guide-workflow.jpg', $clean);
         $this->assertStringNotContainsString('Find sites', $clean);
         $this->assertStringNotContainsString('Rechtsbegriffe', $clean);
         $this->assertStringNotContainsString('Schreibweise tun es nicht', $clean);
-        $this->assertNull($record['image']['filename']);
+        $this->assertSame('guest-posting-guide-workflow-de.svg', $record['image']['filename']);
+        $this->assertFalse($record['image']['ai_generated']);
+        $this->assertStringContainsString($record['image']['alt'], $clean);
 
         $this->assertStringContainsString('<table>', $html);
         $this->assertGreaterThanOrEqual(4, substr_count($html, '<h3>'));
