@@ -84,7 +84,7 @@ class DofollowNofollowAnkertexteBlogPost
         $marketplace = '/marketplace';
         $register = '/register';
         $imgTypes = BlogInlineImages::publicUrl(self::IMAGE_LINK_TYPES);
-        $imgMix = BlogInlineImages::publicUrl(self::IMAGE_ANCHOR_MIX);
+        $imgMix = BlogLocaleImages::publicUrl(self::IMAGE_ANCHOR_MIX, 'de');
 
         return <<<HTML
 <p>Zwei Fragen kommen im Marketplace immer wieder: „Ist der Link DoFollow?“ und „Welchen Ankertext nehmen wir?“ Fair. Beides kann Rankings beeinflussen. Beides wird aber auch überschätzt – vor allem, wenn Relevanz und Site-Qualität schon wackeln.</p>

@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Support\BlogLocaleImages;
 use App\Support\DofollowNofollowAnchorsEnBlogPost;
 use App\Support\DofollowNofollowAnchorsI18n;
+use App\Support\DofollowNofollowAnkertexteBlogPost;
 use App\Support\GuestPostingGuideBlogPost;
 use App\Support\GuestPostingGuideI18n;
 use App\Support\HowToGetBacklinksBlogPost;
@@ -56,6 +57,29 @@ class BlogLocaleImagesTest extends TestCase
             $this->assertStringContainsString('market-dofollow-anchors-en-mix-'.$locale.'.svg', $html);
             $this->assertStringNotContainsString(DofollowNofollowAnchorsEnBlogPost::IMAGE_MIX, $html);
             $this->assertStringContainsString(DofollowNofollowAnchorsEnBlogPost::IMAGE_TYPES, $html);
+        }
+
+        $germanOnly = DofollowNofollowAnkertexteBlogPost::contentHtml();
+        $this->assertStringContainsString('dofollow-nofollow-ankertexte-mix-de.svg', $germanOnly);
+        $this->assertStringNotContainsString(DofollowNofollowAnkertexteBlogPost::IMAGE_ANCHOR_MIX, $germanOnly);
+        $this->assertSame(
+            'dofollow-nofollow-ankertexte-featured-de.svg',
+            BlogLocaleImages::inlineFilename(basename(DofollowNofollowAnkertexteBlogPost::FEATURED_ASSET), 'de')
+        );
+    }
+
+    public function test_locale_svgs_are_well_formed(): void
+    {
+        $files = array_values(array_filter(
+            glob(public_path('assets/img/blog/*.svg')) ?: [],
+            static fn (string $file): bool => preg_match('/-(de|fr|nl|it)\.svg$/', $file) === 1
+        ));
+        $this->assertNotEmpty($files);
+
+        foreach ($files as $file) {
+            $dom = new \DOMDocument;
+            $this->assertTrue($dom->load($file), basename($file).' is not valid XML');
+            $this->assertSame(0, substr_count(strtolower((string) file_get_contents($file)), '<script'));
         }
     }
 }
