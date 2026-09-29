@@ -97,10 +97,11 @@ class GuestPostingGuideI18n
                     '/de/blog/dofollow-vs-nofollow-ankertext',
                 ],
                 'image' => [
-                    'filename' => GuestPostingGuideBlogPost::IMAGE_WORKFLOW,
-                    'alt' => 'Ablauf eines Gastbeitrags von der Themenwahl über die Host-Prüfung bis zur Live-URL',
-                    'caption' => 'Der Host behält die URL. Der Autor liefert den Text und prüft danach Attribut und Zielseite.',
+                    'filename' => null,
+                    'alt' => null,
+                    'caption' => null,
                     'ai_generated' => false,
+                    'note' => 'No inline diagram. The bundled workflow graphic is English and would contradict the German article.',
                 ],
             ],
         ];
@@ -122,7 +123,6 @@ class GuestPostingGuideI18n
         $sponsored = '/de/blog/gesponserte-beitraege-leitfaden';
         $dofollow = '/de/blog/dofollow-vs-nofollow-ankertext';
         $buyDe = '/de/gastbeitrag-kaufen';
-        $img = BlogInlineImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW);
 
         return <<<HTML
 <p class="glossary-definition">Ein Gastbeitrag ist ein redaktioneller Artikel, den eine Person oder ein Unternehmen auf einer fremden Website veröffentlicht. Der Host behält die Adresse und die Leser. Der Autor liefert den Text und steht in der Regel mit Namen darunter. Oft führt ein Link auf die eigene Seite. Das Format ist kein Advertorial und kein unabhängiges Zitat.</p>
@@ -182,10 +182,6 @@ class GuestPostingGuideI18n
 <li><strong>Für deren Leser schreiben.</strong> Ein Beispiel aus der Branche des Hosts. Eine primäre URL. Ein Anker, den ein Mensch in einem Satz setzen würde: Markenname, nackte URL oder eine beschreibende Wendung.</li>
 <li><strong>Die Live-URL prüfen.</strong> Ob die Seite indexierbar ist, welches <code>rel</code>-Attribut am Link steht, ob der Anker zum Satz passt und ob die Zielseite das Versprechen hält. Notieren Sie ein Datum für die spätere Kontrolle.</li>
 </ol>
-<figure>
-<img src="{$img}" alt="Ablauf eines Gastbeitrags von der Themenwahl über die Host-Prüfung bis zur Live-URL" loading="lazy" width="1200" height="675">
-<figcaption>Der Host behält die URL. Der Autor liefert den Text und prüft danach Attribut und Zielseite.</figcaption>
-</figure>
 <p><strong>Beispiel.</strong> Eine Steuerkanzlei in Köln will nicht auf zwanzig Blogs denselben kommerziellen Anker streuen. Sie schreibt auf einem Mittelstandsportal über die Frist, die GmbH-Geschäftsführer im ersten Quartal regelmäßig verpassen, und verlinkt den eigenen Fristenrechner mit dem Anker „Fristenrechner für GmbH-Geschäftsführer“. Der Satz wäre auch ohne SEO-Absicht so formuliert. Das ist eine brauchbare Ankertext-Strategie: beschreibend, einmalig, an die Zielseite gebunden. Dieselbe exakte Geld-Phrase auf jeder Platzierung ist ein Muster, keine Strategie.</p>
 <p>Die Ankertext-Strategie scheitert meist nicht am einzelnen Wort, sondern an der Wiederholung. Marke, URL und eine sachliche Umschreibung im Wechsel sehen aus wie Sätze. Ein immer gleicher Exact-Match sieht aus wie eine Liste.</p>
 
@@ -219,7 +215,7 @@ class GuestPostingGuideI18n
 <p>Der Kontakt läuft über die Adresse, die der Host selbst veröffentlicht: Redaktionspostfach, Autorenzeile oder das Bestellfenster einer konkreten Platzierung. Zehn geratene Rollenadressen in einer Mail erkennt jede Redaktion als Streuung.</p>
 
 <h2 id="dach">Deutschland, Österreich, Schweiz</h2>
-<p>Dieselbe Definition gilt in allen drei Märkten. Suche und Schreibweise tun es nicht.</p>
+<p>Dieselbe Definition gilt in allen drei Märkten. Die Suchformulierung nicht. Die Schreibung mit ß teilen Deutschland und Österreich. In der Schweiz steht ss.</p>
 <p>In Deutschland ist „Gastbeitrag“ der normale Begriff, daneben „Gastartikel“. Englische Lehnwörter wie Guest Post, Backlink und Dofollow stehen in Agenturtexten, selten in der Frage eines Redakteurs. Ein Pitch an ein deutsches Fachportal gehört auf Deutsch, und das Thema heißt so wie die Rubrik, nicht „guest post opportunity“.</p>
 <p>In Österreich wird die Frage oft als „Was ist ein Gastbeitrag SEO“ gestellt. Gemeint ist dieselbe Definition, mit der Erwartung, dass der Text einen Link und eine SEO-Absicht mitmeint. SEO bleibt ein möglicher Nutzen, kein anderer Beitragstyp. Österreich schreibt ß wie Deutschland. Was sich ändert, sind die Beispiele: eine österreichische Redaktion erwartet Bezüge aus Österreich, nicht nur Behörden, Städte und Portale aus Deutschland.</p>
 <p>In der Schweiz suchen manche „Was ist ein Gastbeitrag CH“. Inhaltlich ist es derselbe Artikel. Die Schreibweise weicht ab: In der Schweiz steht häufig „ss“, wo Deutschland und Österreich „ß“ setzen, also „gross“ statt „groß“. Ein Beitrag für eine Schweizer Site sollte diese Konvention und Schweizer Beispiele nutzen. Ein Text mit durchgehendem „ß“ und nur deutschen Städten wirkt dort wie ein umetikettierter Deutschland-Artikel. Das ist keine Kleinigkeit der Rechtschreibung, sondern das Signal, ob der Text für diese Leser geschrieben wurde.</p>
@@ -255,7 +251,7 @@ class GuestPostingGuideI18n
 <p>Es gibt keinen Einheitspreis. Jede Site setzt den eigenen Preis nach Thema, Aufwand und Reichweite. Konkrete Euro-Beträge stehen an den einzelnen Angeboten, nicht in einer Definition.</p>
 
 <h2>Fazit</h2>
-<p>Ein Gastbeitrag ist ein Text auf fremder URL, geschrieben für deren Leser, mit einer Autorenzeile und höchstens dem Link, den die Aussage braucht. In Deutschland, Österreich und der Schweiz gilt dieselbe Definition. Pitch, Beispiele und Rechtschreibung müssen zum jeweiligen Markt passen. Dofollow ohne Bezahlung, <code>sponsored</code> mit Bezahlung, und ein Host, dessen Archiv zum Thema gehört: das sind die drei Prüfungen vor dem Schreiben.</p>
+<p>Ein Gastbeitrag ist ein Text auf fremder URL, geschrieben für deren Leser, mit einer Autorenzeile und höchstens dem Link, den die Aussage braucht. In Deutschland, Österreich und der Schweiz gilt dieselbe Definition. Pitch und Beispiele müssen zum Markt passen, in der Schweiz auch die Schreibung mit ss statt ß. Dofollow ohne Bezahlung, <code>sponsored</code> mit Bezahlung, und ein Host, dessen Archiv zum Thema gehört: das sind die drei Prüfungen vor dem Schreiben.</p>
 
 <h2>Quellen</h2>
 <ul>
