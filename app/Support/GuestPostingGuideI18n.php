@@ -3,7 +3,7 @@
 namespace App\Support;
 
 /**
- * DE/FR/NL bodies for the guest-posting-guide pillar.
+ * Localized bodies for the guest-posting-guide pillar.
  */
 class GuestPostingGuideI18n
 {
@@ -479,7 +479,7 @@ HTML;
 
         return <<<HTML
 <p class="glossary-definition">Un guest post è un articolo pubblicato su un sito di cui l’autore non è titolare. L’host tiene l’indirizzo e i lettori. L’autore consegna il testo e di solito lo firma. Un link verso una sua pagina è frequente. Il formato non è un advertorial e non è l’acquisto del solo link.</p>
-<p>Chi cerca «cos’è un guest post» sta chiedendo questo confine, non un listino e non una promessa di posizione. Il plurale, «cosa sono i guest post», indica lo stesso formato ripetuto su più siti: non è un prodotto diverso. Prima di proporre un pezzo a una testata italiana conviene sapere quale dei due si ha davanti, e solo dopo chiedersi se quei lettori hanno un motivo per arrivare in fondo.</p>
+<p>Chi cerca «cos’è un guest post» sta chiedendo questo confine, non un listino e non una promessa di posizione. Il plurale, «cosa sono i guest post», indica lo stesso formato ripetuto su più siti: non è un prodotto diverso. Prima di proporre un pezzo a una testata italiana conviene tenere quel confine, fra articolo firmato e acquisto del solo link, e solo dopo chiedersi se quei lettori hanno un motivo per arrivare in fondo.</p>
 
 <nav aria-label="Indice">
 <p><strong>In questa pagina</strong></p>
@@ -487,7 +487,7 @@ HTML;
 <li><a href="#plurale">Cosa sono i guest post</a></li>
 <li><a href="#formati">Quattro formati che in italiano si mescolano</a></li>
 <li><a href="#redazione">Cosa controlla una redazione</a></li>
-<li><a href="#passaggi">I passaggi, fino all’indirizzo live</a></li>
+<li><a href="#passaggi">I passaggi, fino all’indirizzo pubblico</a></li>
 <li><a href="#seo">Guest post e SEO, senza promesse</a></li>
 <li><a href="#ancora">L’ancora dentro la frase</a></li>
 <li><a href="#prezzo">Prezzo, fattura e IVA</a></li>
@@ -506,7 +506,7 @@ HTML;
 <p>In una stessa conversazione finiscono quattro cose diverse. Tenerle sulla stessa riga produce ordini sbagliati: si paga un advertorial credendo di firmare un articolo, oppure si compra un link e lo si chiama guest post perché da qualche parte c’è un paragrafo.</p>
 <table>
 <thead>
-<tr><th>Formato</th><th>Chi firma</th><th>Chi decide il tema</th><th>Il lettore cosa capisce</th></tr>
+<tr><th>Formato</th><th>Chi firma</th><th>Chi decide il tema</th><th>Cosa capisce il lettore</th></tr>
 </thead>
 <tbody>
 <tr><td>Guest post</td><td>L’autore esterno, in genere con nome</td><td>Proposta dell’autore, accettazione della redazione</td><td>Un articolo della testata, scritto da fuori</td></tr>
@@ -516,7 +516,7 @@ HTML;
 </tbody>
 </table>
 <p>Il pubbliredazionale resta una riga di questa tabella. Il confronto esteso tra guest post e articolo sponsorizzato, e il posto del pubbliredazionale in quel confronto, sta nella pagina sulla <a href="{$sponsored}">differenza tra guest post e articolo sponsorizzato</a>. Non è un secondo nome del guest post.</p>
-<p>Un pezzo non pagato può portare un link che la redazione considera proprio, perché ha scelto lei tema e destinazione. Appena il posto si ottiene con un pagamento, uno sconto o uno scambio pattuito, il link descrive un rapporto commerciale. L’etichetta segue quello scambio, non il titolo del pezzo. Un testo pulito e pagato resta un testo pagato.</p>
+<p>Un pezzo non pagato può portare un link che la redazione considera proprio, perché ha scelto lei il tema e la destinazione. Appena il posto si ottiene con un pagamento, uno sconto o uno scambio pattuito, il link descrive un rapporto commerciale. L’etichetta segue quello scambio, non il titolo del pezzo. Un testo pulito e pagato resta un testo pagato.</p>
 
 <h2 id="redazione">Cosa controlla una redazione</h2>
 <p>Una redazione italiana, prima di rispondere a una proposta, guarda i propri lettori, non la scheda di chi scrive. Il pezzo deve poter vivere nella rubrica già esistente. Se gli ultimi articoli parlano di cantieri, un testo sul software per officine meccaniche va motivato con un ponte vero, non con una frase di cortesia.</p>
@@ -530,8 +530,8 @@ HTML;
 <p>Si aggiunge la lingua. Un sito rivolto a lettori in Italia si aspetta italiano scritto per loro, con esempi che riconoscono: una scadenza, un cantiere, un comune, un modo di dire del mestiere. Un testo pensato altrove e poi voltato in italiano si riconosce dagli esempi, prima che dalla grammatica.</p>
 <p>Pagine intitolate «write for us» che citano solo un punteggio e non dicono quali temi rifiutano sono un canale di vendita di link. Se l’indirizzo del pezzo viene comunicato solo dopo il pagamento, la risposta utile è passare oltre. Il contatto giusto è quello che la testata pubblica: la mail di redazione, la firma di un articolo, oppure la scheda di una singola pubblicazione che indica già le regole.</p>
 
-<h2 id="passaggi">I passaggi, fino all’indirizzo live</h2>
-<p>L’ordine conta più dello stile. Saltare un passaggio costringe a rifare il testo, perché le regole della testata arrivano quando il pezzo è già scritto sulla pagina di destinazione sbagliata.</p>
+<h2 id="passaggi">I passaggi, fino all’indirizzo pubblico</h2>
+<p>L’ordine conta più dello stile. Saltare un passaggio costringe a rifare il testo: le regole della testata si scoprono quando il pezzo è già scritto, spesso verso la pagina di destinazione sbagliata.</p>
 <ol>
 <li><strong>Trovare siti.</strong> Si parte dalla rubrica, non dal punteggio. Si leggono gli ultimi pezzi e si annota chi firma. Un elenco di domini è una lista di candidati, non un giudizio.</li>
 <li><strong>Valutare.</strong> Lettori, ambito, link in uscita, esistenza di una redazione raggiungibile, possibilità di indicizzare l’indirizzo futuro. Un archivio vuoto con un numero alto non supera questo passaggio.</li>
@@ -547,9 +547,9 @@ HTML;
 <p><strong>Un caso.</strong> Uno studio di architettura a Bari non vuole la stessa frase commerciale su venti blog. Scrive su una rivista letta da imprese edili un pezzo sul computo che i capicantiere contestano in cantiere, e collega la pagina in cui mostra un computo commentato. L’ancora è «computo metrico commentato», cioè l’oggetto della frase. La stessa identica formula commerciale, ripetuta su ogni pubblicazione, non è una scelta di stile: è uno schema.</p>
 
 <h2 id="seo">Guest post e SEO, senza promesse</h2>
-<p>Una guida sul guest post e sul SEO può dire cosa il formato è in grado di fare e dove si ferma. Può dare visibilità a lettori che già frequentano un’altra testata. Può lasciare un collegamento che un motore è in grado di scansionare, se la pagina è indicizzabile e il link non è nascosto. Non consegna una posizione. Nessuna redazione seria la mette nel contratto, e questa pagina non la mette nella definizione.</p>
-<p>Le linee di Google sullo spam indicano, tra gli schemi di link, il guest posting su larga scala con ancore sempre uguali e cariche di parole chiave. Non è una citazione da inventare: è il criterio pubblico con cui si riconosce uno schema. Il formato, da solo, non è vietato. Lo schema costruito per manipolare le posizioni sì. Un articolo che i lettori di quella testata leggerebbero anche senza il link resta nel perimetro del formato. Lo stesso testo venduto a cento blog ne esce.</p>
-<p>Dal 2019 Google tratta <code>rel="sponsored"</code> e <code>rel="ugc"</code> come indicazioni, non come un interruttore che spegne il link. L’indicazione resta il modo onesto di descrivere l’accordo. I contenuti utili, nella documentazione pubblica, si giudicano da chi li legge, non dal fatto che portino un collegamento. Qui non si aggiunge una frase di Google che quelle pagine non contengono.</p>
+<p>Una guida sul guest post e sul SEO può dire cosa il formato è in grado di fare e dove si ferma. Può dare visibilità a lettori che già frequentano un’altra testata. Può lasciare un collegamento che un motore è in grado di scansionare, se la pagina è indicizzabile e il link non è nascosto. Non consegna una posizione, e questa pagina non la promette.</p>
+<p>Le linee pubbliche di Google sullo spam indicano, tra gli schemi di link, il guest posting su larga scala con ancore sempre uguali e cariche di parole chiave. Il formato, da solo, non è vietato. Lo schema costruito per manipolare le posizioni sì. Un articolo che i lettori di quella testata leggerebbero anche senza il link resta nel perimetro del formato. Lo stesso testo venduto a cento blog ne esce.</p>
+<p>Dal 2019 Google tratta <code>rel="sponsored"</code> e <code>rel="ugc"</code> come indicazioni, non come un interruttore che spegne il link. L’indicazione resta il modo onesto di descrivere l’accordo. La documentazione sui contenuti utili giudica una pagina da chi la legge, non dal fatto che contenga un collegamento.</p>
 
 <h2 id="ancora">L’ancora dentro la frase</h2>
 <p>L’anchor text di un guest post è la parte visibile del link, quella che si potrebbe leggere ad alta voce. Funziona quando starebbe in una mail alla redazione: il nome di chi scrive, l’indirizzo nudo, oppure una descrizione della pagina di arrivo. Non funziona quando la frase esiste solo per ospitare la parola che si vorrebbe in prima posizione.</p>
@@ -559,7 +559,7 @@ HTML;
 <h2 id="prezzo">Prezzo, fattura e IVA</h2>
 <p>Non esiste un prezzo unico del guest post in Italia. Ogni sito applica il proprio, in base al tema, al lavoro di redazione, alla diffusione e al modo in cui il link viene segnalato. Una cifra sola, o una quota di mercato, sarebbe inventata. Questa pagina non le riporta.</p>
 <p>Il confronto si fa sulle singole offerte. Ogni pubblicazione ha il suo prezzo in euro e le regole di chi la ospita. L’indirizzo live esiste quando il pezzo è pubblicato, non nella colonna del prezzo. In Italia il pagamento incontra fattura e IVA: sono passaggi amministrativi del comprare, non una tariffa del formato e non un’aliquota che una definizione possa fissare.</p>
-<p>Pagare non rende il testo migliore né peggiore. Cambia il modo in cui il link va descritto. Le offerte, ciascuna con il proprio prezzo in euro, si guardano tra le <a href="{$buy}">inserzioni italiane con un prezzo in euro ciascuna</a>.</p>
+<p>Pagare non rende il testo migliore né peggiore. Cambia il modo in cui il link va descritto. Le offerte si confrontano tra le <a href="{$buy}">inserzioni italiane, ciascuna con il proprio prezzo in euro</a>.</p>
 
 <h2 id="errori">Errori visibili dal primo paragrafo</h2>
 <ul>

@@ -74,6 +74,8 @@ class ItalianGuestPostGlossaryTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/<h2[^>]*>[^<]*[Pp]ubbliredazionale/u', $html);
         $this->assertStringNotContainsString('<h3>Cosa significa rel sponsored', $html);
         $this->assertGreaterThanOrEqual(4, substr_count($html, '<h3>'));
+        $this->assertStringNotContainsString('quale dei due', $html);
+        $this->assertStringNotContainsString('non si aggiunge una frase', $html);
         $this->assertStringNotContainsString('Keyword Difficulty', $html);
         $this->assertDoesNotMatchRegularExpression('/\b\d+\s*euro\b/iu', $html);
     }
