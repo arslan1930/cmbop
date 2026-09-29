@@ -2408,7 +2408,7 @@ class InAppNotificationService
             $createdCount === 1
                 ? 'Please review a website from your bulk request'
                 : "Please review {$createdCount} websites from your bulk request",
-            'These listings are filled in and waiting for you. They are not live yet. Review them, then submit them for our team to verify.',
+            'These listings are filled in and waiting for you. They are not live yet. Accept them to go live, or Edit them to send them to our team.',
             [
                 'category' => self::CATEGORY_ACCOUNT,
                 'icon' => 'check-circle',

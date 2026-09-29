@@ -1156,7 +1156,7 @@
                             <a href="{{ route('publisher.bulk-sites.review') }}"
                                class="site-status site-status--ready-review"
                                data-glass-tip
-                               data-glass-tip-body="Details saved — open Review &amp; submit to send this site to admin."
+                               data-glass-tip-body="Open Review &amp; submit. Accept to go live, or Edit to send it to admin."
                                data-glass-tip-placement="top"
                                data-glass-tip-hover-only="1">
                                 <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>Ready to review

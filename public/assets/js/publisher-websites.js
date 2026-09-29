@@ -945,6 +945,9 @@ function previewValue(selector) {
         const label = $el.find('option:selected').text();
         return $.trim(label || $el.val() || '');
     }
+    if ($el.is(':radio') || $el.is(':checkbox')) {
+        return $.trim($el.filter(':checked').val() || '');
+    }
     return $.trim($el.val() || '');
 }
 
@@ -995,6 +998,13 @@ function previewSocialChannels() {
         })
         .map(function (channel) { return labels[channel] || channel; })
         .join(', ');
+}
+
+function previewLinkTypeLabel() {
+    const value = previewValue('#addSiteForm [name="link_type"]');
+    if (value === 'nofollow') return 'NoFollow';
+    if (value === 'dofollow') return 'DoFollow';
+    return value;
 }
 
 function previewSiteTagLabel() {
@@ -1083,7 +1093,7 @@ function buildSitePreview() {
     html += previewRow('Country', previewLabelFor('#selectedCountry', '#countryOptions'));
     html += previewRow('Language', previewLabelFor('#selectedLanguage', '#languageOptions'));
     html += previewRow('Niches', previewNiches());
-    html += previewRow('Link type', previewValue('#addSiteForm [name="link_type"]'));
+    html += previewRow('Link type', previewLinkTypeLabel());
     html += previewRow('Turnaround time', previewValue('#addSiteForm [name="turnaround_time"]'));
     html += previewRow('Publication time', previewValue('#addSiteForm [name="publicationTime"]'));
     html += previewRow('Site tag', previewSiteTagLabel(), { emptyLabel: 'No tags', optional: true });
@@ -2540,6 +2550,9 @@ function previewValue(selector) {
         const label = $el.find('option:selected').text();
         return $.trim(label || $el.val() || '');
     }
+    if ($el.is(':radio') || $el.is(':checkbox')) {
+        return $.trim($el.filter(':checked').val() || '');
+    }
     return $.trim($el.val() || '');
 }
 
@@ -2584,6 +2597,13 @@ function previewSocialChannels() {
         })
         .map(function (channel) { return labels[channel] || channel; })
         .join(', ');
+}
+
+function previewLinkTypeLabel() {
+    const value = previewValue('#addSiteForm [name="link_type"]');
+    if (value === 'nofollow') return 'NoFollow';
+    if (value === 'dofollow') return 'DoFollow';
+    return value;
 }
 
 function previewSiteTagLabel() {
@@ -2676,7 +2696,7 @@ function buildSitePreview() {
     html += previewRow('Country', previewLabelFor('#selectedCountry', '#countryOptions'));
     html += previewRow('Language', previewLabelFor('#selectedLanguage', '#languageOptions'));
     html += previewRow('Niches', previewNiches());
-    html += previewRow('Link type', previewValue('#addSiteForm [name="link_type"]'));
+    html += previewRow('Link type', previewLinkTypeLabel());
     html += previewRow('Turnaround time', previewValue('#addSiteForm [name="turnaround_time"]'));
     html += previewRow('Publication time', previewValue('#addSiteForm [name="publicationTime"]'));
     html += previewRow('Site tag', previewSiteTagLabel(), { emptyLabel: 'No tags', optional: true });

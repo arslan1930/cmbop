@@ -281,7 +281,7 @@
                 $tileFaviconUrl = $showsIdentity ? $site->catalogTileFaviconUrl() : null;
                 $tileFaviconChain = $tileFaviconUrl ? [$tileFaviconUrl] : [];
             @endphp
-            <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}"
+            <tr class="site-row {{ $isBlacklisted ? 'blacklisted-row' : '' }}{{ ! empty($catalogReported) && in_array((int) $site->id, $catalogReported, true) ? ' is-catalog-reported' : '' }}"
                 data-id="{{ $site->id }}"
                 data-name="{{ $displayName }}"
                 data-publisher-id="{{ (int) $site->publisher_id }}"
@@ -1095,7 +1095,7 @@
             $showAdvertiserPay = ! $isOwnedByMe;
             $inCart = in_array((int) $site->id, $cartSiteIds, true);
         @endphp
-        <article class="catalog-mobile-card {{ $isBlacklisted ? 'is-blacklisted' : '' }}"
+        <article class="catalog-mobile-card {{ $isBlacklisted ? 'is-blacklisted' : '' }}{{ ! empty($catalogReported) && in_array((int) $site->id, $catalogReported, true) ? ' is-catalog-reported' : '' }}"
                  data-id="{{ $site->id }}"
                  data-name="{{ $displayName }}"
                  data-publisher-id="{{ (int) $site->publisher_id }}"

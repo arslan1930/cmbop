@@ -5618,6 +5618,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!reportBtn) return;
         e.preventDefault();
         e.stopPropagation();
+        if (window.GlassTip && typeof window.GlassTip.hide === 'function') {
+            window.GlassTip.hide();
+        }
         openCatalogSiteReport(reportBtn);
     });
 
@@ -5626,6 +5629,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!noteBtn) return;
         e.preventDefault();
         e.stopPropagation();
+        if (window.GlassTip && typeof window.GlassTip.hide === 'function') {
+            window.GlassTip.hide();
+        }
         openCatalogSiteNote(noteBtn);
     });
 });
@@ -5634,10 +5640,80 @@ function catalogSiteToolUrl(template, siteId) {
     return String(template || '').replace('__SITE__', encodeURIComponent(String(siteId)));
 }
 
-function catalogNotePreview(note) {
-    var text = String(note || '').replace(/\s+/g, ' ').trim();
-    if (text.length <= 140) return text;
-    return text.slice(0, 137).trim() + '...';
+function catalogSanitizePlain(text) {
+    var value = String(text || '').replace(/<[^>]*>/g, ' ');
+    value = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+    value = value.replace(/\r\n|\r/g, '\n');
+    value = value.replace(/[ \t]+\n/g, '\n');
+    value = value.replace(/[ \t]{2,}/g, ' ');
+    return value.trim();
+}
+
+function catalogWordCount(text) {
+    var parts = catalogSanitizePlain(text).split(/\s+/).filter(Boolean);
+    return parts.length;
+}
+
+function applyCatalogReported(siteId, report) {
+    var id = String(siteId || '');
+    if (!id) return;
+    var saved = catalogSanitizePlain(report || '');
+    var hasReport = saved !== '';
+    document.querySelectorAll('.site-row[data-id="' + id + '"], .catalog-mobile-card[data-id="' + id + '"]').forEach(function (row) {
+        row.classList.toggle('is-catalog-reported', hasReport);
+    });
+    document.querySelectorAll('.catalog-site-report[data-id="' + id + '"]').forEach(function (el) {
+        el.classList.toggle('is-active', hasReport);
+        el.setAttribute('data-report', saved);
+        var label = el.dataset.name || 'this site';
+        el.setAttribute('aria-label', hasReport ? ('You reported ' + label) : ('Report ' + label));
+        el.removeAttribute('data-glass-tip');
+        el.removeAttribute('data-glass-tip-title');
+        el.removeAttribute('data-glass-tip-body');
+    });
+}
+
+function catalogSwalTextareaValue(fallback) {
+    var popup = window.Swal && typeof Swal.getPopup === 'function' ? Swal.getPopup() : null;
+    var input = popup ? popup.querySelector('textarea.swal2-textarea') : null;
+    if (input) return input.value;
+    return fallback;
+}
+
+function catalogPrepareSwalInput(input, options) {
+    options = options || {};
+    if (!input || !input.parentNode) return;
+    var popup = input.closest('.swal2-popup');
+    if (popup) popup.classList.add('catalog-swal-tools');
+    var host = input.parentNode;
+    var field = document.createElement('div');
+    field.className = 'catalog-swal-field';
+    host.insertBefore(field, input);
+    field.appendChild(input);
+    if (typeof options.onDelete === 'function') {
+        var bin = document.createElement('button');
+        bin.type = 'button';
+        bin.className = 'catalog-swal-bin';
+        bin.setAttribute('data-no-tip', '1');
+        bin.setAttribute('aria-label', options.deleteLabel || 'Delete');
+        bin.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i>';
+        bin.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            options.onDelete();
+            if (window.Swal && typeof Swal.close === 'function') Swal.close();
+        });
+        field.appendChild(bin);
+    }
+    if (typeof options.paintCounter === 'function') {
+        var counter = document.createElement('div');
+        counter.className = 'catalog-note-count';
+        options.paintCounter(counter);
+        input.addEventListener('input', function () {
+            options.paintCounter(counter);
+        });
+        host.insertBefore(counter, field.nextSibling);
+    }
 }
 
 function applyCatalogNoteButton(el, saved, name) {
@@ -5645,11 +5721,10 @@ function applyCatalogNoteButton(el, saved, name) {
     var label = name || el.dataset.name || 'this site';
     el.setAttribute('data-note', saved);
     el.classList.toggle('is-active', hasNote);
-    el.setAttribute('aria-label', hasNote ? ('Your reminder for ' + label) : ('Add a reminder for ' + label));
-    el.setAttribute('data-glass-tip-title', hasNote ? 'Your reminder' : 'Add a reminder');
-    el.setAttribute('data-glass-tip-body', hasNote
-        ? catalogNotePreview(saved)
-        : 'One private reminder for this site. Only you can see it.');
+    el.setAttribute('aria-label', hasNote ? ('Your notes for ' + label) : ('Notes for ' + label));
+    el.removeAttribute('data-glass-tip');
+    el.removeAttribute('data-glass-tip-title');
+    el.removeAttribute('data-glass-tip-body');
 }
 
 function openCatalogSiteReport(button) {
@@ -5657,21 +5732,64 @@ function openCatalogSiteReport(button) {
     const siteId = button.dataset.id;
     const name = button.dataset.name || 'this site';
     const url = catalogSiteToolUrl(CatalogConfig.routes && CatalogConfig.routes.siteReport, siteId);
+    const deleteUrl = catalogSiteToolUrl(CatalogConfig.routes && CatalogConfig.routes.siteReportDelete, siteId);
     if (!url) return;
+    const current = catalogSanitizePlain(button.getAttribute('data-report') || '');
+    const hasReport = current !== '';
 
     Swal.fire({
-        title: 'Report this site',
-        text: name,
+        title: hasReport ? 'Your report' : 'Report this listing',
+        html: '<p class="catalog-note-site">' + catalogEscapeHtml(name) + '</p>'
+            + '<p class="catalog-note-lead">' + (hasReport
+                ? 'This is the report the team can see. Update it, or clear it with the bin in the box.'
+                : 'If this site looks outdated, misleading, or not as described, tell us what you noticed. We review every report before we take action. Do not use this for order issues — those go through your order.') + '</p>',
         input: 'textarea',
-        inputPlaceholder: 'What should we look at?',
-        inputAttributes: { 'aria-label': 'Report' },
+        inputValue: current,
+        inputPlaceholder: 'What did you notice?',
+        inputAttributes: { 'aria-label': 'Report', maxlength: '800' },
         showCancelButton: true,
-        confirmButtonText: 'Send report',
+        confirmButtonText: hasReport ? 'Update report' : 'Send report',
+        cancelButtonText: 'Cancel',
+        didOpen: function () {
+            var input = Swal.getInput();
+            catalogPrepareSwalInput(input, {
+                deleteLabel: hasReport && deleteUrl ? 'Delete report' : '',
+                onDelete: hasReport && deleteUrl ? function () {
+                    fetch(deleteUrl, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': CatalogConfig.csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    }).then(async function (res) {
+                        const data = await res.json().catch(function () { return {}; });
+                        if (!res.ok || !data.success) {
+                            throw new Error(data.message || 'We could not remove that report.');
+                        }
+                        applyCatalogReported(siteId, '');
+                        catalogToast(data.message || 'Report removed.', 'success');
+                    }).catch(function (err) {
+                        catalogToast(err.message || 'We could not remove that report.', 'error');
+                    });
+                } : null,
+                paintCounter: function (counter) {
+                    counter.textContent = catalogWordCount(input.value) + ' / 80 words';
+                },
+            });
+        },
         inputValidator: function (value) {
-            if (!String(value || '').trim() || String(value).trim().length < 10) {
-                return 'Please enter at least 10 characters.';
+            var cleaned = catalogSanitizePlain(catalogSwalTextareaValue(value));
+            if (cleaned === '' || catalogWordCount(cleaned) < 1) {
+                return 'Write a short report before sending.';
+            }
+            if (catalogWordCount(cleaned) > 80) {
+                return 'Keep the report to 80 words or fewer.';
             }
             return undefined;
+        },
+        preConfirm: function (value) {
+            return catalogSanitizePlain(catalogSwalTextareaValue(value));
         },
     }).then(function (result) {
         if (!result.isConfirmed) return;
@@ -5682,12 +5800,13 @@ function openCatalogSiteReport(button) {
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': CatalogConfig.csrfToken,
             },
-            body: JSON.stringify({ message: String(result.value || '').trim() }),
+            body: JSON.stringify({ message: catalogSanitizePlain(result.value) }),
         }).then(async function (res) {
             const data = await res.json().catch(function () { return {}; });
             if (!res.ok || !data.success) {
                 throw new Error(data.message || 'We could not submit that report.');
             }
+            applyCatalogReported(siteId, data.report || result.value);
             catalogToast(data.message || 'Thanks — your report was submitted.', 'success');
         }).catch(function (err) {
             catalogToast(err.message || 'We could not submit that report.', 'error');
@@ -5705,33 +5824,53 @@ function openCatalogSiteNote(button) {
     if (!url) return;
 
     Swal.fire({
-        title: hasNote ? 'Your reminder' : 'Add a reminder',
+        title: 'Notes',
         html: '<p class="catalog-note-site">' + catalogEscapeHtml(name) + '</p>'
-            + '<p class="catalog-note-lead">One private reminder for this site. Saving replaces it. Only you can see it.</p>',
+            + '<p class="catalog-note-lead">One private note for this site. Saving replaces it. Only you can see it.</p>',
         input: 'textarea',
         inputValue: current,
         inputPlaceholder: 'Write the one thing you want to remember',
-        inputAttributes: { 'aria-label': 'Private reminder', maxlength: '2000' },
+        inputAttributes: { 'aria-label': 'Notes', maxlength: '2000' },
         showCancelButton: true,
-        showDenyButton: hasNote,
         confirmButtonText: hasNote ? 'Update' : 'Save',
-        denyButtonText: 'Remove',
         cancelButtonText: 'Cancel',
         didOpen: function () {
             var input = Swal.getInput();
-            if (!input || !input.parentNode) return;
-            var counter = document.createElement('div');
-            counter.className = 'catalog-note-count';
-            var paint = function () {
-                counter.textContent = String(input.value.length) + ' / 2000';
-            };
-            paint();
-            input.addEventListener('input', paint);
-            input.parentNode.appendChild(counter);
+            catalogPrepareSwalInput(input, {
+                deleteLabel: hasNote ? 'Remove note' : '',
+                onDelete: hasNote ? function () {
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': CatalogConfig.csrfToken,
+                        },
+                        body: JSON.stringify({ note: '' }),
+                    }).then(async function (res) {
+                        const data = await res.json().catch(function () { return {}; });
+                        if (!res.ok || !data.success) {
+                            throw new Error(data.message || 'Could not save that note.');
+                        }
+                        document.querySelectorAll('.catalog-site-note[data-id="' + siteId + '"]').forEach(function (el) {
+                            applyCatalogNoteButton(el, '', el.dataset.name || name);
+                        });
+                        catalogToast('Note removed.', 'success');
+                    }).catch(function (err) {
+                        catalogToast(err.message || 'Could not save that note.', 'error');
+                    });
+                } : null,
+                paintCounter: function (counter) {
+                    counter.textContent = String(input.value.length) + ' / 2000';
+                },
+            });
+        },
+        preConfirm: function (value) {
+            return catalogSanitizePlain(catalogSwalTextareaValue(value));
         },
     }).then(function (result) {
-        if (!result.isConfirmed && !result.isDenied) return;
-        const note = result.isDenied ? '' : String(result.value || '').trim();
+        if (!result.isConfirmed) return;
+        const note = catalogSanitizePlain(catalogSwalTextareaValue(result.value));
         fetch(url, {
             method: 'POST',
             headers: {
@@ -5743,15 +5882,15 @@ function openCatalogSiteNote(button) {
         }).then(async function (res) {
             const data = await res.json().catch(function () { return {}; });
             if (!res.ok || !data.success) {
-                throw new Error(data.message || 'Could not save that reminder.');
+                throw new Error(data.message || 'Could not save that note.');
             }
-            const saved = String(data.note || '');
+            const saved = catalogSanitizePlain(data.note || '');
             document.querySelectorAll('.catalog-site-note[data-id="' + siteId + '"]').forEach(function (el) {
                 applyCatalogNoteButton(el, saved, el.dataset.name || name);
             });
-            catalogToast(saved === '' ? 'Reminder removed.' : (hasNote ? 'Reminder updated.' : 'Reminder saved.'), 'success');
+            catalogToast(saved === '' ? 'Note removed.' : (hasNote ? 'Note updated.' : 'Note saved.'), 'success');
         }).catch(function (err) {
-            catalogToast(err.message || 'Could not save that reminder.', 'error');
+            catalogToast(err.message || 'Could not save that note.', 'error');
         });
     });
 }

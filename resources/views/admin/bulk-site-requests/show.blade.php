@@ -100,7 +100,7 @@
                     <h6 class="fw-semibold mb-1">Publisher submitted (URL + price only)</h6>
                     <p class="small text-muted mb-3">
                         Review each website, then fill <strong>Language, Country, DA, DR, Traffic, and Niches</strong> per row before Done.
-                        Finished rows go <strong>active</strong> on the publisher’s account and stay <strong>unverified</strong>. The publisher is notified. They do not fill details again.
+                        <strong>Publish now</strong> puts filled rows live (active, not verified). <strong>Send for review</strong> lets the publisher Accept (goes live) or Edit (then you Activate). The publisher is notified.
                     </p>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
@@ -154,12 +154,12 @@
                         <strong>{{ $pendingItems->count() }}</strong> website(s) still pending
                         (publisher + marketer share a {{ \App\Models\BulkSiteRequest::MAX_SITES_PER_REQUEST }}-site batch limit).
                         Fill every required field on a row — language, country, DA, DR, traffic, niches, sample article, turnaround, publication time, link type, listing tag, description, and site image — then choose one action for the filled rows.
-                        <strong>Publish now</strong> puts them live (active, not verified) and tells the publisher they are on the account.
-                        <strong>Send for review</strong> leaves them off the catalog. The publisher checks them and submits them, and they then show in Sites → Needs review.
+                        <strong>Publish now</strong> puts filled rows live (active, not verified) and tells the publisher they are on the account.
+                        <strong>Send for review</strong> leaves them off the catalog until the publisher Accepts (then they go live, not verified) or Edits (then they show in Sites → Needs review for you to Activate).
                         Either way the site is marked Bulk request. Unfilled rows stay here.
                         Sensitive-topic prices are required only when that topic is offered.
                         Delete a row you will not add — those sites leave this batch and the publisher gets one note for all removed sites.
-                        The quality bar is DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Publish now is allowed below that bar and the site goes live unverified. Send for review does not put it live.
+                        The quality bar is DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, and traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}. Publish now is allowed below that bar and the site goes live unverified. Send for review does not put it live until the publisher Accepts.
                     </p>
 
                     @if($errors->any())
@@ -688,7 +688,7 @@
                                             <div class="alert alert-warning border-0 py-2 px-3 small mb-0{{ $belowQuality ? '' : ' d-none' }}"
                                                  data-bulk-quality-warn
                                                  role="status">
-                                                These metrics are below the quality bar. You can still submit this row. Publish now puts it live unverified. Send for review leaves it off the catalog.
+                                                These metrics are below the quality bar. You can still submit this row. Publish now puts it live unverified. Send for review leaves it off the catalog until the publisher Accepts or Edits.
                                             </div>
                                             <div class="bulk-done-row__actions">
                                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-clear-row @disabled($isRejected)>
@@ -1897,8 +1897,8 @@ document.getElementById('bulkCopySeedStarter')?.addEventListener('click', functi
         let confirmTitle = reviewMode ? 'Send these sites for review?' : 'Publish these sites?';
         let confirmText = reviewMode
             ? (remaining > 0
-                ? ('Send ' + count + ' complete site(s) to the publisher for review? They stay off the catalog until the publisher submits them. ' + remaining + ' unfinished row(s) will stay pending.')
-                : ('Send ' + count + ' site(s) to the publisher for review? They stay off the catalog until the publisher submits them.'))
+                ? ('Send ' + count + ' complete site(s) to the publisher for review? They stay off the catalog until the publisher Accepts or Edits. ' + remaining + ' unfinished row(s) will stay pending.')
+                : ('Send ' + count + ' site(s) to the publisher for review? They stay off the catalog until the publisher Accepts or Edits.'))
             : (remaining > 0
                 ? ('Publish ' + count + ' complete site(s) now and notify the publisher? They go live and stay unverified. ' + remaining + ' unfinished row(s) will stay pending.')
                 : ('Publish ' + count + ' site(s) on the publisher’s account and notify them? They go live and stay unverified.'));

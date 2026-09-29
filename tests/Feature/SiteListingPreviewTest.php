@@ -91,4 +91,13 @@ class SiteListingPreviewTest extends TestCase
         $this->assertStringContainsString('site-preview-desc is-clamped', $js);
         $this->assertStringContainsString('.site-preview-desc.is-clamped', $css);
     }
+
+    public function test_preview_reads_the_checked_link_type_radio(): void
+    {
+        $js = $this->publisherJs();
+
+        $this->assertStringContainsString('$el.filter(\':checked\').val()', $js);
+        $this->assertStringContainsString('function previewLinkTypeLabel', $js);
+        $this->assertStringContainsString('for="linkTypeNofollow"', $this->publisherPage());
+    }
 }

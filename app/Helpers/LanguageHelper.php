@@ -798,6 +798,8 @@ if (! function_exists('activity_action_labels')) {
             'moderation.override_reverted' => 'Reverted moderation override',
             'moderation.settings_updated' => 'Updated moderation settings',
             'feedback.problem' => 'Reported a problem',
+            'feedback.problem_updated' => 'Updated a problem report',
+            'feedback.problem_deleted' => 'Withdrew a problem report',
             'feedback.suggestion' => 'Sent a suggestion',
             'website.suggested' => 'Suggested a website',
             'problem.report_updated' => 'Updated problem report',

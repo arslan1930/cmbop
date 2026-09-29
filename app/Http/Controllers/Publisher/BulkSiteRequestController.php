@@ -342,8 +342,10 @@ class BulkSiteRequestController extends Controller
         $cleanDescription = app(SiteDescriptionSanitizer::class)
             ->sanitize(SiteDescriptionRules::forTextarea((string) $request->siteDescription));
 
+        $editingReviewedSite = $site->hasDetailsComplete();
+
         try {
-            DB::transaction(function () use ($site, $request, $cleanDescription, $existingCategories) {
+            DB::transaction(function () use ($site, $request, $cleanDescription, $existingCategories, $editingReviewedSite) {
                 $sensitivePrices = [];
                 foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
                     if ($request->input("sensitive.$topic")) {
@@ -367,11 +369,15 @@ class BulkSiteRequestController extends Controller
 
                 SiteTag::applyStaffDefault($site, $request->input('site_tag'));
 
-                // Saved for Review & submit — not yet in the admin queue.
-                // Persist listing fields first, then set onboarding_status safely.
+                // First save from Needs details stays on Review & submit.
+                // Editing a site already on Review & submit sends it to admin.
                 $site->save();
 
-                if (! $site->markDetailsComplete()) {
+                if ($editingReviewedSite) {
+                    if (! $site->markReadyForAdminReview()) {
+                        throw new \RuntimeException('onboarding_status ready_for_review rejected by database');
+                    }
+                } elseif (! $site->markDetailsComplete()) {
                     throw new \RuntimeException('onboarding_status details_complete rejected by database');
                 }
             });
@@ -401,6 +407,18 @@ class BulkSiteRequestController extends Controller
             $site->bulkSiteRequest?->refreshProgressStatus();
         }
 
+        if ($editingReviewedSite && $site->isReadyForAdminReview()) {
+            try {
+                app(EmailNotificationService::class)->notifyAdminsNewSite($site, 'create');
+            } catch (\Throwable $e) {
+                Log::warning('Failed admin notify after publisher edited a review site: '.$e->getMessage());
+            }
+
+            return redirect()
+                ->route('publisher.websites', ['status' => 'pending'])
+                ->with('success', '“'.$site->site_name.'” was sent for admin review. Staff will Activate it.');
+        }
+
         $remainingAwaiting = Site::query()
             ->where('publisher_id', auth()->id())
             ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS)
@@ -414,7 +432,7 @@ class BulkSiteRequestController extends Controller
 
         return redirect()
             ->route('publisher.bulk-sites.review')
-            ->with('success', '“'.$site->site_name.'” saved. Review your sites below, then submit for admin review.');
+            ->with('success', '“'.$site->site_name.'” saved. Accept it to go live, or Edit again to send it to admin.');
     }
 
     /**
@@ -461,7 +479,7 @@ class BulkSiteRequestController extends Controller
     }
 
     /**
-     * Submit selected (or all) details_complete sites for admin review.
+     * Accept selected (or all) details_complete sites as they are — they go live.
      */
     public function submitForReview(Request $request)
     {
@@ -481,7 +499,7 @@ class BulkSiteRequestController extends Controller
             if ($ids === []) {
                 return redirect()
                     ->route('publisher.bulk-sites.review')
-                    ->with('error', 'Select at least one site to submit, or use Submit all.');
+                    ->with('error', 'Select at least one site to Accept, or use Accept all.');
             }
             $query->whereIn('id', $ids);
         }
@@ -490,7 +508,7 @@ class BulkSiteRequestController extends Controller
         if ($sites->isEmpty()) {
             return redirect()
                 ->route('publisher.bulk-sites.review')
-                ->with('error', 'No sites ready to submit. Complete details first.');
+                ->with('error', 'No sites ready to Accept. Complete details first.');
         }
 
         $submitted = 0;
@@ -507,9 +525,14 @@ class BulkSiteRequestController extends Controller
                         continue;
                     }
 
-                    if (! $site->markReadyForAdminReview()) {
-                        continue;
+                    $site->forceFill([
+                        'active' => true,
+                        'verified' => false,
+                    ]);
+                    if (Site::hasSitesColumn('onboarding_status')) {
+                        $site->onboarding_status = null;
                     }
+                    $site->save();
 
                     $submitted++;
 
@@ -526,24 +549,11 @@ class BulkSiteRequestController extends Controller
 
             return redirect()
                 ->route('publisher.bulk-sites.review')
-                ->with('error', 'We could not submit your sites for review. Please try again or contact support if this continues.');
+                ->with('error', 'We could not Accept those sites. Please try again or contact support if this continues.');
         }
 
         foreach (array_keys($bulkIds) as $bulkId) {
             BulkSiteRequest::find($bulkId)?->refreshProgressStatus();
-        }
-
-        $emails = app(EmailNotificationService::class);
-        foreach ($sites as $site) {
-            $site->refresh();
-            if (! $site->isReadyForAdminReview() || $site->hasDetailsComplete() || $site->awaitsPublisherDetails()) {
-                continue;
-            }
-            try {
-                $emails->notifyAdminsNewSite($site, 'create');
-            } catch (\Throwable $e) {
-                Log::warning('Failed admin notify for bulk review submit: '.$e->getMessage());
-            }
         }
 
         if ($submitted === 0) {
@@ -557,10 +567,10 @@ class BulkSiteRequestController extends Controller
         }
 
         return redirect()
-            ->route('publisher.websites', ['status' => 'pending'])
+            ->route('publisher.websites', ['status' => 'active'])
             ->with('success', $submitted === 1
-                ? '1 site submitted for admin review — it stays in Pending until approved.'
-                : $submitted.' sites submitted for admin review — they stay in Pending until approved.');
+                ? '1 site is now active on your account (not verified).'
+                : $submitted.' sites are now active on your account (not verified).');
     }
 
     private function normalizeHttpUrl(mixed $url): string

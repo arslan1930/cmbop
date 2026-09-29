@@ -605,20 +605,18 @@ class BulkSiteGuidedWorkflowTest extends TestCase
 
         $this->actingAs($this->publisher)
             ->post(route('publisher.bulk-sites.review.submit'), ['submit_all' => 1])
-            ->assertRedirect(route('publisher.websites', ['status' => 'pending']))
+            ->assertRedirect(route('publisher.websites', ['status' => 'active']))
             ->assertSessionHas('success');
 
-        $this->assertSame(Site::ONBOARDING_READY_FOR_REVIEW, $first->fresh()->onboarding_status);
-        $this->assertSame(Site::ONBOARDING_READY_FOR_REVIEW, $second->fresh()->onboarding_status);
+        $this->assertNull($first->fresh()->onboarding_status);
+        $this->assertNull($second->fresh()->onboarding_status);
+        $this->assertTrue((bool) $first->fresh()->active);
+        $this->assertTrue((bool) $second->fresh()->active);
         $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
 
-        $adminNotes = InAppNotification::where('user_id', $this->admin->id)
+        $this->assertSame(0, InAppNotification::where('user_id', $this->admin->id)
             ->where('audience', InAppNotification::AUDIENCE_ADMIN)
-            ->orderBy('id')
-            ->get();
-
-        $this->assertCount(2, $adminNotes);
-        $this->assertStringContainsString('/admin/sites', (string) $adminNotes->last()->action_url);
+            ->count());
     }
 
     public function test_websites_page_exposes_paste_urls_helper(): void

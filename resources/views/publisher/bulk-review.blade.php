@@ -25,8 +25,8 @@
         <a href="{{ route('publisher.websites') }}" class="small text-muted text-decoration-none">← Websites</a>
         <h3 class="mt-2 mb-1">Review &amp; submit</h3>
         <p class="text-muted small mb-0">
-            Check each site’s details. Edit anything that looks wrong, then submit for admin review.
-            Sites stay hidden from the catalog until we approve.
+            Check each site’s details. <strong>Accept</strong> puts the site live (not verified).
+            <strong>Edit</strong> sends the changed listing to admin — they Activate it. Sites you have not Accepted stay off the catalog.
         </p>
     </div>
 
@@ -56,10 +56,10 @@
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <button type="submit" name="submit_all" value="1" class="btn btn-outline-primary">
-                        Submit all
+                        Accept all
                     </button>
                     <button type="submit" class="btn btn-primary" id="bulkReviewSubmitSelected">
-                        Submit selected
+                        Accept selected
                     </button>
                 </div>
             </div>
@@ -159,7 +159,7 @@
         const any = checks().some(function (c) { return c.checked; });
         if (!any) {
             e.preventDefault();
-            slbAlert({ icon: 'warning', title: 'Select at least one site', text: 'Pick the sites you want to submit, or use Submit all.' });
+            slbAlert({ icon: 'warning', title: 'Select at least one site', text: 'Pick the sites you want to Accept, or use Accept all.' });
         }
     });
 

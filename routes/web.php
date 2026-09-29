@@ -1780,6 +1780,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::post('/catalog/sites/{site}/report', [CatalogController::class, 'reportSite'])
             ->middleware('throttle:10,1')
             ->name('catalog.site-report');
+        Route::delete('/catalog/sites/{site}/report', [CatalogController::class, 'deleteSiteReport'])
+            ->middleware('throttle:10,1')
+            ->name('catalog.site-report.delete');
 
         // Dedicated Saved Sites manager (favorites + blacklist)
         Route::get('/saved-sites', [SavedSitesController::class, 'index'])->name('saved-sites');

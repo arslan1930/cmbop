@@ -311,6 +311,7 @@
   }
 
   function onTriggerFocus(e) {
+    if (isHoverOnlyTip(e.currentTarget)) return;
     show(e.currentTarget, true);
   }
 

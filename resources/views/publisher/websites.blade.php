@@ -1290,11 +1290,11 @@
                                 <div class="d-flex gap-3 mt-2">
                                     <div class="form-check">
                                         <input type="radio" name="link_type" id="linkTypeDofollow" value="dofollow" class="form-check-input" {{ old('link_type', 'dofollow') == 'dofollow' ? 'checked' : '' }}>
-                                        <label class="form-check-label">DoFollow</label>
+                                        <label class="form-check-label" for="linkTypeDofollow">DoFollow</label>
                                     </div>
                                     <div class="form-check">
                                         <input type="radio" name="link_type" id="linkTypeNofollow" value="nofollow" class="form-check-input" {{ old('link_type') == 'nofollow' ? 'checked' : '' }}>
-                                        <label class="form-check-label">NoFollow</label>
+                                        <label class="form-check-label" for="linkTypeNofollow">NoFollow</label>
                                     </div>
                                 </div>
                             </div>

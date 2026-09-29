@@ -1029,7 +1029,7 @@ class SiteController extends Controller
         if ($site->hasDetailsComplete() || $site->awaitsPublisherDetails()) {
             return redirect()
                 ->route('publisher.bulk-sites.review')
-                ->with('success', '“'.$site->site_name.'” saved. Review your sites, then submit for admin review.');
+                ->with('success', '“'.$site->site_name.'” saved. Review your sites — Accept to go live, or Edit to send them to admin.');
         }
 
         if ($needsRereview) {
@@ -1064,7 +1064,7 @@ class SiteController extends Controller
         if ($site->fresh()->hasDetailsComplete()) {
             return redirect()
                 ->route('publisher.bulk-sites.review')
-                ->with('success', 'Website details saved. Review your sites, then submit them for approval.'.$this->listingSavedNote($request->price, (float) $site->price, $countryCodes[0] ?? null));
+                ->with('success', 'Website details saved. Accept to go live, or Edit to send the listing to admin.'.$this->listingSavedNote($request->price, (float) $site->price, $countryCodes[0] ?? null));
         }
 
         return redirect()->back()->with('success', 'Site updated successfully.'.$this->listingSavedNote($request->price, (float) $site->price, $countryCodes[0] ?? null));

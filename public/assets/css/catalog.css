@@ -714,14 +714,19 @@
 }
 
 .catalog-page .table tbody tr.site-row {
-    cursor: pointer;
-    /* Explicit surface so blacklist / hover washes paint every cell the same. */
+    cursor: default;
+    /* Explicit surface so blacklist / reported tints paint every cell the same. */
     background-color: var(--surface-1, #fff);
 }
 
-/* Row hover lives in hover-system.css now. Three local tints meant the same
-   gesture looked different in every table, and the blacklisted one re-stated a
-   status the row already shows rather than saying "you can click this". */
+/* Rows stay still on hover — only Buy, tools, links, and other controls
+   advertise themselves. hover-system.css otherwise washes every cell. */
+@media (hover: hover) and (pointer: fine) {
+    .catalog-page .table-hover > tbody > tr.site-row:hover > *,
+    .catalog-page .table tbody tr.site-row:hover > * {
+        background-color: transparent;
+    }
+}
 
 .catalog-page .btn-link {
     text-decoration: none;
@@ -942,7 +947,7 @@ body:has(.catalog-page) {
 /* ------------------------------------------------------------------ card list */
 
 .catalog-mobile-card {
-    cursor: pointer;
+    cursor: default;
     border: 1px solid var(--border-subtle, #e2e8f0);
     border-radius: var(--radius-md, 12px);
     background: var(--surface-1, #fff);
@@ -2790,11 +2795,11 @@ button.site-badge-new.catalog-new-ribbon.is-alerting {
     display: none !important;
 }
 
-/* Report + note sit with the social glyphs: same 22px flat icons, no circle. */
+/* Report (warning) + note (page) sit next to the social glyphs, a step smaller. */
 .catalog-site-tools {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     flex: 0 0 auto;
 }
 
@@ -2802,34 +2807,33 @@ button.site-badge-new.catalog-new-ribbon.is-alerting {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 20px;
+    height: 20px;
     padding: 0;
     border: 0;
-    border-radius: 6px;
+    border-radius: 5px;
     background: transparent;
     color: var(--brand-ink-muted, #697078);
     line-height: 1;
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .catalog-site-tool:hover,
 .catalog-site-tool:focus-visible {
-    background: var(--brand-primary-bg, #e6f5f5);
-    color: var(--brand-primary, #1a585e);
+    background: transparent;
+    color: inherit;
     outline: none;
 }
 
 .catalog-site-tool i,
 .catalog-site-tool i.fa.slb-icon-svg,
 .catalog-site-tool i.fa-solid.slb-icon-svg {
-    width: 22px;
-    height: 22px;
-    min-width: 22px;
-    min-height: 22px;
-    flex: 0 0 22px;
-    font-size: 22px;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    flex: 0 0 16px;
+    font-size: 16px;
     color: inherit;
     background: none !important;
     background-color: currentColor !important;
@@ -2837,30 +2841,33 @@ button.site-badge-new.catalog-new-ribbon.is-alerting {
     mask: var(--slb-icon) center / contain no-repeat !important;
 }
 
-/* A saved reminder stays washed and carries a dot, so it is not the empty icon. */
-.catalog-site-note.is-active {
-    position: relative;
-    background: var(--brand-primary-bg, #e6f5f5);
-    color: var(--brand-primary, #1a585e);
+.catalog-site-tool i svg {
+    display: none !important;
 }
 
-.catalog-site-note.is-active::after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
-    background: var(--brand-primary, #1a585e);
-    box-shadow: 0 0 0 2px var(--brand-primary-bg, #e6f5f5);
-    pointer-events: none;
-}
-
+/* Saved note / report: tint the glyph only — no chip wash, no corner dot. */
+.catalog-site-note.is-active,
 .catalog-site-note.is-active:hover,
 .catalog-site-note.is-active:focus-visible {
-    background: var(--brand-primary-bg, #e6f5f5);
+    background: transparent;
     color: var(--brand-primary, #1a585e);
+}
+
+.catalog-site-report.is-active,
+.catalog-site-report.is-active:hover,
+.catalog-site-report.is-active:focus-visible {
+    background: transparent;
+    color: #c2410c;
+}
+
+.catalog-page .table tbody tr.site-row.is-catalog-reported {
+    background-color: #fff8f1;
+    box-shadow: inset 3px 0 0 #c2410c;
+}
+
+.catalog-mobile-card.is-catalog-reported {
+    background-color: #fff8f1;
+    box-shadow: inset 3px 0 0 #c2410c;
 }
 
 .catalog-note-site {
@@ -2873,15 +2880,92 @@ button.site-badge-new.catalog-new-ribbon.is-alerting {
 .catalog-note-lead {
     margin: 0;
     font-size: 0.84rem;
-    line-height: 1.4;
+    line-height: 1.45;
+    text-align: left;
+    white-space: normal;
+    word-spacing: normal;
     color: var(--brand-ink-muted, #697078);
 }
 
 .catalog-note-count {
-    margin-top: 0.35rem;
+    margin: 0.35rem 0 0;
+    padding: 0 0.15rem;
     text-align: right;
     font-size: 0.75rem;
     color: var(--brand-ink-muted, #697078);
+}
+
+.swal2-popup.catalog-swal-tools {
+    overflow: hidden;
+}
+
+.swal2-popup.catalog-swal-tools .swal2-html-container {
+    text-align: left;
+    overflow: visible;
+}
+
+.catalog-swal-field {
+    position: relative;
+    display: block;
+    width: calc(100% - 2.3em);
+    max-width: 100%;
+    margin: 1em auto 0;
+    box-sizing: border-box;
+}
+
+.swal2-container .swal2-popup.catalog-swal-tools .catalog-swal-field textarea.swal2-textarea {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box;
+    padding: 0.75rem 2.5rem 2.2rem 0.75rem;
+    line-height: 1.45;
+}
+
+.catalog-swal-bin {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--brand-ink-muted, #697078);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.catalog-swal-bin:hover,
+.catalog-swal-bin:focus-visible {
+    background: #fff1f2;
+    color: #be123c;
+    outline: none;
+}
+
+.catalog-swal-bin i,
+.catalog-swal-bin i.fa.slb-icon-svg,
+.catalog-swal-bin i.fa-solid.slb-icon-svg {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    font-size: 16px;
+    color: inherit;
+    background: none !important;
+    background-color: currentColor !important;
+    -webkit-mask: var(--slb-icon) center / contain no-repeat !important;
+    mask: var(--slb-icon) center / contain no-repeat !important;
+}
+
+.catalog-swal-bin i svg {
+    display: none !important;
 }
 
 .catalog-site-deals .site-chip--homepage {

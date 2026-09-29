@@ -804,6 +804,7 @@ window.CatalogConfig = {
         blacklistSave: @json(route('advertiser.blacklist.save')),
         siteNote: @json(route('advertiser.catalog.site-note', ['site' => '__SITE__'])),
         siteReport: @json(route('advertiser.catalog.site-report', ['site' => '__SITE__'])),
+        siteReportDelete: @json(route('advertiser.catalog.site-report.delete', ['site' => '__SITE__'])),
         websiteSuggestionsStore: @json(route('advertiser.website-suggestions.store')),
         websiteSuggestionsCheck: @json(route('advertiser.website-suggestions.check')),
         siteClaim: @json(route('advertiser.sites.claim')),

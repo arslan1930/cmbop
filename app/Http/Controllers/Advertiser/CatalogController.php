@@ -10,6 +10,7 @@ use App\Mail\SiteOwnerOrderNotification;
 use App\Models\Category;
 use App\Models\ContentSubmission;
 use App\Models\Country;
+use App\Models\InAppNotification;
 use App\Models\Language;
 use App\Models\Order;
 use App\Models\OrderChatMessage;
@@ -30,7 +31,6 @@ use App\Services\Advertiser\AdvertiserOrderSearchQuery;
 use App\Services\Advertiser\AdvertiserProjectCheckout;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\CartPricingService;
-use App\Services\CommunityInboxNotifier;
 use App\Services\Catalog\CatalogCountryInventory;
 use App\Services\Catalog\CatalogLanguageFilter;
 use App\Services\Catalog\CatalogSearchQuery;
@@ -39,6 +39,7 @@ use App\Services\Catalog\RevealPaceGuard;
 use App\Services\Catalog\SiteUrlVisibility;
 use App\Services\CheckoutIntentService;
 use App\Services\CheckoutSchemaService;
+use App\Services\CommunityInboxNotifier;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Services\ContentUpload\ScheduledOrderService;
@@ -61,10 +62,11 @@ use App\Support\AdvertiserOrderDetails;
 use App\Support\AdvertiserOrderStatus;
 use App\Support\CartDisplayFx;
 use App\Support\CatalogVisitUrl;
+use App\Support\CommunityInbox;
 use App\Support\PaypalPaymentError;
 use App\Support\PlatformCharge;
+use App\Support\SiteDescriptionRules;
 use App\Support\SiteTag;
-use App\Support\CommunityInbox;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Carbon\CarbonInterface;
@@ -246,6 +248,8 @@ class CatalogController extends Controller
             'favorites' => [],
             'blacklist' => [],
             'catalogNotes' => [],
+            'catalogReports' => [],
+            'catalogReported' => [],
             'showBlacklistedOnly' => search_text($request->input('blacklist_filter')) === '1',
             'inventoryFrom' => null,
         ];
@@ -284,6 +288,8 @@ class CatalogController extends Controller
         $favorites = $listing['favorites'];
         $blacklist = $listing['blacklist'];
         $catalogNotes = $listing['catalogNotes'] ?? [];
+        $catalogReports = $listing['catalogReports'] ?? [];
+        $catalogReported = $listing['catalogReported'] ?? [];
         $showBlacklistedOnly = $listing['showBlacklistedOnly'];
         $inventoryFrom = $listing['inventoryFrom'] ?? null;
 
@@ -388,6 +394,8 @@ class CatalogController extends Controller
             'favorites',
             'blacklist',
             'catalogNotes',
+            'catalogReports',
+            'catalogReported',
             'cart',
             'cartRemovedInactive',
             'showBlacklistedOnly',
@@ -439,6 +447,8 @@ class CatalogController extends Controller
                 'favorites' => $listing['favorites'],
                 'blacklist' => $listing['blacklist'],
                 'catalogNotes' => $listing['catalogNotes'] ?? [],
+                'catalogReports' => $listing['catalogReports'] ?? [],
+                'catalogReported' => $listing['catalogReported'] ?? [],
                 'currentUser' => $currentUser,
                 'urlVisibility' => $urlVisibility,
                 'inventoryFrom' => $listing['inventoryFrom'] ?? null,
@@ -907,7 +917,10 @@ class CatalogController extends Controller
         $this->hydrateCatalogTrustCounters($sites);
 
         // Private reminders for this advertiser only. Never attached to the public listing.
-        $catalogNotes = $this->privateCatalogNotesFor((int) $userId, $sites->getCollection()->pluck('id')->all());
+        $pageSiteIds = $sites->getCollection()->pluck('id')->all();
+        $catalogNotes = $this->privateCatalogNotesFor((int) $userId, $pageSiteIds);
+        $catalogReports = $this->catalogReportsFor((int) $userId, $pageSiteIds);
+        $catalogReported = array_map('intval', array_keys($catalogReports));
 
         // index()/results() own the full page chrome; this helper only builds the listing.
         return [
@@ -915,6 +928,8 @@ class CatalogController extends Controller
             'favorites' => $favorites,
             'blacklist' => $blacklist,
             'catalogNotes' => $catalogNotes,
+            'catalogReports' => $catalogReports,
+            'catalogReported' => $catalogReported,
             'showBlacklistedOnly' => $showBlacklistedOnly,
             'inventoryFrom' => $inventoryFrom,
         ];
@@ -1794,7 +1809,7 @@ class CatalogController extends Controller
                 ->where('user_id', $userId)
                 ->whereIn('site_id', $siteIds)
                 ->pluck('body', 'site_id')
-                ->map(fn ($body) => (string) $body)
+                ->map(fn ($body) => $this->sanitizeCatalogPlainText($body, 2000))
                 ->all();
         } catch (\Throwable $e) {
             report($e);
@@ -1804,12 +1819,175 @@ class CatalogController extends Controller
     }
 
     /**
+     * Plain text only: no HTML, no control characters, capped length.
+     */
+    private function sanitizeCatalogPlainText(mixed $raw, int $maxChars): string
+    {
+        $text = is_string($raw) ? $raw : '';
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text) ?? $text;
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = preg_replace("/[ \t]+\n/u", "\n", $text) ?? $text;
+        $text = preg_replace("/[ \t]{2,}/u", ' ', $text) ?? $text;
+        $text = trim($text);
+        if (mb_strlen($text) > $maxChars) {
+            $text = rtrim(mb_substr($text, 0, $maxChars));
+        }
+
+        return $text;
+    }
+
+    /**
+     * Latest catalog report text this advertiser sent for each listing.
+     *
+     * @param  list<int>  $siteIds
+     * @return array<int, string>
+     */
+    private function catalogReportsFor(int $userId, array $siteIds): array
+    {
+        $siteIds = array_values(array_filter(array_map('intval', $siteIds)));
+        if ($userId <= 0 || $siteIds === [] || ! Schema::hasTable('problem_reports')) {
+            return [];
+        }
+
+        $wanted = array_fill_keys($siteIds, true);
+
+        try {
+            $rows = ProblemReport::query()
+                ->where('user_id', $userId)
+                ->where('subject', 'like', 'Catalog site:%')
+                ->orderByDesc('id')
+                ->limit(400)
+                ->get(['id', 'message']);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+
+        $found = [];
+        foreach ($rows as $row) {
+            $full = (string) $row->message;
+            $id = $this->catalogReportSiteId($full);
+            if ($id === null || ! isset($wanted[$id]) || isset($found[$id])) {
+                continue;
+            }
+            $body = $this->catalogReportUserMessage($full);
+            if ($body !== '') {
+                $found[$id] = $body;
+            }
+        }
+
+        return $found;
+    }
+
+    private function catalogReportSiteId(string $full): ?int
+    {
+        if (preg_match('/^Site ID:\s*(\d+)/m', $full, $match) === 1) {
+            return (int) $match[1];
+        }
+
+        return null;
+    }
+
+    private function catalogReportUserMessage(string $full): string
+    {
+        if (preg_match('/(?:\r\n|\n)What they wrote(?:\r\n|\n)(.*)\z/s', $full, $match) !== 1) {
+            return '';
+        }
+
+        return $this->sanitizeCatalogPlainText($match[1], 800);
+    }
+
+    /**
+     * @return Collection<int, ProblemReport>
+     */
+    private function catalogProblemReportsForSite(User $user, Site $site)
+    {
+        if (! Schema::hasTable('problem_reports')) {
+            return collect();
+        }
+
+        $siteId = (int) $site->id;
+
+        return ProblemReport::query()
+            ->where('user_id', $user->id)
+            ->where('subject', 'like', 'Catalog site:%')
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn (ProblemReport $row) => $this->catalogReportSiteId((string) $row->message) === $siteId)
+            ->values();
+    }
+
+    private function catalogReportEnvelope(Site $site, User $user, string $message): array
+    {
+        $site->loadMissing('publisher:id,name,email');
+        $siteName = trim((string) ($site->site_name ?: $site->domain ?: ('Site #'.$site->id)));
+        $subject = 'Catalog site: '.$siteName;
+        if (strlen($subject) > 160) {
+            $subject = substr($subject, 0, 157).'...';
+        }
+
+        $lines = [
+            'Catalog listing',
+            'Site ID: '.$site->id,
+            'Name: '.$siteName,
+            'URL: '.($site->site_url ?: '—'),
+            'Domain: '.($site->domain ?: '—'),
+            'DA: '.($site->da ?? '—').'  DR: '.($site->dr ?? '—').'  Traffic: '.($site->traffic ?? '—'),
+        ];
+        $publisher = $site->publisher;
+        if ($publisher) {
+            $lines[] = 'Publisher: '.trim($publisher->name.' <'.$publisher->email.'>');
+        }
+        $lines[] = '';
+        $lines[] = 'Reported by';
+        $lines[] = trim((string) $user->name).' <'.$user->email.'>';
+        $lines[] = 'User ID: '.$user->id;
+        try {
+            $lines[] = 'Admin listing: '.url('/admin/sites/'.$site->id.'/edit');
+        } catch (\Throwable $e) {
+            report($e);
+        }
+        $lines[] = '';
+        $lines[] = 'What they wrote';
+        $lines[] = $message;
+
+        $pageUrl = CommunityInbox::storedPageUrl($site->site_url)
+            ?: CommunityInbox::storedPageUrl(url('/admin/sites/'.$site->id.'/edit'));
+
+        return [
+            'site_name' => $siteName,
+            'subject' => $subject,
+            'message' => implode("\n", $lines),
+            'page_url' => $pageUrl,
+        ];
+    }
+
+    private function forgetCatalogReportNotifications(array $reportIds): void
+    {
+        $reportIds = array_values(array_filter(array_map('intval', $reportIds)));
+        if ($reportIds === [] || ! Schema::hasTable('in_app_notifications')) {
+            return;
+        }
+
+        try {
+            InAppNotification::query()
+                ->where('related_type', ProblemReport::class)
+                ->whereIn('related_id', $reportIds)
+                ->delete();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
      * Save or clear this advertiser's private reminder for one listing.
      */
     public function saveSiteNote(Request $request, Site $site)
     {
-        $data = $request->validate([
-            'note' => 'nullable|string|max:2000',
+        $request->validate([
+            'note' => 'nullable|string|max:4000',
         ]);
 
         $user = $request->user();
@@ -1824,7 +2002,7 @@ class CatalogController extends Controller
             ], 503);
         }
 
-        $note = trim((string) ($data['note'] ?? ''));
+        $note = $this->sanitizeCatalogPlainText($request->input('note'), 2000);
 
         try {
             if ($note === '') {
@@ -1859,8 +2037,8 @@ class CatalogController extends Controller
      */
     public function reportSite(Request $request, Site $site)
     {
-        $data = $request->validate([
-            'message' => 'required|string|min:10|max:3000',
+        $request->validate([
+            'message' => 'required|string|max:4000',
         ]);
 
         $user = $request->user();
@@ -1868,52 +2046,54 @@ class CatalogController extends Controller
             abort(403);
         }
 
-        $site->loadMissing('publisher:id,name,email');
-        $siteName = trim((string) ($site->site_name ?: $site->domain ?: ('Site #'.$site->id)));
-        $subject = 'Catalog site: '.$siteName;
-        if (strlen($subject) > 160) {
-            $subject = substr($subject, 0, 157).'...';
+        $message = $this->sanitizeCatalogPlainText($request->input('message'), 800);
+        if ($message === '' || SiteDescriptionRules::wordCount($message) < 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Write a short report before sending.',
+            ], 422);
+        }
+        if (SiteDescriptionRules::wordCount($message) > 80) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Keep the report to 80 words or fewer.',
+            ], 422);
         }
 
-        $lines = [
-            'Catalog listing',
-            'Site ID: '.$site->id,
-            'Name: '.$siteName,
-            'URL: '.($site->site_url ?: '—'),
-            'Domain: '.($site->domain ?: '—'),
-            'DA: '.($site->da ?? '—').'  DR: '.($site->dr ?? '—').'  Traffic: '.($site->traffic ?? '—'),
-        ];
-        $publisher = $site->publisher;
-        if ($publisher) {
-            $lines[] = 'Publisher: '.trim($publisher->name.' <'.$publisher->email.'>');
-        }
-        $lines[] = '';
-        $lines[] = 'Reported by';
-        $lines[] = trim((string) $user->name).' <'.$user->email.'>';
-        $lines[] = 'User ID: '.$user->id;
-        try {
-            $lines[] = 'Admin listing: '.url('/admin/sites/'.$site->id.'/edit');
-        } catch (\Throwable $e) {
-            report($e);
-        }
-        $lines[] = '';
-        $lines[] = 'What they wrote';
-        $lines[] = $data['message'];
-
-        $pageUrl = CommunityInbox::storedPageUrl($site->site_url)
-            ?: CommunityInbox::storedPageUrl(url('/admin/sites/'.$site->id.'/edit'));
+        $envelope = $this->catalogReportEnvelope($site, $user, $message);
+        $existing = $this->catalogProblemReportsForSite($user, $site);
+        $updated = $existing->isNotEmpty();
 
         try {
-            $report = ProblemReport::create([
-                'user_id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'subject' => $subject,
-                'message' => implode("\n", $lines),
-                'page_url' => $pageUrl,
-                'role_context' => $user->activeRole(),
-                'status' => 'pending',
-            ]);
+            if ($updated) {
+                $report = $existing->first();
+                $report->fill([
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'subject' => $envelope['subject'],
+                    'message' => $envelope['message'],
+                    'page_url' => $envelope['page_url'],
+                    'role_context' => $user->activeRole(),
+                    'status' => 'pending',
+                ]);
+                $report->save();
+                $extras = $existing->slice(1);
+                if ($extras->isNotEmpty()) {
+                    $this->forgetCatalogReportNotifications($extras->pluck('id')->all());
+                    ProblemReport::query()->whereIn('id', $extras->pluck('id')->all())->delete();
+                }
+            } else {
+                $report = ProblemReport::create([
+                    'user_id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'subject' => $envelope['subject'],
+                    'message' => $envelope['message'],
+                    'page_url' => $envelope['page_url'],
+                    'role_context' => $user->activeRole(),
+                    'status' => 'pending',
+                ]);
+            }
         } catch (\Throwable $e) {
             report($e);
 
@@ -1925,11 +2105,11 @@ class CatalogController extends Controller
 
         try {
             ActivityLogger::log(
-                'feedback.problem',
-                $user->name.' reported catalog site #'.$site->id.' ('.$siteName.')',
+                $updated ? 'feedback.problem_updated' : 'feedback.problem',
+                $user->name.' '.($updated ? 'updated' : 'reported').' catalog site #'.$site->id.' ('.$envelope['site_name'].')',
                 $report,
                 ['report_id' => $report->id, 'site_id' => $site->id, 'email' => $user->email],
-                $subject
+                $envelope['subject']
             );
         } catch (\Throwable $e) {
             Log::warning('Failed to log catalog site report: '.$e->getMessage(), [
@@ -1937,15 +2117,81 @@ class CatalogController extends Controller
             ]);
         }
 
-        try {
-            app(CommunityInboxNotifier::class)->notifyAdminsNewProblem($report);
-        } catch (\Throwable $e) {
-            Log::warning('Failed to notify admins about catalog site report: '.$e->getMessage());
+        if (! $updated) {
+            try {
+                app(CommunityInboxNotifier::class)->notifyAdminsNewProblem($report);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to notify admins about catalog site report: '.$e->getMessage());
+            }
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Thanks — your report was sent to the team.',
+            'reported' => true,
+            'site_id' => (int) $site->id,
+            'report' => $message,
+            'message' => $updated
+                ? 'Your report was updated.'
+                : 'Thanks — your report was sent to the team.',
+        ]);
+    }
+
+    /**
+     * Advertiser withdraws a catalog report. The admin inbox row is deleted too.
+     */
+    public function deleteSiteReport(Request $request, Site $site)
+    {
+        $user = $request->user();
+        if (! $user) {
+            abort(403);
+        }
+
+        $reports = $this->catalogProblemReportsForSite($user, $site);
+        if ($reports->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'reported' => false,
+                'site_id' => (int) $site->id,
+                'report' => '',
+                'message' => 'That report was already removed.',
+            ]);
+        }
+
+        $ids = $reports->pluck('id')->all();
+
+        try {
+            $this->forgetCatalogReportNotifications($ids);
+            ProblemReport::query()
+                ->where('user_id', $user->id)
+                ->whereIn('id', $ids)
+                ->delete();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'We could not remove that report. Please try again.'),
+            ], 500);
+        }
+
+        try {
+            ActivityLogger::log(
+                'feedback.problem_deleted',
+                $user->name.' withdrew a catalog report for site #'.$site->id,
+                $user,
+                ['site_id' => $site->id, 'report_ids' => $ids],
+                'Catalog report withdrawn'
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Failed to log catalog report delete: '.$e->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'reported' => false,
+            'site_id' => (int) $site->id,
+            'report' => '',
+            'message' => 'Report removed. The team will no longer see it.',
         ]);
     }
 
