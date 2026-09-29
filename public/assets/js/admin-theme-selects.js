@@ -148,14 +148,21 @@
             });
             const selected = select.options[select.selectedIndex];
             valueEl.textContent = selected ? String(selected.textContent || '').trim() : 'All';
+            trigger.disabled = !!select.disabled;
+            if (select.disabled) {
+                dropdown.classList.remove('show');
+                trigger.setAttribute('aria-expanded', 'false');
+            }
             if (searchInput) filterOptions(searchInput.value);
         }
 
         select.addEventListener('change', sync);
+        select.addEventListener('admin-select-refresh', sync);
 
         trigger.addEventListener('click', function (event) {
             event.preventDefault();
             event.stopPropagation();
+            if (select.disabled || trigger.disabled) return;
             const willOpen = !dropdown.classList.contains('show');
             document.querySelectorAll('.admin-deposits-filters .single-select-dropdown.show').forEach(function (dd) {
                 if (dd === dropdown) return;

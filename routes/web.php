@@ -1228,6 +1228,20 @@ $registerStaffOpsRoutes = function () {
         ->name('sites.create');
     Route::post('/sites', [AdminSiteController::class, 'storeForPublisher'])
         ->name('sites.store');
+    Route::get('/sites/domain-check', [AdminSiteController::class, 'domainCheck'])
+        ->name('sites.domain-check');
+    Route::get('/sites/publisher-domains', [AdminSiteController::class, 'publisherDomains'])
+        ->name('sites.publisher-domains');
+    Route::post('/sites/lookup-metrics', [AdminSiteController::class, 'lookupMetrics'])
+        ->middleware('throttle:20,1')
+        ->name('sites.lookup-metrics');
+    Route::get('/sites/bulk-create', [AdminSiteController::class, 'createBulkForPublisher'])
+        ->name('sites.bulk-create');
+    Route::post('/sites/bulk', [AdminSiteController::class, 'storeBulkForPublisher'])
+        ->name('sites.bulk-store');
+    Route::post('/sites/{id}/resend-invite', [AdminSiteController::class, 'resendInvite'])
+        ->whereNumber('id')
+        ->name('sites.resend-invite');
     Route::get('/staff-handbook', fn () => view('admin.staff-handbook'))
         ->name('staff-handbook');
     Route::get('/users/{id}/sites', [AdminSiteController::class, 'userSites'])

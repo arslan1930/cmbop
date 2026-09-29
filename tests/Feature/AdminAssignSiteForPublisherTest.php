@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\AdminAssignedSiteNotification;
+use App\Mail\AdminAssignedSitesBatchNotification;
 use App\Mail\WebsiteSuggestionReviewed;
 use App\Models\Category;
 use App\Models\Country;
@@ -15,6 +16,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Services\InAppNotificationService;
+use App\Services\Marketplace\CountryLanguagePairs;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
@@ -150,6 +152,8 @@ class AdminAssignSiteForPublisherTest extends TestCase
             ->get(route('admin.sites.create'))
             ->assertOk()
             ->getContent();
+        $this->assertStringContainsString('data-admin-select-search="1"', $html);
+        $this->assertStringNotContainsString('Type to filter publishers', $html);
         $this->assertStringContainsString('Partner article', $html);
         $this->assertStringContainsString('No tags', $html);
         $this->assertStringContainsString('As you prefer', $html);
@@ -1019,5 +1023,150 @@ class AdminAssignSiteForPublisherTest extends TestCase
         ])->assertRedirect()->assertSessionHas('success');
 
         $this->assertNotNull(Site::where('domain', 'staff-added-news.example')->first());
+    }
+
+    public function test_blank_homepage_fee_is_rejected(): void
+    {
+        [$country, $language, $niche] = $this->staffAssignMarket();
+
+        $this->actingAs($this->admin)->post(route('admin.sites.store'), [
+            'publisher_id' => $this->publisher->id,
+            'site_name' => 'Fee Check',
+            'site_url' => 'https://fee-check.example',
+            'example_url' => 'https://fee-check.example/sample',
+            'da' => 40,
+            'dr' => 45,
+            'traffic' => 12000,
+            'country' => strtolower($country->code),
+            'language' => strtolower($language->code),
+            'categories' => $niche,
+            'price' => 99,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Quality editorial site for guest posts. ', 4),
+            'written_request' => 1,
+            'placement_offers_form' => 1,
+            'homepage' => ['1' => 1],
+        ])->assertRedirect()->assertSessionHasErrors('price_homepage.1');
+
+        $this->assertNull(Site::where('domain', 'fee-check.example')->first());
+    }
+
+    public function test_domain_check_reports_a_taken_domain(): void
+    {
+        [$country, $language, $niche] = $this->staffAssignMarket();
+        Mail::fake();
+        $this->actingAs($this->admin)->post(route('admin.sites.store'), $this->staffAssignPayload($country, $language, $niche, 'https://taken-domain.example'));
+
+        $this->actingAs($this->admin)
+            ->getJson(route('admin.sites.domain-check', ['site_url' => 'https://taken-domain.example']))
+            ->assertOk()
+            ->assertJsonPath('available', false);
+    }
+
+    public function test_bulk_invite_creates_two_sites_and_one_notice(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->staffAssignMarket();
+        $code = strtolower($country->code);
+        $lang = strtolower($language->code);
+        $description = str_repeat('Quality editorial site for guest posts. ', 4);
+        $rows = implode("\n", [
+            "https://bulk-one.example,80,40,35,12000,{$code},{$lang},Bulk One,https://bulk-one.example/post,3days,permanent,dofollow,,{$niche},{$description}",
+            "https://bulk-two.example,90,20,20,1000,{$code},{$lang},Bulk Two,https://bulk-two.example/post,3days,permanent,dofollow,,{$niche},{$description}",
+        ]);
+
+        $this->actingAs($this->admin)->post(route('admin.sites.bulk-store'), [
+            'publisher_id' => $this->publisher->id,
+            'rows' => $rows,
+            'written_request' => 1,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $one = Site::where('domain', 'bulk-one.example')->first();
+        $two = Site::where('domain', 'bulk-two.example')->first();
+        $this->assertNotNull($one);
+        $this->assertNotNull($two);
+        $this->assertTrue($one->isPendingPublisherAcceptance());
+        $this->assertTrue($two->isPendingPublisherAcceptance());
+        $this->assertFalse((bool) $one->active);
+        $this->assertFalse((bool) $two->verified);
+        Mail::assertQueued(AdminAssignedSitesBatchNotification::class, 1);
+        Mail::assertNotQueued(AdminAssignedSiteNotification::class);
+    }
+
+    public function test_bulk_invite_saves_nothing_when_one_row_is_bad(): void
+    {
+        [$country, $language, $niche] = $this->staffAssignMarket();
+        $code = strtolower($country->code);
+        $lang = strtolower($language->code);
+        $description = str_repeat('Quality editorial site for guest posts. ', 4);
+        $rows = implode("\n", [
+            "https://bulk-good.example,80,40,35,12000,{$code},{$lang},Bulk Good,https://bulk-good.example/post,3days,permanent,dofollow,,{$niche},{$description}",
+            "https://bulk-bad.example,80,40,35,12000,zz,zz,Bulk Bad,https://not-the-same.example/post,3days,permanent,dofollow,,{$niche},{$description}",
+        ]);
+
+        $this->actingAs($this->admin)->post(route('admin.sites.bulk-store'), [
+            'publisher_id' => $this->publisher->id,
+            'rows' => $rows,
+            'written_request' => 1,
+        ])->assertRedirect()->assertSessionHasErrors('rows');
+
+        $this->assertNull(Site::where('domain', 'bulk-good.example')->first());
+        $this->assertNull(Site::where('domain', 'bulk-bad.example')->first());
+    }
+
+    public function test_bulk_invite_rejects_the_201st_row(): void
+    {
+        $line = 'https://cap.example,1,1,1,1,de,de,Cap,https://cap.example/a,3days,permanent,dofollow,,News,text';
+        $this->actingAs($this->admin)->post(route('admin.sites.bulk-store'), [
+            'publisher_id' => $this->publisher->id,
+            'rows' => implode("\n", array_fill(0, 201, $line)),
+            'written_request' => 1,
+        ])->assertRedirect()->assertSessionHasErrors('rows');
+
+        $this->assertSame(0, Site::where('domain', 'cap.example')->count());
+    }
+
+    /**
+     * @return array{0: Country, 1: Language, 2: string}
+     */
+    private function staffAssignMarket(): array
+    {
+        $country = Country::marketplace()->where('code', 'de')->first()
+            ?? Country::marketplace()->firstOrFail();
+        $allowed = app(CountryLanguagePairs::class)->languageCodesForCountry(strtolower((string) $country->code));
+        $language = $allowed !== []
+            ? (Language::marketplace()->whereIn('code', $allowed)->first() ?? Language::marketplace()->firstOrFail())
+            : (Language::marketplace()->where('code', 'de')->first() ?? Language::marketplace()->firstOrFail());
+        $niche = (string) (Category::query()->where('name', 'Marketing, PR & Advertising')->value('name')
+            ?: Category::query()->orderBy('name')->value('name'));
+
+        return [$country, $language, $niche];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function staffAssignPayload(Country $country, Language $language, string $niche, string $url): array
+    {
+        return [
+            'publisher_id' => $this->publisher->id,
+            'site_name' => 'Staff Added News',
+            'site_url' => $url,
+            'example_url' => rtrim($url, '/').'/sample',
+            'da' => 40,
+            'dr' => 45,
+            'traffic' => 12000,
+            'country' => strtolower($country->code),
+            'language' => strtolower($language->code),
+            'categories' => $niche,
+            'price' => 99,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Quality editorial site for guest posts. ', 4),
+            'written_request' => 1,
+        ];
     }
 }

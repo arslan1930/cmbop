@@ -2425,16 +2425,16 @@ class InAppNotificationService
         );
     }
 
-    public function notifyPublisherSiteAssignedForAcceptance(Site $site): void
+    public function notifyPublisherSiteAssignedForAcceptance(Site $site): ?InAppNotification
     {
         $publisherId = (int) ($site->publisher_id ?? 0);
         if ($publisherId <= 0) {
-            return;
+            return null;
         }
 
         $domain = $site->domain ?: $site->site_name ?: 'a website';
 
-        $this->notify(
+        return $this->notify(
             $publisherId,
             self::TYPE_SITE_STATUS,
             'Please accept a website we added for you',

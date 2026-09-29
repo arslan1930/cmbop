@@ -173,6 +173,9 @@
             <a href="{{ staff_route('sites.create') }}" class="btn btn-sm btn-primary">
                 <i class="fa fa-plus me-1"></i> Add site for publisher
             </a>
+            <a href="{{ staff_route('sites.bulk-create') }}" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-layer-group me-1"></i> Add sites in bulk
+            </a>
             @if(auth()->user()?->isAdmin())
                 <a href="{{ route('admin.sites.on-demand.index') }}" class="btn btn-sm btn-outline-primary">
                     On-demand
@@ -364,6 +367,7 @@
                                 @endif
                                 @if($site->isPendingPublisherAcceptance())
                                     <span class="badge text-bg-info">Awaiting accept</span>
+                                    <button type="button" class="btn btn-sm btn-outline-info resend-invite py-0 px-2" data-id="{{ $site->id }}">Resend invite</button>
                                 @endif
                                 @if($site->wasAddedFromBulkRequest())
                                     <span class="badge text-bg-light border">Bulk request</span>
@@ -1583,6 +1587,29 @@ document.addEventListener('click', function(e){
         });
     }
 
+    if (e.target.closest('.resend-invite')) {
+        const btn = e.target.closest('button');
+        const id = btn?.dataset.id;
+        if (!id) return;
+        e.preventDefault();
+        fetch(`${STAFF_BASE}/sites/${encodeURIComponent(id)}/resend-invite`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+            },
+        }).then(async function (res) {
+            const data = await res.json().catch(function () { return {}; });
+            if (!res.ok || data.success === false) {
+                throw new Error(data.message || 'Could not resend that invite.');
+            }
+            toast(data.message || 'Invite resent.');
+        }).catch(function (err) {
+            toast(err.message || 'Could not resend that invite.', 'error');
+        });
+        return;
+    }
+
     /* TOGGLE VERIFY */
     if(e.target.closest('.toggle-verify')){
         let btn = e.target.closest('button');
@@ -2019,6 +2046,9 @@ function renderSites(data){
             const inviteBadge = site.pending_publisher_acceptance
                 ? `<span class="badge text-bg-info badge-needs-review ms-1">Awaiting accept</span>`
                 : '';
+            const resendInviteItem = site.pending_publisher_acceptance
+                ? `<li><button type="button" class="dropdown-item resend-invite" data-id="${site.id}"><i class="fa fa-paper-plane me-2"></i>Resend invite</button></li>`
+                : '';
             const bulkOriginBadge = site.added_from_bulk_request
                 ? `<span class="badge text-bg-light border badge-needs-review ms-1">Bulk request</span>`
                 : '';
@@ -2160,6 +2190,7 @@ function renderSites(data){
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end admin-manage-menu">
                         ${editItem}
+                        ${resendInviteItem}
                         ${deleteItem}
                         ${(activeItem || verifyItem) ? '<li><hr class="dropdown-divider"></li>' : ''}
                         ${activeItem}

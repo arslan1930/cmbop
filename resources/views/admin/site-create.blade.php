@@ -65,8 +65,10 @@
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label fw-semibold" for="publisher_id">Publisher <span class="text-danger">*</span></label>
-                        <input type="search" id="publisherFilter" class="form-control mb-2" placeholder="Type to filter publishers…" autocomplete="off" aria-label="Filter publishers">
-                        <select id="publisher_id" name="publisher_id" class="form-select @error('publisher_id') is-invalid @enderror" required>
+                        <select id="publisher_id" name="publisher_id" class="form-select @error('publisher_id') is-invalid @enderror" required
+                                data-admin-select-search="1"
+                                data-admin-select-search-label="Search publishers by name or email"
+                                data-admin-select-search-empty="No publishers match">
                             <option value="">Select publisher…</option>
                             @foreach($publishers as $publisher)
                                 <option value="{{ $publisher->id }}"
@@ -82,7 +84,8 @@
                                 </option>
                             @endforeach
                         </select>
-                        <div class="form-text">Verified-email publishers only. An unverified account from the URL still appears with a warning.</div>
+                        <div class="form-text">Verified-email publishers only. Suspended accounts are left out. An unverified account from the URL still appears with a warning.</div>
+                        <div class="small text-muted mt-2 d-none" id="publisherDomains"></div>
                         <div class="alert alert-warning border-0 py-2 px-3 small mb-0 mt-2 {{ $selectedPublisherUnverified ? '' : 'd-none' }}" id="unverifiedPublisherWarn" role="status">
                             This publisher has not verified their email. They cannot log in to Accept the invite until they verify.
                         </div>
@@ -99,6 +102,7 @@
                         <label class="form-label fw-semibold" for="site_url">Site URL <span class="text-danger">*</span></label>
                         <input type="text" id="site_url" name="site_url" class="form-control @error('site_url') is-invalid @enderror"
                                value="{{ old_text('site_url', $prefillSiteUrl) }}" required placeholder="https://example.com">
+                        <div class="form-text" id="siteUrlStatus" role="status"></div>
                         @error('site_url')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
@@ -117,11 +121,15 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold" for="da">DA <span class="text-danger">*</span></label>
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                            <label class="form-label fw-semibold mb-0" for="da">DA <span class="text-danger">*</span></label>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="lookupMetricsBtn">Look up metrics</button>
+                        </div>
                         <input type="number" id="da" name="da" class="form-control @error('da') is-invalid @enderror"
                                min="0" max="100" step="1" inputmode="numeric" required
                                placeholder="0–100" value="{{ old_text('da') }}">
                         <div class="form-text">Domain Authority (0–100). Whole numbers only.</div>
+                        <div class="form-text" id="metricsStatus" role="status"></div>
                         @error('da')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-4">
@@ -255,7 +263,8 @@
                                accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp"
                                data-max-kb="{{ \App\Support\SiteImageUpload::maxKilobytes() }}"
                                data-php-max-kb="{{ \App\Support\SiteImageUpload::phpUploadMaxKilobytes() }}">
-                        <div class="form-text">Optional desktop screenshot (JPEG, PNG, GIF, or WebP up to {{ \App\Support\SiteImageUpload::maxMegabytesLabel() }}&nbsp;MB).</div>
+                        <div class="form-text">Optional desktop screenshot (JPEG, PNG, GIF, or WebP up to {{ \App\Support\SiteImageUpload::maxMegabytesLabel() }}&nbsp;MB). If you skip it, a screenshot is queued after save.</div>
+                        <img id="siteImagePreview" alt="" class="d-none mt-2 rounded border" style="max-width: 240px; max-height: 140px;">
                         @error('site_image')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
@@ -431,12 +440,18 @@
         if (!countryEl || !langEl) return;
         const code = (countryEl.value || '').toLowerCase();
         const list = map[code] || [];
-        const keep = (preferredLang || (langHidden && langHidden.value) || langEl.value || '').toLowerCase();
+        const keep = (
+            (langEl && String(langEl.value || '').trim())
+            || (langHidden && String(langHidden.value || '').trim())
+            || preferredLang
+            || ''
+        ).toLowerCase();
         langEl.innerHTML = '';
         if (!code) {
             langEl.disabled = true;
             langEl.innerHTML = '<option value="">Select country first</option>';
             if (langHidden) langHidden.value = '';
+            langEl.dispatchEvent(new Event('admin-select-refresh'));
             return;
         }
         langEl.disabled = false;
@@ -455,6 +470,7 @@
             langEl.value = list[0].code;
         }
         syncLanguageHidden();
+        langEl.dispatchEvent(new Event('admin-select-refresh'));
     }
 
     if (countryEl) {
@@ -483,28 +499,143 @@
         ms.setSelectedItems(prefills, prefills);
     }
 
-    const publisherFilter = document.getElementById('publisherFilter');
     const publisherSelect = document.getElementById('publisher_id');
     const unverifiedWarn = document.getElementById('unverifiedPublisherWarn');
+    const publisherDomains = document.getElementById('publisherDomains');
+    const domainCheckUrl = @json(staff_route('sites.domain-check'));
+    const publisherDomainsUrl = @json(staff_route('sites.publisher-domains'));
+    const lookupMetricsUrl = @json(staff_route('sites.lookup-metrics'));
+    const csrfToken = @json(csrf_token());
+
     function refreshUnverifiedPublisherWarn() {
         if (!unverifiedWarn || !publisherSelect) return;
         const selected = publisherSelect.options[publisherSelect.selectedIndex];
         const unverified = !!(selected && selected.value && selected.getAttribute('data-verified') === '0');
         unverifiedWarn.classList.toggle('d-none', !unverified);
     }
-    if (publisherFilter && publisherSelect) {
-        publisherFilter.addEventListener('input', function () {
-            const q = String(publisherFilter.value || '').trim().toLowerCase();
-            Array.prototype.forEach.call(publisherSelect.options, function (opt, i) {
-                if (i === 0 && !opt.value) {
-                    opt.hidden = false;
-                    return;
+
+    function refreshPublisherDomains() {
+        if (!publisherDomains || !publisherSelect) return;
+        const id = publisherSelect.value;
+        if (!id) {
+            publisherDomains.classList.add('d-none');
+            publisherDomains.textContent = '';
+            return;
+        }
+        fetch(publisherDomainsUrl + '?publisher=' + encodeURIComponent(id), { headers: { 'Accept': 'application/json' } })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                const domains = Array.isArray(data.domains) ? data.domains : [];
+                const total = Number(data.total || domains.length);
+                if (!domains.length) {
+                    publisherDomains.textContent = 'This publisher has no sites yet.';
+                } else {
+                    const extra = total > domains.length ? ' (+' + (total - domains.length) + ' more)' : '';
+                    publisherDomains.textContent = 'Already on this account: ' + domains.join(', ') + extra;
                 }
-                opt.hidden = q !== '' && !opt.selected && String(opt.textContent || '').toLowerCase().indexOf(q) === -1;
+                publisherDomains.classList.remove('d-none');
+            })
+            .catch(function () {
+                publisherDomains.classList.add('d-none');
+            });
+    }
+
+    if (publisherSelect) {
+        publisherSelect.addEventListener('change', function () {
+            refreshUnverifiedPublisherWarn();
+            refreshPublisherDomains();
+        });
+        refreshUnverifiedPublisherWarn();
+        refreshPublisherDomains();
+    }
+
+    const siteUrlInput = document.getElementById('site_url');
+    const siteUrlStatus = document.getElementById('siteUrlStatus');
+    const metricsStatus = document.getElementById('metricsStatus');
+    let domainTimer = null;
+    let domainCheckSeq = 0;
+    function checkDomain() {
+        if (!siteUrlInput || !siteUrlStatus) return;
+        const value = String(siteUrlInput.value || '').trim();
+        const seq = ++domainCheckSeq;
+        if (value.length < 4) {
+            siteUrlStatus.textContent = '';
+            siteUrlStatus.classList.remove('text-danger');
+            return;
+        }
+        fetch(domainCheckUrl + '?site_url=' + encodeURIComponent(value), { headers: { 'Accept': 'application/json' } })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (seq !== domainCheckSeq) return;
+                siteUrlStatus.textContent = data.message || '';
+                siteUrlStatus.classList.toggle('text-danger', data.available === false);
+            })
+            .catch(function () {
+                if (seq !== domainCheckSeq) return;
+                siteUrlStatus.textContent = '';
+                siteUrlStatus.classList.remove('text-danger');
+            });
+    }
+    if (siteUrlInput) {
+        siteUrlInput.addEventListener('input', function () {
+            clearTimeout(domainTimer);
+            domainTimer = setTimeout(checkDomain, 400);
+        });
+        siteUrlInput.addEventListener('blur', checkDomain);
+    }
+
+    const lookupBtn = document.getElementById('lookupMetricsBtn');
+    if (lookupBtn && siteUrlInput) {
+        lookupBtn.addEventListener('click', function () {
+            lookupBtn.disabled = true;
+            fetch(lookupMetricsUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ site_url: siteUrlInput.value }),
+            }).then(async function (res) {
+                const data = await res.json().catch(function () { return {}; });
+                if (!res.ok || !data.success) {
+                    throw new Error(data.message || 'Metrics have to be typed.');
+                }
+                if (data.da != null) document.getElementById('da').value = data.da;
+                if (data.dr != null) document.getElementById('dr').value = data.dr;
+                if (data.traffic != null) document.getElementById('traffic').value = data.traffic;
+                if (typeof refreshQualityBar === 'function') refreshQualityBar();
+                if (metricsStatus) {
+                    metricsStatus.textContent = data.message || 'Metrics filled. You can still edit them.';
+                    metricsStatus.classList.remove('text-danger');
+                }
+            }).catch(function (err) {
+                if (metricsStatus) {
+                    metricsStatus.textContent = err.message || 'Metrics have to be typed.';
+                    metricsStatus.classList.add('text-danger');
+                }
+            }).finally(function () {
+                lookupBtn.disabled = false;
             });
         });
-        publisherSelect.addEventListener('change', refreshUnverifiedPublisherWarn);
-        refreshUnverifiedPublisherWarn();
+    }
+
+    const imagePreview = document.getElementById('siteImagePreview');
+    if (imageInput && imagePreview) {
+        imageInput.addEventListener('change', function () {
+            const file = imageInput.files && imageInput.files[0];
+            if (!file) {
+                imagePreview.classList.add('d-none');
+                imagePreview.removeAttribute('src');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function () {
+                imagePreview.src = reader.result;
+                imagePreview.classList.remove('d-none');
+            };
+            reader.readAsDataURL(file);
+        });
     }
 
     const sensitiveBtn = document.getElementById('sensitiveDisclosureBtn');
