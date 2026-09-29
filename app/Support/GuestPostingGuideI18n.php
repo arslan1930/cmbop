@@ -38,11 +38,11 @@ class GuestPostingGuideI18n
                 'content' => self::nl(),
             ],
             'it' => [
-                'title' => 'Cos’è un guest post: guida al guest blogging per il SEO',
+                'title' => 'Cos’è un guest post?',
                 'slug' => 'cose-un-guest-post',
-                'excerpt' => 'Come funziona davvero un guest post: trovare host pertinenti, proporre il pezzo, scrivere per i loro lettori e evitare i network che vendono solo un link.',
-                'meta_title' => 'Cos’è un guest post: pitch, testo e pubblicazione SEO',
-                'meta_description' => 'Guida al guest post: cosa sono, come si pitchano, come si scrivono e come si evita di comprare reti low-cost. CTA al catalogo SEOLinkBuildings.',
+                'excerpt' => 'Un guest post è un articolo su un sito altrui. La pagina distingue il formato da advertorial e acquisto del solo link, e dice cosa controlla una redazione.',
+                'meta_title' => 'Cos’è un guest post? Definizione, i passaggi e i limiti',
+                'meta_description' => 'Cos’è un guest post: un articolo su un sito altrui, spesso con un link. Differenza da advertorial e acquisto link, e cosa controlla una redazione.',
                 'content' => self::it(),
             ],
         ];
@@ -57,8 +57,50 @@ class GuestPostingGuideI18n
     public static function seoRecords(): array
     {
         $de = self::all()['de'];
+        $it = self::all()['it'];
 
         return [
+            'it' => [
+                'language' => 'it',
+                'country' => 'IT',
+                'topic' => 'Cos’è un guest post',
+                'primary_keyword' => 'cos\'è un guest post',
+                'secondary_keywords' => [
+                    'cosa sono i guest post',
+                ],
+                'long_tail_keywords' => [
+                    'guest post SEO guida',
+                    'anchor text guest post',
+                ],
+                'search_intent' => 'informational',
+                'difficulty' => '50 Medium',
+                'difficulty_note' => 'Heuristic 0–100 from italy-keyword-research, not Semrush KD.',
+                'demand_band' => 'High',
+                'traffic_potential' => 55,
+                'traffic_note' => 'Heuristic 0–100, not monthly visits.',
+                'opportunity_score' => 48,
+                'competition' => 'Medium',
+                'business_fit' => 'Low',
+                'effort' => 'L',
+                'seo_title' => $it['meta_title'],
+                'meta_description' => $it['meta_description'],
+                'url_slug' => $it['slug'],
+                'h1' => $it['title'],
+                'word_count' => self::plainWordCount($it['content']),
+                'money_url' => '/it/comprare-guest-post',
+                'sister_urls' => [
+                    '/it/blog/come-ottenere-backlink',
+                    '/it/blog/guest-post-vs-articolo-sponsorizzato',
+                    '/it/blog/dofollow-vs-nofollow',
+                ],
+                'image' => [
+                    'filename' => 'guest-posting-guide-workflow-it.svg',
+                    'alt' => 'Passaggi di un guest post: trovare siti, valutare, proporre, scrivere, pubblicare e ricontrollare',
+                    'caption' => 'L’host tiene l’indirizzo. Chi scrive consegna il testo e, dopo la pubblicazione, ricontrolla attributo e pagina di destinazione.',
+                    'ai_generated' => false,
+                    'note' => 'Authored Italian SVG. Not a photograph and not an AI image.',
+                ],
+            ],
             'de' => [
                 'language' => 'de',
                 'country' => 'DE',
@@ -431,77 +473,125 @@ HTML;
     {
         $backlinks = '/it/blog/come-ottenere-backlink';
         $sponsored = '/it/blog/guest-post-vs-articolo-sponsorizzato';
-        $linkGuide = '/it/blog/come-fare-link-building';
-        $chooseSite = '/blog/how-to-choose-a-publisher-site-dr-da-traffic-niche';
-        $buy = '/it/comprare-guest-post';
-        $brief = '/blog/guest-post-brief-anchors-urls-images-sensitive-topics';
         $dofollow = '/it/blog/dofollow-vs-nofollow';
-        $outreach = '/blog/marketplace-vs-cold-outreach-vs-digital-pr';
-        $europe = '/blog/buy-guest-posts-in-europe-how-to-choose-publisher-sites';
-        $live = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
-        $catalog = '/it/mercato';
-        $how = '/it/come-funziona';
+        $buy = '/it/comprare-guest-post';
         $img = BlogLocaleImages::publicUrl(GuestPostingGuideBlogPost::IMAGE_WORKFLOW, 'it');
 
         return <<<HTML
-<p>Un guest post è un articolo su un sito che non possiedi — di solito con byline e, se l’host lo consente, un link di ritorno.</p>
-<p>La definizione è semplice. Il lavoro no. La maggior parte delle campagne fallisce sulla scelta dell’host, non sul talento di scrittura.</p>
-<p>Acquisizione: <a href="{$backlinks}">come ottenere backlink</a>. Pubblicazioni a pagamento: <a href="{$sponsored}">guest post vs articolo sponsorizzato</a>. Qui il flusso.</p>
+<p class="glossary-definition">Un guest post è un articolo pubblicato su un sito di cui l’autore non è titolare. L’host tiene l’indirizzo e i lettori. L’autore consegna il testo e di solito lo firma. Un link verso una sua pagina è frequente. Il formato non è un advertorial e non è l’acquisto del solo link.</p>
+<p>Chi cerca «cos’è un guest post» sta chiedendo questo confine, non un listino e non una promessa di posizione. Il plurale, «cosa sono i guest post», indica lo stesso formato ripetuto su più siti: non è un prodotto diverso. Prima di proporre un pezzo a una testata italiana conviene sapere quale dei due si ha davanti, e solo dopo chiedersi se quei lettori hanno un motivo per arrivare in fondo.</p>
 
-<h2>Cosa sono i guest post</h2>
-<p>Consegni il testo, l’host lo pubblica per i suoi lettori. Tiene URL, traffico e il diritto di tagliare o rifiutare. Non è una citazione indipendente e non è automaticamente un pubbliredazionale. Alcuni host prendono pezzi non pagati; altri fanno pagare. Va detto.</p>
-
-<h2>Flusso</h2>
+<nav aria-label="Indice">
+<p><strong>In questa pagina</strong></p>
 <ol>
-<li>Scegliere una URL di destinazione sul proprio sito</li>
-<li>Shortlist di host con lettori in comune</li>
-<li>Pitch, “write for us”, o un listing con regole scritte</li>
-<li>Leggere vincoli (lunghezza, link, tono, immagini, disclosure)</li>
-<li>Scrivere, far revisionare, andare live</li>
-<li>Salvare URL live, attributo, anchor, data di ricontrollo</li>
+<li><a href="#plurale">Cosa sono i guest post</a></li>
+<li><a href="#formati">Quattro formati che in italiano si mescolano</a></li>
+<li><a href="#redazione">Cosa controlla una redazione</a></li>
+<li><a href="#passaggi">I passaggi, fino all’indirizzo live</a></li>
+<li><a href="#seo">Guest post e SEO, senza promesse</a></li>
+<li><a href="#ancora">L’ancora dentro la frase</a></li>
+<li><a href="#prezzo">Prezzo, fattura e IVA</a></li>
+<li><a href="#errori">Errori visibili dal primo paragrafo</a></li>
+<li><a href="#domande">Domande</a></li>
 </ol>
+</nav>
 
-<h2>A cosa serve — e i limiti</h2>
-<p>Su siti con lettori veri: visibilità, una citazione crawlable, un sample pubblico. Nessuna promessa di ranking. Le spam policy di Google citano il guest posting su larga scala con ancore keyword-rich. Il formato non è vietato. Il pattern per manipolare i ranking sì.</p>
+<h2 id="plurale">Cosa sono i guest post</h2>
+<p>Un singolo guest post è un testo ospitato. «Cosa sono i guest post», al plurale, descrive la stessa ospitalità ripetuta: più firme esterne, più indirizzi, più redazioni. Non compare un secondo formato solo perché la domanda usa il plurale. Cambia il numero dei pezzi, non la natura di ciascuno.</p>
+<p>In redazione il patto è semplice. Chi scrive porta un argomento che i lettori di quel sito possono usare. Chi pubblica decide se il pezzo entra, con quale titolo, con quanti link e se la firma resta. L’indirizzo finale appartiene all’host. Anche un brano eccellente, se la testata lo rifiuta, non è ancora un guest post: è una bozza nel cassetto di chi l’ha scritta.</p>
+<p>Il link non è obbligatorio per definizione. Alcune testate firmano l’autore e non collegano nulla. Altre accettano un collegamento nel corpo e uno nella firma. Entrambe le scelte restano un guest post. Quello che non resta un guest post è una riga isolata, pagata per comparire in un articolo altrui già online, senza un testo nuovo firmato da chi promuove la pagina di destinazione.</p>
+<p>Il lavoro di trovare quei collegamenti, al di fuori di questo formato, è un’altra domanda. Sta nella pagina su <a href="{$backlinks}">come ottenere un backlink</a>. Qui il tema è il pezzo ospitato, non l’elenco delle tecniche.</p>
 
-<h2>Trovare e valutare gli host</h2>
-<p>Cerca come un editor, esporta i referring domain dei competitor, confronta i listing — <a href="{$catalog}">il catalogo SEOLinkBuildings</a> è scoperta, non un bollino di qualità. <a href="{$how}">Come funziona</a>, <a href="{$buy}">acquistare guest post</a>. Europa: <a href="{$europe}">scegliere i publisher</a>. Metriche: <a href="{$chooseSite}">DA, DR, traffico</a> — ZA SEOZoom non è una colonna del listing.</p>
+<h2 id="formati">Quattro formati che in italiano si mescolano</h2>
+<p>In una stessa conversazione finiscono quattro cose diverse. Tenerle sulla stessa riga produce ordini sbagliati: si paga un advertorial credendo di firmare un articolo, oppure si compra un link e lo si chiama guest post perché da qualche parte c’è un paragrafo.</p>
+<table>
+<thead>
+<tr><th>Formato</th><th>Chi firma</th><th>Chi decide il tema</th><th>Il lettore cosa capisce</th></tr>
+</thead>
+<tbody>
+<tr><td>Guest post</td><td>L’autore esterno, in genere con nome</td><td>Proposta dell’autore, accettazione della redazione</td><td>Un articolo della testata, scritto da fuori</td></tr>
+<tr><td>Articolo sponsorizzato</td><td>Spesso la testata, a volte il committente</td><td>Il committente, dentro i vincoli grafici del sito</td><td>Un contenuto pagato, riconoscibile come tale</td></tr>
+<tr><td>Pubbliredazionale</td><td>Di solito non una firma esterna autonoma</td><td>Il messaggio pubblicitario</td><td>Pubblicità scritta con il tono della testata</td></tr>
+<tr><td>Acquisto del solo link</td><td>Nessun articolo nuovo</td><td>Chi compra il collegamento</td><td>Poco o niente: manca il pezzo</td></tr>
+</tbody>
+</table>
+<p>Il pubbliredazionale resta una riga di questa tabella. Il confronto esteso tra guest post e articolo sponsorizzato, e il posto del pubbliredazionale in quel confronto, sta nella pagina sulla <a href="{$sponsored}">differenza tra guest post e articolo sponsorizzato</a>. Non è un secondo nome del guest post.</p>
+<p>Un pezzo non pagato può portare un link che la redazione considera proprio, perché ha scelto lei tema e destinazione. Appena il posto si ottiene con un pagamento, uno sconto o uno scambio pattuito, il link descrive un rapporto commerciale. L’etichetta segue quello scambio, non il titolo del pezzo. Un testo pulito e pagato resta un testo pagato.</p>
 
-<h2>Pitch e testo</h2>
-<p>Perché questo sito, un’idea, titolo di lavoro, due frasi, chi sei, esclusività. Canali: <a href="{$outreach}">marketplace vs outreach vs PR</a>. Scrivi per il loro lettore. Una URL primaria. Brief: <a href="{$brief}">ancore, URL, immagini</a>. Attributi: <a href="{$dofollow}">dofollow, nofollow, rel sponsored</a>.</p>
-
-<h2>Segnali d’allarme e workflow</h2>
-<figure>
-<img src="{$img}" alt="Workflow del guest post: trovare siti, valutare, pitchare, scrivere, pubblicare, controllare l’URL live" loading="lazy" width="1200" height="675">
-<figcaption>Non scalare prima che i primi URL live restino in piedi.</figcaption>
-</figure>
-<p>Sempre gli stessi tre partner outbound, niente autori, casino più CBD più cucina, “write for us” che parla solo di DA. Dopo la live: <a href="{$live}">checklist del link</a>. Quadro: <a href="{$linkGuide}">come fare link building</a>.</p>
-
-<h2>Checklist publisher</h2>
+<h2 id="redazione">Cosa controlla una redazione</h2>
+<p>Una redazione italiana, prima di rispondere a una proposta, guarda i propri lettori, non la scheda di chi scrive. Il pezzo deve poter vivere nella rubrica già esistente. Se gli ultimi articoli parlano di cantieri, un testo sul software per officine meccaniche va motivato con un ponte vero, non con una frase di cortesia.</p>
+<p>Quattro controlli tornano quasi sempre, anche quando la testata non li scrive in un modulo.</p>
 <ul>
-<li>So dire il pubblico in una frase</li>
-<li>I post recenti sono originali e in tema</li>
-<li>Gli outbound non sembrano una farm</li>
-<li>Pagina indicizzabile; attributo noto; la landing merita il click</li>
+<li>I lettori si possono nominare in una frase, e si sovrappongono a chi userebbe la pagina di destinazione.</li>
+<li>Gli articoli recenti sono firmati e restano in un ambito. Un archivio che salta da un settore all’altro ogni settimana non è una rubrica.</li>
+<li>L’indirizzo futuro del pezzo potrà essere indicizzato. Una pagina chiusa, duplicata o esclusa dai motori non ospita un articolo: lo nasconde.</li>
+<li>L’attributo del link è concordato prima della pubblicazione. Scoprirlo dopo, sull’indirizzo già online, significa accettare un patto che non si è letto.</li>
+</ul>
+<p>Si aggiunge la lingua. Un sito rivolto a lettori in Italia si aspetta italiano scritto per loro, con esempi che riconoscono: una scadenza, un cantiere, un comune, un modo di dire del mestiere. Un testo pensato altrove e poi voltato in italiano si riconosce dagli esempi, prima che dalla grammatica.</p>
+<p>Pagine intitolate «write for us» che citano solo un punteggio e non dicono quali temi rifiutano sono un canale di vendita di link. Se l’indirizzo del pezzo viene comunicato solo dopo il pagamento, la risposta utile è passare oltre. Il contatto giusto è quello che la testata pubblica: la mail di redazione, la firma di un articolo, oppure la scheda di una singola pubblicazione che indica già le regole.</p>
+
+<h2 id="passaggi">I passaggi, fino all’indirizzo live</h2>
+<p>L’ordine conta più dello stile. Saltare un passaggio costringe a rifare il testo, perché le regole della testata arrivano quando il pezzo è già scritto sulla pagina di destinazione sbagliata.</p>
+<ol>
+<li><strong>Trovare siti.</strong> Si parte dalla rubrica, non dal punteggio. Si leggono gli ultimi pezzi e si annota chi firma. Un elenco di domini è una lista di candidati, non un giudizio.</li>
+<li><strong>Valutare.</strong> Lettori, ambito, link in uscita, esistenza di una redazione raggiungibile, possibilità di indicizzare l’indirizzo futuro. Un archivio vuoto con un numero alto non supera questo passaggio.</li>
+<li><strong>Proporre.</strong> Perché quella testata, un’idea, un titolo di lavoro, due frasi di scaletta, una riga su chi scrive e se il pezzo è inedito. Niente elogi generici ai «contenuti di qualità».</li>
+<li><strong>Scrivere.</strong> Per i lettori di quella rubrica. Una sola pagina di destinazione. Un esempio che quella redazione riconoscerebbe. Le regole di lunghezza, immagini e numero di link si applicano ora, non dopo il rifiuto.</li>
+<li><strong>Pubblicare.</strong> La testata tiene l’indirizzo. Può tagliare, chiedere una fonte, spostare il link in firma. Finché non esiste l’indirizzo pubblico, il pezzo non è online.</li>
+<li><strong>Ricontrollare.</strong> Indicizzazione, attributo del link, ancora dentro la frase, pagina di destinazione che mantiene la promessa. Si annota una data per un controllo successivo.</li>
+</ol>
+<figure>
+<img src="{$img}" alt="Passaggi di un guest post: trovare siti, valutare, proporre, scrivere, pubblicare e ricontrollare" loading="lazy" width="1200" height="675">
+<figcaption>L’host tiene l’indirizzo. Chi scrive consegna il testo e, dopo la pubblicazione, ricontrolla attributo e pagina di destinazione.</figcaption>
+</figure>
+<p><strong>Un caso.</strong> Uno studio di architettura a Bari non vuole la stessa frase commerciale su venti blog. Scrive su una rivista letta da imprese edili un pezzo sul computo che i capicantiere contestano in cantiere, e collega la pagina in cui mostra un computo commentato. L’ancora è «computo metrico commentato», cioè l’oggetto della frase. La stessa identica formula commerciale, ripetuta su ogni pubblicazione, non è una scelta di stile: è uno schema.</p>
+
+<h2 id="seo">Guest post e SEO, senza promesse</h2>
+<p>Una guida sul guest post e sul SEO può dire cosa il formato è in grado di fare e dove si ferma. Può dare visibilità a lettori che già frequentano un’altra testata. Può lasciare un collegamento che un motore è in grado di scansionare, se la pagina è indicizzabile e il link non è nascosto. Non consegna una posizione. Nessuna redazione seria la mette nel contratto, e questa pagina non la mette nella definizione.</p>
+<p>Le linee di Google sullo spam indicano, tra gli schemi di link, il guest posting su larga scala con ancore sempre uguali e cariche di parole chiave. Non è una citazione da inventare: è il criterio pubblico con cui si riconosce uno schema. Il formato, da solo, non è vietato. Lo schema costruito per manipolare le posizioni sì. Un articolo che i lettori di quella testata leggerebbero anche senza il link resta nel perimetro del formato. Lo stesso testo venduto a cento blog ne esce.</p>
+<p>Dal 2019 Google tratta <code>rel="sponsored"</code> e <code>rel="ugc"</code> come indicazioni, non come un interruttore che spegne il link. L’indicazione resta il modo onesto di descrivere l’accordo. I contenuti utili, nella documentazione pubblica, si giudicano da chi li legge, non dal fatto che portino un collegamento. Qui non si aggiunge una frase di Google che quelle pagine non contengono.</p>
+
+<h2 id="ancora">L’ancora dentro la frase</h2>
+<p>L’anchor text di un guest post è la parte visibile del link, quella che si potrebbe leggere ad alta voce. Funziona quando starebbe in una mail alla redazione: il nome di chi scrive, l’indirizzo nudo, oppure una descrizione della pagina di arrivo. Non funziona quando la frase esiste solo per ospitare la parola che si vorrebbe in prima posizione.</p>
+<p>Il fallimento di solito non è la singola parola. È la ripetizione. Marca, indirizzo e una perifrasi si alternano e sembrano frasi. La stessa sequenza esatta, su ogni pezzo, sembra un elenco. La pagina di destinazione deve mantenere ciò che l’ancora promette. Collegare sempre la home, qualunque sia il tema del paragrafo, rompe quel patto.</p>
+<p>Dofollow, nofollow e il significato di <code>rel="sponsored"</code> non si esauriscono in questo capoverso. La spiegazione sta nella pagina su <a href="{$dofollow}">dofollow, nofollow e l’attributo sponsored</a>. Qui basta il patto operativo: l’attributo si decide prima di pubblicare, e un pagamento si dice.</p>
+
+<h2 id="prezzo">Prezzo, fattura e IVA</h2>
+<p>Non esiste un prezzo unico del guest post in Italia. Ogni sito applica il proprio, in base al tema, al lavoro di redazione, alla diffusione e al modo in cui il link viene segnalato. Una cifra sola, o una quota di mercato, sarebbe inventata. Questa pagina non le riporta.</p>
+<p>Il confronto si fa sulle singole offerte. Ogni pubblicazione ha il suo prezzo in euro e le regole di chi la ospita. L’indirizzo live esiste quando il pezzo è pubblicato, non nella colonna del prezzo. In Italia il pagamento incontra fattura e IVA: sono passaggi amministrativi del comprare, non una tariffa del formato e non un’aliquota che una definizione possa fissare.</p>
+<p>Pagare non rende il testo migliore né peggiore. Cambia il modo in cui il link va descritto. Le offerte, ciascuna con il proprio prezzo in euro, si guardano tra le <a href="{$buy}">inserzioni italiane con un prezzo in euro ciascuna</a>.</p>
+
+<h2 id="errori">Errori visibili dal primo paragrafo</h2>
+<ul>
+<li><strong>Scrivere il pezzo intorno all’ancora.</strong> Il testo diventa un contenitore. Chi legge se ne accorge subito.</li>
+<li><strong>Ripetere la stessa ancora esatta.</strong> È lo schema che le linee sullo spam descrivono.</li>
+<li><strong>Tacere il pagamento.</strong> Un posto pagato con un link presentato come scelta spontanea della redazione non è più un guest post redazionale.</li>
+<li><strong>Scegliere solo un punteggio.</strong> Un numero alto, senza lettori per quel tema, compra diffusione inutile.</li>
+<li><strong>Collegare la home per abitudine.</strong> La pagina di arrivo deve mantenere la frase in cui il link sta.</li>
+<li><strong>Non ricontrollare l’indirizzo live.</strong> Senza indirizzo, attributo e indicizzazione non si sa cosa sia finito online.</li>
+<li><strong>Ripubblicare lo stesso testo.</strong> Le redazioni chiedono un inedito. Due copie della stessa pagina competono tra loro. Una ripubblicazione esiste solo se è pattuita.</li>
 </ul>
 
-<h2>Domande frequenti</h2>
-<h3>Il guest posting è ancora utile?</h3>
-<p>Su host con lettori e standard, sì. Sui network che vendono lo stesso pezzo a cento blog, no.</p>
-<h3>Devo pagare?</h3>
-<p>Pagare non rende il testo buono o cattivo. Cambia come va etichettato il link. In Italia si cerca anche “guest post a pagamento”: è la stessa domanda commerciale.</p>
-<h3>Quale anchor?</h3>
-<p>Una frase che scriverebbe una persona. Exact-match ovunque è un pattern su cui Google avverte.</p>
-<h3>Ripubblicare lo stesso articolo?</h3>
-<p>Di solito no. Gli editori si aspettano lavoro originale.</p>
+<h2 id="domande">Domande</h2>
+<h3>Cos’è un guest post?</h3>
+<p>Un articolo su un sito di cui l’autore non è titolare. L’host lo pubblica per i propri lettori e tiene l’indirizzo. La firma è abituale, il link è possibile. Una posizione in classifica non fa parte del formato.</p>
+<h3>Cosa sono i guest post?</h3>
+<p>Lo stesso formato, al plurale. Più pezzi su più siti non creano un prodotto nuovo. Ogni pezzo ha un host, una firma e, se c’è, un link.</p>
+<h3>Come comprare guest post in sicurezza?</h3>
+<p>La domanda non sostituisce la definizione. Si parte dalle regole della singola offerta, descritte nella sezione sul <a href="#prezzo">prezzo</a>: prezzo in euro di quel sito, attributo concordato prima, indirizzo che esiste solo dopo la pubblicazione. Non c’è una cifra valida per tutti.</p>
+<h3>Un guest post senza link è ancora un guest post?</h3>
+<p>Sì. Se la testata pubblica il testo per i suoi lettori e firma l’autore, il formato c’è anche senza collegamento. Il link è una conseguenza frequente, non la definizione.</p>
+<h3>Si può ripubblicare lo stesso articolo?</h3>
+<p>Di norma no. Un inedito è ciò che la redazione si aspetta. Due indirizzi con lo stesso testo si fanno concorrenza. Una ripubblicazione si fa solo con un accordo esplicito.</p>
+
+<h2>In chiusura</h2>
+<p>Un guest post è un testo su un indirizzo altrui, scritto per i lettori di quell’indirizzo, con una firma e al massimo il link che la frase richiede. In Italia la definizione non cambia da una città all’altra. Cambiano gli esempi, la lingua del pezzo e il modo in cui fattura e IVA accompagnano il pagamento. L’attributo si accorda prima. L’indirizzo si ricontrolla dopo. Una posizione non si ordina insieme al pezzo.</p>
 
 <h2>Fonti</h2>
 <ul>
-<li><a href="https://developers.google.com/search/docs/essentials/spam-policies">Spam policies di Google</a></li>
-<li><a href="https://developers.google.com/search/blog/2019/09/evolving-nofollow-new-ways-to-identify">Evolving nofollow (2019)</a></li>
-<li><a href="https://developers.google.com/search/blog/2021/07/link-tagging-and-link-spam-update">Qualifying links (2021)</a></li>
-<li><a href="https://developers.google.com/search/docs/crawling-indexing/links-crawlable">Link crawlable</a></li>
-<li><a href="https://developers.google.com/search/docs/fundamentals/creating-helpful-content">Contenuti utili</a></li>
+<li><a href="https://developers.google.com/search/docs/essentials/spam-policies">Google Search Central — Spam policies</a> (schemi di link, guest posting su larga scala, link a pagamento)</li>
+<li><a href="https://developers.google.com/search/blog/2019/09/evolving-nofollow-new-ways-to-identify">Google Search Central Blog — Evolving nofollow</a> (<code>sponsored</code>, <code>ugc</code>, indicazioni)</li>
+<li><a href="https://developers.google.com/search/docs/fundamentals/creating-helpful-content">Google Search Central — Contenuti utili</a></li>
 </ul>
 HTML;
     }

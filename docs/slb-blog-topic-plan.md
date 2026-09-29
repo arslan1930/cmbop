@@ -3,7 +3,7 @@
 **Date:** 29 Sep 2026  
 **Role of this file:** the writing queue. It is not a keyword-research file and it does not replace one.  
 **Sources:** the uploaded market files dated 24 Sep 2026 (Germany, Austria, Switzerland, Italy, United Kingdom, United States, Ireland, Belgium). Scores below are copied from those files. They are heuristic 0–100 bands, not Semrush monthly volume and not tool keyword difficulty.  
-**Already shipped:** `/de/blog/was-ist-ein-gastbeitrag` (primary `was ist ein gastbeitrag`).
+**Already shipped:** `/de/blog/was-ist-ein-gastbeitrag` (primary `was ist ein gastbeitrag`) and `/it/blog/cose-un-guest-post` (primary `cos'è un guest post`).
 
 Greek, Spanish, Romanian, French-for-France, and Dutch-for-the-Netherlands are not in this queue. No keyword file for those markets was uploaded, so no primary is invented for them. Belgium Dutch is a later wave on locale `be`. The French Belgium primary stays on hold because there is no `fr-BE` locale.
 
@@ -36,7 +36,7 @@ Upgrade an existing URL before opening a new one. A secondary keyword that alrea
 | Order | Status | Market | Primary (one) | Opp | Demand / traffic | Difficulty | Where it goes |
 |------:|--------|--------|---------------|----:|------------------|------------|---------------|
 | 0 | Shipped | DE | `was ist ein gastbeitrag` | 56 | Medium / 40 | 25 Easy | `/de/blog/was-ist-ein-gastbeitrag` |
-| 1 | Next | IT | `cos'è un guest post` | 48 | High / 55 | 50 Medium | Upgrade `/it/blog/cose-un-guest-post` |
+| 1 | Shipped | IT | `cos'è un guest post` | 48 | High / 55 | 50 Medium | `/it/blog/cose-un-guest-post` |
 | 2 | Upgrade | DE | `was sind backlinks` | 55 | High / 53 | 45 Medium | Upgrade `/de/blog/was-sind-backlinks` |
 | 3 | New URL | IT | `cos'è un backlink` | 50 | Medium / 40 | 25 Easy | New `/it/blog/cose-un-backlink`. Do not reuse `come-ottenere-backlink` |
 | 4 | Upgrade | DE | `linkaufbau strategien` | 53 | Medium / 40 | 35 Easy | Upgrade `/de/blog/linkaufbau-strategien`. `wie funktioniert linkbuilding` (also opp 53) is an H2 on this page, not a second URL |
@@ -80,7 +80,7 @@ Do not retitle this page toward `gastbeitrag kaufen` or `was kostet ein gastbeit
 
 ---
 
-## 1. Next — Cos'è un guest post?
+## 1. Shipped — Cos'è un guest post?
 
 Write this independently. Do not translate the German article. Italy has no ß/ss section and no DACH paragraph.
 
@@ -285,6 +285,8 @@ Business fit is Medium and effort is M on every row in that table. The page has 
 
 ## What the next writing session does
 
-1. Write only row 1, the Italian guest-post page, on `cose-un-guest-post`.
-2. Save the brief fields next to the article, the way `seoRecords()` does for German.
-3. Stop. Do not draft row 2 in the same pass. The Italian page has to stand on its own before the backlink definition is opened.
+Row 1 is shipped. The Italian guest-post page is on `cose-un-guest-post`, with its brief in `GuestPostingGuideI18n::seoRecords()['it']`.
+
+1. Write only row 2, the German backlinks page, on `was-sind-backlinks`.
+2. Save the brief fields next to the article.
+3. Stop. Do not draft row 3 in the same pass.
