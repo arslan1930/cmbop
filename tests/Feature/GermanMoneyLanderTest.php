@@ -291,7 +291,9 @@ class GermanMoneyLanderTest extends TestCase
             ->assertOk()
             ->assertSee('Ein Gastbeitrag ist ein redaktioneller Artikel', false)
             ->assertSee('href="/de/gastbeitrag-kaufen"', false)
-            ->assertSee('Was ist ein Gastbeitrag, und was ist er nicht?', false);
+            ->assertSee('Was ist ein Gastbeitrag, und was ist er nicht?', false)
+            ->assertDontSee('guest-posting-guide-featured', false)
+            ->assertSee('og-share-1200x630.png', false);
 
         $this->get('/de/blog/gastbeitraege-leitfaden-pitch-und-text')
             ->assertStatus(301)

@@ -145,7 +145,7 @@ class GuestPostingGuideI18n
 
 <h2 id="gastbeitrag-oder-nicht">Was ist ein Gastbeitrag, und was ist er nicht?</h2>
 <p>Sie liefern den Text. Der Host veröffentlicht ihn unter seiner URL, für sein Publikum, und behält das Recht zu kürzen oder abzulehnen. Das ist der redaktionelle Kern. Ein <a href="{$backlinks}">Backlink</a> kann dabei entstehen, muss es aber nicht. Manche Redaktionen nennen den Autor nur in der Byline und setzen keinen Link. Andere erlauben einen Link im Text und einen in der Autorenzeile. Beides ist noch ein Gastbeitrag.</p>
-<p>Drei Nachbarformate werden im Deutschen oft in denselben Satz gepackt. Sie sind nicht austauschbar.</p>
+<p>Diese Formate werden im Deutschen oft in denselben Satz gepackt. Sie sind nicht austauschbar.</p>
 <table>
 <thead>
 <tr><th>Format</th><th>Was der Leser sieht</th><th>Wer das Thema setzt</th><th>Link</th><th>Wann es passt</th></tr>
@@ -222,7 +222,7 @@ class GuestPostingGuideI18n
 
 <h2 id="preis">Warum es keinen Einheitspreis gibt</h2>
 <p>Was ein Gastbeitrag kostet, hängt von der einzelnen Site ab: Thema, redaktioneller Aufwand, Reichweite, ob der Link gekennzeichnet wird. Eine einzige Euro-Zahl für Deutschland, Österreich oder die Schweiz wäre erfunden. Diese Seite nennt deshalb keine Preise und keine Marktanteile.</p>
-<p>Vergleichen lässt sich das nur über konkrete Angebote. Jede Platzierung bei SEOLinkBuildings trägt ihren eigenen Preis in Euro, dazu die Regeln des Hosts und am Ende eine Live-URL. Wer Angebote nebeneinanderlegen will, findet sie unter <a href="{$buyDe}">deutschen Gastbeiträgen mit eigenem Euro-Preis</a>. Zahlen macht den Text nicht gut oder schlecht. Es ändert, wie der Link gekennzeichnet werden sollte.</p>
+<p>Vergleichen lässt sich das nur über konkrete Angebote. Jede Platzierung bei SEOLinkBuildings hat ihren eigenen Preis in Euro und die Regeln des Hosts. Eine Live-URL gibt es, wenn der Beitrag veröffentlicht ist, nicht schon auf der Preisliste. Wer Angebote nebeneinanderlegen will, findet sie unter <a href="{$buyDe}">deutschen Gastbeiträgen mit eigenem Euro-Preis</a>. Zahlen macht den Text nicht gut oder schlecht. Es ändert, wie der Link gekennzeichnet werden sollte.</p>
 
 <h2 id="fehler">Typische Fehler</h2>
 <ul>

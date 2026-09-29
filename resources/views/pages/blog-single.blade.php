@@ -15,6 +15,13 @@
         $resolvedContent = \App\Support\WelcomeBonusCopy::scrubGrantAdvertisingHtml($resolvedContent);
     }
     $blogCanonical = $canonicalUrl ?? $blog->canonicalUrl($activeTranslation?->locale ?: app()->getLocale(), 'en');
+    // This hero is an English editorial desk (it says "Use American English").
+    // Do not show it on the translated versions of the same post.
+    $suppressEnglishFeatured = ($blog->curated_key ?? '') === \App\Support\GuestPostingGuideBlogPost::SLUG
+        && ($activeTranslation?->locale ?: 'en') !== 'en';
+    $blogShareImage = $suppressEnglishFeatured
+        ? asset('assets/brand/web/og-share-1200x630.png')
+        : ($blog->featuredImageAbsoluteUrl() ?: asset('assets/brand/web/og-share-1200x630.png'));
     $blogDescription = $activeTranslation?->meta_description ?: ($resolvedExcerpt ?: \Illuminate\Support\Str::limit(strip_tags($resolvedContent ?? ''), 160));
     $blogPageTitle = $activeTranslation?->meta_title ?: ($resolvedTitle ?? 'Blog');
     $blogFaq = (class_exists(\App\Support\CuratedBlogCatalog::class)
@@ -38,7 +45,7 @@
 @section('hreflang_path', $hreflangPath ?? ('blog/'.$resolvedSlug))
 @section('hreflang_path_map', collect($hreflangPathByLocale)->map(fn ($path, $locale) => $locale.'='.$path)->implode(','))
 @section('og_type', 'article')
-@section('og_image', $blog->featuredImageAbsoluteUrl() ?: asset('assets/brand/web/og-share-1200x630.png'))
+@section('og_image', $blogShareImage)
 @section('og_image_alt', $resolvedTitle)
 
 @push('head')
@@ -65,9 +72,7 @@
                 'url' => asset('assets/img/logo1.png'),
             ],
         ],
-        'image' => $blog->publicFeaturedImageAbsoluteUrl()
-            ? [$blog->publicFeaturedImageAbsoluteUrl()]
-            : [asset('assets/brand/web/og-share-1200x630.png')],
+        'image' => [$blogShareImage],
         'mainEntityOfPage' => $blogCanonical,
         'url' => $blogCanonical,
     ], static fn ($value) => $value !== null && $value !== '');
@@ -171,7 +176,7 @@
         <!-- Main Content -->
         <div class="col-lg-8 mx-auto">
             <article>
-                @if($blog->publicFeaturedImageUrl())
+                @if($blog->publicFeaturedImageUrl() && ! $suppressEnglishFeatured)
                     <div class="mb-5">
                         <img src="{{ $blog->publicFeaturedImageUrl() }}" 
                              alt="{{ $resolvedTitle }}" 
