@@ -287,6 +287,12 @@ class GermanMoneyLanderTest extends TestCase
                 ->assertSee('rel="canonical" href="'.url($path).'"', false);
         }
 
+        $this->get('/de/blog/was-ist-ein-gastbeitrag')
+            ->assertOk()
+            ->assertSee('Ein Gastbeitrag ist ein redaktioneller Artikel', false)
+            ->assertSee('href="/de/gastbeitrag-kaufen"', false)
+            ->assertSee('Was ist ein Gastbeitrag, und was ist er nicht?', false);
+
         $this->get('/de/blog/gastbeitraege-leitfaden-pitch-und-text')
             ->assertStatus(301)
             ->assertRedirect('/de/blog/was-ist-ein-gastbeitrag');
