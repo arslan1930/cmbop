@@ -130,7 +130,7 @@ The current `/de/blog/was-sind-backlinks` is the translated how-to. Replace the 
 | Intent | informational |
 | Difficulty | 45 Medium |
 | Demand / traffic potential | High / 53 |
-| Opportunity / competition / business fit | 55 / High / Medium |
+| Opportunity / competition / business fit / effort | 55 / High / Medium / M |
 | H1 | Was sind Backlinks? |
 | SEO title (54) | Was sind Backlinks? Definition, Arten und ihre Grenzen |
 | Meta description (135) | Was sind Backlinks: ein Link von einer anderen Website auf Ihre URL. Welche Arten es gibt, und warum ein gekaufter Link kein Zitat ist. |
