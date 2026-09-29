@@ -43,7 +43,7 @@ Upgrade an existing URL before opening a new one. A secondary keyword that alrea
 | 5 | Upgrade | IT | `differenza guest post e articolo sponsorizzato` | 50 | Low / 25 | 25 Easy | Upgrade `/it/blog/guest-post-vs-articolo-sponsorizzato` |
 | 6 | Upgrade | DE | `dofollow vs nofollow` | 52 | Medium / 38 | 35 Easy | Upgrade `/de/blog/dofollow-vs-nofollow-ankertext` |
 | 7 | Upgrade | IT | `dofollow vs nofollow` | 53 | Medium / 40 | 35 Easy | Upgrade `/it/blog/dofollow-vs-nofollow` |
-| 8 | Upgrade | US + UK | `what is a guest post` (US, opp 59) | 59 | High / 53 | 35 Easy | Rewrite the opening of `/blog/guest-posting-guide`. No second English definition |
+| 8 | Upgrade | US | `what is a guest post` | 59 | High / 53 | 35 Easy | Rewrite the opening of `/blog/guest-posting-guide`. The UK query is `what is a guest post uk`, a section of this page, not the same primary |
 | 9 | Upgrade | US + UK | `what is link building` (both files, opp 59) | 59 | High / 53 | 35 Easy | Rewrite the opening of `/blog/link-building-guide`. No `/blog/what-is-link-building` |
 | 10 | Later | BE | `wat is een gastblog` | 56 | Medium / 40 | 25 Easy | New locale `be`: `/be/blog/wat-is-een-gastblog`. Not `/nl/blog/gastbloggen-gids` |
 | 11 | Later | BE | `wat is linkbuilding` | 56 | High / 55 | 45 Medium | New locale `be`: `/be/blog/wat-is-linkbuilding`. Competition in the file is High. Not `/nl/blog/linkbuilding-gids` |
@@ -63,7 +63,7 @@ The file tags `was sind backlinks` as language `en` because “backlink” is a 
 |-------|--------|
 | Language / country | de / DE (Austria and Switzerland are sections, not extra URLs) |
 | Primary | `was ist ein gastbeitrag` |
-| Secondary, already in the page | `dofollow vs nofollow`, `dofollow`, `was sind backlinks`, `gastbeitrag schreiben tipps`, `anchor text strategie`, `rel sponsored bedeutung` |
+| Mentioned here, owned elsewhere | `was sind backlinks` is the H1 of row 2. `dofollow vs nofollow`, `dofollow`, `anchor text strategie`, and `rel sponsored bedeutung` are owned by `/de/blog/dofollow-vs-nofollow-ankertext`. This page links to those two URLs. `gastbeitrag schreiben tipps` (Low, traffic 25, difficulty 25 Easy, opp 44) stays a section here |
 | Long-tail, DACH section only | `was ist ein gastbeitrag seo`, `was ist ein gastbeitrag ch`, `gastbeitrag ss schreibweise schweiz` |
 | Intent | informational |
 | Difficulty | 25 Easy. Heuristic, not Semrush KD |
@@ -107,10 +107,10 @@ Write this independently. Do not translate the German article. Italy has no ß/s
 
 1. Definition, 40–60 words: an article on a site the author does not own. The host keeps the URL and the readers. The author supplies the text and is usually named. A link back is common. It is not an advertorial and not a bare link purchase.
 2. Why the plural question `cosa sono i guest post` is the same format, not a different product.
-3. Comparison table: guest post / articolo sponsorizzato / pubbliredazionale / acquisto del solo link. `pubbliredazionale SEO` (Low, 25 / 25 Easy, opp 44) is a row, not an H1.
+3. Comparison table: guest post / articolo sponsorizzato / pubbliredazionale / acquisto del solo link. The cell can name pubbliredazionale and link to `/it/blog/guest-post-vs-articolo-sponsorizzato`. That sister page is the only home for `pubbliredazionale SEO`.
 4. What an Italian desk actually checks before it accepts a pitch: readers, recent articles, whether the future URL can be indexed, whether `rel` is agreed before publication.
 5. How one placement runs, in Italian steps. The diagram labels are Italian (Trovare siti, Valutare, Proporre, Scrivere, Pubblicare, Ricontrollare). Do not reuse the German six-step wording.
-6. A short attribute section, then the sister link to dofollow / nofollow / `rel sponsored`. `rel sponsored cosa significa` (Low, 25 / 25 Easy, opp 50, business fit Medium) can be one H3 here. It does not need its own page yet.
+6. A short attribute section, then the sister link to `/it/blog/dofollow-vs-nofollow`. `rel sponsored cosa significa` is not defined on this page. Its only home is that dofollow page.
 7. Price: no single euro figure and no invented market share. Each placement has its own price. Fattura and IVA are mentioned only as the practical paperwork a buyer meets, not as a rate. The live URL exists after publication. One link to `/it/comprare-guest-post`.
 8. `come comprare guest post in sicurezza` is a question inside the FAQ. The answer points at the money page. It is not the H1.
 9. Mistakes, a short close, and the same public Google sources already used on the German page (spam policies, the 2019 nofollow post, helpful content). Do not invent a Google quotation.
@@ -179,7 +179,7 @@ Do not start this until the guest-post page in row 1 is published. The how-to pa
 | Opportunity / competition / business fit / effort | 53 / Low / Medium / M |
 | H1 | Linkaufbau-Strategien |
 | Slug | `linkaufbau-strategien` |
-| Money link, once | `/de/gastbeitrag-kaufen` or `/de/backlinks-kaufen`, not both |
+| Money link, once | `/de/gastbeitrag-kaufen`. `/de/backlinks-kaufen` stays on the backlinks article |
 | Sisters | the guest-post page, the backlinks page, the dofollow page |
 
 `linkaufbau anleitung österreich` and `linkaufbau anleitung schweiz` are both demand Low, traffic 25, difficulty 20 Easy, competition Low, opp 45. They are local paragraphs, not new posts. `manueller linkaufbau` is commercial in the Germany file (demand Low, traffic 35, difficulty 40 Medium, competition Medium, opp 55, business fit High). It can be one honest paragraph. It is not the H1.
@@ -192,11 +192,11 @@ Do not start this until the guest-post page in row 1 is published. The how-to pa
 |-------|--------|
 | Language / country | it / IT |
 | Primary | `differenza guest post e articolo sponsorizzato` |
-| Section, not H1 | `pubbliredazionale SEO` (opp 44) |
+| Section, not H1 | `pubbliredazionale SEO` — Low, traffic 25, difficulty 25 Easy, competition Low, opp 44, business fit Low, effort M. This is its only home |
 | Intent | informational |
 | Difficulty | 25 Easy |
 | Demand / traffic potential | Low / 25 |
-| Opportunity / competition / business fit | 50 / Low / Medium |
+| Opportunity / competition / business fit / effort | 50 / Low / Medium / M |
 | Slug | `guest-post-vs-articolo-sponsorizzato` |
 | Money link, once | `/it/articoli-sponsorizzati` |
 | Sister | `/it/blog/cose-un-guest-post` |
@@ -209,9 +209,9 @@ The German sister already exists at `/de/blog/gesponserte-beitraege-leitfaden`. 
 
 Two German URLs already talk about this. Do not add a third.
 
-- Glossary URL to upgrade: `/de/blog/dofollow-vs-nofollow-ankertext`. Primary `dofollow vs nofollow` (Medium, traffic 38, difficulty 35 Easy, opp 52). `dofollow` (same band, opp 52) and `rel sponsored bedeutung` (Low, 23 / 25 Easy, opp 43) and `anchor text strategie` (Low, 23 / 25 Easy, opp 43) are sections.
+- Glossary URL to upgrade: `/de/blog/dofollow-vs-nofollow-ankertext`. Primary `dofollow vs nofollow` (Germany file: Medium, traffic 38, difficulty 35 Easy, competition Low, opp 52, business fit Medium, effort M). `dofollow` in that same file is the same band. `rel sponsored bedeutung` and `anchor text strategie` are both Low, traffic 23, difficulty 25 Easy, competition Low, opp 43, business fit Low. Those three are sections here, not on the guest-post page.
 - The older post `dofollow-nofollow-ankertexte-marketplace-links` stays a marketplace how-to. It should link to the glossary. It should not be rewritten into a second definition of the same primary.
-- Italian upgrade: `/it/blog/dofollow-vs-nofollow`. Primary `dofollow vs nofollow` (Medium, traffic 40, difficulty 35 Easy, competition Low, opp 53, business fit Medium). `rel sponsored cosa significa` can live here if it was not already used as the H3 on the guest-post page. One home only. The Italy file also has a bare `dofollow` row that is commercial (Medium, traffic 48, difficulty 65 Hard, opp 52, business fit High). That row stays off this glossary page.
+- Italian upgrade: `/it/blog/dofollow-vs-nofollow`. Primary `dofollow vs nofollow` (Medium, traffic 40, difficulty 35 Easy, competition Low, opp 53, business fit Medium, effort M). `rel sponsored cosa significa` (Low, traffic 25, difficulty 25 Easy, competition Low, opp 50, business fit Medium, effort M) is an H3 on this page only. The Italy file also has a bare `dofollow` row that is commercial (Medium, traffic 48, difficulty 65 Hard, competition High, opp 52, business fit High, effort S). That row stays off this glossary page. `verificare backlink dofollow` (Low, traffic 25, difficulty 40 Medium, competition Medium, opp 44, business fit Medium, effort S) is a section here, not a new URL.
 - English upgrade, later: `/blog/dofollow-nofollow-and-anchor-text-for-marketplace-links`. That is the English article. The German-only slug above is not its translation.
 
 Austria’s `dofollow nofollow erklaerung` (opp 52) and Switzerland’s `dofollow vs nofollow erklaerung` (opp 43) are a sentence each on the German page, not new posts.
@@ -222,7 +222,7 @@ Austria’s `dofollow nofollow erklaerung` (opp 52) and Switzerland’s `dofollo
 
 The US file’s `what is a guest post` (High, traffic 53, difficulty 35 Easy, competition Low, opp 59, business fit Medium) is a stronger opportunity score than the German primary. It still does not get a new URL. `/blog/guest-posting-guide` is already the English definition. Rewrite the first 60 words so they answer that query. Keep the slug.
 
-`what is a guest post uk` and `guest post guide uk` are both Medium, traffic 38, difficulty 20 Easy, competition Low, opp 57. They are one UK section on that same English page. `guest post guide ireland` is the same band, opp 57. `what is a guest post ireland` is Low, traffic 23, difficulty 20 Easy, opp 44. Both Ireland queries are a shorter note on that page, not a third article. There is no `/ie/` locale. `how to find guest post opportunities` (US, Medium, traffic 38, difficulty 25 Easy, opp 55) is a section of this page too.
+`what is a guest post uk` and `guest post guide uk` are both Medium, traffic 38, difficulty 20 Easy, competition Low, opp 57, business fit Medium. They are one UK section on that same English page. `guest post guide ireland` is that same band. `what is a guest post ireland` is Low, traffic 23, difficulty 20 Easy, competition Low, opp 44, business fit Low. Both Ireland queries are a shorter note on that page, not a third article. There is no `/ie/` locale. `how to find guest post opportunities` (US, Medium, traffic 38, difficulty 25 Easy, competition Low, opp 55, business fit Medium) is a section of this page too.
 
 `what is link building` is in both the US and UK files at opp 59 (High, traffic 53, difficulty 35 Easy, competition Low). Upgrade `/blog/link-building-guide`. `what is link building ireland` (Medium, traffic 38, difficulty 20 Easy, opp 57) is a section. Do not create `what-is-link-building`.
 
@@ -236,7 +236,7 @@ The US file’s `what is a guest post` (High, traffic 53, difficulty 35 Easy, co
 
 The Belgium file is the only source for French and Dutch glossary primaries. The public Belgium locale is `be`, hreflang `nl-BE`. `/fr/blog/` is France (`fr-FR`). `/nl/blog/` is the Netherlands (`nl-NL`). Belgium copy does not replace those two translations. France and the Netherlands still have no keyword file.
 
-Write the Dutch pages in Dutch, for Belgium, on new locale-`be` posts. Do not translate the German article and do not reuse its outline.
+Write the Dutch pages in Dutch, for Belgium, as new posts whose translation locale is `be`. A visit to `/be/blog/...` with only an `nl` or `en` body is redirected away, so the `be` translation has to exist. Do not translate the German article and do not reuse its outline.
 
 | Primary | Lang | Opp | Demand / traffic | Difficulty | Comp | Where |
 |---------|------|----:|------------------|------------|------|--------|
@@ -259,7 +259,7 @@ Business fit is Medium and effort is M on every row in that table. The page has 
 
 **ZA (Italy).** Primary `cos'è lo ZA SEOZoom` (Medium, traffic 40, difficulty 25 Easy, competition Low, opp 56, business fit Medium, effort M). Explain what the score is. Do not invent SEOZoom figures, and do not imply SEOLinkBuildings calculates ZA. `metriche SEO DA DR ZA` is Medium, traffic 40, difficulty 40 Medium, competition Medium, opp 51, business fit Medium, effort M. That comparison is a section on this page, not a second URL.
 
-**Domain Authority (Germany).** Primary `domain authority erhoehen` (Medium, traffic 38, difficulty 35 Easy, opp 52). The honest answer is that a third-party score is not a goal you buy. Austria’s `domain rating erhoehen österreich` and Switzerland’s `domain rating erhoehen schweiz` (both opp 44, Low) are one sentence each, not extra pages.
+**Domain Authority (Germany).** Primary `domain authority erhoehen` (Medium, traffic 38, difficulty 35 Easy, competition Low, opp 52, business fit Medium, effort M). The honest answer is that a third-party score is not a goal you buy. Austria’s `domain rating erhoehen österreich` and Switzerland’s `domain rating erhoehen schweiz` are both Low, traffic 23, difficulty 20 Easy, competition Low, opp 44, business fit Low. One sentence each, not extra pages.
 
 ---
 
@@ -274,8 +274,11 @@ Business fit is Medium and effort is M on every row in that table. The page has 
 | `guest posting guide deutsch` | Already the shipped German page |
 | `pbn alternative deutschland`, `pbn vs guest posts` (US, opp 55), `pbn vs guest posts uk`, `pbn vs guest posts ireland`, `pbn risiken österreich`, `pbn risiken schweiz` | One caution section on the relevant link-building page. A PBN how-to is out of scope |
 | `brand mention aufbauen` (DE, opp 49), `brand mentions österreich`, `brand mentions schweiz` (both opp 50), `brand mention SEO` (IT, opp 44, difficulty 40 Medium) | Digital PR sections on the link-building how-to for that language. Not the first glossary wave |
-| `gastbeitrag tipps österreich`, `gastbeitrag tipps schweiz`, `anchor text gastbeitrag österreich`, `anchor text gastbeitrag schweiz` (each opp 45, demand Low) | One sentence each on the shipped German page when that page is next edited. Not new URLs |
-| `google guidelines gastbeitrag`, `google richtlinien gastbeitraege`, `google spam update linkbuilding`, `rel sponsored österreich`, `rel sponsored erklaeren`, `rel sponsored ireland`, `verificare backlink dofollow` | Already the sources or attribute section of the matching glossary page. Not new URLs |
+| `gastbeitrag tipps österreich`, `gastbeitrag tipps schweiz`, `anchor text gastbeitrag österreich`, `anchor text gastbeitrag schweiz` | Each is demand Low, traffic 25, difficulty 20 Easy, competition Low, opp 45, business fit Low. One sentence each on the shipped German page when that page is next edited. Not new URLs |
+| `google guidelines gastbeitrag`, `google spam update linkbuilding` | Both Low, traffic 23, difficulty 25 Easy, opp 43. A sentence in the sources of the German guest-post page and the linkaufbau page. Not new URLs |
+| `google richtlinien gastbeitraege` | Switzerland, Low, traffic 25, difficulty 25 Easy, opp 44. One sentence on the German guest-post page. Not a new URL |
+| `rel sponsored österreich`, `rel sponsored erklaeren`, `rel sponsored ireland` | Sections of the German or English dofollow page. Opp 44, 43, and 44. Not new URLs |
+| `verificare backlink dofollow` | Section of `/it/blog/dofollow-vs-nofollow`. Difficulty 40 Medium, competition Medium, effort S. Not a new URL |
 | Any Greek, Spanish, Romanian, France-French, or Netherlands-Dutch query | No research file. Do not invent the keyword, the score, or the slug |
 
 ---
