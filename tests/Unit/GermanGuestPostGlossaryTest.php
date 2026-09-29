@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Services\BlogHtmlSanitizer;
 use App\Support\GuestPostingGuideI18n;
 use Tests\TestCase;
 
@@ -49,6 +50,14 @@ class GermanGuestPostGlossaryTest extends TestCase
         foreach ($record['sister_urls'] as $url) {
             $this->assertStringContainsString($url, $html);
         }
+
+        $clean = app(BlogHtmlSanitizer::class)->sanitize($html);
+        $this->assertStringContainsString('id="gastbeitrag-oder-nicht"', $clean);
+        $this->assertStringContainsString('href="#gastbeitrag-oder-nicht"', $clean);
+        $this->assertDoesNotMatchRegularExpression('/<a href="#[^"]*"[^>]*target="_blank"/', $clean);
+        $this->assertStringContainsString('src="/media/blogs/content/', $clean);
+        $this->assertStringContainsString($record['image']['alt'], $clean);
+        $this->assertStringNotContainsString('Rechtsbegriffe', $clean);
 
         $this->assertStringContainsString('<table>', $html);
         $this->assertGreaterThanOrEqual(4, substr_count($html, '<h3>'));

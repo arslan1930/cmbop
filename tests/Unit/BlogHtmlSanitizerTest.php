@@ -49,6 +49,17 @@ class BlogHtmlSanitizerTest extends TestCase
         $this->assertStringContainsString('rel="noopener noreferrer"', $clean);
     }
 
+    public function test_in_page_anchors_stay_on_this_page(): void
+    {
+        $clean = $this->sanitizer->sanitize(
+            '<h2 id="ablauf">Ablauf</h2><a href="#ablauf">Zum Ablauf</a>'
+        );
+
+        $this->assertStringContainsString('id="ablauf"', $clean);
+        $this->assertStringContainsString('href="#ablauf"', $clean);
+        $this->assertStringNotContainsString('target="_blank"', $clean);
+    }
+
     public function test_editor_formatting_tags_survive(): void
     {
         $html = '<h1>T</h1><h5>Sub</h5><h6>Deep</h6><p><strong>b</strong><em>i</em></p>'

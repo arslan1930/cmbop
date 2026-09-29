@@ -221,7 +221,7 @@ class GuestPostingGuideI18n
 <h2 id="dach">Deutschland, Österreich, Schweiz</h2>
 <p>Dieselbe Definition gilt in allen drei Märkten. Suche und Schreibweise tun es nicht.</p>
 <p>In Deutschland ist „Gastbeitrag“ der normale Begriff, daneben „Gastartikel“. Englische Lehnwörter wie Guest Post, Backlink und Dofollow stehen in Agenturtexten, selten in der Frage eines Redakteurs. Ein Pitch an ein deutsches Fachportal gehört auf Deutsch, und das Thema heißt so wie die Rubrik, nicht „guest post opportunity“.</p>
-<p>In Österreich wird die Frage oft als „Was ist ein Gastbeitrag SEO“ gestellt. Gemeint ist dieselbe Definition, mit der Erwartung, dass der Text einen Link und eine SEO-Absicht mitmeint. SEO bleibt ein möglicher Nutzen, kein anderer Beitragstyp. Österreichische Hosts erwarten Beispiele, die nicht nur bundesdeutsche Behörden und Portale zitieren, und die österreichische Schreibweise.</p>
+<p>In Österreich wird die Frage oft als „Was ist ein Gastbeitrag SEO“ gestellt. Gemeint ist dieselbe Definition, mit der Erwartung, dass der Text einen Link und eine SEO-Absicht mitmeint. SEO bleibt ein möglicher Nutzen, kein anderer Beitragstyp. Österreich schreibt ß wie Deutschland. Was sich ändert, sind die Beispiele: eine österreichische Redaktion erwartet Bezüge aus Österreich, nicht nur Behörden, Städte und Portale aus Deutschland.</p>
 <p>In der Schweiz suchen manche „Was ist ein Gastbeitrag CH“. Inhaltlich ist es derselbe Artikel. Die Schreibweise weicht ab: In der Schweiz steht häufig „ss“, wo Deutschland und Österreich „ß“ setzen, also „gross“ statt „groß“. Ein Beitrag für eine Schweizer Site sollte diese Konvention und Schweizer Beispiele nutzen. Ein Text mit durchgehendem „ß“ und nur deutschen Städten wirkt dort wie ein umetikettierter Deutschland-Artikel. Das ist keine Kleinigkeit der Rechtschreibung, sondern das Signal, ob der Text für diese Leser geschrieben wurde.</p>
 
 <h2 id="preis">Warum es keinen Einheitspreis gibt</h2>
@@ -235,7 +235,7 @@ class GuestPostingGuideI18n
 <li><strong>Bezahlung verschweigen.</strong> Ein bezahlter Platz mit einem unmarkierten Dofollow-Link ist kein redaktioneller Gastbeitrag mehr.</li>
 <li><strong>Kennzahlen vor dem Thema prüfen.</strong> DA oder DR als einziges Kriterium kauft Reichweite ohne Leser für das eigene Thema.</li>
 <li><strong>Die Startseite verlinken.</strong> Die Ziel-URL muss den Satz einlösen, in dem der Link steht.</li>
-<li><strong>Österreich und die Schweiz mit einem Deutschland-Text bedienen.</strong> Andere Beispiele, andere Schreibweise, oft andere Rechtsbegriffe.</li>
+<li><strong>Österreich und die Schweiz mit einem Deutschland-Text bedienen.</strong> Andere Beispiele, und in der Schweiz ss statt ß.</li>
 <li><strong>Die Live-URL nicht nachsehen.</strong> Ohne Prüfung von Adresse, Attribut und Indexierung weiß niemand, was tatsächlich online steht.</li>
 <li><strong>Denselben Artikel mehrfach publizieren.</strong> Redaktionen erwarten ein Original. Doppelte Seiten konkurrieren miteinander. Syndikation nur, wenn sie ausdrücklich vereinbart ist.</li>
 </ul>
