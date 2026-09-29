@@ -479,7 +479,7 @@ HTML;
 
         return <<<HTML
 <p class="glossary-definition">Un guest post è un articolo pubblicato su un sito di cui l’autore non è titolare. L’host tiene l’indirizzo e i lettori. L’autore consegna il testo e di solito lo firma. Un link verso una sua pagina è frequente. Il formato non è un advertorial e non è l’acquisto del solo link.</p>
-<p>Chi cerca «cos’è un guest post» sta chiedendo questo confine, non un listino e non una promessa di posizione. Il plurale, «cosa sono i guest post», indica lo stesso formato ripetuto su più siti: non è un prodotto diverso. Prima di proporre un pezzo a una testata italiana conviene tenere quel confine, fra articolo firmato e acquisto del solo link, e solo dopo chiedersi se quei lettori hanno un motivo per arrivare in fondo.</p>
+<p>Chi cerca «cos’è un guest post» sta chiedendo questo confine, non un listino e non una promessa di posizione. Il plurale, «cosa sono i guest post», indica lo stesso formato ripetuto su più siti: non è un prodotto diverso. Prima di proporre un pezzo a una testata italiana conviene tenere quel confine, fra articolo firmato, advertorial e acquisto del solo link, e solo dopo chiedersi se quei lettori hanno un motivo per arrivare in fondo.</p>
 
 <nav aria-label="Indice">
 <p><strong>In questa pagina</strong></p>
@@ -491,7 +491,7 @@ HTML;
 <li><a href="#seo">Guest post e SEO, senza promesse</a></li>
 <li><a href="#ancora">L’ancora dentro la frase</a></li>
 <li><a href="#prezzo">Prezzo, fattura e IVA</a></li>
-<li><a href="#errori">Errori visibili dal primo paragrafo</a></li>
+<li><a href="#errori">Errori che si ripetono</a></li>
 <li><a href="#domande">Domande</a></li>
 </ol>
 </nav>
@@ -549,26 +549,26 @@ HTML;
 <h2 id="seo">Guest post e SEO, senza promesse</h2>
 <p>Una guida sul guest post e sul SEO può dire cosa il formato è in grado di fare e dove si ferma. Può dare visibilità a lettori che già frequentano un’altra testata. Può lasciare un collegamento che un motore è in grado di scansionare, se la pagina è indicizzabile e il link non è nascosto. Non consegna una posizione, e questa pagina non la promette.</p>
 <p>Le linee pubbliche di Google sullo spam indicano, tra gli schemi di link, il guest posting su larga scala con ancore sempre uguali e cariche di parole chiave. Il formato, da solo, non è vietato. Lo schema costruito per manipolare le posizioni sì. Un articolo che i lettori di quella testata leggerebbero anche senza il link resta nel perimetro del formato. Lo stesso testo venduto a cento blog ne esce.</p>
-<p>Dal 2019 Google tratta <code>rel="sponsored"</code> e <code>rel="ugc"</code> come indicazioni, non come un interruttore che spegne il link. L’indicazione resta il modo onesto di descrivere l’accordo. La documentazione sui contenuti utili giudica una pagina da chi la legge, non dal fatto che contenga un collegamento.</p>
+<p>Tra le fonti in fondo ci sono il post pubblico del 2019 sul nofollow e la documentazione sui contenuti utili. Il significato di dofollow, nofollow e <code>rel="sponsored"</code> non si apre in questa pagina.</p>
 
 <h2 id="ancora">L’ancora dentro la frase</h2>
 <p>L’anchor text di un guest post è la parte visibile del link, quella che si potrebbe leggere ad alta voce. Funziona quando starebbe in una mail alla redazione: il nome di chi scrive, l’indirizzo nudo, oppure una descrizione della pagina di arrivo. Non funziona quando la frase esiste solo per ospitare la parola che si vorrebbe in prima posizione.</p>
-<p>Il fallimento di solito non è la singola parola. È la ripetizione. Marca, indirizzo e una perifrasi si alternano e sembrano frasi. La stessa sequenza esatta, su ogni pezzo, sembra un elenco. La pagina di destinazione deve mantenere ciò che l’ancora promette. Collegare sempre la home, qualunque sia il tema del paragrafo, rompe quel patto.</p>
+<p>Il fallimento di solito non è la singola parola. È la ripetizione. Marca, indirizzo e una perifrasi si alternano e sembrano frasi. La stessa sequenza esatta, su ogni pezzo, sembra un elenco. La pagina di destinazione deve mantenere ciò che l’ancora promette. Collegare sempre la pagina iniziale, qualunque sia il tema del paragrafo, rompe quel patto.</p>
 <p>Dofollow, nofollow e il significato di <code>rel="sponsored"</code> non si esauriscono in questo capoverso. La spiegazione sta nella pagina su <a href="{$dofollow}">dofollow, nofollow e l’attributo sponsored</a>. Qui basta il patto operativo: l’attributo si decide prima di pubblicare, e un pagamento si dice.</p>
 
 <h2 id="prezzo">Prezzo, fattura e IVA</h2>
 <p>Non esiste un prezzo unico del guest post in Italia. Ogni sito applica il proprio, in base al tema, al lavoro di redazione, alla diffusione e al modo in cui il link viene segnalato. Una cifra sola, o una quota di mercato, sarebbe inventata. Questa pagina non le riporta.</p>
-<p>Il confronto si fa sulle singole offerte. Ogni pubblicazione ha il suo prezzo in euro e le regole di chi la ospita. L’indirizzo live esiste quando il pezzo è pubblicato, non nella colonna del prezzo. In Italia il pagamento incontra fattura e IVA: sono passaggi amministrativi del comprare, non una tariffa del formato e non un’aliquota che una definizione possa fissare.</p>
+<p>Il confronto si fa sulle singole offerte. Ogni pubblicazione ha il suo prezzo in euro e le regole di chi la ospita. L’indirizzo pubblico esiste quando il pezzo è pubblicato, non nella colonna del prezzo. In Italia il pagamento incontra fattura e IVA: sono passaggi amministrativi del comprare, non una tariffa del formato e non un’aliquota che una definizione possa fissare.</p>
 <p>Pagare non rende il testo migliore né peggiore. Cambia il modo in cui il link va descritto. Le offerte si confrontano tra le <a href="{$buy}">inserzioni italiane, ciascuna con il proprio prezzo in euro</a>.</p>
 
-<h2 id="errori">Errori visibili dal primo paragrafo</h2>
+<h2 id="errori">Errori che si ripetono</h2>
 <ul>
 <li><strong>Scrivere il pezzo intorno all’ancora.</strong> Il testo diventa un contenitore. Chi legge se ne accorge subito.</li>
 <li><strong>Ripetere la stessa ancora esatta.</strong> È lo schema che le linee sullo spam descrivono.</li>
 <li><strong>Tacere il pagamento.</strong> Un posto pagato con un link presentato come scelta spontanea della redazione non è più un guest post redazionale.</li>
 <li><strong>Scegliere solo un punteggio.</strong> Un numero alto, senza lettori per quel tema, compra diffusione inutile.</li>
-<li><strong>Collegare la home per abitudine.</strong> La pagina di arrivo deve mantenere la frase in cui il link sta.</li>
-<li><strong>Non ricontrollare l’indirizzo live.</strong> Senza indirizzo, attributo e indicizzazione non si sa cosa sia finito online.</li>
+<li><strong>Collegare la pagina iniziale per abitudine.</strong> La pagina di arrivo deve mantenere la frase in cui il link sta.</li>
+<li><strong>Non ricontrollare l’indirizzo pubblico.</strong> Senza indirizzo, attributo e indicizzazione non si sa cosa sia finito online.</li>
 <li><strong>Ripubblicare lo stesso testo.</strong> Le redazioni chiedono un inedito. Due copie della stessa pagina competono tra loro. Una ripubblicazione esiste solo se è pattuita.</li>
 </ul>
 
