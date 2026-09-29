@@ -180,9 +180,11 @@ class SiteController extends Controller
         $sitesExportLimited = false;
 
         if ($flatQueue && $waitingOnPublisherFilter) {
-            $users = new LengthAwarePaginator([], 0, 20, 1, [
+            $listPerPage = $this->staffListPerPage($request, 20);
+            $listQuery = $request->except(['page', 'publisher']);
+            $users = new LengthAwarePaginator([], 0, $listPerPage, 1, [
                 'path' => $request->url(),
-                'query' => $request->query(),
+                'query' => $listQuery,
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesWaitingOnPublisher($waitingStage !== '' ? $waitingStage : null)
                 ->with($this->staffPublisherWith())
@@ -191,12 +193,14 @@ class SiteController extends Controller
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
             $this->applyStaffSitesListSort($flatQueueSites, $staffSiteFilters['sort'], 'oldest');
             $flatQueueSites = $flatQueueSites
-                ->paginate(30)
-                ->appends($request->query());
+                ->paginate($listPerPage)
+                ->appends($listQuery);
         } elseif ($flatQueue && $needsReviewFilter) {
-            $users = new LengthAwarePaginator([], 0, 20, 1, [
+            $listPerPage = $this->staffListPerPage($request, 20);
+            $listQuery = $request->except(['page', 'publisher']);
+            $users = new LengthAwarePaginator([], 0, $listPerPage, 1, [
                 'path' => $request->url(),
-                'query' => $request->query(),
+                'query' => $listQuery,
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesReadyForStaff()
                 ->with($this->staffPublisherWith())
@@ -205,16 +209,18 @@ class SiteController extends Controller
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
             $this->applyStaffSitesListSort($flatQueueSites, $staffSiteFilters['sort'], 'oldest');
             $flatQueueSites = $flatQueueSites
-                ->paginate(30)
-                ->appends($request->query());
+                ->paginate($listPerPage)
+                ->appends($listQuery);
         } elseif ($allSitesMode) {
-            $users = new LengthAwarePaginator([], 0, 20, 1, [
+            $listPerPage = $this->staffListPerPage($request, 20);
+            $listQuery = $request->except(['page', 'publisher']);
+            $users = new LengthAwarePaginator([], 0, $listPerPage, 1, [
                 'path' => $request->url(),
-                'query' => $request->query(),
+                'query' => $listQuery,
             ]);
             $allSites = $this->staffAllSitesQuery($request, $publisherSearch, $staffSiteFilters)
-                ->paginate(30)
-                ->appends($request->query());
+                ->paginate($listPerPage)
+                ->appends($listQuery);
             $sitesExportLimited = $allSites->total() > self::EXPORT_LIMIT;
         } else {
             // Counts only — do not eager-load every site row for the publisher list.
@@ -325,8 +331,8 @@ class SiteController extends Controller
                 ->orderByDesc($waitingOnPublisherFilter ? $waitingSort : 'needs_review_sites_count')
                 ->orderByDesc('sites_count')
                 ->orderBy('name')
-                ->paginate(20)
-                ->appends($request->query());
+                ->paginate($this->staffListPerPage($request, 20))
+                ->appends($request->except(['page', 'publisher']));
         }
 
         $sitesExportUrl = staff_route('sites.export', $this->staffSitesExportQuery($request));
@@ -1683,16 +1689,19 @@ class SiteController extends Controller
             }
         ));
 
-        $perPage = 50;
+        $perPage = $this->staffListPerPage($request, 50);
         $siteSearch = trim(scalar_text($request->query('q', '')));
         $needsReviewOnly = $request->boolean('needs_review');
         $filters = $this->staffSitesListFilterState($request);
         // Deep link: keep this row on page 1 even when the list filters would hide it.
+        // Later pages must not pin it, or paging keeps that site and opens its details.
+        $listPage = max(1, (int) $request->query('page', 1));
         $focusSiteId = $this->canonicalStaffId(trim(scalar_text($request->query('site', ''))));
+        $pinSiteId = $listPage === 1 ? $focusSiteId : null;
 
         $sitesQuery = Site::query()
             ->where('publisher_id', $user->id)
-            ->where(function ($outer) use ($filters, $siteSearch, $needsReviewOnly, $focusSiteId) {
+            ->where(function ($outer) use ($filters, $siteSearch, $needsReviewOnly, $pinSiteId) {
                 $outer->where(function ($matched) use ($filters, $siteSearch, $needsReviewOnly) {
                     // Show archived adds no predicate. An empty group compiles to "()"
                     // and the publisher site list 500s.
@@ -1706,11 +1715,11 @@ class SiteController extends Controller
                     }
                     $this->applyStaffSitesListFilters($matched, $filters);
                 });
-                if ($focusSiteId !== null) {
-                    $outer->orWhere($outer->getModel()->getTable().'.id', $focusSiteId);
+                if ($pinSiteId !== null) {
+                    $outer->orWhere($outer->getModel()->getTable().'.id', $pinSiteId);
                 }
             });
-        $this->applyStaffSitesListSort($sitesQuery, $filters['sort'], 'newest', $focusSiteId);
+        $this->applyStaffSitesListSort($sitesQuery, $filters['sort'], 'newest', $pinSiteId);
 
         if (Schema::hasTable('order_items')) {
             $sitesQuery->withCount('orderItems');
@@ -1753,6 +1762,17 @@ class SiteController extends Controller
                 'sort' => $filters['sort'],
             ],
         ]);
+    }
+
+    /**
+     * Page size for the staff sites lists. Anything outside 20, 50, and 100
+     * falls back to the list's own default.
+     */
+    private function staffListPerPage(Request $request, int $default): int
+    {
+        $value = (int) $request->query('per_page', $default);
+
+        return in_array($value, [20, 50, 100], true) ? $value : $default;
     }
 
     /**

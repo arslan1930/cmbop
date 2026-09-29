@@ -802,6 +802,8 @@ window.CatalogConfig = {
         bulkDeals: @json(route('advertiser.catalog.bulk-deals')),
         favoritesSave: @json(route('advertiser.favorites.save')),
         blacklistSave: @json(route('advertiser.blacklist.save')),
+        siteNote: @json(route('advertiser.catalog.site-note', ['site' => '__SITE__'])),
+        siteReport: @json(route('advertiser.catalog.site-report', ['site' => '__SITE__'])),
         websiteSuggestionsStore: @json(route('advertiser.website-suggestions.store')),
         websiteSuggestionsCheck: @json(route('advertiser.website-suggestions.check')),
         siteClaim: @json(route('advertiser.sites.claim')),

@@ -75,7 +75,8 @@ class MarketingSitesLoadTest extends TestCase
         $this->assertStringContainsString('Publisher not found', $html);
         $this->assertStringContainsString('sessionStorage.removeItem(\'selected_user\')', $html);
         $this->assertStringContainsString('QUALITY_MIN_DA', $html);
-        $this->assertStringContainsString('sitesLoadMore', $html);
+        $this->assertStringContainsString('sitesPerPage', $html);
+        $this->assertStringContainsString('data-sites-page', $html);
         $this->assertStringContainsString('const FLAT_QUEUE', $html);
         $this->assertStringContainsString('data?.meta', $html);
 

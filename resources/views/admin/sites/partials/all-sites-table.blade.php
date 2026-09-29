@@ -154,8 +154,6 @@
             </tbody>
         </table>
     </div>
-    <div class="p-2">
-        {{ $allSites->links() }}
-    </div>
+    @include('admin.sites.partials.pager', ['paginator' => $allSites, 'selectId' => 'allSitesPerPage'])
 </div>
 @endif

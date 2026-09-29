@@ -1538,7 +1538,6 @@ body:has(.catalog-page) {
     line-height: 1.3;
     color: var(--brand-ink-muted, #76797c);
     max-width: 100%;
-    cursor: help;
 }
 
 .site-trust-compact__row {
@@ -2791,6 +2790,100 @@ button.site-badge-new.catalog-new-ribbon.is-alerting {
     display: none !important;
 }
 
+/* Report + note sit with the social glyphs: same 22px flat icons, no circle. */
+.catalog-site-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+.catalog-site-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--brand-ink-muted, #697078);
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.catalog-site-tool:hover,
+.catalog-site-tool:focus-visible {
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #1a585e);
+    outline: none;
+}
+
+.catalog-site-tool i,
+.catalog-site-tool i.fa.slb-icon-svg,
+.catalog-site-tool i.fa-solid.slb-icon-svg {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
+    flex: 0 0 22px;
+    font-size: 22px;
+    color: inherit;
+    background: none !important;
+    background-color: currentColor !important;
+    -webkit-mask: var(--slb-icon) center / contain no-repeat !important;
+    mask: var(--slb-icon) center / contain no-repeat !important;
+}
+
+/* A saved reminder stays washed and carries a dot, so it is not the empty icon. */
+.catalog-site-note.is-active {
+    position: relative;
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #1a585e);
+}
+
+.catalog-site-note.is-active::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--brand-primary, #1a585e);
+    box-shadow: 0 0 0 2px var(--brand-primary-bg, #e6f5f5);
+    pointer-events: none;
+}
+
+.catalog-site-note.is-active:hover,
+.catalog-site-note.is-active:focus-visible {
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #1a585e);
+}
+
+.catalog-note-site {
+    margin: 0 0 0.2rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--brand-ink, #1c1f24);
+}
+
+.catalog-note-lead {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.4;
+    color: var(--brand-ink-muted, #697078);
+}
+
+.catalog-note-count {
+    margin-top: 0.35rem;
+    text-align: right;
+    font-size: 0.75rem;
+    color: var(--brand-ink-muted, #697078);
+}
+
 .catalog-site-deals .site-chip--homepage {
     height: auto;
     min-height: 22px;
@@ -2882,7 +2975,7 @@ button.site-badge-new,
     font-weight: 700;
     letter-spacing: 0.06em;
     line-height: 1;
-    cursor: help;
+    cursor: pointer;
     user-select: none;
     outline: none;
     box-shadow: 0 1px 3px rgba(220, 38, 38, 0.35);
@@ -2974,7 +3067,7 @@ button.site-badge-new.is-alerting,
     line-height: 1;
     white-space: nowrap;
     transition: transform var(--motion-hover, 140ms ease), box-shadow var(--motion-hover, 140ms ease), background-color var(--motion-hover, 140ms ease);
-    cursor: help;
+    cursor: default;
     user-select: none;
     background: transparent;
 }

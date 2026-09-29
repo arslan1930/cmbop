@@ -52,11 +52,68 @@
 
         const dropdown = document.createElement('div');
         dropdown.className = 'single-select-dropdown';
+        const searchable = select.dataset.adminSelectSearch === '1';
+        let searchInput = null;
+        if (searchable) {
+            const search = document.createElement('div');
+            search.className = 'single-select-search';
+            searchInput = document.createElement('input');
+            searchInput.type = 'search';
+            const searchLabel = select.dataset.adminSelectSearchLabel || 'Search';
+            searchInput.setAttribute('placeholder', searchLabel);
+            searchInput.setAttribute('aria-label', searchLabel);
+            searchInput.autocomplete = 'off';
+            search.appendChild(searchInput);
+            dropdown.appendChild(search);
+            search.addEventListener('click', function (event) {
+                event.stopPropagation();
+            });
+            searchInput.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            });
+            searchInput.addEventListener('input', function () {
+                filterOptions(searchInput.value);
+            });
+        }
         const options = document.createElement('div');
         options.className = 'single-select-options';
         options.setAttribute('role', 'listbox');
         dropdown.appendChild(options);
         wrap.append(trigger, dropdown);
+
+        function filterOptions(term) {
+            const query = String(term || '').trim().toLowerCase();
+            let visible = 0;
+            options.querySelectorAll('.single-select-option').forEach(function (el) {
+                const show = query === '' || el.textContent.toLowerCase().indexOf(query) !== -1;
+                el.hidden = !show;
+                if (show) visible += 1;
+            });
+            options.querySelectorAll('.single-select-group').forEach(function (group) {
+                let sibling = group.nextElementSibling;
+                let any = false;
+                while (sibling && !sibling.classList.contains('single-select-group')) {
+                    if (sibling.classList.contains('single-select-option') && !sibling.hidden) any = true;
+                    sibling = sibling.nextElementSibling;
+                }
+                group.hidden = !any;
+            });
+            let empty = options.querySelector('.single-select-empty');
+            if (!visible) {
+                if (!empty) {
+                    empty = document.createElement('div');
+                    empty.className = 'single-select-empty';
+                    empty.textContent = select.dataset.adminSelectSearchEmpty || 'No matches';
+                    options.appendChild(empty);
+                }
+                empty.hidden = false;
+            } else if (empty) {
+                empty.hidden = true;
+            }
+        }
 
         function appendOption(opt, current) {
             const el = document.createElement('div');
@@ -87,10 +144,11 @@
                     });
                     return;
                 }
-                if (child.tagName === 'OPTION') appendOption(child, current);
+                if (child.tagName === 'OPTION' && !child.disabled) appendOption(child, current);
             });
             const selected = select.options[select.selectedIndex];
             valueEl.textContent = selected ? String(selected.textContent || '').trim() : 'All';
+            if (searchInput) filterOptions(searchInput.value);
         }
 
         select.addEventListener('change', sync);
@@ -107,6 +165,11 @@
             });
             dropdown.classList.toggle('show', willOpen);
             trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            if (willOpen && searchInput) {
+                searchInput.value = '';
+                filterOptions('');
+                window.setTimeout(function () { searchInput.focus(); }, 0);
+            }
         });
 
         dropdown.addEventListener('click', function (event) {

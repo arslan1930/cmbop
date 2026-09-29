@@ -5612,7 +5612,149 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         );
     });
+
+    document.addEventListener('click', function (e) {
+        const reportBtn = e.target.closest('.catalog-site-report');
+        if (!reportBtn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openCatalogSiteReport(reportBtn);
+    });
+
+    document.addEventListener('click', function (e) {
+        const noteBtn = e.target.closest('.catalog-site-note');
+        if (!noteBtn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openCatalogSiteNote(noteBtn);
+    });
 });
+
+function catalogSiteToolUrl(template, siteId) {
+    return String(template || '').replace('__SITE__', encodeURIComponent(String(siteId)));
+}
+
+function catalogNotePreview(note) {
+    var text = String(note || '').replace(/\s+/g, ' ').trim();
+    if (text.length <= 140) return text;
+    return text.slice(0, 137).trim() + '...';
+}
+
+function applyCatalogNoteButton(el, saved, name) {
+    var hasNote = saved !== '';
+    var label = name || el.dataset.name || 'this site';
+    el.setAttribute('data-note', saved);
+    el.classList.toggle('is-active', hasNote);
+    el.setAttribute('aria-label', hasNote ? ('Your reminder for ' + label) : ('Add a reminder for ' + label));
+    el.setAttribute('data-glass-tip-title', hasNote ? 'Your reminder' : 'Add a reminder');
+    el.setAttribute('data-glass-tip-body', hasNote
+        ? catalogNotePreview(saved)
+        : 'One private reminder for this site. Only you can see it.');
+}
+
+function openCatalogSiteReport(button) {
+    if (!window.Swal || typeof Swal.fire !== 'function') return;
+    const siteId = button.dataset.id;
+    const name = button.dataset.name || 'this site';
+    const url = catalogSiteToolUrl(CatalogConfig.routes && CatalogConfig.routes.siteReport, siteId);
+    if (!url) return;
+
+    Swal.fire({
+        title: 'Report this site',
+        text: name,
+        input: 'textarea',
+        inputPlaceholder: 'What should we look at?',
+        inputAttributes: { 'aria-label': 'Report' },
+        showCancelButton: true,
+        confirmButtonText: 'Send report',
+        inputValidator: function (value) {
+            if (!String(value || '').trim() || String(value).trim().length < 10) {
+                return 'Please enter at least 10 characters.';
+            }
+            return undefined;
+        },
+    }).then(function (result) {
+        if (!result.isConfirmed) return;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CatalogConfig.csrfToken,
+            },
+            body: JSON.stringify({ message: String(result.value || '').trim() }),
+        }).then(async function (res) {
+            const data = await res.json().catch(function () { return {}; });
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'We could not submit that report.');
+            }
+            catalogToast(data.message || 'Thanks — your report was submitted.', 'success');
+        }).catch(function (err) {
+            catalogToast(err.message || 'We could not submit that report.', 'error');
+        });
+    });
+}
+
+function openCatalogSiteNote(button) {
+    if (!window.Swal || typeof Swal.fire !== 'function') return;
+    const siteId = button.dataset.id;
+    const name = button.dataset.name || 'this site';
+    const current = button.getAttribute('data-note') || '';
+    const hasNote = current.trim() !== '';
+    const url = catalogSiteToolUrl(CatalogConfig.routes && CatalogConfig.routes.siteNote, siteId);
+    if (!url) return;
+
+    Swal.fire({
+        title: hasNote ? 'Your reminder' : 'Add a reminder',
+        html: '<p class="catalog-note-site">' + catalogEscapeHtml(name) + '</p>'
+            + '<p class="catalog-note-lead">One private reminder for this site. Saving replaces it. Only you can see it.</p>',
+        input: 'textarea',
+        inputValue: current,
+        inputPlaceholder: 'Write the one thing you want to remember',
+        inputAttributes: { 'aria-label': 'Private reminder', maxlength: '2000' },
+        showCancelButton: true,
+        showDenyButton: hasNote,
+        confirmButtonText: hasNote ? 'Update' : 'Save',
+        denyButtonText: 'Remove',
+        cancelButtonText: 'Cancel',
+        didOpen: function () {
+            var input = Swal.getInput();
+            if (!input || !input.parentNode) return;
+            var counter = document.createElement('div');
+            counter.className = 'catalog-note-count';
+            var paint = function () {
+                counter.textContent = String(input.value.length) + ' / 2000';
+            };
+            paint();
+            input.addEventListener('input', paint);
+            input.parentNode.appendChild(counter);
+        },
+    }).then(function (result) {
+        if (!result.isConfirmed && !result.isDenied) return;
+        const note = result.isDenied ? '' : String(result.value || '').trim();
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CatalogConfig.csrfToken,
+            },
+            body: JSON.stringify({ note: note }),
+        }).then(async function (res) {
+            const data = await res.json().catch(function () { return {}; });
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Could not save that reminder.');
+            }
+            const saved = String(data.note || '');
+            document.querySelectorAll('.catalog-site-note[data-id="' + siteId + '"]').forEach(function (el) {
+                applyCatalogNoteButton(el, saved, el.dataset.name || name);
+            });
+            catalogToast(saved === '' ? 'Reminder removed.' : (hasNote ? 'Reminder updated.' : 'Reminder saved.'), 'success');
+        }).catch(function (err) {
+            catalogToast(err.message || 'Could not save that reminder.', 'error');
+        });
+    });
+}
 
 // Safety net: hide any blacklisted sites still rendered on the main catalog
 if (!CatalogConfig.blacklistFilter) {

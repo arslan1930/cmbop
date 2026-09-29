@@ -1512,6 +1512,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('promotions.welcome-bonus.amount');
         Route::post('/promotions/feature-offers', [AdminPromotionController::class, 'updateFeatureOffers'])
             ->name('promotions.feature-offers.update');
+        Route::post('/promotions/feature-credits', [AdminPromotionController::class, 'grantFeatureCredit'])
+            ->name('promotions.feature-credits.store');
 
         Route::get('/audiences', [AdminAudienceController::class, 'index'])->name('audiences.index');
         Route::get('/audiences/export', [AdminAudienceController::class, 'export'])
@@ -1758,6 +1760,12 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
 
         // Blacklist
         Route::post('/blacklist/save', [CatalogController::class, 'saveBlacklist'])->name('blacklist.save');
+
+        Route::post('/catalog/sites/{site}/note', [CatalogController::class, 'saveSiteNote'])
+            ->name('catalog.site-note');
+        Route::post('/catalog/sites/{site}/report', [CatalogController::class, 'reportSite'])
+            ->middleware('throttle:10,1')
+            ->name('catalog.site-report');
 
         // Dedicated Saved Sites manager (favorites + blacklist)
         Route::get('/saved-sites', [SavedSitesController::class, 'index'])->name('saved-sites');
@@ -2028,6 +2036,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
             ->name('promotions.wallet');
         Route::post('/sites/{id}/feature', [SitePromotionController::class, 'feature'])
             ->name('sites.feature');
+        Route::post('/sites/{id}/feature/credit', [SitePromotionController::class, 'featureCredit'])
+            ->middleware('throttle:20,1')
+            ->name('sites.feature.credit');
         Route::post('/sites/{id}/feature/checkout', [SitePromotionController::class, 'featureCheckout'])
             ->middleware('throttle:10,1')
             ->name('sites.feature.checkout');

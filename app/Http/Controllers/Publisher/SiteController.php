@@ -8,6 +8,7 @@ use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
+use App\Models\FeatureCredit;
 use App\Models\Language;
 use App\Models\Site;
 use App\Services\ActivityLogger;
@@ -25,6 +26,7 @@ use App\Support\SiteTag;
 use App\Support\UserFacingError;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -475,6 +477,24 @@ class SiteController extends Controller
                     'query' => $query,
                 ]);
 
+            $featureCreditsBySite = [];
+            if (Schema::hasTable('feature_credits')) {
+                $featureCreditsBySite = FeatureCredit::query()
+                    ->where('user_id', auth()->id())
+                    ->whereNull('used_at')
+                    ->whereNotNull('site_id')
+                    ->orderBy('id')
+                    ->get(['id', 'site_id', 'days'])
+                    ->unique('site_id')
+                    ->mapWithKeys(fn (FeatureCredit $credit) => [
+                        (int) $credit->site_id => [
+                            'id' => (int) $credit->id,
+                            'days' => (int) $credit->days,
+                        ],
+                    ])
+                    ->all();
+            }
+
             return view('publisher.sites.partials.table', compact(
                 'sites',
                 'pendingCount',
@@ -486,7 +506,8 @@ class SiteController extends Controller
                 'status',
                 'bulkWaitingItems',
                 'openBulkRequest',
-                'waitingItemsCount'
+                'waitingItemsCount',
+                'featureCreditsBySite'
             ))->render();
         } catch (\Throwable $e) {
             Log::error('Publisher sites ajax failed: '.$e->getMessage(), [
@@ -505,7 +526,7 @@ class SiteController extends Controller
      * Sites the Active / Pending / Invites tabs leave out: archived rows, plus
      * leftovers from a cancelled bulk request.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\Site>  $acceptedBase
+     * @param  Builder<Site>  $acceptedBase
      */
     private function hiddenFromPublisherTabsQuery($acceptedBase)
     {
@@ -527,7 +548,7 @@ class SiteController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\Site>  $acceptedBase
+     * @param  Builder<Site>  $acceptedBase
      */
     private function cancelledBulkSiteCount($acceptedBase): int
     {

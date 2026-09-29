@@ -2140,6 +2140,120 @@ async function startFeatureStripeCheckout(siteId, plan) {
     Swal.fire({ icon: 'error', title: 'Checkout unavailable', text: data.message || 'Could not start card payment.' });
 }
 
+function celebrateFeatureReward() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const canvas = document.createElement('canvas');
+    canvas.setAttribute('aria-hidden', 'true');
+    canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:20000';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        canvas.remove();
+        return;
+    }
+    const dpr = window.devicePixelRatio || 1;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const colors = ['#1a585e', '#3faeb2', '#f0b429', '#e36a4a', '#f472b6', '#ffffff', '#e6f5f5'];
+    const pieces = Array.from({ length: 160 }, function () {
+        return {
+            x: Math.random() * width,
+            y: -24 - Math.random() * height * 0.55,
+            w: 6 + Math.random() * 7,
+            h: 8 + Math.random() * 10,
+            vy: 2.4 + Math.random() * 3.6,
+            vx: -1.8 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI,
+            vr: -0.22 + Math.random() * 0.44,
+            color: colors[Math.floor(Math.random() * colors.length)],
+        };
+    });
+    const started = performance.now();
+    function frame(now) {
+        ctx.clearRect(0, 0, width, height);
+        pieces.forEach(function (piece) {
+            piece.x += piece.vx;
+            piece.y += piece.vy;
+            piece.vy += 0.035;
+            piece.rot += piece.vr;
+            ctx.save();
+            ctx.translate(piece.x, piece.y);
+            ctx.rotate(piece.rot);
+            ctx.fillStyle = piece.color;
+            ctx.fillRect(-piece.w / 2, -piece.h / 2, piece.w, piece.h);
+            ctx.restore();
+        });
+        if (now - started < 3200) requestAnimationFrame(frame);
+        else canvas.remove();
+    }
+    requestAnimationFrame(frame);
+}
+
+function adminRewardCard(days, name, mode) {
+    const title = mode === 'done' ? 'Congratulations' : 'A reward for this site';
+    const copy = mode === 'done'
+        ? `${name} is featured. Enjoy the extra visibility.`
+        : `Free featuring for ${name}. Nothing is taken from your wallet and no card is charged.`;
+    return `<div class="admin-reward-card__gift" aria-hidden="true"><i class="fa fa-gift"></i></div>
+            <p class="admin-reward-card__kicker">${mode === 'done' ? 'Reward used' : 'From the admin'}</p>
+            <h2 class="admin-reward-card__title">${title}</h2>
+            <p class="admin-reward-card__copy">${copy}</p>
+            <span class="admin-reward-card__days">${days} days</span>`;
+}
+
+$(document).on('click', '.btn-use-admin-credit', async function () {
+    const $btn = $(this);
+    const id = $btn.data('id');
+    const creditId = Number($btn.data('credit-id') || 0);
+    const days = Number($btn.data('days') || 0);
+    const name = promoEscapeHtml($btn.data('name'));
+    if (!id || !creditId) return;
+    const result = await Swal.fire({
+        title: '',
+        html: adminRewardCard(days, name, 'ask'),
+        showCancelButton: true,
+        showConfirmButton: true,
+        buttonsStyling: false,
+        confirmButtonText: 'Use reward',
+        cancelButtonText: 'Not now',
+        customClass: {
+            popup: 'admin-reward-card',
+            htmlContainer: 'admin-reward-card__body',
+            confirmButton: 'admin-reward-card__use',
+            cancelButton: 'admin-reward-card__later',
+            actions: 'admin-reward-card__actions',
+        },
+    });
+    if (!result.isConfirmed) return;
+    const res = await fetch(`/publisher/sites/${id}/feature/credit`, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': promoCsrfToken(), 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credit_id: creditId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!data.success) {
+        Swal.fire({ icon: 'error', title: 'Could not use reward', text: data.message || 'Failed' });
+        return;
+    }
+    celebrateFeatureReward();
+    Swal.fire({
+        title: '',
+        html: adminRewardCard(days, name, 'done'),
+        showConfirmButton: true,
+        buttonsStyling: false,
+        confirmButtonText: 'Done',
+        customClass: {
+            popup: 'admin-reward-card',
+            htmlContainer: 'admin-reward-card__body',
+            confirmButton: 'admin-reward-card__use',
+        },
+    });
+    reloadSitesAfterPromo();
+});
+
 $(document).on('click', '.btn-feature-site', async function () {
     const $btn = $(this);
     const id = $btn.data('id');
@@ -2172,6 +2286,10 @@ $(document).on('click', '.btn-feature-site', async function () {
             display: '€' + Number(wallet.feature_price || 10).toFixed(2),
             euros_label: '€' + Number(wallet.feature_price || 10).toFixed(2),
         }];
+    const credits = Array.isArray(wallet.credits)
+        ? wallet.credits.filter((credit) => Number(credit.id) > 0 && Number(credit.days) > 0 && (!credit.site_id || String(credit.site_id) === String(id)))
+        : [];
+    let chosenCreditId = 0;
     let chosenPlan = String(offers[0].key || '');
     const planChoices = offers.map((offer, index) => {
         const shown = String(offer.display || offer.euros_label || '');
@@ -2184,6 +2302,13 @@ $(document).on('click', '.btn-feature-site', async function () {
             <span><strong>${promoEscapeHtml(String(offer.label || 'Feature'))}</strong> — ${priceText} for ${Number(offer.days || 0)} days</span>
         </label>`;
     }).join('');
+    const creditBlock = credits.length
+        ? `<div class="text-start mx-3 mb-2">
+               <div class="small fw-semibold mb-1">Reward from admin</div>
+               ${credits.map((credit) => `<button type="button" class="btn btn-sm btn-primary me-1 mb-2 swal-use-feature-credit" data-credit-id="${Number(credit.id)}">Use ${Number(credit.days)}-day reward</button>`).join('')}
+               <p class="small text-muted mb-0">The admin gave you this featuring. It is free. No wallet or card charge. The days start when you use it.</p>
+           </div>`
+        : '';
     const unverifiedNote = isVerified
         ? ''
         : '<p class="small text-muted">This site is active but not verified. Featuring still works; advertisers may trust it less.</p>';
@@ -2193,6 +2318,7 @@ $(document).on('click', '.btn-feature-site', async function () {
     const result = await Swal.fire({
         title: isLive ? 'Extend featuring?' : 'Feature this website?',
         html: `${body}
+               ${creditBlock}
                <div class="text-start mx-3">${planChoices}</div>
                ${unverifiedNote}
                <p class="small text-muted">Publisher earnings: €${spendable.toFixed(2)} (bonus cannot be used for featuring)</p>
@@ -2205,8 +2331,29 @@ $(document).on('click', '.btn-feature-site', async function () {
             document.querySelectorAll('input[name="feature-plan"]').forEach((el) => {
                 el.addEventListener('change', () => { chosenPlan = el.value; });
             });
+            document.querySelectorAll('.swal-use-feature-credit').forEach((el) => {
+                el.addEventListener('click', () => {
+                    chosenCreditId = Number(el.getAttribute('data-credit-id') || 0);
+                    Swal.close();
+                });
+            });
         },
     });
+    if (chosenCreditId > 0) {
+        const creditRes = await fetch(`/publisher/sites/${id}/feature/credit`, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': promoCsrfToken(), 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credit_id: chosenCreditId }),
+        });
+        const creditData = await creditRes.json().catch(() => ({}));
+        Swal.fire({
+            icon: creditData.success ? 'success' : 'error',
+            title: creditData.success ? 'Featured!' : 'Could not use credit',
+            text: creditData.message || (creditData.success ? 'Featured credit used.' : 'Failed'),
+        });
+        if (creditData.success) reloadSitesAfterPromo();
+        return;
+    }
     const selected = offers.find((offer) => String(offer.key || '') === chosenPlan) || offers[0];
     const selectedPrice = Number(selected.price || 0);
 

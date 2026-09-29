@@ -401,6 +401,132 @@
         color: var(--brand-primary, #1a585e);
     }
 
+    .site-offer-chip--reward {
+        height: 34px;
+        padding: 0 10px;
+        color: #fff;
+        border: 0;
+        background: linear-gradient(120deg, #1a585e, #3faeb2, #f0b429, #e36a4a);
+        background-size: 220% 220%;
+        animation: site-reward-shift 3.6s ease infinite;
+        box-shadow: 0 0 0 3px rgba(63, 174, 178, 0.28);
+    }
+
+    .site-offer-chip--reward .fa {
+        font-size: 1.2rem;
+        animation: site-reward-pop 1.6s ease-in-out infinite;
+    }
+
+    .site-offer-chips .site-offer-chip.site-offer-chip--reward:hover,
+    .site-offer-chips .site-offer-chip.site-offer-chip--reward:focus-visible {
+        color: #fff;
+        background: linear-gradient(120deg, #14484d, #2f9ea3, #e0a51c, #d85a3c);
+        background-size: 220% 220%;
+        border-color: transparent;
+        filter: none;
+    }
+
+    .swal2-popup.admin-reward-card {
+        width: min(420px, calc(100vw - 2rem));
+        padding: 1.35rem 1.35rem 1.15rem;
+        border: 0;
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 24px 60px rgba(26, 88, 94, 0.18);
+    }
+
+    .swal2-popup.admin-reward-card .swal2-title {
+        display: none;
+    }
+
+    .admin-reward-card__gift {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 0.85rem;
+        border-radius: 20px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 1.7rem;
+        background: linear-gradient(135deg, #1a585e, #3faeb2 45%, #f0b429 78%, #e36a4a);
+        box-shadow: 0 10px 24px rgba(26, 88, 94, 0.22);
+    }
+
+    .admin-reward-card__kicker {
+        margin: 0 0 0.35rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #3faeb2;
+    }
+
+    .admin-reward-card__title {
+        margin: 0 0 0.4rem;
+        font-size: 1.45rem;
+        line-height: 1.2;
+        color: #1a585e;
+    }
+
+    .admin-reward-card__copy {
+        margin: 0;
+        color: #697078;
+        font-size: 0.95rem;
+    }
+
+    .admin-reward-card__days {
+        display: inline-block;
+        margin-top: 0.85rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: #e6f5f5;
+        color: #1a585e;
+        font-weight: 700;
+    }
+
+    .admin-reward-card__actions {
+        gap: 0.6rem;
+        margin-top: 1.15rem;
+    }
+
+    .admin-reward-card__use,
+    .admin-reward-card__later {
+        border-radius: 999px;
+        padding: 0.55rem 1rem;
+        font-weight: 650;
+        border: 1px solid transparent;
+    }
+
+    .admin-reward-card__use {
+        background: #1a585e;
+        color: #fff;
+    }
+
+    .admin-reward-card__later {
+        background: #fff;
+        color: #1a585e;
+        border-color: #b8e4e4;
+    }
+
+    @keyframes site-reward-shift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    @keyframes site-reward-pop {
+        0%, 100% { transform: scale(1) rotate(0deg); }
+        40% { transform: scale(1.2) rotate(-8deg); }
+        70% { transform: scale(1.08) rotate(6deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .site-offer-chip--reward,
+        .site-offer-chip--reward .fa {
+            animation: none;
+        }
+    }
+
     .site-row-price-sale {
         display: block;
         font-size: 12px;
@@ -1245,6 +1371,23 @@
                 <div class="site-row-actions__offers">
                     <span class="site-row-actions__offers-label">Offers</span>
                     <div class="site-offer-chips">
+                @php $adminReward = ($featureCreditsBySite ?? [])[$site->id] ?? null; @endphp
+                @if($adminReward && ! $site->isArchived())
+                <button type="button"
+                        class="site-offer-chip site-offer-chip--reward btn-use-admin-credit"
+                        data-id="{{ $site->id }}"
+                        data-credit-id="{{ $adminReward['id'] }}"
+                        data-days="{{ $adminReward['days'] }}"
+                        data-name="{{ $site->site_name }}"
+                        aria-label="Admin reward, {{ $adminReward['days'] }} days of featuring"
+                        data-glass-tip
+                        data-glass-tip-title="Reward from admin"
+                        data-glass-tip-body="The admin gave you {{ $adminReward['days'] }} days of featuring for this site. It is free. Use it whenever you want. No wallet or card charge."
+                        data-glass-tip-placement="top">
+                    <i class="fa fa-gift" aria-hidden="true"></i>
+                    <span class="site-offer-chip__label">{{ $adminReward['days'] }}d</span>
+                </button>
+                @endif
                 <button type="button"
                         class="site-offer-chip btn-feature-site {{ $site->isFeatured() ? 'is-on' : '' }}"
                         data-id="{{ $site->id }}"

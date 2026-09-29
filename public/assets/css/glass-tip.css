@@ -36,7 +36,7 @@ body.layout-dark,
   background: transparent;
   color: var(--glass-tip-icon);
   line-height: 1;
-  cursor: help;
+  cursor: pointer;
   vertical-align: middle;
   border-radius: 999px;
   transition: color 0.16s ease, opacity 0.16s ease;
@@ -68,17 +68,10 @@ body.layout-dark,
   height: 11px;
 }
 
-[data-glass-tip].site-chip,
-[data-glass-tip].site-badge-new,
-.site-chip[data-glass-tip],
-.site-badge-new[data-glass-tip] {
-  cursor: help;
-}
-
-/* Adopted native titles: hint that text carries an explanation, without
-   overriding the pointer on anything already clickable. */
-[data-glass-tip-auto="1"]:not(a):not(button):not(input):not([role="button"]) {
-  cursor: help;
+/* Tooltips stay. Hover keeps the normal arrow (or the pointer on buttons
+   and links). Bootstrap's abbr[title] rule is the other question-mark cursor. */
+abbr[title] {
+  cursor: inherit;
 }
 
 .glass-tip {

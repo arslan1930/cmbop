@@ -386,6 +386,7 @@
                                     'socialChannelLabels' => $socialChannelLabels,
                                     'openDetailsId' => (string) $site->id,
                                 ])
+                                @include('advertiser.partials.catalog-site-tools')
                                 @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                             </div>
                         </div>
@@ -1147,6 +1148,7 @@
                             'socialChannelLabels' => $socialChannelLabels,
                             'openDetailsId' => (string) $site->id,
                         ])
+                        @include('advertiser.partials.catalog-site-tools')
                         @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                     </div>
                     @php
