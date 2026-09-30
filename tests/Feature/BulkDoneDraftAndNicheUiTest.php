@@ -101,7 +101,11 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('data-min-da="'.Site::GOOD_MIN_DA.'"', $html);
         $this->assertStringContainsString('data-min-dr="'.Site::GOOD_MIN_DR.'"', $html);
         $this->assertStringContainsString('data-min-traffic="'.Site::GOOD_MIN_TRAFFIC.'"', $html);
+<<<<<<< HEAD
         $this->assertStringContainsString('Publish now is allowed below that bar', $html);
+=======
+        $this->assertStringContainsString('These metrics are below the quality bar', $html);
+>>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
         $this->assertStringContainsString('You can still submit this row', $html);
         $this->assertStringContainsString('No categories found', $html);
         $this->assertStringContainsString('Type to search niches', $html);

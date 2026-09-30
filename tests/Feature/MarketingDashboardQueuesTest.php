@@ -282,6 +282,11 @@ class MarketingDashboardQueuesTest extends TestCase
         $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $awaitingPublisher), $filtered);
         $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $trulyDone), $filtered);
 
+        // The index heals a completed batch that still has URL rows and no
+        // drafts back to requested, so the Requested filter lists it too.
+        $this->assertSame(BulkSiteRequest::STATUS_REQUESTED, $leftover->fresh()->status);
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $trulyDone->fresh()->status);
+
         $requestedOnly = $this->actingAs($this->marketer)
             ->get(route('marketing.bulk-site-requests.index', ['status' => BulkSiteRequest::STATUS_REQUESTED]))
             ->assertOk()
@@ -289,6 +294,11 @@ class MarketingDashboardQueuesTest extends TestCase
 
         $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $requested), $requestedOnly);
         $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $leftover), $requestedOnly);
+<<<<<<< HEAD
+=======
+        $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $awaitingPublisher), $requestedOnly);
+        $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $trulyDone), $requestedOnly);
+>>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
     }
 
     public function test_partial_done_batch_stays_on_waiting_on_you(): void

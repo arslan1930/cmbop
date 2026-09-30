@@ -142,7 +142,9 @@ class AdminCatalogHealthQueueTest extends TestCase
             ->assertOk()
             ->assertSee('below quality bar', false)
             ->assertSee('unverified active', false)
-            ->assertSee('health=below_quality', false);
+            ->assertSee('below_quality=1', false)
+            ->assertSee('listing_active=1', false)
+            ->assertSee('listing_verified=0', false);
 
         $this->actingAs($admin)
             ->get(route('admin.sites.records', ['health' => 'below_quality']))

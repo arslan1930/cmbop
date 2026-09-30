@@ -143,7 +143,7 @@
                                                     <span class="badge text-bg-danger">Missing market</span>
                                                 @endif
                                                 @if(! $site->hasGoodMetrics())
-                                                    <span class="badge text-bg-warning text-dark">Below quality bar</span>
+                                                    <span class="badge text-bg-warning text-dark">{{ $site->qualityBarBadgeText() }}</span>
                                                 @endif
                                             </div>
                                         </td>
