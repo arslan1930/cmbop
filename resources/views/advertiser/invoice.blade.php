@@ -267,13 +267,6 @@
                                 @endif
                                 <p><strong>VAT:</strong> {{ $company['vat_note'] ?? 'Not VAT registered – no VAT charged' }}</p>
                                 <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>
-                                @if(!empty($depositPayment['uk_sort_code']))
-                                    <p><strong>Sort code:</strong> {{ $depositPayment['uk_sort_code'] }}
-                                        @if(!empty($depositPayment['uk_transfer_note']))
-                                            <span class="text-muted">({{ $depositPayment['uk_transfer_note'] }})</span>
-                                        @endif
-                                    </p>
-                                @endif
                                 @if(!empty($depositPayment['uk_account_number']))
                                     <p><strong>GBP account number:</strong> {{ $depositPayment['uk_account_number'] }}
                                         @if(!empty($depositPayment['uk_transfer_note']))

@@ -520,6 +520,15 @@
   box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(26, 88, 94, 0.18));
 }
 
+.admin-deposits-filters .ql-toolbar.ql-snow,
+.admin-deposits-filters .ql-container.ql-snow {
+  width: auto;
+}
+
+.admin-deposits-filters .ql-toolbar .ql-picker {
+  width: auto;
+}
+
 .admin-deposits-filters .form-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%231a585e' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -1302,16 +1311,4 @@
 .swal2-container .community-swal-fields .form-control:focus {
   border-color: var(--brand-primary-soft);
   box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
-}
-
-@media (max-width: 767.98px) {
-  .admin-finance-overview .admin-finance-toolbar__form {
-    flex-wrap: wrap;
-    width: 100%;
-  }
-
-  .admin-finance-overview .admin-finance-toolbar__search {
-    min-width: 0;
-    width: 100%;
-  }
 }

@@ -636,10 +636,7 @@ class AdminSiteActivateGuardTest extends TestCase
 
         $row = $this->queueRowHtml($html, $site->id);
         $this->assertStringNotContainsString('js-mkt-activate', $row);
-<<<<<<< HEAD
-=======
         $this->assertStringContainsString('disabled', $row);
->>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
         $this->assertStringContainsString('Fix metrics', $row);
         $this->assertStringContainsString('This listing is below the quality bar', $html);
     }

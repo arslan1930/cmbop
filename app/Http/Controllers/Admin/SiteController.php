@@ -89,7 +89,7 @@ class SiteController extends Controller
                 'waitingOnPublisherFilterActive' => false,
                 'waitingOnPublisherCount' => 0,
                 'publisherSearch' => trim(scalar_text($request->query('q', ''))),
-                'flatQueue' => $request->boolean('flat'),
+                'flatQueue' => $this->requestFlag($request, 'flat'),
                 'flatQueueSites' => null,
                 'allSitesMode' => false,
                 'allSites' => null,
@@ -108,17 +108,15 @@ class SiteController extends Controller
 
     private function renderSitesIndex(Request $request)
     {
-        $needsReviewFilter = $request->boolean('needs_review')
-            || $request->query('verified') === '0'
-            || $request->query('verified') === 0;
+        $needsReviewFilter = $this->requestNeedsReview($request);
 
-        $waitingOnPublisherFilter = $request->boolean('waiting_on_publisher');
+        $waitingOnPublisherFilter = $this->requestFlag($request, 'waiting_on_publisher');
         if ($waitingOnPublisherFilter) {
             $needsReviewFilter = false;
         }
 
         $publisherSearch = trim(scalar_text($request->query('q', '')));
-        $flatQueue = $request->boolean('flat');
+        $flatQueue = $this->requestFlag($request, 'flat');
         $staffSiteFilters = $this->staffSitesListFilterState($request);
         $allSitesMode = $this->requestFlag($request, 'all')
             && ! $needsReviewFilter
@@ -211,7 +209,7 @@ class SiteController extends Controller
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
             $this->applyStaffSitesListSort($flatQueueSites, $staffSiteFilters['sort'], 'oldest');
             $flatQueueSites = $flatQueueSites
-                ->paginate($listPerPage)
+                ->paginate($listPerPage, ['*'], 'page', $this->staffListPage($request))
                 ->appends($listQuery);
         } elseif ($flatQueue && $needsReviewFilter) {
             $listPerPage = $this->staffListPerPage($request, 20);
@@ -227,7 +225,7 @@ class SiteController extends Controller
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
             $this->applyStaffSitesListSort($flatQueueSites, $staffSiteFilters['sort'], 'oldest');
             $flatQueueSites = $flatQueueSites
-                ->paginate($listPerPage)
+                ->paginate($listPerPage, ['*'], 'page', $this->staffListPage($request))
                 ->appends($listQuery);
         } elseif ($allSitesMode) {
             $listPerPage = $this->staffListPerPage($request, 20);
@@ -237,7 +235,7 @@ class SiteController extends Controller
                 'query' => $listQuery,
             ]);
             $allSites = $this->staffAllSitesQuery($request, $publisherSearch, $staffSiteFilters)
-                ->paginate($listPerPage)
+                ->paginate($listPerPage, ['*'], 'page', $this->staffListPage($request))
                 ->appends($listQuery);
             $sitesExportLimited = $allSites->total() > self::EXPORT_LIMIT;
         } else {
@@ -349,7 +347,7 @@ class SiteController extends Controller
                 ->orderByDesc($waitingOnPublisherFilter ? $waitingSort : 'needs_review_sites_count')
                 ->orderByDesc('sites_count')
                 ->orderBy('name')
-                ->paginate($this->staffListPerPage($request, 20))
+                ->paginate($this->staffListPerPage($request, 20), ['*'], 'page', $this->staffListPage($request))
                 ->appends($request->except(['page', 'publisher']));
         }
 
@@ -481,13 +479,11 @@ class SiteController extends Controller
         $queue = null;
         $defaultSort = 'newest';
 
-        if ($request->boolean('waiting_on_publisher')) {
+        if ($this->requestFlag($request, 'waiting_on_publisher')) {
             $stage = ($filters['waiting_stage'] ?? '') !== '' ? $filters['waiting_stage'] : null;
             $queue = MarketingOpsQueues::sitesWaitingOnPublisher($stage);
             $defaultSort = 'oldest';
-        } elseif ($request->boolean('needs_review')
-            || $request->query('verified') === '0'
-            || $request->query('verified') === 0) {
+        } elseif ($this->requestNeedsReview($request)) {
             $queue = MarketingOpsQueues::sitesReadyForStaff();
             $defaultSort = 'oldest';
         }
@@ -1818,11 +1814,11 @@ class SiteController extends Controller
 
         $perPage = $this->staffListPerPage($request, 50);
         $siteSearch = trim(scalar_text($request->query('q', '')));
-        $needsReviewOnly = $request->boolean('needs_review');
+        $needsReviewOnly = $this->requestFlag($request, 'needs_review');
         $filters = $this->staffSitesListFilterState($request);
         // Deep link: keep this row on page 1 even when the list filters would hide it.
         // Later pages must not pin it, or paging keeps that site and opens its details.
-        $listPage = max(1, (int) $request->query('page', 1));
+        $listPage = $this->staffListPage($request);
         $focusSiteId = $this->canonicalStaffId(trim(scalar_text($request->query('site', ''))));
         $pinSiteId = $listPage === 1 ? $focusSiteId : null;
 
@@ -1852,7 +1848,7 @@ class SiteController extends Controller
             $sitesQuery->withCount('orderItems');
         }
 
-        $paginator = $sitesQuery->paginate($perPage, $select);
+        $paginator = $sitesQuery->paginate($perPage, $select, 'page', $listPage);
 
         $sites = $paginator->getCollection()
             ->map(function (Site $site) use ($user) {
@@ -1899,9 +1895,25 @@ class SiteController extends Controller
      */
     private function staffListPerPage(Request $request, int $default): int
     {
-        $value = (int) $request->query('per_page', $default);
+        $value = (int) (filter_number($request->query('per_page')) ?? $default);
 
         return in_array($value, [20, 50, 100], true) ? $value : $default;
+    }
+
+    private function staffListPage(Request $request): int
+    {
+        return max(1, (int) (filter_number($request->input('page')) ?? 1));
+    }
+
+    private function requestNeedsReview(Request $request): bool
+    {
+        if ($this->requestFlag($request, 'needs_review')) {
+            return true;
+        }
+
+        $verified = $request->query('verified');
+
+        return scalar_text($verified) === '0' || $verified === 0;
     }
 
     /**
@@ -5855,7 +5867,7 @@ class SiteController extends Controller
                 if ($publisherId < 1) {
                     return ['ids' => [], 'total' => 0];
                 }
-                $needsReviewOnly = $request->boolean('needs_review');
+                $needsReviewOnly = $this->requestFlag($request, 'needs_review');
                 $focusSiteId = $this->canonicalStaffId(trim(scalar_text($request->input('site', ''))));
                 $query = Site::query()
                     ->where('publisher_id', $publisherId)
@@ -5876,13 +5888,13 @@ class SiteController extends Controller
                         }
                     });
                 $this->applyStaffSitesListSort($query, (string) ($filters['sort'] ?? ''), 'newest', $focusSiteId);
-            } elseif ($request->boolean('waiting_on_publisher')) {
+            } elseif ($this->requestFlag($request, 'waiting_on_publisher')) {
                 $stage = ($filters['waiting_stage'] ?? '') !== '' ? $filters['waiting_stage'] : null;
                 $query = MarketingOpsQueues::sitesWaitingOnPublisher($stage);
                 $this->applyStaffIndexSiteOrPublisherSearch($query, $search);
                 $this->applyStaffSitesListFilters($query, $filters);
                 $this->applyStaffSitesListSort($query, (string) ($filters['sort'] ?? ''), 'oldest');
-            } elseif ($request->boolean('needs_review')) {
+            } elseif ($this->requestFlag($request, 'needs_review')) {
                 $query = MarketingOpsQueues::sitesReadyForStaff();
                 $this->applyStaffIndexSiteOrPublisherSearch($query, $search);
                 $this->applyStaffSitesListFilters($query, $filters);
