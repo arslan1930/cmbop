@@ -105,6 +105,8 @@ Admin → Promotions (notices, banners, welcome bonus, feature credits):
 [`docs/admin-promotions.md`](docs/admin-promotions.md).
 Admin → Moderation (policy, scan queue, test scan):
 [`docs/admin-moderation.md`](docs/admin-moderation.md).
+Admin → Content Library (article desk, overrides, archive):
+[`docs/admin-content-library.md`](docs/admin-content-library.md).
 
 ### Durable media (Hostinger)
 Public uploads use the `public` disk (`/storage/...`). Leave `MEDIA_PATH` empty

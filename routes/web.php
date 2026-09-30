@@ -1595,6 +1595,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/content-library/bulk-archive', [AdminContentLibraryController::class, 'bulkArchive'])
             ->middleware('throttle:10,1')
             ->name('content-library.bulk-archive');
+        Route::post('/content-library/bulk-restore', [AdminContentLibraryController::class, 'bulkRestore'])
+            ->middleware('throttle:10,1')
+            ->name('content-library.bulk-restore');
         Route::get('/content-library/{submission}', [AdminContentLibraryController::class, 'show'])->name('content-library.show');
         Route::get('/content-library/{submission}/download', [AdminContentLibraryController::class, 'download'])->name('content-library.download');
         Route::post('/content-library/{submission}/retry', [AdminContentLibraryController::class, 'retry'])

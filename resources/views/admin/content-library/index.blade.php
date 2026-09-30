@@ -5,16 +5,16 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
             <h1 class="h3 mb-1">Content Library</h1>
-            <p class="text-muted mb-0">Browse advertiser articles across the marketplace.</p>
+            <p class="text-muted mb-0">Advertiser articles. Policy and scan logs live under Moderation.</p>
         </div>
         <a href="{{ route('admin.moderation.index') }}" class="btn btn-outline-secondary btn-sm">
-            Moderation settings
+            Policy &amp; scans
         </a>
     </div>
 
     <div class="card border-0 shadow-sm mb-3 admin-deposits-filter-card">
     <div class="card-body">
-    <form method="GET" action="{{ route('admin.content-library.index') }}" id="adminLibraryFilterForm" class="admin-deposits-filters admin-orders-filters">
+    <form method="GET" action="{{ route('admin.content-library.index') }}" id="adminLibraryFilterForm" class="admin-deposits-filters admin-orders-filters"@if(!empty($liveSearchEnabled)) data-admin-filter-live="1"@endif>
         <div class="admin-orders-filters__grid">
         @if($userId)
             <input type="hidden" name="user_id" value="{{ $userId }}">
@@ -55,6 +55,29 @@
                 <option value="uniqueness" @selected(($sort ?? '') === 'uniqueness')>Uniqueness</option>
                 <option value="quality" @selected(($sort ?? '') === 'quality')>Quality</option>
             </select>
+        </div>
+        <div>
+            <label class="form-label" for="adminLibraryAttachment">On an order</label>
+            <select name="attachment" id="adminLibraryAttachment" class="form-select">
+                <option value="" @selected(($attachment ?? '') === '')>Any</option>
+                <option value="order" @selected(($attachment ?? '') === 'order')>On an order</option>
+                <option value="none" @selected(($attachment ?? '') === 'none')>Unattached</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label" for="adminLibraryExpiring">Expiry</label>
+            <select name="expiring" id="adminLibraryExpiring" class="form-select">
+                <option value="" @selected(($expiring ?? '') === '')>Any</option>
+                <option value="soon" @selected(($expiring ?? '') === 'soon')>Expires in 14 days</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label" for="adminLibraryFrom">Uploaded from</label>
+            <input type="date" name="from" id="adminLibraryFrom" class="form-control" value="{{ $from ?? '' }}">
+        </div>
+        <div>
+            <label class="form-label" for="adminLibraryTo">Uploaded to</label>
+            <input type="date" name="to" id="adminLibraryTo" class="form-control" value="{{ $to ?? '' }}">
         </div>
         <div class="admin-deposits-filters__actions admin-orders-filters__actions">
             <div class="d-flex flex-wrap gap-2">
