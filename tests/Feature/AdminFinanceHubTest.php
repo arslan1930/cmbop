@@ -1184,16 +1184,14 @@ class AdminFinanceHubTest extends TestCase
 
         $this->assertStringContainsString('finance-ledger-filters', $html);
         $this->assertStringContainsString('finance-ledger-filters__action', $html);
-        $this->assertStringContainsString('row g-3 align-items-end', $html);
-        $this->assertStringContainsString('for="adminFinanceLedgerFilter"', $html);
+        $this->assertStringContainsString('admin-orders-filters__grid', $html);
         $this->assertStringContainsString('id="adminFinanceLedgerFilter"', $html);
         $this->assertStringContainsString('for="adminFinanceLedgerSearch"', $html);
-        $this->assertStringContainsString('form-label small text-muted mb-1', $html);
 
         $blade = (string) file_get_contents(resource_path('views/admin/finance-ledger.blade.php'));
         $this->assertStringNotContainsString('col-md-1', $blade);
         $this->assertStringNotContainsString('col-md-3', $blade);
-        $this->assertStringContainsString('col-lg-auto finance-ledger-filters__action', $blade);
+        $this->assertStringContainsString('admin-orders-filters__actions finance-ledger-filters__action', $blade);
 
         $css = (string) file_get_contents(public_path('assets/css/admin-components.css'));
         $this->assertStringContainsString('.finance-ledger-filters .slb-search-status:empty', $css);

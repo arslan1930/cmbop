@@ -7,6 +7,7 @@
         'title' => 'Admin Dashboard',
         'subtitle' => 'Platform overview, money flow, and items that need your attention.',
     ])
+    <div class="small text-muted mb-3" id="dashboardUpdated" hidden></div>
 
     {{-- Moderation being off changes nothing visible anywhere else: articles are
          approved, orders go through, and the scan log fills with passes. Nobody
@@ -67,16 +68,17 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'all']) }}">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body">
-                    <div class="text-muted small">GMV (paid orders)</div>
+                    <div class="text-muted small">GMV this month</div>
                     <div class="d-flex align-items-end justify-content-between">
                         <h3 class="mb-0" id="kpiRevenue">—</h3>
-                        <span class="badge bg-success-subtle text-success" id="kpiRevenue7d">last 7 days</span>
+                        <span class="badge bg-success-subtle text-success" id="kpiRevenuePrev">Last month —</span>
                     </div>
                     <div class="small text-muted mt-2">
-                        All-time euro order totals · <span id="kpiPaidOrders">0</span> paid
+                        Paid date · <span id="kpiPaidOrders">0</span> paid this month
                     </div>
+                    <div class="small text-muted" id="kpiRevenueAllTime">All time: —</div>
                 </div>
             </div>
         </div>
@@ -102,28 +104,9 @@
                         <h3 class="mb-0" id="kpiAttention">—</h3>
                         <span class="badge bg-danger-subtle text-danger">Action queue</span>
                     </div>
-                    <div class="small text-muted mt-2">
-                        <span id="kpiDeposits">0</span> deposits ·
-                        <span id="kpiWithdrawals">0</span> withdrawals ·
-                        <span id="kpiPayments">0</span> unpaid ·
-                        <span id="kpiSitesReview">0</span> sites ·
-                        <span id="kpiCommunity">0</span> community ·
-                        <span id="kpiDisputes">0</span> disputes ·
-                        <span id="kpiStalled">0</span> stalled
-                    </div>
-                    <div class="small text-muted mt-1">
-                        <span id="kpiBulk">0</span> bulk ·
-                        <span id="kpiMail">0</span> mail ·
-                        <span id="kpiModeration">0</span> scans ·
-                        <span id="kpiEnrichment">0</span> enrichment ·
-                        <span id="kpiCatalogHide">0</span> hide-mode
-                    </div>
-                    <div class="small text-muted mt-1">
-                        <span id="kpiMissingTax">0</span> invoices ·
-                        <span id="kpiMissingPdf">0</span> PDFs ·
-                        <span id="kpiLibrary">0</span> articles ·
-                        <span id="kpiCampaigns">0</span> campaigns
-                    </div>
+                    <ul class="list-unstyled mb-0 mt-2 small" id="kpiAttentionList">
+                        <li class="text-muted">Loading…</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -141,7 +124,7 @@
                 <div class="card-body py-3">
                     <div class="text-muted small">Due to pay now</div>
                     <div class="fs-4 fw-semibold text-danger" id="financeDueNow">—</div>
-                    <div class="small text-muted">Open withdrawal requests · <a href="{{ route('admin.withdrawals', ['queue' => 'open']) }}" class="link-secondary">Payout queue</a></div>
+                    <div class="small text-muted"><span id="financeDueCount">0</span> open requests · <a href="{{ route('admin.withdrawals', ['queue' => 'open']) }}" class="link-secondary">Payout queue</a></div>
                 </div>
             </div>
         </div>
@@ -168,8 +151,85 @@
                 <div class="card-body py-3">
                     <div class="text-muted small">Fee margin (this month)</div>
                     <div class="fs-4 fw-semibold" id="financeMargin">—</div>
-                    <div class="small text-muted">Fees − fee reversals − bonuses</div>
+                    <div class="small text-muted">Fees − fee reversals − bonuses. Recognized completion.</div>
+                    <div class="small text-muted" id="financeMarginPrev">Last month: —</div>
+                    <div class="small text-muted" id="financeRefunds">Refunds this month: —</div>
                     <div class="small text-muted" id="financeCollected">Collected this month: —</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Advertiser wallets</div>
+                    <div class="fs-4 fw-semibold" id="financeAdvertiser">—</div>
+                    <div class="small text-muted" id="financeAdvertiserSplit">Cash, bonus, and reserved</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.payments', ['payment_status' => 'unpaid']) }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Unpaid orders</div>
+                    <div class="fs-4 fw-semibold" id="financeUnpaid">—</div>
+                    <div class="small text-muted"><span id="financeUnpaidCount">0</span> waiting for payment</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4" id="marketplaceHealth">
+        <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <strong class="text-muted small text-uppercase">Marketplace</strong>
+            <span class="small text-muted">People with both roles count in both signup figures.</span>
+        </div>
+        <div class="col-12 d-none" id="healthRetry"></div>
+        <div class="col-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index', ['role' => 'advertiser']) }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">New advertisers</div>
+                    <div class="fs-4 fw-semibold" id="healthAdvertisers">—</div>
+                    <div class="small text-muted">Last 7 days · <span id="healthAdvertisers30">0</span> in 30 days</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index', ['role' => 'publisher']) }}">
+                <div class="card-body py-3">
+                    <div class="text-muted small">New publishers</div>
+                    <div class="fs-4 fw-semibold" id="healthPublishers">—</div>
+                    <div class="small text-muted">Last 7 days · <span id="healthPublishers30">0</span> in 30 days</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="text-muted small">In progress</div>
+                    <div class="fs-4 fw-semibold" id="healthInProgress">—</div>
+                    <div class="small text-muted">
+                        <a id="healthPendingLink" href="{{ route('admin.orders.index', ['status' => 'pending', 'payment_status' => 'paid']) }}"><span id="healthPending">0</span> pending</a>
+                        ·
+                        <a id="healthProcessingLink" href="{{ route('admin.orders.index', ['status' => 'processing', 'payment_status' => 'paid']) }}"><span id="healthProcessing">0</span> processing</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="#stalledOrdersRow">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Stalled</div>
+                    <div class="fs-4 fw-semibold" id="healthStalled">—</div>
+                    <div class="small text-muted">Past the reminder cadence</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="text-muted small">Median time to publish</div>
+                    <div class="fs-4 fw-semibold" id="healthMedian">—</div>
+                    <div class="small text-muted">Accept to live link, last 30 days</div>
                 </div>
             </div>
         </div>
@@ -567,7 +627,8 @@
         <div class="col-lg-6">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0">
-                    <strong><i class="fa fa-shopping-cart me-2 text-info"></i>Orders by Status</strong>
+                    <strong><i class="fa fa-shopping-cart me-2 text-info"></i>Order pipeline</strong>
+                    <div class="small text-muted mt-1">Paid orders in progress, plus completions from the last 30 days.</div>
                 </div>
                 <div class="card-body d-flex justify-content-center">
                     <canvas id="orderStatusChart" style="max-height:260px;"></canvas>
@@ -608,48 +669,35 @@
                             </a>
                         </div>
                     </div>
-                    @php
-                        $promoStats = [
-                            'announcements_live' => 0,
-                            'banners_live' => 0,
-                            'banner_impressions' => 0,
-                            'banner_clicks' => 0,
-                        ];
-                        try {
-                            if (class_exists(\App\Services\PromotionService::class)
-                                && method_exists(\App\Services\PromotionService::class, 'dashboardStats')) {
-                                $loaded = app(\App\Services\PromotionService::class)->dashboardStats();
-                                if (is_array($loaded)) {
-                                    $promoStats = array_merge($promoStats, $loaded);
-                                }
-                            }
-                        } catch (\Throwable) {
-                            // Leftover Hostinger: missing promotions tables must not 500 the dashboard.
-                        }
-                    @endphp
                     <div class="row g-3 mt-2">
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md">
                             <div class="border rounded-3 p-3 h-100">
                                 <div class="small text-muted">Live announcements</div>
-                                <div class="fs-4 fw-semibold">{{ (int) ($promoStats['announcements_live'] ?? 0) }}</div>
+                                <div class="fs-4 fw-semibold" id="promoAnnouncements">—</div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md">
                             <div class="border rounded-3 p-3 h-100">
                                 <div class="small text-muted">Live banners</div>
-                                <div class="fs-4 fw-semibold">{{ (int) ($promoStats['banners_live'] ?? 0) }}</div>
+                                <div class="fs-4 fw-semibold" id="promoBanners">—</div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md">
                             <div class="border rounded-3 p-3 h-100">
-                                <div class="small text-muted">Banner impressions</div>
-                                <div class="fs-4 fw-semibold">{{ number_format((int) ($promoStats['banner_impressions'] ?? 0)) }}</div>
+                                <div class="small text-muted">Impressions, last 7 days</div>
+                                <div class="fs-4 fw-semibold" id="promoImpressions">—</div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md">
                             <div class="border rounded-3 p-3 h-100">
-                                <div class="small text-muted">Banner clicks</div>
-                                <div class="fs-4 fw-semibold">{{ number_format((int) ($promoStats['banner_clicks'] ?? 0)) }}</div>
+                                <div class="small text-muted">Clicks, last 7 days</div>
+                                <div class="fs-4 fw-semibold" id="promoClicks">—</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Click-through, last 7 days</div>
+                                <div class="fs-4 fw-semibold" id="promoCtr">—</div>
                             </div>
                         </div>
                     </div>
@@ -688,6 +736,9 @@ const queueTotalKeys = {
 let trendChart, signupChart, orderStatusChart, roleChart;
 let chartDays = 30;
 let trendDates = [];
+let statsInFlight = 0;
+let financeInFlight = 0;
+let healthInFlight = 0;
 
 function goWithQuery(path, params) {
     const url = new URL(path, window.location.origin);
@@ -703,23 +754,42 @@ function chartPointer(event, elements) {
 }
 
 function applyAttentionCounts(d) {
-    setText('kpiDeposits', num(d.pending_deposits));
-    setText('kpiWithdrawals', num(d.pending_withdrawals));
-    setText('kpiPayments', num(d.pending_payments));
-    setText('kpiSitesReview', num(d.unverified_sites));
-    setText('kpiCommunity', num(d.pending_community));
-    setText('kpiDisputes', num(d.open_disputes));
-    setText('kpiStalled', num(d.stalled_orders));
-    setText('kpiBulk', num(d.open_bulk_requests));
-    setText('kpiMail', num(d.failed_mail));
-    setText('kpiModeration', num(d.moderation_errors));
-    setText('kpiEnrichment', num(d.enrichment_failed));
-    setText('kpiCatalogHide', num(d.catalog_hide));
-    setText('kpiMissingTax', num(d.missing_tax_invoices));
-    setText('kpiMissingPdf', num(d.missing_pdf_invoices));
-    setText('kpiLibrary', num(d.library_evaluating));
-    setText('kpiCampaigns', num(d.campaigns_attention));
     setText('kpiAttention', num(d.needs_attention));
+    renderAttention(Array.isArray(d.attention) ? d.attention : []);
+}
+
+function renderAttention(items) {
+    const list = document.getElementById('kpiAttentionList');
+    if (!list) return;
+    if (!items.length) {
+        list.innerHTML = '<li class="text-muted">Nothing waiting.</li>';
+        return;
+    }
+    list.innerHTML = items.map((item) => {
+        const severity = item.severity === 'danger'
+            ? 'link-danger'
+            : (item.severity === 'warning' ? 'link-warning' : 'link-secondary');
+        const amount = item.amount == null ? '' : ' · ' + money(item.amount);
+        const href = item.url || '#dashboardActionQueues';
+        return `<li class="mb-1"><a href="${escapeHtml(href)}" class="${severity}">${escapeHtml(item.label || '')} · ${num(item.count)}${amount}</a></li>`;
+    }).join('');
+}
+
+function applyPromotions(p) {
+    const stats = p || {};
+    setText('promoAnnouncements', num(stats.announcements_live));
+    setText('promoBanners', num(stats.banners_live));
+    setText('promoImpressions', num(stats.banner_impressions_7d));
+    setText('promoClicks', num(stats.banner_clicks_7d));
+    setText('promoCtr', Number(stats.banner_ctr_7d || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + '%');
+}
+
+function markDashboardUpdated() {
+    const el = document.getElementById('dashboardUpdated');
+    if (!el) return;
+    const clock = new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    el.textContent = 'Updated ' + clock;
+    el.hidden = false;
 }
 
 function collectedLine(d) {
@@ -823,10 +893,13 @@ function setText(id, value) {
     if (el) el.textContent = value;
 }
 
-async function loadStatistics() {
+async function loadStatistics(options = {}) {
+    const quiet = options.quiet === true;
+    if (quiet && statsInFlight > 0) return;
+    statsInFlight++;
     const retryEl = document.getElementById('kpiRetry');
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.statistics') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.statistics') }}`, { silent: quiet });
         const d = json.data;
 
         setText('kpiUsers', num(d.total_users));
@@ -835,35 +908,90 @@ async function loadStatistics() {
         setText('kpiPublishers', num(d.publishers));
         setText('kpiAdmins', num(d.admins));
         setText('kpiMarketers', num(d.marketers));
-        setText('kpiRevenue', money(d.revenue));
-        setText('kpiRevenue7d', money(d.revenue_7d) + ' last 7 days');
-        setText('kpiPaidOrders', num(d.paid_orders));
+        setText('kpiRevenueAllTime', 'All time: ' + money(d.revenue));
         setText('kpiSites', num(d.total_sites));
         setText('kpiVerified', num(d.live_sites ?? d.verified_sites));
         setText('kpiUnverified', num(d.unverified_sites) + ' in review');
         applyAttentionCounts(d);
+        applyPromotions(d.promotions);
         hideRetry(retryEl);
+        markDashboardUpdated();
     } catch (err) {
         showRetry(retryEl, 'loadStatistics');
-        throw err;
+        if (!quiet) throw err;
+    } finally {
+        statsInFlight--;
     }
 }
 
-async function loadFinanceStrip() {
+async function loadFinanceStrip(options = {}) {
+    const quiet = options.quiet === true;
+    if (quiet && financeInFlight > 0) return;
+    financeInFlight++;
     const retryEl = document.getElementById('financeRetry');
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.finance') }}`);
+        const json = await dashboardFetch(`{{ route('admin.dashboard.finance') }}`, { silent: quiet });
         const d = json.data;
         document.getElementById('financePeriod').textContent = d.period_label ? '· ' + d.period_label : '';
         document.getElementById('financeDueNow').textContent = money(d.due_to_pay_now);
+        setText('financeDueCount', num(d.open_withdrawals_count));
         document.getElementById('financeInWallets').textContent = money(d.in_publisher_wallets);
         document.getElementById('financeLiability').textContent = money(d.total_publisher_liability);
         document.getElementById('financeMargin').textContent = money(d.margin);
+        setText('financeMarginPrev', (d.previous_period_label || 'Last month') + ': ' + money(d.margin_previous));
+        setText('financeRefunds', 'Refunds this month: ' + money(d.refunds));
         setText('financeCollected', collectedLine(d));
+        const advertiserTotal = Number(d.advertiser_cash || 0) + Number(d.advertiser_bonus || 0) + Number(d.advertiser_reserved || 0);
+        setText('financeAdvertiser', money(advertiserTotal));
+        setText('financeAdvertiserSplit', 'Cash ' + money(d.advertiser_cash) + ' · bonus ' + money(d.advertiser_bonus) + ' · reserved ' + money(d.advertiser_reserved));
+        setText('financeUnpaid', money(d.unpaid_orders_amount));
+        setText('financeUnpaidCount', num(d.unpaid_orders_count));
+        setText('kpiRevenue', money(d.gmv));
+        setText('kpiRevenuePrev', (d.previous_period_label || 'Last month') + ' ' + money(d.gmv_previous));
+        setText('kpiPaidOrders', num(d.gmv_orders));
         hideRetry(retryEl);
+        markDashboardUpdated();
     } catch (err) {
         showRetry(retryEl, 'loadFinanceStrip');
-        throw err;
+        if (!quiet) throw err;
+    } finally {
+        financeInFlight--;
+    }
+}
+
+function formatHours(value) {
+    if (value == null || value === '') return '—';
+    const hours = Number(value);
+    if (!Number.isFinite(hours)) return '—';
+    if (hours >= 48) {
+        return (hours / 24).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' days';
+    }
+    return hours.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' hours';
+}
+
+async function loadMarketplaceHealth(options = {}) {
+    const quiet = options.quiet === true;
+    if (quiet && healthInFlight > 0) return;
+    healthInFlight++;
+    const retryEl = document.getElementById('healthRetry');
+    try {
+        const json = await dashboardFetch(`{{ route('admin.dashboard.health') }}`, { silent: quiet });
+        const d = json.data;
+        setText('healthAdvertisers', num(d.advertisers_7d));
+        setText('healthAdvertisers30', num(d.advertisers_30d));
+        setText('healthPublishers', num(d.publishers_7d));
+        setText('healthPublishers30', num(d.publishers_30d));
+        setText('healthPending', num(d.orders_pending));
+        setText('healthProcessing', num(d.orders_processing));
+        setText('healthInProgress', num(Number(d.orders_pending || 0) + Number(d.orders_processing || 0)));
+        setText('healthStalled', num(d.stalled_orders));
+        setText('healthMedian', formatHours(d.median_hours_to_publish));
+        hideRetry(retryEl);
+    } catch (err) {
+        showRetry(retryEl, 'loadMarketplaceHealth');
+        if (!quiet) throw err;
+    } finally {
+        healthInFlight--;
     }
 }
 
@@ -905,6 +1033,28 @@ async function loadTrends() {
                         fill: false,
                         tension: 0.35,
                         yAxisID: 'y1'
+                    },
+                    {
+                        label: json.comparison_label || 'Previous period',
+                        data: json.previous_revenue || [],
+                        borderColor: '#94a3b8',
+                        borderDash: [4, 4],
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: (json.comparison_label || 'Previous period') + ' orders',
+                        data: json.previous_orders || [],
+                        borderColor: '#cbd5e1',
+                        borderDash: [4, 4],
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        yAxisID: 'y1'
                     }
                 ]
             },
@@ -928,16 +1078,30 @@ async function loadTrends() {
             type: 'bar',
             data: {
                 labels: json.labels,
-                datasets: [{
-                    label: 'New users',
-                    data: json.signups,
-                    backgroundColor: 'rgba(26, 88, 94, 0.75)',
-                    borderRadius: 4
-                }]
+                datasets: [
+                    {
+                        label: 'Advertisers',
+                        data: json.signups_advertisers || json.signups,
+                        backgroundColor: 'rgba(26, 88, 94, 0.85)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Publishers',
+                        data: json.signups_publishers || [],
+                        backgroundColor: 'rgba(14, 165, 233, 0.75)',
+                        borderRadius: 4
+                    }
+                ]
             },
             options: {
                 ...commonOpts,
-                plugins: { legend: { display: false } }
+                plugins: { legend: { display: true, position: 'bottom' } },
+                onClick(event, elements) {
+                    if (!elements.length) return;
+                    const role = elements[0].datasetIndex === 1 ? 'publisher' : 'advertiser';
+                    goWithQuery(usersIndexUrl, { role });
+                },
+                onHover: chartPointer,
             }
         });
         retryEls.forEach(hideRetry);
@@ -1447,6 +1611,7 @@ document.addEventListener('click', async (e) => {
 const dashboardLoaders = {
     loadStatistics,
     loadFinanceStrip,
+    loadMarketplaceHealth,
     loadTrends,
     loadDistributions,
     loadActionQueue,
@@ -1518,9 +1683,12 @@ window.refreshAdminDashboardQueues = function (counts) {
         applyAttentionCounts(counts);
     }
     loadActionQueue({ quiet: true }).catch(err => console.error('Dashboard queue refresh failed', err));
+    loadStatistics({ quiet: true }).catch(err => console.error('Dashboard statistics refresh failed', err));
+    loadFinanceStrip({ quiet: true }).catch(err => console.error('Dashboard finance refresh failed', err));
+    loadMarketplaceHealth({ quiet: true }).catch(err => console.error('Dashboard health refresh failed', err));
 };
 
-Promise.all([loadStatistics(), loadFinanceStrip(), loadTrends(), loadDistributions(), loadActionQueue(), loadStalledOrders()])
+Promise.all([loadStatistics(), loadFinanceStrip(), loadMarketplaceHealth(), loadTrends(), loadDistributions(), loadActionQueue(), loadStalledOrders()])
     .catch(err => console.error('Dashboard load failed', err));
 </script>
 @endsection

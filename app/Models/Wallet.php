@@ -39,14 +39,35 @@ class Wallet extends Model
 
     /**
      * PHPUnit creates wallets with explicit balances. Production fill() does not.
+     * fillableFromArray drops keys that are absent from $fillable before isFillable runs,
+     * so the test allowance has to happen in both places.
      */
     public function isFillable($key)
     {
-        if (app()->runningUnitTests() && in_array($key, self::MONEY_ATTRIBUTES, true)) {
+        if ($this->testsMayAssignMoney($key)) {
             return true;
         }
 
         return parent::isFillable($key);
+    }
+
+    protected function fillableFromArray(array $attributes)
+    {
+        $fillable = parent::fillableFromArray($attributes);
+
+        if (! app()->runningUnitTests()) {
+            return $fillable;
+        }
+
+        return array_merge(
+            $fillable,
+            array_intersect_key($attributes, array_flip(self::MONEY_ATTRIBUTES))
+        );
+    }
+
+    private function testsMayAssignMoney(string $key): bool
+    {
+        return app()->runningUnitTests() && in_array($key, self::MONEY_ATTRIBUTES, true);
     }
 
     protected $casts = [

@@ -13,6 +13,7 @@ use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\OrderPaymentService;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -21,7 +22,7 @@ class FinanceOverviewService
     /**
      * Same completed-deposit window the overview total uses.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<DepositRequest>  $query
+     * @param  Builder<DepositRequest>  $query
      */
     public function applyDepositCompletedWindow($query, ?string $from, ?string $to): void
     {
@@ -32,7 +33,7 @@ class FinanceOverviewService
     /**
      * Same paid-withdrawal window the overview total uses.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<Withdrawal>  $query
+     * @param  Builder<Withdrawal>  $query
      */
     public function applyWithdrawalPaidWindow($query, ?string $from, ?string $to): void
     {
@@ -43,7 +44,7 @@ class FinanceOverviewService
     /**
      * Same completed-GMV window the overview total uses, including later refunds.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<Order>  $query
+     * @param  Builder<Order>  $query
      */
     public function applyGmvWindow($query, ?string $from, ?string $to): void
     {
@@ -54,7 +55,7 @@ class FinanceOverviewService
     /**
      * Same created_at window the overview uses for bonuses issued.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\WalletTransaction>  $query
+     * @param  Builder<WalletTransaction>  $query
      */
     public function applyLedgerCreatedWindow($query, ?string $from, ?string $to): void
     {
@@ -323,7 +324,7 @@ class FinanceOverviewService
         $pendingAmount = 0.0;
         $userMarkedPaidCount = 0;
         $userMarkedPaidAmount = 0.0;
-        if (DepositRequest::tableAvailable()) {
+        if (DepositRequest::tableAvailable() && $this->depositsHaveColumn('status')) {
             $pendingDeposits = DepositRequest::where('status', 'pending');
             $pendingCount = (clone $pendingDeposits)->count();
             $pendingAmount = (float) (clone $pendingDeposits)->sum('amount');
@@ -579,7 +580,7 @@ class FinanceOverviewService
      */
     public function moneyIn(?Carbon $start, Carbon $end): array
     {
-        $depositsCompleted = DepositRequest::tableAvailable()
+        $depositsCompleted = DepositRequest::tableAvailable() && $this->depositsHaveColumn('status')
             ? DepositRequest::where('status', 'completed')
             : null;
         if ($depositsCompleted) {
@@ -688,8 +689,8 @@ class FinanceOverviewService
      * Deposits with no charge currency count as euros. Orders and featured placements
      * with no stored charge are counted as not recorded.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<DepositRequest>|null  $depositsCompleted
-     * @param  \Illuminate\Database\Eloquent\Builder<Order>  $paidOrders
+     * @param  Builder<DepositRequest>|null  $depositsCompleted
+     * @param  Builder<Order>  $paidOrders
      * @return array{by_currency: array<string, array{card: float, paypal: float, other: float}>, orders_not_recorded: int, features_not_recorded: int}
      */
     private function collectedByCurrency($depositsCompleted, $paidOrders, ?Carbon $start, Carbon $end): array
@@ -781,7 +782,7 @@ class FinanceOverviewService
      */
     private function pendingDepositCharges(): array
     {
-        if (! DepositRequest::tableAvailable() || ! $this->depositsHaveColumn('charge_currency') || ! $this->depositsHaveColumn('charge_amount')) {
+        if (! DepositRequest::tableAvailable() || ! $this->depositsHaveColumn('status') || ! $this->depositsHaveColumn('charge_currency') || ! $this->depositsHaveColumn('charge_amount')) {
             return [];
         }
 

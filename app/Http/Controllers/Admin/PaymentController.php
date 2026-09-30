@@ -43,6 +43,13 @@ class PaymentController extends Controller
     private array $deferredPaymentSideEffects = [];
 
     /**
+     * batchMarkPaid wraps each row in one outer transaction. Bells and mail
+     * wait until that commit. A lone status update must not wait: PHPUnit
+     * (and any other outer transaction) never reaches the batch flush.
+     */
+    private bool $batchDefersSideEffects = false;
+
+    /**
      * Display payments list page
      */
     public function index()
@@ -525,7 +532,7 @@ class PaymentController extends Controller
                     }
                 }
             };
-            if (DB::transactionLevel() > 0) {
+            if ($this->batchDefersSideEffects) {
                 $this->deferredPaymentSideEffects[] = $effect;
             } else {
                 $effect();
@@ -1172,6 +1179,7 @@ class PaymentController extends Controller
         }
 
         $marked = 0;
+        $this->batchDefersSideEffects = true;
         DB::beginTransaction();
         try {
             foreach ($ids as $id) {
@@ -1227,6 +1235,8 @@ class PaymentController extends Controller
                 'success' => false,
                 'message' => 'Payments were marked paid, but a follow-up invoice or email step failed.',
             ], 500);
+        } finally {
+            $this->batchDefersSideEffects = false;
         }
 
         $this->flushDeferredPaymentSideEffects();

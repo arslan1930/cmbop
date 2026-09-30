@@ -51,11 +51,20 @@ class AdminDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('Admin Dashboard')
             ->assertSee('Needs Attention')
-            ->assertSee('GMV (paid orders)')
+            ->assertSee('GMV this month')
             ->assertSee('in review')
             ->assertSee('live in catalog')
-            ->assertSee('All-time euro order totals')
-            ->assertSee('last 7 days')
+            ->assertSee('Paid date')
+            ->assertSee('All time:')
+            ->assertSee('Last month')
+            ->assertSee('Advertiser wallets')
+            ->assertSee('Unpaid orders')
+            ->assertSee('New advertisers')
+            ->assertSee('Median time to publish')
+            ->assertSee('Order pipeline')
+            ->assertSee('Click-through, last 7 days')
+            ->assertSee('loadMarketplaceHealth')
+            ->assertSee('previous_revenue')
             ->assertSee('Collected this month')
             ->assertSee('Rolling paid-order euros by paid date')
             ->assertSee('Missing tax invoices')
@@ -63,7 +72,7 @@ class AdminDashboardTest extends TestCase
             ->assertSee('refreshAdminDashboardQueues')
             ->assertSee('data-queue-meta="deposits"', false)
             ->assertSee(route('admin.finance', ['period' => 'month']), false)
-            ->assertSee(route('admin.finance', ['period' => 'all']), false)
+            ->assertSee(route('admin.dashboard.health'), false)
             ->assertSee(route('admin.invoices.index', ['queue' => 'missing']), false)
             ->assertSee(route('admin.invoices.index', ['pdf' => 'missing']), false)
             ->assertSee(route('admin.content-library.index', ['availability' => 'evaluating']), false)
@@ -93,8 +102,8 @@ class AdminDashboardTest extends TestCase
             ->assertSee('Enrichment failed')
             ->assertSee(route('admin.payments', ['payment_status' => 'unpaid']), false)
             ->assertSee(route('admin.orders.index', ['dispute' => 'open']), false)
-            ->assertSee('unpaid ·')
-            ->assertSee('community ·')
+            ->assertSee('id="kpiAttentionList"', false)
+            ->assertSee('renderAttention')
             ->assertSee('disputes')
             ->assertSee(route('admin.community.index', ['status' => 'pending']), false)
             ->assertSee(route('admin.site-enrichment.index'), false)
@@ -104,12 +113,13 @@ class AdminDashboardTest extends TestCase
             ->assertSee('All accounts. Role counts can overlap.')
             ->assertSee('kpiAdmins')
             ->assertSee('kpiMarketers')
-            ->assertSee('kpiStalled')
-            ->assertSee('kpiBulk')
-            ->assertSee('kpiMail')
-            ->assertSee('kpiModeration')
-            ->assertSee('kpiEnrichment')
-            ->assertSee('kpiCatalogHide')
+            ->assertSee('id="healthStalled"', false)
+            ->assertSee('id="healthInProgress"', false)
+            ->assertSee('id="financeAdvertiser"', false)
+            ->assertSee('id="financeUnpaid"', false)
+            ->assertSee('id="promoCtr"', false)
+            ->assertSee('id="dashboardUpdated"', false)
+            ->assertSee('loadStatistics({ quiet: true })', false)
             ->assertSee("row.classList.add('d-none')", false)
             ->assertSee('setQueuePanel')
             ->assertSee('setText')
@@ -198,7 +208,11 @@ class AdminDashboardTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonCount(30, 'labels')
-            ->assertJsonCount(30, 'revenue');
+            ->assertJsonCount(30, 'revenue')
+            ->assertJsonCount(30, 'previous_revenue')
+            ->assertJsonCount(30, 'signups_advertisers')
+            ->assertJsonCount(30, 'signups_publishers')
+            ->assertJsonPath('comparison_label', 'Previous 30 days');
 
         $this->actingAs($admin)
             ->getJson(route('admin.dashboard.trends', ['days' => 7]))
@@ -221,7 +235,9 @@ class AdminDashboardTest extends TestCase
             ->getJson(route('admin.dashboard.distributions'))
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonStructure(['orders' => ['labels', 'values'], 'roles' => ['labels', 'values']]);
+            ->assertJsonStructure(['orders' => ['labels', 'values', 'keys'], 'roles' => ['labels', 'values']])
+            ->assertJsonPath('orders.keys', ['pending', 'processing', 'completed'])
+            ->assertJsonPath('orders.labels.2', 'Completed (30 days)');
 
         $this->actingAs($admin)
             ->getJson(route('admin.dashboard.action-queue'))
@@ -537,6 +553,13 @@ class AdminDashboardTest extends TestCase
         $this->assertEquals($overview['in_publisher_wallets'], $json['in_publisher_wallets']);
         $this->assertEquals($overview['total_publisher_liability'], $json['total_publisher_liability']);
         $this->assertEquals($overview['platform']['margin'], $json['margin']);
+        $this->assertEquals($overview['money_in']['orders_paid']['gmv'], $json['gmv']);
+        $this->assertEquals($overview['ops']['unpaid_orders']['amount'], $json['unpaid_orders_amount']);
+        $this->assertEquals($overview['ops']['open_withdrawals']['amount'], $json['open_withdrawals_amount']);
+        $this->assertEquals($overview['liability']['advertiser']['cash'], $json['advertiser_cash']);
+        $this->assertEquals($overview['platform']['refunds'], $json['refunds']);
+        $this->assertSame('Last month', $json['previous_period_label']);
+        $this->assertSame('Paid date', $json['gmv_clock']);
     }
 
     public function test_action_queue_includes_unpaid_disputes_community_and_enrichment(): void
@@ -967,5 +990,140 @@ class AdminDashboardTest extends TestCase
 
         $this->assertNotEmpty($queue['bulk'][0]['age'] ?? null);
         $this->assertStringContainsString('SMTP', (string) ($queue['mail'][0]['label'] ?? ''));
+    }
+
+    public function test_month_gmv_attention_rank_and_marketplace_health(): void
+    {
+        $admin = $this->makeAdmin();
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $advertiser = User::factory()->create([
+            'active_role_id' => $advertiserRole->id,
+            'email_verified_at' => now(),
+        ]);
+        $advertiser->roles()->attach($advertiserRole->id);
+        $publisher = User::factory()->create([
+            'active_role_id' => $publisherRole->id,
+            'email_verified_at' => now(),
+        ]);
+        $publisher->roles()->attach($publisherRole->id);
+
+        Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-MONTH-NOW',
+            'reference_code' => 'REF-MONTH-NOW',
+            'subtotal' => 80,
+            'tax' => 0,
+            'total_amount' => 80,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'processing',
+            'paid_at' => now()->subDay(),
+        ]);
+        Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-MONTH-PREV',
+            'reference_code' => 'REF-MONTH-PREV',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+            'paid_at' => now()->subMonthNoOverflow()->startOfMonth()->addDay(),
+            'completed_at' => now()->subMonthNoOverflow()->startOfMonth()->addDays(2),
+        ]);
+
+        Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 15,
+            'fee' => 0,
+            'net_amount' => 15,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'a@b.com'],
+            'status' => 'pending',
+        ]);
+
+        $finance = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.finance'))
+            ->assertOk()
+            ->json('data');
+        $this->assertEquals(80, $finance['gmv']);
+        $this->assertSame(1, $finance['gmv_orders']);
+        $this->assertEquals(40, $finance['gmv_previous']);
+        $this->assertEquals(15, $finance['open_withdrawals_amount']);
+
+        $attention = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->json('attention');
+        $this->assertSame('withdrawals', $attention[0]['key']);
+        $this->assertSame('danger', $attention[0]['severity']);
+        $this->assertEquals(15, $attention[0]['amount']);
+        $this->assertSame(route('admin.withdrawals', ['queue' => 'open']), $attention[0]['url']);
+
+        $site = Site::create([
+            'publisher_id' => $publisher->id,
+            'site_name' => 'Published in time',
+            'site_url' => 'https://published-in-time.example',
+            'domain' => 'published-in-time.example',
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'us',
+            'language' => 'en',
+            'category' => 'marketing',
+            'price' => 40,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Median fixture',
+            'verified' => 1,
+            'active' => 1,
+        ]);
+        $published = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-MEDIAN',
+            'reference_code' => 'REF-MEDIAN',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+            'paid_at' => now()->subHours(12),
+            'completed_at' => now()->subHours(2),
+        ]);
+        OrderItem::create([
+            'order_id' => $published->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 40,
+            'publisher_price' => 30,
+            'content_link' => 'https://example.com/article',
+            'live_url' => 'https://published-in-time.example/post',
+            'accepted_at' => now()->subHours(10),
+            'live_url_submitted_at' => now()->subHours(2),
+        ]);
+
+        $health = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.health'))
+            ->assertOk()
+            ->assertJsonPath('data.advertisers_7d', 1)
+            ->assertJsonPath('data.publishers_7d', 1)
+            ->assertJsonPath('data.orders_processing', 1)
+            ->assertJsonPath('data.orders_pending', 0)
+            ->assertJsonPath('data.orders_completed_30d', 1)
+            ->json('data');
+
+        $this->assertEquals(8, $health['median_hours_to_publish']);
+        $this->assertSame(route('admin.users.index', ['role' => 'advertiser']), $health['advertisers_url']);
+
+        $stats = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.statistics'))
+            ->assertOk()
+            ->json('data');
+        $this->assertSame('withdrawals', $stats['attention'][0]['key']);
+        $this->assertArrayHasKey('banner_ctr_7d', $stats['promotions']);
     }
 }

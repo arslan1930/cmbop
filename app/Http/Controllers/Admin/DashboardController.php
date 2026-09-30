@@ -148,6 +148,26 @@ class DashboardController extends Controller
     }
 
     /**
+     * Supply, in-flight orders, and time-to-publish (AJAX). Not cached.
+     */
+    public function getMarketplaceHealth()
+    {
+        try {
+            return response()->json([
+                'success' => true,
+                'data' => $this->metrics->marketplaceHealth(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Admin dashboard marketplace health error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Failed to load marketplace health'),
+            ], 500);
+        }
+    }
+
+    /**
      * Items that need admin attention (AJAX)
      */
     public function getActionQueue()

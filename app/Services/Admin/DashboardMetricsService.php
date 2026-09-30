@@ -8,6 +8,7 @@ use App\Models\ContentSubmission;
 use App\Models\DepositRequest;
 use App\Models\EmailCampaign;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\ProblemReport;
 use App\Models\Role;
@@ -19,6 +20,7 @@ use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Models\Withdrawal;
 use App\Services\Billing\InvoiceRepairQueue;
+use App\Services\PromotionService;
 use App\Services\Reminders\StalledOrderQueue;
 use App\Services\Wallet\ManualDepositApproveLink;
 use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
@@ -86,6 +88,7 @@ class DashboardMetricsService
             'library_evaluating' => $queues['library_evaluating'],
             'campaigns_attention' => $queues['campaigns_attention'],
             'needs_attention' => $queues['needs_attention'],
+            'attention' => $queues['attention'],
             'new_users_7d' => $this->safeInt(fn () => User::where('created_at', '>=', now()->subDays(7))->count()),
             'orders_7d' => $this->safeInt(fn () => Order::where('payment_status', 'paid')
                 ->whereRaw($this->paidAtSql().' >= ?', [now()->subDays(7)])
@@ -93,6 +96,7 @@ class DashboardMetricsService
             'revenue_7d' => $this->safeFloat(fn () => Order::where('payment_status', 'paid')
                 ->whereRaw($this->paidAtSql().' >= ?', [now()->subDays(7)])
                 ->sum('total_amount')),
+            'promotions' => $this->promotionSnapshot(),
         ];
     }
 
@@ -108,55 +112,35 @@ class DashboardMetricsService
     {
         $days = min(90, max(7, $days));
         $start = now()->subDays($days - 1)->startOfDay();
+        $previousStart = $start->copy()->subDays($days);
         $paidAt = $this->paidAtSql();
 
         $labels = [];
+        $previousDates = [];
         for ($i = 0; $i < $days; $i++) {
             $labels[] = $start->copy()->addDays($i)->format('Y-m-d');
+            $previousDates[] = $previousStart->copy()->addDays($i)->format('Y-m-d');
         }
 
-        $revenueRows = $this->safeKeyedRows(function () use ($paidAt, $start) {
-            return Order::where('payment_status', 'paid')
-                ->whereRaw($paidAt.' >= ?', [$start])
-                ->selectRaw('DATE('.$paidAt.') as day, SUM(total_amount) as total')
-                ->groupBy('day')
-                ->pluck('total', 'day');
-        });
-
-        $signupRows = $this->safeKeyedRows(function () use ($start) {
-            return User::where('created_at', '>=', $start)
-                ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
-                ->groupBy('day')
-                ->pluck('total', 'day');
-        });
-
-        $orderRows = $this->safeKeyedRows(function () use ($paidAt, $start) {
-            return Order::where('payment_status', 'paid')
-                ->whereRaw($paidAt.' >= ?', [$start])
-                ->selectRaw('DATE('.$paidAt.') as day, COUNT(*) as total')
-                ->groupBy('day')
-                ->pluck('total', 'day');
-        });
-
-        $revenueByDay = $this->indexByDay($revenueRows);
-        $signupsByDay = $this->indexByDay($signupRows);
-        $ordersByDay = $this->indexByDay($orderRows);
-
-        $revenue = [];
-        $signups = [];
-        $orders = [];
-        foreach ($labels as $day) {
-            $revenue[] = (float) ($revenueByDay[$day] ?? 0);
-            $signups[] = (int) ($signupsByDay[$day] ?? 0);
-            $orders[] = (int) ($ordersByDay[$day] ?? 0);
-        }
+        $revenueByDay = $this->indexByDay($this->paidAmountSeries($paidAt, $start, null));
+        $previousRevenueByDay = $this->indexByDay($this->paidAmountSeries($paidAt, $previousStart, $start));
+        $ordersByDay = $this->indexByDay($this->paidCountSeries($paidAt, $start, null));
+        $previousOrdersByDay = $this->indexByDay($this->paidCountSeries($paidAt, $previousStart, $start));
+        $signupsByDay = $this->indexByDay($this->signupSeries($start, false));
+        $advertiserByDay = $this->indexByDay($this->signupSeries($start, $this->roleId('advertiser')));
+        $publisherByDay = $this->indexByDay($this->signupSeries($start, $this->roleId('publisher')));
 
         return [
             'labels' => array_map(fn ($d) => Carbon::parse($d)->format('M j'), $labels),
             'dates' => $labels,
-            'revenue' => $revenue,
-            'signups' => $signups,
-            'orders' => $orders,
+            'revenue' => $this->fillDaily($labels, $revenueByDay, false),
+            'previous_revenue' => $this->fillDaily($previousDates, $previousRevenueByDay, false),
+            'signups' => $this->fillDaily($labels, $signupsByDay, true),
+            'signups_advertisers' => $this->fillDaily($labels, $advertiserByDay, true),
+            'signups_publishers' => $this->fillDaily($labels, $publisherByDay, true),
+            'orders' => $this->fillDaily($labels, $ordersByDay, true),
+            'previous_orders' => $this->fillDaily($previousDates, $previousOrdersByDay, true),
+            'comparison_label' => 'Previous '.$days.' days',
         ];
     }
 
@@ -167,11 +151,7 @@ class DashboardMetricsService
      */
     public function distributions(): array
     {
-        $orderStatus = $this->safeKeyedRows(function () {
-            return Order::select('status', DB::raw('COUNT(*) as total'))
-                ->groupBy('status')
-                ->pluck('total', 'status');
-        });
+        $pipeline = $this->orderPipeline();
 
         $roleCounts = $this->safeKeyedRows(function () {
             return DB::table('role_user')
@@ -182,11 +162,21 @@ class DashboardMetricsService
         });
 
         return [
-            'orders' => [
-                'keys' => $orderStatus->keys()->map(fn ($s) => (string) $s)->values(),
-                'labels' => $orderStatus->keys()->map(fn ($s) => ucfirst((string) $s))->values(),
-                'values' => $orderStatus->values()->map(fn ($v) => (int) $v)->values(),
-            ],
+            'orders' => $pipeline === null
+                ? [
+                    'keys' => [],
+                    'labels' => [],
+                    'values' => [],
+                ]
+                : [
+                    'keys' => ['pending', 'processing', 'completed'],
+                    'labels' => ['Pending', 'Processing', 'Completed (30 days)'],
+                    'values' => [
+                        $pipeline['pending'],
+                        $pipeline['processing'],
+                        $pipeline['completed_30d'],
+                    ],
+                ],
             'roles' => [
                 'keys' => $roleCounts->keys()->map(fn ($s) => (string) $s)->values(),
                 'labels' => $roleCounts->keys()->map(fn ($s) => ucfirst((string) $s))->values(),
@@ -263,6 +253,24 @@ class DashboardMetricsService
             'library_evaluating' => $libraryEvaluating,
             'campaigns_attention' => $campaignsAttention,
             'needs_attention' => $needsAttention,
+            'attention' => $this->attentionItems([
+                'pending_deposits' => $pendingDeposits,
+                'pending_withdrawals' => $pendingWithdrawals,
+                'unverified_sites' => $unverifiedSites,
+                'pending_payments' => $pendingPayments,
+                'pending_community' => $pendingCommunity,
+                'open_disputes' => $openDisputes,
+                'stalled_orders' => $stalledOrders,
+                'open_bulk_requests' => $openBulk,
+                'failed_mail' => $failedMail,
+                'moderation_errors' => $moderationErrors,
+                'enrichment_failed' => $enrichmentFailed,
+                'catalog_hide' => $catalogHide,
+                'missing_tax_invoices' => $missingTaxInvoices,
+                'missing_pdf_invoices' => $missingPdfInvoices,
+                'library_evaluating' => $libraryEvaluating,
+                'campaigns_attention' => $campaignsAttention,
+            ]),
         ];
     }
 
@@ -275,6 +283,12 @@ class DashboardMetricsService
     {
         $monthUrl = $this->safeRoute('admin.finance', ['period' => 'month']) ?? '';
         $overview = $this->finance->overview($this->finance->resolvePeriod('month'), throwOnFailure: true);
+        $previousStart = now()->subMonthNoOverflow()->startOfMonth();
+        $previousOverview = $this->finance->overview($this->finance->resolvePeriod(
+            null,
+            $previousStart->toDateString(),
+            $previousStart->copy()->endOfMonth()->toDateString(),
+        ), throwOnFailure: true);
         $collected = data_get($overview, 'money_in.collected', []);
         $lines = [];
         foreach ((array) data_get($collected, 'by_currency', []) as $code => $parts) {
@@ -294,6 +308,8 @@ class DashboardMetricsService
             ];
         }
 
+        $advertiser = (array) data_get($overview, 'liability.advertiser', []);
+
         return [
             'period_label' => (string) data_get($overview, 'period.label', ''),
             'due_to_pay_now' => (float) ($overview['due_to_pay_now'] ?? 0),
@@ -304,6 +320,55 @@ class DashboardMetricsService
             'collected' => $lines,
             'orders_not_recorded' => (int) data_get($collected, 'orders_not_recorded', 0),
             'features_not_recorded' => (int) data_get($collected, 'features_not_recorded', 0),
+            'gmv' => round((float) data_get($overview, 'money_in.orders_paid.gmv', 0), 2),
+            'gmv_orders' => (int) data_get($overview, 'money_in.orders_paid.count', 0),
+            'gmv_previous' => round((float) data_get($previousOverview, 'money_in.orders_paid.gmv', 0), 2),
+            'gmv_previous_orders' => (int) data_get($previousOverview, 'money_in.orders_paid.count', 0),
+            'margin_previous' => round((float) data_get($previousOverview, 'platform.margin', 0), 2),
+            'previous_period_label' => 'Last month',
+            'gmv_clock' => 'Paid date',
+            'margin_clock' => 'Recognized completion',
+            'advertiser_cash' => round((float) ($advertiser['cash'] ?? 0), 2),
+            'advertiser_bonus' => round((float) ($advertiser['bonus'] ?? 0), 2),
+            'advertiser_reserved' => round((float) ($advertiser['reserved'] ?? 0), 2),
+            'unpaid_orders_count' => (int) data_get($overview, 'ops.unpaid_orders.count', 0),
+            'unpaid_orders_amount' => round((float) data_get($overview, 'ops.unpaid_orders.amount', 0), 2),
+            'open_withdrawals_count' => (int) data_get($overview, 'ops.open_withdrawals.count', 0),
+            'open_withdrawals_amount' => round((float) data_get($overview, 'ops.open_withdrawals.amount', 0), 2),
+            'refunds' => round((float) data_get($overview, 'platform.refunds', 0), 2),
+        ];
+    }
+
+    /**
+     * Supply, in-flight orders, and time-to-publish. Not cached.
+     *
+     * @return array<string, mixed>
+     */
+    public function marketplaceHealth(): array
+    {
+        $pipeline = $this->orderPipeline() ?? [
+            'pending' => 0,
+            'processing' => 0,
+            'completed_30d' => 0,
+        ];
+        $since7 = now()->subDays(7);
+        $since30 = now()->subDays(30);
+
+        return [
+            'advertisers_7d' => $this->roleSignupsSince($this->roleId('advertiser'), $since7),
+            'advertisers_30d' => $this->roleSignupsSince($this->roleId('advertiser'), $since30),
+            'publishers_7d' => $this->roleSignupsSince($this->roleId('publisher'), $since7),
+            'publishers_30d' => $this->roleSignupsSince($this->roleId('publisher'), $since30),
+            'orders_pending' => $pipeline['pending'],
+            'orders_processing' => $pipeline['processing'],
+            'orders_completed_30d' => $pipeline['completed_30d'],
+            'stalled_orders' => $this->safeInt(fn () => $this->stalled->count()),
+            'median_hours_to_publish' => $this->medianHoursToPublish(),
+            'advertisers_url' => $this->safeRoute('admin.users.index', ['role' => 'advertiser']) ?? '',
+            'publishers_url' => $this->safeRoute('admin.users.index', ['role' => 'publisher']) ?? '',
+            'pending_url' => $this->safeRoute('admin.orders.index', ['status' => 'pending', 'payment_status' => 'paid']) ?? '',
+            'processing_url' => $this->safeRoute('admin.orders.index', ['status' => 'processing', 'payment_status' => 'paid']) ?? '',
+            'stalled_url' => '#stalledOrdersRow',
         ];
     }
 
@@ -924,6 +989,269 @@ class DashboardMetricsService
         } catch (\Throwable) {
             return 0;
         }
+    }
+
+    /**
+     * Ranked work list. Zero queues are omitted. Money amounts come from Finance ops queues.
+     *
+     * @param  array<string, int>  $counts
+     * @return list<array{key: string, label: string, count: int, amount: float|null, severity: string, url: string}>
+     */
+    private function attentionItems(array $counts): array
+    {
+        $ops = [];
+        try {
+            $ops = $this->finance->opsQueues();
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard attention amounts failed', ['error' => $e->getMessage()]);
+        }
+
+        $rows = [
+            ['key' => 'withdrawals', 'label' => 'Withdrawals', 'count' => $counts['pending_withdrawals'] ?? 0, 'amount' => data_get($ops, 'open_withdrawals.amount'), 'severity' => 'danger', 'url' => $this->safeRoute('admin.withdrawals', ['queue' => 'open'])],
+            ['key' => 'deposits', 'label' => 'Deposits', 'count' => $counts['pending_deposits'] ?? 0, 'amount' => data_get($ops, 'pending_deposits.amount'), 'severity' => 'danger', 'url' => $this->safeRoute('admin.deposits', ['status' => 'pending'])],
+            ['key' => 'unpaid', 'label' => 'Unpaid orders', 'count' => $counts['pending_payments'] ?? 0, 'amount' => data_get($ops, 'unpaid_orders.amount'), 'severity' => 'warning', 'url' => $this->safeRoute('admin.payments', ['payment_status' => 'unpaid'])],
+            ['key' => 'stalled', 'label' => 'Stalled orders', 'count' => $counts['stalled_orders'] ?? 0, 'amount' => null, 'severity' => 'danger', 'url' => '#stalledOrdersRow'],
+            ['key' => 'disputes', 'label' => 'Disputes', 'count' => $counts['open_disputes'] ?? 0, 'amount' => null, 'severity' => 'warning', 'url' => $this->safeRoute('admin.orders.index', ['dispute' => 'open'])],
+            ['key' => 'sites', 'label' => 'Sites in review', 'count' => $counts['unverified_sites'] ?? 0, 'amount' => null, 'severity' => 'warning', 'url' => $this->safeRoute('admin.sites.index', ['needs_review' => 1])],
+            ['key' => 'community', 'label' => 'Community', 'count' => $counts['pending_community'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.community.index', ['status' => 'pending'])],
+            ['key' => 'bulk', 'label' => 'Bulk requests', 'count' => $counts['open_bulk_requests'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.bulk-site-requests.index', ['status' => 'needs_marketer'])],
+            ['key' => 'mail', 'label' => 'Failed mail', 'count' => $counts['failed_mail'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.emails.index')],
+            ['key' => 'moderation', 'label' => 'Moderation errors', 'count' => $counts['moderation_errors'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.moderation.index', ['status' => 'error'])],
+            ['key' => 'enrichment', 'label' => 'Enrichment', 'count' => $counts['enrichment_failed'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.site-enrichment.index')],
+            ['key' => 'catalog_hide', 'label' => 'Hide-mode', 'count' => $counts['catalog_hide'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.catalog-activity')],
+            ['key' => 'missing_tax', 'label' => 'Missing tax invoices', 'count' => $counts['missing_tax_invoices'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.invoices.index', ['queue' => 'missing'])],
+            ['key' => 'missing_pdf', 'label' => 'Missing PDFs', 'count' => $counts['missing_pdf_invoices'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.invoices.index', ['pdf' => 'missing'])],
+            ['key' => 'library', 'label' => 'Articles in review', 'count' => $counts['library_evaluating'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.content-library.index', ['availability' => 'evaluating'])],
+            ['key' => 'campaigns', 'label' => 'Campaigns', 'count' => $counts['campaigns_attention'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.campaigns.index', ['status' => 'attention'])],
+        ];
+
+        $items = [];
+        foreach ($rows as $row) {
+            if ((int) $row['count'] <= 0) {
+                continue;
+            }
+            $items[] = [
+                'key' => $row['key'],
+                'label' => $row['label'],
+                'count' => (int) $row['count'],
+                'amount' => $row['amount'] === null ? null : round((float) $row['amount'], 2),
+                'severity' => $row['severity'],
+                'url' => $row['url'] ?: '#dashboardActionQueues',
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Null when the orders table cannot be read, so the chart stays empty
+     * instead of showing a fake all-zero pipeline.
+     *
+     * @return array{pending: int, processing: int, completed_30d: int}|null
+     */
+    private function orderPipeline(): ?array
+    {
+        try {
+            if (! Schema::hasTable('orders')) {
+                return null;
+            }
+
+            return [
+                'pending' => (int) Order::query()->where('payment_status', 'paid')->where('status', 'pending')->count(),
+                'processing' => (int) Order::query()->where('payment_status', 'paid')->where('status', 'processing')->count(),
+                'completed_30d' => $this->completedRecentCount(30),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard order pipeline failed', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    private function completedRecentCount(int $days): int
+    {
+        return $this->safeInt(function () use ($days) {
+            $query = Order::query()
+                ->where('payment_status', 'paid')
+                ->where('status', 'completed');
+            $column = Schema::hasColumn('orders', 'completed_at') ? 'completed_at' : 'updated_at';
+            $query->where($column, '>=', now()->subDays($days));
+
+            return $query->count();
+        });
+    }
+
+    private function roleSignupsSince(mixed $roleId, Carbon $since): int
+    {
+        if (! $roleId) {
+            return 0;
+        }
+
+        return $this->safeInt(function () use ($roleId, $since) {
+            return (int) DB::table('users')
+                ->join('role_user', 'role_user.user_id', '=', 'users.id')
+                ->where('role_user.role_id', $roleId)
+                ->where('users.created_at', '>=', $since)
+                ->distinct()
+                ->count('users.id');
+        });
+    }
+
+    private function medianHoursToPublish(): ?float
+    {
+        try {
+            if (! Schema::hasColumn('order_items', 'accepted_at')
+                || ! Schema::hasColumn('order_items', 'live_url_submitted_at')
+                || ! Schema::hasColumn('order_items', 'live_url')) {
+                return null;
+            }
+
+            $hours = [];
+            OrderItem::query()
+                ->whereAcceptedAtIsRecorded()
+                ->whereLiveUrlSubmittedAtIsRecorded()
+                ->where('live_url_submitted_at', '>=', now()->subDays(30))
+                ->whereNotNull('live_url')
+                ->where('live_url', '!=', '')
+                ->get(['accepted_at', 'live_url_submitted_at'])
+                ->each(function (OrderItem $item) use (&$hours) {
+                    $accepted = $item->accepted_at;
+                    $submitted = $item->live_url_submitted_at;
+                    if (! $accepted || ! $submitted || $submitted->lt($accepted)) {
+                        return;
+                    }
+                    $hours[] = $accepted->diffInMinutes($submitted) / 60;
+                });
+
+            return $this->median($hours);
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard publish-time median failed', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @param  list<float|int>  $values
+     */
+    private function median(array $values): ?float
+    {
+        $values = array_values(array_filter($values, fn ($value) => is_numeric($value)));
+        sort($values, SORT_NUMERIC);
+        $count = count($values);
+        if ($count === 0) {
+            return null;
+        }
+        $mid = intdiv($count, 2);
+        if ($count % 2 === 1) {
+            return round((float) $values[$mid], 1);
+        }
+
+        return round(((float) $values[$mid - 1] + (float) $values[$mid]) / 2, 1);
+    }
+
+    /**
+     * @return array<string, int|float>
+     */
+    private function promotionSnapshot(): array
+    {
+        $empty = [
+            'announcements_live' => 0,
+            'banners_live' => 0,
+            'banner_impressions_7d' => 0,
+            'banner_clicks_7d' => 0,
+            'banner_ctr_7d' => 0.0,
+        ];
+
+        try {
+            $loaded = app(PromotionService::class)->dashboardStats();
+            if (! is_array($loaded)) {
+                return $empty;
+            }
+
+            return array_merge($empty, array_intersect_key($loaded, $empty));
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard promotion snapshot failed', ['error' => $e->getMessage()]);
+
+            return $empty;
+        }
+    }
+
+    /**
+     * @return Collection<string, mixed>
+     */
+    private function paidAmountSeries(string $paidAt, Carbon $from, ?Carbon $until): Collection
+    {
+        return $this->safeKeyedRows(function () use ($paidAt, $from, $until) {
+            $query = Order::where('payment_status', 'paid')->whereRaw($paidAt.' >= ?', [$from]);
+            if ($until) {
+                $query->whereRaw($paidAt.' < ?', [$until]);
+            }
+
+            return $query->selectRaw('DATE('.$paidAt.') as day, SUM(total_amount) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
+        });
+    }
+
+    /**
+     * @return Collection<string, mixed>
+     */
+    private function paidCountSeries(string $paidAt, Carbon $from, ?Carbon $until): Collection
+    {
+        return $this->safeKeyedRows(function () use ($paidAt, $from, $until) {
+            $query = Order::where('payment_status', 'paid')->whereRaw($paidAt.' >= ?', [$from]);
+            if ($until) {
+                $query->whereRaw($paidAt.' < ?', [$until]);
+            }
+
+            return $query->selectRaw('DATE('.$paidAt.') as day, COUNT(*) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
+        });
+    }
+
+    /**
+     * @param  false|int|string|null  $roleId  false counts every user; null means the role is missing
+     * @return Collection<string, mixed>
+     */
+    private function signupSeries(Carbon $from, mixed $roleId): Collection
+    {
+        if ($roleId === null) {
+            return collect();
+        }
+
+        return $this->safeKeyedRows(function () use ($from, $roleId) {
+            $query = User::query()->where('created_at', '>=', $from);
+            if ($roleId !== false) {
+                $query->whereExists(function ($inner) use ($roleId) {
+                    $inner->select(DB::raw(1))
+                        ->from('role_user')
+                        ->whereColumn('role_user.user_id', 'users.id')
+                        ->where('role_user.role_id', $roleId);
+                });
+            }
+
+            return $query->selectRaw('DATE(created_at) as day, COUNT(*) as total')
+                ->groupBy('day')
+                ->pluck('total', 'day');
+        });
+    }
+
+    /**
+     * @param  list<string>  $dates
+     * @param  array<string, mixed>  $indexed
+     * @return list<int|float>
+     */
+    private function fillDaily(array $dates, array $indexed, bool $asInt): array
+    {
+        $series = [];
+        foreach ($dates as $day) {
+            $value = $indexed[$day] ?? 0;
+            $series[] = $asInt ? (int) $value : (float) $value;
+        }
+
+        return $series;
     }
 
     private function safeInt(callable $resolve): int

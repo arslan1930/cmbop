@@ -118,7 +118,7 @@
                     <label class="form-label" for="adminFinanceLedgerDateTo">To</label>
                     <input type="date" id="adminFinanceLedgerDateTo" name="date_to" value="{{ search_text(request('date_to')) }}" class="form-control">
                 </div>
-                <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                <div class="admin-deposits-filters__actions admin-orders-filters__actions finance-ledger-filters__action">
                     <div class="d-flex flex-wrap gap-2">
                         <button type="submit" id="adminFinanceLedgerFilter" class="btn btn-primary">Filter</button>
                         <a href="{{ route('admin.finance.ledger') }}" class="btn btn-outline-secondary">Reset</a>
