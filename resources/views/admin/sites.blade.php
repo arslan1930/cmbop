@@ -38,11 +38,7 @@
 @endphp
 <div class="container-fluid py-3 {{ request()->filled('publisher') ? 'staff-publisher-open' : '' }}" id="staffSitesPage">
 
-<<<<<<< HEAD
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-        <h4 class="mb-0 fw-bold">Sites Management</h4>
-=======
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
             <h4 class="mb-0 fw-bold">Sites Management</h4>
             <div id="staffCatalogWide">
@@ -100,7 +96,6 @@
             @endif
             </div>
         </div>
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
         <div class="d-flex flex-wrap gap-2">
             @if(!empty($needsReviewFilterActive))
                 @if(!empty($flatQueue))
@@ -132,9 +127,6 @@
             @if(!empty($allSitesMode))
                 <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
             @else
-<<<<<<< HEAD
-                <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
-=======
                 <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
                     <i class="fa fa-bell me-1"></i> Needs review
                     @if(($openReviewCount ?? 0) > 0)
@@ -185,12 +177,7 @@
                         <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $liveUnverifiedCount }}</span>
                     @endif
                 </a>
-                @if(!empty($allSitesMode))
-                    <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
-                @else
-                    <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
-                @endif
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
+                <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
             @endif
             @if(auth()->user()?->isAdmin())
                 <a href="{{ route('admin.sites.records', array_filter(['missing_market' => ($missingMarketCount ?? 0) > 0 ? 1 : null])) }}"
@@ -326,20 +313,12 @@
                         <th class="admin-num-col d-none d-md-table-cell">#</th>
                         <th>Site</th>
                         <th>Publisher</th>
-<<<<<<< HEAD
                         <th class="admin-narrow-col d-none d-md-table-cell">DA / DR</th>
                         <th class="d-none d-lg-table-cell">Markets</th>
                         <th class="admin-narrow-col d-none d-lg-table-cell">Tag</th>
                         <th class="admin-narrow-col d-none d-md-table-cell">Traffic</th>
                         <th class="admin-narrow-col">Price</th>
                         <th class="admin-narrow-col">Listed</th>
-=======
-                        <th class="admin-narrow-col">DA / DR</th>
-                        <th>Markets</th>
-                        <th class="admin-narrow-col">Tag</th>
-                        <th class="admin-narrow-col">Traffic</th>
-                        <th class="admin-narrow-col">Buyer price</th>
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
                         <th class="admin-actions-col">Actions</th>
                     </tr>
                 </thead>
@@ -362,52 +341,17 @@
                             && ! $hasOrders
                             && ($site->verified || $site->active);
                     @endphp
-<<<<<<< HEAD
                     <tr data-flat-site-row="{{ $site->id }}"
                         data-review-name="{{ $site->site_name }}"
                         data-review-url="{{ $site->site_url }}"
                         data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
-                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                         <td class="d-none d-md-table-cell">{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             @include('admin.sites.partials.queue-site-cell')
                             @if($site->isPendingPublisherAcceptance())
                                 <button type="button" class="btn btn-sm btn-outline-info resend-invite py-0 px-2 mt-1" data-id="{{ $site->id }}">Resend invite</button>
                             @endif
-=======
-                    <tr data-flat-site-row="{{ $site->id }}">
-                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
-                        <td>{{ $flatQueueSites->firstItem() + $index }}</td>
-                        <td>
-                            <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
-                            <div class="small text-muted text-break">{{ $site->site_url }}</div>
-                            <div class="d-flex flex-wrap gap-1 mt-1">
-                                <span class="badge rounded-pill {{ $site->active ? 'bg-success' : 'bg-secondary' }}" title="{{ $site->active ? 'Active' : 'Inactive' }}">{{ $site->active ? 'For sale' : 'Not for sale' }}</span>
-                                <span class="badge rounded-pill {{ $site->verified ? 'bg-success' : 'bg-secondary' }}" title="{{ $site->verified ? 'Verified' : 'Unverified' }}">{{ $site->verified ? 'Checked' : 'Not checked' }}</span>
-                                @if(! $site->hasMarketplaceCountry())
-                                    <span class="badge text-bg-danger">Missing market</span>
-                                @endif
-                                @if(! $site->hasGoodMetrics())
-                                    <span class="badge text-bg-warning text-dark">{{ $site->qualityBarBadgeText() }}</span>
-                                @endif
-                                @if(! $site->hasCatalogCover())
-                                    <a href="{{ staff_route('sites.edit', $site->id) }}#site_image" class="badge text-bg-warning text-dark text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>
-                                @endif
-                                @if($site->awaitsPublisherDetails())
-                                    <span class="badge text-bg-secondary">Awaiting publisher</span>
-                                @endif
-                                @if($site->hasDetailsComplete())
-                                    <span class="badge text-bg-secondary">Publisher reviewing</span>
-                                @endif
-                                @if($site->isPendingPublisherAcceptance())
-                                    <span class="badge text-bg-info">Awaiting accept</span>
-                                    <button type="button" class="btn btn-sm btn-outline-info resend-invite py-0 px-2" data-id="{{ $site->id }}">Resend invite</button>
-                                @endif
-                                @if($site->wasAddedFromBulkRequest())
-                                    <span class="badge text-bg-light border">Bulk request</span>
-                                @endif
-                            </div>
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
                         </td>
                         <td class="small">
                             <div>{{ $site->publisher?->name ?? 'Unknown' }}</div>
@@ -416,23 +360,16 @@
                                 <span class="badge text-bg-dark">Copy-strike hide</span>
                             @endif
                         </td>
-<<<<<<< HEAD
                         <td class="small d-none d-md-table-cell">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
                         <td class="small d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
-                        <td class="small d-none d-lg-table-cell">{{ $site->tagLabel('No tags') }}</td>
-                        <td class="d-none d-md-table-cell">{{ number_format((int) $site->traffic) }}</td>
-=======
-                        <td class="small">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
-                        <td class="small">@include('admin.sites.partials.row-markets')</td>
-                        <td class="small">
+                        <td class="small d-none d-lg-table-cell">
                             @if($site->tagValue() === null)
                                 <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
                             @else
                                 {{ $site->tagLabel() }}
                             @endif
                         </td>
-                        <td>{{ number_format((int) $site->traffic) }}</td>
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
+                        <td class="d-none d-md-table-cell">{{ number_format((int) $site->traffic) }}</td>
                         <td>@include('admin.sites.partials.row-price')</td>
                         <td class="small">@include('admin.sites.partials.listed-age')</td>
                         <td class="staff-queue-actions">

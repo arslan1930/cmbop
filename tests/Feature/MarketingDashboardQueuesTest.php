@@ -294,11 +294,8 @@ class MarketingDashboardQueuesTest extends TestCase
 
         $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $requested), $requestedOnly);
         $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $leftover), $requestedOnly);
-<<<<<<< HEAD
-=======
         $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $awaitingPublisher), $requestedOnly);
         $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $trulyDone), $requestedOnly);
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
     }
 
     public function test_partial_done_batch_stays_on_waiting_on_you(): void

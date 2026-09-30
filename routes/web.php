@@ -1441,6 +1441,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('users.verify-email');
         Route::post('/users/{user}/resend-verification', [UserController::class, 'resendVerification'])
             ->name('users.resend-verification');
+        Route::post('/users/{user}/send-password-reset', [UserController::class, 'sendPasswordReset'])
+            ->name('users.send-password-reset');
         Route::post('/users/{id}/update-company', [UserController::class, 'updateCompany'])
             ->name('users.updateCompany');
         Route::post('/users/{id}/payout-profile', [UserController::class, 'updatePayoutProfile'])
@@ -1514,6 +1516,7 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::delete('blogs/content-image', [AdminBlogController::class, 'deleteContentImage'])->name('blogs.delete-content-image');
         Route::resource('blogs', AdminBlogController::class);
         Route::post('blogs/{id}/toggle-status', [AdminBlogController::class, 'toggleStatus'])->name('blogs.toggle-status');
+        Route::get('blogs/{id}/preview', [AdminBlogController::class, 'preview'])->name('blogs.preview');
 
         Route::get('/emails', [AdminEmailCenterController::class, 'index'])->name('emails.index');
         Route::get('/emails/preview/{key}', [AdminEmailCenterController::class, 'preview'])->name('emails.preview');

@@ -61,8 +61,8 @@ use App\Services\Wallet\WalletLedgerService;
 use App\Support\AdvertiserOrderDetails;
 use App\Support\AdvertiserOrderStatus;
 use App\Support\CartDisplayFx;
+use App\Support\CatalogProblemReport;
 use App\Support\CatalogVisitUrl;
-use App\Support\CommunityInbox;
 use App\Support\PaypalPaymentError;
 use App\Support\PlatformCharge;
 use App\Support\SiteDescriptionRules;
@@ -1823,18 +1823,7 @@ class CatalogController extends Controller
      */
     private function sanitizeCatalogPlainText(mixed $raw, int $maxChars): string
     {
-        $text = is_string($raw) ? $raw : '';
-        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text) ?? $text;
-        $text = str_replace(["\r\n", "\r"], "\n", $text);
-        $text = preg_replace("/[ \t]+\n/u", "\n", $text) ?? $text;
-        $text = preg_replace("/[ \t]{2,}/u", ' ', $text) ?? $text;
-        $text = trim($text);
-        if (mb_strlen($text) > $maxChars) {
-            $text = rtrim(mb_substr($text, 0, $maxChars));
-        }
-
-        return $text;
+        return CatalogProblemReport::sanitizePlain($raw, $maxChars);
     }
 
     /**
@@ -1868,35 +1857,17 @@ class CatalogController extends Controller
         $found = [];
         foreach ($rows as $row) {
             $full = (string) $row->message;
-            $id = $this->catalogReportSiteId($full);
+            $id = CatalogProblemReport::siteId($full);
             if ($id === null || ! isset($wanted[$id]) || isset($found[$id])) {
                 continue;
             }
-            $body = $this->catalogReportUserMessage($full);
+            $body = CatalogProblemReport::userMessage($full);
             if ($body !== '') {
                 $found[$id] = $body;
             }
         }
 
         return $found;
-    }
-
-    private function catalogReportSiteId(string $full): ?int
-    {
-        if (preg_match('/^Site ID:\s*(\d+)/m', $full, $match) === 1) {
-            return (int) $match[1];
-        }
-
-        return null;
-    }
-
-    private function catalogReportUserMessage(string $full): string
-    {
-        if (preg_match('/(?:\r\n|\n)What they wrote(?:\r\n|\n)(.*)\z/s', $full, $match) !== 1) {
-            return '';
-        }
-
-        return $this->sanitizeCatalogPlainText($match[1], 800);
     }
 
     /**
@@ -1915,53 +1886,13 @@ class CatalogController extends Controller
             ->where('subject', 'like', 'Catalog site:%')
             ->orderByDesc('id')
             ->get()
-            ->filter(fn (ProblemReport $row) => $this->catalogReportSiteId((string) $row->message) === $siteId)
+            ->filter(fn (ProblemReport $row) => CatalogProblemReport::siteId((string) $row->message) === $siteId)
             ->values();
     }
 
     private function catalogReportEnvelope(Site $site, User $user, string $message): array
     {
-        $site->loadMissing('publisher:id,name,email');
-        $siteName = trim((string) ($site->site_name ?: $site->domain ?: ('Site #'.$site->id)));
-        $subject = 'Catalog site: '.$siteName;
-        if (strlen($subject) > 160) {
-            $subject = substr($subject, 0, 157).'...';
-        }
-
-        $lines = [
-            'Catalog listing',
-            'Site ID: '.$site->id,
-            'Name: '.$siteName,
-            'URL: '.($site->site_url ?: '—'),
-            'Domain: '.($site->domain ?: '—'),
-            'DA: '.($site->da ?? '—').'  DR: '.($site->dr ?? '—').'  Traffic: '.($site->traffic ?? '—'),
-        ];
-        $publisher = $site->publisher;
-        if ($publisher) {
-            $lines[] = 'Publisher: '.trim($publisher->name.' <'.$publisher->email.'>');
-        }
-        $lines[] = '';
-        $lines[] = 'Reported by';
-        $lines[] = trim((string) $user->name).' <'.$user->email.'>';
-        $lines[] = 'User ID: '.$user->id;
-        try {
-            $lines[] = 'Admin listing: '.url('/admin/sites/'.$site->id.'/edit');
-        } catch (\Throwable $e) {
-            report($e);
-        }
-        $lines[] = '';
-        $lines[] = 'What they wrote';
-        $lines[] = $message;
-
-        $pageUrl = CommunityInbox::storedPageUrl($site->site_url)
-            ?: CommunityInbox::storedPageUrl(url('/admin/sites/'.$site->id.'/edit'));
-
-        return [
-            'site_name' => $siteName,
-            'subject' => $subject,
-            'message' => implode("\n", $lines),
-            'page_url' => $pageUrl,
-        ];
+        return CatalogProblemReport::envelope($site, $user, $message);
     }
 
     private function forgetCatalogReportNotifications(array $reportIds): void

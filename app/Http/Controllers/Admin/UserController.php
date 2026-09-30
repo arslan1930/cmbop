@@ -5,9 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\PayoutProfileUpdatedBySupport;
 use App\Models\ActivityLog;
+use App\Models\BulkSiteRequest;
+use App\Models\ProblemReport;
 use App\Models\Role;
+use App\Models\SiteClaim;
+use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\UserAdminNote;
+use App\Models\WebsiteSuggestion;
 use App\Services\ActivityLogger;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Wallet\PayoutProfileService;
@@ -15,6 +20,7 @@ use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -140,7 +146,25 @@ class UserController extends Controller
             $activities = collect();
         }
 
-        return view('admin.users.show', compact('user', 'dossier', 'sites', 'notes', 'activities'));
+        try {
+            $related = $this->userRelatedSnapshot($user);
+        } catch (\Throwable $e) {
+            report($e);
+            $related = [];
+        }
+        $marketingCount = $this->marketingCount();
+        $maxMarketing = self::MAX_MARKETING;
+
+        return view('admin.users.show', compact(
+            'user',
+            'dossier',
+            'sites',
+            'notes',
+            'activities',
+            'related',
+            'marketingCount',
+            'maxMarketing'
+        ));
     }
 
     public function suspend(Request $request, User $user)
@@ -296,6 +320,39 @@ class UserController extends Controller
         );
 
         return back()->with('success', 'Verification email queued for '.$user->email.'.');
+    }
+
+    public function sendPasswordReset(Request $request, User $user)
+    {
+        $email = trim((string) $user->email);
+        if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return back()->with('error', 'This account has no valid email for a reset link.');
+        }
+
+        try {
+            $status = Password::sendResetLink(['email' => $email]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('error', UserFacingError::message($e, 'Could not send the password reset email.'));
+        }
+
+        if ($status === Password::RESET_THROTTLED) {
+            return back()->with('error', 'A reset email was just sent. Wait a minute and try again.');
+        }
+        if ($status !== Password::RESET_LINK_SENT) {
+            return back()->with('error', 'Could not send the password reset email.');
+        }
+
+        ActivityLogger::tryLog(
+            'user.password_reset_sent',
+            ($request->user()?->name ?? 'Admin').' sent a password reset to user #'.$user->id,
+            $user,
+            [],
+            $user->name
+        );
+
+        return back()->with('success', 'Password reset email queued for '.$email.'.');
     }
 
     // ✅ Update Company (AJAX)
@@ -598,7 +655,7 @@ class UserController extends Controller
     }
 
     /**
-     * @return array{q: string, role: string, status: string, sort: string, user: int}
+     * @return array{q: string, role: string, status: string, flag: string, sort: string, user: int}
      */
     private function userIndexFilters(Request $request): array
     {
@@ -612,6 +669,11 @@ class UserController extends Controller
             $status = '';
         }
 
+        $flag = search_text($request->input('flag'));
+        if (! in_array($flag, ['catalog_hide', 'copy_strike', 'payout_locked'], true)) {
+            $flag = '';
+        }
+
         $sort = search_text($request->input('sort'));
         if (! in_array($sort, ['oldest', 'name', 'last_seen'], true)) {
             $sort = 'newest';
@@ -621,13 +683,14 @@ class UserController extends Controller
             'q' => search_text($request->input('q', $request->input('user_search'))),
             'role' => $role,
             'status' => $status,
+            'flag' => $flag,
             'sort' => $sort,
-            'user' => $request->integer('user'),
+            'user' => max(0, (int) (filter_number($request->input('user')) ?? 0)),
         ];
     }
 
     /**
-     * @param  array{q: string, role: string, status: string, sort: string, user: int}  $filters
+     * @param  array{q: string, role: string, status: string, flag: string, sort: string, user: int}  $filters
      */
     private function applyUserIndexFilters($query, array $filters): void
     {
@@ -677,6 +740,15 @@ class UserController extends Controller
             $query->whereNull('suspended_at');
         }
 
+        $flag = $filters['flag'] ?? '';
+        if ($flag === 'catalog_hide' && $this->hasColumn('users', 'catalog_hide_until')) {
+            $query->whereNotNull('catalog_hide_until')->where('catalog_hide_until', '>', now());
+        } elseif ($flag === 'copy_strike' && $this->hasColumn('users', 'catalog_copy_strike_count')) {
+            $query->where('catalog_copy_strike_count', '>=', 1);
+        } elseif ($flag === 'payout_locked' && $this->hasColumn('users', 'payout_profile_locked_at')) {
+            $query->whereNotNull('payout_profile_locked_at');
+        }
+
         match ($filters['sort']) {
             'oldest' => $query->orderBy('id'),
             'name' => $query->orderBy('name')->orderByDesc('id'),
@@ -685,6 +757,86 @@ class UserController extends Controller
                 : $query->latest('id'),
             default => $query->latest('id'),
         };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function userRelatedSnapshot(User $user): array
+    {
+        $email = trim((string) $user->email);
+        $q = $email !== '' ? $email : null;
+        $snapshot = [
+            'sites_count' => 0,
+            'sites_url' => null,
+            'problems_count' => 0,
+            'problems_url' => null,
+            'claims_count' => 0,
+            'claims_url' => null,
+            'suggestions_count' => 0,
+            'suggestions_url' => null,
+            'websites_count' => 0,
+            'websites_url' => null,
+            'bulk_count' => 0,
+            'bulk_url' => null,
+            'catalog_url' => null,
+        ];
+
+        try {
+            $snapshot['sites_url'] = staff_route('sites.index', ['publisher' => $user->id]);
+            $snapshot['problems_url'] = route('admin.community.index', array_filter(['tab' => 'problems', 'q' => $q]));
+            $snapshot['claims_url'] = route('admin.community.index', array_filter(['tab' => 'claims', 'q' => $q]));
+            $snapshot['suggestions_url'] = route('admin.community.index', array_filter(['tab' => 'suggestions', 'q' => $q]));
+            $snapshot['websites_url'] = route('admin.community.index', array_filter(['tab' => 'websites', 'q' => $q]));
+            $snapshot['bulk_url'] = route('admin.bulk-site-requests.index', array_filter(['q' => $q, 'status' => 'all']));
+            $snapshot['catalog_url'] = route('admin.catalog-activity.show', $user->id);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            if ($this->tableExists('sites') && $this->hasColumn('sites', 'publisher_id')) {
+                $snapshot['sites_count'] = (int) $user->sites()->count();
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            if (ProblemReport::tableAvailable() && ProblemReport::hasTableColumn('user_id')) {
+                $snapshot['problems_count'] = (int) ProblemReport::query()->where('user_id', $user->id)->count();
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            if (Suggestion::tableAvailable() && Suggestion::hasTableColumn('user_id')) {
+                $snapshot['suggestions_count'] = (int) Suggestion::query()->where('user_id', $user->id)->count();
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            if (WebsiteSuggestion::tableAvailable() && WebsiteSuggestion::hasTableColumn('user_id')) {
+                $snapshot['websites_count'] = (int) WebsiteSuggestion::query()->where('user_id', $user->id)->count();
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            if (SiteClaim::tableAvailable() && SiteClaim::hasTableColumn('claimer_id')) {
+                $snapshot['claims_count'] = (int) SiteClaim::query()->where('claimer_id', $user->id)->count();
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            if ($this->tableExists('bulk_site_requests') && $this->hasColumn('bulk_site_requests', 'publisher_id')) {
+                $snapshot['bulk_count'] = (int) BulkSiteRequest::query()->where('publisher_id', $user->id)->count();
+            }
+        } catch (\Throwable) {
+        }
+
+        return $snapshot;
     }
 
     private function suspendGuard(?User $actor, User $target, bool $allowAdmins = false)

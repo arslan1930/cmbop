@@ -101,6 +101,111 @@ class CommunityInbox
         return $params;
     }
 
+    public static function normalizeKind(mixed $kind): string
+    {
+        $kind = search_text($kind);
+
+        return in_array($kind, ['catalog', 'other'], true) ? $kind : '';
+    }
+
+    public static function normalizeSort(mixed $sort): string
+    {
+        return search_text($sort) === 'oldest' ? 'oldest' : 'newest';
+    }
+
+    public static function normalizeOccupying(mixed $value): string
+    {
+        $value = search_text($value);
+
+        return in_array($value, ['yes', 'no'], true) ? $value : '';
+    }
+
+    public static function normalizeClaimView(mixed $value): string
+    {
+        $value = search_text($value);
+
+        return in_array($value, ['mismatch', 'blocked', 'unverified'], true) ? $value : '';
+    }
+
+    /**
+     * Checkbox / query flag. Arrays must not reach Request::boolean()
+     * (filter_var TypeError on ?stale[]=1).
+     */
+    public static function normalizeStale(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (int) $value === 1;
+        }
+
+        return in_array(strtolower(search_text($value)), ['1', 'true', 'on', 'yes'], true);
+    }
+
+    public static function applyListSort($query, string $sort): void
+    {
+        if ($sort === 'oldest') {
+            $query->orderBy('id');
+
+            return;
+        }
+
+        $query->latest('id');
+    }
+
+    public static function constrainStalePending($query): void
+    {
+        $query->where('status', 'pending')->where('created_at', '<=', now()->subHours(48));
+    }
+
+    public static function constrainProblemKind($query, string $kind): void
+    {
+        if ($kind === 'catalog') {
+            $query->where(function ($outer) {
+                $outer->where('subject', 'like', 'Catalog site:%')
+                    ->orWhereRaw('TRIM(message) LIKE ?', ['Catalog listing%']);
+            });
+
+            return;
+        }
+
+        if ($kind === 'other') {
+            $query->where(function ($outer) {
+                $outer->where(function ($subject) {
+                    $subject->whereNull('subject')
+                        ->orWhere('subject', 'not like', 'Catalog site:%');
+                })->where(function ($message) {
+                    $message->whereNull('message')
+                        ->orWhereRaw('TRIM(message) NOT LIKE ?', ['Catalog listing%']);
+                });
+            });
+        }
+    }
+
+    public static function constrainWebsiteOccupying($query, string $occupying, string $table = 'website_suggestions'): void
+    {
+        if ($occupying === '' || ! self::columnExists('sites', 'domain')) {
+            return;
+        }
+
+        $exists = function ($outer) use ($table) {
+            $outer->selectRaw('1')
+                ->from('sites')
+                ->whereNotNull('sites.domain')
+                ->where('sites.domain', '!=', '')
+                ->whereColumn('sites.domain', $table.'.domain');
+        };
+
+        if ($occupying === 'yes') {
+            $query->whereExists($exists);
+
+            return;
+        }
+
+        $query->whereNotExists($exists);
+    }
+
     /**
      * First tab that still has pending items (problems → claims).
      *

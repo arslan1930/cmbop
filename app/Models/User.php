@@ -237,6 +237,16 @@ class User extends Authenticatable implements MustVerifyEmail
         return self::CATALOG_COPY_CLEAN;
     }
 
+    public function catalogCopyStatusLabel(): ?string
+    {
+        return match ($this->catalogCopyStatus()) {
+            self::CATALOG_COPY_HIDDEN => 'Catalog hidden',
+            self::CATALOG_COPY_POST_HIDE => 'Hide served',
+            self::CATALOG_COPY_WARNED => 'Copy warned',
+            default => null,
+        };
+    }
+
     public function payoutProfileLocked(): bool
     {
         if ($this->payout_profile_locked_at !== null) {
