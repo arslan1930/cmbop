@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Admin\Concerns;
 
+use App\Support\AdminBlog;
 use App\Support\PublicI18n;
+use Illuminate\Contracts\Validation\Validator;
 
 trait ValidatesBlogPost
 {
@@ -46,24 +48,67 @@ trait ValidatesBlogPost
 
     protected function prepareForValidation(): void
     {
-        $translations = (array) $this->input('translations', []);
-        $en = (array) ($translations['en'] ?? []);
+        $this->normalizeTranslationInput();
+    }
 
-        if (($en['title'] ?? '') === '' && filled($this->input('title'))) {
-            $en['title'] = (string) $this->input('title');
+    protected function normalizeTranslationInput(): void
+    {
+        $translations = (array) $this->input('translations', []);
+        $en = is_array($translations['en'] ?? null) ? $translations['en'] : [];
+
+        $en['title'] = search_text($en['title'] ?? '');
+        $en['slug'] = search_text($en['slug'] ?? '');
+        if (($en['excerpt'] ?? null) !== null) {
+            $en['excerpt'] = search_text($en['excerpt']);
         }
-        if (($en['slug'] ?? '') === '' && filled($this->input('slug'))) {
-            $en['slug'] = (string) $this->input('slug');
+        if (! is_string($en['content'] ?? null)) {
+            $en['content'] = search_text($en['content'] ?? '');
+        }
+
+        if ($en['title'] === '' && filled($this->input('title'))) {
+            $en['title'] = search_text($this->input('title'));
+        }
+        if ($en['slug'] === '' && filled($this->input('slug'))) {
+            $en['slug'] = search_text($this->input('slug'));
         }
         if (($en['excerpt'] ?? '') === '' && filled($this->input('excerpt'))) {
-            $en['excerpt'] = (string) $this->input('excerpt');
+            $en['excerpt'] = search_text($this->input('excerpt'));
         }
         if (($en['content'] ?? '') === '' && filled($this->input('content'))) {
-            $en['content'] = (string) $this->input('content');
+            $en['content'] = search_text($this->input('content'));
         }
 
         $translations['en'] = $en;
+
+        foreach ($translations as $locale => $row) {
+            if (! is_array($row)) {
+                unset($translations[$locale]);
+
+                continue;
+            }
+            if (array_key_exists('is_published', $row)) {
+                $published = $row['is_published'];
+                if (is_array($published)) {
+                    $published = $published === [] ? false : end($published);
+                }
+                $row['is_published'] = AdminBlog::normalizeIncomplete($published) ? '1' : '0';
+            }
+            $translations[$locale] = $row;
+        }
+
         $this->merge(['translations' => $translations]);
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        if ($this->hasFile('featured_image')) {
+            try {
+                $this->session()->flash('warning', 'Choose the featured image again.');
+            } catch (\Throwable) {
+            }
+        }
+
+        parent::failedValidation($validator);
     }
 
     /**

@@ -200,11 +200,17 @@ class InvoiceController extends Controller
             if (! empty($pay['beneficiary'])) {
                 $lines[] = 'Beneficiary: '.$pay['beneficiary'].'.';
             }
+            if (! empty($pay['uk_sort_code'])) {
+                $lines[] = 'Sort code (from the UK): '.$pay['uk_sort_code'].'.';
+            }
+            if (! empty($pay['uk_account_number'])) {
+                $lines[] = 'GBP account (from the UK): '.$pay['uk_account_number'].'.';
+            }
             if (! empty($pay['iban'])) {
-                $lines[] = 'IBAN: '.$pay['iban'].'.';
+                $lines[] = 'IBAN (from outside the UK): '.$pay['iban'].'.';
             }
             if (! empty($pay['bic'])) {
-                $lines[] = 'BIC: '.$pay['bic'].'.';
+                $lines[] = 'Swift/BIC (from outside the UK): '.$pay['bic'].'.';
             }
         }
 

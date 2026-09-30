@@ -77,7 +77,7 @@ class AdminBlogLocaleTabsTest extends TestCase
     {
         $admin = $this->adminUser();
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->post(route('admin.blogs.store'), [
                 'status' => 'published',
                 'primary_locale' => 'es',
@@ -101,11 +101,11 @@ class AdminBlogLocaleTabsTest extends TestCase
                         'content' => '<p>US body</p>',
                     ],
                 ],
-            ])
-            ->assertRedirect(route('admin.blogs.index'));
+            ]);
 
         $blog = Blog::query()->where('title', 'UK English title')->first();
         $this->assertNotNull($blog);
+        $response->assertRedirect(route('admin.blogs.edit', $blog->id));
         $this->assertSame('es', $blog->primary_locale);
         $this->assertSame('titulo-en-espanol', $blog->slug);
 
@@ -145,15 +145,15 @@ class AdminBlogLocaleTabsTest extends TestCase
             ];
         }
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->post(route('admin.blogs.store'), [
                 'status' => 'published',
                 'translations' => $translations,
-            ])
-            ->assertRedirect(route('admin.blogs.index'));
+            ]);
 
         $blog = Blog::query()->where('slug', 'english-only-post')->first();
         $this->assertNotNull($blog);
+        $response->assertRedirect(route('admin.blogs.edit', $blog->id));
         $this->assertSame(['en'], $blog->translations()->pluck('locale')->all());
     }
 

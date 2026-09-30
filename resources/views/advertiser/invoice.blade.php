@@ -267,11 +267,33 @@
                                 @endif
                                 <p><strong>VAT:</strong> {{ $company['vat_note'] ?? 'Not VAT registered – no VAT charged' }}</p>
                                 <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>
-                                @if(!empty($depositPayment['bic']))
-                                    <p><strong>BIC (SWIFT):</strong> {{ $depositPayment['bic'] }}</p>
+                                @if(!empty($depositPayment['uk_sort_code']))
+                                    <p><strong>Sort code:</strong> {{ $depositPayment['uk_sort_code'] }}
+                                        @if(!empty($depositPayment['uk_transfer_note']))
+                                            <span class="text-muted">({{ $depositPayment['uk_transfer_note'] }})</span>
+                                        @endif
+                                    </p>
+                                @endif
+                                @if(!empty($depositPayment['uk_account_number']))
+                                    <p><strong>GBP account number:</strong> {{ $depositPayment['uk_account_number'] }}
+                                        @if(!empty($depositPayment['uk_transfer_note']))
+                                            <span class="text-muted">({{ $depositPayment['uk_transfer_note'] }})</span>
+                                        @endif
+                                    </p>
                                 @endif
                                 @if(!empty($depositPayment['iban']))
-                                    <p><strong>IBAN:</strong> {{ $depositPayment['iban'] }}</p>
+                                    <p><strong>IBAN:</strong> {{ $depositPayment['iban'] }}
+                                        @if(!empty($depositPayment['intl_transfer_note']))
+                                            <span class="text-muted">({{ $depositPayment['intl_transfer_note'] }})</span>
+                                        @endif
+                                    </p>
+                                @endif
+                                @if(!empty($depositPayment['bic']))
+                                    <p><strong>Swift/BIC:</strong> {{ $depositPayment['bic'] }}
+                                        @if(!empty($depositPayment['intl_transfer_note']))
+                                            <span class="text-muted">({{ $depositPayment['intl_transfer_note'] }})</span>
+                                        @endif
+                                    </p>
                                 @endif
                                 @if(!empty($depositPayment['phone']))
                                     <p><strong>Phone no:</strong> {{ $depositPayment['phone'] }}</p>

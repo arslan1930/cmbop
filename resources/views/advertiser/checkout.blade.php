@@ -653,27 +653,14 @@
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Bank Transfer Payment</h3>
-                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">Local Bank Transfer</p>
+                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">GBP bank transfer — UK account or international IBAN</p>
                                     </div>
                                 </div>
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
                                     @php $depositPayment = config('billing.deposit_payment', []); @endphp
                                     <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #9333ea;">Bank Account Information</h4>
-                                    <div style="margin-bottom: 12px;">
-                                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Beneficiary:</p>
-                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>
-                                    </div>
-                                    <div style="margin-bottom: 12px;">
-                                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">IBAN:</p>
-                                        <div id="bankIban" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['iban'] ?? 'BE40 9059 9538 0863' }}</div>
-                                        <button type="button" class="copy-btn mt-1" data-target="bankIban">Copy IBAN</button>
-                                    </div>
-                                    <div>
-                                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">BIC/SWIFT:</p>
-                                        <div id="bankBic" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['bic'] ?? 'TRWIBEB1XXX' }}</div>
-                                        <button type="button" class="copy-btn mt-1" data-target="bankBic">Copy BIC</button>
-                                    </div>
+                                    @include('partials.deposit-bank-account', ['depositPayment' => $depositPayment, 'showExtended' => false, 'showCopy' => true])
                                 </div>
                             </div>
                         </div>

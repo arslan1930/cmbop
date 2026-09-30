@@ -487,10 +487,9 @@ class AdminBlogImageTest extends TestCase
                 ],
             ]);
 
-        $store->assertRedirect(route('admin.blogs.index'));
-
         $blog = Blog::query()->where('slug', 'webp-featured-post')->first();
         $this->assertNotNull($blog);
+        $store->assertRedirect(route('admin.blogs.edit', $blog->id));
         $this->assertNotNull($blog->featured_image);
         $this->assertStringStartsWith('blogs/featured/', $blog->featured_image);
         Storage::disk('public')->assertExists($blog->featured_image);

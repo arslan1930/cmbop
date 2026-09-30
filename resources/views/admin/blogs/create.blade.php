@@ -1,35 +1,25 @@
 @extends('admin.layouts.app')
 
+@php
+    $listUrl = \App\Support\AdminBlog::listUrl($indexQuery ?? []);
+@endphp
+
 @section('content')
 <div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <h1 class="h3 mb-0">Create New Blog</h1>
-            <p class="text-muted">Add a new blog post</p>
-        </div>
-        <div class="col-md-6 text-end">
-            <a href="{{ route('admin.blogs.index') }}" class="btn btn-secondary">
-                <i class="fa fa-arrow-left me-2"></i> Back to Blogs
-            </a>
-        </div>
-    </div>
-
-    @if($errors->any())
-        <div class="alert alert-danger alert-dismissible fade show">
-            <strong>Please fix the following errors:</strong>
-            <ul class="mb-0 mt-2">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss message"></button>
-        </div>
-    @endif
+    @include('admin.partials.page-header', [
+        'title' => 'Create New Blog',
+        'subtitle' => 'Write English first. Add other locales only when you need them.',
+        'actionUrl' => $listUrl,
+        'actionLabel' => 'Back to Blogs',
+        'actionIcon' => 'fa-arrow-left',
+    ])
 
     <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <form action="{{ route('admin.blogs.store') }}" method="POST" enctype="multipart/form-data" id="blogForm" class="admin-deposits-filters" data-admin-filter-live="1">
+            <form action="{{ route('admin.blogs.store') }}" method="POST" enctype="multipart/form-data" id="blogForm" class="admin-deposits-filters" data-admin-filter-live="1" data-blog-unsaved-guard="1">
                 @csrf
+                <input type="hidden" name="status" id="blogStatusInput" value="{{ \App\Support\AdminBlog::normalizeStatus(old_text('status', 'draft')) ?: 'draft' }}">
+                <input type="hidden" name="intent" id="blogIntentInput" value="draft">
 
                 <div class="row">
                     <div class="col-md-8">
@@ -89,35 +79,27 @@
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Primary locale</label>
                             <select name="primary_locale" class="form-select @error('primary_locale') is-invalid @enderror">
-                                <option value="">Auto (current URL locale)</option>
+                                <option value="" {{ old_text('primary_locale') === '' ? 'selected' : '' }}>English (UK) — default canonical</option>
                                 @foreach(($locales ?? \App\Support\AdminBlog::publicLocales()) as $code)
-                                    <option value="{{ $code }}" {{ old_text('primary_locale') === $code ? 'selected' : '' }}>{{ strtoupper($code) }}</option>
+                                    <option value="{{ $code }}" {{ old_text('primary_locale') === $code ? 'selected' : '' }}>{{ \App\Support\AdminBlog::shortLabel($code) }}</option>
                                 @endforeach
                             </select>
-                            <small class="text-muted">Sets preferred canonical (e.g. DE posts → /de/blog/...)</small>
+                            <small class="text-muted">Public <code>/blog/{slug}</code> uses this locale’s slug. English title and body are still required.</small>
                             @error('primary_locale')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Status <span class="text-danger">*</span></label>
-                            <select name="status" class="form-select @error('status') is-invalid @enderror" required>
-                                <option value="draft" {{ old('status') == 'draft' ? 'selected' : '' }}>Draft</option>
-                                <option value="published" {{ old('status') == 'published' ? 'selected' : '' }}>Published</option>
-                            </select>
-                            @error('status')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-4 pt-3 border-top">
-                    <button type="submit" class="btn btn-primary px-4" id="submitBtn">
-                        <i class="fa fa-save me-2"></i> Create Blog
+                <div class="mt-4 pt-3 border-top d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-outline-primary px-4" id="blogDraftBtn">
+                        <i class="fa fa-save me-2"></i> Save draft
                     </button>
-                    <a href="{{ route('admin.blogs.index') }}" class="btn btn-secondary px-4">
+                    <button type="button" class="btn btn-primary px-4" id="blogPublishBtn">
+                        <i class="fa fa-globe me-2"></i> Publish
+                    </button>
+                    <a href="{{ $listUrl }}" class="btn btn-secondary px-4" id="blogCancelLink">
                         <i class="fa fa-times me-2"></i> Cancel
                     </a>
                 </div>
@@ -164,5 +146,50 @@ document.getElementById('featuredImageClearBtn').addEventListener('click', funct
     document.getElementById('featuredImageInput').value = '';
     showFeaturedPlaceholder();
 });
+
+(function () {
+    var form = document.getElementById('blogForm');
+    var statusInput = document.getElementById('blogStatusInput');
+    var intentInput = document.getElementById('blogIntentInput');
+    var publishBtn = document.getElementById('blogPublishBtn');
+    var draftBtn = document.getElementById('blogDraftBtn');
+    if (!form || !statusInput || !intentInput || !publishBtn) {
+        return;
+    }
+
+    draftBtn?.addEventListener('click', function () {
+        statusInput.value = 'draft';
+        intentInput.value = 'draft';
+    });
+
+    publishBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var go = function () {
+            statusInput.value = 'published';
+            intentInput.value = 'publish';
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+        };
+        if (!window.Swal) {
+            go();
+            return;
+        }
+        Swal.fire({
+            title: 'Publish this post?',
+            text: 'This goes live on the public blog.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Publish',
+            cancelButtonText: 'Cancel'
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                go();
+            }
+        });
+    });
+})();
 </script>
 @endsection
