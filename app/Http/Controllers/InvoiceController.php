@@ -6,6 +6,7 @@ use App\Models\DepositRequest;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Services\Billing\DepositReceiptService;
+use App\Services\Billing\InvoicePdfGenerator;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +16,59 @@ class InvoiceController extends Controller
     /**
      * Show invoice page for both deposits and orders
      */
-    public function showInvoice(Request $request, $referenceCode, DepositReceiptService $receipts)
+    public function downloadPdf($referenceCode, DepositReceiptService $receipts, InvoicePdfGenerator $pdfs)
+    {
+        $userId = auth()->id();
+        $user = auth()->user();
+
+        $deposit = DepositRequest::where('reference_code', $referenceCode)
+            ->where('user_id', $userId)
+            ->first();
+
+        if ($deposit) {
+            if ($receipts->isSettled($deposit) && ($receipt = $receipts->issue($deposit))) {
+                return $pdfs->download($receipt);
+            }
+
+            return $pdfs->attachment(
+                $this->pendingDepositDocument($deposit, $user),
+                $this->pdfFilename((string) $deposit->reference_code)
+            );
+        }
+
+        $order = Order::where('reference_code', $referenceCode)
+            ->where('user_id', $userId)
+            ->with('items')
+            ->first();
+
+        if ($order) {
+            $taxInvoice = Invoice::query()
+                ->where('user_id', $userId)
+                ->where('type', Invoice::TYPE_TAX_INVOICE)
+                ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                ->where(function ($q) use ($order) {
+                    $q->where('order_id', $order->id)
+                        ->orWhere('reference_code', $order->reference_code)
+                        ->orWhere('order_number', $order->order_number);
+                })
+                ->latest('id')
+                ->first();
+
+            if ($taxInvoice) {
+                return $pdfs->download($taxInvoice);
+            }
+
+            return $pdfs->attachment(
+                $this->pendingOrderDocument($order, $user),
+                $this->pdfFilename((string) $order->reference_code)
+            );
+        }
+
+        return redirect()->route('advertiser.add-funds')
+            ->with('error', 'Invoice not found');
+    }
+
+    public function showInvoice(Request $request, $referenceCode, DepositReceiptService $receipts, InvoicePdfGenerator $pdfs)
     {
         try {
             $userId = auth()->id();
@@ -36,15 +89,11 @@ class InvoiceController extends Controller
                     );
                 }
 
-                $response = response()->view('advertiser.invoice', $this->depositInvoiceData($deposit, $user));
                 if ($request->boolean('download')) {
-                    $response->header(
-                        'Content-Disposition',
-                        'attachment; filename="invoice-REF'.$deposit->reference_code.'.html"'
-                    );
+                    return $this->downloadPdf($referenceCode, $receipts, $pdfs);
                 }
 
-                return $response;
+                return response()->view('advertiser.invoice', $this->depositInvoiceData($deposit, $user));
             }
 
             // Check if it's an order
@@ -74,15 +123,11 @@ class InvoiceController extends Controller
                     );
                 }
 
-                $response = response()->view('advertiser.invoice', $this->orderInvoiceData($order, $user));
                 if ($request->boolean('download')) {
-                    $response->header(
-                        'Content-Disposition',
-                        'attachment; filename="invoice-REF'.$order->reference_code.'.html"'
-                    );
+                    return $this->downloadPdf($referenceCode, $receipts, $pdfs);
                 }
 
-                return $response;
+                return response()->view('advertiser.invoice', $this->orderInvoiceData($order, $user));
             }
 
             return redirect()->route('advertiser.add-funds')
@@ -94,6 +139,135 @@ class InvoiceController extends Controller
             return redirect()->route('advertiser.add-funds')
                 ->with('error', UserFacingError::message($e, 'Invoice not found'));
         }
+    }
+
+    private function pdfFilename(string $reference): string
+    {
+        $safe = preg_replace('/[^A-Za-z0-9_-]/', '', $reference) ?: 'invoice';
+
+        return 'invoice-REF'.$safe.'.pdf';
+    }
+
+    private function pendingDepositDocument($deposit, $user): Invoice
+    {
+        $amount = round((float) $deposit->amount, 2);
+
+        return new Invoice([
+            'invoice_number' => 'REF'.$deposit->reference_code,
+            'type' => Invoice::TYPE_DEPOSIT_RECEIPT,
+            'status' => Invoice::STATUS_PENDING,
+            'user_id' => $user->id,
+            'reference_code' => $deposit->reference_code,
+            'currency' => 'EUR',
+            'subtotal' => $amount,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => $amount,
+            'payment_method' => $deposit->payment_method,
+            'payment_status' => 'pending',
+            'invoice_date' => $deposit->created_at ?? now(),
+            'customer_name' => $user->billing_name ?? $user->name,
+            'customer_email' => $user->email,
+            'billing_snapshot' => [
+                'company' => $user->company_name ?? null,
+                'address' => $user->address ?? null,
+                'city' => $user->city ?? null,
+                'state' => $user->state ?? null,
+                'postal_code' => $user->postal_code ?? null,
+                'country' => $user->country ?? null,
+                'vat_number' => $user->vat_number ?? null,
+            ],
+            'line_items' => [[
+                'description' => 'Wallet top-up',
+                'reference' => $deposit->reference_code,
+                'quantity' => 1,
+                'unit_price' => $amount,
+                'line_total' => $amount,
+            ]],
+            'notes' => $this->pendingDepositNote($deposit),
+        ]);
+    }
+
+    private function pendingDepositNote($deposit): string
+    {
+        $pay = config('billing.deposit_payment', []);
+        $lines = [
+            'Waiting for payment. The wallet is credited after this transfer is confirmed. Put REF'.$deposit->reference_code.' in the payment note.',
+        ];
+        $method = (string) $deposit->payment_method;
+
+        if (in_array($method, ['wise', 'bank'], true)) {
+            if (! empty($pay['beneficiary'])) {
+                $lines[] = 'Beneficiary: '.$pay['beneficiary'].'.';
+            }
+            if (! empty($pay['iban'])) {
+                $lines[] = 'IBAN: '.$pay['iban'].'.';
+            }
+            if (! empty($pay['bic'])) {
+                $lines[] = 'BIC: '.$pay['bic'].'.';
+            }
+        }
+
+        if ($method === 'crypto') {
+            if (! empty($pay['crypto']['note'])) {
+                $lines[] = $pay['crypto']['note'];
+            }
+            foreach ($pay['crypto']['networks'] ?? [] as $network) {
+                if (! empty($network['address'])) {
+                    $lines[] = ($network['label'] ?? 'Address').': '.$network['address'].'.';
+                }
+            }
+        }
+
+        return implode(' ', $lines);
+    }
+
+    private function pendingOrderDocument($order, $user): Invoice
+    {
+        $data = $this->orderInvoiceData($order, $user);
+        $amount = round((float) $data['amount'], 2);
+        $lines = [];
+        foreach ($data['orderItems'] as $item) {
+            $price = round((float) ($item['price'] ?? 0), 2);
+            $lines[] = [
+                'description' => $item['site_name'] ?? 'Guest post',
+                'publisher_website' => $item['site_url'] ?? '',
+                'quantity' => 1,
+                'unit_price' => $price,
+                'line_total' => $price,
+            ];
+        }
+
+        return new Invoice([
+            'invoice_number' => 'REF'.$order->reference_code,
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => ($order->payment_status ?? '') === 'paid' ? Invoice::STATUS_PAID : Invoice::STATUS_PENDING,
+            'user_id' => $user->id,
+            'order_id' => $order->id,
+            'reference_code' => $order->reference_code,
+            'order_number' => $order->order_number,
+            'currency' => 'EUR',
+            'subtotal' => $amount,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => $amount,
+            'payment_method' => $order->payment_method,
+            'payment_status' => $order->payment_status ?: 'pending',
+            'invoice_date' => $order->created_at ?? now(),
+            'paid_at' => ($order->payment_status ?? '') === 'paid' ? ($order->paid_at ?? $order->created_at) : null,
+            'customer_name' => $data['billingName'],
+            'customer_email' => $data['userEmail'],
+            'billing_snapshot' => [
+                'company' => $data['companyName'] ?: null,
+                'address' => $data['address'] ?: null,
+                'city' => $data['city'] ?: null,
+                'state' => $data['state'] ?: null,
+                'postal_code' => $data['postalCode'] ?: null,
+                'country' => $data['country'] ?: null,
+                'vat_number' => $data['vatNumber'] ?: null,
+            ],
+            'line_items' => $lines,
+        ]);
     }
 
     private function depositInvoiceData($deposit, $user): array

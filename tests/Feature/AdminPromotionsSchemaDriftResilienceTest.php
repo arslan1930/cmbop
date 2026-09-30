@@ -83,9 +83,10 @@ class AdminPromotionsSchemaDriftResilienceTest extends TestCase
             ->get(route('admin.promotions.index'))
             ->assertOk()
             ->assertSee('€20 welcome credit', false)
-            ->assertSee('Enabled', false)
+            ->assertSee('Disabled', false)
+            ->assertDontSee('>Enabled</span>', false)
             ->assertDontSee('>Unknown<', false)
-            ->assertSee('Disable', false)
+            ->assertSee('Enable', false)
             ->assertSee('Set amount', false)
             ->assertDontSee('Something went wrong');
 

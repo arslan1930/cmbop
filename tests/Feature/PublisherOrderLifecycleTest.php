@@ -115,6 +115,62 @@ class PublisherOrderLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_a_second_publisher_can_accept_their_own_placement(): void
+    {
+        $item = $this->makeOrder();
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $other = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $publisherRole->id,
+        ]);
+        $other->roles()->attach($publisherRole->id);
+        $otherSite = Site::create([
+            'publisher_id' => $other->id,
+            'site_name' => 'Sibling Site',
+            'site_url' => 'https://sibling.example',
+            'domain' => 'sibling.example',
+            'da' => 20,
+            'dr' => 20,
+            'traffic' => 100,
+            'country' => 'us',
+            'language' => 'en',
+            'countries' => ['us'],
+            'languages' => ['en'],
+            'category' => 'marketing',
+            'price' => 40,
+            'publication_time' => '7 days',
+            'link_type' => 'dofollow',
+            'description' => 'Second publisher site',
+            'verified' => true,
+            'active' => true,
+        ]);
+        $sibling = OrderItem::create([
+            'order_id' => $item->order_id,
+            'site_id' => $otherSite->id,
+            'site_name' => $otherSite->site_name,
+            'site_url' => $otherSite->site_url,
+            'content_link' => 'https://docs.example/sibling',
+            'price' => 40,
+        ]);
+
+        $this->actingAs($this->publisher)
+            ->postJson(route('publisher.orders.accept', $item->id))
+            ->assertOk();
+
+        $this->actingAs($other)
+            ->postJson(route('publisher.orders.accept', $sibling->id))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('processing', $item->order->fresh()->status);
+        $this->assertSame('accepted', $sibling->fresh()->publisher_status);
+        $this->assertNotNull($sibling->fresh()->accepted_at);
+
+        $this->actingAs($this->publisher)
+            ->postJson(route('publisher.orders.accept', $item->id))
+            ->assertStatus(422);
+    }
+
     public function test_publisher_cannot_reaccept_a_processing_order(): void
     {
         $item = $this->makeOrder();

@@ -31,7 +31,11 @@ class SecurityHeaders
             "object-src 'none'",
         ]);
 
-        $response->headers->set('Content-Security-Policy', trim(preg_replace('/\s+/', ' ', $csp)));
+        // Chrome's XML viewer is blocked by a page CSP, so it dumps sitemap
+        // text into one line and hides the tags. XML has no scripts to lock down.
+        if (! $this->isNonHtmlDocument($response)) {
+            $response->headers->set('Content-Security-Policy', trim(preg_replace('/\s+/', ' ', $csp)));
+        }
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -49,5 +53,14 @@ class SecurityHeaders
         }
 
         return $response;
+    }
+
+    private function isNonHtmlDocument(Response $response): bool
+    {
+        $type = strtolower((string) $response->headers->get('Content-Type'));
+
+        return str_contains($type, 'xml')
+            || str_contains($type, 'json')
+            || str_contains($type, 'text/plain');
     }
 }

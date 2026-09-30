@@ -252,7 +252,20 @@
                         <img src="{{ $invoiceLogo }}" alt="{{ $company['name'] ?? 'SEOLinkBuildings' }}" class="company-logo">
                         <div class="company-details">
                             @if($isDepositInvoice)
-                                <p><strong>Seller / Service Provider:</strong> {{ $depositPayment['seller_name'] ?? 'SEOLinkBuildings Partner' }}</p>
+                                <p><strong>Seller / Service Provider:</strong> {{ $company['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)' }}</p>
+                                @foreach(($company['address_lines'] ?? []) as $line)
+                                    <p><strong>{{ $loop->first ? 'Address:' : '' }}</strong> {{ $line }}</p>
+                                @endforeach
+                                @if(!empty($company['registration_no']))
+                                    <p><strong>Registration No:</strong> {{ $company['registration_no'] }}</p>
+                                @endif
+                                @if(!empty($company['support_email']))
+                                    <p><strong>Email:</strong> {{ $company['support_email'] }}</p>
+                                @endif
+                                @if(!empty($company['website_url']))
+                                    <p><strong>Website:</strong> {{ $company['website_url'] }}</p>
+                                @endif
+                                <p><strong>VAT:</strong> {{ $company['vat_note'] ?? 'Not VAT registered – no VAT charged' }}</p>
                                 <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>
                                 @if(!empty($depositPayment['bic']))
                                     <p><strong>BIC (SWIFT):</strong> {{ $depositPayment['bic'] }}</p>
@@ -263,13 +276,6 @@
                                 @if(!empty($depositPayment['phone']))
                                     <p><strong>Phone no:</strong> {{ $depositPayment['phone'] }}</p>
                                 @endif
-                                @foreach(($depositPayment['address_lines'] ?? []) as $line)
-                                    <p><strong>{{ $loop->first ? 'Address:' : '' }}</strong> {{ $line }}</p>
-                                @endforeach
-                                @if(!empty($depositPayment['registration_no']))
-                                    <p><strong>Registration No:</strong> {{ $depositPayment['registration_no'] }}</p>
-                                @endif
-                                <p><strong>VAT:</strong> {{ $depositPayment['vat_note'] ?? 'Not VAT registered – no VAT charged' }}</p>
                             @else
                                 <p><strong>Seller / Service Provider:</strong> {{ $company['legal_name'] ?? $company['name'] ?? 'SEOLinkBuildings' }}</p>
                                 @foreach(($company['address_lines'] ?? []) as $line)

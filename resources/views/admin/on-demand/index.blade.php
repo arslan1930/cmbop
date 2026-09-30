@@ -166,16 +166,16 @@
             </div>
         </div>
 
-        <form method="GET" action="{{ route('admin.sites.on-demand.index') }}" class="row g-2 align-items-end mb-3">
-            <div class="col-md-5">
-                <x-slb-search-field
-                    name="q"
-                    id="adminOnDemandSearch"
-                    :value="$search"
-                    placeholder="Search site, email, WhatsApp, notes…"
-                    :show-label="false"
-                />
-            </div>
+        <form method="GET" action="{{ route('admin.sites.on-demand.index') }}" class="admin-deposits-filters mb-3" style="max-width: 36rem;">
+            <x-slb-search-field
+                name="q"
+                id="adminOnDemandSearch"
+                :value="$search"
+                placeholder="Search site, email, WhatsApp, notes…"
+                label="Search contacts"
+                label-class="form-label"
+                input-class="form-control"
+            />
         </form>
 
         <p class="ondemand-row-hint text-muted mb-2">Click a row to open the full contact.</p>

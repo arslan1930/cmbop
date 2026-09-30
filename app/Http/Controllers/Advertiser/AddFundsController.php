@@ -60,7 +60,7 @@ class AddFundsController extends Controller
         }
 
         try {
-            $wallet = Wallet::firstOrCreate(
+            $wallet = Wallet::unguarded(fn () => Wallet::firstOrCreate(
                 ['user_id' => $user->id, 'role_id' => $advertiserRoleId],
                 [
                     'balance' => 0,
@@ -69,7 +69,7 @@ class AddFundsController extends Controller
                     'bonus_reserved' => 0,
                     'currency' => 'EUR',
                 ]
-            );
+            ));
 
             $wallet->repairOrphanedWelcomeBonus();
             $wallet->reconcileInflatedBonusBalance();
@@ -811,7 +811,7 @@ class AddFundsController extends Controller
             $invoiceUrl = null;
             $markPaidUrl = null;
             try {
-                $invoiceUrl = route('advertiser.invoice', $referenceCode);
+                $invoiceUrl = route('advertiser.invoice.pdf', $referenceCode);
             } catch (\Throwable) {
             }
             try {

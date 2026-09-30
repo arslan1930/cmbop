@@ -25,7 +25,7 @@ class BrandOrganization
         return array_merge([
             '@type' => 'Organization',
             'name' => 'SEOLinkBuildings',
-            'legalName' => $company['legal_name'] ?? 'SEOLinkBuildings Partners with (Topurlz LTD)',
+            'legalName' => $company['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)',
             'alternateName' => [
                 'SEO Link Buildings',
                 'Seolink Buildings',

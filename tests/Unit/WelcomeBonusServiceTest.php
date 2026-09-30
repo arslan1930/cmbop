@@ -27,6 +27,7 @@ class WelcomeBonusServiceTest extends TestCase
     {
         parent::setUp();
         $this->service = app(WelcomeBonusService::class);
+        $this->service->setEnabled(true);
         foreach ([
             '1.2.3', '5.5.5', '5.6.7', '7.7.7', '8.8.8', '9.9.9',
             '10.0.0', '10.1.0', '10.2.0', '10.3.0', '10.4.0', '10.5.0',
@@ -592,34 +593,41 @@ class WelcomeBonusServiceTest extends TestCase
 
     public function test_unlocked_read_does_not_create_a_settings_row(): void
     {
-        $this->assertTrue(WelcomeBonusSetting::isEnabled());
+        $this->forgetStoredBonusSetting();
+
+        $this->assertFalse(WelcomeBonusSetting::isEnabled());
         $this->assertSame(0, WelcomeBonusSetting::query()->count());
     }
 
     public function test_grant_lock_creates_a_default_settings_row(): void
     {
+        $this->forgetStoredBonusSetting();
+
         $this->assertSame(0, WelcomeBonusSetting::query()->count());
-        $this->assertTrue(WelcomeBonusSetting::isEnabledForGrant());
+        $this->assertFalse(WelcomeBonusSetting::isEnabledForGrant());
         $this->assertSame(1, WelcomeBonusSetting::query()->where('key', 'config')->count());
-        $this->assertTrue(WelcomeBonusSetting::isEnabled());
+        $this->assertFalse(WelcomeBonusSetting::isEnabled());
     }
 
-    public function test_unlocked_read_stays_on_when_never_configured(): void
+    public function test_unlocked_read_stays_off_when_never_configured(): void
     {
+        $this->forgetStoredBonusSetting();
+
         $this->assertSame(0, WelcomeBonusSetting::query()->count());
-        $this->assertTrue(WelcomeBonusSetting::isEnabled());
-        $this->assertSame(20.0, $this->service->amountFor($this->request('203.0.113.60'), 'advertiser'));
+        $this->assertFalse(WelcomeBonusSetting::isEnabled());
+        $this->assertSame(0.0, $this->service->amountFor($this->request('203.0.113.60'), 'advertiser'));
     }
 
-    public function test_settings_default_enabled_until_toggled(): void
+    public function test_settings_default_stays_off_until_enabled(): void
     {
-        $this->assertTrue(WelcomeBonusSetting::isEnabled());
-
-        WelcomeBonusSetting::setEnabled(false, 99);
+        $this->forgetStoredBonusSetting();
         $this->assertFalse(WelcomeBonusSetting::isEnabled());
 
+        WelcomeBonusSetting::setEnabled(true, 99);
+        $this->assertTrue(WelcomeBonusSetting::isEnabled());
+
         $stored = WelcomeBonusSetting::getValue('config', []);
-        $this->assertFalse($stored['enabled']);
+        $this->assertTrue($stored['enabled']);
         $this->assertSame(99, $stored['updated_by']);
     }
 
@@ -659,6 +667,7 @@ class WelcomeBonusServiceTest extends TestCase
 
     public function test_string_false_default_is_off_when_unset(): void
     {
+        $this->forgetStoredBonusSetting();
         config(['welcome_bonus.enabled_default' => 'false']);
 
         $this->assertFalse(WelcomeBonusSetting::isEnabled());
@@ -1034,6 +1043,12 @@ class WelcomeBonusServiceTest extends TestCase
             'registration'
         ));
         $this->assertSame(0, WelcomeBonusClaim::query()->count());
+    }
+
+    private function forgetStoredBonusSetting(): void
+    {
+        WelcomeBonusSetting::query()->delete();
+        WelcomeBonusSetting::clearCache();
     }
 
     private function request(string $ip, array $cookies = [], array $server = []): Request

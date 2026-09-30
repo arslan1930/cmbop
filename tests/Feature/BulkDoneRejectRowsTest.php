@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\AdminAssignedSitesBatchNotification;
 use App\Mail\BulkSiteItemsRejected;
 use App\Mail\BulkSiteRequestCancelled;
 use App\Mail\BulkSitesReadyForPublisherReview;
@@ -1742,6 +1743,105 @@ class BulkDoneRejectRowsTest extends TestCase
             ->assertSee('Bulk request', false);
     }
 
+    public function test_done_can_publish_one_row_and_invite_another(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(2, 'mixed-dest');
+        $live = $this->completeRow($items[0]);
+        $invite = $this->completeRow($items[1]);
+        $live[$items[0]->id]['destination'] = 'add_now';
+        $invite[$items[1]->id]['destination'] = 'ask_publisher';
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertDontSee('Ask publisher — Accept first', false)
+            ->assertDontSee('Use Publish now / Send for review', false)
+            ->assertDontSee('This row', false);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
+                'done_mode' => 'publish',
+                'items' => $live + $invite,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', function ($message) {
+                return str_contains((string) $message, 'Invites')
+                    && str_contains((string) $message, 'active');
+            });
+
+        $liveSite = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+        $inviteSite = Site::query()->where('domain', $items[1]->domain)->firstOrFail();
+        $this->assertTrue((bool) $liveSite->active);
+        $this->assertNull($liveSite->assigned_by_user_id);
+        $this->assertTrue($inviteSite->isPendingPublisherAcceptance());
+        $this->assertFalse((bool) $inviteSite->active);
+        $this->assertSame($this->admin->id, (int) $inviteSite->assigned_by_user_id);
+        Mail::assertQueued(BulkSitesSeededNotification::class, 1);
+        Mail::assertQueued(AdminAssignedSitesBatchNotification::class, 1);
+        Mail::assertNotQueued(BulkSitesReadyForPublisherReview::class);
+
+        $this->actingAs($this->publisher)
+            ->postJson(route('publisher.sites.accept-assignment', $inviteSite->id))
+            ->assertOk();
+        $inviteSite->refresh();
+        $this->assertFalse((bool) $inviteSite->active);
+        $this->assertTrue($inviteSite->needsAdminReview());
+    }
+
+    public function test_done_can_invite_every_filled_row(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'all-invite');
+        $row = $this->completeRow($items[0]);
+        $row[$items[0]->id]['destination'] = 'ask_publisher';
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
+                'done_mode' => 'publish',
+                'items' => $row,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', function ($message) {
+                return str_contains((string) $message, 'Invites')
+                    && str_contains((string) $message, 'not live yet');
+            });
+
+        $site = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+        $this->assertTrue($site->isPendingPublisherAcceptance());
+        $this->assertFalse((bool) $site->active);
+        $this->assertNull($site->onboarding_status);
+        Mail::assertQueued(AdminAssignedSitesBatchNotification::class, 1);
+        Mail::assertNotQueued(BulkSitesSeededNotification::class);
+        Mail::assertNotQueued(BulkSitesReadyForPublisherReview::class);
+    }
+
+    public function test_ask_publisher_wins_over_send_for_review(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'invite-over-review');
+        $row = $this->completeRow($items[0]);
+        $row[$items[0]->id]['destination'] = 'ask_publisher';
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
+                'done_mode' => 'review',
+                'items' => $row,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', function ($message) {
+                return str_contains((string) $message, 'Invites')
+                    && ! str_contains((string) $message, 'sent to the publisher for review');
+            });
+
+        $site = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
+        $this->assertTrue($site->isPendingPublisherAcceptance());
+        $this->assertFalse((bool) $site->active);
+        $this->assertNull($site->onboarding_status);
+        Mail::assertQueued(AdminAssignedSitesBatchNotification::class, 1);
+        Mail::assertNotQueued(BulkSitesReadyForPublisherReview::class);
+    }
+
     public function test_review_choice_waits_for_the_publisher_then_shows_in_needs_review(): void
     {
         Mail::fake();
@@ -1779,7 +1879,8 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->actingAs($this->publisher)
             ->get(route('publisher.bulk-sites.review'))
             ->assertOk()
-            ->assertSee($item->domain, false);
+            ->assertSee($item->domain, false)
+            ->assertSee('Accept selected', false);
 
         $this->actingAs($this->publisher)
             ->post(route('publisher.bulk-sites.review.submit'), [
@@ -1788,22 +1889,51 @@ class BulkDoneRejectRowsTest extends TestCase
             ->assertRedirect();
 
         $site->refresh();
-        $this->assertSame(Site::ONBOARDING_READY_FOR_REVIEW, $site->onboarding_status);
-        $this->assertTrue($site->needsAdminReview());
+        $this->assertNull($site->onboarding_status);
+        $this->assertTrue((bool) $site->active);
+        $this->assertFalse((bool) $site->verified);
+        $this->assertFalse($site->needsAdminReview());
         $this->assertTrue($site->wasAddedFromBulkRequest());
-        $this->assertFalse(Site::query()->catalogVisible()->whereKey($site->id)->exists());
+        $this->assertTrue(Site::query()->catalogVisible()->whereKey($site->id)->exists());
         $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
 
         $this->actingAs($this->admin)
             ->get(route('admin.bulk-site-requests.index'))
             ->assertOk()
             ->assertDontSee(route('admin.bulk-site-requests.show', $bulk), false);
+    }
+
+    public function test_publisher_edit_after_send_for_review_goes_to_admin_queue(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'edit-review');
+        $item = $items[0];
 
         $this->actingAs($this->admin)
-            ->get(route('admin.sites.index', ['needs_review' => 1, 'flat' => 1]))
-            ->assertOk()
-            ->assertSee($item->domain, false)
-            ->assertSee('Bulk request', false);
+            ->post(route('admin.bulk-site-requests.done', $bulk), [
+                'done_mode' => 'review',
+                'items' => $this->completeRow($item),
+            ])
+            ->assertRedirect();
+
+        $site = Site::query()->where('domain', $item->domain)->firstOrFail();
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.bulk-sites.complete.store', $site->id), [
+                'exampleUrl' => 'https://edit-review-1.example/guest-post',
+                'turnaround_time' => '48h',
+                'publicationTime' => '1year',
+                'link_type' => 'nofollow',
+                'site_tag' => 'as_you_prefer',
+                'siteDescription' => str_repeat('Quality editorial site for guest posts. ', 4),
+            ])
+            ->assertRedirect(route('publisher.websites', ['status' => 'pending']));
+
+        $site->refresh();
+        $this->assertSame(Site::ONBOARDING_READY_FOR_REVIEW, $site->onboarding_status);
+        $this->assertTrue($site->needsAdminReview());
+        $this->assertFalse((bool) $site->active);
+        $this->assertFalse(Site::query()->catalogVisible()->whereKey($site->id)->exists());
     }
 
     public function test_bulk_index_keeps_completed_batches_that_still_have_rows_to_add(): void

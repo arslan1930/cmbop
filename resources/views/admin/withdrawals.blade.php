@@ -70,20 +70,21 @@
     </div>
 
     <!-- Filters -->
-    <div class="card shadow-sm border-0 mb-3">
+    <div class="card shadow-sm border-0 mb-3 admin-deposits-filter-card">
         <div class="card-body">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Queue</label>
-                    <select id="queueFilter" class="form-select form-select-sm">
+            <form id="withdrawalFilterForm" class="admin-deposits-filters admin-orders-filters" data-admin-filter-live="1">
+            <div class="admin-orders-filters__grid">
+                <div>
+                    <label class="form-label" for="queueFilter">Queue</label>
+                    <select id="queueFilter" class="form-select">
                         <option value="open" selected>Open (pay these)</option>
                         <option value="history">History</option>
                         <option value="all">All</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Status</label>
-                    <select id="statusFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="statusFilter">Status</label>
+                    <select id="statusFilter" class="form-select">
                         <option value="">Any in queue</option>
                         <option value="pending">Pending</option>
                         <option value="processing">Processing</option>
@@ -91,9 +92,9 @@
                         <option value="cancelled">Cancelled / Rejected</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted">Payment Method</label>
-                    <select id="paymentMethodFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="paymentMethodFilter">Payment Method</label>
+                    <select id="paymentMethodFilter" class="form-select">
                         <option value="">All Methods</option>
                         <option value="bank">Bank Transfer</option>
                         <option value="paypal">PayPal</option>
@@ -101,19 +102,20 @@
                         <option value="crypto">Cryptocurrency</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted">Date Range</label>
-                    <div class="d-flex gap-2">
-                        <input type="date" id="dateFrom" class="form-control form-control-sm">
-                        <input type="date" id="dateTo" class="form-control form-control-sm">
-                    </div>
+                <div>
+                    <label class="form-label" for="dateFrom">From</label>
+                    <input type="date" id="dateFrom" class="form-control">
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted" for="searchInput">Search</label>
+                <div>
+                    <label class="form-label" for="dateTo">To</label>
+                    <input type="date" id="dateTo" class="form-control">
+                </div>
+                <div class="admin-orders-filters__search">
+                    <label class="form-label" for="searchInput">Search</label>
                     <div class="slb-search-wrap">
                         <input type="search"
                                id="searchInput"
-                               class="form-control form-control-sm"
+                               class="form-control"
                                placeholder="Name, email, WD id, or payout destination"
                                title="Results update as you type"
                                autocomplete="off"
@@ -125,11 +127,9 @@
                     </div>
                     <div id="adminWithdrawalsSearchStatus" class="form-text slb-search-status" role="status" aria-live="polite"></div>
                 </div>
-            </div>
-            <div class="row g-3 align-items-end mt-1">
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted" for="sortFilter">Sort</label>
-                    <select id="sortFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="sortFilter">Sort</label>
+                    <select id="sortFilter" class="form-select">
                         <option value="">Default</option>
                         <option value="oldest">Oldest first</option>
                         <option value="newest">Newest first</option>
@@ -137,23 +137,26 @@
                         <option value="waiting">Waiting days</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold small text-muted" for="waitingFilter">Waiting</label>
-                    <select id="waitingFilter" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="waitingFilter">Waiting</label>
+                    <select id="waitingFilter" class="form-select">
                         <option value="">Any</option>
                         <option value="7">7+ days</option>
                         <option value="14">14+ days</option>
                     </select>
                 </div>
+                <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" id="filterBtn" class="btn btn-primary">
+                            <i class="fa fa-search"></i> Filter
+                        </button>
+                        <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary">
+                            <i class="fa fa-undo"></i> Reset
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="mt-3 d-flex flex-wrap gap-2">
-                <button id="filterBtn" class="btn btn-primary btn-sm px-3">
-                    <i class="fa fa-search"></i> Filter
-                </button>
-                <button id="resetFiltersBtn" class="btn btn-secondary btn-sm px-3">
-                    <i class="fa fa-undo"></i> Reset
-                </button>
-            </div>
+            </form>
         </div>
     </div>
 
@@ -930,7 +933,12 @@ $('#copyDetailsBtn').on('click', function() {
     if (lastDetailsCopyText) copyText(lastDetailsCopyText);
 });
 
-$('#filterBtn').on('click', function () {
+$('#withdrawalFilterForm').on('submit', function (e) {
+    e.preventDefault();
+    financeClock = false;
+    loadWithdrawals(1);
+});
+document.getElementById('withdrawalFilterForm').addEventListener('admin-filter-pick', function () {
     financeClock = false;
     loadWithdrawals(1);
 });
@@ -943,6 +951,11 @@ $('#resetFiltersBtn').on('click', function() {
     $('#sortFilter').val('');
     $('#waitingFilter').val('');
     $('#searchInput').val('');
+    document.querySelectorAll('#withdrawalFilterForm select').forEach(function (select) {
+        select.dataset.themeSync = '1';
+        select.dispatchEvent(new Event('change'));
+        delete select.dataset.themeSync;
+    });
     financeClock = false;
     selectedIds.clear();
     withdrawalFlags.clear();
@@ -950,9 +963,12 @@ $('#resetFiltersBtn').on('click', function() {
 });
 
 $('#queueFilter').on('change', function() {
+    if (this.dataset.themeSync === '1') return;
     financeClock = false;
-    if ($(this).val() === 'open') $('#statusFilter').val('');
-    loadWithdrawals(1);
+    if ($(this).val() === 'open') {
+        $('#statusFilter').val('');
+        document.getElementById('statusFilter').dispatchEvent(new Event('change'));
+    }
 });
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -991,6 +1007,11 @@ $(document).on('click', '.queue-preset', function () {
     $('#sortFilter').val('');
     $('#waitingFilter').val('');
     $('#searchInput').val('');
+    document.querySelectorAll('#withdrawalFilterForm select').forEach(function (select) {
+        select.dataset.themeSync = '1';
+        select.dispatchEvent(new Event('change'));
+        delete select.dataset.themeSync;
+    });
     financeClock = false;
     document.getElementById('searchInput')?._slbLiveSearch?.refreshClear();
     if ($el.attr('data-week') === '1') {

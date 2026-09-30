@@ -109,7 +109,6 @@ use App\Support\RobotsTxt;
 use App\Support\RomanianMoneyLanders;
 use App\Support\SpanishMoneyLanders;
 use App\Support\SwissMoneyLanders;
-use App\Support\UserMessages;
 use App\Support\WelcomeBonusCopy;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
@@ -1070,35 +1069,12 @@ Route::post('/support/chat', [VisitorSupportChatController::class, 'store'])
     ->middleware('throttle:20,1')
     ->name('support.chat');
 
-// External cron fallback for hosts without a real scheduler. This completes orders
-// and releases publisher payouts, so it stays closed unless a strong secret is set
-// (the app scheduler already runs orders:auto-approve on its own).
-Route::get('/cron/orders-auto-approve/{key}', function ($key) {
-    $secret = (string) config('app.cron_secret', '');
-
-    if (strlen($secret) < 32) {
-        abort(404, UserMessages::get('cron.disabled'));
-    }
-
-    if (! hash_equals($secret, (string) $key)) {
-        abort(403, UserMessages::get('cron.forbidden'));
-    }
-
-    Artisan::call('orders:auto-approve');
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Orders auto-approved',
-    ]);
-})->middleware('throttle:6,1')->name('cron.orders-auto-approve');
-
 // Whole scheduler for hosts that cannot run `php artisan schedule:run` every
-// minute. Point an external pinger here and everything scheduled runs — mail
-// drain, auto-approve, scheduled publishing, reminders and digests. Same secret
-// gate as above, since these tasks move money and send mail.
-// Prefer POST /cron/run with X-Cron-Key so the secret is not in access logs.
-$runHttpScheduler = function (Request $request, string $key = '') {
-    HttpCron::authorize($request, $key);
+// minute. POST /cron/run with header X-Cron-Key. The secret must not be in the
+// path: access logs and Referer would keep a copy, and this run completes
+// orders and releases publisher payouts.
+Route::post('/cron/run', function (Request $request) {
+    HttpCron::authorize($request);
 
     Artisan::call('schedule:run');
 
@@ -1106,14 +1082,6 @@ $runHttpScheduler = function (Request $request, string $key = '') {
         'status' => 'success',
         'message' => 'Scheduler run',
     ]);
-};
-
-Route::match(['GET', 'POST'], '/cron/run', function (Request $request) use ($runHttpScheduler) {
-    return $runHttpScheduler($request);
-})->middleware('throttle:6,1')->name('cron.run.header');
-
-Route::get('/cron/run/{key}', function (Request $request, $key) use ($runHttpScheduler) {
-    return $runHttpScheduler($request, (string) $key);
 })->middleware('throttle:6,1')->name('cron.run');
 
 // ✅ UPDATED: Guest middleware for login/register pages
@@ -1260,6 +1228,20 @@ $registerStaffOpsRoutes = function () {
         ->name('sites.create');
     Route::post('/sites', [AdminSiteController::class, 'storeForPublisher'])
         ->name('sites.store');
+    Route::get('/sites/domain-check', [AdminSiteController::class, 'domainCheck'])
+        ->name('sites.domain-check');
+    Route::get('/sites/publisher-domains', [AdminSiteController::class, 'publisherDomains'])
+        ->name('sites.publisher-domains');
+    Route::post('/sites/lookup-metrics', [AdminSiteController::class, 'lookupMetrics'])
+        ->middleware('throttle:20,1')
+        ->name('sites.lookup-metrics');
+    Route::get('/sites/bulk-create', [AdminSiteController::class, 'createBulkForPublisher'])
+        ->name('sites.bulk-create');
+    Route::post('/sites/bulk', [AdminSiteController::class, 'storeBulkForPublisher'])
+        ->name('sites.bulk-store');
+    Route::post('/sites/{id}/resend-invite', [AdminSiteController::class, 'resendInvite'])
+        ->whereNumber('id')
+        ->name('sites.resend-invite');
     Route::get('/staff-handbook', fn () => view('admin.staff-handbook'))
         ->name('staff-handbook');
     Route::get('/users/{id}/sites', [AdminSiteController::class, 'userSites'])
@@ -1544,6 +1526,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('promotions.welcome-bonus.amount');
         Route::post('/promotions/feature-offers', [AdminPromotionController::class, 'updateFeatureOffers'])
             ->name('promotions.feature-offers.update');
+        Route::post('/promotions/feature-credits', [AdminPromotionController::class, 'grantFeatureCredit'])
+            ->name('promotions.feature-credits.store');
 
         Route::get('/audiences', [AdminAudienceController::class, 'index'])->name('audiences.index');
         Route::get('/audiences/export', [AdminAudienceController::class, 'export'])
@@ -1791,6 +1775,15 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         // Blacklist
         Route::post('/blacklist/save', [CatalogController::class, 'saveBlacklist'])->name('blacklist.save');
 
+        Route::post('/catalog/sites/{site}/note', [CatalogController::class, 'saveSiteNote'])
+            ->name('catalog.site-note');
+        Route::post('/catalog/sites/{site}/report', [CatalogController::class, 'reportSite'])
+            ->middleware('throttle:10,1')
+            ->name('catalog.site-report');
+        Route::delete('/catalog/sites/{site}/report', [CatalogController::class, 'deleteSiteReport'])
+            ->middleware('throttle:10,1')
+            ->name('catalog.site-report.delete');
+
         // Dedicated Saved Sites manager (favorites + blacklist)
         Route::get('/saved-sites', [SavedSitesController::class, 'index'])->name('saved-sites');
         Route::post('/saved-sites/favorites/remove', [SavedSitesController::class, 'removeFavorite'])
@@ -1980,7 +1973,11 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         // Route::get('/reports/funds-data', [ReportsController::class, 'getFundsActivity'])->name('reports.funds');
         // Route::get('/reports/orders-data', [ReportsController::class, 'getOrderReport'])->name('reports.orders');
 
-        // Invoice route
+        // Invoice route. The .pdf URL is what Add Funds downloads, so the
+        // browser saves a PDF instead of the HTML pay page.
+        Route::get('/invoice/{referenceCode}/invoice.pdf', [InvoiceController::class, 'downloadPdf'])
+            ->where('referenceCode', '[A-Za-z0-9_-]+')
+            ->name('invoice.pdf');
         Route::get('/invoice/{referenceCode}', [InvoiceController::class, 'showInvoice'])->name('invoice');
 
         // Billing & Invoices (automated PDF invoices / receipts)
@@ -2056,6 +2053,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
             ->name('promotions.wallet');
         Route::post('/sites/{id}/feature', [SitePromotionController::class, 'feature'])
             ->name('sites.feature');
+        Route::post('/sites/{id}/feature/credit', [SitePromotionController::class, 'featureCredit'])
+            ->middleware('throttle:20,1')
+            ->name('sites.feature.credit');
         Route::post('/sites/{id}/feature/checkout', [SitePromotionController::class, 'featureCheckout'])
             ->middleware('throttle:10,1')
             ->name('sites.feature.checkout');

@@ -198,23 +198,28 @@ class WebMailDrainTest extends TestCase
         $secret = str_repeat('s', 40);
         config(['app.cron_secret' => $secret]);
 
-        $this->get('/cron/run/'.$secret)
+        $this->withHeaders(['X-Cron-Key' => $secret])
+            ->post('/cron/run')
             ->assertOk()
             ->assertJsonPath('status', 'success');
+
+        $this->get('/cron/run/'.$secret)->assertNotFound();
     }
 
     public function test_the_scheduler_trigger_is_closed_without_a_strong_secret(): void
     {
         config(['app.cron_secret' => 'short']);
 
-        $this->get('/cron/run/short')->assertNotFound();
+        $this->post('/cron/run')->assertNotFound();
     }
 
     public function test_the_scheduler_trigger_rejects_a_wrong_key(): void
     {
         config(['app.cron_secret' => str_repeat('s', 40)]);
 
-        $this->get('/cron/run/'.str_repeat('x', 40))->assertForbidden();
+        $this->withHeaders(['X-Cron-Key' => str_repeat('x', 40)])
+            ->post('/cron/run')
+            ->assertForbidden();
     }
 }
 

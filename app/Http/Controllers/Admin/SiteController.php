@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\CaptureSiteScreenshotJob;
 use App\Jobs\EnrichSiteJob;
 use App\Mail\AdminAssignedSiteNotification;
+use App\Mail\AdminAssignedSitesBatchNotification;
 use App\Mail\SiteStatusNotification;
 use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
@@ -21,6 +22,8 @@ use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
+use App\Services\SiteEnrichment\SiteEnrichmentService;
+use App\Services\SiteEnrichment\SiteMetricsAggregator;
 use App\Support\CatalogHealthQueue;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
@@ -45,6 +48,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -182,9 +186,11 @@ class SiteController extends Controller
         $sitesExportLimited = false;
 
         if ($flatQueue && $waitingOnPublisherFilter) {
-            $users = new LengthAwarePaginator([], 0, 20, 1, [
+            $listPerPage = $this->staffListPerPage($request, 20);
+            $listQuery = $request->except(['page', 'publisher']);
+            $users = new LengthAwarePaginator([], 0, $listPerPage, 1, [
                 'path' => $request->url(),
-                'query' => $request->query(),
+                'query' => $listQuery,
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesWaitingOnPublisher($waitingStage !== '' ? $waitingStage : null)
                 ->with($this->staffPublisherWith())
@@ -193,12 +199,14 @@ class SiteController extends Controller
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
             $this->applyStaffSitesListSort($flatQueueSites, $staffSiteFilters['sort'], 'oldest');
             $flatQueueSites = $flatQueueSites
-                ->paginate(30)
-                ->appends($request->query());
+                ->paginate($listPerPage)
+                ->appends($listQuery);
         } elseif ($flatQueue && $needsReviewFilter) {
-            $users = new LengthAwarePaginator([], 0, 20, 1, [
+            $listPerPage = $this->staffListPerPage($request, 20);
+            $listQuery = $request->except(['page', 'publisher']);
+            $users = new LengthAwarePaginator([], 0, $listPerPage, 1, [
                 'path' => $request->url(),
-                'query' => $request->query(),
+                'query' => $listQuery,
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesReadyForStaff()
                 ->with($this->staffPublisherWith())
@@ -207,16 +215,18 @@ class SiteController extends Controller
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
             $this->applyStaffSitesListSort($flatQueueSites, $staffSiteFilters['sort'], 'oldest');
             $flatQueueSites = $flatQueueSites
-                ->paginate(30)
-                ->appends($request->query());
+                ->paginate($listPerPage)
+                ->appends($listQuery);
         } elseif ($allSitesMode) {
-            $users = new LengthAwarePaginator([], 0, 20, 1, [
+            $listPerPage = $this->staffListPerPage($request, 20);
+            $listQuery = $request->except(['page', 'publisher']);
+            $users = new LengthAwarePaginator([], 0, $listPerPage, 1, [
                 'path' => $request->url(),
-                'query' => $request->query(),
+                'query' => $listQuery,
             ]);
             $allSites = $this->staffAllSitesQuery($request, $publisherSearch, $staffSiteFilters)
-                ->paginate(30)
-                ->appends($request->query());
+                ->paginate($listPerPage)
+                ->appends($listQuery);
             $sitesExportLimited = $allSites->total() > self::EXPORT_LIMIT;
         } else {
             // Counts only — do not eager-load every site row for the publisher list.
@@ -327,8 +337,8 @@ class SiteController extends Controller
                 ->orderByDesc($waitingOnPublisherFilter ? $waitingSort : 'needs_review_sites_count')
                 ->orderByDesc('sites_count')
                 ->orderBy('name')
-                ->paginate(20)
-                ->appends($request->query());
+                ->paginate($this->staffListPerPage($request, 20))
+                ->appends($request->except(['page', 'publisher']));
         }
 
         $sitesExportUrl = staff_route('sites.export', $this->staffSitesExportQuery($request));
@@ -1724,16 +1734,19 @@ class SiteController extends Controller
             }
         ));
 
-        $perPage = 50;
+        $perPage = $this->staffListPerPage($request, 50);
         $siteSearch = trim(scalar_text($request->query('q', '')));
         $needsReviewOnly = $request->boolean('needs_review');
         $filters = $this->staffSitesListFilterState($request);
         // Deep link: keep this row on page 1 even when the list filters would hide it.
+        // Later pages must not pin it, or paging keeps that site and opens its details.
+        $listPage = max(1, (int) $request->query('page', 1));
         $focusSiteId = $this->canonicalStaffId(trim(scalar_text($request->query('site', ''))));
+        $pinSiteId = $listPage === 1 ? $focusSiteId : null;
 
         $sitesQuery = Site::query()
             ->where('publisher_id', $user->id)
-            ->where(function ($outer) use ($filters, $siteSearch, $needsReviewOnly, $focusSiteId) {
+            ->where(function ($outer) use ($filters, $siteSearch, $needsReviewOnly, $pinSiteId) {
                 $outer->where(function ($matched) use ($filters, $siteSearch, $needsReviewOnly) {
                     // Show archived adds no predicate. An empty group compiles to "()"
                     // and the publisher site list 500s.
@@ -1747,11 +1760,11 @@ class SiteController extends Controller
                     }
                     $this->applyStaffSitesListFilters($matched, $filters);
                 });
-                if ($focusSiteId !== null) {
-                    $outer->orWhere($outer->getModel()->getTable().'.id', $focusSiteId);
+                if ($pinSiteId !== null) {
+                    $outer->orWhere($outer->getModel()->getTable().'.id', $pinSiteId);
                 }
             });
-        $this->applyStaffSitesListSort($sitesQuery, $filters['sort'], 'newest', $focusSiteId);
+        $this->applyStaffSitesListSort($sitesQuery, $filters['sort'], 'newest', $pinSiteId);
 
         if (Schema::hasTable('order_items')) {
             $sitesQuery->withCount('orderItems');
@@ -1796,6 +1809,17 @@ class SiteController extends Controller
                 'sort' => $filters['sort'],
             ],
         ]);
+    }
+
+    /**
+     * Page size for the staff sites lists. Anything outside 20, 50, and 100
+     * falls back to the list's own default.
+     */
+    private function staffListPerPage(Request $request, int $default): int
+    {
+        $value = (int) $request->query('per_page', $default);
+
+        return in_array($value, [20, 50, 100], true) ? $value : $default;
     }
 
     /**
@@ -2363,17 +2387,7 @@ class SiteController extends Controller
         }
         $selectedPublisherId = (int) $rawSelectedPublisher;
 
-        $publishers = User::query()
-            ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
-            ->where(function ($q) use ($selectedPublisherId) {
-                $q->whereEmailVerified();
-                if ($selectedPublisherId > 0) {
-                    $q->orWhere('id', $selectedPublisherId);
-                }
-            })
-            ->withCount('sites')
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'email_verified_at']);
+        $publishers = $this->publishersForStaffAssign($selectedPublisherId);
 
         $selectedPublisherUnverified = $selectedPublisherId > 0
             && $publishers->contains(
@@ -2547,6 +2561,7 @@ class SiteController extends Controller
             $publisher = User::query()
                 ->whereKey($publisherId)
                 ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
+                ->when(User::hasUsersColumn('suspended_at'), fn ($q) => $q->whereNull('suspended_at'))
                 ->first();
 
             if (! $publisher) {
@@ -2578,6 +2593,8 @@ class SiteController extends Controller
             foreach (SiteDescriptionRules::errors(scalar_text($request->input('description', ''))) as $message) {
                 $validator->errors()->add('description', $message);
             }
+
+            $this->rejectBlankCheckedPlacementFees($validator, $request);
         });
 
         if ($validator->fails()) {
@@ -2770,6 +2787,7 @@ class SiteController extends Controller
                     'publisher_id' => $publisherId,
                     'assigned_by_user_id' => auth()->id(),
                     'domain' => $site->domain,
+                    'written_request' => true,
                 ],
                 $site->site_name
             );
@@ -2791,8 +2809,7 @@ class SiteController extends Controller
 
         try {
             if ((int) ($site->publisher_id ?? 0) > 0) {
-                app(InAppNotificationService::class)->notifyPublisherSiteAssignedForAcceptance($site);
-                $belled = true;
+                $belled = app(InAppNotificationService::class)->notifyPublisherSiteAssignedForAcceptance($site) !== null;
             }
         } catch (\Throwable $e) {
             Log::warning('Failed to bell-notify publisher about staff-assigned site: '.$e->getMessage());
@@ -2813,7 +2830,356 @@ class SiteController extends Controller
 
         return redirect()
             ->to(staff_route('sites.index', $redirectParams))
+            ->with('success', $success)
+            ->with('success_action', [
+                'url' => staff_route('sites.create', ['publisher' => $publisherId]),
+                'label' => 'Add another for this publisher',
+            ]);
+    }
+
+    public function domainCheck(Request $request): JsonResponse
+    {
+        $url = $this->postedHttpUrl($request->query('site_url', ''));
+        $domain = $this->domainFromUrl($url);
+        if ($domain === null) {
+            return response()->json([
+                'available' => false,
+                'message' => 'Enter a full website URL to check it.',
+            ]);
+        }
+
+        $existing = $this->findSiteByDomain($domain);
+
+        return response()->json([
+            'available' => $existing === null,
+            'domain' => $domain,
+            'message' => $existing
+                ? $this->domainAlreadyRegisteredMessage($existing)
+                : $domain.' is not registered yet.',
+        ]);
+    }
+
+    public function publisherDomains(Request $request): JsonResponse
+    {
+        $publisherId = (int) $request->query('publisher', 0);
+        $publisher = User::query()
+            ->whereKey($publisherId)
+            ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
+            ->first();
+        if (! $publisher) {
+            return response()->json(['domains' => [], 'total' => 0]);
+        }
+
+        $query = Site::query()->where('publisher_id', $publisher->id)->orderBy('domain');
+        $total = (clone $query)->count();
+        $domains = $query->limit(12)->pluck('domain')->filter()->values()->all();
+
+        return response()->json([
+            'domains' => $domains,
+            'total' => $total,
+        ]);
+    }
+
+    public function lookupMetrics(Request $request, SiteMetricsAggregator $metrics): JsonResponse
+    {
+        if (! SiteEnrichmentService::enabled() || ! $metrics->anyApiProviderConfigured()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Metrics have to be typed. No lookup provider is configured.',
+            ]);
+        }
+
+        $url = $this->postedHttpUrl($request->input('site_url', ''));
+        $domain = $this->domainFromUrl($url);
+        if ($domain === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Enter a valid site URL before looking up metrics.',
+            ], 422);
+        }
+
+        $probe = new Site;
+        $probe->site_url = $url;
+        $probe->domain = $domain;
+        $probe->metrics_manual = false;
+
+        try {
+            $result = $metrics->fetch($probe);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Metrics have to be typed. The lookup did not return numbers.',
+            ]);
+        }
+
+        $snapshot = $result['snapshot'];
+        if ($snapshot->domainAuthority === null && $snapshot->domainRating === null && $snapshot->monthlyOrganicTraffic === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Metrics have to be typed. The lookup did not return numbers.',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'da' => $snapshot->domainAuthority,
+            'dr' => $snapshot->domainRating,
+            'traffic' => $snapshot->monthlyOrganicTraffic,
+            'message' => 'Metrics filled. You can still edit them.',
+        ]);
+    }
+
+    public function createBulkForPublisher(Request $request): \Illuminate\View\View
+    {
+        $rawSelectedPublisher = old('publisher_id', $request->query('publisher', 0));
+        if (is_array($rawSelectedPublisher)) {
+            $rawSelectedPublisher = reset($rawSelectedPublisher);
+        }
+        $selectedPublisherId = (int) $rawSelectedPublisher;
+        $publishers = $this->publishersForStaffAssign($selectedPublisherId);
+        $sitesBackUrl = $selectedPublisherId > 0
+            ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
+            : staff_route('sites.index');
+
+        return view('admin.site-bulk-create', compact('publishers', 'selectedPublisherId', 'sitesBackUrl'));
+    }
+
+    public function storeBulkForPublisher(Request $request): RedirectResponse
+    {
+        if (! Site::hasSitesColumn('publisher_accepted_at') || ! Site::hasSitesColumn('assigned_by_user_id')) {
+            return back()->withErrors([
+                'save' => 'Database is missing the publisher-acceptance columns. Run migrations, then try again.',
+            ])->withInput();
+        }
+
+        $validator = Validator::make($request->all(), [
+            'publisher_id' => 'required|integer|exists:users,id',
+            'rows' => 'nullable|string|max:500000',
+            'csv_file' => 'nullable|file|max:5120',
+            'written_request' => 'accepted',
+        ], [
+            'written_request.accepted' => 'Confirm you have a written request from this publisher’s account email.',
+        ]);
+
+        $publisherId = (int) $request->input('publisher_id');
+        $publisher = User::query()
+            ->whereKey($publisherId)
+            ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
+            ->when(User::hasUsersColumn('suspended_at'), fn ($q) => $q->whereNull('suspended_at'))
+            ->first();
+
+        $validator->after(function ($validator) use ($request, $publisher) {
+            if (! $publisher) {
+                $validator->errors()->add('publisher_id', 'Choose a valid publisher account.');
+            }
+            $hasFile = $request->hasFile('csv_file');
+            $hasRows = trim((string) $request->input('rows', '')) !== '';
+            if ($hasFile) {
+                $upload = $request->file('csv_file');
+                $ext = strtolower((string) ($upload instanceof UploadedFile ? $upload->getClientOriginalExtension() : ''));
+                if (! $upload instanceof UploadedFile || $upload->getRealPath() === false) {
+                    $validator->errors()->add('csv_file', 'We could not read that file.');
+                } elseif (! in_array($ext, ['csv', 'txt'], true)) {
+                    $validator->errors()->add('csv_file', 'Upload a .csv or .txt file.');
+                }
+            }
+            if (! $hasFile && ! $hasRows) {
+                $validator->errors()->add('rows', 'Paste the sites or upload a CSV.');
+            }
+        });
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $upload = $request->file('csv_file');
+        $rawRows = $upload instanceof UploadedFile
+            ? $this->bulkInviteRowsFromCsv($upload)
+            : $this->bulkInviteRowsFromPaste((string) $request->input('rows', ''));
+
+        if (count($rawRows) > BulkSiteRequest::MAX_SITES_PER_REQUEST) {
+            return back()->withErrors([
+                'rows' => 'Add at most '.BulkSiteRequest::MAX_SITES_PER_REQUEST.' sites at once.',
+            ])->withInput();
+        }
+        if ($rawRows === []) {
+            return back()->withErrors(['rows' => 'No site rows were found.'])->withInput();
+        }
+
+        $allowedCountries = Country::marketplace()->pluck('code')->map(fn ($c) => strtolower((string) $c))->all();
+        $allowedLanguages = Language::marketplace()->pluck('code')->map(fn ($c) => strtolower((string) $c))->all();
+        $seen = [];
+        $ready = [];
+        $failures = [];
+        foreach ($rawRows as $index => $fields) {
+            $line = (int) ($fields['_line'] ?? ($index + 1));
+            unset($fields['_line']);
+            $checked = $this->validateBulkInviteRow($fields, $line, $allowedCountries, $allowedLanguages, $seen);
+            if ($checked['errors'] !== []) {
+                $failures[] = $checked;
+            } else {
+                $ready[] = $checked['row'];
+            }
+        }
+
+        if ($failures !== []) {
+            return back()
+                ->withErrors(['rows' => 'Fix the rows below. Nothing was saved.'])
+                ->with('bulk_row_errors', $failures)
+                ->withInput();
+        }
+
+        $sites = [];
+        try {
+            DB::transaction(function () use ($ready, $publisherId, &$sites) {
+                foreach ($ready as $row) {
+                    $sites[] = $this->persistStaffInvite($row, $publisherId);
+                }
+            });
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withErrors([
+                'save' => UserFacingError::message($e, 'We could not save these websites. Nothing was added.'),
+            ])->withInput();
+        }
+
+        foreach ($sites as $site) {
+            if (config('site_enrichment.enabled', true)) {
+                try {
+                    CaptureSiteScreenshotJob::dispatch($site->id, 'staff_assign');
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to queue screenshot for staff bulk site', [
+                        'site_id' => $site->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        $below = 0;
+        foreach ($sites as $site) {
+            if (! $site->hasGoodMetrics()) {
+                $below++;
+            }
+            try {
+                ActivityLogger::log(
+                    'site.assigned_for_acceptance',
+                    (auth()->user()->name ?? 'Staff').' added site "'.$site->site_name.'" for publisher acceptance',
+                    $site,
+                    [
+                        'publisher_id' => $publisherId,
+                        'assigned_by_user_id' => auth()->id(),
+                        'domain' => $site->domain,
+                        'written_request' => true,
+                        'bulk' => true,
+                    ],
+                    $site->site_name
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Failed to log staff bulk site: '.$e->getMessage());
+            }
+        }
+
+        $emailed = false;
+        $belled = false;
+        try {
+            if ($publisher?->email) {
+                Mail::to($publisher->email)->send(new AdminAssignedSitesBatchNotification($publisher, $sites));
+                $emailed = true;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to email publisher about staff bulk sites: '.$e->getMessage());
+        }
+
+        try {
+            $names = collect($sites)->pluck('domain')->filter()->take(12)->implode(', ');
+            $extra = count($sites) > 12 ? ' and '.(count($sites) - 12).' more' : '';
+            $count = count($sites);
+            $belled = app(InAppNotificationService::class)->notify(
+                $publisherId,
+                InAppNotificationService::TYPE_SITE_STATUS,
+                $count === 1
+                    ? 'Please accept a website we added for you'
+                    : 'Please accept websites we added for you',
+                $count === 1
+                    ? 'Our team added 1 website. Accept it in My Sites → Invites. '.$names
+                    : 'Our team added '.$count.' websites. Accept them in My Sites → Invites. '.$names.$extra,
+                [
+                    'category' => InAppNotificationService::CATEGORY_ACCOUNT,
+                    'icon' => 'check-circle',
+                    'priority' => \App\Models\InAppNotification::PRIORITY_HIGH,
+                    'related' => $sites[0] ?? null,
+                    'audience' => \App\Models\InAppNotification::AUDIENCE_PUBLISHER,
+                    'action_label' => 'Review & accept',
+                    'action_url' => route('publisher.websites', ['status' => 'invites'], false),
+                ]
+            ) !== null;
+        } catch (\Throwable $e) {
+            Log::warning('Failed to bell-notify publisher about staff bulk sites: '.$e->getMessage());
+        }
+
+        $count = count($sites);
+        $success = $count.' '.($count === 1 ? 'site' : 'sites').' added for acceptance.';
+        $success .= ($emailed || $belled)
+            ? ($count === 1
+                ? ' Publisher was notified — they must open My Sites → Invites and Accept.'
+                : ' Publisher was notified once — they must open My Sites → Invites and Accept each one.')
+            : ' The listings were saved, but we could not notify the publisher. Ask them to open My Sites → Invites and Accept.';
+        if ($below > 0) {
+            $success .= ' '.$below.' listing(s) are below the marketing Activate bar (DA ≥ '.Site::GOOD_MIN_DA.', DR ≥ '.Site::GOOD_MIN_DR.', traffic ≥ '.number_format(Site::GOOD_MIN_TRAFFIC).').';
+        }
+
+        return redirect()
+            ->to(staff_route('sites.index', ['publisher' => $publisherId]))
             ->with('success', $success);
+    }
+
+    public function resendInvite(Request $request, int $id): JsonResponse
+    {
+        $site = Site::with('publisher:id,name,email')->findOrFail($id);
+        if (! $site->isPendingPublisherAcceptance()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This listing is not waiting for the publisher to accept it.',
+            ], 422);
+        }
+
+        $publisher = $site->publisher;
+        $emailed = false;
+        $belled = false;
+        try {
+            if ($publisher?->email) {
+                $mail = new AdminAssignedSiteNotification($site, $publisher);
+                $mail->dedupeKey = 'admin-assigned-site-'.$site->id.'-resend-'.Str::uuid();
+                Mail::to($publisher->email)->send($mail);
+                $emailed = true;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to resend staff-assigned site email: '.$e->getMessage());
+        }
+
+        try {
+            $belled = app(InAppNotificationService::class)->notifyPublisherSiteAssignedForAcceptance($site) !== null;
+        } catch (\Throwable $e) {
+            Log::warning('Failed to resend staff-assigned site bell: '.$e->getMessage());
+        }
+
+        if (! $emailed && ! $belled) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The listing is still waiting, but we could not notify the publisher.',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Invite resent. The publisher still has to accept it.',
+        ]);
     }
 
     // Edit page (optional)
@@ -3426,6 +3792,10 @@ class SiteController extends Controller
                 $validator->errors()->add('site_url', 'Invalid URL');
             }
 
+            if ($request->boolean('placement_offers_form')) {
+                $this->rejectBlankCheckedPlacementFees($validator, $request);
+            }
+
             $exampleUrl = $request->input('example_url');
             if (is_string($exampleUrl) && $exampleUrl !== '') {
                 $exampleHost = parse_url($exampleUrl, PHP_URL_HOST);
@@ -3977,6 +4347,439 @@ class SiteController extends Controller
         return array_merge($data, SiteTag::flags($tag));
     }
 
+    /**
+     * @return \Illuminate\Support\Collection<int, User>
+     */
+    private function publishersForStaffAssign(int $selectedPublisherId)
+    {
+        return User::query()
+            ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
+            ->when(User::hasUsersColumn('suspended_at'), fn ($q) => $q->whereNull('suspended_at'))
+            ->where(function ($q) use ($selectedPublisherId) {
+                $q->whereEmailVerified();
+                if ($selectedPublisherId > 0) {
+                    $q->orWhere('id', $selectedPublisherId);
+                }
+            })
+            ->withCount('sites')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'email_verified_at']);
+    }
+
+    private function domainFromUrl(string $url): ?string
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+        if (! is_string($host) || $host === '') {
+            return null;
+        }
+        $domain = $this->normalizeDomain($host);
+        if ($domain === '' || ! $this->isMarketplaceHost($domain)) {
+            return null;
+        }
+
+        return $domain;
+    }
+
+    private function rejectBlankCheckedPlacementFees($validator, Request $request): void
+    {
+        foreach (config('site_placement.homepage_days', [1, 7, 30]) as $days) {
+            if (! $request->boolean('homepage.'.$days)) {
+                continue;
+            }
+            $raw = $request->input('price_homepage.'.$days);
+            if ($raw === null || (is_string($raw) && trim($raw) === '')) {
+                $validator->errors()->add(
+                    'price_homepage.'.$days,
+                    'Enter a fee for the '.$days.'-day homepage offer, or leave it unchecked. Use 0 for free.'
+                );
+            }
+        }
+
+        foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
+            if (! $request->boolean('sensitive.'.$topic)) {
+                continue;
+            }
+            $raw = $request->input('price_sensitive.'.$topic);
+            if ($raw === null || (is_string($raw) && trim($raw) === '')) {
+                $validator->errors()->add(
+                    'price_sensitive.'.$topic,
+                    'Enter an extra price for '.$topic.', or leave it unchecked. Use 0 for none.'
+                );
+            }
+        }
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function bulkInviteRowsFromPaste(string $raw): array
+    {
+        $rows = [];
+        $lineNo = 0;
+        foreach (preg_split('/\R/', $raw) ?: [] as $line) {
+            $lineNo++;
+            $trimmed = trim($this->stripBulkHeaderBom($line));
+            if ($trimmed === '') {
+                continue;
+            }
+            $delimiter = $this->bulkPasteDelimiter($trimmed);
+            $parts = str_getcsv($trimmed, $delimiter, '"', '');
+            if ($this->isBulkHeaderRow($parts)) {
+                continue;
+            }
+            $rows[] = $this->bulkInviteFieldsFromColumns($parts, $delimiter, $lineNo);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function bulkInviteRowsFromCsv(UploadedFile $file): array
+    {
+        $path = $file->getRealPath();
+        if ($path === false) {
+            return [];
+        }
+        $handle = fopen($path, 'r');
+        if ($handle === false) {
+            return [];
+        }
+        $start = ftell($handle);
+        $sample = '';
+        $sampleLine = fgets($handle);
+        if (is_string($sampleLine)) {
+            $sample = $this->stripBulkHeaderBom($sampleLine);
+        }
+        if ($start !== false) {
+            fseek($handle, $start);
+        }
+        $delimiter = $this->bulkPasteDelimiter($sample);
+        $rows = [];
+        $lineNo = 0;
+        while (($cols = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
+            $lineNo++;
+            if ($cols === [null]) {
+                continue;
+            }
+            $cols[0] = $this->stripBulkHeaderBom((string) ($cols[0] ?? ''));
+            if ($this->isBulkHeaderRow($cols)) {
+                continue;
+            }
+            if (implode('', array_map(fn ($value) => trim((string) $value), $cols)) === '') {
+                continue;
+            }
+            $rows[] = $this->bulkInviteFieldsFromColumns($cols, $delimiter, $lineNo);
+        }
+        fclose($handle);
+
+        return $rows;
+    }
+
+    private function stripBulkHeaderBom(string $value): string
+    {
+        return ltrim($value, "\xEF\xBB\xBF");
+    }
+
+    /**
+     * @param  list<mixed>  $cols
+     */
+    private function isBulkHeaderRow(array $cols): bool
+    {
+        return strtolower(trim($this->stripBulkHeaderBom((string) ($cols[0] ?? '')))) === 'url';
+    }
+
+    private function bulkPasteDelimiter(string $line): string
+    {
+        $best = ',';
+        $bestScore = -1;
+        foreach ([',', ';', "\t"] as $delimiter) {
+            if ($delimiter !== ',' && substr_count($line, $delimiter) === 0) {
+                continue;
+            }
+            $parts = str_getcsv($line, $delimiter, '"', '');
+            $url = strtolower(trim((string) ($parts[0] ?? '')));
+            $score = min(count($parts), 15) + min(substr_count($line, $delimiter), 20);
+            if (str_starts_with($url, 'http') || $url === 'url') {
+                $score += 4;
+            }
+            if (is_numeric(trim((string) ($parts[1] ?? '')))) {
+                $score += 4;
+            }
+            if (is_numeric(trim((string) ($parts[2] ?? '')))) {
+                $score += 2;
+            }
+            if (preg_match('/^[a-z]{2}$/', strtolower(trim((string) ($parts[5] ?? ''))))) {
+                $score += 2;
+            }
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $delimiter;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * @param  list<mixed>  $cols
+     * @return array<string, string>
+     */
+    private function bulkInviteFieldsFromColumns(array $cols, string $delimiter, int $line): array
+    {
+        $raw = array_map(fn ($value) => (string) $value, $cols);
+        $cols = array_map('trim', $raw);
+        $niches = $cols[13] ?? '';
+        $description = $cols[14] ?? '';
+        if (count($raw) > 15) {
+            [$niches, $description] = $this->repairBulkNicheAndDescription(array_slice($raw, 13), $delimiter);
+        }
+
+        return [
+            '_line' => (string) $line,
+            'site_url' => $cols[0] ?? '',
+            'price' => $cols[1] ?? '',
+            'da' => $cols[2] ?? '',
+            'dr' => $cols[3] ?? '',
+            'traffic' => $cols[4] ?? '',
+            'country' => $cols[5] ?? '',
+            'language' => $cols[6] ?? '',
+            'site_name' => $cols[7] ?? '',
+            'example_url' => $cols[8] ?? '',
+            'turnaround_time' => $cols[9] ?? '',
+            'publication_time' => $cols[10] ?? '',
+            'link_type' => $cols[11] ?? '',
+            'site_tag' => $cols[12] ?? '',
+            'categories' => $niches,
+            'description' => $description,
+        ];
+    }
+
+    /**
+     * Niche names such as "Marketing, PR & Advertising" contain commas.
+     * Join the tail until both the niche list and the description validate.
+     *
+     * @param  list<string>  $tail
+     * @return array{0: string, 1: string}
+     */
+    private function repairBulkNicheAndDescription(array $tail, string $delimiter): array
+    {
+        $tail = array_values($tail);
+        $count = count($tail);
+        for ($take = 1; $take <= $count; $take++) {
+            $niche = trim(implode($delimiter, array_slice($tail, 0, $take)));
+            $description = trim(implode($delimiter, array_slice($tail, $take)));
+            $resolved = Category::resolveNicheNames($this->nicheNamesInput($niche));
+            if ($resolved['unknown'] !== [] || $resolved['resolved'] === [] || count($resolved['resolved']) > 7) {
+                continue;
+            }
+            if (SiteDescriptionRules::errors($description) !== []) {
+                continue;
+            }
+
+            return [$niche, $description];
+        }
+
+        return [
+            trim(implode($delimiter, array_slice($tail, 0, 1))),
+            trim(implode($delimiter, array_slice($tail, 1))),
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $fields
+     * @param  list<string>  $allowedCountries
+     * @param  list<string>  $allowedLanguages
+     * @param  array<string, true>  $seenDomains
+     * @return array{line: int, errors: list<string>, row: array<string, mixed>}
+     */
+    private function validateBulkInviteRow(array $fields, int $line, array $allowedCountries, array $allowedLanguages, array &$seenDomains): array
+    {
+        $errors = [];
+        $siteUrl = $this->normalizeHttpUrl((string) ($fields['site_url'] ?? ''));
+        $exampleUrl = $this->normalizeHttpUrl((string) ($fields['example_url'] ?? ''));
+        $domain = $this->domainFromUrl($siteUrl);
+        $exampleDomain = $this->domainFromUrl($exampleUrl);
+        if ($domain === null) {
+            $errors[] = 'Invalid URL';
+        }
+        if ($exampleDomain === null || ($domain !== null && $this->exampleUrlHostDiffers($siteUrl, $exampleUrl))) {
+            $errors[] = 'Example URL must be on the same website domain.';
+        }
+        if ($domain !== null) {
+            if (isset($seenDomains[$domain])) {
+                $errors[] = 'This domain is repeated in the batch.';
+            }
+            $seenDomains[$domain] = true;
+            $existing = $this->findSiteByDomain($domain);
+            if ($existing) {
+                $errors[] = $this->domainAlreadyRegisteredMessage($existing);
+            }
+        }
+
+        $siteName = $this->normalizeSiteName((string) ($fields['site_name'] ?? ''));
+        if ($siteName === '' || strlen($siteName) > 255) {
+            $errors[] = 'Site name is required.';
+        }
+        $price = is_numeric($fields['price'] ?? null) ? round((float) $fields['price'], 2) : null;
+        if ($price === null || $price < 0 || $price > 999999.99) {
+            $errors[] = 'Price must be from 0 to 999999.99.';
+        }
+        $da = is_numeric($fields['da'] ?? null) ? (int) $fields['da'] : null;
+        $dr = is_numeric($fields['dr'] ?? null) ? (int) $fields['dr'] : null;
+        $traffic = is_numeric($fields['traffic'] ?? null) ? (int) $fields['traffic'] : null;
+        if ($da === null || $da < 0 || $da > 100) {
+            $errors[] = 'DA must be from 0 to 100.';
+        }
+        if ($dr === null || $dr < 0 || $dr > 100) {
+            $errors[] = 'DR must be from 0 to 100.';
+        }
+        if ($traffic === null || $traffic < 0 || $traffic > 4294967295) {
+            $errors[] = 'Traffic must be a whole number.';
+        }
+
+        $country = strtolower(trim((string) ($fields['country'] ?? '')));
+        $language = strtolower(trim((string) ($fields['language'] ?? '')));
+        if (! in_array($country, $allowedCountries, true)) {
+            $errors[] = 'Country is not a marketplace country.';
+        }
+        if (! in_array($language, $allowedLanguages, true)) {
+            $errors[] = 'Language is not a marketplace language.';
+        }
+        if ($country !== '' && $language !== '' && ! app(CountryLanguagePairs::class)->isAllowedPair($country, $language)) {
+            $errors[] = 'That language is not allowed for the selected country.';
+        }
+
+        $resolved = Category::resolveNicheNames($this->nicheNamesInput($fields['categories'] ?? ''));
+        if ($resolved['unknown'] !== []) {
+            $errors[] = 'Unknown niche: '.implode(', ', $resolved['unknown']);
+        }
+        if ($resolved['resolved'] === [] || count($resolved['resolved']) > 7) {
+            $errors[] = 'Choose 1 to 7 niches.';
+        }
+
+        $turnaround = strtolower(trim((string) ($fields['turnaround_time'] ?? '')));
+        $publication = strtolower(trim((string) ($fields['publication_time'] ?? '')));
+        $linkType = strtolower(trim((string) ($fields['link_type'] ?? '')));
+        if (! in_array($turnaround, ['24h', '48h', '3days', '5days', '7days'], true)) {
+            $errors[] = 'Turnaround must be 24h, 48h, 3days, 5days, or 7days.';
+        }
+        if (! in_array($publication, ['6months', '1year', 'permanent'], true)) {
+            $errors[] = 'Publication must be 6months, 1year, or permanent.';
+        }
+        if (! in_array($linkType, ['dofollow', 'nofollow'], true)) {
+            $errors[] = 'Link type must be dofollow or nofollow.';
+        }
+        $tag = strtolower(trim((string) ($fields['site_tag'] ?? '')));
+        if ($tag !== '' && ! in_array($tag, ['sponsored', 'partner_material', 'as_you_prefer', 'none'], true)) {
+            $errors[] = 'Tag must be sponsored, partner_material, as_you_prefer, none, or blank.';
+        }
+
+        foreach (SiteDescriptionRules::errors((string) ($fields['description'] ?? '')) as $message) {
+            $errors[] = $message;
+        }
+
+        return [
+            'line' => $line,
+            'errors' => $errors,
+            'row' => [
+                'site_name' => $siteName,
+                'site_url' => $siteUrl,
+                'example_url' => $exampleUrl,
+                'domain' => $domain,
+                'da' => $da,
+                'dr' => $dr,
+                'traffic' => $traffic,
+                'country' => $country,
+                'language' => $language,
+                'categories' => $resolved['resolved'],
+                'price' => $price,
+                'turnaround_time' => $turnaround,
+                'publication_time' => $publication,
+                'link_type' => $linkType,
+                'site_tag' => $tag === '' ? null : $tag,
+                'description' => (string) ($fields['description'] ?? ''),
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function persistStaffInvite(array $row, int $publisherId): Site
+    {
+        $domain = (string) $row['domain'];
+        Site::releaseCancelledBulkDomain($domain, $publisherId);
+        $existing = $this->findSiteByDomain($domain, lock: true);
+        if ($existing) {
+            throw ValidationException::withMessages([
+                'rows' => [$this->domainAlreadyRegisteredMessage($existing)],
+            ]);
+        }
+
+        $categories = $row['categories'];
+        $cleanDescription = app(SiteDescriptionSanitizer::class)->sanitize((string) $row['description']);
+        $site = new Site;
+        $site->applyMarketplaceListing([
+            'publisher_id' => $publisherId,
+            'assigned_by_user_id' => auth()->id(),
+            'publisher_accepted_at' => null,
+            'site_name' => $row['site_name'],
+            'site_url' => $row['site_url'],
+            'domain' => $domain,
+            'example_url' => $row['example_url'],
+            'da' => $row['da'],
+            'dr' => $row['dr'],
+            'traffic' => $row['traffic'],
+            'metrics_manual' => true,
+            'metrics_provider' => 'manual',
+            'metrics_fetched_at' => now(),
+            'country' => $row['country'],
+            'countries' => [$row['country']],
+            'language' => $row['language'],
+            'languages' => [$row['language']],
+            'category' => implode('|', $categories),
+            'categories' => $categories,
+            'price' => $row['price'],
+            'turnaround_time' => $row['turnaround_time'],
+            'publication_time' => $row['publication_time'],
+            'link_type' => $row['link_type'],
+            'description' => $cleanDescription,
+            'verified' => false,
+            'active' => false,
+            'enrichment_status' => 'pending',
+            'onboarding_status' => null,
+        ]);
+        $site->forceFill([
+            'assigned_by_user_id' => auth()->id(),
+            'publisher_accepted_at' => null,
+            'verified' => false,
+            'active' => false,
+            'da' => $row['da'],
+            'dr' => $row['dr'],
+            'traffic' => $row['traffic'],
+            'price' => $row['price'],
+            'metrics_manual' => true,
+            'metrics_provider' => 'manual',
+            'metrics_fetched_at' => now(),
+        ]);
+        SiteTag::applyStaffDefault($site, $row['site_tag']);
+        $site->save();
+
+        if ((int) $site->da !== (int) $row['da'] || (int) $site->dr !== (int) $row['dr'] || (int) $site->traffic !== (int) $row['traffic']) {
+            throw new \RuntimeException('DA/DR/traffic did not persist after save.');
+        }
+        if (is_numeric($row['price']) && round((float) $site->price, 2) !== round((float) $row['price'], 2)) {
+            throw new \RuntimeException('Staff site price did not persist after save.');
+        }
+        if (filled($site->publisher_accepted_at) || blank($site->assigned_by_user_id) || (bool) $site->verified || (bool) $site->active) {
+            throw new \RuntimeException('Publisher invite state did not persist after save.');
+        }
+
+        return $site;
+    }
+
     private function domainAlreadyRegisteredMessage(Site $existing): string
     {
         return $existing->occupyingDomainMessage();
@@ -4314,6 +5117,13 @@ class SiteController extends Controller
         }
 
         return $raw;
+    }
+
+    private function postedHttpUrl(mixed $raw): string
+    {
+        $value = $this->firstScalarString($raw);
+
+        return $this->normalizeHttpUrl(is_string($value) ? $value : '');
     }
 
     private function nonStringUrlErrors(array $values): array

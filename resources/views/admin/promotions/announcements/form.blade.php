@@ -32,7 +32,7 @@
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <form method="POST" id="announcementForm"
+                    <form method="POST" id="announcementForm" class="admin-deposits-filters" data-admin-filter-live="1"
                           action="{{ $mode === 'create' ? staff_route('promotions.announcements.store') : staff_route('promotions.announcements.update', $announcement) }}">
                         @csrf
                         @if($mode === 'edit')

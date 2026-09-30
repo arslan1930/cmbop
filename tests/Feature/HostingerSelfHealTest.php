@@ -136,7 +136,7 @@ class HostingerSelfHealTest extends TestCase
         }
     }
 
-    public function test_scheduler_is_ok_when_web_heal_is_on(): void
+    public function test_scheduler_warns_in_production_when_web_heal_is_on_without_cron(): void
     {
         $this->seed(RolesTableSeeder::class);
         $this->forceProduction();
@@ -147,8 +147,8 @@ class HostingerSelfHealTest extends TestCase
 
         $scheduler = collect(app(ProductionReadiness::class)->checks())->firstWhere('id', 'scheduler');
         $this->assertNotNull($scheduler);
-        $this->assertSame(ProductionReadiness::SEVERITY_OK, $scheduler['severity']);
-        $this->assertStringContainsString('HOSTINGER_WEB_HEAL', $scheduler['detail']);
+        $this->assertSame(ProductionReadiness::SEVERITY_WARN, $scheduler['severity']);
+        $this->assertStringContainsString('do not run the scheduler', $scheduler['detail']);
     }
 
     public function test_scheduler_warns_in_production_when_web_heal_is_off(): void
@@ -255,7 +255,7 @@ class HostingerSelfHealTest extends TestCase
 
         $this->app->instance(ProductionRepair::class, new class extends ProductionRepair
         {
-            public function run(bool $persistEnv = true): array
+            public function run(bool $persistEnv = true, bool $migrate = true): array
             {
                 return ['migrate failed: later FK'];
             }
@@ -279,7 +279,7 @@ class HostingerSelfHealTest extends TestCase
         {
             public function __construct(private object $state) {}
 
-            public function run(bool $persistEnv = true): array
+            public function run(bool $persistEnv = true, bool $migrate = true): array
             {
                 $this->state->ran = true;
 

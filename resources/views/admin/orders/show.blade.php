@@ -408,25 +408,25 @@
                             </p>
 
                             @if($canOverrideStatus && count($statusTargets))
-                                <form method="POST" action="{{ route('admin.orders.status', $order->id) }}" id="adminOrderStageForm">
+                                <form method="POST" action="{{ route('admin.orders.status', $order->id) }}" id="adminOrderStageForm" class="admin-deposits-filters" data-admin-filter-live="1">
                                     @csrf
-                                    <div class="row g-2 align-items-start">
+                                    <div class="row g-2 align-items-end">
                                         <div class="col-md-3">
-                                            <label class="form-label small mb-1" for="adminOrderStage">Move to</label>
-                                            <select class="form-select form-select-sm" id="adminOrderStage" name="status" required>
+                                            <label class="form-label" for="adminOrderStage">Move to</label>
+                                            <select class="form-select" id="adminOrderStage" name="status" required>
                                                 @foreach($statusTargets as $target)
                                                     <option value="{{ $target }}">{{ ucfirst($target) }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
                                         <div class="col-md-7">
-                                            <label class="form-label small mb-1" for="adminOrderStageReason">Reason (shown to both sides)</label>
-                                            <input type="text" class="form-control form-control-sm" id="adminOrderStageReason"
+                                            <label class="form-label" for="adminOrderStageReason">Reason (shown to both sides)</label>
+                                            <input type="text" class="form-control" id="adminOrderStageReason"
                                                    name="reason" minlength="5" maxlength="500" required
                                                    placeholder="e.g. Publisher accepted by mistake — moving back to pending">
                                         </div>
                                         <div class="col-md-2 d-flex align-items-end" style="min-height: 58px;">
-                                            <button type="submit" class="btn btn-sm btn-primary w-100">
+                                            <button type="submit" class="btn btn-primary w-100">
                                                 <i class="fa fa-shuffle me-1"></i> Move
                                             </button>
                                         </div>

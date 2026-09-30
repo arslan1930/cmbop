@@ -4,11 +4,17 @@
     $hasOpenBulkRequest = ! empty($openBulkRequest);
     $hasTableRows = $sites->count() > 0 || $bulkWaitingItems->isNotEmpty();
     $inviteCount = (int) ($inviteCount ?? 0);
+    $archivedCount = (int) ($archivedCount ?? 0);
+    $cancelledBulkCount = (int) ($cancelledBulkCount ?? 0);
+    $hiddenCount = $archivedCount + $cancelledBulkCount;
 @endphp
 <div id="sitesStatusMeta"
      data-pending="{{ (int) ($pendingCount ?? 0) }}"
      data-active="{{ (int) ($activeCount ?? 0) }}"
      data-invites="{{ $inviteCount }}"
+     data-archived="{{ $hiddenCount }}"
+     data-archived-only="{{ $archivedCount }}"
+     data-cancelled-bulk="{{ $cancelledBulkCount }}"
      data-active-ids="{{ implode(',', $activeIds ?? []) }}"
      data-status="{{ $status ?? 'active' }}"
      data-bulk-waiting="{{ $waitingItemsCount }}"
@@ -395,6 +401,132 @@
         color: var(--brand-primary, #1a585e);
     }
 
+    .site-offer-chip--reward {
+        height: 34px;
+        padding: 0 10px;
+        color: #fff;
+        border: 0;
+        background: linear-gradient(120deg, #1a585e, #3faeb2, #f0b429, #e36a4a);
+        background-size: 220% 220%;
+        animation: site-reward-shift 3.6s ease infinite;
+        box-shadow: 0 0 0 3px rgba(63, 174, 178, 0.28);
+    }
+
+    .site-offer-chip--reward .fa {
+        font-size: 1.2rem;
+        animation: site-reward-pop 1.6s ease-in-out infinite;
+    }
+
+    .site-offer-chips .site-offer-chip.site-offer-chip--reward:hover,
+    .site-offer-chips .site-offer-chip.site-offer-chip--reward:focus-visible {
+        color: #fff;
+        background: linear-gradient(120deg, #14484d, #2f9ea3, #e0a51c, #d85a3c);
+        background-size: 220% 220%;
+        border-color: transparent;
+        filter: none;
+    }
+
+    .swal2-popup.admin-reward-card {
+        width: min(420px, calc(100vw - 2rem));
+        padding: 1.35rem 1.35rem 1.15rem;
+        border: 0;
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 24px 60px rgba(26, 88, 94, 0.18);
+    }
+
+    .swal2-popup.admin-reward-card .swal2-title {
+        display: none;
+    }
+
+    .admin-reward-card__gift {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 0.85rem;
+        border-radius: 20px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 1.7rem;
+        background: linear-gradient(135deg, #1a585e, #3faeb2 45%, #f0b429 78%, #e36a4a);
+        box-shadow: 0 10px 24px rgba(26, 88, 94, 0.22);
+    }
+
+    .admin-reward-card__kicker {
+        margin: 0 0 0.35rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #3faeb2;
+    }
+
+    .admin-reward-card__title {
+        margin: 0 0 0.4rem;
+        font-size: 1.45rem;
+        line-height: 1.2;
+        color: #1a585e;
+    }
+
+    .admin-reward-card__copy {
+        margin: 0;
+        color: #697078;
+        font-size: 0.95rem;
+    }
+
+    .admin-reward-card__days {
+        display: inline-block;
+        margin-top: 0.85rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: #e6f5f5;
+        color: #1a585e;
+        font-weight: 700;
+    }
+
+    .admin-reward-card__actions {
+        gap: 0.6rem;
+        margin-top: 1.15rem;
+    }
+
+    .admin-reward-card__use,
+    .admin-reward-card__later {
+        border-radius: 999px;
+        padding: 0.55rem 1rem;
+        font-weight: 650;
+        border: 1px solid transparent;
+    }
+
+    .admin-reward-card__use {
+        background: #1a585e;
+        color: #fff;
+    }
+
+    .admin-reward-card__later {
+        background: #fff;
+        color: #1a585e;
+        border-color: #b8e4e4;
+    }
+
+    @keyframes site-reward-shift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    @keyframes site-reward-pop {
+        0%, 100% { transform: scale(1) rotate(0deg); }
+        40% { transform: scale(1.2) rotate(-8deg); }
+        70% { transform: scale(1.08) rotate(6deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .site-offer-chip--reward,
+        .site-offer-chip--reward .fa {
+            animation: none;
+        }
+    }
+
     .site-row-price-sale {
         display: block;
         font-size: 12px;
@@ -415,24 +547,36 @@
         white-space: normal;
     }
 
-    .site-row-actions .btn-edit {
-        margin-left: 2px;
-        margin-right: 0;
-        padding: 0.25rem 0.85rem;
-        font-size: 12.5px;
-        line-height: 1.2;
+    .site-row-actions .btn-edit,
+    .site-row-actions .btn-verify-site,
+    .site-row-actions .btn-unarchive-site,
+    .site-row-actions .btn-accept-assignment,
+    .site-row-actions .btn-reject-assignment {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        padding: 0;
         border-radius: 999px;
+        line-height: 1;
+    }
+
+    .site-row-actions .btn-icon-quiet .fa {
+        width: 1.15rem;
+        height: 1.15rem;
+        font-size: 1.15rem;
+    }
+
+    .site-row-actions .m-draw:hover svg path,
+    .site-row-actions .m-draw:hover svg circle,
+    .site-row-actions .m-draw:hover svg line,
+    .site-row-actions .m-draw:hover svg polyline,
+    .site-row-actions .m-draw:hover svg rect,
+    .site-row-actions .m-draw:hover svg ellipse,
+    .site-row-actions .m-draw:hover svg polygon {
+        animation: none;
     }
 
     .site-row-actions .btn-verify-site {
-        margin-left: 0;
-        margin-right: 0;
-        padding: 0.25rem 0.7rem;
-        font-size: 12px;
-        line-height: 1.2;
-        border-radius: 999px;
-        white-space: nowrap;
-        border-color: var(--brand-primary, #1a585e);
         color: var(--brand-primary, #1a585e);
     }
 
@@ -449,6 +593,11 @@
     .site-row-actions .btn-icon-quiet.is-on {
         color: var(--brand-primary, #1a585e);
         background: #e6f5f5;
+    }
+
+    .site-row-actions .btn-restore-blocked {
+        color: var(--brand-ink-muted, #697078);
+        opacity: 0.55;
     }
 
     .site-row-actions .btn-text-quiet {
@@ -964,6 +1113,10 @@
                     <span class="badge bg-dark status-badge" title="Archived — hidden from catalog">
                         <i class="fa fa-box-archive me-1"></i>Archived
                     </span>
+                @elseif($site->isFromCancelledBulk())
+                    <span class="badge bg-secondary status-badge" title="This site stayed on your account after its bulk request was cancelled.">
+                        Cancelled bulk
+                    </span>
                 @elseif(($status ?? '') === 'invites' || $site->isPendingPublisherAcceptance())
                     <span class="site-status site-status--invite"
                           data-glass-tip
@@ -1003,7 +1156,7 @@
                             <a href="{{ route('publisher.bulk-sites.review') }}"
                                class="site-status site-status--ready-review"
                                data-glass-tip
-                               data-glass-tip-body="Details saved — open Review &amp; submit to send this site to admin."
+                               data-glass-tip-body="Open Review &amp; submit. Accept to go live, or Edit to send it to admin."
                                data-glass-tip-placement="top"
                                data-glass-tip-hover-only="1">
                                 <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>Ready to review
@@ -1116,21 +1269,49 @@
                 <div class="site-row-actions">
                 @if(($status ?? '') === 'invites' || $site->isPendingPublisherAcceptance())
                 <div class="site-row-actions__manage">
-                <button type="button" class="btn btn-sm btn-primary btn-accept-assignment"
+                <button type="button" class="btn-icon-quiet btn-accept-assignment"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
-                        aria-label="Accept">
-                    Accept
+                        aria-label="Accept"
+                        data-glass-tip
+                        data-glass-tip-body="Accept"
+                        data-glass-tip-placement="top">
+                    <i class="fa fa-check" aria-hidden="true"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-danger btn-reject-assignment"
+                <button type="button" class="btn-icon-quiet btn-icon-danger btn-reject-assignment"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
-                        aria-label="Decline">
-                    Decline
+                        aria-label="Decline"
+                        data-glass-tip
+                        data-glass-tip-body="Decline"
+                        data-glass-tip-placement="top">
+                    <i class="fa fa-xmark" aria-hidden="true"></i>
                 </button>
                 </div>
                 @else
                 <div class="site-row-actions__manage">
+                @if($isArchived)
+                    @if($site->verifiedOwnerListing())
+                <button type="button" class="btn-icon-quiet btn-restore-blocked"
+                        data-message="{{ \App\Models\Site::RESTORE_BLOCKED_VERIFIED }}"
+                        aria-label="{{ \App\Models\Site::RESTORE_BLOCKED_VERIFIED }}"
+                        data-glass-tip
+                        data-glass-tip-body="{{ \App\Models\Site::RESTORE_BLOCKED_VERIFIED }}"
+                        data-glass-tip-placement="top">
+                    <i class="fa fa-undo" aria-hidden="true"></i>
+                </button>
+                    @else
+                <button type="button" class="btn-icon-quiet btn-unarchive-site"
+                        data-id="{{ $site->id }}"
+                        data-name="{{ $site->site_name }}"
+                        aria-label="Restore"
+                        data-glass-tip
+                        data-glass-tip-body="Restore"
+                        data-glass-tip-placement="top">
+                    <i class="fa fa-undo" aria-hidden="true"></i>
+                </button>
+                    @endif
+                @endif
                 <button type="button" class="btn-icon-quiet action-view" data-id="{{ $site->id }}"
                         aria-label="View"
                         data-glass-tip
@@ -1148,18 +1329,18 @@
                         'categories', 'category', 'description',
                     ]);
                 @endphp
-                <button type="button" class="btn btn-sm btn-primary btn-edit"
+                <button type="button" class="btn-icon-quiet btn-edit"
                         data-id="{{ $site->id }}"
                         data-site='@json($editPayload)'
                         aria-label="Edit"
                         data-glass-tip
                         data-glass-tip-body="Edit"
                         data-glass-tip-placement="top">
-                    Edit
+                    <i class="fa fa-pen" aria-hidden="true"></i>
                 </button>
 
                 @if(!$site->verified && !$site->awaitsPublisherDetails())
-                <button type="button" class="btn btn-sm btn-outline-secondary btn-verify-site"
+                <button type="button" class="btn-icon-quiet btn-verify-site"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
                         aria-label="Get Verified"
@@ -1167,7 +1348,7 @@
                         data-glass-tip-title="Get Verified"
                         data-glass-tip-body="Upload a small .txt file to prove you own this website."
                         data-glass-tip-placement="top">
-                    Get Verified
+                    <i class="fa fa-circle-check" aria-hidden="true"></i>
                 </button>
                 @endif
 
@@ -1190,6 +1371,23 @@
                 <div class="site-row-actions__offers">
                     <span class="site-row-actions__offers-label">Offers</span>
                     <div class="site-offer-chips">
+                @php $adminReward = ($featureCreditsBySite ?? [])[$site->id] ?? null; @endphp
+                @if($adminReward && ! $site->isArchived())
+                <button type="button"
+                        class="site-offer-chip site-offer-chip--reward btn-use-admin-credit"
+                        data-id="{{ $site->id }}"
+                        data-credit-id="{{ $adminReward['id'] }}"
+                        data-days="{{ $adminReward['days'] }}"
+                        data-name="{{ $site->site_name }}"
+                        aria-label="Admin reward, {{ $adminReward['days'] }} days of featuring"
+                        data-glass-tip
+                        data-glass-tip-title="Reward from admin"
+                        data-glass-tip-body="The admin gave you {{ $adminReward['days'] }} days of featuring for this site. It is free. Use it whenever you want. No wallet or card charge."
+                        data-glass-tip-placement="top">
+                    <i class="fa fa-gift" aria-hidden="true"></i>
+                    <span class="site-offer-chip__label">{{ $adminReward['days'] }}d</span>
+                </button>
+                @endif
                 <button type="button"
                         class="site-offer-chip btn-feature-site {{ $site->isFeatured() ? 'is-on' : '' }}"
                         data-id="{{ $site->id }}"
@@ -1363,6 +1561,11 @@
             $emptyPendingCount = (int) ($pendingCount ?? 0);
             $emptyInviteCount = (int) ($inviteCount ?? 0);
         @endphp
+        @php
+            $emptyArchivedCount = (int) ($archivedCount ?? 0);
+            $emptyCancelledCount = (int) ($cancelledBulkCount ?? 0);
+            $emptyHiddenCount = $emptyArchivedCount + $emptyCancelledCount;
+        @endphp
         @if($emptyPendingCount > 0 || $emptyInviteCount > 0)
             <i class="fa fa-circle-check me-2 text-success"></i>
             <strong>No live sites yet.</strong>
@@ -1380,6 +1583,18 @@
                     <button type="button" class="btn btn-sm btn-outline-primary" data-switch-status="invites">Open Invites</button>
                 @endif
             </div>
+        @elseif($emptyHiddenCount > 0)
+            <i class="fa fa-box-archive me-2 text-muted"></i>
+            <strong>No live sites yet.</strong>
+            @if($emptyArchivedCount > 0)
+                <span>{{ $emptyArchivedCount }} {{ $emptyArchivedCount === 1 ? 'is' : 'are' }} archived.</span>
+            @endif
+            @if($emptyCancelledCount > 0)
+                <span>{{ $emptyCancelledCount }} {{ $emptyCancelledCount === 1 ? 'is' : 'are' }} from a cancelled bulk request.</span>
+            @endif
+            <div class="mt-3">
+                <button type="button" class="btn btn-sm btn-primary" data-switch-status="archived">Open Archived</button>
+            </div>
         @else
             <div class="ui-empty-state text-center mx-auto py-2" style="max-width:420px">
                 <div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:52px;height:52px;border-radius:50%;background:var(--brand-primary-bg,#e6f5f5);color:var(--brand-primary,#1a585e)" aria-hidden="true"><i class="fa-solid fa-globe"></i></div>
@@ -1391,6 +1606,9 @@
     @elseif(($status ?? '') === 'invites')
         <i class="fa fa-inbox me-2 text-muted"></i>
         No site invites waiting. When our team adds a website for you, Accept / Decline appear here.
+    @elseif(($status ?? '') === 'archived')
+        <i class="fa fa-box-archive me-2 text-muted"></i>
+        No archived sites.
     @elseif($hasOpenBulkRequest)
         <div class="py-2 px-1" style="max-width:480px;margin:0 auto;">
             <i class="fa fa-layer-group me-2" style="color:var(--brand-primary,#1a585e)"></i>

@@ -190,6 +190,9 @@
             <a href="{{ staff_route('sites.create') }}" class="btn btn-sm btn-primary">
                 <i class="fa fa-plus me-1"></i> Add site for publisher
             </a>
+            <a href="{{ staff_route('sites.bulk-create') }}" class="btn btn-sm btn-outline-primary">
+                <i class="fa fa-layer-group me-1"></i> Add sites in bulk
+            </a>
             @if(auth()->user()?->isAdmin())
                 <a href="{{ route('admin.sites.on-demand.index') }}" class="btn btn-sm btn-outline-primary">
                     On-demand
@@ -260,7 +263,7 @@
     @endif
 
     <div id="staffIndexSearchWrap">
-        <form method="GET" action="{{ staff_route('sites.index') }}" class="mb-2" style="max-width: 320px;" role="search">
+        <form method="GET" action="{{ staff_route('sites.index') }}" class="admin-deposits-filters mb-3" role="search" style="max-width: 36rem;">
             @if(!empty($needsReviewFilterActive) || !empty($unverifiedFilter))
                 <input type="hidden" name="needs_review" value="1">
             @endif
@@ -287,7 +290,8 @@
                 :value="$publisherSearch"
                 placeholder="Search publishers or sites…"
                 label="Search publishers or sites"
-                label-class="visually-hidden"
+                label-class="form-label"
+                input-class="form-control"
             />
         </form>
     </div>
@@ -380,6 +384,7 @@
                                 @endif
                                 @if($site->isPendingPublisherAcceptance())
                                     <span class="badge text-bg-info">Awaiting accept</span>
+                                    <button type="button" class="btn btn-sm btn-outline-info resend-invite py-0 px-2" data-id="{{ $site->id }}">Resend invite</button>
                                 @endif
                                 @if($site->wasAddedFromBulkRequest())
                                     <span class="badge text-bg-light border">Bulk request</span>
@@ -442,9 +447,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="p-2">
-            {{ $flatQueueSites->links() }}
-        </div>
+        @include('admin.sites.partials.pager', ['paginator' => $flatQueueSites, 'selectId' => 'flatSitesPerPage'])
     </div>
     @endif
 
@@ -559,9 +562,7 @@
                 </table>
             </div>
 
-            <div class="p-2">
-                {{ $users->links() }}
-            </div>
+            @include('admin.sites.partials.pager', ['paginator' => $users, 'selectId' => 'publishersPerPage'])
 
         </div>
     </div>
@@ -642,7 +643,18 @@
 
                  </table>
             </div>
-            <div class="p-2 d-flex flex-wrap justify-content-between align-items-center gap-2" id="sitesPager"></div>
+            <div class="admin-sites-pager d-none" id="sitesPagerBar">
+                <div class="admin-sites-pager__size admin-deposits-filters" data-admin-filter-live="1">
+                    <label class="small text-muted mb-0" for="sitesPerPage">Rows</label>
+                    <select id="sitesPerPage" class="form-select form-select-sm" aria-label="Rows per page">
+                        <option value="20">20</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+                <div class="admin-sites-pager__links" id="sitesPager"></div>
+                <div class="admin-sites-pager__end" aria-hidden="true"></div>
+            </div>
 
         </div>
 
@@ -773,8 +785,12 @@ function fetchUserSites(id, page){
         `<tr><td colspan="7">Loading...</td></tr>`;
 
     const pageNum = Number(page) > 1 ? Number(page) : 1;
+    if (pageNum > 1) {
+        pendingHighlightSiteId = null;
+    }
     const params = new URLSearchParams();
     params.set('_', String(Date.now()));
+    params.set('per_page', document.getElementById('sitesPerPage')?.value || '50');
     if (pageNum > 1) {
         params.set('page', String(pageNum));
     }
@@ -788,9 +804,9 @@ function fetchUserSites(id, page){
     const pageQuery = new URLSearchParams(window.location.search);
     const focusSite = pageQuery.get('site') || '';
     const indexQ = (pageQuery.get('q') || '').trim();
-    // Keep the opened site on the list while the box still has that search.
-    // A new search must not drag the old site back in.
-    if (/^[1-9]\d*$/.test(focusSite) && (siteQ === '' || siteQ === indexQ)) {
+    // Keep the opened site on page 1 while the box still has that search.
+    // Later pages must not pin it, or paging reopens that site's details.
+    if (pageNum === 1 && /^[1-9]\d*$/.test(focusSite) && (siteQ === '' || siteQ === indexQ)) {
         params.set('site', focusSite);
     }
     document.querySelectorAll('#staffPublisherFilters [data-staff-filter]').forEach(function (el) {
@@ -878,13 +894,7 @@ function fetchUserSites(id, page){
             }
 
             const meta = Array.isArray(data) ? null : (data?.meta || null);
-            const page = meta && Number(meta.current_page) > 1 ? Number(meta.current_page) : 1;
-            if (page > 1) {
-                const seen = new Set(allSites.map((s) => s.id));
-                sites.forEach((s) => { if (!seen.has(s.id)) allSites.push(s); });
-            } else {
-                allSites = sites;
-            }
+            allSites = sites;
             window.sitesListMeta = meta;
             const matchTotal = document.querySelector('[data-staff-bulk-bar="publisher"] [data-staff-bulk-match-total]');
             if (matchTotal && meta && meta.total != null) {
@@ -907,31 +917,64 @@ function fetchUserSites(id, page){
         });
 }
 
-function renderSitesPager(publisherId, meta, loadedCount) {
+function syncSitesPerPage(perPage) {
+    const select = document.getElementById('sitesPerPage');
+    if (!select || !perPage) return;
+    const next = String(perPage);
+    if (select.value === next) return;
+    select.value = next;
+    select.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { silent: true } }));
+}
+
+function renderSitesPager(publisherId, meta) {
+    const bar = document.getElementById('sitesPagerBar');
     const pager = document.getElementById('sitesPager');
     if (!pager) return;
-    if (!meta || Number(meta.last_page) <= 1) {
+    const total = meta ? (Number(meta.total) || 0) : 0;
+    const current = meta ? (Number(meta.current_page) || 1) : 1;
+    const last = meta ? (Number(meta.last_page) || 1) : 1;
+    syncSitesPerPage(meta ? Number(meta.per_page) : 0);
+    if (bar) bar.classList.toggle('d-none', total <= 20);
+    if (!meta || total <= 20 || last <= 1) {
         pager.innerHTML = '';
         return;
     }
-    const loaded = Number(loadedCount) || 0;
-    const total = Number(meta.total) || loaded;
-    const nextPage = (Number(meta.current_page) || 1) + 1;
-    const hasMore = nextPage <= Number(meta.last_page);
-    pager.innerHTML = `<span class="small text-muted">Showing ${loaded} of ${total}</span>`
-        + (hasMore
-            ? `<button type="button" class="btn btn-sm btn-outline-primary" id="sitesLoadMore" data-id="${publisherId}" data-page="${nextPage}">Load more</button>`
-            : '');
+    const span = 2;
+    const start = Math.max(1, current - span);
+    const end = Math.min(last, current + span);
+    const item = function (page, label, disabled, active) {
+        if (disabled) {
+            return `<li class="page-item disabled"><span class="page-link">${label}</span></li>`;
+        }
+        if (active) {
+            return `<li class="page-item active"><span class="page-link" aria-current="page">${label}</span></li>`;
+        }
+        return `<li class="page-item"><button type="button" class="page-link" data-sites-page="${page}" data-publisher-id="${publisherId}">${label}</button></li>`;
+    };
+    let html = '<nav aria-label="Publisher sites pages"><ul class="pagination pagination-sm mb-0">';
+    html += item(current - 1, 'Previous', current <= 1, false);
+    for (let p = start; p <= end; p++) {
+        html += item(p, String(p), false, p === current);
+    }
+    html += item(current + 1, 'Next', current >= last, false);
+    html += '</ul></nav>';
+    pager.innerHTML = html;
 }
 
 document.addEventListener('click', function (e) {
-    const more = e.target.closest('#sitesLoadMore');
-    if (!more) return;
+    const pageBtn = e.target.closest('#sitesPager [data-sites-page]');
+    if (!pageBtn) return;
     e.preventDefault();
-    more.disabled = true;
-    fetchUserSites(more.dataset.id, more.dataset.page).finally(() => {
-        more.disabled = false;
-    });
+    pendingHighlightSiteId = null;
+    fetchUserSites(pageBtn.getAttribute('data-publisher-id'), pageBtn.getAttribute('data-sites-page'));
+});
+
+document.getElementById('sitesPerPage')?.addEventListener('change', function (event) {
+    if (event.detail && event.detail.silent) return;
+    const id = sessionStorage.getItem('selected_user');
+    if (!id) return;
+    pendingHighlightSiteId = null;
+    fetchUserSites(id, 1);
 });
 
 function refreshSidebarQueueBadges() {
@@ -1593,6 +1636,29 @@ document.addEventListener('click', function(e){
         });
     }
 
+    if (e.target.closest('.resend-invite')) {
+        const btn = e.target.closest('button');
+        const id = btn?.dataset.id;
+        if (!id) return;
+        e.preventDefault();
+        fetch(`${STAFF_BASE}/sites/${encodeURIComponent(id)}/resend-invite`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+            },
+        }).then(async function (res) {
+            const data = await res.json().catch(function () { return {}; });
+            if (!res.ok || data.success === false) {
+                throw new Error(data.message || 'Could not resend that invite.');
+            }
+            toast(data.message || 'Invite resent.');
+        }).catch(function (err) {
+            toast(err.message || 'Could not resend that invite.', 'error');
+        });
+        return;
+    }
+
     /* TOGGLE VERIFY */
     if(e.target.closest('.toggle-verify')){
         let btn = e.target.closest('button');
@@ -2033,6 +2099,9 @@ function renderSites(data){
             const inviteBadge = site.pending_publisher_acceptance
                 ? `<span class="badge text-bg-info badge-needs-review ms-1">Awaiting accept</span>`
                 : '';
+            const resendInviteItem = site.pending_publisher_acceptance
+                ? `<li><button type="button" class="dropdown-item resend-invite" data-id="${site.id}"><i class="fa fa-paper-plane me-2"></i>Resend invite</button></li>`
+                : '';
             const bulkOriginBadge = site.added_from_bulk_request
                 ? `<span class="badge text-bg-light border badge-needs-review ms-1">Bulk request</span>`
                 : '';
@@ -2199,6 +2268,7 @@ function renderSites(data){
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end admin-manage-menu">
                         ${editItem}
+                        ${resendInviteItem}
                         ${deleteItem}
                         ${(activeItem || verifyItem) ? '<li><hr class="dropdown-divider"></li>' : ''}
                         ${activeItem}
@@ -2558,6 +2628,15 @@ document.addEventListener('click', function (e) {
     run(null);
 });
 
+/* Paging the publisher list is a full reload. Forget the last opened
+   publisher first, or the next page immediately covers the list with
+   that publisher's sites. A refresh still restores them. */
+document.addEventListener('click', function (e) {
+    const link = e.target.closest('#usersSection .admin-sites-pager a, #usersSection .pagination a, #usersSection nav[role="navigation"] a');
+    if (!link) return;
+    sessionStorage.removeItem('selected_user');
+});
+
 /* ================= RESTORE / DEEP-LINK ================= */
 window.addEventListener('DOMContentLoaded',()=>{
     const params = new URLSearchParams(window.location.search);
@@ -2570,11 +2649,12 @@ window.addEventListener('DOMContentLoaded',()=>{
     // queue, then immediately covered it with whichever publisher you happened
     // to open last, and the button looked dead.
     const wantsReviewQueue = params.has('needs_review') || params.get('verified') === '0' || params.has('waiting_on_publisher');
-    if ((wantsReviewQueue || ALL_SITES) && !params.get('publisher') && !siteId) {
+    const pagingTheList = params.has('page');
+    if (pagingTheList || ((wantsReviewQueue || ALL_SITES) && !params.get('publisher') && !siteId)) {
         sessionStorage.removeItem('selected_user');
     }
 
-    const publisherId = params.get('publisher') || sessionStorage.getItem('selected_user');
+    const publisherId = pagingTheList ? null : (params.get('publisher') || sessionStorage.getItem('selected_user'));
 
     if (siteId) {
         pendingHighlightSiteId = siteId;

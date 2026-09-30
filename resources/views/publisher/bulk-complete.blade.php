@@ -8,7 +8,7 @@
             <h3 class="mt-2 mb-1">Complete website details</h3>
             <p class="text-muted small mb-0">
                 Metrics, geo, and niches were added by our team. Finish description, link type, and timing for each site.
-                Then open <strong>Review &amp; submit</strong> for a final check before admin review.
+                Then open <strong>Review &amp; submit</strong> to Accept (go live) or Edit (admin Activates).
             </p>
         </div>
         @if(($detailsCompleteCount ?? 0) > 0)

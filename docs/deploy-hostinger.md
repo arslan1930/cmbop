@@ -12,15 +12,18 @@ Use this on **every** code update. Full media background:
 
 ## After upload / sync
 
-This agent cannot SSH to live Hostinger. `HOSTINGER_WEB_HEAL` (default on) plus
-`php artisan ops:production-ready --repair` cover migrate, `APP_URL`,
-`MEDIA_PATH`, roles, `public/storage`, and `schedule:run` without a login.
+This agent cannot SSH to live Hostinger. `php artisan ops:production-ready --repair`
+covers migrate, `APP_URL`, `MEDIA_PATH`, roles, and `public/storage`.
+`HOSTINGER_WEB_HEAL` (default on) repeats the filesystem and URL repair on a
+production page view. It does not migrate and it does not run the scheduler.
 
-1. Open any production page (or run `php artisan ops:production-ready --repair`).
+1. Run `php artisan ops:production-ready --repair` after each deploy.
    That writes `MEDIA_PATH=/home/USER/persistent/media` when it is empty or still
    under `public_html`, copies `APP_URL` from `PUBLIC_APP_URL` if it is still
    loopback, runs `migrate --force` (bootstrapping users/sites/orders/order_items
    first when the schema is empty), seeds roles, and repairs `public/storage`.
+   A later page view can refresh `MEDIA_PATH`, `APP_URL`, and `public/storage`
+   only.
 2. `grep '^MEDIA_PATH=' .env` — must be absolute path outside `public_html`
 3. `ls -la public/storage` — must symlink to that path; if not:
    `rm -f public/storage && php artisan storage:link`
@@ -55,8 +58,9 @@ This agent cannot SSH to live Hostinger. `HOSTINGER_WEB_HEAL` (default on) plus
    so new uploads become WebP.
 10. Confirm MySQL, `APP_URL`, `MEDIA_PATH`, uploads, mail drain, and the scheduler:
    `php artisan ops:production-ready --repair --strict`
-   Web traffic also runs `schedule:run` about once a minute. Add system cron if
-   the site is quiet overnight. Then spot-check register → verify email →
+   Add system cron `* * * * * php artisan schedule:run`, or POST `/cron/run`
+   with header `X-Cron-Key` every minute. Page views do not run the scheduler.
+   Then spot-check register → verify email →
    catalog image → wallet order → chat mail.
 
 ## Weekly

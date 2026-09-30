@@ -105,7 +105,7 @@ small, .small, .text-muted,
 
 .metric-abbr {
   border-bottom: 1px dotted rgba(26, 88, 94, 0.35);
-  cursor: help;
+  cursor: inherit;
   text-decoration: none;
 }
 

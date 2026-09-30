@@ -753,6 +753,10 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('No edit yet', $html);
         $this->assertStringContainsString('Needs your details', $html);
         $this->assertStringContainsString('Ready to review', $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/data-glass-tip-placement="top"\s+data-glass-tip-hover-only="1">\s*Ready to review/',
+            $html
+        );
         $this->assertStringContainsString('With admin', $html);
         $this->assertStringContainsString('data-bulk-waiting="2"', $html);
         $this->assertStringContainsString('data-open-bulk="1"', $html);

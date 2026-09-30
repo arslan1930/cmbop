@@ -1049,11 +1049,48 @@ class Site extends Model
         return true;
     }
 
+    public const RESTORE_BLOCKED_VERIFIED = 'This site is verified and cannot be restored.';
+
     public function occupyingDomainMessage(): string
     {
         return $this->isArchived()
             ? 'This domain is already registered (including archived). Ask an admin to restore or hard-delete.'
             : 'This website domain is already registered.';
+    }
+
+    /**
+     * Another publisher already verified this domain, so this copy is not the owner listing.
+     */
+    public function verifiedOwnerListing(): ?self
+    {
+        if (! static::hasSitesColumn('domain') || ! static::hasSitesColumn('verified') || ! static::hasSitesColumn('publisher_id')) {
+            return null;
+        }
+
+        $domain = (string) $this->domain;
+        $candidates = static::domainLookupCandidates($domain);
+        if ($candidates === [] || (int) $this->publisher_id <= 0) {
+            return null;
+        }
+
+        $normalized = static::normalizeMarketplaceDomain($domain);
+        $query = static::query()
+            ->where('id', '!=', (int) $this->id)
+            ->where('publisher_id', '!=', (int) $this->publisher_id)
+            ->where('verified', true)
+            ->where(function ($q) use ($candidates, $normalized) {
+                $q->whereIn('domain', $candidates);
+                if ($normalized !== '') {
+                    $escaped = addcslashes($normalized, '%_\\');
+                    $q->orWhere('domain', 'like', $escaped.':%')
+                        ->orWhere('domain', 'like', 'www.'.$escaped.':%');
+                }
+            });
+        if (static::hasSitesColumn('bulk_site_request_id')) {
+            $query->notFromCancelledBulk();
+        }
+
+        return $query->orderBy('id')->first();
     }
 
     /**

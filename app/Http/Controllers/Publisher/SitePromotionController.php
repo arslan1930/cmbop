@@ -92,6 +92,39 @@ class SitePromotionController extends Controller
         return response()->json($result, ($result['success'] ?? false) ? 200 : 422);
     }
 
+    public function featureCredit(Request $request, int $id)
+    {
+        $site = $this->ownedPromotableSite($id);
+        if ($site instanceof JsonResponse) {
+            return $site;
+        }
+
+        $data = $request->validate([
+            'credit_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $result = $this->promotions->featureWithCredit($site, auth()->user(), (int) $data['credit_id']);
+
+        if ($result['success'] ?? false) {
+            try {
+                ActivityLogger::log(
+                    'site.featured_credit',
+                    auth()->user()->name.' featured "'.$site->site_name.'" with an admin credit',
+                    $site,
+                    [
+                        'credit_id' => (int) $data['credit_id'],
+                        'payment_method' => 'admin_grant',
+                    ],
+                    $site->site_name
+                );
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return response()->json($result, ($result['success'] ?? false) ? 200 : 422);
+    }
+
     /**
      * Create a Stripe Checkout session to pay for featuring a site by card.
      */
@@ -264,6 +297,7 @@ class SitePromotionController extends Controller
                 'feature_price' => $this->promotions->featurePrice(),
                 'feature_days' => $this->promotions->featureDays(),
                 'offers' => $this->promotions->featureOffers(),
+                'credits' => $this->promotions->unusedFeatureCredits(auth()->user()),
                 'top_up_url' => route('publisher.balance'),
                 'balance_url' => route('publisher.balance'),
                 'stripe_available' => (bool) config('services.stripe.secret'),

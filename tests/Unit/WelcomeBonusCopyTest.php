@@ -13,6 +13,8 @@ class WelcomeBonusCopyTest extends TestCase
 
     public function test_message_swaps_live_amount_and_falls_back_when_disabled(): void
     {
+        app(WelcomeBonusService::class)->setEnabled(true);
+
         $this->assertSame(
             'Top up by card (Stripe) or bank transfer where enabled. New advertisers get €20 welcome credit (spend-only, not withdrawable). Site prices are clear before checkout.',
             WelcomeBonusCopy::message('how_page_adv_step_2_body', 'how_page_adv_step_2_body_off')
@@ -40,6 +42,7 @@ class WelcomeBonusCopyTest extends TestCase
     {
         $snapshot = "- New advertisers: €20 welcome credit for first orders (spend-only, not withdrawable).\n";
 
+        app(WelcomeBonusService::class)->setEnabled(true);
         $this->assertSame($snapshot, WelcomeBonusCopy::applyToLlmsTxt($snapshot));
 
         app(WelcomeBonusService::class)->setAmount(35);
@@ -59,6 +62,7 @@ class WelcomeBonusCopyTest extends TestCase
     {
         $html = '<p>New advertisers receive a welcome wallet credit under the current signup rules; treat it as purchasing power for placements, not a cash withdrawal.</p>';
 
+        app(WelcomeBonusService::class)->setEnabled(true);
         $this->assertStringContainsString('New advertisers receive a welcome wallet credit', WelcomeBonusCopy::scrubGrantAdvertisingHtml($html));
 
         app(WelcomeBonusService::class)->setEnabled(false);

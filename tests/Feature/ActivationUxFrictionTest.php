@@ -79,7 +79,8 @@ class ActivationUxFrictionTest extends TestCase
             ->assertOk()
             ->assertSee('Every account includes Advertiser and Publisher workspaces', false)
             ->assertSee('starting workspace', false)
-            ->assertSee('€20 welcome credit', false);
+            ->assertSee('Free to start — no card required', false)
+            ->assertDontSee('€20 welcome credit', false);
     }
 
     public function test_new_advertiser_dashboard_leads_with_catalog(): void

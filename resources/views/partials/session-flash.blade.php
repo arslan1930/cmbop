@@ -19,7 +19,13 @@
             <div class="alert alert-success alert-dismissible fade show d-flex align-items-start gap-2 slb-flash-soft"
                  role="status" aria-live="polite" data-slb-flash-toast="success">
                 <i class="fa fa-circle-check mt-1" aria-hidden="true"></i>
-                <div class="flex-grow-1">{{ $flashSuccess }}</div>
+                <div class="flex-grow-1">
+                    {{ $flashSuccess }}
+                    @php $successAction = session('success_action'); @endphp
+                    @if(is_array($successAction) && filled($successAction['url'] ?? null))
+                        <a href="{{ $successAction['url'] }}" class="alert-link d-inline-block ms-2">{{ $successAction['label'] ?? 'Continue' }}</a>
+                    @endif
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss message"></button>
             </div>
         @endif

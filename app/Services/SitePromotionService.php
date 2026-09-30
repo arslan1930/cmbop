@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Mail\SiteDiscountEnded;
+use App\Models\FeatureCredit;
 use App\Models\FeatureOfferSetting;
 use App\Models\Site;
 use App\Models\SiteFeaturePurchase;
@@ -14,9 +15,9 @@ use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 
 class SitePromotionService
 {
@@ -185,6 +186,97 @@ class SitePromotionService
             });
         } catch (\Throwable $e) {
             return $this->failedFeature($e, 'Could not feature this site. Please try again.');
+        }
+    }
+
+    /**
+     * Unused admin-granted feature days for this publisher. The clock starts
+     * only when they spend a credit on a site.
+     *
+     * @return list<array{id:int, days:int}>
+     */
+    public function unusedFeatureCredits(User $publisher): array
+    {
+        if (! Schema::hasTable('feature_credits')) {
+            return [];
+        }
+
+        return FeatureCredit::query()
+            ->where('user_id', $publisher->id)
+            ->unused()
+            ->orderBy('id')
+            ->get(['id', 'days', 'site_id'])
+            ->map(fn (FeatureCredit $credit) => [
+                'id' => (int) $credit->id,
+                'days' => (int) $credit->days,
+                'site_id' => $credit->site_id ? (int) $credit->site_id : null,
+            ])
+            ->all();
+    }
+
+    /**
+     * Spend one admin-granted credit. No wallet or card charge. Days are
+     * applied with the same featured_until rules as a paid package.
+     *
+     * @return array{success:bool, message:string, site?:Site}
+     */
+    public function featureWithCredit(Site $site, User $publisher, int $creditId): array
+    {
+        if (! Schema::hasTable('feature_credits')) {
+            return ['success' => false, 'message' => 'Feature credits are not available yet.'];
+        }
+
+        try {
+            return DB::transaction(function () use ($site, $publisher, $creditId) {
+                $lockedSite = Site::query()->whereKey($site->id)->lockForUpdate()->firstOrFail();
+                if ((int) $lockedSite->publisher_id !== (int) $publisher->id) {
+                    return ['success' => false, 'message' => 'You can only feature your own website.'];
+                }
+                if ($lockedSite->isArchived()) {
+                    return [
+                        'success' => false,
+                        'message' => 'Archived sites cannot be promoted. Restore the site first.',
+                    ];
+                }
+                if ($lockedSite->isFromCancelledBulk()) {
+                    return [
+                        'success' => false,
+                        'message' => 'This listing is not in the catalog and cannot be promoted.',
+                    ];
+                }
+                if (! $lockedSite->active && ! $lockedSite->verified) {
+                    return [
+                        'success' => false,
+                        'message' => 'Only verified or active sites can use promotions.',
+                    ];
+                }
+
+                $credit = FeatureCredit::query()->whereKey($creditId)->lockForUpdate()->first();
+                if (! $credit || (int) $credit->user_id !== (int) $publisher->id) {
+                    return ['success' => false, 'message' => 'That featured credit is not on your account.'];
+                }
+                if ($credit->used_at !== null) {
+                    return ['success' => false, 'message' => 'That featured credit was already used.'];
+                }
+                if ($credit->site_id && (int) $credit->site_id !== (int) $lockedSite->id) {
+                    return ['success' => false, 'message' => 'That featured credit is for a different website.'];
+                }
+
+                $days = max(1, (int) $credit->days);
+                $featured = $this->applyFeaturePeriod($lockedSite, $publisher, 0, $days, 'admin_grant');
+                $credit->forceFill([
+                    'used_at' => now(),
+                    'site_id' => $featured->id,
+                ])->save();
+
+                return [
+                    'success' => true,
+                    'message' => 'Site featured for '.$days.' days using your featured credit.',
+                    'site' => $featured,
+                ];
+            });
+        } catch (\Throwable $e) {
+            return $this->failedFeature($e, 'Could not use this featured credit. Please try again.');
         }
     }
 

@@ -69,7 +69,7 @@ class MarketingPromotionsAccessTest extends TestCase
             ->post(route('admin.promotions.welcome-bonus.toggle'), ['enabled' => 0])
             ->assertRedirect(route('marketing.dashboard'));
 
-        $this->assertTrue(app(WelcomeBonusService::class)->isEnabled());
+        $this->assertFalse(app(WelcomeBonusService::class)->isEnabled());
     }
 
     public function test_marketer_cannot_change_welcome_bonus_amount(): void

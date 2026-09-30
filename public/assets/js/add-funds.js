@@ -192,6 +192,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (view) {
                 if (invoiceViewUrl) {
                     view.href = invoiceViewUrl;
+                    view.setAttribute('download', 'invoice-REF' + code + '.pdf');
+                    view.removeAttribute('target');
                     view.classList.remove('d-none');
                 } else {
                     view.classList.add('d-none');

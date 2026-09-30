@@ -28,7 +28,7 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <form action="{{ route('admin.blogs.update', $blog->id) }}" method="POST" enctype="multipart/form-data" id="blogForm">
+            <form action="{{ route('admin.blogs.update', $blog->id) }}" method="POST" enctype="multipart/form-data" id="blogForm" class="admin-deposits-filters" data-admin-filter-live="1">
                 @csrf
                 @method('PUT')
 

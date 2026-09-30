@@ -336,7 +336,7 @@ class WalletOverviewService
                                 : route('advertiser.invoice', $deposit->reference_code),
                             'invoice_download_url' => $invoice
                                 ? route('advertiser.billing.download', $invoice)
-                                : route('advertiser.invoice', ['referenceCode' => $deposit->reference_code, 'download' => 1]),
+                                : route('advertiser.invoice.pdf', $deposit->reference_code),
                             'can_mark_paid' => $deposit->canUserMarkPaid(),
                             'user_marked_paid' => $deposit->userHasMarkedPaid(),
                             'user_marked_paid_at' => $deposit->user_marked_paid_at?->toIso8601String(),
@@ -437,7 +437,7 @@ class WalletOverviewService
                 : route('advertiser.invoice', $d->reference_code);
             $invoiceDownloadUrl = $invoice
                 ? route('advertiser.billing.download', $invoice)
-                : route('advertiser.invoice', ['referenceCode' => $d->reference_code, 'download' => 1]);
+                : route('advertiser.invoice.pdf', $d->reference_code);
 
             $rows->push([
                 'id' => $d->id,

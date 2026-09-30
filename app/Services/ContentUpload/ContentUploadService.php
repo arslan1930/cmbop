@@ -11,6 +11,7 @@ use App\Services\Marketplace\CountryLanguagePairs;
 use App\Support\PhpIniSize;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -174,6 +175,12 @@ class ContentUploadService
         $links = $extracted['links'] ?? [];
         $firstLink = $links[0] ?? null;
 
+        $previewHtml = ArticlePreviewHtml::normalize((string) ($extracted['html'] ?? ''));
+        [$storedText, $previewHtml] = $this->fitStoredArticleColumns(
+            (string) ($extracted['text'] ?? ''),
+            $previewHtml
+        );
+
         $attrs = [
             'site_id' => $siteId,
             'copy_index' => $copyIndex,
@@ -187,8 +194,8 @@ class ContentUploadService
             'mime' => $file->getMimeType(),
             'extension' => $extension,
             'size_bytes' => (int) $file->getSize(),
-            'extracted_text' => $extracted['text'],
-            'preview_html' => ArticlePreviewHtml::normalize((string) ($extracted['html'] ?? '')),
+            'extracted_text' => $storedText,
+            'preview_html' => $previewHtml,
             'word_count' => $extracted['word_count'],
             'moderation_status' => ContentSubmission::STATUS_PROCESSING,
             'evaluation_status' => 'processing',
@@ -242,6 +249,10 @@ class ContentUploadService
         if (! empty($result['highlighted_html'])) {
             $previewHtml = ArticlePreviewHtml::normalize((string) $result['highlighted_html']);
         }
+        [, $previewHtml] = $this->fitStoredArticleColumns(
+            (string) $submission->extracted_text,
+            $previewHtml
+        );
 
         $report = $this->evaluationReportWithNotifyStatus($submission, $result);
 
@@ -554,7 +565,8 @@ class ContentUploadService
         }
 
         $text = $sanitizer->htmlToPlainText($clean);
-        if ($sanitizer->countWords($text) < 1 && ! str_contains($clean, '<img')) {
+        $wordCount = $sanitizer->countWords($text);
+        if ($wordCount < 1 && ! str_contains($clean, '<img')) {
             return ['ok' => false, 'approved' => false, 'message' => 'Article content cannot be empty.'];
         }
 
@@ -569,10 +581,12 @@ class ContentUploadService
         $links = $sanitizer->extractLinksFromHtml($clean);
         $firstLink = $links[0] ?? null;
 
+        [$text, $clean] = $this->fitStoredArticleColumns($text, $clean);
+
         $attrs = [
             'preview_html' => $clean,
             'extracted_text' => $text,
-            'word_count' => $sanitizer->countWords($text),
+            'word_count' => $wordCount,
             'moderation_status' => ContentSubmission::STATUS_PROCESSING,
             'evaluation_status' => 'processing',
         ];
@@ -645,6 +659,10 @@ class ContentUploadService
         if (! empty($result['highlighted_html'])) {
             $previewHtml = ArticlePreviewHtml::normalize((string) $result['highlighted_html']);
         }
+        [, $previewHtml] = $this->fitStoredArticleColumns(
+            (string) $submission->extracted_text,
+            $previewHtml
+        );
 
         $report = $this->evaluationReportWithNotifyStatus($submission, $result);
 
@@ -807,6 +825,70 @@ class ContentUploadService
         }
 
         return null;
+    }
+
+    /**
+     * Keep extracted text and preview HTML inside MariaDB's max_allowed_packet.
+     *
+     * A long .docx is stored twice (plain text and HTML). On a 1 MB packet that
+     * insert fails, and the library shows a generic upload error.
+     *
+     * @return array{0:string,1:string}
+     */
+    public function fitStoredArticleColumns(string $text, string $html): array
+    {
+        $budget = $this->storedArticleByteBudget();
+        if (strlen($text) + strlen($html) <= $budget) {
+            return [$text, $html];
+        }
+
+        $textCap = min(strlen($text), 100000);
+        if ($textCap + strlen($html) > $budget) {
+            $html = $this->truncatePreviewHtml($html, max(0, $budget - $textCap));
+        }
+        $textCap = min($textCap, max(0, $budget - strlen($html)));
+        if (strlen($text) > $textCap) {
+            $text = mb_strcut($text, 0, $textCap, 'UTF-8');
+        }
+
+        return [$text, $html];
+    }
+
+    /**
+     * Bytes available for extracted_text + preview_html in one INSERT/UPDATE.
+     */
+    private function storedArticleByteBudget(): int
+    {
+        $packet = 1048576;
+        try {
+            $row = DB::selectOne('select @@session.max_allowed_packet as packet');
+            $value = (int) ($row->packet ?? 0);
+            if ($value > 0) {
+                $packet = $value;
+            }
+        } catch (\Throwable) {
+            // Use the 1 MB fallback when the server will not report the setting.
+        }
+
+        return max(160000, $packet - 262144);
+    }
+
+    private function truncatePreviewHtml(string $html, int $maxBytes): string
+    {
+        if ($maxBytes <= 0) {
+            return '';
+        }
+        if (strlen($html) <= $maxBytes) {
+            return $html;
+        }
+
+        $slice = mb_strcut($html, 0, $maxBytes, 'UTF-8');
+        $close = strrpos($slice, '</p>');
+        if ($close !== false) {
+            return substr($slice, 0, $close + 4);
+        }
+
+        return $slice;
     }
 
     /**

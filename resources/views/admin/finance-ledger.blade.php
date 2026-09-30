@@ -58,73 +58,70 @@
         </div>
     @endif
 
-    <form method="GET" class="card border-0 shadow-sm mb-3 finance-ledger-filters">
+    <form method="GET" class="card border-0 shadow-sm mb-3 finance-ledger-filters admin-deposits-filter-card admin-deposits-filters admin-orders-filters">
         <div class="card-body">
+            <div class="admin-orders-filters__grid">
             @if($ledgerUser)
                 <input type="hidden" name="user_id" value="{{ $ledgerUser->id }}">
             @endif
             @if(request()->boolean('finance'))
                 <input type="hidden" name="finance" value="1">
             @endif
-            <div class="row g-3 align-items-end">
-                <div class="col-12 col-sm-6 col-lg">
+                <div class="admin-orders-filters__search">
                     <x-slb-search-field
                         name="search"
                         id="adminFinanceLedgerSearch"
                         :value="is_string(request('search')) ? request('search') : ''"
                         placeholder="User, email, company, payout, reference…"
-                        label-class="form-label small text-muted mb-1"
+                        label-class="form-label"
+                        input-class="form-control"
                     />
                 </div>
-                <div class="col-6 col-sm-6 col-lg">
-                    <label class="form-label small text-muted mb-1" for="adminFinanceLedgerType">Type</label>
-                    <select name="type" id="adminFinanceLedgerType" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="adminFinanceLedgerType">Type</label>
+                    <select name="type" id="adminFinanceLedgerType" class="form-select">
                         <option value="">All types</option>
                         @foreach($types as $type)
                             <option value="{{ $type }}" @selected(request('type') === $type)>{{ (new \App\Models\WalletTransaction(['type' => $type]))->typeLabel() }}</option>
                         @endforeach
                     </select>
                 </div>
-                <div class="col-6 col-sm-6 col-lg">
-                    <label class="form-label small text-muted mb-1" for="adminFinanceLedgerWallet">Wallet</label>
-                    <select name="wallet" id="adminFinanceLedgerWallet" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="adminFinanceLedgerWallet">Wallet</label>
+                    <select name="wallet" id="adminFinanceLedgerWallet" class="form-select">
                         <option value="">Any</option>
                         <option value="advertiser" @selected(request('wallet') === 'advertiser')>Advertiser</option>
                         <option value="publisher" @selected(request('wallet') === 'publisher')>Publisher</option>
                     </select>
                 </div>
-                <div class="col-6 col-sm-6 col-lg">
-                    <label class="form-label small text-muted mb-1" for="adminFinanceLedgerDirection">Direction</label>
-                    <select name="direction" id="adminFinanceLedgerDirection" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="adminFinanceLedgerDirection">Direction</label>
+                    <select name="direction" id="adminFinanceLedgerDirection" class="form-select">
                         <option value="">Any</option>
                         <option value="credit" @selected(request('direction') === 'credit')>Credit</option>
                         <option value="debit" @selected(request('direction') === 'debit')>Debit</option>
                     </select>
                 </div>
-                <div class="col-6 col-sm-6 col-lg">
-                    <label class="form-label small text-muted mb-1" for="adminFinanceLedgerSort">Sort</label>
-                    <select name="sort" id="adminFinanceLedgerSort" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="adminFinanceLedgerSort">Sort</label>
+                    <select name="sort" id="adminFinanceLedgerSort" class="form-select">
                         <option value="">Newest</option>
                         <option value="oldest" @selected(request('sort') === 'oldest')>Oldest</option>
                         <option value="amount" @selected(request('sort') === 'amount')>Amount</option>
                     </select>
                 </div>
-                <div class="col-6 col-sm-6 col-lg">
-                    <label class="form-label small text-muted mb-1" for="adminFinanceLedgerDateFrom">From</label>
-                    <input type="date" id="adminFinanceLedgerDateFrom" name="date_from" value="{{ search_text(request('date_from')) }}" class="form-control form-control-sm">
+                <div>
+                    <label class="form-label" for="adminFinanceLedgerDateFrom">From</label>
+                    <input type="date" id="adminFinanceLedgerDateFrom" name="date_from" value="{{ search_text(request('date_from')) }}" class="form-control">
                 </div>
-                <div class="col-6 col-sm-6 col-lg">
-                    <label class="form-label small text-muted mb-1" for="adminFinanceLedgerDateTo">To</label>
-                    <input type="date" id="adminFinanceLedgerDateTo" name="date_to" value="{{ search_text(request('date_to')) }}" class="form-control form-control-sm">
+                <div>
+                    <label class="form-label" for="adminFinanceLedgerDateTo">To</label>
+                    <input type="date" id="adminFinanceLedgerDateTo" name="date_to" value="{{ search_text(request('date_to')) }}" class="form-control">
                 </div>
-                <div class="col-12 col-sm-6 col-lg-auto finance-ledger-filters__action d-flex gap-2">
-                    <div>
-                        <label class="form-label small text-muted mb-1" for="adminFinanceLedgerFilter">&nbsp;</label>
-                        <button type="submit" id="adminFinanceLedgerFilter" class="btn btn-sm btn-primary">Filter</button>
-                    </div>
-                    <div>
-                        <label class="form-label small text-muted mb-1">&nbsp;</label>
-                        <a href="{{ route('admin.finance.ledger') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" id="adminFinanceLedgerFilter" class="btn btn-primary">Filter</button>
+                        <a href="{{ route('admin.finance.ledger') }}" class="btn btn-outline-secondary">Reset</a>
                     </div>
                 </div>
             </div>

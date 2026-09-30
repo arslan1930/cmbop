@@ -171,6 +171,82 @@
             </form>
         </div>
     </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="h5 mb-1">Featured credits</h2>
+            <p class="text-muted small mb-3">
+                Give a user days of featuring for one of their sites. Nothing is charged and the site is not featured yet.
+                They use the credit on that site whenever they want. Paid Monthly and Yearly packages stay the same.
+            </p>
+            @if(empty($featureCreditsTableReady))
+                <p class="small text-muted mb-0">Feature credits are unavailable until the database is migrated.</p>
+            @else
+                <form method="POST" action="{{ route('admin.promotions.feature-credits.store') }}" class="admin-deposits-filters row g-2 align-items-end" data-admin-filter-live="1">
+                    @csrf
+                    <div class="col-md-4">
+                        <label class="form-label" for="featureCreditUser">User</label>
+                        <select id="featureCreditUser" name="user_id" class="form-select" data-admin-select-search="1" data-admin-select-search-label="Search users" data-admin-select-search-empty="No matching users">
+                            <option value="">Choose a user</option>
+                            @foreach($featureCreditUsers ?? [] as $creditUser)
+                                <option value="{{ $creditUser->id }}" @selected((string) old('user_id') === (string) $creditUser->id)>
+                                    {{ trim((string) $creditUser->name) !== '' ? $creditUser->name.' — '.$creditUser->email : $creditUser->email }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('user_id')
+                            <div class="small text-danger mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="featureCreditSite">Site</label>
+                        <select id="featureCreditSite" name="site_id" class="form-select" data-admin-select-search="1" data-admin-select-search-label="Search sites" data-admin-select-search-empty="No sites for this user">
+                            <option value="">{{ old('user_id') ? 'Choose a site' : 'Select a user first' }}</option>
+                            @foreach($featureCreditSites ?? [] as $creditSite)
+                                <option value="{{ $creditSite->id }}" data-publisher-id="{{ $creditSite->publisher_id }}" @selected((string) old('site_id') === (string) $creditSite->id) @disabled((string) old('user_id') === '' || (string) old('user_id') !== (string) $creditSite->publisher_id)>
+                                    {{ trim((string) $creditSite->site_name) !== '' ? $creditSite->site_name.' — '.$creditSite->domain : $creditSite->domain }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('site_id')
+                            <div class="small text-danger mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="featureCreditDays">Days</label>
+                        <input id="featureCreditDays" type="number" name="days" class="form-control" min="1" max="400" step="1" value="{{ old('days', 30) }}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-sm btn-primary">Give credit</button>
+                    </div>
+                </form>
+                @if(($featureCredits ?? collect())->isNotEmpty())
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Publisher</th>
+                                    <th>Site</th>
+                                    <th>Days</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($featureCredits as $credit)
+                                    <tr>
+                                        <td>{{ $credit->user->email ?? 'Removed account' }}</td>
+                                        <td>{{ $credit->site->domain ?? 'Any site' }}</td>
+                                        <td>{{ (int) $credit->days }}</td>
+                                        <td>{{ $credit->used_at ? 'Used' : 'Unused' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            @endif
+        </div>
+    </div>
     @endif
 
     <div class="row g-3 mb-4">
@@ -418,3 +494,31 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    var user = document.getElementById('featureCreditUser');
+    var site = document.getElementById('featureCreditSite');
+    if (!user || !site) return;
+
+    function syncSites() {
+        var userId = String(user.value || '');
+        var placeholder = site.options[0];
+        if (placeholder && !placeholder.value) {
+            placeholder.textContent = userId ? 'Choose a site' : 'Select a user first';
+        }
+        Array.prototype.forEach.call(site.options, function (opt) {
+            if (!opt.value) return;
+            opt.disabled = String(opt.getAttribute('data-publisher-id') || '') !== userId;
+        });
+        var selected = site.options[site.selectedIndex];
+        if (!userId || (selected && selected.disabled)) site.value = '';
+        site.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    user.addEventListener('change', syncSites);
+    syncSites();
+})();
+</script>
+@endpush

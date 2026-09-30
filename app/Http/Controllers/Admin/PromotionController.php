@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdBanner;
+use App\Models\FeatureCredit;
 use App\Models\FeatureOfferSetting;
+use App\Models\Site;
 use App\Models\SiteAnnouncement;
+use App\Models\User;
 use App\Models\WelcomeBonusClaim;
 use App\Models\WelcomeBonusSetting;
 use App\Services\PromotionService;
@@ -94,6 +97,34 @@ class PromotionController extends Controller
         }
 
         $featureOffers = FeatureOfferSetting::offers();
+        $featureCredits = collect();
+        $featureCreditUsers = collect();
+        $featureCreditSites = collect();
+        $featureCreditsTableReady = false;
+        if (auth()->user()?->isAdmin()) {
+            $featureCreditUsers = User::query()
+                ->orderBy('name')
+                ->orderBy('email')
+                ->get(['id', 'name', 'email']);
+            $featureCreditSites = Site::query()
+                ->orderBy('domain')
+                ->get(['id', 'publisher_id', 'site_name', 'domain']);
+        }
+        try {
+            $featureCreditsTableReady = Schema::hasTable('feature_credits');
+            if ($featureCreditsTableReady && auth()->user()?->isAdmin()) {
+                $featureCredits = FeatureCredit::query()
+                    ->with(['user:id,name,email', 'site:id,site_name,domain'])
+                    ->latest('id')
+                    ->limit(20)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            $featureCreditsTableReady = false;
+            Log::warning('Admin promotions hub feature credits failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         $welcomeBonusClaims = $promotions->welcomeBonusClaimStats();
         $featuredSites = $promotions->marketplaceFeatured();
@@ -118,8 +149,46 @@ class PromotionController extends Controller
             'featuredSites',
             'customDiscountSites',
             'bulkDiscountSites',
-            'featureOffers'
+            'featureOffers',
+            'featureCredits',
+            'featureCreditUsers',
+            'featureCreditSites',
+            'featureCreditsTableReady'
         ));
+    }
+
+    public function grantFeatureCredit(Request $request)
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        if (! Schema::hasTable('feature_credits')) {
+            return redirect()->route('admin.promotions.index')
+                ->with('error', 'Feature credits are not available until the database is migrated.');
+        }
+
+        $data = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'site_id' => ['required', 'integer', 'exists:sites,id'],
+            'days' => ['required', 'integer', 'min:1', 'max:400'],
+        ]);
+
+        $recipient = User::query()->findOrFail((int) $data['user_id']);
+        $site = Site::query()->findOrFail((int) $data['site_id']);
+        if ((int) $site->publisher_id !== (int) $recipient->id) {
+            return redirect()->route('admin.promotions.index')
+                ->withInput()
+                ->withErrors(['site_id' => 'That site does not belong to the selected user.']);
+        }
+
+        FeatureCredit::query()->create([
+            'user_id' => $recipient->id,
+            'site_id' => $site->id,
+            'days' => (int) $data['days'],
+            'granted_by' => auth()->id(),
+        ]);
+
+        return redirect()->route('admin.promotions.index')
+            ->with('success', 'Featured credit given to '.$recipient->email.' for '.$site->domain.'. They can use it on that site whenever they want.');
     }
 
     public function updateFeatureOffers(Request $request)

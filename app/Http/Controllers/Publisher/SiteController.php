@@ -8,6 +8,7 @@ use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
+use App\Models\FeatureCredit;
 use App\Models\Language;
 use App\Models\Site;
 use App\Services\ActivityLogger;
@@ -25,6 +26,7 @@ use App\Support\SiteTag;
 use App\Support\UserFacingError;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -414,6 +416,8 @@ class SiteController extends Controller
                 ->where('active', 0)->where('verified', 0)->count();
             $pendingCount = $sitePendingCount + $waitingItemsCount;
             $inviteCount = (clone $base)->pendingPublisherAcceptance()->count();
+            $archivedCount = (clone $acceptedBase)->archived()->count();
+            $cancelledBulkCount = $this->cancelledBulkSiteCount($acceptedBase);
 
             $activeQuery = (clone $acceptedBase)->notArchived()->notFromCancelledBulk()->where(function ($q) {
                 $q->where('active', 1)->orWhere('verified', 1);
@@ -437,7 +441,7 @@ class SiteController extends Controller
             if ($status === 'invites') {
                 $sitesQuery = (clone $base)->pendingPublisherAcceptance();
             } elseif ($status === 'archived') {
-                $sitesQuery = (clone $acceptedBase)->archived();
+                $sitesQuery = $this->hiddenFromPublisherTabsQuery($acceptedBase);
             } elseif ($status === 'all') {
                 $sitesQuery = (clone $acceptedBase)->notArchived()->notFromCancelledBulk();
             } else {
@@ -452,6 +456,10 @@ class SiteController extends Controller
                                 $inner->where('active', 1)->orWhere('verified', 1);
                             });
                     });
+            }
+
+            if ($status === 'archived') {
+                $sitesQuery->with('bulkSiteRequest');
             }
 
             $sites = $sitesQuery
@@ -469,16 +477,37 @@ class SiteController extends Controller
                     'query' => $query,
                 ]);
 
+            $featureCreditsBySite = [];
+            if (Schema::hasTable('feature_credits')) {
+                $featureCreditsBySite = FeatureCredit::query()
+                    ->where('user_id', auth()->id())
+                    ->whereNull('used_at')
+                    ->whereNotNull('site_id')
+                    ->orderBy('id')
+                    ->get(['id', 'site_id', 'days'])
+                    ->unique('site_id')
+                    ->mapWithKeys(fn (FeatureCredit $credit) => [
+                        (int) $credit->site_id => [
+                            'id' => (int) $credit->id,
+                            'days' => (int) $credit->days,
+                        ],
+                    ])
+                    ->all();
+            }
+
             return view('publisher.sites.partials.table', compact(
                 'sites',
                 'pendingCount',
                 'activeCount',
                 'inviteCount',
+                'archivedCount',
+                'cancelledBulkCount',
                 'activeIds',
                 'status',
                 'bulkWaitingItems',
                 'openBulkRequest',
-                'waitingItemsCount'
+                'waitingItemsCount',
+                'featureCreditsBySite'
             ))->render();
         } catch (\Throwable $e) {
             Log::error('Publisher sites ajax failed: '.$e->getMessage(), [
@@ -491,6 +520,48 @@ class SiteController extends Controller
                 500
             );
         }
+    }
+
+    /**
+     * Sites the Active / Pending / Invites tabs leave out: archived rows, plus
+     * leftovers from a cancelled bulk request.
+     *
+     * @param  Builder<Site>  $acceptedBase
+     */
+    private function hiddenFromPublisherTabsQuery($acceptedBase)
+    {
+        return (clone $acceptedBase)->where(function ($q) {
+            $q->where(function ($archived) {
+                $archived->archived();
+            });
+            if (! Site::hasSitesColumn('bulk_site_request_id')) {
+                return;
+            }
+            $q->orWhere(function ($cancelled) {
+                $cancelled->notArchived()
+                    ->whereNotNull('bulk_site_request_id')
+                    ->whereHas('bulkSiteRequest', function ($bulk) {
+                        $bulk->where('status', BulkSiteRequest::STATUS_CANCELLED);
+                    });
+            });
+        });
+    }
+
+    /**
+     * @param  Builder<Site>  $acceptedBase
+     */
+    private function cancelledBulkSiteCount($acceptedBase): int
+    {
+        if (! Site::hasSitesColumn('bulk_site_request_id')) {
+            return 0;
+        }
+
+        return (clone $acceptedBase)->notArchived()
+            ->whereNotNull('bulk_site_request_id')
+            ->whereHas('bulkSiteRequest', function ($bulk) {
+                $bulk->where('status', BulkSiteRequest::STATUS_CANCELLED);
+            })
+            ->count();
     }
 
     public function acceptAssignment(Request $request, $id)
@@ -958,7 +1029,7 @@ class SiteController extends Controller
         if ($site->hasDetailsComplete() || $site->awaitsPublisherDetails()) {
             return redirect()
                 ->route('publisher.bulk-sites.review')
-                ->with('success', '“'.$site->site_name.'” saved. Review your sites, then submit for admin review.');
+                ->with('success', '“'.$site->site_name.'” saved. Review your sites — Accept to go live, or Edit to send them to admin.');
         }
 
         if ($needsRereview) {
@@ -993,7 +1064,7 @@ class SiteController extends Controller
         if ($site->fresh()->hasDetailsComplete()) {
             return redirect()
                 ->route('publisher.bulk-sites.review')
-                ->with('success', 'Website details saved. Review your sites, then submit them for approval.'.$this->listingSavedNote($request->price, (float) $site->price, $countryCodes[0] ?? null));
+                ->with('success', 'Website details saved. Accept to go live, or Edit to send the listing to admin.'.$this->listingSavedNote($request->price, (float) $site->price, $countryCodes[0] ?? null));
         }
 
         return redirect()->back()->with('success', 'Site updated successfully.'.$this->listingSavedNote($request->price, (float) $site->price, $countryCodes[0] ?? null));
@@ -1130,6 +1201,13 @@ class SiteController extends Controller
 
         if (! $site->isArchived()) {
             return response()->json(['success' => false, 'message' => 'Site is not archived.'], 422);
+        }
+
+        if ($site->verifiedOwnerListing()) {
+            return response()->json([
+                'success' => false,
+                'message' => Site::RESTORE_BLOCKED_VERIFIED,
+            ], 422);
         }
 
         try {

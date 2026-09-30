@@ -2408,7 +2408,7 @@ class InAppNotificationService
             $createdCount === 1
                 ? 'Please review a website from your bulk request'
                 : "Please review {$createdCount} websites from your bulk request",
-            'These listings are filled in and waiting for you. They are not live yet. Review them, then submit them for our team to verify.',
+            'These listings are filled in and waiting for you. They are not live yet. Accept them to go live, or Edit them to send them to our team.',
             [
                 'category' => self::CATEGORY_ACCOUNT,
                 'icon' => 'check-circle',
@@ -2425,16 +2425,16 @@ class InAppNotificationService
         );
     }
 
-    public function notifyPublisherSiteAssignedForAcceptance(Site $site): void
+    public function notifyPublisherSiteAssignedForAcceptance(Site $site): ?InAppNotification
     {
         $publisherId = (int) ($site->publisher_id ?? 0);
         if ($publisherId <= 0) {
-            return;
+            return null;
         }
 
         $domain = $site->domain ?: $site->site_name ?: 'a website';
 
-        $this->notify(
+        return $this->notify(
             $publisherId,
             self::TYPE_SITE_STATUS,
             'Please accept a website we added for you',

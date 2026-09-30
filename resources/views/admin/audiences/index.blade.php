@@ -79,66 +79,68 @@
         @endforeach
     </ul>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm admin-deposits-filter-card">
         <div class="card-header bg-white border-0">
-            <form method="GET" class="row g-2 align-items-end" action="{{ route('admin.audiences.index') }}">
+            <form method="GET" class="admin-deposits-filters admin-orders-filters" action="{{ route('admin.audiences.index') }}">
+                <div class="admin-orders-filters__grid">
                 <input type="hidden" name="tab" value="{{ $tab }}">
-                <div class="col-md-3" style="min-width:220px;">
-                    <x-slb-search-field name="q" id="adminAudiencesSearch" :value="$search" placeholder="Search name or email" />
+                <div class="admin-orders-filters__search">
+                    <x-slb-search-field name="q" id="adminAudiencesSearch" :value="$search" placeholder="Search name or email" input-class="form-control" label-class="form-label" />
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small mb-1" for="audienceVerified">Verified</label>
-                    <select name="verified" id="audienceVerified" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="audienceVerified">Verified</label>
+                    <select name="verified" id="audienceVerified" class="form-select">
                         <option value="all" @selected(($filters['verified'] ?? 'all') === 'all')>All</option>
                         <option value="yes" @selected(($filters['verified'] ?? '') === 'yes')>Verified</option>
                         <option value="no" @selected(($filters['verified'] ?? '') === 'no')>Unverified</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small mb-1" for="audienceFrom">Registered from</label>
-                    <input type="date" name="registered_from" id="audienceFrom" class="form-control form-control-sm" value="{{ $filters['registered_from'] ?? '' }}">
+                <div>
+                    <label class="form-label" for="audienceFrom">Registered from</label>
+                    <input type="date" name="registered_from" id="audienceFrom" class="form-control" value="{{ $filters['registered_from'] ?? '' }}">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small mb-1" for="audienceTo">Registered to</label>
-                    <input type="date" name="registered_to" id="audienceTo" class="form-control form-control-sm" value="{{ $filters['registered_to'] ?? '' }}">
+                <div>
+                    <label class="form-label" for="audienceTo">Registered to</label>
+                    <input type="date" name="registered_to" id="audienceTo" class="form-control" value="{{ $filters['registered_to'] ?? '' }}">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small mb-1" for="audienceCountry">Country</label>
-                    <input type="text" name="country" id="audienceCountry" class="form-control form-control-sm" value="{{ $filters['country'] ?? '' }}" maxlength="64" placeholder="DE">
+                <div>
+                    <label class="form-label" for="audienceCountry">Country</label>
+                    <input type="text" name="country" id="audienceCountry" class="form-control" value="{{ $filters['country'] ?? '' }}" maxlength="64" placeholder="DE">
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small mb-1" for="audienceMarketing">Marketing</label>
-                    <select name="marketing" id="audienceMarketing" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="audienceMarketing">Marketing</label>
+                    <select name="marketing" id="audienceMarketing" class="form-select">
                         <option value="all" @selected(($filters['marketing'] ?? 'all') === 'all')>All</option>
                         <option value="opted_in" @selected(($filters['marketing'] ?? '') === 'opted_in')>Opted in</option>
                         <option value="opted_out" @selected(($filters['marketing'] ?? '') === 'opted_out')>Opted out</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small mb-1" for="audienceSort">Sort</label>
-                    <select name="sort" id="audienceSort" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="audienceSort">Sort</label>
+                    <select name="sort" id="audienceSort" class="form-select">
                         <option value="name" @selected(($filters['sort'] ?? 'name') === 'name')>Name</option>
                         <option value="registered" @selected(($filters['sort'] ?? '') === 'registered')>Registered</option>
                     </select>
                 </div>
-                <div class="col-md-1">
-                    <label class="form-label small mb-1" for="audienceDir">Dir</label>
-                    <select name="dir" id="audienceDir" class="form-select form-select-sm">
+                <div>
+                    <label class="form-label" for="audienceDir">Dir</label>
+                    <select name="dir" id="audienceDir" class="form-select">
                         <option value="asc" @selected(($filters['dir'] ?? 'asc') === 'asc')>Asc</option>
                         <option value="desc" @selected(($filters['dir'] ?? '') === 'desc')>Desc</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div>
                     <div class="form-check mt-4">
                         <input class="form-check-input" type="checkbox" name="exclude_dual_role" value="1" id="audienceExcludeDual" @checked(!empty($filters['exclude_dual_role']))>
                         <label class="form-check-label small" for="audienceExcludeDual">Exclude dual-role users</label>
                     </div>
                 </div>
-                <div class="col-auto">
-                    <button class="btn btn-sm btn-outline-secondary" type="submit">Apply</button>
+                <div class="admin-deposits-filters__actions admin-orders-filters__actions">
+                    <button class="btn btn-primary" type="submit">Apply</button>
                     @if($hasActiveFilters)
-                        <a class="btn btn-sm btn-link" href="{{ route('admin.audiences.index', ['tab' => $tab]) }}">Clear</a>
+                        <a class="btn btn-outline-secondary" href="{{ route('admin.audiences.index', ['tab' => $tab]) }}">Clear</a>
                     @endif
+                </div>
                 </div>
             </form>
             <div class="d-flex flex-wrap gap-2 mt-3">

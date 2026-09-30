@@ -36,7 +36,7 @@ class AdminWelcomeBonusToggleTest extends TestCase
         $this->post(route('admin.promotions.welcome-bonus.toggle'))
             ->assertRedirect();
 
-        $this->assertTrue(app(WelcomeBonusService::class)->isEnabled());
+        $this->assertFalse(app(WelcomeBonusService::class)->isEnabled());
     }
 
     public function test_non_admin_cannot_toggle_welcome_bonus(): void
@@ -52,12 +52,13 @@ class AdminWelcomeBonusToggleTest extends TestCase
             ->post(route('admin.promotions.welcome-bonus.toggle'))
             ->assertForbidden();
 
-        $this->assertTrue(app(WelcomeBonusService::class)->isEnabled());
+        $this->assertFalse(app(WelcomeBonusService::class)->isEnabled());
     }
 
     public function test_admin_can_disable_and_enable_welcome_bonus(): void
     {
         $service = app(WelcomeBonusService::class);
+        $service->setEnabled(true);
         $this->assertTrue($service->isEnabled());
 
         $this->actingAs($this->admin)
@@ -100,11 +101,13 @@ class AdminWelcomeBonusToggleTest extends TestCase
             ->assertRedirect(route('admin.promotions.index'))
             ->assertSessionHasErrors('enabled');
 
-        $this->assertTrue(app(WelcomeBonusService::class)->isEnabled());
+        $this->assertFalse(app(WelcomeBonusService::class)->isEnabled());
     }
 
     public function test_promotions_hub_shows_welcome_bonus_card(): void
     {
+        app(WelcomeBonusService::class)->setEnabled(true);
+
         $this->actingAs($this->admin)
             ->get(route('admin.promotions.index'))
             ->assertOk()
@@ -192,7 +195,7 @@ class AdminWelcomeBonusToggleTest extends TestCase
             ->assertSessionHas('success');
 
         $this->assertSame(35.5, app(WelcomeBonusService::class)->amount());
-        $this->assertTrue(app(WelcomeBonusService::class)->isEnabled());
+        $this->assertFalse(app(WelcomeBonusService::class)->isEnabled());
     }
 
     public function test_set_amount_does_not_reenable_a_disabled_bonus(): void
@@ -244,6 +247,7 @@ class AdminWelcomeBonusToggleTest extends TestCase
 
     public function test_promotions_hub_does_not_promise_grants_when_amount_is_zero(): void
     {
+        app(WelcomeBonusService::class)->setEnabled(true);
         app(WelcomeBonusService::class)->setAmount(0);
 
         $this->actingAs($this->admin)
@@ -332,6 +336,7 @@ class AdminWelcomeBonusToggleTest extends TestCase
 
     public function test_pricing_shows_live_grant_amount(): void
     {
+        app(WelcomeBonusService::class)->setEnabled(true);
         app(WelcomeBonusService::class)->setAmount(35);
 
         $this->get('/pricing')
@@ -375,6 +380,7 @@ class AdminWelcomeBonusToggleTest extends TestCase
 
     public function test_marketing_pages_use_live_grant_amount(): void
     {
+        app(WelcomeBonusService::class)->setEnabled(true);
         app(WelcomeBonusService::class)->setAmount(35);
 
         $this->get('/about')
@@ -390,6 +396,8 @@ class AdminWelcomeBonusToggleTest extends TestCase
 
     public function test_register_meta_uses_live_grant_or_off_copy(): void
     {
+        app(WelcomeBonusService::class)->setEnabled(true);
+
         $this->get(route('register'))
             ->assertOk()
             ->assertSee('€20 Welcome Credit', false)
@@ -413,6 +421,8 @@ class AdminWelcomeBonusToggleTest extends TestCase
 
     public function test_llms_txt_matches_live_grant(): void
     {
+        app(WelcomeBonusService::class)->setEnabled(true);
+
         $this->get('/llms.txt')
             ->assertOk()
             ->assertSee('€20 welcome credit for first orders', false);

@@ -41,6 +41,7 @@ class WelcomeBonusGrantTest extends TestCase
         }
         RateLimiter::clear('welcome-prefix:198.51.100');
         RateLimiter::clear('welcome-prefix:203.0.113');
+        app(WelcomeBonusService::class)->setEnabled(true);
     }
 
     public function test_first_advertiser_from_ip_receives_bonus_and_claim(): void

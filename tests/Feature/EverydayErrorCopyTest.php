@@ -91,13 +91,11 @@ class EverydayErrorCopyTest extends TestCase
     {
         config(['app.cron_secret' => 'short']);
 
-        foreach (['/cron/run/short', '/cron/orders-auto-approve/short'] as $url) {
-            $this->getJson($url)
-                ->assertNotFound()
-                ->assertJsonPath('message', UserMessages::get('cron.disabled'))
-                ->assertDontSee('CRON_SECRET')
-                ->assertDontSee('short');
-        }
+        $this->postJson('/cron/run')
+            ->assertNotFound()
+            ->assertJsonPath('message', UserMessages::get('cron.disabled'))
+            ->assertDontSee('CRON_SECRET')
+            ->assertDontSee('short');
     }
 
     public function test_http_cron_wrong_key_uses_catalog(): void
@@ -106,13 +104,12 @@ class EverydayErrorCopyTest extends TestCase
         $wrong = str_repeat('x', 40);
         config(['app.cron_secret' => $secret]);
 
-        foreach (['/cron/run/'.$wrong, '/cron/orders-auto-approve/'.$wrong] as $url) {
-            $this->getJson($url)
-                ->assertForbidden()
-                ->assertJsonPath('message', UserMessages::get('cron.forbidden'))
-                ->assertDontSee('CRON_SECRET')
-                ->assertDontSee($secret);
-        }
+        $this->withHeaders(['X-Cron-Key' => $wrong])
+            ->postJson('/cron/run')
+            ->assertForbidden()
+            ->assertJsonPath('message', UserMessages::get('cron.forbidden'))
+            ->assertDontSee('CRON_SECRET')
+            ->assertDontSee($secret);
     }
 
     public function test_paypal_webhook_failure_uses_catalog_not_exception_text(): void

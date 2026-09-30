@@ -264,7 +264,7 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString('Missing market', $html);
         $this->assertStringContainsString('Below quality bar', $html);
         $this->assertStringContainsString('QUALITY_MIN_DA', $html);
-        $this->assertStringContainsString('sitesLoadMore', $html);
+        $this->assertStringContainsString('sitesPerPage', $html);
         $this->assertStringContainsString('Site queue', $html);
         $this->assertStringNotContainsString("}).then(() => {\n                toast('Deleted successfully');", $html);
     }

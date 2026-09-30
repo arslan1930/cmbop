@@ -7,15 +7,15 @@ use App\Support\ProductionRepair;
 use Closure;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Hostinger has no SSH from this agent and often no per-minute cron.
+ * Hostinger has no SSH from this agent.
  * Before the response when promotions tables are missing, then after
- * flush: repair migrate / MEDIA_PATH / APP_URL / storage link (at most
- * every few hours) and run due schedule events (at most once a minute).
+ * flush: repair MEDIA_PATH / APP_URL / storage link (at most every few hours).
+ * Migrations stay on `php artisan ops:production-ready --repair`.
+ * The scheduler stays on system cron or POST /cron/run.
  * Mail still drains via DrainQueuedMail.
  */
 class HealHostingerProduction
@@ -26,10 +26,6 @@ class HealHostingerProduction
     public const HEAL_FLAG = 'ops:hostinger-healed-v2';
 
     public const HEAL_RETRY = 'ops:hostinger-heal-retry';
-
-    private const SCHEDULE_LOCK = 'ops:web-schedule';
-
-    private const SCHEDULE_FLAG = 'ops:web-schedule-ran';
 
     private bool $healedThisRequest = false;
 
@@ -51,7 +47,6 @@ class HealHostingerProduction
         }
 
         $this->healOnce();
-        $this->runDueSchedule();
     }
 
     private function enabled(): bool
@@ -86,8 +81,15 @@ class HealHostingerProduction
         $this->healedThisRequest = true;
 
         try {
-            $notes = app(ProductionRepair::class)->run();
-            if (ProductionRepair::migrateCompleted($notes)) {
+            $notes = app(ProductionRepair::class)->run(true, false);
+            $skippedMigrate = in_array('migrate skipped on web request', $notes, true);
+            $repairFailed = collect($notes)->contains(function ($note): bool {
+                return is_string($note) && (
+                    str_contains($note, 'failed')
+                    || str_starts_with($note, 'migrate --force exited')
+                );
+            });
+            if (! $repairFailed && (ProductionRepair::migrateCompleted($notes) || $skippedMigrate)) {
                 Cache::put(self::HEAL_FLAG, true, now()->addHours(6));
             } else {
                 // Always throttle. A leftover claims table (or settings-only
@@ -113,32 +115,6 @@ class HealHostingerProduction
         } catch (\Throwable) {
             // Cache down / no cache table: still migrate so Promotions can load.
             return false;
-        }
-    }
-
-    private function runDueSchedule(): void
-    {
-        try {
-            $last = Cache::get(self::SCHEDULE_FLAG);
-            if (is_numeric($last) && (microtime(true) - (float) $last) < 55) {
-                return;
-            }
-        } catch (\Throwable) {
-            return;
-        }
-
-        $lock = $this->lock(self::SCHEDULE_LOCK, 55);
-        if ($lock && ! $lock->get()) {
-            return;
-        }
-
-        try {
-            Artisan::call('schedule:run');
-            Cache::put(self::SCHEDULE_FLAG, microtime(true), 120);
-        } catch (\Throwable $e) {
-            Log::warning('Web schedule:run failed', ['error' => $e->getMessage()]);
-        } finally {
-            $lock?->release();
         }
     }
 

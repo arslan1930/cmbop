@@ -78,7 +78,7 @@ class WelcomeBonusSetting extends Model
 
     public static function config(): array
     {
-        $defaultOn = static::parseEnabledFlag(config('welcome_bonus.enabled_default', true), true);
+        $defaultOn = static::parseEnabledFlag(config('welcome_bonus.enabled_default', false), false);
         $read = static::readConfig(false);
 
         if ($read['state'] === 'missing') {
@@ -244,12 +244,11 @@ class WelcomeBonusSetting extends Model
 
     private static function readEnabled(bool $lock): bool
     {
-        $defaultOn = static::parseEnabledFlag(config('welcome_bonus.enabled_default', true), true);
+        $defaultOn = static::parseEnabledFlag(config('welcome_bonus.enabled_default', false), false);
         $read = static::readConfig($lock);
 
-        // Missing table / never configured: fail-open so Hostinger drift
-        // cannot block the €20 grant. A present row that cannot be trusted
-        // fails closed so Disable cannot be undone by corrupt JSON.
+        // Missing table / never configured: stay off. A present row that
+        // cannot be trusted fails closed so Disable cannot be undone.
         if ($read['state'] === 'missing') {
             return $defaultOn;
         }
@@ -278,7 +277,7 @@ class WelcomeBonusSetting extends Model
 
             $rows = static::configRows($lock);
             if ($rows->isEmpty() && $lock) {
-                $defaultOn = static::parseEnabledFlag(config('welcome_bonus.enabled_default', true), true);
+                $defaultOn = static::parseEnabledFlag(config('welcome_bonus.enabled_default', false), false);
                 try {
                     static::query()->create([
                         'key' => 'config',
@@ -412,14 +411,14 @@ class WelcomeBonusSetting extends Model
 
     /**
      * Set amount must not turn the bonus back on. Duplicate rows: any
-     * explicit off or unreadable enabled flag wins. Never configured: default on.
+     * explicit off or unreadable enabled flag wins. Never configured: stay off.
      *
      * @param  Collection<int, static>  $rows
      */
     private static function enabledAfterAmountWrite($rows, ?self $keep): bool
     {
         if ($keep === null || $rows->isEmpty()) {
-            return static::parseEnabledFlag(config('welcome_bonus.enabled_default', true), true);
+            return static::parseEnabledFlag(config('welcome_bonus.enabled_default', false), false);
         }
 
         $authoritative = static::authoritativeConfigValue($rows);

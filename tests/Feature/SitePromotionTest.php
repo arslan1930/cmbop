@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\SiteDiscountEnded;
 use App\Models\ActivityLog;
 use App\Models\BulkSiteRequest;
+use App\Models\FeatureCredit;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\SiteFeaturePurchase;
@@ -650,5 +651,157 @@ class SitePromotionTest extends TestCase
         $this->assertStringNotContainsString('SQLSTATE', $result['message']);
         $this->assertStringNotContainsString('wallets', strtolower($result['message']));
         $this->assertSame('Could not feature this site. Please try again.', $result['message']);
+    }
+
+    public function test_admin_grant_stores_a_credit_without_featuring_or_charging(): void
+    {
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->syncWithoutDetaching([$adminRole->id]);
+        $publisher = $this->publisherWithWallet(50);
+        $site = $this->site($publisher);
+
+        $this->actingAs($admin)
+            ->post(route('admin.promotions.feature-credits.store'), [
+                'user_id' => $publisher->id,
+                'site_id' => $site->id,
+                'days' => 30,
+            ])
+            ->assertRedirect(route('admin.promotions.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('feature_credits', [
+            'user_id' => $publisher->id,
+            'days' => 30,
+            'granted_by' => $admin->id,
+            'site_id' => $site->id,
+        ]);
+        $this->assertNull(FeatureCredit::query()->where('user_id', $publisher->id)->value('used_at'));
+        $this->assertFalse($site->fresh()->isFeatured());
+        $this->assertSame(0, SiteFeaturePurchase::query()->count());
+        $this->assertEqualsWithDelta(50.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
+    }
+
+    public function test_non_admin_cannot_grant_a_feature_credit(): void
+    {
+        $publisher = $this->publisherWithWallet();
+
+        $this->actingAs($publisher)
+            ->post(route('admin.promotions.feature-credits.store'), [
+                'user_id' => $publisher->id,
+                'site_id' => $this->site($publisher)->id,
+                'days' => 30,
+            ])
+            ->assertForbidden();
+
+        $this->assertSame(0, FeatureCredit::query()->count());
+    }
+
+    public function test_publisher_can_spend_a_feature_credit_once_without_a_wallet_charge(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $site = $this->site($publisher);
+        $credit = FeatureCredit::query()->create([
+            'user_id' => $publisher->id,
+            'days' => 30,
+            'granted_by' => $publisher->id,
+        ]);
+
+        $this->actingAs($publisher)
+            ->postJson(route('publisher.sites.feature.credit', $site->id), [
+                'credit_id' => $credit->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertTrue($site->fresh()->isFeatured());
+        $this->assertNotNull($credit->fresh()->used_at);
+        $this->assertSame($site->id, (int) $credit->fresh()->site_id);
+        $purchase = SiteFeaturePurchase::query()->first();
+        $this->assertNotNull($purchase);
+        $this->assertSame('admin_grant', $purchase->payment_method);
+        $this->assertEqualsWithDelta(0.0, (float) $purchase->amount, 0.01);
+        $this->assertSame(30, (int) $purchase->days);
+        $this->assertEqualsWithDelta(50.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
+
+        $this->actingAs($publisher)
+            ->postJson(route('publisher.sites.feature.credit', $site->id), [
+                'credit_id' => $credit->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertSame(1, SiteFeaturePurchase::query()->count());
+    }
+
+    public function test_feature_credit_cannot_be_used_on_a_different_site(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $site = $this->site($publisher);
+        $other = $site->replicate();
+        $other->domain = 'other-promo.example';
+        $other->site_url = 'https://other-promo.example';
+        $other->save();
+        $credit = FeatureCredit::query()->create([
+            'user_id' => $publisher->id,
+            'site_id' => $site->id,
+            'days' => 10,
+        ]);
+
+        $this->actingAs($publisher)
+            ->postJson(route('publisher.sites.feature.credit', $other->id), [
+                'credit_id' => $credit->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertNull($credit->fresh()->used_at);
+        $this->assertFalse($other->fresh()->isFeatured());
+        $this->assertFalse($site->fresh()->isFeatured());
+    }
+
+    public function test_archived_site_cannot_spend_a_feature_credit(): void
+    {
+        $publisher = $this->publisherWithWallet(50);
+        $site = $this->site($publisher);
+        $site->update(['archived_at' => now()]);
+        $credit = FeatureCredit::query()->create([
+            'user_id' => $publisher->id,
+            'days' => 14,
+        ]);
+
+        $this->actingAs($publisher)
+            ->postJson(route('publisher.sites.feature.credit', $site->id), [
+                'credit_id' => $credit->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertNull($credit->fresh()->used_at);
+        $this->assertFalse($site->fresh()->isFeatured());
+    }
+
+    public function test_wallet_summary_lists_unused_feature_credits(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $credit = FeatureCredit::query()->create([
+            'user_id' => $publisher->id,
+            'days' => 30,
+        ]);
+        FeatureCredit::query()->create([
+            'user_id' => $publisher->id,
+            'days' => 7,
+            'used_at' => now(),
+        ]);
+
+        $this->actingAs($publisher)
+            ->getJson(route('publisher.promotions.wallet'))
+            ->assertOk()
+            ->assertJsonPath('credits.0.id', $credit->id)
+            ->assertJsonPath('credits.0.days', 30)
+            ->assertJsonCount(1, 'credits');
     }
 }

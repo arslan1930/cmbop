@@ -9,7 +9,7 @@ return [
     */
     'company' => [
         'name' => env('BILLING_COMPANY_NAME') ?: 'SEOLinkBuildings',
-        'legal_name' => env('BILLING_LEGAL_NAME') ?: 'SEOLinkBuildings Partners with (Topurlz LTD)',
+        'legal_name' => env('BILLING_LEGAL_NAME') ?: 'SEOLinkBuildings Partners with (Teqno LTD)',
         'address_lines' => array_values(array_filter([
             env('BILLING_ADDRESS_LINE1') ?: '20 Wenlock Road, London, England, N1 7GU',
             env('BILLING_ADDRESS_LINE2') ?: null,
@@ -33,7 +33,7 @@ return [
     |--------------------------------------------------------------------------
     */
     'deposit_payment' => [
-        'seller_name' => env('BILLING_DEPOSIT_SELLER_NAME') ?: 'SEOLinkBuildings Partner',
+        'seller_name' => env('BILLING_DEPOSIT_SELLER_NAME') ?: 'Teqno Ltd',
         'beneficiary' => env('BILLING_DEPOSIT_BENEFICIARY') ?: 'Teqno Ltd',
         'bic' => env('BILLING_DEPOSIT_BIC') ?: 'TRWIBEB1XXX',
         'iban' => env('BILLING_DEPOSIT_IBAN') ?: 'BE40 9059 9538 0863',

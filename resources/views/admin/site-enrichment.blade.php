@@ -77,20 +77,24 @@
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span class="fw-semibold">Needs attention</span>
-            <form method="get" class="d-flex flex-wrap align-items-center gap-2">
-                <label class="small text-muted mb-0" for="attentionStatus">Status</label>
-                <select name="status" id="attentionStatus" class="form-select form-select-sm" style="width:auto;">
+            <form method="get" class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2">
+                <div>
+                <label class="form-label" for="attentionStatus">Status</label>
+                <select name="status" id="attentionStatus" class="form-select">
                     <option value="" @selected($status === null)>All</option>
                     <option value="failed" @selected($status === 'failed')>Failed</option>
                     <option value="partial" @selected($status === 'partial')>Partial</option>
                 </select>
-                <label class="small text-muted mb-0" for="attentionType">Type</label>
-                <select name="type" id="attentionType" class="form-select form-select-sm" style="width:auto;">
+                </div>
+                <div>
+                <label class="form-label" for="attentionType">Type</label>
+                <select name="type" id="attentionType" class="form-select">
                     <option value="" @selected($type === null)>All</option>
                     <option value="metrics" @selected($type === 'metrics')>Metrics</option>
                     <option value="screenshot" @selected($type === 'screenshot')>Screenshot</option>
                 </select>
-                <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
+                </div>
+                <button type="submit" class="btn btn-primary">Filter</button>
             </form>
         </div>
         <div class="table-responsive">

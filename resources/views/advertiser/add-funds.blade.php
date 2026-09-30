@@ -131,7 +131,7 @@
                             <code class="ms-1">{{ $pendingRef }}</code>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
-                            <a href="{{ route('advertiser.invoice', $deposit->reference_code) }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener">
+                            <a href="{{ route('advertiser.invoice.pdf', $deposit->reference_code) }}" class="btn btn-sm btn-outline-secondary" download="invoice-REF{{ $deposit->reference_code }}.pdf">
                                 <i class="fa fa-file-invoice me-1"></i> Invoice
                             </a>
                             @if($deposit->canUserMarkPaid())
@@ -335,8 +335,8 @@
                             <div class="fw-semibold mb-1">Invoice ready — transfer this amount with the REF below.</div>
                             <p class="small mb-2">Status stays <strong>Pending</strong> until we confirm and credit your wallet.</p>
                             <div class="d-flex flex-wrap gap-2">
-                                <a id="invoiceReadyView" class="btn btn-sm btn-primary" href="#" target="_blank" rel="noopener">
-                                    <i class="fa fa-file-invoice me-1"></i> View / download invoice
+                                <a id="invoiceReadyView" class="btn btn-sm btn-primary" href="#" download="invoice.pdf">
+                                    <i class="fa fa-file-invoice me-1"></i> Download invoice
                                 </a>
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="invoiceReadyMarkPaid">
                                     <i class="fa fa-check me-1"></i> I paid
@@ -369,7 +369,7 @@
                                     <div style="margin-bottom: 16px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Wise Payment Link</p>
                                         <div id="wisePaymentLink" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; word-break: break-all; font-family: monospace;">
-                                            {{ rtrim($wisePayUrl ?? config('billing.deposit_payment.wise_pay_url', 'https://wise.com/pay/business/topurlzltd'), '?&') }}?amount=<span class="amount-link">0</span>&currency=EUR
+                                            {{ rtrim($wisePayUrl ?? config('billing.deposit_payment.wise_pay_url', 'https://wise.com/pay/business/teqnoltd'), '?&') }}?amount=<span class="amount-link">0</span>&currency=EUR
                                         </div>
                                         <button type="button" class="copy-btn mt-2" data-target="wisePaymentLink">
                                             <i class="fas fa-copy"></i> Copy Payment Link
@@ -461,15 +461,15 @@
                                     <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--brand-primary, #1a585e);">Bank Account Information</h4>
                                     <div style="margin-bottom: 12px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Seller / Service Provider:</p>
-                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['seller_name'] ?? 'SEOLinkBuildings Partner' }}</p>
+                                        <p style="font-weight: 600; margin: 0;">{{ billing_company_for_documents()['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)' }}</p>
                                     </div>
                                     <div style="margin-bottom: 12px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Beneficiary:</p>
-                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['beneficiary'] ?? 'Topurlz Ltd' }}</p>
+                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>
                                     </div>
                                     <div style="margin-bottom: 12px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">IBAN:</p>
-                                        <div id="bankIban" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['iban'] ?? 'BE04905543949331' }}</div>
+                                        <div id="bankIban" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['iban'] ?? 'BE40 9059 9538 0863' }}</div>
                                         <button type="button" class="copy-btn mt-1" data-target="bankIban">Copy IBAN</button>
                                     </div>
                                     <div style="margin-bottom: 12px;">
@@ -1040,7 +1040,9 @@
             // handlers bound on document — which is what killed "I paid".
             let actions = '';
             if (row.invoice_download_url) {
-                actions += `<a class="btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}" download>
+                const pdfMatch = String(row.invoice_download_url).match(/\/invoice\/([^/?]+)\/invoice\.pdf/);
+                const pdfName = pdfMatch ? ` download="invoice-REF${pdfMatch[1]}.pdf"` : '';
+                actions += `<a class="btn btn-sm btn-primary" href="${escapeHtml(row.invoice_download_url)}"${pdfName}>
                     <i class="fa fa-download me-1"></i> Download invoice</a>`;
             } else if (row.invoice_view_url) {
                 actions += `<a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(row.invoice_view_url)}" target="_blank" rel="noopener">
