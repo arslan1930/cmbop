@@ -470,6 +470,8 @@ class AdminPanelSmokeTest extends TestCase
             ['admin.invoices.show', $invoice],
             ['admin.deposits.show', $deposit->id],
             ['admin.withdrawals.show', $withdrawal->id],
+            ['admin.users.show', $advertiser],
+            ['admin.users.show', $publisher],
             ['admin.finance.user', $advertiser],
             ['admin.blogs.show', $blog],
             ['admin.blogs.edit', $blog],

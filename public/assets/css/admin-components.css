@@ -1218,6 +1218,41 @@
   overflow: visible;
 }
 
+.swal2-container .community-swal-detail-popup {
+  text-align: left;
+}
+
+.swal2-container .community-swal-detail-html {
+  overflow: auto;
+  max-height: min(70vh, 32rem);
+  text-align: left;
+}
+
+.swal2-container .community-swal-detail {
+  text-align: left;
+}
+
+.swal2-container .community-swal-detail .row {
+  --bs-gutter-x: 0.75rem;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.swal2-container .community-swal-detail dt {
+  margin-top: 0.65rem;
+}
+
+.swal2-container .community-swal-detail dt:first-child {
+  margin-top: 0;
+}
+
+.swal2-container .community-swal-detail dd,
+.swal2-container .community-swal-detail a {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .swal2-container .community-swal-fields {
   text-align: left;
   margin: 0.25rem 0 0;

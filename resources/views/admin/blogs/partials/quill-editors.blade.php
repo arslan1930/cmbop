@@ -10,7 +10,7 @@ var quillUploadUrl = @json(route('admin.blogs.upload-image'));
 var quillDeleteUrl = @json(route('admin.blogs.delete-content-image'));
 var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 var articleImagesManager = null;
-@php($editorLocales = $locales ?? ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en']))
+@php($editorLocales = $formLocales ?? $locales ?? ['en'])
 var blogEditorLocales = @json($editorLocales);
 
 function isEmptyQuillHtml(html) {
@@ -28,9 +28,12 @@ function isEmptyQuillHtml(html) {
 
 var quills = {};
 var activeLocale = 'en';
-blogEditorLocales.forEach(function (locale) {
+
+function initBlogQuill(locale) {
     var el = document.getElementById('quillEditor-' + locale);
-    if (!el) return;
+    if (!el || quills[locale]) {
+        return;
+    }
     quills[locale] = new Quill(el, {
         theme: 'snow',
         placeholder: 'Write blog content for ' + locale.toUpperCase() + '...',
@@ -56,7 +59,63 @@ blogEditorLocales.forEach(function (locale) {
         activeLocale = locale;
         document.getElementById('quillImageInput').click();
     });
-});
+}
+
+blogEditorLocales.forEach(initBlogQuill);
+
+(function mountAddLocale() {
+    var select = document.getElementById('blogAddLocale');
+    var tabs = document.getElementById('blogLocaleTabs');
+    var panes = document.getElementById('blogLocalePanes');
+    var tabTpl = document.getElementById('blogLocaleTabTemplate');
+    var paneTpl = document.getElementById('blogLocalePaneTemplate');
+    var labelsNode = document.getElementById('blogLocaleLabels');
+    if (!select || !tabs || !panes || !tabTpl || !paneTpl) {
+        return;
+    }
+    var labels = {};
+    try {
+        labels = JSON.parse(labelsNode && labelsNode.textContent ? labelsNode.textContent : '{}');
+    } catch (e) {
+        labels = {};
+    }
+
+    select.addEventListener('change', function () {
+        var locale = String(select.value || '');
+        select.value = '';
+        if (!locale || document.getElementById('locale-pane-' + locale)) {
+            return;
+        }
+        var label = labels[locale] || locale.toUpperCase();
+        var tabHtml = tabTpl.innerHTML.replaceAll('__LOCALE__', locale).replaceAll('__LABEL__', label);
+        var paneHtml = paneTpl.innerHTML.replaceAll('__LOCALE__', locale);
+        tabs.insertAdjacentHTML('beforeend', tabHtml);
+        panes.insertAdjacentHTML('beforeend', paneHtml);
+        initBlogQuill(locale);
+        var opt = select.querySelector('option[value="' + locale + '"]');
+        if (opt) {
+            opt.remove();
+        }
+        if (!select.querySelector('option[value]:not([value=""])')) {
+            select.closest('div')?.classList.add('d-none');
+        }
+        select.dispatchEvent(new Event('admin-select-refresh'));
+        var trigger = tabs.querySelector('[data-bs-target="#locale-pane-' + locale + '"]');
+        if (trigger && window.bootstrap && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(trigger).show();
+        }
+    });
+
+    document.querySelectorAll('select[name="primary_locale"]').forEach(function (primary) {
+        primary.addEventListener('change', function () {
+            var locale = String(primary.value || '');
+            if (locale && !document.getElementById('locale-pane-' + locale)) {
+                select.value = locale;
+                select.dispatchEvent(new Event('change'));
+            }
+        });
+    });
+})();
 
 document.getElementById('quillImageInput').addEventListener('change', function () {
     var file = this.files && this.files[0];
@@ -88,6 +147,9 @@ document.getElementById('quillImageInput').addEventListener('change', function (
                 throw new Error((result.data && result.data.error) || 'Image upload failed.');
             }
             var editor = quills[activeLocale] || quills.en;
+            if (!editor) {
+                throw new Error('Open a locale tab before inserting an image.');
+            }
             var range = editor.getSelection(true) || { index: editor.getLength(), length: 0 };
             editor.insertEmbed(range.index, 'image', result.data.url, 'user');
             editor.setSelection(range.index + 1, 0, 'silent');

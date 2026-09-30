@@ -14,6 +14,7 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Services\CommunityInboxNotifier;
+use App\Support\CatalogProblemReport;
 use App\Support\CommunityInbox;
 use App\Support\EmailCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -538,7 +539,7 @@ class CommunityFeedbackTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('https://app.example/checkout', $html);
-        $this->assertStringContainsString('communityDrawer', $html);
+        $this->assertStringContainsString('community-swal-detail', $html);
         $this->assertStringContainsString('btn-community-drawer', $html);
         $this->assertStringContainsString('bg-warning text-dark', $html);
 
@@ -724,7 +725,10 @@ class CommunityFeedbackTest extends TestCase
         $this->assertStringContainsString('suggestion_id='.$fresh->id, $html);
         $this->assertStringContainsString('site_name=Fresh%20Tech%20Blog', $html);
         $this->assertStringContainsString('Already in catalog', $html);
-        $this->assertStringContainsString(route('admin.sites.edit', $site->id), $html);
+        $this->assertStringContainsString(
+            route('admin.sites.index', ['publisher' => $site->publisher_id, 'site' => $site->id]),
+            $html
+        );
         $this->assertStringNotContainsString('suggestion_id='.$occupied->id, $html);
 
         $form = $this->actingAs($admin)
@@ -999,7 +1003,10 @@ class CommunityFeedbackTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Already in catalog', $html);
-        $this->assertStringContainsString(route('admin.sites.edit', $site->id), $html);
+        $this->assertStringContainsString(
+            route('admin.sites.index', ['publisher' => $site->publisher_id, 'site' => $site->id]),
+            $html
+        );
         $this->assertStringNotContainsString('Create listing', $html);
     }
 
@@ -1250,5 +1257,121 @@ class CommunityFeedbackTest extends TestCase
             'user_id' => $advertiser->id,
             'title' => 'We reviewed your report — Checkout broken',
         ]);
+    }
+
+    public function test_admin_problems_inbox_shows_catalog_report_text_and_listing_link(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $advertiser = $this->userWithRole('advertiser');
+        $site = $this->siteFor($publisher);
+        $phrase = 'admin-check-orange-ladder';
+        $envelope = CatalogProblemReport::envelope($site, $advertiser, $phrase);
+
+        ProblemReport::create([
+            'user_id' => $advertiser->id,
+            'name' => $advertiser->name,
+            'email' => $advertiser->email,
+            'subject' => $envelope['subject'],
+            'message' => $envelope['message'],
+            'page_url' => $envelope['page_url'],
+            'status' => 'pending',
+        ]);
+
+        ProblemReport::create([
+            'name' => 'Ada',
+            'email' => 'ada@example.com',
+            'subject' => 'Checkout broken',
+            'message' => 'The pay button does nothing on mobile.',
+            'status' => 'pending',
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.community.index', ['tab' => 'problems']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString($phrase, $html);
+        $this->assertStringContainsString('The pay button does nothing on mobile.', $html);
+        $this->assertStringContainsString($site->site_url, $html);
+        $this->assertStringContainsString('Open listing', $html);
+        $this->assertStringContainsString(
+            e(route('admin.sites.index', ['publisher' => $site->publisher_id, 'site' => $site->id])),
+            $html
+        );
+        $this->assertStringContainsString('Edit in admin', $html);
+        $this->assertStringContainsString(e(route('admin.sites.edit', $site->id)), $html);
+        $this->assertStringContainsString($site->domain, $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/max-width:280px;">\s*Catalog listing/',
+            $html
+        );
+    }
+
+    public function test_admin_problems_inbox_skips_open_listing_when_site_is_gone(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $envelope = "Catalog listing\nSite ID: 999999\nName: Ghost\n\nWhat they wrote\nstill readable";
+
+        ProblemReport::create([
+            'name' => 'Ada',
+            'email' => 'ada@example.com',
+            'subject' => 'Catalog site: Ghost',
+            'message' => $envelope,
+            'status' => 'pending',
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.community.index', ['tab' => 'problems']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('still readable', $html);
+        $this->assertStringContainsString('Listing no longer in the catalog.', $html);
+        $this->assertStringNotContainsString(route('admin.sites.edit', 999999), $html);
+    }
+
+    public function test_admin_problems_kind_filter_separates_catalog_from_other(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $advertiser = $this->userWithRole('advertiser');
+        $site = $this->siteFor($publisher);
+        $envelope = CatalogProblemReport::envelope($site, $advertiser, 'kind-filter-catalog-only');
+
+        ProblemReport::create([
+            'user_id' => $advertiser->id,
+            'name' => $advertiser->name,
+            'email' => $advertiser->email,
+            'subject' => $envelope['subject'],
+            'message' => $envelope['message'],
+            'status' => 'pending',
+        ]);
+        ProblemReport::create([
+            'name' => 'Ada',
+            'email' => 'ada@example.com',
+            'subject' => 'Checkout broken',
+            'message' => 'The pay button does nothing on mobile.',
+            'status' => 'pending',
+        ]);
+
+        $catalogHtml = $this->actingAs($admin)
+            ->get(route('admin.community.index', ['tab' => 'problems', 'kind' => 'catalog']))
+            ->assertOk()
+            ->assertSee('Catalog', false)
+            ->getContent();
+        $this->assertStringContainsString('kind-filter-catalog-only', $catalogHtml);
+        $this->assertStringNotContainsString('The pay button does nothing on mobile.', $catalogHtml);
+
+        $otherHtml = $this->actingAs($admin)
+            ->get(route('admin.community.index', ['tab' => 'problems', 'kind' => 'other']))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('The pay button does nothing on mobile.', $otherHtml);
+        $this->assertStringNotContainsString('kind-filter-catalog-only', $otherHtml);
+
+        $this->actingAs($admin)
+            ->get(route('admin.community.index', ['tab' => 'problems', 'kind' => ['catalog'], 'stale' => ['1'], 'sort' => ['oldest']]))
+            ->assertOk();
     }
 }

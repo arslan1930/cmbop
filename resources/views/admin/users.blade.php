@@ -2,12 +2,14 @@
 
 @section('content')
 @php
-    $filters = $filters ?? ['q' => '', 'role' => '', 'status' => '', 'sort' => 'newest', 'user' => 0];
+    $filters = $filters ?? ['q' => '', 'role' => '', 'status' => '', 'flag' => '', 'sort' => 'newest', 'user' => 0];
     $hasActiveFilters = ($filters['q'] ?? '') !== ''
         || ($filters['role'] ?? '') !== ''
         || ($filters['status'] ?? '') !== ''
+        || ($filters['flag'] ?? '') !== ''
         || (($filters['sort'] ?? 'newest') !== 'newest')
         || ((int) ($filters['user'] ?? 0) > 0);
+    $pinnedUserId = (int) ($filters['user'] ?? 0);
 @endphp
 <div class="container-fluid">
 
@@ -18,6 +20,12 @@
         Admin is limited to {{ $adminCount ?? 0 }}/{{ \App\Http\Controllers\Admin\UserController::MAX_ADMINS }} accounts and is not assignable here.
         Search and filters run on the server across every page.
     </p>
+    @if($pinnedUserId > 0)
+        <div class="alert alert-info py-2 mb-3">
+            Showing only user #{{ $pinnedUserId }}.
+            <a href="{{ route('admin.users.index') }}" class="alert-link">Clear to see everyone</a>
+        </div>
+    @endif
     <div class="d-flex flex-wrap gap-2 mb-3">
         <span class="badge text-bg-light border px-3 py-2" id="marketingSeatsBadge">
             Marketing seats: <strong id="marketingSeatsCount">{{ (int) ($marketingCount ?? 0) }}</strong>/{{ (int) ($maxMarketing ?? 5) }}
@@ -65,6 +73,15 @@
                     <option value="suspended" @selected(($filters['status'] ?? '') === 'suspended')>Suspended</option>
                     <option value="verified" @selected(($filters['status'] ?? '') === 'verified')>Verified</option>
                     <option value="unverified" @selected(($filters['status'] ?? '') === 'unverified')>Unverified</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="userFlagFilter">Flag</label>
+                <select name="flag" id="userFlagFilter" class="form-select">
+                    <option value="">All flags</option>
+                    <option value="catalog_hide" @selected(($filters['flag'] ?? '') === 'catalog_hide')>Catalog hidden</option>
+                    <option value="copy_strike" @selected(($filters['flag'] ?? '') === 'copy_strike')>Copy strike</option>
+                    <option value="payout_locked" @selected(($filters['flag'] ?? '') === 'payout_locked')>Payout locked</option>
                 </select>
             </div>
             <div>
@@ -141,6 +158,9 @@
                     <span class="badge text-bg-danger">Suspended</span>
                 @elseif(! $user->hasVerifiedEmail())
                     <span class="badge text-bg-warning text-dark">Unverified</span>
+                @endif
+                @if($user->catalogCopyStatusLabel())
+                    <span class="badge {{ $user->inCatalogHideMode() ? 'text-bg-danger' : 'text-bg-warning text-dark' }}">{{ $user->catalogCopyStatusLabel() }}</span>
                 @endif
                 @if($isRepeatBuyer || $isHighSpender)
                     <div class="d-flex flex-wrap gap-1">

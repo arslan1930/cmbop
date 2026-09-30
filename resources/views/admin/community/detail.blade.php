@@ -3,6 +3,7 @@
     $pageUrl = $pageUrl ?? CommunityInbox::safeHttpUrl($item->page_url ?? $item->website_url ?? null);
     $ctx = $ctx ?? [];
     $siblings = (int) ($siblings ?? 0);
+    $catalog = $catalog ?? null;
 @endphp
 <template id="community-detail-{{ $tab }}-{{ $item->id }}">
     <dl class="row mb-0 small">
@@ -25,7 +26,28 @@
                 <dd class="col-12">{{ $item->category }}</dd>
             @endif
             <dt class="col-12">{{ $tab === 'problems' ? 'Message' : 'Suggestion' }}</dt>
-            <dd class="col-12" style="white-space:pre-wrap;">{{ $item->message }}</dd>
+            <dd class="col-12" style="white-space:pre-wrap;">{{ $tab === 'problems' && is_array($catalog) && ($catalog['user_message'] ?? '') !== '' ? $catalog['user_message'] : $item->message }}</dd>
+            @if($tab === 'problems' && is_array($catalog))
+                <dt class="col-12">Listing</dt>
+                <dd class="col-12">
+                    @if(! empty($catalog['site']))
+                        <div>{{ $catalog['site']->site_name ?: $catalog['site']->domain }}</div>
+                        @if($catalog['site']->domain)
+                            <div class="text-muted">{{ $catalog['site']->domain }}</div>
+                        @endif
+                        @if(! empty($catalog['listing_url']))
+                            <a href="{{ $catalog['listing_url'] }}">Open listing</a>
+                        @endif
+                        @if(! empty($catalog['edit_url']))
+                            <div><a href="{{ $catalog['edit_url'] }}">Edit in admin</a></div>
+                        @endif
+                    @elseif(! empty($catalog['site_id']))
+                        <div>Listing no longer in the catalog.</div>
+                    @else
+                        —
+                    @endif
+                </dd>
+            @endif
             <dt class="col-12">Page</dt>
             <dd class="col-12">
                 @if($pageUrl)
@@ -34,6 +56,15 @@
                     —
                 @endif
             </dd>
+            @if($tab === 'problems' && is_array($catalog) && (string) $item->message !== '')
+                <dt class="col-12">Raw report</dt>
+                <dd class="col-12">
+                    <details>
+                        <summary>Show full envelope</summary>
+                        <div class="mt-2" style="white-space:pre-wrap;">{{ $item->message }}</div>
+                    </details>
+                </dd>
+            @endif
         @elseif($tab === 'websites')
             <dt class="col-12">Website</dt>
             <dd class="col-12">
@@ -60,14 +91,23 @@
             <dt class="col-12">Notes</dt>
             <dd class="col-12" style="white-space:pre-wrap;">{{ $item->notes ?: '—' }}</dd>
             <dt class="col-12">Listing</dt>
-            <dd class="col-12">@include('admin.community.website-listing-action', ['item' => $item])</dd>
+            <dd class="col-12">
+                @include('admin.community.website-listing-action', ['item' => $item])
+                @php $occupyingSite = ($occupyingSites ?? [])[$item->id] ?? null; @endphp
+                @if($occupyingSite)
+                    <div><a href="{{ staff_route('sites.edit', $occupyingSite->id) }}">Edit in admin</a></div>
+                @endif
+            </dd>
         @else
             <dt class="col-12">Listing</dt>
             <dd class="col-12">
                 {{ $item->site?->site_name ?? $item->website_name }}
                 <div class="text-muted">{{ $item->domain }}</div>
                 @if($item->site_id)
-                    <a href="{{ route('admin.sites.edit', $item->site_id) }}">Open listing</a>
+                    @if($item->site)
+                        <a href="{{ \App\Support\CatalogProblemReport::staffListingUrl($item->site) }}">Open listing</a>
+                    @endif
+                    <div><a href="{{ staff_route('sites.edit', $item->site_id) }}">Edit in admin</a></div>
                 @endif
             </dd>
             <dt class="col-12">Provided name</dt>

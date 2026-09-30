@@ -33,121 +33,12 @@
 
                 <div class="row">
                     <div class="col-md-8">
-                        <ul class="nav nav-tabs mb-3" role="tablist">
-                            @foreach(($locales ?? ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en'])) as $index => $locale)
-                                <li class="nav-item" role="presentation">
-                                    <button
-                                        class="nav-link {{ $index === 0 ? 'active' : '' }}"
-                                        data-bs-toggle="tab"
-                                        data-bs-target="#locale-pane-{{ $locale }}"
-                                        type="button"
-                                        role="tab"
-                                    >
-                                        {{ (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'shortLabel')) ? \App\Support\PublicI18n::shortLabel($locale) : strtoupper($locale) }} {!! $locale === 'en' ? '<span class="text-danger">*</span>' : '' !!}
-                                    </button>
-                                </li>
-                            @endforeach
-                        </ul>
-
-                        <div class="tab-content border rounded p-3 bg-white">
-                            @foreach(($locales ?? ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en'])) as $index => $locale)
-                                @php($prefix = "translations.$locale")
-                                <div class="tab-pane fade {{ $index === 0 ? 'show active' : '' }}" id="locale-pane-{{ $locale }}" role="tabpanel">
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Title {!! $locale === 'en' ? '<span class="text-danger">*</span>' : '' !!}</label>
-                                        <input
-                                            type="text"
-                                            name="translations[{{ $locale }}][title]"
-                                            class="form-control form-control-lg @error($prefix.'.title') is-invalid @enderror"
-                                            value="{{ old_text('translations.'.$locale.'.title') }}"
-                                            {{ $locale === 'en' ? 'required' : '' }}
-                                        >
-                                        @error($prefix.'.title')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Slug</label>
-                                        <input
-                                            type="text"
-                                            name="translations[{{ $locale }}][slug]"
-                                            class="form-control @error($prefix.'.slug') is-invalid @enderror"
-                                            value="{{ old_text('translations.'.$locale.'.slug') }}"
-                                            placeholder="Leave blank to auto-generate from title"
-                                        >
-                                        @error($prefix.'.slug')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Meta excerpt</label>
-                                        <textarea
-                                            name="translations[{{ $locale }}][excerpt]"
-                                            rows="3"
-                                            class="form-control @error($prefix.'.excerpt') is-invalid @enderror"
-                                            maxlength="300"
-                                        >{{ old_text('translations.'.$locale.'.excerpt') }}</textarea>
-                                        @error($prefix.'.excerpt')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">SEO title</label>
-                                        <input
-                                            type="text"
-                                            name="translations[{{ $locale }}][meta_title]"
-                                            class="form-control @error($prefix.'.meta_title') is-invalid @enderror"
-                                            value="{{ old_text('translations.'.$locale.'.meta_title') }}"
-                                            maxlength="70"
-                                            placeholder="Optional. Defaults to the post title."
-                                        >
-                                        @error($prefix.'.meta_title')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">SEO description</label>
-                                        <textarea
-                                            name="translations[{{ $locale }}][meta_description]"
-                                            rows="2"
-                                            class="form-control @error($prefix.'.meta_description') is-invalid @enderror"
-                                            maxlength="180"
-                                            placeholder="Optional. Defaults to the meta excerpt."
-                                        >{{ old_text('translations.'.$locale.'.meta_description') }}</textarea>
-                                        @error($prefix.'.meta_description')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-
-                                    <div class="form-check mb-3">
-                                        <input type="hidden" name="translations[{{ $locale }}][is_published]" value="0">
-                                        <input
-                                            type="checkbox"
-                                            name="translations[{{ $locale }}][is_published]"
-                                            id="published-{{ $locale }}"
-                                            class="form-check-input"
-                                            value="1"
-                                            {{ old('translations.'.$locale.'.is_published', '1') ? 'checked' : '' }}
-                                        >
-                                        <label class="form-check-label" for="published-{{ $locale }}">Publish this locale</label>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Content {!! $locale === 'en' ? '<span class="text-danger">*</span>' : '' !!}</label>
-                                        <div id="quillEditor-{{ $locale }}" class="border rounded bg-white" style="height: 320px;"></div>
-                                        <input type="hidden" name="translations[{{ $locale }}][content]" id="contentInput-{{ $locale }}">
-                                        <script type="application/json" id="existingContent-{{ $locale }}">{!! \App\Services\BlogHtmlSanitizer::encodeForEditor(old('translations.'.$locale.'.content', '')) !!}</script>
-                                        @error($prefix.'.content')
-                                            <div class="text-danger small mt-1">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
+                        @include('admin.blogs.partials.locale-tabs', [
+                            'formLocales' => $formLocales ?? ['en'],
+                            'allLocales' => $locales ?? \App\Support\AdminBlog::publicLocales(),
+                            'blog' => null,
+                            'translationMap' => collect(),
+                        ])
 
                         @include('admin.blogs.partials.article-images-manager')
                     </div>
@@ -199,7 +90,7 @@
                             <label class="form-label fw-semibold">Primary locale</label>
                             <select name="primary_locale" class="form-select @error('primary_locale') is-invalid @enderror">
                                 <option value="">Auto (current URL locale)</option>
-                                @foreach(($locales ?? ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'supported')) ? \App\Support\PublicI18n::supported() : ['en'])) as $code)
+                                @foreach(($locales ?? \App\Support\AdminBlog::publicLocales()) as $code)
                                     <option value="{{ $code }}" {{ old_text('primary_locale') === $code ? 'selected' : '' }}>{{ strtoupper($code) }}</option>
                                 @endforeach
                             </select>

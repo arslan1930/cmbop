@@ -6,11 +6,21 @@
     $euro = fn ($n) => '€'.number_format((float) $n, 2);
     $adv = $dossier['advertiser_wallet'] ?? null;
     $pub = $dossier['publisher_wallet'] ?? null;
-    $orders = $dossier['orders'] ?? collect();
-    $withdrawals = $dossier['withdrawals'] ?? collect();
-    $deposits = $dossier['deposits'] ?? collect();
-    $roles = $user->roles->pluck('name')->all();
-    $canSuspend = ! $user->hasRole('admin') && (int) $user->id !== (int) auth()->id();
+    $orders = collect($dossier['orders'] ?? []);
+    $withdrawals = collect($dossier['withdrawals'] ?? []);
+    $deposits = collect($dossier['deposits'] ?? []);
+    try {
+        $roles = $user->roles->pluck('name')->all();
+    } catch (\Throwable) {
+        $roles = [];
+    }
+    $canSuspend = ! in_array('admin', $roles, true)
+        && ! $user->hasRole('admin')
+        && (int) $user->id !== (int) auth()->id();
+    $sites = collect($sites ?? []);
+    $related = is_array($related ?? null) ? $related : [];
+    $copyLabel = $user->catalogCopyStatusLabel();
+    $userRoleNames = $roles;
 @endphp
 <div class="container-fluid">
     @include('admin.partials.page-header', [
@@ -38,6 +48,12 @@
         @if($user->isOnline())
             <span class="badge text-bg-success">Online</span>
         @endif
+        @if($copyLabel)
+            <span class="badge {{ $user->inCatalogHideMode() ? 'text-bg-danger' : 'text-bg-warning text-dark' }}">{{ $copyLabel }}</span>
+        @endif
+        @if(! empty($user->google_id))
+            <span class="badge text-bg-light border">Google sign-in</span>
+        @endif
     </div>
 
     <div class="row g-3 mb-3">
@@ -60,7 +76,10 @@
                         </div>
                         <div class="col-md-6">
                             <div class="small text-muted">Company</div>
-                            <div>{{ $user->company_name ?: '—' }}</div>
+                            <div>
+                                <span class="company-text" data-id="{{ $user->id }}">{{ $user->company_name ?: '—' }}</span>
+                                <button type="button" class="btn btn-sm btn-link text-primary p-0 ms-2 btn-edit-company" data-id="{{ $user->id }}">Edit</button>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <div class="small text-muted">Joined</div>
@@ -70,6 +89,47 @@
                             <div class="small text-muted">Last activity</div>
                             <div>{{ $user->lastSeenLabel() ?: 'Never recorded' }}</div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="small text-muted">Sign-in</div>
+                            <div>{{ ! empty($user->google_id) ? 'Google' : 'Email and password' }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="small text-muted">Payout</div>
+                            <div>
+                                @if($user->payoutProfileLocked())
+                                    <span class="badge status-pending">Locked</span>
+                                    <span class="text-muted small">{{ strtoupper((string) $user->payout_preferred_method) ?: '—' }}</span>
+                                @else
+                                    <span class="text-muted">Not set</span>
+                                @endif
+                                <button type="button"
+                                        class="btn btn-sm btn-link text-primary p-0 ms-2 btn-edit-payout"
+                                        data-id="{{ $user->id }}"
+                                        data-method="{{ $user->payout_preferred_method ?: 'paypal' }}"
+                                        data-paypal="{{ $user->payout_paypal_email }}"
+                                        data-wise="{{ $user->payout_wise_email }}"
+                                        data-bank-name="{{ $user->payout_bank_name }}"
+                                        data-holder="{{ $user->payout_bank_holder_name }}"
+                                        data-account="{{ $user->payout_bank_account }}"
+                                        data-swift="{{ $user->payout_bank_swift }}"
+                                        data-crypto-type="{{ $user->payout_crypto_type ?: 'USDT' }}"
+                                        data-wallet="{{ $user->payout_crypto_trx_wallet }}">
+                                    Edit
+                                </button>
+                            </div>
+                        </div>
+                        @if($copyLabel)
+                            <div class="col-12">
+                                <div class="alert {{ $user->inCatalogHideMode() ? 'alert-danger' : 'alert-warning' }} mb-0 py-2">
+                                    <strong>{{ $copyLabel }}</strong>
+                                    @if($user->inCatalogHideMode() && $user->catalog_hide_until instanceof \DateTimeInterface)
+                                        — until {{ $user->catalog_hide_until->format('d M Y, H:i') }}
+                                    @endif
+                                    <div class="small">Copy strikes: {{ (int) ($user->catalog_copy_strike_count ?? 0) }}</div>
+                                    <a href="{{ $related['catalog_url'] ?? route('admin.catalog-activity.show', $user) }}">Open catalog activity</a>
+                                </div>
+                            </div>
+                        @endif
                         @if($user->isSuspended())
                             <div class="col-12">
                                 <div class="alert alert-danger mb-0 py-2">
@@ -77,7 +137,7 @@
                                     @if($user->suspended_reason)
                                         — {{ $user->suspended_reason }}
                                     @endif
-                                    @if($user->suspended_at)
+                                    @if($user->suspended_at instanceof \DateTimeInterface)
                                         <div class="small">Since {{ $user->suspended_at->format('d M Y, H:i') }}</div>
                                     @endif
                                 </div>
@@ -106,6 +166,15 @@
                                 </button>
                             </form>
                         @endif
+                        <form method="POST" action="{{ route('admin.users.send-password-reset', $user) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                <i class="fa fa-key me-1"></i> Send password reset
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-sm btn-outline-secondary action-roles w-100" data-id="{{ $user->id }}">
+                            <i class="fa fa-bullhorn me-1"></i> Marketing access
+                        </button>
                         @if($canSuspend && ! $user->isSuspended())
                             <form method="POST" action="{{ route('admin.users.suspend', $user) }}" class="js-suspend-form">
                                 @csrf
@@ -129,8 +198,11 @@
                         <a href="{{ route('admin.content-library.index', ['user_id' => $user->id]) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fa fa-folder-open me-1"></i> Articles
                         </a>
-                        <a href="{{ route('admin.users.index', ['user' => $user->id]) }}#user-{{ $user->id }}" class="btn btn-sm btn-outline-secondary">
-                            <i class="fa fa-pen me-1"></i> Edit company / payout
+                        <a href="{{ $related['catalog_url'] ?? route('admin.catalog-activity.show', $user) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fa fa-eye me-1"></i> Catalog activity
+                        </a>
+                        <a href="{{ $related['sites_url'] ?? staff_route('sites.index', ['publisher' => $user->id]) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fa fa-globe me-1"></i> Sites list
                         </a>
                     </div>
                 </div>
@@ -182,7 +254,9 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <strong>Sites</strong>
-                    <span class="text-muted small">{{ $sites->count() }} shown</span>
+                    <a href="{{ $related['sites_url'] ?? staff_route('sites.index', ['publisher' => $user->id]) }}" class="small">
+                        {{ (int) ($related['sites_count'] ?? $sites->count()) }} on Sites
+                    </a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -198,7 +272,7 @@
                             @forelse($sites as $site)
                                 <tr>
                                     <td>
-                                        <a href="{{ route('admin.sites.edit', $site->id) }}">{{ $site->site_name ?: $site->domain }}</a>
+                                        <a href="{{ \App\Support\CatalogProblemReport::staffListingUrl($site) ?: staff_route('sites.index', array_filter(['publisher' => $site->publisher_id, 'site' => $site->id])) }}">{{ $site->site_name ?: $site->domain }}</a>
                                         <div class="small text-muted">{{ $site->domain }}</div>
                                     </td>
                                     <td>
@@ -282,7 +356,7 @@
                             <tbody>
                             @forelse($withdrawals as $withdrawal)
                                 <tr>
-                                    <td>WD-{{ $withdrawal->id }}</td>
+                                    <td><a href="{{ route('admin.withdrawals.show', $withdrawal->id) }}">WD-{{ $withdrawal->id }}</a></td>
                                     <td>{{ $withdrawal->status }}</td>
                                     <td class="text-end">{{ $euro($withdrawal->net_amount) }}</td>
                                 </tr>
@@ -314,7 +388,7 @@
                             <tbody>
                             @forelse($deposits as $deposit)
                                 <tr>
-                                    <td>{{ $deposit->reference_code ?: '#'.$deposit->id }}</td>
+                                    <td><a href="{{ route('admin.deposits.show', $deposit->id) }}">{{ $deposit->reference_code ?: '#'.$deposit->id }}</a></td>
                                     <td>{{ $deposit->status }}</td>
                                     <td class="text-end">{{ $euro($deposit->amount) }}</td>
                                 </tr>
@@ -326,6 +400,18 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white"><strong>Related inboxes</strong></div>
+        <div class="card-body d-flex flex-wrap gap-3">
+            <a href="{{ $related['problems_url'] ?? route('admin.community.index', ['tab' => 'problems', 'q' => $user->email]) }}">Problems ({{ (int) ($related['problems_count'] ?? 0) }})</a>
+            <a href="{{ $related['suggestions_url'] ?? route('admin.community.index', ['tab' => 'suggestions', 'q' => $user->email]) }}">Suggestions ({{ (int) ($related['suggestions_count'] ?? 0) }})</a>
+            <a href="{{ $related['websites_url'] ?? route('admin.community.index', ['tab' => 'websites', 'q' => $user->email]) }}">Website requests ({{ (int) ($related['websites_count'] ?? 0) }})</a>
+            <a href="{{ $related['claims_url'] ?? route('admin.community.index', ['tab' => 'claims', 'q' => $user->email]) }}">Claims ({{ (int) ($related['claims_count'] ?? 0) }})</a>
+            <a href="{{ $related['bulk_url'] ?? route('admin.bulk-site-requests.index', ['q' => $user->email, 'status' => 'all']) }}">Bulk site requests ({{ (int) ($related['bulk_count'] ?? 0) }})</a>
+            <a href="{{ $related['catalog_url'] ?? route('admin.catalog-activity.show', $user) }}">Catalog activity</a>
         </div>
     </div>
 
@@ -375,7 +461,183 @@
         </div>
     </div>
 </div>
+<div class="d-none main-row" data-id="{{ $user->id }}" data-name="{{ $user->name }}" data-roles="{{ implode(',', $userRoleNames) }}"></div>
 <script>
+const ROLE_UPDATE_URL = @json(route('admin.users.updateRoles', ['id' => '__ID__']));
+const COMPANY_UPDATE_URL = @json(route('admin.users.updateCompany', ['id' => '__ID__']));
+const PAYOUT_UPDATE_URL = @json(route('admin.users.updatePayoutProfile', ['id' => '__ID__']));
+function roleUpdateUrl(id) {
+    return ROLE_UPDATE_URL.replace('__ID__', encodeURIComponent(String(id)));
+}
+function companyUpdateUrl(id) {
+    return COMPANY_UPDATE_URL.replace('__ID__', encodeURIComponent(String(id)));
+}
+function payoutUpdateUrl(id) {
+    return PAYOUT_UPDATE_URL.replace('__ID__', encodeURIComponent(String(id)));
+}
+function escapeHtml(str) {
+    if (str == null || str === '') return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+let marketingSeatsUsed = {{ (int) ($marketingCount ?? 0) }};
+const MARKETING_SEATS_MAX = {{ (int) ($maxMarketing ?? 5) }};
+
+document.addEventListener('click', function (e) {
+    const rolesBtn = e.target.closest('.action-roles');
+    if (rolesBtn) {
+        e.preventDefault();
+        const id = rolesBtn.dataset.id;
+        const row = document.querySelector('.main-row[data-id="'+id+'"]');
+        const name = row?.dataset.name || 'user';
+        const current = (row?.dataset.roles || '').split(',').filter(Boolean);
+        const hasMarketing = current.includes('marketing');
+        const seatsFull = !hasMarketing && marketingSeatsUsed >= MARKETING_SEATS_MAX;
+        Swal.fire({
+            title: 'Marketing Access',
+            html: `
+                <p class="text-muted mb-3" style="font-size:14px;">
+                    Grant or revoke <strong>Marketing</strong> for <strong>${escapeHtml(name)}</strong>
+                    (${marketingSeatsUsed}/${MARKETING_SEATS_MAX} seats used).
+                </p>
+                ${seatsFull ? `<div class="alert alert-warning py-2 px-3 text-start mb-3">All seats are taken.</div>` : ''}
+                <label class="d-flex align-items-center gap-2 border rounded p-3 text-start">
+                    <input type="checkbox" class="form-check-input mt-0" id="marketingToggle" ${hasMarketing ? 'checked' : ''} ${seatsFull ? 'disabled' : ''}>
+                    <span>Marketing team member</span>
+                </label>`,
+            showCancelButton: true,
+            confirmButtonText: seatsFull ? 'Close' : 'Save',
+            preConfirm: () => {
+                if (seatsFull) return { skip: true };
+                return { skip: false, marketing: !!document.getElementById('marketingToggle')?.checked };
+            }
+        }).then((result) => {
+            if (!result.isConfirmed || !result.value || result.value.skip) return;
+            if (!!result.value.marketing === hasMarketing) {
+                Swal.fire({ icon: 'info', title: 'No change', text: 'Marketing permissions are already set this way.' });
+                return;
+            }
+            fetch(roleUpdateUrl(id), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ marketing: !!result.value.marketing })
+            }).then(async (res) => {
+                let data = null;
+                try { data = await res.json(); } catch (err) { data = null; }
+                if (res.ok && data && data.success) {
+                    if (row) row.dataset.roles = (data.roles || []).join(',');
+                    if (typeof data.marketing_count === 'number') marketingSeatsUsed = data.marketing_count;
+                    Swal.fire({ icon: 'success', title: 'Updated!', text: data.message || 'Saved.' }).then(() => window.location.reload());
+                    return;
+                }
+                Swal.fire({ icon: 'error', title: 'Error!', text: (data && data.message) || 'Something went wrong.' });
+            }).catch(() => Swal.fire({ icon: 'error', title: 'Error!', text: 'Request failed.' }));
+        });
+        return;
+    }
+
+    const editBtn = e.target.closest('.btn-edit-company');
+    if (editBtn) {
+        const id = editBtn.dataset.id;
+        const span = document.querySelector('.company-text[data-id="'+id+'"]');
+        const current = span && span.innerText.trim() !== '—' ? span.innerText.trim() : '';
+        Swal.fire({ title: 'Edit Company', input: 'text', inputValue: current, showCancelButton: true, confirmButtonText: 'Update' })
+            .then((result) => {
+                if (!result.isConfirmed) return;
+                fetch(companyUpdateUrl(id), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ company_name: result.value })
+                }).then(async (res) => {
+                    let data = null;
+                    try { data = await res.json(); } catch (err) { data = null; }
+                    if (res.ok && data && data.success) {
+                        if (span) span.innerText = result.value || '—';
+                        Swal.fire('Updated!', data.message || '', 'success');
+                    } else {
+                        Swal.fire('Error!', (data && data.message) || 'Update failed', 'error');
+                    }
+                }).catch(() => Swal.fire('Error!', 'Request failed.', 'error'));
+            });
+        return;
+    }
+
+    const payoutBtn = e.target.closest('.btn-edit-payout');
+    if (payoutBtn) {
+        const id = payoutBtn.dataset.id;
+        const method = payoutBtn.dataset.method || 'paypal';
+        Swal.fire({
+            title: 'Edit payout details',
+            html: `
+                <select id="swalMethod" class="swal2-input">
+                    <option value="paypal" ${method==='paypal'?'selected':''}>PayPal</option>
+                    <option value="wise" ${method==='wise'?'selected':''}>Wise</option>
+                    <option value="bank" ${method==='bank'?'selected':''}>Bank</option>
+                    <option value="crypto" ${method==='crypto'?'selected':''}>Crypto</option>
+                </select>
+                <input id="swalPaypal" class="swal2-input" placeholder="PayPal email" value="${escapeHtml(payoutBtn.dataset.paypal || '')}">
+                <input id="swalWise" class="swal2-input" placeholder="Wise email" value="${escapeHtml(payoutBtn.dataset.wise || '')}">
+                <input id="swalBankName" class="swal2-input" placeholder="Bank name" value="${escapeHtml(payoutBtn.dataset.bankName || '')}">
+                <input id="swalHolder" class="swal2-input" placeholder="Account holder" value="${escapeHtml(payoutBtn.dataset.holder || '')}">
+                <input id="swalAccount" class="swal2-input" placeholder="IBAN / account" value="${escapeHtml(payoutBtn.dataset.account || '')}">
+                <input id="swalSwift" class="swal2-input" placeholder="SWIFT (optional)" value="${escapeHtml(payoutBtn.dataset.swift || '')}">
+                <input id="swalCryptoType" class="swal2-input" placeholder="Crypto type" value="${escapeHtml(payoutBtn.dataset.cryptoType || 'USDT')}">
+                <input id="swalWallet" class="swal2-input" placeholder="Wallet address" value="${escapeHtml(payoutBtn.dataset.wallet || '')}">
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Update & notify',
+            preConfirm: () => ({
+                payment_method: document.getElementById('swalMethod').value,
+                paypal_email: document.getElementById('swalPaypal').value,
+                wise_email: document.getElementById('swalWise').value,
+                bank_name: document.getElementById('swalBankName').value,
+                account_holder: document.getElementById('swalHolder').value,
+                account_number: document.getElementById('swalAccount').value,
+                swift_code: document.getElementById('swalSwift').value,
+                crypto_type: document.getElementById('swalCryptoType').value,
+                wallet_address: document.getElementById('swalWallet').value,
+            })
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            fetch(payoutUpdateUrl(id), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(result.value)
+            }).then(async (res) => {
+                let data = null;
+                try { data = await res.json(); } catch (err) { data = null; }
+                if (res.ok && data && data.success) {
+                    Swal.fire('Updated!', data.message, 'success').then(() => window.location.reload());
+                } else {
+                    Swal.fire('Error', (data && data.message) || 'Update failed', 'error');
+                }
+            }).catch(() => Swal.fire('Error', 'Network error', 'error'));
+        });
+    }
+});
+
 document.querySelector('.js-suspend-form')?.addEventListener('submit', async function (e) {
     if (typeof slbConfirm !== 'function') return;
     e.preventDefault();

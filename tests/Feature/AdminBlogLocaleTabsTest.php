@@ -26,7 +26,7 @@ class AdminBlogLocaleTabsTest extends TestCase
         return $user;
     }
 
-    public function test_create_form_shows_all_supported_locale_tabs(): void
+    public function test_create_form_starts_with_english_and_add_locale(): void
     {
         $html = $this->actingAs($this->adminUser())
             ->get(route('admin.blogs.create'))
@@ -35,13 +35,41 @@ class AdminBlogLocaleTabsTest extends TestCase
 
         $this->assertStringContainsString('locale-pane-en', $html);
         $this->assertStringContainsString('UK', $html);
-        foreach (PublicI18n::prefixed() as $locale) {
-            $this->assertStringContainsString('locale-pane-'.$locale, $html);
-            $this->assertStringContainsString('quillEditor-'.$locale, $html);
-        }
+        $this->assertStringContainsString('Add locale', $html);
+        $this->assertStringNotContainsString('id="locale-pane-de"', $html);
+        $this->assertStringNotContainsString('id="quillEditor-de"', $html);
 
+        $this->actingAs($this->adminUser())
+            ->get(route('admin.blogs.create', ['add_locale' => 'es']))
+            ->assertOk()
+            ->assertSee('id="locale-pane-es"', false)
+            ->assertSee('id="quillEditor-es"', false);
+    }
+
+    public function test_edit_form_shows_existing_locales_not_every_supported_tab(): void
+    {
+        $blog = Blog::factory()->published()->create([
+            'title' => 'EN only edit',
+            'slug' => 'en-only-edit',
+        ]);
+        BlogTranslation::create([
+            'blog_id' => $blog->id,
+            'locale' => 'en',
+            'title' => 'EN only edit',
+            'slug' => 'en-only-edit',
+            'content' => '<p>Body</p>',
+            'is_published' => true,
+        ]);
+
+        $html = $this->actingAs($this->adminUser())
+            ->get(route('admin.blogs.edit', $blog->id))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('locale-pane-en', $html);
+        $this->assertStringNotContainsString('id="locale-pane-fr"', $html);
         foreach (PublicI18n::supported() as $locale) {
-            $this->assertStringContainsString('"'.$locale.'"', $html);
+            $this->assertStringContainsString('value="'.$locale.'"', $html);
         }
     }
 
@@ -127,5 +155,97 @@ class AdminBlogLocaleTabsTest extends TestCase
         $blog = Blog::query()->where('slug', 'english-only-post')->first();
         $this->assertNotNull($blog);
         $this->assertSame(['en'], $blog->translations()->pluck('locale')->all());
+    }
+
+    public function test_incomplete_locales_filter_ignores_unadded_languages(): void
+    {
+        $admin = $this->adminUser();
+        $complete = Blog::factory()->published()->create([
+            'title' => 'Complete EN DE',
+            'slug' => 'complete-en-de',
+        ]);
+        BlogTranslation::create([
+            'blog_id' => $complete->id,
+            'locale' => 'en',
+            'title' => 'Complete EN DE',
+            'slug' => 'complete-en-de',
+            'content' => '<p>EN</p>',
+            'is_published' => true,
+        ]);
+        BlogTranslation::create([
+            'blog_id' => $complete->id,
+            'locale' => 'de',
+            'title' => 'Komplett',
+            'slug' => 'komplett',
+            'content' => '<p>DE</p>',
+            'is_published' => true,
+        ]);
+
+        $draftDe = Blog::factory()->published()->create([
+            'title' => 'Draft DE locale',
+            'slug' => 'draft-de-locale',
+        ]);
+        BlogTranslation::create([
+            'blog_id' => $draftDe->id,
+            'locale' => 'en',
+            'title' => 'Draft DE locale',
+            'slug' => 'draft-de-locale',
+            'content' => '<p>EN</p>',
+            'is_published' => true,
+        ]);
+        BlogTranslation::create([
+            'blog_id' => $draftDe->id,
+            'locale' => 'de',
+            'title' => 'Entwurf',
+            'slug' => 'entwurf',
+            'content' => '<p>DE</p>',
+            'is_published' => false,
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.blogs.index', ['missing_translations' => 1, 'kind' => 'custom']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Draft DE locale', $html);
+        $this->assertStringNotContainsString('Complete EN DE', $html);
+    }
+
+    public function test_index_ignores_junk_filter_arrays(): void
+    {
+        $this->actingAs($this->adminUser())
+            ->get(route('admin.blogs.index', [
+                'q' => ['seo'],
+                'status' => ['draft'],
+                'missing_translations' => ['1'],
+                'sort' => ['published'],
+            ]))
+            ->assertOk();
+    }
+
+    public function test_staff_can_preview_a_draft_locale_and_guests_cannot(): void
+    {
+        $blog = Blog::factory()->create([
+            'title' => 'Preview draft',
+            'slug' => 'preview-draft',
+            'status' => 'draft',
+        ]);
+        BlogTranslation::create([
+            'blog_id' => $blog->id,
+            'locale' => 'en',
+            'title' => 'Preview draft',
+            'slug' => 'preview-draft',
+            'content' => '<p>Secret draft body</p>',
+            'is_published' => false,
+        ]);
+
+        $this->actingAs($this->adminUser())
+            ->get(route('admin.blogs.preview', ['id' => $blog->id, 'locale' => 'en']))
+            ->assertOk()
+            ->assertSee('Secret draft body', false)
+            ->assertSee('Staff preview only', false);
+
+        $this->get(route('admin.blogs.preview', $blog->id))
+            ->assertRedirect(route('login'));
     }
 }
