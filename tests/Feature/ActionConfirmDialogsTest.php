@@ -64,7 +64,8 @@ class ActionConfirmDialogsTest extends TestCase
             resource_path('views/admin/promotions/banners/index.blade.php') => 'data-slb-confirm="Delete this banner?',
             resource_path('views/admin/promotions/announcements/index.blade.php') => 'data-slb-confirm="Delete this announcement?',
             resource_path('views/admin/promotions/index.blade.php') => 'Disable the {{ $welcomeBonusEuro }} welcome credit?',
-            resource_path('views/admin/moderation/index.blade.php') => 'data-slb-confirm="Approve this submission',
+            resource_path('views/admin/moderation/index.blade.php') => 'data-slb-confirm="Re-check this article',
+            resource_path('views/admin/moderation/show.blade.php') => 'data-slb-confirm="Approve this submission',
             resource_path('views/admin/campaigns/index.blade.php') => 'data-slb-confirm="Send this campaign',
             resource_path('views/admin/bulk-site-requests/show.blade.php') => "title: 'Cancel bulk request?'",
         ];

@@ -6,7 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\SiteAnnouncement;
 use App\Services\ActivityLogger;
 use App\Services\PromotionListQuery;
+use App\Services\PromotionService;
+use App\Services\PromotionTrackingService;
+use App\Support\AdminPromotions;
 use App\Support\PromotionUrl;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
@@ -17,8 +21,12 @@ class AnnouncementController extends Controller
 {
     public function index(Request $request)
     {
+        AdminPromotions::rememberReturnQuery($request, 'announcements');
+
         $announcements = new LengthAwarePaginator([], 0, 20);
         $statusCounts = ['all' => 0, 'live' => 0, 'scheduled' => 0, 'expired' => 0, 'paused' => 0, 'trashed' => 0];
+        $showingNoticeIds = [];
+        $clicks7ById = [];
 
         try {
             if (Schema::hasTable('site_announcements')) {
@@ -26,12 +34,25 @@ class AnnouncementController extends Controller
                 $query = SiteAnnouncement::query();
                 PromotionListQuery::apply($query, $request, 'title', 'message');
                 $announcements = $query->latest('id')->paginate(20)->withQueryString();
+                $nowShowing = app(PromotionService::class)->staffNowShowing();
+                $showingNoticeIds = PromotionService::showingNoticeIds($nowShowing);
+                $clicks7ById = app(PromotionTrackingService::class)->countsForSubjectsSince(
+                    SiteAnnouncement::class,
+                    $announcements->pluck('id')->all(),
+                    PromotionTrackingService::EVENT_CLICK,
+                    now()->subDays(7)->startOfDay()
+                );
             }
         } catch (\Throwable $e) {
             Log::warning('Admin announcements index failed', ['error' => $e->getMessage()]);
         }
 
-        return view('admin.promotions.announcements.index', compact('announcements', 'statusCounts'));
+        return view('admin.promotions.announcements.index', compact(
+            'announcements',
+            'statusCounts',
+            'showingNoticeIds',
+            'clicks7ById'
+        ));
     }
 
     public function create(Request $request)
@@ -72,6 +93,7 @@ class AnnouncementController extends Controller
             'mode' => 'create',
             'presetKey' => $preset ? $presetKey : null,
             'presetMeta' => $preset,
+            'listUrl' => $this->announcementsListUrl($request),
         ]);
     }
 
@@ -100,18 +122,17 @@ class AnnouncementController extends Controller
         $announcement = SiteAnnouncement::create($data);
         $this->log('announcement.created', $announcement, 'created announcement');
 
-        return redirect()
-            ->route(staff_route_prefix().'promotions.announcements.index')
-            ->with('success', 'Announcement created.');
+        return $this->redirectToAnnouncementsList()->with('success', 'Announcement created.');
     }
 
-    public function edit(SiteAnnouncement $announcement)
+    public function edit(Request $request, SiteAnnouncement $announcement)
     {
         return view('admin.promotions.announcements.form', [
             'announcement' => $announcement,
             'mode' => 'edit',
             'presetKey' => null,
             'presetMeta' => null,
+            'listUrl' => $this->announcementsListUrl($request),
         ]);
     }
 
@@ -138,16 +159,13 @@ class AnnouncementController extends Controller
             $this->log('announcement.updated', $announcement, 'updated announcement');
         }
 
-        return redirect()
-            ->route(staff_route_prefix().'promotions.announcements.index')
-            ->with('success', 'Announcement updated.');
+        return $this->redirectToAnnouncementsList()->with('success', 'Announcement updated.');
     }
 
     public function destroy(SiteAnnouncement $announcement)
     {
         if (! SiteAnnouncement::deletedAtColumnReady()) {
-            return redirect()
-                ->route(staff_route_prefix().'promotions.announcements.index')
+            return $this->redirectToAnnouncementsList()
                 ->with('error', 'Announcement could not be deleted until the database migration has been run. Pause it instead.');
         }
 
@@ -156,8 +174,7 @@ class AnnouncementController extends Controller
         try {
             $announcement->delete();
         } catch (\Throwable) {
-            return redirect()
-                ->route(staff_route_prefix().'promotions.announcements.index')
+            return $this->redirectToAnnouncementsList()
                 ->with('error', 'Announcement could not be deleted.');
         }
         $this->log('announcement.deleted', $announcement, 'deleted announcement');
@@ -168,8 +185,7 @@ class AnnouncementController extends Controller
             'until' => now()->addMinutes(10)->timestamp,
         ]);
 
-        return redirect()
-            ->route(staff_route_prefix().'promotions.announcements.index')
+        return $this->redirectToAnnouncementsList()
             ->with('success', 'Announcement “'.$title.'” deleted.');
     }
 
@@ -220,8 +236,7 @@ class AnnouncementController extends Controller
         try {
             $copy->save();
         } catch (\Throwable) {
-            return redirect()
-                ->route(staff_route_prefix().'promotions.announcements.index')
+            return $this->redirectToAnnouncementsList()
                 ->with('error', 'Announcement could not be duplicated.');
         }
         $this->log('announcement.duplicated', $copy, 'duplicated announcement', ['source_id' => $announcement->id]);
@@ -256,6 +271,18 @@ class AnnouncementController extends Controller
         unset($data['reset_dismissals']);
 
         return $data;
+    }
+
+    private function announcementsListUrl(?Request $request = null): string
+    {
+        $request = $request ?: request();
+
+        return AdminPromotions::listUrl('announcements', AdminPromotions::sessionReturnQuery($request, 'announcements'));
+    }
+
+    private function redirectToAnnouncementsList(): RedirectResponse
+    {
+        return redirect()->to($this->announcementsListUrl());
     }
 
     private function announcementsHaveColumn(string $column): bool

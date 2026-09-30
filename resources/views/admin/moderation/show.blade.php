@@ -4,11 +4,16 @@
 <div class="container-fluid">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
-            <a href="{{ route('admin.moderation.index') }}" class="small text-muted text-decoration-none">← Moderation</a>
+            <a href="{{ $listUrl ?? route('admin.moderation.index') }}" class="small text-muted text-decoration-none">← Moderation</a>
             <h1 class="h3 mb-1 mt-1">Scan #{{ $log->id }}</h1>
             <p class="text-muted mb-0 small">
                 {{ $log->created_at?->toDayDateTimeString() }}
-                · {{ $log->user?->email ?? '—' }}
+                ·
+                @if($log->user)
+                    <a href="{{ route('admin.users.show', $log->user) }}">{{ $log->user->email }}</a>
+                @else
+                    —
+                @endif
             </p>
         </div>
         <div class="d-flex flex-wrap gap-2">
@@ -18,6 +23,12 @@
                    @if($log->articleUrlIsExternal()) target="_blank" rel="noopener" @endif>
                     {{ $log->articleUrlIsExternal() ? 'Open document' : 'Open article' }}
                 </a>
+            @endif
+            @if($log->status === 'error')
+                <form method="POST" action="{{ route('admin.moderation.rescan', $log) }}" class="d-inline">
+                    @csrf
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Re-scan</button>
+                </form>
             @endif
         </div>
     </div>
@@ -70,7 +81,13 @@
                     <div class="card-header bg-white"><strong>Article</strong></div>
                     <div class="card-body small">
                         <div class="fw-semibold">{{ $submission->title ?: $submission->original_filename }}</div>
-                        <div class="text-muted mb-2">#{{ $submission->id }} · {{ $submission->user?->email }}</div>
+                        <div class="text-muted mb-2">
+                            #{{ $submission->id }}
+                            ·
+                            @if($submission->user)
+                                <a href="{{ route('admin.users.show', $submission->user) }}">{{ $submission->user->email }}</a>
+                            @endif
+                        </div>
                         <a class="btn btn-sm btn-outline-primary" href="{{ route('admin.content-library.show', $submission) }}">Open in Content Library</a>
                     </div>
                 </div>

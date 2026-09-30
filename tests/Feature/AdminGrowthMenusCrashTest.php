@@ -392,6 +392,14 @@ class AdminGrowthMenusCrashTest extends TestCase
                 ])
                 ->assertRedirect(route('admin.moderation.index'))
                 ->assertSessionHas('error');
+
+            $this->actingAs($admin)
+                ->from(route('admin.moderation.index'))
+                ->post(route('admin.moderation.upload-settings'), [
+                    'retention_months' => 6,
+                ])
+                ->assertRedirect(route('admin.moderation.index'))
+                ->assertSessionHas('error');
         } finally {
             if (! Schema::hasTable('content_moderation_settings')) {
                 Schema::create('content_moderation_settings', function (Blueprint $table) {

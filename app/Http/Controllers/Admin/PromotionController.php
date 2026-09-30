@@ -12,8 +12,11 @@ use App\Models\User;
 use App\Models\WelcomeBonusClaim;
 use App\Models\WelcomeBonusSetting;
 use App\Services\PromotionService;
+use App\Services\PromotionTrackingService;
 use App\Services\Wallet\WelcomeBonusService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -22,6 +25,9 @@ class PromotionController extends Controller
     public function index(PromotionService $promotions, WelcomeBonusService $welcomeBonus)
     {
         $stats = $promotions->dashboardStats();
+        $nowShowing = $promotions->staffNowShowing();
+        $showingNoticeIds = PromotionService::showingNoticeIds($nowShowing);
+        $showingBannerIds = PromotionService::showingBannerIds($nowShowing);
 
         $announcements = collect();
         $banners = collect();
@@ -102,13 +108,11 @@ class PromotionController extends Controller
         $featureCreditSites = collect();
         $featureCreditsTableReady = false;
         if (auth()->user()?->isAdmin()) {
-            $featureCreditUsers = User::query()
-                ->orderBy('name')
-                ->orderBy('email')
-                ->get(['id', 'name', 'email']);
-            $featureCreditSites = Site::query()
-                ->orderBy('domain')
-                ->get(['id', 'publisher_id', 'site_name', 'domain']);
+            $featureCreditUsers = $this->featureCreditPublishers();
+            $selectedUserId = (int) old('user_id');
+            if ($selectedUserId > 0 && $featureCreditUsers->contains('id', $selectedUserId)) {
+                $featureCreditSites = $this->sitesForPublisher($selectedUserId);
+            }
         }
         try {
             $featureCreditsTableReady = Schema::hasTable('feature_credits');
@@ -130,6 +134,27 @@ class PromotionController extends Controller
         $featuredSites = $promotions->marketplaceFeatured();
         $customDiscountSites = $promotions->marketplaceCustomDiscounts();
         $bulkDiscountSites = $promotions->marketplaceBulkDiscounts();
+
+        $since = now()->subDays(7)->startOfDay();
+        $tracker = app(PromotionTrackingService::class);
+        $announcementClicks7ById = $tracker->countsForSubjectsSince(
+            SiteAnnouncement::class,
+            $announcements->pluck('id')->all(),
+            PromotionTrackingService::EVENT_CLICK,
+            $since
+        );
+        $bannerImps7ById = $tracker->countsForSubjectsSince(
+            AdBanner::class,
+            $banners->pluck('id')->all(),
+            PromotionTrackingService::EVENT_IMPRESSION,
+            $since
+        );
+        $bannerClicks7ById = $tracker->countsForSubjectsSince(
+            AdBanner::class,
+            $banners->pluck('id')->all(),
+            PromotionTrackingService::EVENT_CLICK,
+            $since
+        );
 
         return view('admin.promotions.index', compact(
             'stats',
@@ -153,8 +178,33 @@ class PromotionController extends Controller
             'featureCredits',
             'featureCreditUsers',
             'featureCreditSites',
-            'featureCreditsTableReady'
+            'featureCreditsTableReady',
+            'nowShowing',
+            'showingNoticeIds',
+            'showingBannerIds',
+            'announcementClicks7ById',
+            'bannerImps7ById',
+            'bannerClicks7ById'
         ));
+    }
+
+    public function featureCreditSites(Request $request): JsonResponse
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        $userId = (int) $request->query('user_id');
+        abort_unless($userId > 0, 404);
+
+        $user = User::query()->findOrFail($userId);
+        abort_unless($user->hasRole('publisher'), 404);
+
+        return response()->json([
+            'sites' => $this->sitesForPublisher($userId)->map(fn (Site $site) => [
+                'id' => (int) $site->id,
+                'site_name' => scalar_text($site->site_name),
+                'domain' => scalar_text($site->domain),
+            ])->values(),
+        ]);
     }
 
     public function grantFeatureCredit(Request $request)
@@ -173,6 +223,11 @@ class PromotionController extends Controller
         ]);
 
         $recipient = User::query()->findOrFail((int) $data['user_id']);
+        if (! $recipient->hasRole('publisher')) {
+            return redirect()->route('admin.promotions.index')
+                ->withInput()
+                ->withErrors(['user_id' => 'Featured credits can only be given to publishers.']);
+        }
         $site = Site::query()->findOrFail((int) $data['site_id']);
         if ((int) $site->publisher_id !== (int) $recipient->id) {
             return redirect()->route('admin.promotions.index')
@@ -241,6 +296,31 @@ class PromotionController extends Controller
             'audience' => $audience,
             'placement' => $placement,
             'track' => false,
+            'placementWired' => in_array($audience, config('promotions.wired_placements.'.$placement, []), true),
         ]);
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function featureCreditPublishers()
+    {
+        return User::query()
+            ->whereHas('roles', fn ($query) => $query->where('name', 'publisher'))
+            ->whereHas('sites')
+            ->orderBy('name')
+            ->orderBy('email')
+            ->get(['id', 'name', 'email']);
+    }
+
+    /**
+     * @return Collection<int, Site>
+     */
+    private function sitesForPublisher(int $userId)
+    {
+        return Site::query()
+            ->where('publisher_id', $userId)
+            ->orderBy('domain')
+            ->get(['id', 'publisher_id', 'site_name', 'domain']);
     }
 }

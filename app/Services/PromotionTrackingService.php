@@ -158,20 +158,40 @@ class PromotionTrackingService
 
     public function countForSubjectSince(Model $subject, string $event, \DateTimeInterface $since): int
     {
-        if (! $this->tablesReady()) {
-            return 0;
+        $counts = $this->countsForSubjectsSince($subject::class, [(int) $subject->getKey()], $event, $since);
+
+        return (int) ($counts[(int) $subject->getKey()] ?? 0);
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return array<int, int>
+     */
+    public function countsForSubjectsSince(string $subjectType, array $ids, string $event, \DateTimeInterface $since): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id) => $id > 0)));
+        if ($ids === [] || ! $this->tablesReady()) {
+            return [];
         }
 
         try {
-            return (int) PromotionEvent::query()
-                ->where('subject_type', $subject::class)
-                ->where('subject_id', $subject->getKey())
+            $counts = [];
+            $rows = PromotionEvent::query()
+                ->selectRaw('subject_id, COUNT(*) as aggregate')
+                ->where('subject_type', $subjectType)
+                ->whereIn('subject_id', $ids)
                 ->where('event', $event)
                 ->where('occurred_on', '>=', $since->format('Y-m-d'))
                 ->where('occurred_on', '<', now()->addDay()->toDateString())
-                ->count();
+                ->groupBy('subject_id')
+                ->get();
+            foreach ($rows as $row) {
+                $counts[(int) $row->subject_id] = (int) $row->aggregate;
+            }
+
+            return $counts;
         } catch (\Throwable) {
-            return 0;
+            return [];
         }
     }
 

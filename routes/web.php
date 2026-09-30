@@ -1533,6 +1533,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('promotions.welcome-bonus.amount');
         Route::post('/promotions/feature-offers', [AdminPromotionController::class, 'updateFeatureOffers'])
             ->name('promotions.feature-offers.update');
+        Route::get('/promotions/feature-credit-sites', [AdminPromotionController::class, 'featureCreditSites'])
+            ->name('promotions.feature-credits.sites');
         Route::post('/promotions/feature-credits', [AdminPromotionController::class, 'grantFeatureCredit'])
             ->name('promotions.feature-credits.store');
 
@@ -1572,9 +1574,17 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
 
         Route::get('/moderation', [AdminContentModerationController::class, 'index'])->name('moderation.index');
         Route::post('/moderation/settings', [AdminContentModerationController::class, 'updateSettings'])->name('moderation.settings');
+        Route::post('/moderation/upload-settings', [AdminContentModerationController::class, 'updateUploadSettings'])
+            ->name('moderation.upload-settings');
+        Route::post('/moderation/test-scan', [AdminContentModerationController::class, 'testScan'])
+            ->middleware('throttle:20,1')
+            ->name('moderation.test-scan');
         Route::get('/moderation/logs/{log}', [AdminContentModerationController::class, 'show'])->name('moderation.show');
         Route::post('/moderation/logs/{log}/override', [AdminContentModerationController::class, 'override'])->name('moderation.override');
         Route::post('/moderation/logs/{log}/revert', [AdminContentModerationController::class, 'revert'])->name('moderation.revert');
+        Route::post('/moderation/logs/{log}/rescan', [AdminContentModerationController::class, 'rescan'])
+            ->middleware('throttle:20,1')
+            ->name('moderation.rescan');
 
         Route::get('/content-library', [AdminContentLibraryController::class, 'index'])->name('content-library.index');
         Route::get('/content-library/results', [AdminContentLibraryController::class, 'results'])->name('content-library.results');

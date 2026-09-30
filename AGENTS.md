@@ -101,6 +101,10 @@ See [`docs/ops-mail-reminders.md`](docs/ops-mail-reminders.md) for `APP_URL` /
 `MAIL_QUEUE_AUTO_DRAIN`. Canonical schedule lives in `bootstrap/app.php`.
 Admin → Campaigns (queued marketing mail + signed unsubscribe):
 [`docs/admin-campaigns.md`](docs/admin-campaigns.md).
+Admin → Promotions (notices, banners, welcome bonus, feature credits):
+[`docs/admin-promotions.md`](docs/admin-promotions.md).
+Admin → Moderation (policy, scan queue, test scan):
+[`docs/admin-moderation.md`](docs/admin-moderation.md).
 
 ### Durable media (Hostinger)
 Public uploads use the `public` disk (`/storage/...`). Leave `MEDIA_PATH` empty

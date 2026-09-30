@@ -60,7 +60,8 @@ class MarketingPromotionsAccessTest extends TestCase
             ->get(route('marketing.promotions.announcements.index'))
             ->assertOk()
             ->assertSee('Mkt notice', false)
-            ->assertDontSee('Email this audience', false);
+            ->assertDontSee('Email this audience', false)
+            ->assertDontSee('Open in Campaigns', false);
     }
 
     public function test_marketer_cannot_toggle_welcome_bonus(): void
