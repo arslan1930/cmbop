@@ -38,6 +38,17 @@ class MarketingSitesIndexTest extends TestCase
         return $user->fresh(['roles']);
     }
 
+    private function queueRowHtml(string $html, int $siteId): string
+    {
+        $marker = 'data-flat-site-row="'.$siteId.'"';
+        $start = strpos($html, $marker);
+        $this->assertNotFalse($start, $marker);
+        $end = strpos($html, '</tr>', $start);
+        $this->assertNotFalse($end);
+
+        return substr($html, $start, $end - $start);
+    }
+
     private function makeSite(User $publisher, array $overrides = []): Site
     {
         $domain = $overrides['domain'] ?? 'index-'.uniqid().'.example';
@@ -331,18 +342,16 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString('id="usersSection" class="d-none"', $html);
         $this->assertFalse($thin->hasGoodMetrics());
         $this->assertFalse($noMarket->hasMarketplaceCountry());
-        $thinSlice = substr($html, (int) strpos($html, 'Flat Thin Site'), 1600);
-        $this->assertStringNotContainsString('js-mkt-activate', $thinSlice);
+        $thinRow = $this->queueRowHtml($html, $thin->id);
+        $this->assertStringNotContainsString('js-mkt-activate', $thinRow);
+        $this->assertStringContainsString('disabled', $thinRow);
         $this->assertStringContainsString('This listing is below the quality bar', $html);
         $this->assertStringContainsString('Set a marketplace country before activating', $html);
-        $flatCard = substr($html, (int) strpos($html, 'data-flat-queue="1"'), 12000);
+        $flatCardStart = (int) strpos($html, 'data-flat-queue="1"');
+        $usersStart = (int) strpos($html, 'id="usersSection"');
+        $this->assertGreaterThan($flatCardStart, $usersStart);
+        $flatCard = substr($html, $flatCardStart, $usersStart - $flatCardStart);
         $this->assertStringNotContainsString('toggle-verify', $flatCard);
-        $this->assertFalse($thin->hasGoodMetrics());
-        $this->assertFalse($noMarket->hasMarketplaceCountry());
-        $thinSlice = substr($html, (int) strpos($html, 'Flat Thin Site'), 1600);
-        $this->assertStringNotContainsString('js-mkt-activate', $thinSlice);
-        $this->assertStringContainsString('This listing is below the quality bar', $html);
-        $this->assertStringContainsString('Set a marketplace country before activating', $html);
     }
 
     public function test_waiting_on_publisher_flat_queue_lists_publisher_owned_drafts(): void
@@ -380,7 +389,9 @@ class MarketingSitesIndexTest extends TestCase
 
         $flatStart = strpos($html, 'data-flat-queue="1"');
         $this->assertNotFalse($flatStart);
-        $flatSlice = substr($html, $flatStart, 4000);
+        $usersStart = strpos($html, 'id="usersSection"');
+        $this->assertNotFalse($usersStart);
+        $flatSlice = substr($html, $flatStart, $usersStart - $flatStart);
         $this->assertStringContainsString('Waiting Details Draft', $flatSlice);
         $this->assertStringNotContainsString('js-mkt-activate', $flatSlice);
 

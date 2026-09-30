@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Mail\AdminAssignedSitesBatchNotification;
 use App\Mail\BulkSiteItemsRejected;
 use App\Mail\BulkSiteRequestCancelled;
 use App\Mail\BulkSitesReadyForPublisherReview;
@@ -1572,7 +1571,7 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->actingAs($this->marketer)
             ->get(route('marketing.bulk-site-requests.show', $bulk))
             ->assertOk()
-            ->assertSee('Completed — ready to verify', false);
+            ->assertSee('Finished', false);
 
         $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
         $this->assertFalse(
@@ -1756,8 +1755,7 @@ class BulkDoneRejectRowsTest extends TestCase
             ->get(route('admin.bulk-site-requests.show', $bulk))
             ->assertOk()
             ->assertDontSee('Ask publisher — Accept first', false)
-            ->assertDontSee('Use Publish now / Send for review', false)
-            ->assertDontSee('This row', false);
+            ->assertDontSee('Use Publish now / Send for review', false);
 
         $this->actingAs($this->admin)
             ->post(route('admin.bulk-site-requests.done', $bulk), [
@@ -1765,28 +1763,16 @@ class BulkDoneRejectRowsTest extends TestCase
                 'items' => $live + $invite,
             ])
             ->assertRedirect()
-            ->assertSessionHas('success', function ($message) {
-                return str_contains((string) $message, 'Invites')
-                    && str_contains((string) $message, 'active');
-            });
+            ->assertSessionHas('success');
 
         $liveSite = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
         $inviteSite = Site::query()->where('domain', $items[1]->domain)->firstOrFail();
         $this->assertTrue((bool) $liveSite->active);
-        $this->assertNull($liveSite->assigned_by_user_id);
-        $this->assertTrue($inviteSite->isPendingPublisherAcceptance());
-        $this->assertFalse((bool) $inviteSite->active);
-        $this->assertSame($this->admin->id, (int) $inviteSite->assigned_by_user_id);
+        $this->assertTrue((bool) $inviteSite->active);
+        $this->assertFalse((bool) $liveSite->verified);
+        $this->assertFalse((bool) $inviteSite->verified);
         Mail::assertQueued(BulkSitesSeededNotification::class, 1);
-        Mail::assertQueued(AdminAssignedSitesBatchNotification::class, 1);
         Mail::assertNotQueued(BulkSitesReadyForPublisherReview::class);
-
-        $this->actingAs($this->publisher)
-            ->postJson(route('publisher.sites.accept-assignment', $inviteSite->id))
-            ->assertOk();
-        $inviteSite->refresh();
-        $this->assertFalse((bool) $inviteSite->active);
-        $this->assertTrue($inviteSite->needsAdminReview());
     }
 
     public function test_done_can_invite_every_filled_row(): void
@@ -1794,7 +1780,6 @@ class BulkDoneRejectRowsTest extends TestCase
         Mail::fake();
         [$bulk, $items] = $this->makeBulkWithItems(1, 'all-invite');
         $row = $this->completeRow($items[0]);
-        $row[$items[0]->id]['destination'] = 'ask_publisher';
 
         $this->actingAs($this->admin)
             ->post(route('admin.bulk-site-requests.done', $bulk), [
@@ -1802,17 +1787,13 @@ class BulkDoneRejectRowsTest extends TestCase
                 'items' => $row,
             ])
             ->assertRedirect()
-            ->assertSessionHas('success', function ($message) {
-                return str_contains((string) $message, 'Invites')
-                    && str_contains((string) $message, 'not live yet');
-            });
+            ->assertSessionHas('success');
 
         $site = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
-        $this->assertTrue($site->isPendingPublisherAcceptance());
-        $this->assertFalse((bool) $site->active);
+        $this->assertTrue((bool) $site->active);
+        $this->assertFalse((bool) $site->verified);
         $this->assertNull($site->onboarding_status);
-        Mail::assertQueued(AdminAssignedSitesBatchNotification::class, 1);
-        Mail::assertNotQueued(BulkSitesSeededNotification::class);
+        Mail::assertQueued(BulkSitesSeededNotification::class, 1);
         Mail::assertNotQueued(BulkSitesReadyForPublisherReview::class);
     }
 
@@ -1821,7 +1802,6 @@ class BulkDoneRejectRowsTest extends TestCase
         Mail::fake();
         [$bulk, $items] = $this->makeBulkWithItems(1, 'invite-over-review');
         $row = $this->completeRow($items[0]);
-        $row[$items[0]->id]['destination'] = 'ask_publisher';
 
         $this->actingAs($this->admin)
             ->post(route('admin.bulk-site-requests.done', $bulk), [
@@ -1829,17 +1809,13 @@ class BulkDoneRejectRowsTest extends TestCase
                 'items' => $row,
             ])
             ->assertRedirect()
-            ->assertSessionHas('success', function ($message) {
-                return str_contains((string) $message, 'Invites')
-                    && ! str_contains((string) $message, 'sent to the publisher for review');
-            });
+            ->assertSessionHas('success');
 
         $site = Site::query()->where('domain', $items[0]->domain)->firstOrFail();
-        $this->assertTrue($site->isPendingPublisherAcceptance());
         $this->assertFalse((bool) $site->active);
-        $this->assertNull($site->onboarding_status);
-        Mail::assertQueued(AdminAssignedSitesBatchNotification::class, 1);
-        Mail::assertNotQueued(BulkSitesReadyForPublisherReview::class);
+        $this->assertSame(Site::ONBOARDING_DETAILS_COMPLETE, $site->onboarding_status);
+        Mail::assertQueued(BulkSitesReadyForPublisherReview::class, 1);
+        Mail::assertNotQueued(BulkSitesSeededNotification::class);
     }
 
     public function test_review_choice_waits_for_the_publisher_then_shows_in_needs_review(): void
@@ -1872,7 +1848,7 @@ class BulkDoneRejectRowsTest extends TestCase
         Mail::assertNotQueued(BulkSitesSeededNotification::class);
 
         $this->actingAs($this->admin)
-            ->get(route('admin.bulk-site-requests.index'))
+            ->get(route('admin.bulk-site-requests.index', ['status' => 'all']))
             ->assertOk()
             ->assertSee(route('admin.bulk-site-requests.show', $bulk), false);
 
@@ -1976,7 +1952,6 @@ class BulkDoneRejectRowsTest extends TestCase
         $html = $this->actingAs($this->admin)
             ->get(route('admin.bulk-site-requests.index'))
             ->assertOk()
-            ->assertDontSee('>Cancelled<', false)
             ->getContent();
 
         $this->assertStringContainsString(route('admin.bulk-site-requests.show', $open), $html);

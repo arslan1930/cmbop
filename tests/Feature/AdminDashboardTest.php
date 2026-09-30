@@ -980,6 +980,7 @@ class AdminDashboardTest extends TestCase
             ->getJson(route('admin.dashboard.action-queue'))
             ->assertOk()
             ->assertJsonPath('bulk.0.id', $bulk->id)
+            ->assertJsonPath('bulk.0.status', 'Waiting on marketer')
             ->assertJsonPath('bulk.0.url', route('admin.bulk-site-requests.show', $bulk->id))
             ->assertJsonPath('mail.0.url', route('admin.emails.index'))
             ->assertJsonPath('moderation.0.id', $modLog->id)

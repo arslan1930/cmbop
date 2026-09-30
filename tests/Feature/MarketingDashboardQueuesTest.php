@@ -244,7 +244,6 @@ class MarketingDashboardQueuesTest extends TestCase
             ->assertOk()
             ->assertSee('Waiting on marketer', false)
             ->assertSee('Waiting on publisher', false)
-            ->assertSee('Completed — ready to verify', false)
             ->assertDontSee('awaiting publisher', false)
             ->getContent();
 
@@ -261,7 +260,7 @@ class MarketingDashboardQueuesTest extends TestCase
         $waitingCard = $this->nodeHtml($html, 'data-stat', 'waiting-on-publisher');
         $this->assertSame('div', strtolower($this->node($html, 'data-stat', 'waiting-on-publisher')->nodeName));
         $this->assertStringContainsString(
-            route('marketing.bulk-site-requests.index', ['status' => 'awaiting_publisher'], false),
+            route('marketing.bulk-site-requests.index', ['status' => MarketingOpsQueues::FILTER_WAITING_PUBLISHER], false),
             $waitingCard
         );
         $this->assertStringContainsString(
@@ -289,7 +288,7 @@ class MarketingDashboardQueuesTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $requested), $requestedOnly);
-        $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $leftover), $requestedOnly);
+        $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $leftover), $requestedOnly);
     }
 
     public function test_partial_done_batch_stays_on_waiting_on_you(): void
@@ -378,12 +377,13 @@ class MarketingDashboardQueuesTest extends TestCase
         $this->actingAs($this->marketer)
             ->get(route('marketing.bulk-site-requests.index'))
             ->assertOk()
-            ->assertSee('No bulk requests yet.', false)
+            ->assertSee('Nothing waiting on you.', false)
             ->assertDontSee('No requests match this filter.', false)
             ->assertSee('Waiting on marketer', false)
             ->assertSee('Sheet emailed', false)
             ->assertSee('Waiting on publisher', false)
             ->assertDontSee('>sheet_sent<', false)
+            ->assertDontSee('value="awaiting_publisher"', false)
             ->assertDontSee('>awaiting_publisher<', false);
 
         BulkSiteRequest::create([
@@ -399,7 +399,111 @@ class MarketingDashboardQueuesTest extends TestCase
             ->assertOk()
             ->assertSee('No requests match this filter.', false)
             ->assertSee('Reset filter', false)
-            ->assertDontSee('No bulk requests yet.', false);
+            ->assertDontSee('Nothing waiting on you.', false);
+    }
+
+    public function test_bulk_index_defaults_to_waiting_on_you_and_can_claim(): void
+    {
+        $waiting = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $this->addPendingItem($waiting, 'claim-waiting.example');
+
+        $publisherOnly = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => 1,
+        ]);
+        $this->addPendingItem($publisherOnly, 'claim-publisher.example');
+        $site = $this->makeSite([
+            'site_name' => 'Publisher Only Claim',
+            'site_url' => 'https://claim-publisher.example',
+            'domain' => 'claim-publisher.example',
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+            'bulk_site_request_id' => $publisherOnly->id,
+        ]);
+        $publisherOnly->items()->first()->forceFill(['site_id' => $site->id])->save();
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index'))
+            ->assertOk()
+            ->assertSee('staff-sites-strip', false)
+            ->assertSee('Waiting on you', false)
+            ->assertSee('Finished', false)
+            ->assertSee('Cancelled', false)
+            ->assertSee('Unclaimed', false)
+            ->getContent();
+
+        $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $waiting), $html);
+        $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $publisherOnly), $html);
+
+        $legacyPublisherQueue = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index', [
+                'status' => BulkSiteRequest::STATUS_AWAITING_PUBLISHER,
+            ]))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('value="waiting_publisher"', $legacyPublisherQueue);
+        $this->assertStringNotContainsString('value="awaiting_publisher"', $legacyPublisherQueue);
+        $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $publisherOnly), $legacyPublisherQueue);
+        $this->assertStringNotContainsString(route('marketing.bulk-site-requests.show', $waiting), $legacyPublisherQueue);
+
+        $this->actingAs($this->marketer)
+            ->from(route('marketing.bulk-site-requests.show', $waiting))
+            ->post(route('marketing.bulk-site-requests.claim', $waiting))
+            ->assertRedirect();
+
+        $this->assertSame($this->marketer->id, (int) $waiting->fresh()->handled_by);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.index', ['status' => 'all']))
+            ->assertOk()
+            ->assertSee(route('marketing.bulk-site-requests.show', $publisherOnly), false);
+    }
+
+    public function test_bulk_show_links_previous_and_next_waiting(): void
+    {
+        $older = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $this->addPendingItem($older, 'neighbor-older.example');
+        $older->forceFill([
+            'created_at' => now()->subDays(2),
+            'updated_at' => now()->subDays(2),
+        ])->save();
+
+        $middle = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $this->addPendingItem($middle, 'neighbor-middle.example');
+        $middle->forceFill([
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ])->save();
+
+        $newer = BulkSiteRequest::create([
+            'publisher_id' => $this->publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 1,
+        ]);
+        $this->addPendingItem($newer, 'neighbor-newer.example');
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.bulk-site-requests.show', $middle))
+            ->assertOk()
+            ->assertSee('Previous waiting', false)
+            ->assertSee('Next waiting', false)
+            ->getContent();
+
+        $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $older), $html);
+        $this->assertStringContainsString(route('marketing.bulk-site-requests.show', $newer), $html);
     }
 
     public function test_dashboard_queues_oldest_first_so_stale_rows_stay_visible(): void

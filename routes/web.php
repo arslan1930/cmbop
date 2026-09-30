@@ -1274,6 +1274,8 @@ $registerStaffOpsRoutes = function () {
         ->name('bulk-site-requests.sheet-sent');
     Route::post('/bulk-site-requests/{id}/notes', [AdminBulkSiteRequestController::class, 'updateNotes'])
         ->name('bulk-site-requests.notes');
+    Route::post('/bulk-site-requests/{id}/claim', [AdminBulkSiteRequestController::class, 'claim'])
+        ->name('bulk-site-requests.claim');
     Route::post('/bulk-site-requests/{id}/seed', [AdminBulkSiteRequestController::class, 'seed'])
         ->name('bulk-site-requests.seed');
     Route::post('/bulk-site-requests/{id}/done', [AdminBulkSiteRequestController::class, 'done'])

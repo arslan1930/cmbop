@@ -104,7 +104,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->actingAs($this->admin)
             ->get(route('admin.bulk-site-requests.show', $bulk))
             ->assertOk()
-            ->assertSee('Publisher submitted (URL + price only)', false)
+            ->assertSee('pending to add', false)
             ->assertSee('Done — publish now, or send to the publisher for review', false)
             ->assertSee('https://bulk-a.example', false)
             ->assertSee('https://bulk-b.example', false);
@@ -282,7 +282,7 @@ class BulkSiteGuidedWorkflowTest extends TestCase
         $this->assertContains($category->name, $siteA->categories ?? []);
 
         $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->fresh()->status);
-        $this->assertSame('Completed — ready to verify', $bulk->fresh()->statusLabel());
+        $this->assertSame('Finished', $bulk->fresh()->statusLabel());
 
         $this->assertDatabaseHas('in_app_notifications', [
             'user_id' => $this->publisher->id,

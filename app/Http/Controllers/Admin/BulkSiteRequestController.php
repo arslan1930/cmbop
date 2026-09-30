@@ -42,22 +42,35 @@ class BulkSiteRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $status = search_text($request->input('status'));
-        if ($status === BulkSiteRequest::STATUS_COMPLETED) {
-            $status = '';
+        $rawStatus = search_text($request->input('status'));
+        if ($rawStatus === BulkSiteRequest::STATUS_AWAITING_PUBLISHER) {
+            $rawStatus = MarketingOpsQueues::FILTER_WAITING_PUBLISHER;
         }
-        $selectedStatus = $status !== '' ? $status : 'all';
         $q = search_text($request->input('q'));
+        $mine = $request->boolean('mine');
+        $implicitWaiting = $rawStatus === '';
+        $selectedStatus = $implicitWaiting
+            ? MarketingOpsQueues::FILTER_NEEDS_MARKETER
+            : $rawStatus;
+        $sort = $this->bulkIndexSortKey($request->input('sort'), $selectedStatus);
+
+        $waitingOnYouCount = 0;
+        $waitingOnPublisherCount = 0;
+        $allOpenCount = 0;
+        $finishedCount = 0;
+        $cancelledCount = 0;
 
         try {
             $withCount = [
-                'sites' => fn ($q) => $q->notArchived(),
-                'items as pending_items_count' => fn ($q) => $q->whereNull('site_id'),
+                'sites' => fn ($sites) => $sites->notArchived(),
+                'items as pending_items_count' => fn ($items) => $items->whereNull('site_id'),
             ];
             if (Site::hasSitesColumn('onboarding_status')) {
-                $withCount['sites as awaiting_details_count'] = fn ($q) => $q->notArchived()
+                $withCount['sites as awaiting_details_count'] = fn ($sites) => $sites->notArchived()
                     ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS);
-                $withCount['sites as ready_count'] = fn ($q) => $q->notArchived()
+                $withCount['sites as reviewing_count'] = fn ($sites) => $sites->notArchived()
+                    ->where('onboarding_status', Site::ONBOARDING_DETAILS_COMPLETE);
+                $withCount['sites as ready_count'] = fn ($sites) => $sites->notArchived()
                     ->where('onboarding_status', Site::ONBOARDING_READY_FOR_REVIEW);
             }
 
@@ -65,27 +78,28 @@ class BulkSiteRequestController extends Controller
 
             $query = BulkSiteRequest::query()
                 ->with(['publisher', 'handler'])
-                ->withCount($withCount)
-                ->latest();
+                ->withCount($withCount);
 
-            MarketingOpsQueues::applyBulkIndexStatus($query, $status);
-            if ($status === '' || $status === 'all') {
-                $query->where(function ($visible) {
-                    $visible->whereNotIn('status', [
-                        BulkSiteRequest::STATUS_COMPLETED,
-                        BulkSiteRequest::STATUS_CANCELLED,
-                    ])->orWhere(function ($unfinished) {
-                        $unfinished->where('status', BulkSiteRequest::STATUS_COMPLETED);
-                        $this->constrainBulkRequestStillOpen($unfinished);
-                    });
-                });
-            } elseif ($status !== MarketingOpsQueues::FILTER_NEEDS_MARKETER) {
-                $query->where('status', '!=', BulkSiteRequest::STATUS_COMPLETED);
-            }
+            $this->applyBulkIndexVisible($query, $selectedStatus);
             $this->applyBulkIndexSearch($query, $q);
+            if ($mine) {
+                $query->where('handled_by', auth()->id());
+            }
+            $this->applyBulkIndexSort($query, $sort);
 
             $requests = $query->paginate(20)->withQueryString();
-            $waitingOnYouCount = MarketingOpsQueues::bulkWaitingOnMarketer()->count();
+            $waitingOnYouCount = MarketingOpsQueues::bulkWaitingOnMarketerCount();
+            $waitingOnPublisherCount = MarketingOpsQueues::bulkWaitingOnPublisherCount();
+            $allOpenCount = BulkSiteRequest::query()
+                ->where(fn ($open) => MarketingOpsQueues::constrainOpenBulk($open))
+                ->count();
+            $finishedCount = BulkSiteRequest::query()
+                ->where('status', BulkSiteRequest::STATUS_COMPLETED)
+                ->where(fn ($done) => MarketingOpsQueues::constrainBulkFinished($done))
+                ->count();
+            $cancelledCount = BulkSiteRequest::query()
+                ->where('status', BulkSiteRequest::STATUS_CANCELLED)
+                ->count();
         } catch (\Throwable $e) {
             report($e);
             session()->flash(
@@ -97,15 +111,25 @@ class BulkSiteRequestController extends Controller
                 'path' => $request->url(),
                 'query' => $request->query(),
             ]);
-            $waitingOnYouCount = 0;
         }
+
+        $filtersActive = $q !== ''
+            || $mine
+            || $request->filled('sort')
+            || ($rawStatus !== '' && $rawStatus !== MarketingOpsQueues::FILTER_NEEDS_MARKETER);
 
         return view('admin.bulk-site-requests.index', [
             'requests' => $requests,
             'status' => $selectedStatus,
             'q' => $q,
-            'filtersActive' => $selectedStatus !== 'all' || $q !== '',
+            'mine' => $mine,
+            'sort' => $sort,
+            'filtersActive' => $filtersActive,
             'waitingOnYouCount' => $waitingOnYouCount,
+            'waitingOnPublisherCount' => $waitingOnPublisherCount,
+            'allOpenCount' => $allOpenCount,
+            'finishedCount' => $finishedCount,
+            'cancelledCount' => $cancelledCount,
         ]);
     }
 
@@ -168,6 +192,75 @@ class BulkSiteRequestController extends Controller
                 $items->where('domain', 'like', $like)->orWhere('site_url', 'like', $like);
             });
         });
+    }
+
+    /**
+     * @param  Builder<BulkSiteRequest>  $query
+     */
+    private function applyBulkIndexVisible($query, string $status): void
+    {
+        if ($status === 'all') {
+            $query->where(function ($visible) {
+                MarketingOpsQueues::constrainOpenBulk($visible);
+            });
+
+            return;
+        }
+
+        MarketingOpsQueues::applyBulkIndexStatus($query, $status);
+    }
+
+    private function bulkIndexSortKey(mixed $sort, string $status): string
+    {
+        $value = is_string($sort) ? trim($sort) : '';
+        if (in_array($value, ['oldest', 'newest', 'pending'], true)) {
+            return $value;
+        }
+
+        return $status === MarketingOpsQueues::FILTER_NEEDS_MARKETER ? 'oldest' : 'newest';
+    }
+
+    /**
+     * @param  Builder<BulkSiteRequest>  $query
+     */
+    private function applyBulkIndexSort($query, string $sort): void
+    {
+        if ($sort === 'pending') {
+            $query->orderByDesc('pending_items_count')->orderBy('id');
+
+            return;
+        }
+        if ($sort === 'newest') {
+            $query->latest('created_at')->orderByDesc('id');
+
+            return;
+        }
+
+        $query->oldest('created_at')->orderBy('id');
+    }
+
+    /**
+     * @return array{previous: ?int, next: ?int}
+     */
+    private function bulkQueueNeighbors(int $id): array
+    {
+        $ids = array_map(
+            intval(...),
+            MarketingOpsQueues::bulkWaitingOnMarketer()
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->pluck('id')
+                ->all()
+        );
+        $pos = array_search($id, $ids, true);
+        if ($pos === false) {
+            return ['previous' => null, 'next' => null];
+        }
+
+        return [
+            'previous' => $pos > 0 ? (int) $ids[$pos - 1] : null,
+            'next' => $pos < count($ids) - 1 ? (int) $ids[$pos + 1] : null,
+        ];
     }
 
     public function show(int $id)
@@ -244,6 +337,7 @@ class BulkSiteRequestController extends Controller
         $textDraft = is_array(old('items')) ? ['items' => []] : $this->loadTextDraft((int) $bulkRequest->id);
         $homepageDays = config('site_placement.homepage_days', [1, 7, 30]);
         $socialChannels = config('site_placement.social_channels', ['facebook', 'instagram', 'x']);
+        $neighbors = $this->bulkQueueNeighbors((int) $bulkRequest->id);
 
         return view('admin.bulk-site-requests.show', compact(
             'bulkRequest',
@@ -258,7 +352,8 @@ class BulkSiteRequestController extends Controller
             'keptCovers',
             'textDraft',
             'homepageDays',
-            'socialChannels'
+            'socialChannels',
+            'neighbors'
         ));
     }
 
@@ -327,6 +422,29 @@ class BulkSiteRequestController extends Controller
         );
 
         return back()->with('success', 'Notes saved.');
+    }
+
+    public function claim(int $id)
+    {
+        $bulkRequest = BulkSiteRequest::findOrFail($id);
+        if ($bulkRequest->isCancelled()) {
+            return back()->with('error', 'Cannot claim a cancelled request.');
+        }
+
+        $bulkRequest->forceFill(['handled_by' => auth()->id()])->save();
+
+        ActivityLogger::tryLog(
+            'bulk_request.claimed',
+            (auth()->user()->name ?? 'Staff').' claimed bulk request #'.$bulkRequest->id,
+            $bulkRequest,
+            [
+                'bulk_site_request_id' => $bulkRequest->id,
+                'publisher_id' => $bulkRequest->publisher_id,
+            ],
+            'Bulk request #'.$bulkRequest->id
+        );
+
+        return back()->with('success', 'You are on this request.');
     }
 
     public function cancel(Request $request, int $id)

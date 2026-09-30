@@ -18,6 +18,17 @@
         'placeholder' => !empty($staffSiteFilters['placeholder']) ? 1 : null,
         'missing_cover' => !empty($staffSiteFilters['missing_cover']) ? 1 : null,
         'bulk_request' => !empty($staffSiteFilters['bulk_request']) ? 1 : null,
+        'scan_failed' => !empty($staffSiteFilters['scan_failed']) ? 1 : null,
+        'copy_strike' => !empty($staffSiteFilters['copy_strike']) ? 1 : null,
+        'has_orders' => !empty($staffSiteFilters['has_orders']) ? 1 : null,
+        'featured' => !empty($staffSiteFilters['featured']) ? 1 : null,
+        'bulk_discount' => !empty($staffSiteFilters['bulk_discount']) ? 1 : null,
+        'csv_metrics' => !empty($staffSiteFilters['csv_metrics']) ? 1 : null,
+        'price_min' => $staffSiteFilters['price_min'] ?? null,
+        'price_max' => $staffSiteFilters['price_max'] ?? null,
+        'traffic_min' => $staffSiteFilters['traffic_min'] ?? null,
+        'da_min' => $staffSiteFilters['da_min'] ?? null,
+        'metrics_age' => ($staffSiteFilters['metrics_age'] ?? '') !== '' ? $staffSiteFilters['metrics_age'] : null,
         'language' => ($staffSiteFilters['language'] ?? '') !== '' ? $staffSiteFilters['language'] : null,
         'niche' => ($staffSiteFilters['niche'] ?? '') !== '' ? $staffSiteFilters['niche'] : null,
         'archived' => !empty($staffSiteFilters['archived']) ? 1 : null,
@@ -26,66 +37,10 @@
 @endphp
 <div class="container-fluid py-3">
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-        <div>
-            <h4 class="mb-0 fw-bold">Sites Management</h4>
-            @if(($openReviewCount ?? 0) > 0)
-                <small class="text-muted">
-                    <span class="badge text-bg-warning">{{ $openReviewCount }}</span>
-                    site{{ $openReviewCount === 1 ? '' : 's' }} need{{ $openReviewCount === 1 ? 's' : '' }} review
-                </small>
-            @endif
-            @if(($missingMarketListCount ?? 0) > 0)
-                <small class="text-muted d-block mt-1">
-                    <a href="{{ staff_route('sites.index', ['all' => 1, 'listing_active' => 1, 'missing_market' => 1]) }}" class="link-secondary">
-                        <span class="badge text-bg-danger">{{ $missingMarketListCount }}</span>
-                        active site{{ $missingMarketListCount === 1 ? '' : 's' }} missing market country
-                    </a>
-                </small>
-            @endif
-            @php
-                $liveUnverifiedUrl = staff_route('sites.index', ['all' => 1, 'listing_active' => 1, 'listing_verified' => 0]);
-                $healthLinks = [
-                    'below_quality' => [
-                        'label' => 'below quality bar',
-                        'count' => (int) ($belowQualityListCount ?? 0),
-                        'url' => staff_route('sites.index', ['all' => 1, 'below_quality' => 1]),
-                    ],
-                    'unverified' => [
-                        'label' => 'unverified active',
-                        'count' => (int) ($liveUnverifiedCount ?? 0),
-                        'url' => $liveUnverifiedUrl,
-                    ],
-                    'placeholder' => [
-                        'label' => 'placeholder',
-                        'count' => (int) ($placeholderListCount ?? 0),
-                        'url' => staff_route('sites.index', ['all' => 1, 'placeholder' => 1]),
-                    ],
-                    'missing_cover' => [
-                        'label' => 'missing cover',
-                        'count' => (int) ($missingCoverListCount ?? 0),
-                        'url' => staff_route('sites.index', ['all' => 1, 'missing_cover' => 1]),
-                    ],
-                ];
-                $healthPreview = collect($healthLinks)->filter(fn ($row) => $row['count'] > 0);
-            @endphp
-            @if($healthPreview->isNotEmpty())
-                <small class="text-muted d-block mt-1">
-                    Catalog health:
-                    @foreach($healthPreview as $healthRow)
-                        <a href="{{ $healthRow['url'] }}" class="link-secondary">
-                            <span class="badge text-bg-warning">{{ $healthRow['count'] }}</span>
-                            {{ $healthRow['label'] }}
-                        </a>@if(! $loop->last), @endif
-                    @endforeach
-                </small>
-            @endif
-        </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <h4 class="mb-0 fw-bold">Sites Management</h4>
         <div class="d-flex flex-wrap gap-2">
             @if(!empty($needsReviewFilterActive))
-                <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">
-                    Show all publishers
-                </a>
                 @if(!empty($flatQueue))
                     <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-secondary">
                         By publisher
@@ -96,9 +51,6 @@
                     </a>
                 @endif
             @elseif(!empty($waitingOnPublisherFilterActive))
-                <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">
-                    Show all publishers
-                </a>
                 @php
                     $waitingLayoutQuery = array_filter([
                         'waiting_on_publisher' => 1,
@@ -114,49 +66,11 @@
                         Site queue
                     </a>
                 @endif
+            @endif
+            @if(!empty($allSitesMode))
+                <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
             @else
-                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-warning">
-                    <i class="fa fa-bell me-1"></i> Needs review
-                    @if(($openReviewCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1">{{ $openReviewCount }}</span>
-                    @endif
-                </a>
-                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
-                    Site queue
-                </a>
-                <a href="{{ staff_route('sites.index', array_filter(['waiting_on_publisher' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-secondary">
-                    Waiting on publisher
-                    @if(($waitingOnPublisherCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1">{{ $waitingOnPublisherCount }}</span>
-                    @endif
-                </a>
-                @php
-                    $onLiveUnverified = !empty($allSitesMode)
-                        && ($staffSiteFilters['listing_active'] ?? '') === '1'
-                        && ($staffSiteFilters['listing_verified'] ?? '') === '0'
-                        && $publisherSearch === ''
-                        && ($staffSiteFilters['country'] ?? '') === ''
-                        && ($staffSiteFilters['language'] ?? '') === ''
-                        && ($staffSiteFilters['niche'] ?? '') === ''
-                        && ($staffSiteFilters['tag'] ?? '') === ''
-                        && empty($staffSiteFilters['below_quality'])
-                        && empty($staffSiteFilters['missing_market'])
-                        && empty($staffSiteFilters['placeholder'])
-                        && empty($staffSiteFilters['missing_cover'])
-                        && empty($staffSiteFilters['bulk_request'])
-                        && empty($staffSiteFilters['archived']);
-                @endphp
-                <a href="{{ $liveUnverifiedUrl }}" class="btn btn-sm {{ $onLiveUnverified ? 'btn-secondary' : 'btn-outline-secondary' }}">
-                    Live unverified
-                    @if(($liveUnverifiedCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1">{{ $liveUnverifiedCount }}</span>
-                    @endif
-                </a>
-                @if(!empty($allSitesMode))
-                    <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
-                @else
-                    <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
-                @endif
+                <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
             @endif
             @if(auth()->user()?->isAdmin())
                 <a href="{{ route('admin.sites.records', array_filter(['missing_market' => ($missingMarketCount ?? 0) > 0 ? 1 : null])) }}"
@@ -183,6 +97,10 @@
             @endif
         </div>
     </div>
+
+    @include('admin.sites.partials.queue-strip')
+    @include('admin.sites.partials.filter-chips')
+    <div id="staffBulkResult" class="alert alert-light border d-none mb-3" role="status"></div>
 
     @if(!empty($waitingOnPublisherFilterActive))
         <div class="alert alert-secondary border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -245,46 +163,20 @@
         </div>
     @endif
 
-    <div id="staffIndexSearchWrap">
-        <form method="GET" action="{{ staff_route('sites.index') }}" class="admin-deposits-filters mb-3" role="search" style="max-width: 36rem;">
-            @if(!empty($needsReviewFilterActive) || !empty($unverifiedFilter))
-                <input type="hidden" name="needs_review" value="1">
-            @endif
-            @if(!empty($waitingOnPublisherFilterActive))
-                <input type="hidden" name="waiting_on_publisher" value="1">
-            @endif
-            @if(!empty($flatQueue))
-                <input type="hidden" name="flat" value="1">
-            @endif
-            @if(($waitingStage ?? '') !== '')
-                <input type="hidden" name="waiting_stage" value="{{ $waitingStage }}">
-            @endif
-            @if(!empty($allSitesMode))
-                <input type="hidden" name="all" value="1">
-            @endif
-            @foreach($listQuery as $filterKey => $filterValue)
-                @if($filterKey !== 'q')
-                    <input type="hidden" name="{{ $filterKey }}" value="{{ $filterValue }}">
-                @endif
-            @endforeach
-            <x-slb-search-field
-                name="q"
-                id="userSearch"
-                :value="$publisherSearch"
-                placeholder="Search publishers or sites…"
-                label="Search publishers or sites"
-                label-class="form-label"
-                input-class="form-control"
-            />
-        </form>
-    </div>
+    <div id="staffIndexSearchWrap" class="d-none" hidden></div>
 
     @if(!empty($flatQueue) && $flatQueueSites)
     <div class="card shadow-sm border-0 mb-3 admin-table-fit" data-flat-queue="1">
         <div class="card-header bg-white fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span>{{ !empty($waitingOnPublisherFilterActive) ? 'Waiting on publisher' : 'Sites needing review' }}</span>
-            <span class="small text-muted" data-flat-queue-count>{{ $flatQueueSites->total() }} in queue</span>
+            <span class="d-flex flex-wrap align-items-center gap-2">
+                <span class="small text-muted" data-flat-queue-count>{{ $flatQueueSites->total() }} in queue</span>
+                <a class="btn btn-sm btn-outline-dark" href="{{ $sitesExportUrl ?? staff_route('sites.export') }}">CSV</a>
+            </span>
         </div>
+        @if(!empty($sitesExportLimited))
+            <div class="px-3 py-2 small text-muted border-bottom">CSV includes the first 5,000 matching sites.</div>
+        @endif
         @include('admin.sites.partials.list-filters', ['mode' => 'flat'])
         <div class="px-3 py-2 border-bottom d-flex flex-wrap gap-2 align-items-center" data-staff-bulk-bar="flat">
             @if(auth()->user()?->isAdmin())
@@ -307,18 +199,19 @@
             </label>
         </div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0 staff-queue-table">
                 <thead class="table-light">
                     <tr>
                         <th class="admin-num-col"><input type="checkbox" data-staff-bulk-all="flat" aria-label="Select all sites on this page"></th>
-                        <th class="admin-num-col">#</th>
+                        <th class="admin-num-col d-none d-md-table-cell">#</th>
                         <th>Site</th>
                         <th>Publisher</th>
-                        <th class="admin-narrow-col">DA / DR</th>
-                        <th>Markets</th>
-                        <th class="admin-narrow-col">Tag</th>
-                        <th class="admin-narrow-col">Traffic</th>
+                        <th class="admin-narrow-col d-none d-md-table-cell">DA / DR</th>
+                        <th class="d-none d-lg-table-cell">Markets</th>
+                        <th class="admin-narrow-col d-none d-lg-table-cell">Tag</th>
+                        <th class="admin-narrow-col d-none d-md-table-cell">Traffic</th>
                         <th class="admin-narrow-col">Price</th>
+                        <th class="admin-narrow-col">Listed</th>
                         <th class="admin-actions-col">Actions</th>
                     </tr>
                 </thead>
@@ -341,38 +234,17 @@
                             && ! $hasOrders
                             && ($site->verified || $site->active);
                     @endphp
-                    <tr data-flat-site-row="{{ $site->id }}">
+                    <tr data-flat-site-row="{{ $site->id }}"
+                        data-review-name="{{ $site->site_name }}"
+                        data-review-url="{{ $site->site_url }}"
+                        data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
                         <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
-                        <td>{{ $flatQueueSites->firstItem() + $index }}</td>
+                        <td class="d-none d-md-table-cell">{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
-                            <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
-                            <div class="small text-muted text-break">{{ $site->site_url }}</div>
-                            <div class="d-flex flex-wrap gap-1 mt-1">
-                                @if($site->verified)
-                                    <span class="badge rounded-pill bg-success">Verified</span>
-                                @else
-                                    <span class="badge rounded-pill bg-secondary">Unverified</span>
-                                @endif
-                                @if(! $site->hasMarketplaceCountry())
-                                    <span class="badge text-bg-danger">Missing market</span>
-                                @endif
-                                @if(! $site->hasGoodMetrics())
-                                    <span class="badge text-bg-warning text-dark">Below quality bar</span>
-                                @endif
-                                @if($site->awaitsPublisherDetails())
-                                    <span class="badge text-bg-secondary">Awaiting publisher</span>
-                                @endif
-                                @if($site->hasDetailsComplete())
-                                    <span class="badge text-bg-secondary">Publisher reviewing</span>
-                                @endif
-                                @if($site->isPendingPublisherAcceptance())
-                                    <span class="badge text-bg-info">Awaiting accept</span>
-                                    <button type="button" class="btn btn-sm btn-outline-info resend-invite py-0 px-2" data-id="{{ $site->id }}">Resend invite</button>
-                                @endif
-                                @if($site->wasAddedFromBulkRequest())
-                                    <span class="badge text-bg-light border">Bulk request</span>
-                                @endif
-                            </div>
+                            @include('admin.sites.partials.queue-site-cell')
+                            @if($site->isPendingPublisherAcceptance())
+                                <button type="button" class="btn btn-sm btn-outline-info resend-invite py-0 px-2 mt-1" data-id="{{ $site->id }}">Resend invite</button>
+                            @endif
                         </td>
                         <td class="small">
                             <div>{{ $site->publisher?->name ?? 'Unknown' }}</div>
@@ -381,13 +253,15 @@
                                 <span class="badge text-bg-dark">Copy-strike hide</span>
                             @endif
                         </td>
-                        <td class="small">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
-                        <td class="small">@include('admin.sites.partials.row-markets')</td>
-                        <td class="small">{{ $site->tagLabel('No tags') }}</td>
-                        <td>{{ number_format((int) $site->traffic) }}</td>
+                        <td class="small d-none d-md-table-cell">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
+                        <td class="small d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
+                        <td class="small d-none d-lg-table-cell">{{ $site->tagLabel('No tags') }}</td>
+                        <td class="d-none d-md-table-cell">{{ number_format((int) $site->traffic) }}</td>
                         <td>@include('admin.sites.partials.row-price')</td>
-                        <td>
+                        <td class="small">@include('admin.sites.partials.listed-age')</td>
+                        <td class="staff-queue-actions">
                             <div class="d-flex flex-wrap gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-dark" data-staff-review="{{ $site->id }}">Review</button>
                                 <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
                                 <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary">{{ $isMarketingEditor && $site->isLockedForMarketingEdits() && ! $site->marketingCanEditDescription() ? 'View' : 'Edit' }}</a>
                                 @if(empty($waitingOnPublisherFilterActive))
@@ -418,7 +292,16 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-4">{{ !empty($waitingOnPublisherFilterActive) ? 'No listings waiting on a publisher.' : 'No sites in the review queue.' }}</td>
+                        <td colspan="11" class="text-center text-muted py-4">
+                            @if($publisherSearch !== '' || count($listQuery) > 0)
+                                Nothing matches these filters.
+                                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => !empty($needsReviewFilterActive) ? 1 : null, 'waiting_on_publisher' => !empty($waitingOnPublisherFilterActive) ? 1 : null, 'flat' => 1])) }}">Clear filters</a>
+                            @elseif(!empty($waitingOnPublisherFilterActive))
+                                No listings are waiting on a publisher.
+                            @else
+                                Review queue is clear.
+                            @endif
+                        </td>
                     </tr>
                 @endforelse
                 </tbody>
@@ -531,7 +414,18 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center text-muted">No publishers found</td>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                @if($publisherSearch !== '' || count($listQuery) > 0)
+                                    Nothing matches these filters.
+                                    <a href="{{ staff_route('sites.index') }}">Clear filters</a>
+                                @elseif(!empty($needsReviewFilterActive))
+                                    Review queue is clear.
+                                @elseif(!empty($waitingOnPublisherFilterActive))
+                                    No publishers have listings waiting on them.
+                                @else
+                                    No publishers found.
+                                @endif
+                            </td>
                         </tr>
                     @endforelse
                     </tbody>
@@ -638,7 +532,16 @@
 
 </div>
 
-
+<div class="offcanvas offcanvas-end" tabindex="-1" id="staffSiteReviewDrawer" aria-labelledby="staffSiteReviewTitle">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="staffSiteReviewTitle">Review site</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div id="staffSiteReviewMeta" class="small text-muted mb-3"></div>
+        <div id="staffSiteReviewActions" class="d-flex flex-wrap gap-2"></div>
+    </div>
+</div>
 
 <script src="{{ same_origin_asset('assets/js/site-image-upload.js') }}?v={{ @filemtime(public_path('assets/js/site-image-upload.js')) ?: '1' }}"></script>
 <script>
@@ -1002,6 +905,10 @@ function removeSiteFromTable(id) {
 }
 
 function afterSiteDecision(removedId) {
+    const drawerEl = document.getElementById('staffSiteReviewDrawer');
+    if (drawerEl && window.bootstrap && bootstrap.Offcanvas) {
+        bootstrap.Offcanvas.getInstance(drawerEl)?.hide();
+    }
     if (FLAT_QUEUE) {
         if (removedId != null && removedId !== '') {
             document.querySelector(`[data-flat-site-row="${removedId}"]`)?.remove();
@@ -2341,6 +2248,78 @@ document.getElementById('staffPublisherFilters')?.addEventListener('change', fun
     window.location = STAFF_BASE + '/sites' + (params.toString() ? '?' + params.toString() : '');
 });
 
+function renderStaffBulkResult() {
+    const panel = document.getElementById('staffBulkResult');
+    const raw = sessionStorage.getItem('staffBulkResult');
+    if (!panel || !raw) return;
+    sessionStorage.removeItem('staffBulkResult');
+    let data = {};
+    try {
+        data = JSON.parse(raw);
+    } catch (e) {
+        return;
+    }
+    const skips = Array.isArray(data.skipped) ? data.skipped : [];
+    const items = skips.map(function (row) {
+        const name = row && row.name ? String(row.name) : ('Site #' + (row && row.id ? row.id : ''));
+        const message = row && row.message ? String(row.message) : 'Skipped';
+        return '<li>' + escapeHtml(name) + ' — ' + escapeHtml(message) + '</li>';
+    }).join('');
+    let note = '';
+    if (data.matched_total && data.processed && Number(data.matched_total) > Number(data.processed)) {
+        note = '<div class="mb-2">First ' + escapeHtml(String(data.processed)) + ' of ' + escapeHtml(String(data.matched_total)) + '.</div>';
+    }
+    panel.innerHTML = '<div class="fw-semibold mb-1">' + escapeHtml(data.message || 'Bulk update finished') + '</div>'
+        + note
+        + (items ? '<ul class="mb-2 small">' + items + '</ul>' : '')
+        + '<button type="button" class="btn btn-sm btn-outline-secondary" id="staffBulkResultDismiss">Dismiss</button>';
+    panel.classList.remove('d-none');
+}
+
+document.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'staffBulkResultDismiss') {
+        document.getElementById('staffBulkResult')?.classList.add('d-none');
+        return;
+    }
+    const reviewBtn = e.target.closest('[data-staff-review]');
+    if (!reviewBtn) return;
+    const row = reviewBtn.closest('tr');
+    const drawerEl = document.getElementById('staffSiteReviewDrawer');
+    if (!row || !drawerEl || !window.bootstrap || !bootstrap.Offcanvas) return;
+    const title = document.getElementById('staffSiteReviewTitle');
+    const meta = document.getElementById('staffSiteReviewMeta');
+    const actions = document.getElementById('staffSiteReviewActions');
+    if (title) title.textContent = row.getAttribute('data-review-name') || 'Review site';
+    if (meta) {
+        meta.textContent = '';
+        const bits = [row.getAttribute('data-review-url') || '', row.getAttribute('data-review-metrics') || ''].filter(Boolean);
+        meta.appendChild(document.createTextNode(bits.join(' · ')));
+        const reason = row.querySelector('.min-w-0 .small.text-muted.mt-1');
+        if (reason) {
+            const line = document.createElement('div');
+            line.className = 'mt-2';
+            line.textContent = reason.textContent.trim();
+            meta.appendChild(line);
+        }
+        const catalog = row.querySelector('a[href*="/catalog"]');
+        if (catalog) {
+            const link = catalog.cloneNode(true);
+            link.className = 'd-block mt-2';
+            meta.appendChild(link);
+        }
+    }
+    if (actions) {
+        actions.innerHTML = '';
+        row.querySelectorAll('.staff-queue-actions a, .staff-queue-actions button').forEach(function (el) {
+            if (el.hasAttribute('data-staff-review')) return;
+            actions.appendChild(el.cloneNode(true));
+        });
+    }
+    bootstrap.Offcanvas.getOrCreateInstance(drawerEl).show();
+});
+
+renderStaffBulkResult();
+
 function bulkRoot(scope) {
     if (scope === 'flat') return document.querySelector('[data-flat-queue]');
     if (scope === 'all') return document.querySelector('[data-all-sites]');
@@ -2444,12 +2423,21 @@ document.addEventListener('click', function (e) {
             body: JSON.stringify(body),
         }).then(async function (res) {
             const data = await res.json().catch(function () { return {}; });
+            try {
+                sessionStorage.setItem('staffBulkResult', JSON.stringify({
+                    message: data.message || (res.ok ? 'Updated' : 'Could not update the selection.'),
+                    skipped: Array.isArray(data.skipped) ? data.skipped : [],
+                    matched_total: data.matched_total || null,
+                    processed: data.processed || null,
+                }));
+            } catch (e) { /* keep the toast if storage is blocked */ }
             toast(data.message || (res.ok ? 'Updated' : 'Could not update the selection.'), res.ok ? 'success' : 'warning');
-            if (!res.ok) return;
             if (scope === 'flat' || scope === 'all') {
                 window.location.reload();
                 return;
             }
+            renderStaffBulkResult();
+            if (!res.ok) return;
             const userId = sessionStorage.getItem('selected_user');
             if (userId) fetchUserSites(userId);
         }).catch(function () {

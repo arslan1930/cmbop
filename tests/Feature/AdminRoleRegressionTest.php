@@ -377,7 +377,7 @@ class AdminRoleRegressionTest extends TestCase
             ->get(route('admin.bulk-site-requests.index'))
             ->assertOk()
             ->assertSee((string) $publisher->name)
-            ->assertSee('—');
+            ->assertSee('Unclaimed', false);
     }
 
     public function test_bulk_requests_index_survives_missing_onboarding_status(): void

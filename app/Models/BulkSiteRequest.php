@@ -342,13 +342,58 @@ class BulkSiteRequest extends Model
     }
 
     /**
+     * This batch still stops the publisher from submitting another bulk.
+     */
+    public function blocksPublisherNewBulk(): bool
+    {
+        if ($this->isCancelled()) {
+            return false;
+        }
+
+        $pendingItems = array_key_exists('pending_items_count', $this->getAttributes())
+            ? (int) $this->pending_items_count
+            : $this->pendingItemsCount();
+        $sitesCount = array_key_exists('sites_count', $this->getAttributes())
+            ? (int) $this->sites_count
+            : $this->sites()->notArchived()->count();
+
+        if ($this->status !== self::STATUS_COMPLETED) {
+            if ($pendingItems > 0 || $sitesCount > 0) {
+                return true;
+            }
+
+            return (int) $this->estimated_count > 0
+                && $this->items()->doesntExist()
+                && $sitesCount === 0;
+        }
+
+        $pendingPublisher = array_key_exists('awaiting_details_count', $this->getAttributes())
+            || array_key_exists('reviewing_count', $this->getAttributes())
+            ? (int) ($this->awaiting_details_count ?? 0) + (int) ($this->reviewing_count ?? 0)
+            : $this->pendingPublisherCount();
+
+        return $pendingItems > 0 || $pendingPublisher > 0;
+    }
+
+    /**
      * Marketer-facing status label for queue clarity.
      */
     public function statusLabel(): string
     {
-        if ($this->status === self::STATUS_COMPLETED
-            && $this->sites()->doesntExist()
-            && ! $this->hasPendingItems()) {
+        if ($this->status === self::STATUS_COMPLETED) {
+            $pendingItems = array_key_exists('pending_items_count', $this->getAttributes())
+                ? (int) $this->pending_items_count
+                : $this->pendingItemsCount();
+            if ($pendingItems > 0) {
+                return self::statusLabelFor(self::STATUS_REQUESTED);
+            }
+            $ready = array_key_exists('ready_count', $this->getAttributes())
+                ? (int) $this->ready_count
+                : $this->readyForReviewCount();
+            if ($ready > 0) {
+                return 'Verify on Sites';
+            }
+
             return 'Finished';
         }
 
@@ -362,7 +407,7 @@ class BulkSiteRequest extends Model
             self::STATUS_SHEET_SENT => 'Sheet emailed',
             self::STATUS_SEEDED => 'Drafts seeded',
             self::STATUS_AWAITING_PUBLISHER => 'Waiting on publisher',
-            self::STATUS_COMPLETED => 'Completed — ready to verify',
+            self::STATUS_COMPLETED => 'Finished',
             self::STATUS_CANCELLED => 'Cancelled',
             default => str_replace('_', ' ', (string) $status),
         };

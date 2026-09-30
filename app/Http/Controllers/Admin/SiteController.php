@@ -12,6 +12,7 @@ use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
 use App\Models\Category;
 use App\Models\Country;
+use App\Models\InAppNotification;
 use App\Models\Language;
 use App\Models\Site;
 use App\Models\User;
@@ -77,6 +78,12 @@ class SiteController extends Controller
                 'needsReviewFilterActive' => false,
                 'openReviewCount' => 0,
                 'missingMarketCount' => 0,
+                'missingMarketListCount' => 0,
+                'scanFailedListCount' => 0,
+                'belowQualityListCount' => 0,
+                'liveUnverifiedCount' => 0,
+                'placeholderListCount' => 0,
+                'missingCoverListCount' => 0,
                 'healthCounts' => CatalogHealthQueue::emptyCounts(),
                 'waitingOnPublisherFilterActive' => false,
                 'waitingOnPublisherCount' => 0,
@@ -90,6 +97,10 @@ class SiteController extends Controller
                 'staffSiteFilters' => $this->staffSitesListFilterState($request),
                 'listingTagOptions' => SiteTag::catalogFilterOptions(),
                 'marketplaceCountries' => collect(),
+                'marketplaceLanguages' => collect(),
+                'nicheOptions' => [],
+                'waitingStageCounts' => ['filling' => 0, 'reviewing' => 0, 'accept' => 0],
+                'waitingStage' => '',
             ]);
         }
     }
@@ -177,6 +188,7 @@ class SiteController extends Controller
             'listing_active' => '1',
             'missing_market' => true,
         ]);
+        $scanFailedListCount = $this->staffSitesFilterTotal(['scan_failed' => true]);
         $healthCounts = CatalogHealthQueue::counts();
         $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
         $flatQueueSites = null;
@@ -191,7 +203,7 @@ class SiteController extends Controller
                 'query' => $listQuery,
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesWaitingOnPublisher($waitingStage !== '' ? $waitingStage : null)
-                ->with($this->staffPublisherWith())
+                ->with($this->staffSiteRowWith())
                 ->when(Schema::hasTable('order_items'), fn ($q) => $q->withCount('orderItems'));
             $this->applyStaffIndexSiteOrPublisherSearch($flatQueueSites, $publisherSearch);
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
@@ -207,7 +219,7 @@ class SiteController extends Controller
                 'query' => $listQuery,
             ]);
             $flatQueueSites = MarketingOpsQueues::sitesReadyForStaff()
-                ->with($this->staffPublisherWith())
+                ->with($this->staffSiteRowWith())
                 ->when(Schema::hasTable('order_items'), fn ($q) => $q->withCount('orderItems'));
             $this->applyStaffIndexSiteOrPublisherSearch($flatQueueSites, $publisherSearch);
             $this->applyStaffSitesListFilters($flatQueueSites, $staffSiteFilters);
@@ -339,6 +351,10 @@ class SiteController extends Controller
                 ->appends($request->except(['page', 'publisher']));
         }
 
+        if ($flatQueueSites && $flatQueueSites->total() > self::EXPORT_LIMIT) {
+            $sitesExportLimited = true;
+        }
+
         $sitesExportUrl = staff_route('sites.export', $this->staffSitesExportQuery($request));
 
         return view('admin.sites', compact(
@@ -355,6 +371,7 @@ class SiteController extends Controller
             'placeholderListCount',
             'missingCoverListCount',
             'missingMarketListCount',
+            'scanFailedListCount',
             'missingMarketCount',
             'healthCounts',
             'publisherSearch',
@@ -400,6 +417,17 @@ class SiteController extends Controller
             'placeholder' => ! empty($filters['placeholder']) ? 1 : null,
             'missing_cover' => ! empty($filters['missing_cover']) ? 1 : null,
             'bulk_request' => ! empty($filters['bulk_request']) ? 1 : null,
+            'scan_failed' => ! empty($filters['scan_failed']) ? 1 : null,
+            'copy_strike' => ! empty($filters['copy_strike']) ? 1 : null,
+            'has_orders' => ! empty($filters['has_orders']) ? 1 : null,
+            'featured' => ! empty($filters['featured']) ? 1 : null,
+            'bulk_discount' => ! empty($filters['bulk_discount']) ? 1 : null,
+            'csv_metrics' => ! empty($filters['csv_metrics']) ? 1 : null,
+            'price_min' => $filters['price_min'] ?? null,
+            'price_max' => $filters['price_max'] ?? null,
+            'traffic_min' => $filters['traffic_min'] ?? null,
+            'da_min' => $filters['da_min'] ?? null,
+            'metrics_age' => ($filters['metrics_age'] ?? '') !== '' ? $filters['metrics_age'] : null,
             'language' => ($filters['language'] ?? '') !== '' ? $filters['language'] : null,
             'niche' => ($filters['niche'] ?? '') !== '' ? $filters['niche'] : null,
             'archived' => ! empty($filters['archived']) ? 1 : null,
@@ -422,6 +450,57 @@ class SiteController extends Controller
         }
 
         return $query;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function staffSiteRowWith(): array
+    {
+        $with = [$this->staffPublisherWith()];
+        if (Site::hasSitesColumn('status_reason_by')) {
+            $with[] = 'statusReasonAuthor:id,name';
+        }
+
+        return $with;
+    }
+
+    /**
+     * CSV follows the queue on screen: review, waiting on publisher, or all sites.
+     *
+     * @return Builder<Site>
+     */
+    private function staffExportSitesQuery(Request $request): Builder
+    {
+        $filters = $this->staffSitesListFilterState($request);
+        $search = trim(scalar_text($request->query('q', '')));
+        $queue = null;
+        $defaultSort = 'newest';
+
+        if ($request->boolean('waiting_on_publisher')) {
+            $stage = ($filters['waiting_stage'] ?? '') !== '' ? $filters['waiting_stage'] : null;
+            $queue = MarketingOpsQueues::sitesWaitingOnPublisher($stage);
+            $defaultSort = 'oldest';
+        } elseif ($request->boolean('needs_review')
+            || $request->query('verified') === '0'
+            || $request->query('verified') === 0) {
+            $queue = MarketingOpsQueues::sitesReadyForStaff();
+            $defaultSort = 'oldest';
+        }
+
+        if ($queue === null) {
+            return $this->staffAllSitesQuery($request, $search, $filters);
+        }
+
+        $queue->with($this->staffSiteRowWith());
+        if (Schema::hasTable('order_items')) {
+            $queue->withCount('orderItems');
+        }
+        $this->applyStaffIndexSiteOrPublisherSearch($queue, $search);
+        $this->applyStaffSitesListFilters($queue, $filters);
+        $this->applyStaffSitesListSort($queue, (string) ($filters['sort'] ?? ''), $defaultSort);
+
+        return $queue;
     }
 
     private function staffPublisherWith(): string
@@ -447,7 +526,7 @@ class SiteController extends Controller
         $filters ??= $this->staffSitesListFilterState($request);
         $search ??= trim(scalar_text($request->query('q', '')));
 
-        $query = Site::query()->with($this->staffPublisherWith());
+        $query = Site::query()->with($this->staffSiteRowWith());
         if (Schema::hasTable('order_items')) {
             $query->withCount('orderItems');
         }
@@ -463,7 +542,7 @@ class SiteController extends Controller
     {
         $matchCount = 0;
         try {
-            $query = $this->staffAllSitesQuery($request);
+            $query = $this->staffExportSitesQuery($request);
             $matchCount = (clone $query)->count();
             $rows = $query->limit(self::EXPORT_LIMIT)->get();
         } catch (\Throwable $e) {
@@ -1666,6 +1745,9 @@ class SiteController extends Controller
             'bulk_discount_percent',
             'original_price',
             'added_from_bulk_request',
+            'status_reason',
+            'status_reason_at',
+            'status_reason_by',
             'created_at',
             'updated_at',
         ];
@@ -1950,6 +2032,10 @@ class SiteController extends Controller
             $language = '';
         }
         $niche = trim(scalar_text($request->query('niche', $request->input('niche', ''))));
+        $metricsAge = trim(scalar_text($request->query('metrics_age', $request->input('metrics_age', ''))));
+        if (! in_array($metricsAge, ['30', '90', 'never'], true)) {
+            $metricsAge = '';
+        }
 
         return [
             'tag' => $tag,
@@ -1963,10 +2049,41 @@ class SiteController extends Controller
             'placeholder' => $this->requestFlag($request, 'placeholder'),
             'missing_cover' => $this->requestFlag($request, 'missing_cover'),
             'bulk_request' => $this->requestFlag($request, 'bulk_request'),
+            'scan_failed' => $this->requestFlag($request, 'scan_failed'),
+            'copy_strike' => $this->requestFlag($request, 'copy_strike'),
+            'has_orders' => $this->requestFlag($request, 'has_orders'),
+            'featured' => $this->requestFlag($request, 'featured'),
+            'bulk_discount' => $this->requestFlag($request, 'bulk_discount'),
+            'csv_metrics' => $this->requestFlag($request, 'csv_metrics'),
+            'price_min' => $this->staffOptionalNumber($request->query('price_min', $request->input('price_min'))),
+            'price_max' => $this->staffOptionalNumber($request->query('price_max', $request->input('price_max'))),
+            'traffic_min' => $this->staffOptionalInt($request->query('traffic_min', $request->input('traffic_min'))),
+            'da_min' => $this->staffOptionalInt($request->query('da_min', $request->input('da_min'))),
+            'metrics_age' => $metricsAge,
             'archived' => $this->requestFlag($request, 'archived'),
             'waiting_stage' => MarketingOpsQueues::normalizeWaitingStage($request->query('waiting_stage', $request->input('waiting_stage'))) ?? '',
             'sort' => $this->staffSitesListSortKey($request->query('sort', $request->input('sort'))),
         ];
+    }
+
+    private function staffOptionalNumber(mixed $value): ?float
+    {
+        $text = trim(scalar_text($value));
+        if ($text === '' || ! is_numeric($text)) {
+            return null;
+        }
+
+        return round((float) $text, 2);
+    }
+
+    private function staffOptionalInt(mixed $value): ?int
+    {
+        $text = trim(scalar_text($value));
+        if ($text === '' || ! ctype_digit($text)) {
+            return null;
+        }
+
+        return (int) $text;
     }
 
     /**
@@ -1984,7 +2101,18 @@ class SiteController extends Controller
             || ! empty($filter['missing_market'])
             || ! empty($filter['placeholder'])
             || ! empty($filter['missing_cover'])
-            || ! empty($filter['bulk_request']);
+            || ! empty($filter['bulk_request'])
+            || ! empty($filter['scan_failed'])
+            || ! empty($filter['copy_strike'])
+            || ! empty($filter['has_orders'])
+            || ! empty($filter['featured'])
+            || ! empty($filter['bulk_discount'])
+            || ! empty($filter['csv_metrics'])
+            || ($filter['price_min'] ?? null) !== null
+            || ($filter['price_max'] ?? null) !== null
+            || ($filter['traffic_min'] ?? null) !== null
+            || ($filter['da_min'] ?? null) !== null
+            || ($filter['metrics_age'] ?? '') !== '';
     }
 
     private function staffSitesListSortKey(mixed $sort): string
@@ -2063,6 +2191,79 @@ class SiteController extends Controller
 
         if (! empty($filter['missing_cover'])) {
             CatalogHealthQueue::apply($query, CatalogHealthQueue::MISSING_COVER);
+        }
+
+        if (! empty($filter['scan_failed'])) {
+            if (Site::hasSitesColumn('enrichment_status')) {
+                $query->where('enrichment_status', 'failed');
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if (! empty($filter['copy_strike'])) {
+            $query->whereHas('publisher', function ($publisher) {
+                if (Schema::hasColumn('users', 'catalog_hide_until')) {
+                    $publisher->where('catalog_hide_until', '>', now());
+                } else {
+                    $publisher->whereRaw('1 = 0');
+                }
+            });
+        }
+
+        if (! empty($filter['has_orders'])) {
+            if (Schema::hasTable('order_items')) {
+                $query->whereHas('orderItems');
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if (! empty($filter['featured']) && Site::hasSitesColumn('featured_until')) {
+            $query->where('featured_until', '>', now());
+        } elseif (! empty($filter['featured'])) {
+            $query->whereRaw('1 = 0');
+        }
+
+        if (! empty($filter['bulk_discount'])) {
+            if (Site::hasSitesColumn('bulk_discount_enabled') && Site::hasSitesColumn('bulk_discount_percent')) {
+                $query->where('bulk_discount_enabled', 1)->where('bulk_discount_percent', '>', 0);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if (! empty($filter['csv_metrics'])) {
+            if (Site::hasSitesColumn('agency_site_import_id') && Site::hasSitesColumn('metrics_manual')) {
+                $query->where('agency_site_import_id', '>', 0)->where('metrics_manual', 1);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if (($filter['price_min'] ?? null) !== null && Site::hasSitesColumn('price')) {
+            $query->where('price', '>=', $filter['price_min']);
+        }
+        if (($filter['price_max'] ?? null) !== null && Site::hasSitesColumn('price')) {
+            $query->where('price', '<=', $filter['price_max']);
+        }
+        if (($filter['traffic_min'] ?? null) !== null && Site::hasSitesColumn('traffic')) {
+            $query->where('traffic', '>=', $filter['traffic_min']);
+        }
+        if (($filter['da_min'] ?? null) !== null && Site::hasSitesColumn('da')) {
+            $query->where('da', '>=', $filter['da_min']);
+        }
+
+        $metricsAge = (string) ($filter['metrics_age'] ?? '');
+        if ($metricsAge !== '' && Site::hasSitesColumn('metrics_fetched_at')) {
+            if ($metricsAge === 'never') {
+                $query->whereNull('metrics_fetched_at');
+            } elseif (in_array($metricsAge, ['30', '90'], true)) {
+                $cutoff = now()->subDays((int) $metricsAge);
+                $query->where(function ($q) use ($cutoff) {
+                    $q->whereNull('metrics_fetched_at')->orWhere('metrics_fetched_at', '<', $cutoff);
+                });
+            }
         }
     }
 
@@ -2196,6 +2397,17 @@ class SiteController extends Controller
             'placeholder' => false,
             'missing_cover' => false,
             'bulk_request' => false,
+            'scan_failed' => false,
+            'copy_strike' => false,
+            'has_orders' => false,
+            'featured' => false,
+            'bulk_discount' => false,
+            'csv_metrics' => false,
+            'price_min' => null,
+            'price_max' => null,
+            'traffic_min' => null,
+            'da_min' => null,
+            'metrics_age' => '',
             'archived' => false,
         ], $overrides);
 
@@ -2881,7 +3093,7 @@ class SiteController extends Controller
         ]);
     }
 
-    public function createBulkForPublisher(Request $request): \Illuminate\View\View
+    public function createBulkForPublisher(Request $request): View
     {
         $rawSelectedPublisher = old('publisher_id', $request->query('publisher', 0));
         if (is_array($rawSelectedPublisher)) {
@@ -3062,9 +3274,9 @@ class SiteController extends Controller
                 [
                     'category' => InAppNotificationService::CATEGORY_ACCOUNT,
                     'icon' => 'check-circle',
-                    'priority' => \App\Models\InAppNotification::PRIORITY_HIGH,
+                    'priority' => InAppNotification::PRIORITY_HIGH,
                     'related' => $sites[0] ?? null,
-                    'audience' => \App\Models\InAppNotification::AUDIENCE_PUBLISHER,
+                    'audience' => InAppNotification::AUDIENCE_PUBLISHER,
                     'action_label' => 'Review & accept',
                     'action_url' => route('publisher.websites', ['status' => 'invites'], false),
                 ]
@@ -4277,7 +4489,7 @@ class SiteController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, User>
+     * @return Collection<int, User>
      */
     private function publishersForStaffAssign(int $selectedPublisherId)
     {
@@ -5517,10 +5729,24 @@ class SiteController extends Controller
             $message .= ' First '.count($data['ids']).' of '.$matchedTotal.'.';
         }
 
+        $skipIds = array_values(array_filter(array_map(
+            static fn ($row) => (int) ($row['id'] ?? 0),
+            $skipped
+        )));
+        $names = $skipIds === []
+            ? collect()
+            : Site::query()->whereIn('id', $skipIds)->pluck('site_name', 'id');
+        foreach ($skipped as $index => $row) {
+            $id = (int) ($row['id'] ?? 0);
+            $skipped[$index]['name'] = (string) ($names[$id] ?? ('Site #'.$id));
+        }
+
         return response()->json([
             'success' => $updated !== [],
             'updated' => $updated,
             'skipped' => $skipped,
+            'matched_total' => $matchedTotal,
+            'processed' => count($data['ids'] ?? []),
             'message' => $message,
         ], $updated !== [] ? 200 : 422);
     }

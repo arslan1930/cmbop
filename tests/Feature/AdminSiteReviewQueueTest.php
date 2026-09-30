@@ -433,4 +433,42 @@ class AdminSiteReviewQueueTest extends TestCase
         $this->assertTrue((bool) $byId[$activated->id]['active']);
         $this->assertTrue((bool) $byId[$verified->id]['verified']);
     }
+
+    public function test_sites_index_keeps_queue_strip_and_review_drawer(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->makePendingSite($publisher, [
+            'site_name' => 'Strip Queue Site',
+        ]);
+        $site->forceFill(['created_at' => now()->subDays(10)])->save();
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.sites.index', ['needs_review' => 1, 'flat' => 1]))
+            ->assertOk()
+            ->assertSee('staff-sites-strip', false)
+            ->assertSee('Needs review', false)
+            ->assertSee('Waiting on publisher', false)
+            ->assertSee('Live unverified', false)
+            ->assertSee('Scan failed', false)
+            ->assertSee('Add site for publisher', false)
+            ->assertSee('Websites records sheet', false)
+            ->assertSee('Not live yet. The publisher has submitted the listing.', false)
+            ->assertSee('data-staff-review', false)
+            ->assertSee('staffSiteReviewDrawer', false)
+            ->assertSee('>CSV</a>', false)
+            ->assertSee('Listed', false)
+            ->assertSee('10d', false)
+            ->getContent();
+
+        $flatStart = strpos($html, 'data-flat-queue="1"');
+        $usersStart = strpos($html, 'id="usersSection"');
+        $this->assertNotFalse($flatStart);
+        $this->assertNotFalse($usersStart);
+        $flatHtml = substr($html, $flatStart, $usersStart - $flatStart);
+        $this->assertSame(1, substr_count($flatHtml, 'name="q"'));
+        $this->assertStringNotContainsString('type="hidden" name="q"', $flatHtml);
+        $this->assertStringContainsString('renderStaffBulkResult', $html);
+        $this->assertStringContainsString('View in catalog', $html);
+    }
 }

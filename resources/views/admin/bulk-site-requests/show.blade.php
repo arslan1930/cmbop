@@ -3,17 +3,46 @@
 @section('content')
 <div class="container-fluid bulk-request-show">
     <div class="bulk-request-show__header">
-        <a href="{{ staff_route('bulk-site-requests.index') }}" class="small text-muted text-decoration-none">
-            ← Bulk requests
-        </a>
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+            <a href="{{ staff_route('bulk-site-requests.index') }}" class="small text-muted text-decoration-none">
+                ← Bulk requests
+            </a>
+            <span class="d-flex flex-wrap gap-2">
+                @if(!empty($neighbors['previous']))
+                    <a href="{{ staff_route('bulk-site-requests.show', $neighbors['previous']) }}" class="small">Previous waiting</a>
+                @endif
+                @if(!empty($neighbors['next']))
+                    <a href="{{ staff_route('bulk-site-requests.show', $neighbors['next']) }}" class="small">Next waiting</a>
+                @endif
+            </span>
+        </div>
         <h3 class="bulk-request-show__title">Bulk request #{{ $bulkRequest->id }}</h3>
         <p class="text-muted small mb-0">
-            Publisher: <strong>{{ $bulkRequest->publisher?->name ?? 'Unknown' }}</strong>
-            ({{ $bulkRequest->publisher?->email ?? '—' }})
+            Publisher:
+            @if(auth()->user()?->isAdmin() && $bulkRequest->publisher)
+                <a href="{{ route('admin.users.show', $bulkRequest->publisher) }}"><strong>{{ $bulkRequest->publisher->name }}</strong></a>
+            @else
+                <strong>{{ $bulkRequest->publisher?->name ?? 'Unknown' }}</strong>
+            @endif
+            @if($bulkRequest->publisher?->email)
+                <a href="mailto:{{ $bulkRequest->publisher->email }}">({{ $bulkRequest->publisher->email }})</a>
+            @else
+                (—)
+            @endif
             · Status: <strong>{{ $bulkRequest->statusLabel() }}</strong>
-            · Sites submitted: {{ $bulkRequest->items->count() ?: ($bulkRequest->estimated_count ?? '—') }}
             · Pending to add: {{ $pendingItems->count() }}
+            · Sites added: {{ $bulkRequest->sites->count() }}
+            · Handler: <strong>{{ $bulkRequest->handler?->name ?? 'Unclaimed' }}</strong>
+            @if($bulkRequest->created_at)
+                · Waiting {{ (int) \Illuminate\Support\Carbon::parse($bulkRequest->created_at)->diffInDays(now()) === 0 ? 'today' : ((int) \Illuminate\Support\Carbon::parse($bulkRequest->created_at)->diffInDays(now())).'d' }}
+            @endif
         </p>
+        @if(! $bulkRequest->isCancelled() && (int) $bulkRequest->handled_by !== (int) auth()->id())
+            <form method="POST" action="{{ staff_route('bulk-site-requests.claim', $bulkRequest, false) }}" class="mt-2">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-outline-primary">I’m on this</button>
+            </form>
+        @endif
     </div>
 
     @if(session('seed_failures'))
@@ -95,57 +124,50 @@
         </div>
 
         <div class="col-lg-8 bulk-request-main">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h6 class="fw-semibold mb-1">Publisher submitted (URL + price only)</h6>
-                    <p class="small text-muted mb-3">
-                        Review each website, then fill <strong>Language, Country, DA, DR, Traffic, and Niches</strong> per row before Done.
-                        <strong>Publish now</strong> puts filled rows live (active, not verified). <strong>Send for review</strong> lets the publisher Accept (goes live) or Edit (then you Activate). The publisher is notified.
-                    </p>
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Website URL</th>
-                                    <th>Price</th>
-                                    <th>Domain</th>
-                                    <th>Added?</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($bulkRequest->items as $item)
-                                    <tr>
-                                        <td>
-                                            <a href="{{ $item->site_url }}" target="_blank" rel="noopener noreferrer">
-                                                {{ $item->site_url }}
-                                            </a>
-                                        </td>
-                                        <td>€{{ number_format((float) $item->price, 2) }}</td>
-                                        <td class="small text-muted">{{ $item->domain }}</td>
-                                        <td>
-                                            @if($item->site_id)
-                                                <span class="badge text-bg-success">Yes</span>
-                                            @elseif($bulkRequest->isCancelled())
-                                                <span class="badge text-bg-secondary">Cancelled</span>
-                                            @else
-                                                <span class="badge text-bg-light border">Pending</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="text-muted text-center py-3">
-                                            No URL + price rows (legacy request before in-app submission).
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+            <p class="small text-muted mb-0">
+                {{ $pendingItems->count() }} pending to add · {{ $bulkRequest->items->count() - $pendingItems->count() }} already added.
+                Review each website in Done below.
+            </p>
         </div>
     </div>
+
+    @php
+        $seedStarter = $pendingItems->map(function ($item) {
+            return $item->site_url.','.$item->price.',0,0,0,country,lang,Site name,https://example.com/sample,3days,permanent,dofollow,as_you_prefer,Niche,Description of at least 50 characters about guest posts on this site.';
+        })->implode("\n");
+    @endphp
+    @if($bulkRequest->canAddDraftSites() && $pendingItems->isNotEmpty())
+    <details class="card border-0 shadow-sm mb-3">
+        <summary class="card-body py-3 fw-semibold" style="cursor:pointer;">Advanced: paste per-row metrics into Done</summary>
+        <div class="card-body pt-0">
+            <p class="small text-muted mb-3">
+                Optional paste when the listing details differ per site.
+                A cover image cannot be pasted. Valid rows fill the Done form below. Upload each cover there, then Done.
+                Columns: <code>url,price,da,dr,traffic,country,language,site_name,example_url,turnaround,publication,link_type,tag,niches,description</code>
+                Niches use <code>|</code> inside that column. The description is the rest of the line.
+                Turnaround is <code>24h</code>, <code>48h</code>, <code>3days</code>, <code>5days</code>, or <code>7days</code>.
+                Publication is <code>6months</code>, <code>1year</code>, or <code>permanent</code>.
+                Link type is <code>dofollow</code> or <code>nofollow</code>.
+                Tag is <code>none</code>, <code>sponsored</code>, <code>partner_material</code>, or <code>as_you_prefer</code>.
+                Only pending URL + price domains from this request can be seeded here.
+            </p>
+            <div class="small mb-2">
+                <span class="text-muted">Starter from pending URL + price (replace country/lang and metrics):</span>
+                <pre class="bg-light border rounded p-2 small mb-2 mt-1" id="bulkSeedStarter" style="max-height:8rem;overflow:auto;">{{ $seedStarter }}</pre>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkCopySeedStarter">Copy starter into box</button>
+            </div>
+            <form method="POST" action="{{ staff_route('bulk-site-requests.seed', $bulkRequest, false) }}">
+                @csrf
+                <textarea name="rows" id="bulkSeedRows" class="form-control font-monospace small @error('rows') is-invalid @enderror" rows="8"
+                          placeholder="https://example.com,99,40,45,12000,de,de,Example Blog,https://example.com/sample,3days,permanent,dofollow,as_you_prefer,Business &amp; Finance,Guest posts on this website stay published and the link remains dofollow for advertisers.">{{ old_text('rows', $seedStarter) }}</textarea>
+                @error('rows')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                <button type="submit" class="btn btn-outline-primary btn-sm mt-2">
+                    Check pasted rows
+                </button>
+            </form>
+        </div>
+    </details>
+    @endif
 
     <div class="card border-0 shadow-sm border-primary-subtle bulk-request-done">
                 <div class="card-body">
@@ -154,6 +176,7 @@
                         <strong>{{ $pendingItems->count() }}</strong> website(s) still pending
                         (publisher + marketer share a {{ \App\Models\BulkSiteRequest::MAX_SITES_PER_REQUEST }}-site batch limit).
                         Fill every required field on a row — language, country, DA, DR, traffic, niches, sample article, turnaround, publication time, link type, listing tag, description, and site image — then choose one action for the filled rows.
+                        You can complete one row, several, or all at once; the rest stay here until you fill them.
                         <strong>Publish now</strong> puts filled rows live (active, not verified) and tells the publisher they are on the account.
                         <strong>Send for review</strong> leaves them off the catalog until the publisher Accepts (then they go live, not verified) or Edits (then they show in Sites → Needs review for you to Activate).
                         Either way the site is marked Bulk request. Unfilled rows stay here.
@@ -766,46 +789,6 @@
         <div class="col-12 bulk-request-stack">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <h6 class="fw-semibold mb-1">Advanced: seed with per-row metrics</h6>
-                    <p class="small text-muted mb-3">
-                        Optional paste when the listing details differ per site.
-                        A cover image cannot be pasted. Valid rows fill the Done form below. Upload each cover there, then Done.
-                        Columns: <code>url,price,da,dr,traffic,country,language,site_name,example_url,turnaround,publication,link_type,tag,niches,description</code>
-                        Niches use <code>|</code> inside that column. The description is the rest of the line.
-                        Turnaround is <code>24h</code>, <code>48h</code>, <code>3days</code>, <code>5days</code>, or <code>7days</code>.
-                        Publication is <code>6months</code>, <code>1year</code>, or <code>permanent</code>.
-                        Link type is <code>dofollow</code> or <code>nofollow</code>.
-                        Tag is <code>none</code>, <code>sponsored</code>, <code>partner_material</code>, or <code>as_you_prefer</code>.
-                        @if($pendingItems->isNotEmpty())
-                            Only pending URL + price domains from this request can be seeded here.
-                        @endif
-                    </p>
-                    @php
-                        $seedStarter = $pendingItems->map(function ($item) {
-                            return $item->site_url.','.$item->price.',0,0,0,country,lang,Site name,https://example.com/sample,3days,permanent,dofollow,as_you_prefer,Niche,Description of at least 50 characters about guest posts on this site.';
-                        })->implode("\n");
-                    @endphp
-                    @if($seedStarter !== '')
-                        <div class="small mb-2">
-                            <span class="text-muted">Starter from pending URL + price (replace country/lang and metrics):</span>
-                            <pre class="bg-light border rounded p-2 small mb-2 mt-1" id="bulkSeedStarter" style="max-height:8rem;overflow:auto;">{{ $seedStarter }}</pre>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkCopySeedStarter">Copy starter into box</button>
-                        </div>
-                    @endif
-                    <form method="POST" action="{{ staff_route('bulk-site-requests.seed', $bulkRequest, false) }}">
-                        @csrf
-                        <textarea name="rows" id="bulkSeedRows" class="form-control font-monospace small @error('rows') is-invalid @enderror" rows="8"
-                                  placeholder="https://example.com,99,40,45,12000,de,de,Example Blog,https://example.com/sample,3days,permanent,dofollow,as_you_prefer,Business &amp; Finance,Guest posts on this website stay published and the link remains dofollow for advertisers.">{{ old_text('rows', $seedStarter) }}</textarea>
-                        @error('rows')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <button type="submit" class="btn btn-outline-primary btn-sm mt-2" @disabled(! $bulkRequest->canAddDraftSites())>
-                            Check pasted rows
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
                     <h6 class="fw-semibold mb-3">Sites on publisher panel ({{ $bulkRequest->sites->count() }})</h6>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
@@ -821,6 +804,14 @@
                             </thead>
                             <tbody>
                                 @forelse($bulkRequest->sites as $site)
+                                    @php
+                                        $catalogDomain = trim((string) ($site->domain ?: ''));
+                                        $openUrl = staff_route('sites.index', array_filter([
+                                            'publisher' => $site->publisher_id,
+                                            'site' => $site->id,
+                                        ]));
+                                        $catalogUrl = $catalogDomain !== '' ? route('advertiser.catalog', ['search' => $catalogDomain]) : null;
+                                    @endphp
                                     <tr id="bulk-site-row-{{ $site->id }}">
                                         <td>
                                             <div class="fw-semibold">{{ $site->site_name }}</div>
@@ -830,12 +821,16 @@
                                         <td>{{ $site->dr }} / {{ $site->da }}</td>
                                         <td class="text-uppercase small">{{ $site->country }} / {{ $site->language }}</td>
                                         <td>
-                                            <span class="badge text-bg-light border text-capitalize">
-                                                {{ str_replace('_', ' ', $site->onboarding_status ?? '—') }}
+                                            <span class="badge text-bg-light border">
+                                                {{ \App\Support\MarketingOpsQueues::siteQueueLabel($site) }}
                                             </span>
                                         </td>
                                         <td class="text-end text-nowrap">
+                                            <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
                                             <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                            @if($catalogUrl)
+                                                <a href="{{ $catalogUrl }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener">View in catalog</a>
+                                            @endif
                                             @if($canDeleteDrafts && (auth()->user()->isAdmin() || $site->canBeDeletedByMarketing()))
                                                 <button type="button"
                                                         class="btn btn-sm btn-outline-danger bulk-draft-delete"

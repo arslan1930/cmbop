@@ -17,6 +17,9 @@ class MarketingOpsQueues
     /** Bulk index `?status=` value for marketer-actionable rows (not a DB enum). */
     public const FILTER_NEEDS_MARKETER = 'needs_marketer';
 
+    /** Seeded drafts with the publisher and no leftover Done rows. */
+    public const FILTER_WAITING_PUBLISHER = 'waiting_publisher';
+
     /**
      * Sites ready for staff activate / review (not publisher drafts or invites).
      *
@@ -182,6 +185,9 @@ class MarketingOpsQueues
         return match ($status) {
             '', 'all' => $query,
             self::FILTER_NEEDS_MARKETER => $query->where(fn ($q) => self::constrainWaitingOnMarketer($q)),
+            self::FILTER_WAITING_PUBLISHER => $query->where(fn ($q) => self::constrainWaitingOnPublisherBulk($q)),
+            BulkSiteRequest::STATUS_COMPLETED => $query->where('status', BulkSiteRequest::STATUS_COMPLETED)
+                ->where(fn ($q) => self::constrainBulkFinished($q)),
             default => $query->where('status', $status),
         };
     }
@@ -239,9 +245,34 @@ class MarketingOpsQueues
      */
     public static function bulkWaitingOnPublisher(): Builder
     {
-        return BulkSiteRequest::query()
-            ->where('status', BulkSiteRequest::STATUS_AWAITING_PUBLISHER)
+        return BulkSiteRequest::query()->where(fn ($q) => self::constrainWaitingOnPublisherBulk($q));
+    }
+
+    /**
+     * @param  Builder<BulkSiteRequest>  $q
+     */
+    public static function constrainWaitingOnPublisherBulk(Builder $q): void
+    {
+        $q->where('status', BulkSiteRequest::STATUS_AWAITING_PUBLISHER)
             ->whereDoesntHave('items', fn ($items) => $items->whereNull('site_id'));
+    }
+
+    /**
+     * Completed with no leftover Done rows and no publisher-stage sites.
+     *
+     * @param  Builder<BulkSiteRequest>  $q
+     */
+    public static function constrainBulkFinished(Builder $q): void
+    {
+        $q->whereDoesntHave('items', fn ($items) => $items->whereNull('site_id'));
+        if (Site::hasSitesColumn('onboarding_status')) {
+            $q->whereDoesntHave('sites', function ($sites) {
+                $sites->notArchived()->whereIn('onboarding_status', [
+                    Site::ONBOARDING_AWAITING_DETAILS,
+                    Site::ONBOARDING_DETAILS_COMPLETE,
+                ]);
+            });
+        }
     }
 
     public static function siteQueueLabel(Site $site): string

@@ -101,8 +101,8 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertStringContainsString('data-min-da="'.Site::GOOD_MIN_DA.'"', $html);
         $this->assertStringContainsString('data-min-dr="'.Site::GOOD_MIN_DR.'"', $html);
         $this->assertStringContainsString('data-min-traffic="'.Site::GOOD_MIN_TRAFFIC.'"', $html);
-        $this->assertStringContainsString('Done below this is allowed', $html);
-        $this->assertStringContainsString('You can still Done this row', $html);
+        $this->assertStringContainsString('Publish now is allowed below that bar', $html);
+        $this->assertStringContainsString('You can still submit this row', $html);
         $this->assertStringContainsString('No categories found', $html);
         $this->assertStringContainsString('Type to search niches', $html);
         $this->assertStringContainsString("emptyId: 'categoryEmpty-", $html);
@@ -369,7 +369,7 @@ class BulkDoneDraftAndNicheUiTest extends TestCase
         $this->assertTrue($this->doneRowIsOpen($html, 'below-bar.example'));
         $row = $this->doneRowHtml($html, 'below-bar.example');
         $this->assertStringContainsString('data-bulk-quality-warn', $row);
-        $this->assertStringContainsString('You can still Done this row', $row);
+        $this->assertStringContainsString('You can still submit this row', $row);
         $this->assertStringContainsString('>Below bar<', $row);
         $this->assertStringNotContainsString('mb-0 d-none', $row);
         $this->assertStringNotContainsString('is-below-bar d-none', $row);

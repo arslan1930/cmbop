@@ -52,6 +52,17 @@ class AdminSiteActivateGuardTest extends TestCase
         $this->publisher->roles()->attach($pubRole->id);
     }
 
+    private function queueRowHtml(string $html, int $siteId): string
+    {
+        $marker = 'data-flat-site-row="'.$siteId.'"';
+        $start = strpos($html, $marker);
+        $this->assertNotFalse($start, $marker);
+        $end = strpos($html, '</tr>', $start);
+        $this->assertNotFalse($end);
+
+        return substr($html, $start, $end - $start);
+    }
+
     private function site(array $overrides = []): Site
     {
         return Site::create(array_merge([
@@ -596,9 +607,10 @@ class AdminSiteActivateGuardTest extends TestCase
             ->assertSee('Admin Thin Queue Site', false)
             ->getContent();
 
-        $this->assertStringContainsString('js-mkt-activate', $html);
-        $this->assertStringContainsString('data-id="'.$site->id.'"', $html);
-        $this->assertStringNotContainsString('disabled', substr($html, (int) strpos($html, 'Admin Thin Queue Site'), 1200));
+        $row = $this->queueRowHtml($html, $site->id);
+        $this->assertStringContainsString('js-mkt-activate', $row);
+        $this->assertStringContainsString('data-id="'.$site->id.'"', $row);
+        $this->assertStringNotContainsString('disabled', $row);
     }
 
     public function test_marketer_flat_queue_disables_activate_below_quality_bar(): void
@@ -622,9 +634,9 @@ class AdminSiteActivateGuardTest extends TestCase
             ->assertSee('Mkt Thin Queue Site', false)
             ->getContent();
 
-        $slice = substr($html, (int) strpos($html, 'Mkt Thin Queue Site'), 1600);
-        $this->assertStringNotContainsString('js-mkt-activate', $slice);
-        $this->assertStringContainsString('disabled', $slice);
+        $row = $this->queueRowHtml($html, $site->id);
+        $this->assertStringNotContainsString('js-mkt-activate', $row);
+        $this->assertStringContainsString('disabled', $row);
         $this->assertStringContainsString('This listing is below the quality bar', $html);
     }
 }

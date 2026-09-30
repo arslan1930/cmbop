@@ -30,18 +30,19 @@
         </label>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="table table-hover align-middle mb-0 staff-queue-table">
             <thead class="table-light">
                 <tr>
                     <th class="admin-num-col"><input type="checkbox" data-staff-bulk-all="all" aria-label="Select all sites on this page"></th>
-                    <th class="admin-num-col">#</th>
+                    <th class="admin-num-col d-none d-md-table-cell">#</th>
                     <th>Site</th>
                     <th>Publisher</th>
-                    <th class="admin-narrow-col">DA / DR</th>
-                    <th>Markets</th>
-                    <th class="admin-narrow-col">Tag</th>
-                    <th class="admin-narrow-col">Traffic</th>
+                    <th class="admin-narrow-col d-none d-md-table-cell">DA / DR</th>
+                    <th class="d-none d-lg-table-cell">Markets</th>
+                    <th class="admin-narrow-col d-none d-lg-table-cell">Tag</th>
+                    <th class="admin-narrow-col d-none d-md-table-cell">Traffic</th>
                     <th class="admin-narrow-col">Price</th>
+                    <th class="admin-narrow-col">Listed</th>
                     <th class="admin-actions-col">Actions</th>
                 </tr>
             </thead>
@@ -68,44 +69,12 @@
                         && ! $hasOrders
                         && ($site->verified || $site->active);
                 @endphp
-                <tr>
+                <tr data-review-name="{{ $site->site_name }}"
+                    data-review-url="{{ $site->site_url }}"
+                    data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
                     <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
-                    <td>{{ $allSites->firstItem() + $index }}</td>
-                    <td>
-                        <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
-                        <div class="small text-muted text-break">{{ $site->site_url }}</div>
-                        <div class="d-flex flex-wrap gap-1 mt-1">
-                            @if($site->verified)
-                                <span class="badge rounded-pill bg-success">Verified</span>
-                            @else
-                                <span class="badge rounded-pill bg-secondary">Unverified</span>
-                            @endif
-                            @if($site->active)
-                                <span class="badge rounded-pill bg-primary">Active</span>
-                            @endif
-                            @if(! $site->hasMarketplaceCountry())
-                                <span class="badge text-bg-danger">Missing market</span>
-                            @endif
-                            @if(! $site->hasGoodMetrics())
-                                <span class="badge text-bg-warning text-dark">Below quality bar</span>
-                            @endif
-                            @if($site->isArchived())
-                                <span class="badge text-bg-secondary">Archived</span>
-                            @endif
-                            @if($site->awaitsPublisherDetails())
-                                <span class="badge text-bg-secondary">Awaiting publisher</span>
-                            @endif
-                            @if($site->hasDetailsComplete())
-                                <span class="badge text-bg-secondary">Publisher reviewing</span>
-                            @endif
-                            @if($site->isPendingPublisherAcceptance())
-                                <span class="badge text-bg-info">Awaiting accept</span>
-                            @endif
-                            @if($site->wasAddedFromBulkRequest())
-                                <span class="badge text-bg-light border">Bulk request</span>
-                            @endif
-                        </div>
-                    </td>
+                    <td class="d-none d-md-table-cell">{{ $allSites->firstItem() + $index }}</td>
+                    <td>@include('admin.sites.partials.queue-site-cell')</td>
                     <td class="small">
                         <div>{{ $site->publisher?->name ?? 'Unknown' }}</div>
                         <div class="text-muted">{{ $site->publisher?->email }}</div>
@@ -113,13 +82,15 @@
                             <span class="badge text-bg-dark">Copy-strike hide</span>
                         @endif
                     </td>
-                    <td class="small">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
-                    <td class="small">@include('admin.sites.partials.row-markets')</td>
-                    <td class="small">{{ $site->tagLabel('No tags') }}</td>
-                    <td>{{ number_format((int) $site->traffic) }}</td>
+                    <td class="small d-none d-md-table-cell">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
+                    <td class="small d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
+                    <td class="small d-none d-lg-table-cell">{{ $site->tagLabel('No tags') }}</td>
+                    <td class="d-none d-md-table-cell">{{ number_format((int) $site->traffic) }}</td>
                     <td>@include('admin.sites.partials.row-price')</td>
-                    <td>
+                    <td class="small">@include('admin.sites.partials.listed-age')</td>
+                    <td class="staff-queue-actions">
                         <div class="d-flex flex-wrap gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-dark" data-staff-review="{{ $site->id }}">Review</button>
                             <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
                             <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary">{{ $isMarketingEditor && $site->isLockedForMarketingEdits() && ! $site->marketingCanEditDescription() ? 'View' : 'Edit' }}</a>
                             @if(auth()->user()?->isAdmin() && ! $site->verified && ! $site->isArchived())
@@ -148,7 +119,14 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10" class="text-center text-muted py-4">No sites match these filters.</td>
+                    <td colspan="11" class="text-center text-muted py-4">
+                        @if(($publisherSearch ?? '') !== '' || count($listQuery ?? []) > 0)
+                            Nothing matches these filters.
+                            <a href="{{ staff_route('sites.index', ['all' => 1]) }}">Clear filters</a>
+                        @else
+                            No sites yet.
+                        @endif
+                    </td>
                 </tr>
             @endforelse
             </tbody>

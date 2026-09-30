@@ -82,7 +82,7 @@
                     <div class="small text-muted mb-1" data-stat-sites-label>
                         {{ (int) $stats['sites_waiting_on_publisher'] === 1 ? 'site' : 'sites' }}
                     </div>
-                    <a href="{{ route('marketing.bulk-site-requests.index', ['status' => 'awaiting_publisher']) }}" class="small text-muted" data-stat-bulk="{{ $stats['bulk_waiting_on_publisher'] }}">
+                    <a href="{{ route('marketing.bulk-site-requests.index', ['status' => \App\Support\MarketingOpsQueues::FILTER_WAITING_PUBLISHER]) }}" class="small text-muted" data-stat-bulk="{{ $stats['bulk_waiting_on_publisher'] }}">
                         {{ $stats['bulk_waiting_on_publisher'] }}
                         bulk request{{ (int) $stats['bulk_waiting_on_publisher'] === 1 ? '' : 's' }}
                     </a>

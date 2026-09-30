@@ -862,6 +862,11 @@ class Site extends Model
         SiteTag::applyExclusive($this, $tag);
     }
 
+    public function statusReasonAuthor()
+    {
+        return $this->belongsTo(User::class, 'status_reason_by');
+    }
+
     /**
      * Get the publisher that owns the site.
      */

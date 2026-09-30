@@ -20,17 +20,11 @@
             <input type="hidden" name="waiting_on_publisher" value="1">
         @endif
         <input type="hidden" name="flat" value="1">
-        @if(($publisherSearch ?? '') !== '')
-            <input type="hidden" name="q" value="{{ $publisherSearch }}">
-        @endif
         @if(($waitingStage ?? '') !== '')
             <input type="hidden" name="waiting_stage" value="{{ $waitingStage }}">
         @endif
     @elseif($mode === 'all')
         <input type="hidden" name="all" value="1">
-        @if(($publisherSearch ?? '') !== '')
-            <input type="hidden" name="q" value="{{ $publisherSearch }}">
-        @endif
     @elseif($mode === 'publishers')
         @if(!empty($needsReviewFilterActive))
             <input type="hidden" name="needs_review" value="1">
@@ -38,12 +32,15 @@
         @if(!empty($waitingOnPublisherFilterActive))
             <input type="hidden" name="waiting_on_publisher" value="1">
         @endif
-        @if(($publisherSearch ?? '') !== '')
-            <input type="hidden" name="q" value="{{ $publisherSearch }}">
-        @endif
         @if(($waitingStage ?? '') !== '')
             <input type="hidden" name="waiting_stage" value="{{ $waitingStage }}">
         @endif
+    @endif
+    @if($getForm)
+        <label class="small mb-0">
+            Search
+            <input class="form-control" type="search" name="q" value="{{ $publisherSearch ?? '' }}" placeholder="Publishers or sites" aria-label="Search publishers or sites">
+        </label>
     @endif
     <label class="small mb-0">
         Tag
@@ -97,6 +94,31 @@
         </select>
     </label>
     <label class="small mb-0">
+        Metrics
+        <select class="form-select" name="metrics_age" data-staff-filter="metrics_age">
+            <option value="" @selected(($filters['metrics_age'] ?? '') === '')>Any age</option>
+            <option value="30" @selected(($filters['metrics_age'] ?? '') === '30')>Older than 30 days</option>
+            <option value="90" @selected(($filters['metrics_age'] ?? '') === '90')>Older than 90 days</option>
+            <option value="never" @selected(($filters['metrics_age'] ?? '') === 'never')>Never fetched</option>
+        </select>
+    </label>
+    <label class="small mb-0">
+        Price from
+        <input class="form-control" type="number" min="0" step="1" name="price_min" data-staff-filter="price_min" value="{{ $filters['price_min'] ?? '' }}" aria-label="Minimum price">
+    </label>
+    <label class="small mb-0">
+        Price to
+        <input class="form-control" type="number" min="0" step="1" name="price_max" data-staff-filter="price_max" value="{{ $filters['price_max'] ?? '' }}" aria-label="Maximum price">
+    </label>
+    <label class="small mb-0">
+        Traffic from
+        <input class="form-control" type="number" min="0" step="1" name="traffic_min" data-staff-filter="traffic_min" value="{{ $filters['traffic_min'] ?? '' }}" aria-label="Minimum traffic">
+    </label>
+    <label class="small mb-0">
+        DA from
+        <input class="form-control" type="number" min="0" max="100" step="1" name="da_min" data-staff-filter="da_min" value="{{ $filters['da_min'] ?? '' }}" aria-label="Minimum DA">
+    </label>
+    <label class="small mb-0">
         Sort
         <select class="form-select" name="sort" data-staff-filter="sort">
             <option value="" @selected(($filters['sort'] ?? '') === '')>{{ $mode === 'flat' ? 'Oldest waiting' : 'Newest' }}</option>
@@ -126,6 +148,30 @@
     <label class="form-check small mb-1">
         <input class="form-check-input" type="checkbox" name="bulk_request" value="1" data-staff-filter="bulk_request" @checked(!empty($filters['bulk_request']))>
         Bulk request
+    </label>
+    <label class="form-check small mb-1">
+        <input class="form-check-input" type="checkbox" name="scan_failed" value="1" data-staff-filter="scan_failed" @checked(!empty($filters['scan_failed']))>
+        Scan failed
+    </label>
+    <label class="form-check small mb-1">
+        <input class="form-check-input" type="checkbox" name="copy_strike" value="1" data-staff-filter="copy_strike" @checked(!empty($filters['copy_strike']))>
+        Copy-strike hide
+    </label>
+    <label class="form-check small mb-1">
+        <input class="form-check-input" type="checkbox" name="has_orders" value="1" data-staff-filter="has_orders" @checked(!empty($filters['has_orders']))>
+        Has orders
+    </label>
+    <label class="form-check small mb-1">
+        <input class="form-check-input" type="checkbox" name="featured" value="1" data-staff-filter="featured" @checked(!empty($filters['featured']))>
+        Featured
+    </label>
+    <label class="form-check small mb-1">
+        <input class="form-check-input" type="checkbox" name="bulk_discount" value="1" data-staff-filter="bulk_discount" @checked(!empty($filters['bulk_discount']))>
+        Bulk discount
+    </label>
+    <label class="form-check small mb-1">
+        <input class="form-check-input" type="checkbox" name="csv_metrics" value="1" data-staff-filter="csv_metrics" @checked(!empty($filters['csv_metrics']))>
+        CSV metrics
     </label>
     @if($mode !== 'flat')
         <label class="form-check small mb-1">

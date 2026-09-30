@@ -740,7 +740,7 @@ class DashboardMetricsService
                 ->map(fn (BulkSiteRequest $bulk) => [
                     'id' => $bulk->id,
                     'publisher' => $bulk->publisher?->name ?? 'Unknown',
-                    'status' => $bulk->status,
+                    'status' => $bulk->statusLabel(),
                     'count' => (int) ($bulk->estimated_count ?? 0),
                     'date' => $this->formatDate($bulk->created_at, 'd M Y'),
                     'age' => $this->ageLabel($bulk->created_at),
