@@ -15,6 +15,11 @@
         $resolvedContent = \App\Support\WelcomeBonusCopy::scrubGrantAdvertisingHtml($resolvedContent);
     }
     $blogCanonical = $canonicalUrl ?? $blog->canonicalUrl($activeTranslation?->locale ?: app()->getLocale(), 'en');
+    $blogLocale = $activeTranslation?->locale ?: 'en';
+    $featuredRelative = \App\Support\BlogLocaleImages::featuredPublicUrl($blog, $blogLocale);
+    $blogShareImage = $featuredRelative
+        ? url($featuredRelative)
+        : asset('assets/brand/web/og-share-1200x630.png');
     $blogDescription = $activeTranslation?->meta_description ?: ($resolvedExcerpt ?: \Illuminate\Support\Str::limit(strip_tags($resolvedContent ?? ''), 160));
     $blogPageTitle = $activeTranslation?->meta_title ?: ($resolvedTitle ?? 'Blog');
     $blogFaq = (class_exists(\App\Support\CuratedBlogCatalog::class)
@@ -38,7 +43,7 @@
 @section('hreflang_path', $hreflangPath ?? ('blog/'.$resolvedSlug))
 @section('hreflang_path_map', collect($hreflangPathByLocale)->map(fn ($path, $locale) => $locale.'='.$path)->implode(','))
 @section('og_type', 'article')
-@section('og_image', $blog->featuredImageAbsoluteUrl() ?: asset('assets/brand/web/og-share-1200x630.png'))
+@section('og_image', $blogShareImage)
 @section('og_image_alt', $resolvedTitle)
 
 @push('head')
@@ -65,9 +70,7 @@
                 'url' => asset('assets/img/logo1.png'),
             ],
         ],
-        'image' => $blog->publicFeaturedImageAbsoluteUrl()
-            ? [$blog->publicFeaturedImageAbsoluteUrl()]
-            : [asset('assets/brand/web/og-share-1200x630.png')],
+        'image' => [$blogShareImage],
         'mainEntityOfPage' => $blogCanonical,
         'url' => $blogCanonical,
     ], static fn ($value) => $value !== null && $value !== '');
@@ -171,9 +174,9 @@
         <!-- Main Content -->
         <div class="col-lg-8 mx-auto">
             <article>
-                @if($blog->publicFeaturedImageUrl())
+                @if($featuredRelative)
                     <div class="mb-5">
-                        <img src="{{ $blog->publicFeaturedImageUrl() }}" 
+                        <img src="{{ $featuredRelative }}" 
                              alt="{{ $resolvedTitle }}" 
                              class="img-fluid rounded-4 shadow-sm w-100">
                     </div>
@@ -254,8 +257,9 @@
                 @foreach($recommendedPosts as $recommended)
                     <div class="col-md-4 mb-4">
                         <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden" style="transition: all 0.3s ease;">
-                            @if($recommended->publicFeaturedImageUrl())
-                                <img src="{{ $recommended->publicFeaturedImageUrl() }}" 
+                            @php $recommendedImage = \App\Support\BlogLocaleImages::featuredPublicUrl($recommended, $recommended->resolved_locale ?: public_locale()); @endphp
+                            @if($recommendedImage)
+                                <img src="{{ $recommendedImage }}" 
                                      alt="{{ $recommended->title }}" 
                                      style="height: 200px; object-fit: cover;">
                             @else

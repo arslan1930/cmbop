@@ -19,9 +19,12 @@
         $pageCanonical = trim($__env->yieldContent('canonical')) ?: url()->current();
         $pageImage = trim($__env->yieldContent('og_image')) ?: asset('assets/brand/web/og-share-1200x630.png');
         $pageImagePath = strtolower((string) (parse_url($pageImage, PHP_URL_PATH) ?: $pageImage));
-        $pageImageType = str_ends_with($pageImagePath, '.jpg') || str_ends_with($pageImagePath, '.jpeg')
-            ? 'image/jpeg'
-            : 'image/png';
+        $pageImageType = match (true) {
+            str_ends_with($pageImagePath, '.jpg'), str_ends_with($pageImagePath, '.jpeg') => 'image/jpeg',
+            str_ends_with($pageImagePath, '.svg') => 'image/svg+xml',
+            str_ends_with($pageImagePath, '.webp') => 'image/webp',
+            default => 'image/png',
+        };
         $pageImageAlt = html_entity_decode(
             trim($__env->yieldContent('og_image_alt')) ?: 'SEOLinkBuildings — Guest post & backlink marketplace',
             ENT_QUOTES | ENT_HTML5,

@@ -62,7 +62,7 @@ class LinkBuildingGuideI18n
         $catalog = '/de/marktplatz';
         $how = '/de/so-funktioniert-es';
         $lb = '/de/linkbuilding';
-        $img = BlogInlineImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP);
+        $img = BlogLocaleImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP, 'de');
 
         return <<<HTML
 <p>Linkbuilding ist die Arbeit, Hyperlinks von anderen Websites auf die eigene zu verdienen oder zu platzieren. Suchmaschinen nutzen Links unter anderem zur Discovery und zur Einordnung. Das ist die Mechanik — kein Versprechen, dass zehn neue hrefs ein Keyword bewegen.</p>
@@ -134,7 +134,7 @@ HTML;
         $buyGuide = '/blog/how-to-buy-guest-posts-on-seolinkbuildings-advertiser-guide';
         $catalog = '/marketplace';
         $how = '/how-it-works';
-        $img = BlogInlineImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP);
+        $img = BlogLocaleImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP, 'fr');
 
         return <<<HTML
 <p>Le netlinking consiste à obtenir ou placer des hyperliens d’autres sites vers le vôtre. Les moteurs s’en servent, entre autres, pour découvrir et interpréter des pages. Ce n’est pas une promesse que dix hrefs bougent une requête.</p>
@@ -204,7 +204,7 @@ HTML;
         $buyGuide = '/blog/how-to-buy-guest-posts-on-seolinkbuildings-advertiser-guide';
         $catalog = '/marketplace';
         $how = '/how-it-works';
-        $img = BlogInlineImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP);
+        $img = BlogLocaleImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP, 'nl');
 
         return <<<HTML
 <p>Linkbuilding is het werk om hyperlinks van andere sites naar de jouwe te verdienen of te plaatsen. Zoekmachines gebruiken links onder meer om pagina’s te ontdekken en te duiden. Dat is de mechaniek — geen belofte dat tien nieuwe hrefs een keyword bewegen.</p>
@@ -275,7 +275,7 @@ HTML;
         $lb = '/it/link-building';
         $catalog = '/it/mercato';
         $how = '/it/come-funziona';
-        $img = BlogInlineImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP);
+        $img = BlogLocaleImages::publicUrl(LinkBuildingGuideBlogPost::IMAGE_ROADMAP, 'it');
 
         return <<<HTML
 <p>Il link building è il lavoro di ottenere o piazzare collegamenti da altri siti verso il proprio. I motori usano i link, tra le altre cose, per discovery e contesto. Non è la promessa che dieci nuovi href muovano una keyword.</p>

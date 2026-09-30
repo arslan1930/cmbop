@@ -60,7 +60,7 @@ class HowToGetBacklinksI18n
         $catalog = '/de/marktplatz';
         $how = '/de/so-funktioniert-es';
         $buyLinks = '/de/backlinks-kaufen';
-        $img = BlogInlineImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS);
+        $img = BlogLocaleImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS, 'de');
 
         return <<<HTML
 <p>Ein Backlink ist ein Hyperlink von einer Website auf eine andere. Suchmaschinen nutzen solche Links — neben vielen anderen Signalen —, um zu verstehen, wie Seiten zusammenhängen und welche Quellen andere Sites zitieren.</p>
@@ -138,7 +138,7 @@ HTML;
         $outreach = '/blog/marketplace-vs-cold-outreach-vs-digital-pr';
         $catalog = '/marketplace';
         $how = '/how-it-works';
-        $img = BlogInlineImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS);
+        $img = BlogLocaleImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS, 'fr');
 
         return <<<HTML
 <p>Un backlink est un hyperlien d’un site vers un autre. Les moteurs s’en servent, parmi d’autres signaux, pour découvrir des pages et voir quelles sources d’autres sites citent.</p>
@@ -214,7 +214,7 @@ HTML;
         $outreach = '/blog/marketplace-vs-cold-outreach-vs-digital-pr';
         $catalog = '/marketplace';
         $how = '/how-it-works';
-        $img = BlogInlineImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS);
+        $img = BlogLocaleImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS, 'nl');
 
         return <<<HTML
 <p>Een backlink is een hyperlink van de ene site naar de andere. Zoekmachines gebruiken die links, naast andere signalen, om pagina’s te ontdekken en te zien welke bronnen andere sites citeren.</p>
@@ -291,7 +291,7 @@ HTML;
         $catalog = '/it/mercato';
         $how = '/it/come-funziona';
         $back = '/it/comprare-backlink';
-        $img = BlogInlineImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS);
+        $img = BlogLocaleImages::publicUrl(HowToGetBacklinksBlogPost::IMAGE_METHODS, 'it');
 
         return <<<HTML
 <p>Un backlink è un collegamento ipertestuale da un sito a un altro. I motori lo usano, insieme ad altri segnali, per capire come le pagine si relazionano e chi cita chi.</p>

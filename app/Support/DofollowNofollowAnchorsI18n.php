@@ -41,7 +41,7 @@ class DofollowNofollowAnchorsI18n
         $liveCheck = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
         $briefGuide = '/blog/guest-post-brief-anchors-urls-images-sensitive-topics';
         $imgTypes = BlogInlineImages::publicUrl(DofollowNofollowAnchorsEnBlogPost::IMAGE_TYPES);
-        $imgMix = BlogInlineImages::publicUrl(DofollowNofollowAnchorsEnBlogPost::IMAGE_MIX);
+        $imgMix = BlogLocaleImages::publicUrl(DofollowNofollowAnchorsEnBlogPost::IMAGE_MIX, 'de');
 
         return <<<HTML
 <p>Zwei Fragen kommen immer: „Ist der Link dofollow?“ und „Welchen Anker nehmen wir?“ Beide können wirken. Beide werden überschätzt, wenn Relevanz und Site-Qualität schon schwach sind.</p>
@@ -94,7 +94,7 @@ HTML;
         $liveCheck = '/blog/what-to-check-after-the-live-link-indexation-attributes-rankings';
         $briefGuide = '/blog/guest-post-brief-anchors-urls-images-sensitive-topics';
         $imgTypes = BlogInlineImages::publicUrl(DofollowNofollowAnchorsEnBlogPost::IMAGE_TYPES);
-        $imgMix = BlogInlineImages::publicUrl(DofollowNofollowAnchorsEnBlogPost::IMAGE_MIX);
+        $imgMix = BlogLocaleImages::publicUrl(DofollowNofollowAnchorsEnBlogPost::IMAGE_MIX, 'it');
 
         return <<<HTML
 <p>Due domande tornano sempre: “Il link è dofollow?” e “Che anchor usiamo?” Giuste. Entrambe possono influire. Entrambe si sopravvalutano se rilevanza e qualità del sito sono già deboli.</p>

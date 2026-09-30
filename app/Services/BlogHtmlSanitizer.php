@@ -146,6 +146,12 @@ class BlogHtmlSanitizer
                     return '<a>';
                 }
 
+                // In-page glossary links must stay on this page. A new tab
+                // drops the reader at the top of a second copy.
+                if (str_starts_with($href, '#')) {
+                    return '<a href="'.e($href).'">';
+                }
+
                 return '<a href="'.e($href).'" target="_blank" rel="noopener noreferrer">';
             },
             $html

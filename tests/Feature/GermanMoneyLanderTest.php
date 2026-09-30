@@ -287,6 +287,42 @@ class GermanMoneyLanderTest extends TestCase
                 ->assertSee('rel="canonical" href="'.url($path).'"', false);
         }
 
+        $this->get('/de/blog/was-ist-ein-gastbeitrag')
+            ->assertOk()
+            ->assertSee('Ein Gastbeitrag ist ein redaktioneller Artikel', false)
+            ->assertSee('href="/de/gastbeitrag-kaufen"', false)
+            ->assertSee('Was ist ein Gastbeitrag, und was ist er nicht?', false)
+            ->assertSee('guest-posting-guide-featured-de.svg', false)
+            ->assertSee('guest-posting-guide-workflow-de.svg', false)
+            ->assertDontSee('guest-posting-guide-featured.jpg', false)
+            ->assertDontSee('guest-posting-guide-workflow.jpg', false)
+            ->assertDontSee('og-share-1200x630.png', false)
+            ->assertSee('image/svg+xml', false);
+
+        $this->get('/de/blog/was-sind-backlinks')
+            ->assertOk()
+            ->assertSee('how-to-get-backlinks-featured-de.svg', false)
+            ->assertSee('how-to-get-backlinks-methods-de.svg', false)
+            ->assertDontSee('how-to-get-backlinks-methods.jpg', false);
+
+        $this->get('/de/blog/linkaufbau-strategien')
+            ->assertOk()
+            ->assertSee('link-building-guide-featured-de.svg', false)
+            ->assertSee('link-building-guide-roadmap-de.svg', false);
+
+        $this->get('/de/blog/dofollow-vs-nofollow-ankertext')
+            ->assertOk()
+            ->assertSee('market-dofollow-anchors-en-mix-de.svg', false)
+            ->assertSee('market-dofollow-anchors-en-featured-de.svg', false)
+            ->assertDontSee('market-dofollow-anchors-en-mix.jpg', false)
+            ->assertDontSee('market-dofollow-anchors-en-featured.jpg', false);
+
+        $this->get('/de/blog/gesponserte-beitraege-leitfaden')
+            ->assertOk()
+            ->assertSee('sponsored-post-guide-featured-de.svg', false)
+            ->assertSee('sponsored-post-guide-compare-de.svg', false)
+            ->assertDontSee('sponsored-post-guide-compare.jpg', false);
+
         $this->get('/de/blog/gastbeitraege-leitfaden-pitch-und-text')
             ->assertStatus(301)
             ->assertRedirect('/de/blog/was-ist-ein-gastbeitrag');
