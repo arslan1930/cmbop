@@ -10,6 +10,7 @@ use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AudienceInventoryService
@@ -228,6 +229,45 @@ class AudienceInventoryService
         };
     }
 
+    public static function exportFilename(string $tabOrKey): string
+    {
+        $label = self::exportLabel($tabOrKey);
+        $slug = Str::slug($label, '-');
+
+        return ($slug !== '' ? $slug : 'audience').'-'.now()->format('Y-m-d').'.csv';
+    }
+
+    /**
+     * Distinct user.country values in the inventory universe (staff excluded).
+     *
+     * @return list<array{value: string, count: int}>
+     */
+    public function inventoryCountries(): array
+    {
+        try {
+            $query = $this->constrainUsableEmail($this->excludeStaffAccounts(User::query()));
+            $query->whereNotNull('country')
+                ->where('country', '!=', '')
+                ->whereRaw('TRIM(country) != ?', ['']);
+
+            return $query
+                ->selectRaw('MIN(country) as country_value, COUNT(*) as users_count')
+                ->groupByRaw('LOWER(TRIM(country))')
+                ->orderBy('country_value')
+                ->get()
+                ->map(fn ($row) => [
+                    'value' => (string) $row->country_value,
+                    'count' => (int) $row->users_count,
+                ])
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
     public function advertiserCount(bool $includeUnverified = true): int
     {
         return $this->count(self::AUDIENCE_ADVERTISERS, null, $includeUnverified);
@@ -440,8 +480,7 @@ class AudienceInventoryService
     {
         try {
             $query = $this->queryForAudienceKey($audienceKey);
-            $this->applySearch($query, $search);
-            $this->applyInventoryFilters($query, $filters, $audienceKey);
+            $this->applyInventorySlice($query, $audienceKey, $search, $filters, applySort: true);
             $this->applyListCounts($query);
 
             return $query->paginate($perPage)->withQueryString();
@@ -453,11 +492,13 @@ class AudienceInventoryService
     }
 
     /**
+     * @param  array<int, int|string>|null  $selectedIds
+     * @param  array<string, mixed>  $filters
      * @return Collection<int, User>
      */
-    public function collect(string $audience, ?array $selectedIds = null, bool $includeUnverified = false): Collection
+    public function collect(string $audience, ?array $selectedIds = null, bool $includeUnverified = false, ?string $search = null, array $filters = []): Collection
     {
-        return $this->recipientBuilder($audience, $selectedIds, $includeUnverified)->get();
+        return $this->recipientBuilder($audience, $selectedIds, $includeUnverified, $search, $filters)->get();
     }
 
     /**
@@ -465,12 +506,13 @@ class AudienceInventoryService
      * audience cannot OOM the HTTP request before the job is dispatched.
      *
      * @param  array<int, int|string>|null  $selectedIds
+     * @param  array<string, mixed>  $filters
      * @return Collection<int, User>
      */
-    public function collectRecipientRows(string $audience, ?array $selectedIds = null, bool $includeUnverified = false): Collection
+    public function collectRecipientRows(string $audience, ?array $selectedIds = null, bool $includeUnverified = false, ?string $search = null, array $filters = []): Collection
     {
         return $this->recipientRowQuery(
-            $this->recipientBuilder($audience, $selectedIds, $includeUnverified),
+            $this->recipientBuilder($audience, $selectedIds, $includeUnverified, $search, $filters),
             $includeUnverified,
             alreadyScoped: true
         )->get();
@@ -480,11 +522,12 @@ class AudienceInventoryService
      * Recipient count without hydrating User models.
      *
      * @param  array<int, int|string>|null  $selectedIds
+     * @param  array<string, mixed>  $filters
      */
-    public function count(string $audience, ?array $selectedIds = null, bool $includeUnverified = false): int
+    public function count(string $audience, ?array $selectedIds = null, bool $includeUnverified = false, ?string $search = null, array $filters = []): int
     {
         try {
-            return $this->recipientBuilder($audience, $selectedIds, $includeUnverified)->count();
+            return $this->recipientBuilder($audience, $selectedIds, $includeUnverified, $search, $filters)->count();
         } catch (\Throwable) {
             return 0;
         }
@@ -495,8 +538,9 @@ class AudienceInventoryService
      * the three cannot drift (tab slugs canonicalize first).
      *
      * @param  array<int, int|string>|null  $selectedIds
+     * @param  array<string, mixed>  $filters
      */
-    protected function recipientBuilder(string $audience, ?array $selectedIds, bool $includeUnverified): Builder
+    protected function recipientBuilder(string $audience, ?array $selectedIds, bool $includeUnverified, ?string $search = null, array $filters = []): Builder
     {
         $key = self::canonicalAudienceKey($audience);
         if ($key === null) {
@@ -507,7 +551,10 @@ class AudienceInventoryService
             return $this->querySelected($selectedIds, $includeUnverified);
         }
 
-        return $this->applyRecipientScope($this->queryForAudienceKey($key), $includeUnverified);
+        $query = $this->applyRecipientScope($this->queryForAudienceKey($key), $includeUnverified);
+        $this->applyInventorySlice($query, $key, $search, $filters, applySort: false);
+
+        return $query;
     }
 
     /**
@@ -696,9 +743,23 @@ class AudienceInventoryService
     }
 
     /**
+     * Search + inventory filters. Sort is list/CSV only — campaign collect
+     * keeps users.id order from recipientRowQuery.
+     *
      * @param  array<string, mixed>  $filters
      */
-    protected function applyInventoryFilters(Builder $query, array $filters, string $audienceKey): Builder
+    public function applyInventorySlice(Builder $query, string $audienceKey, ?string $search, array $filters, bool $applySort = true): Builder
+    {
+        $this->applySearch($query, $search);
+        $this->applyInventoryFilters($query, $filters, $audienceKey, $applySort);
+
+        return $query;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    protected function applyInventoryFilters(Builder $query, array $filters, string $audienceKey, bool $applySort = true): Builder
     {
         $verified = $filters['verified'] ?? 'all';
         if ($verified === 'yes') {
@@ -735,9 +796,11 @@ class AudienceInventoryService
             $this->excludeDualRoleUsers($query, $audienceKey);
         }
 
-        $sort = ($filters['sort'] ?? 'name') === 'registered' ? 'created_at' : 'name';
-        $dir = ($filters['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
-        $query->reorder()->orderBy($sort, $dir)->orderBy('id', $dir);
+        if ($applySort) {
+            $sort = ($filters['sort'] ?? 'name') === 'registered' ? 'created_at' : 'name';
+            $dir = ($filters['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+            $query->reorder()->orderBy($sort, $dir)->orderBy('id', $dir);
+        }
 
         return $query;
     }
@@ -795,6 +858,14 @@ class AudienceInventoryService
         if ($counts !== []) {
             $query->withCount($counts);
         }
+
+        if ($this->schemaTableAvailable('email_notification_preferences')) {
+            $query->withExists([
+                'emailNotificationPreferences as marketing_opted_out' => function (Builder $q) {
+                    $q->where('preference_key', 'marketing_emails')->where('enabled', false);
+                },
+            ]);
+        }
     }
 
     /**
@@ -805,8 +876,7 @@ class AudienceInventoryService
     public function exportMatchCount(string $audienceKey, ?string $search = null, array $filters = []): int
     {
         $query = $this->queryForAudienceKey($audienceKey);
-        $this->applySearch($query, $search);
-        $this->applyInventoryFilters($query, $filters, $audienceKey);
+        $this->applyInventorySlice($query, $audienceKey, $search, $filters, applySort: false);
 
         return (int) $query->count();
     }
@@ -814,15 +884,11 @@ class AudienceInventoryService
     /**
      * @param  array<string, mixed>  $filters
      */
-    /**
-     * @param  array<string, mixed>  $filters
-     */
     public function prepareExportQuery(string $audienceKey, ?string $search = null, array $filters = []): ?Builder
     {
         try {
             $query = $this->queryForAudienceKey($audienceKey);
-            $this->applySearch($query, $search);
-            $this->applyInventoryFilters($query, $filters, $audienceKey);
+            $this->applyInventorySlice($query, $audienceKey, $search, $filters, applySort: false);
             $this->applyListCounts($query);
             $query->reorder('id');
 
@@ -839,7 +905,7 @@ class AudienceInventoryService
      */
     public function exportCsv(string $audienceKey, ?string $search = null, array $filters = [], ?Builder $query = null): StreamedResponse
     {
-        $filename = $audienceKey.'-audience-'.now()->format('Y-m-d-His').'.csv';
+        $filename = self::exportFilename($audienceKey);
         $query ??= $this->prepareExportQuery($audienceKey, $search, $filters) ?? $this->emptyUserQuery();
 
         $headers = [

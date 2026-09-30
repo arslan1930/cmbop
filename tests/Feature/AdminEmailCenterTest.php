@@ -362,7 +362,10 @@ class AdminEmailCenterTest extends TestCase
                 'template' => 'welcome',
                 'email' => $admin->email,
             ])
-            ->assertRedirect(route('admin.emails.index'))
+            ->assertRedirect(route('admin.emails.index', [
+                'to_email' => $admin->email,
+                'template_key' => 'welcome',
+            ]))
             ->assertSessionHas('success');
 
         $this->assertSame(1, EmailLog::query()->count());
@@ -440,7 +443,8 @@ class AdminEmailCenterTest extends TestCase
                 ]);
 
             $this->assertTrue(
-                $response->isRedirect(route('admin.emails.index')),
+                $response->isRedirect()
+                    && str_contains((string) $response->headers->get('Location'), '/admin/emails'),
                 $key.' status '.$response->status().': '.($response->exception?->getMessage() ?? '')
             );
             $this->assertTrue(
@@ -3656,6 +3660,11 @@ class AdminEmailCenterTest extends TestCase
             ->get(route('admin.emails.preview', ['key' => 'order_status_changed', 'audience' => 'admin']))
             ->assertOk()
             ->assertSee('admin copy', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.emails.preview', ['key' => 'order_status_changed', 'audience' => 'completed']))
+            ->assertOk()
+            ->assertSee('Ready to place another order', false);
     }
 
     public function test_wallet_ops_previews_do_not_embed_signed_live_urls(): void
@@ -5171,5 +5180,60 @@ class AdminEmailCenterTest extends TestCase
         $this->assertSame($delivered->id, $row->fresh()->email_log_id);
         $this->assertSame(EmailCampaign::STATUS_SENT, $campaign->fresh()->status);
         $this->assertTrue(DB::table('failed_jobs')->where('uuid', $mailUuid)->exists());
+    }
+
+    public function test_email_center_index_shows_kpi_labels_and_failed_teaser(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.emails.index'))
+            ->assertOk()
+            ->assertSee('Open pending', false)
+            ->assertSee('Latest failed logs', false)
+            ->assertSee('All failed in Recent', false)
+            ->assertSee('Use in Campaigns', false)
+            ->assertSee('Mail jobs pending', false)
+            ->assertSee('Mail connection', false);
+    }
+
+    public function test_welcome_publisher_preview_uses_publisher_cta(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.emails.preview', ['key' => 'welcome', 'audience' => 'publisher']))
+            ->assertOk()
+            ->assertSee('Add your first website', false);
+    }
+
+    public function test_recent_filters_ignore_array_junk_and_log_back_keeps_query(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $log = EmailLog::create([
+            'uuid' => (string) Str::uuid(),
+            'template_key' => 'welcome',
+            'to_email' => $admin->email,
+            'subject' => 'Hello',
+            'status' => EmailLog::STATUS_DELIVERED,
+            'attempts' => 1,
+            'sent_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.emails.index', ['status' => ['failed'], 'page' => ['2']]))
+            ->assertOk()
+            ->assertSee($admin->email, false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.emails.index', ['status' => 'failed', 'page' => 2]))
+            ->assertOk();
+
+        $this->actingAs($admin)
+            ->get(route('admin.emails.log', $log))
+            ->assertOk()
+            ->assertSee('Back to Email Center', false)
+            ->assertSee('status=failed', false)
+            ->assertSee('page=2', false);
     }
 }

@@ -1553,6 +1553,19 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/campaigns/send', [AdminCampaignController::class, 'send'])
             ->middleware('throttle:6,1')
             ->name('campaigns.send');
+        Route::post('/campaigns/draft', [AdminCampaignController::class, 'storeDraft'])
+            ->middleware('throttle:12,1')
+            ->name('campaigns.draft');
+        Route::post('/campaigns/test', [AdminCampaignController::class, 'sendTest'])
+            ->middleware('throttle:6,1')
+            ->name('campaigns.test');
+        Route::get('/campaigns/{campaign}/letter', [AdminCampaignController::class, 'letter'])
+            ->whereNumber('campaign')
+            ->name('campaigns.letter');
+        Route::post('/campaigns/{campaign}/clone', [AdminCampaignController::class, 'clone'])
+            ->whereNumber('campaign')
+            ->middleware('throttle:12,1')
+            ->name('campaigns.clone');
         Route::get('/campaigns/{campaign}', [AdminCampaignController::class, 'show'])
             ->whereNumber('campaign')
             ->name('campaigns.show');

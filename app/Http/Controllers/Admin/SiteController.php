@@ -25,6 +25,7 @@ use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
 use App\Services\SiteEnrichment\SiteEnrichmentService;
 use App\Services\SiteEnrichment\SiteMetricsAggregator;
+use App\Support\AdminSites;
 use App\Support\CatalogHealthQueue;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
@@ -102,6 +103,7 @@ class SiteController extends Controller
                 'nicheOptions' => [],
                 'waitingStageCounts' => ['filling' => 0, 'reviewing' => 0, 'accept' => 0],
                 'waitingStage' => '',
+                'sitesReturnQuery' => [],
             ]);
         }
     }
@@ -356,6 +358,7 @@ class SiteController extends Controller
         }
 
         $sitesExportUrl = staff_route('sites.export', $this->staffSitesExportQuery($request));
+        $sitesReturnQuery = AdminSites::rememberReturnQuery($request);
 
         return view('admin.sites', compact(
             'users',
@@ -386,7 +389,8 @@ class SiteController extends Controller
             'listingTagOptions',
             'marketplaceCountries',
             'marketplaceLanguages',
-            'nicheOptions'
+            'nicheOptions',
+            'sitesReturnQuery'
         ));
     }
 
@@ -2625,9 +2629,12 @@ class SiteController extends Controller
         $categories = Category::catalogPickerNames();
         $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
         $isMarketingEditor = $this->isMarketingEditor(auth()->user());
-        $sitesBackUrl = $selectedPublisherId > 0
-            ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
-            : staff_route('sites.index');
+        $returnQuery = AdminSites::storedReturnQuery($request);
+        $sitesBackUrl = $returnQuery !== []
+            ? AdminSites::listUrl($returnQuery)
+            : ($selectedPublisherId > 0
+                ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
+                : staff_route('sites.index'));
 
         $prefillSiteName = CommunityInbox::plainLine($request->query('site_name'));
         $prefillSiteUrl = CommunityInbox::safeHttpUrl($request->query('site_url')) ?? '';
@@ -3163,9 +3170,12 @@ class SiteController extends Controller
         }
         $selectedPublisherId = (int) $rawSelectedPublisher;
         $publishers = $this->publishersForStaffAssign($selectedPublisherId);
-        $sitesBackUrl = $selectedPublisherId > 0
-            ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
-            : staff_route('sites.index');
+        $returnQuery = AdminSites::storedReturnQuery($request);
+        $sitesBackUrl = $returnQuery !== []
+            ? AdminSites::listUrl($returnQuery)
+            : ($selectedPublisherId > 0
+                ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
+                : staff_route('sites.index'));
 
         return view('admin.site-bulk-create', compact('publishers', 'selectedPublisherId', 'sitesBackUrl'));
     }
@@ -3434,6 +3444,14 @@ class SiteController extends Controller
         $categories = Category::catalogPickerNames();
         $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
 
+        $returnQuery = AdminSites::storedReturnQuery(request());
+        $sitesBackUrl = $returnQuery !== []
+            ? AdminSites::listUrl($returnQuery)
+            : staff_route('sites.index', array_filter([
+                'publisher' => $site->publisher_id,
+                'site' => $site->id,
+            ]));
+
         $editData = compact(
             'site',
             'isMarketingEditor',
@@ -3441,7 +3459,8 @@ class SiteController extends Controller
             'languages',
             'countries',
             'categories',
-            'countryLanguageMap'
+            'countryLanguageMap',
+            'sitesBackUrl'
         );
 
         // Named view keeps @section / @stack working. File fallback covers a
@@ -3821,11 +3840,16 @@ class SiteController extends Controller
         $message = 'Site updated successfully.'.($emailSent ? ' Publisher notified.' : '');
 
         if ($isMarketingEditor) {
-            return redirect()
-                ->to(staff_route('sites.index', array_filter([
+            $returnQuery = AdminSites::storedReturnQuery($request);
+            $back = $returnQuery !== []
+                ? AdminSites::listUrl($returnQuery)
+                : staff_route('sites.index', array_filter([
                     'publisher' => $site->publisher_id,
                     'site' => $site->id,
-                ])))
+                ]));
+
+            return redirect()
+                ->to($back)
                 ->with('success', $message);
         }
 

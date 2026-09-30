@@ -34,8 +34,7 @@
             ->values()
             ->all();
     }
-    // After save, url()->previous() is this edit page — Back would look broken.
-    $sitesBackUrl = staff_route('sites.index', array_filter([
+    $sitesBackUrl = $sitesBackUrl ?? staff_route('sites.index', array_filter([
         'publisher' => $site->publisher_id,
         'site' => $site->id,
     ]));
@@ -54,7 +53,7 @@
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="{{ $sitesBackUrl }}" class="btn btn-sm btn-outline-secondary">← Back</a>
-            <a href="{{ staff_route('sites.index') }}" class="btn btn-sm btn-outline-primary">Sites list</a>
+            <a href="{{ $sitesBackUrl }}" class="btn btn-sm btn-outline-primary">Sites list</a>
         </div>
     </div>
 

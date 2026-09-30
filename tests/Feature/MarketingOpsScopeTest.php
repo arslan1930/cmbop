@@ -359,7 +359,7 @@ class MarketingOpsScopeTest extends TestCase
             ->assertOk()
             ->getContent();
         $this->assertStringContainsString('IS_MARKETING_EDITOR = true', $sitesHtml);
-        $this->assertStringContainsString('${STAFF_BASE}/sites/${site.id}/edit', $sitesHtml);
+        $this->assertStringContainsString('staffSitesEditUrl(site.id)', $sitesHtml);
         $this->assertStringContainsString("site.archived) ? 'View' : 'Edit'", $sitesHtml);
         $this->assertStringContainsString('function firstStaffValidationError', $sitesHtml);
         $this->assertStringContainsString('/edit#description', $sitesHtml);

@@ -223,7 +223,7 @@ class AdminGrowthMenusCrashTest extends TestCase
                     'body_html' => '<p>Hello</p>',
                     'audience' => 'advertisers',
                 ])
-                ->assertRedirect(route('admin.campaigns.index'))
+                ->assertRedirect()
                 ->assertSessionHas('error');
         } finally {
             $this->remigrate([

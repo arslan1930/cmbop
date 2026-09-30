@@ -54,7 +54,7 @@
                             'publisher' => $site->publisher_id,
                             'site' => $site->id,
                             'all' => 1,
-                        ] + ($listQuery ?? []),
+                        ] + ($sitesReturnQuery ?? $listQuery ?? []),
                         static fn ($value) => $value !== null && $value !== ''
                     ));
                     $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());

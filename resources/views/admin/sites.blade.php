@@ -325,10 +325,13 @@
                 <tbody>
                 @forelse($flatQueueSites as $index => $site)
                     @php
-                        $openUrl = staff_route('sites.index', array_filter([
-                            'publisher' => $site->publisher_id,
-                            'site' => $site->id,
-                        ]));
+                        $openUrl = staff_route('sites.index', array_filter(
+                            [
+                                'publisher' => $site->publisher_id,
+                                'site' => $site->id,
+                            ] + ($sitesReturnQuery ?? []),
+                            static fn ($value) => $value !== null && $value !== ''
+                        ));
                         $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
                         $hasOrders = $site->orderItemsCount() > 0;
                         $canDeleteFlat = ! $site->isArchived()
@@ -675,6 +678,40 @@ const QUALITY_MIN_DR = {{ (int) \App\Models\Site::GOOD_MIN_DR }};
 const QUALITY_MIN_TRAFFIC = {{ (int) \App\Models\Site::GOOD_MIN_TRAFFIC }};
 let allSites = [];
 let pendingHighlightSiteId = null;
+let lastSitesPage = 1;
+
+function staffSitesReturnParams() {
+    const params = new URLSearchParams(window.location.search);
+    if (lastSitesPage > 1) {
+        params.set('sites_page', String(lastSitesPage));
+    } else {
+        params.delete('sites_page');
+    }
+    params.delete('site');
+    params.delete('edit_site');
+    return params;
+}
+
+function staffSitesEditUrl(id, hash) {
+    const q = staffSitesReturnParams().toString();
+    return `${STAFF_BASE}/sites/${id}/edit` + (q ? `?${q}` : '') + (hash || '');
+}
+
+function syncPublisherListUrl(publisherId, sitesPage) {
+    try {
+        const url = new URL(window.location.href);
+        if (publisherId) {
+            url.searchParams.set('publisher', String(publisherId));
+        }
+        if (Number(sitesPage) > 1) {
+            url.searchParams.set('sites_page', String(sitesPage));
+        } else {
+            url.searchParams.delete('sites_page');
+        }
+        const next = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
+        window.history.replaceState({}, '', next);
+    } catch (e) {}
+}
 
 function setPublisherChrome(open) {
     document.getElementById('staffSitesPage')?.classList.toggle('staff-publisher-open', !!open);
@@ -770,7 +807,9 @@ function fetchUserSites(id, page){
     if (summaryEl) summaryEl.textContent = '';
 
     if (addBtn) {
-        addBtn.href = `${STAFF_BASE}/sites/create?publisher=${encodeURIComponent(id)}`;
+        const createParams = staffSitesReturnParams();
+        createParams.set('publisher', String(id));
+        addBtn.href = `${STAFF_BASE}/sites/create?${createParams.toString()}`;
         addBtn.classList.remove('d-none');
     }
 
@@ -778,6 +817,8 @@ function fetchUserSites(id, page){
         `<tr><td colspan="7">Loading...</td></tr>`;
 
     const pageNum = Number(page) > 1 ? Number(page) : 1;
+    lastSitesPage = pageNum;
+    syncPublisherListUrl(id, pageNum);
     if (pageNum > 1) {
         pendingHighlightSiteId = null;
     }
@@ -1572,7 +1613,7 @@ document.addEventListener('click', function(e){
                 looksEnglish: site.description_looks_english,
                 excerpt: site.description_excerpt || '',
                 name: site.site_name || '',
-                editUrl: `${STAFF_BASE}/sites/${id}/edit#description`,
+                editUrl: staffSitesEditUrl(id, '#description'),
             };
             const fallbackActivateText = activateOpts.name
                 ? 'Make "' + activateOpts.name + '" live in the catalog?'
@@ -1898,7 +1939,7 @@ function sitePreviewHtml(site) {
     if (!paths.thumb) {
         const empty = `<span class="site-row-preview is-empty" aria-label="No preview"><i class="fa fa-image" aria-hidden="true"></i></span>`;
         if (site.missing_cover) {
-            return `<a href="${STAFF_BASE}/sites/${site.id}/edit#site_image" class="text-decoration-none" title="Add a cover. This does not block going live.">${empty}</a>`;
+            return `<a href="${staffSitesEditUrl(site.id, '#site_image')}" class="text-decoration-none" title="Add a cover. This does not block going live.">${empty}</a>`;
         }
         return empty;
     }
@@ -2115,10 +2156,10 @@ function renderSites(data){
                 ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="DA ≥ ${QUALITY_MIN_DA}, DR ≥ ${QUALITY_MIN_DR}, traffic ≥ ${QUALITY_MIN_TRAFFIC.toLocaleString('en-US')}">Below quality bar${qualityFailures.length ? ' — ' + escapeHtml(qualityFailures.join(', ')) : ''}</span>`
                 : '';
             const missingCoverBadge = site.missing_cover
-                ? `<a href="${STAFF_BASE}/sites/${site.id}/edit#site_image" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>`
+                ? `<a href="${staffSitesEditUrl(site.id, '#site_image')}" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>`
                 : '';
             const missingTagsBadge = site.missing_tags
-                ? `<a href="${STAFF_BASE}/sites/${site.id}/edit#site_tag" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>`
+                ? `<a href="${staffSitesEditUrl(site.id, '#site_tag')}" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>`
                 : '';
             const scanBadge = site.enrichment_failed
                 ? `<span class="badge text-bg-danger badge-needs-review ms-1">Scan failed</span>`
@@ -2191,7 +2232,7 @@ function renderSites(data){
                 || !!site.listing_locked
             );
             const editLabel = (IS_MARKETING_EDITOR && !!site.archived) ? 'View' : 'Edit';
-            const editItem = `<li><a class="dropdown-item" href="${STAFF_BASE}/sites/${site.id}/edit"><i class="fa fa-edit me-2"></i>${editLabel}</a></li>`
+            const editItem = `<li><a class="dropdown-item" href="${staffSitesEditUrl(site.id)}"><i class="fa fa-edit me-2"></i>${editLabel}</a></li>`
                 + (IS_MARKETING_EDITOR
                     ? ''
                     : `<li><button type="button" class="dropdown-item edit-site" data-id="${site.id}"><i class="fa fa-image me-2"></i>Metrics &amp; image</button></li>`);
@@ -2224,9 +2265,9 @@ function renderSites(data){
                 const fixTitle = site.activate_block_reason
                     ? escapeHtml(site.activate_block_reason)
                     : 'Update DA, DR, or traffic.';
-                primaryAction = `<a class="btn btn-sm btn-outline-warning" href="${STAFF_BASE}/sites/${site.id}/edit#da" title="${fixTitle}">Fix metrics</a>`;
+                primaryAction = `<a class="btn btn-sm btn-outline-warning" href="${staffSitesEditUrl(site.id, '#da')}" title="${fixTitle}">Fix metrics</a>`;
             } else if (!isActive && site.missing_market) {
-                primaryAction = `<a class="btn btn-sm btn-outline-danger" href="${STAFF_BASE}/sites/${site.id}/edit#country">Set country</a>`;
+                primaryAction = `<a class="btn btn-sm btn-outline-danger" href="${staffSitesEditUrl(site.id, '#country')}">Set country</a>`;
             } else if (!isActive && !activateBlocked && CAN_TOGGLE_ACTIVE) {
                 const thinListing = !!site.missing_cover || !!site.missing_tags;
                 primaryAction = `<button type="button" class="btn btn-sm ${thinListing ? 'btn-outline-success' : 'btn-outline-primary'} toggle-active" data-id="${site.id}" data-status="1"${thinListing ? ' title="Can go live. Cover or tags are still missing."' : ''}>Activate</button>`;
@@ -2304,7 +2345,7 @@ function renderSites(data){
                                     <div class="col-md-4"><strong>Link Type</strong><div>${escapeHtml(site.link_type_label || site.link_type || '-')}</div></div>
                                     <div class="col-md-4"><strong>Sponsored</strong><div>${site.sponsored ? 'Yes':'No'}</div></div>
                                     <div class="col-md-4"><strong>Buyer price</strong><div>€${site.price ?? '-'}</div></div>
-                                    <div class="col-12"><strong>Description</strong><div class="slb-text-break">${escapeHtml(site.description_textarea || site.description_excerpt || site.description || '-')}</div><a class="small" href="${STAFF_BASE}/sites/${site.id}/edit#description">Edit description</a></div>
+                                    <div class="col-12"><strong>Description</strong><div class="slb-text-break">${escapeHtml(site.description_textarea || site.description_excerpt || site.description || '-')}</div><a class="small" href="${staffSitesEditUrl(site.id, '#description')}">Edit description</a></div>
                                     ${(site.image_url || siteMediaUrl(site.site_image) || siteStorageUrl(site.site_image)) ? `<div class="col-12"><strong>Site Image</strong><div class="site-preview-detail"><img data-detail-src="${escapeHtml(site.image_url || siteMediaUrl(site.site_image) || siteStorageUrl(site.site_image))}" alt="Site image" loading="lazy" decoding="async"></div></div>` : ''}
                                 </div>
                             </div>
@@ -2337,7 +2378,8 @@ document.getElementById('backBtn').addEventListener('click', function(){
     try {
         const url = new URL(window.location.href);
         if (url.searchParams.get('all') === '1') {
-            ['publisher', 'site', 'edit_site'].forEach((key) => url.searchParams.delete(key));
+            ['publisher', 'site', 'edit_site', 'sites_page'].forEach((key) => url.searchParams.delete(key));
+            lastSitesPage = 1;
             window.location = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
             return;
         }
@@ -2353,7 +2395,8 @@ document.getElementById('backBtn').addEventListener('click', function(){
     // Drop deep-link params so refresh stays on the publisher list (not stuck on sites).
     try {
         const url = new URL(window.location.href);
-        ['publisher', 'site', 'edit_site'].forEach((key) => url.searchParams.delete(key));
+        ['publisher', 'site', 'edit_site', 'sites_page'].forEach((key) => url.searchParams.delete(key));
+        lastSitesPage = 1;
         const next = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
         window.history.replaceState({}, '', next);
     } catch (e) {}
@@ -2727,7 +2770,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     // queue, then immediately covered it with whichever publisher you happened
     // to open last, and the button looked dead.
     const wantsReviewQueue = params.has('needs_review') || params.get('verified') === '0' || params.has('waiting_on_publisher');
-    const pagingTheList = params.has('page');
+    const pagingTheList = params.has('page') && !params.get('publisher') && !siteId;
     if (pagingTheList || ((wantsReviewQueue || ALL_SITES) && !params.get('publisher') && !siteId)) {
         sessionStorage.removeItem('selected_user');
     }
@@ -2751,9 +2794,9 @@ window.addEventListener('DOMContentLoaded',()=>{
         if (siteSearch && queryLooksLikeSiteSearch(indexQ) && !siteSearch.value) {
             siteSearch.value = indexQ;
         }
-        fetchUserSites(publisherId).then(() => {
+        fetchUserSites(publisherId, params.get('sites_page')).then(() => {
             if (editSiteId) {
-                window.location.href = `${STAFF_BASE}/sites/${editSiteId}/edit`;
+                window.location.href = staffSitesEditUrl(editSiteId);
                 return;
             }
         });
@@ -2779,7 +2822,7 @@ document.addEventListener('click', function (e) {
             excerpt: btn.dataset.descriptionExcerpt || '',
             name: name,
             confirmText: 'Activate',
-            editUrl: `${STAFF_BASE}/sites/${id}/edit#description`,
+            editUrl: staffSitesEditUrl(id, '#description'),
         })
         : (typeof window.slbConfirm === 'function')
             ? window.slbConfirm({

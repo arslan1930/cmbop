@@ -165,7 +165,7 @@ class AdminAudienceNeverDepositedTest extends TestCase
                 'cta_url' => url('/advertiser/add-funds'),
                 'respect_preferences' => false,
             ])
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         $campaign = EmailCampaign::query()->latest('id')->first();

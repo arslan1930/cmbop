@@ -7,8 +7,12 @@ use App\Jobs\SendEmailCampaignJob;
 use App\Mail\AudienceCampaignMail;
 use App\Models\EmailCampaign;
 use App\Models\EmailCampaignRecipient;
+use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\AudienceInventoryService;
+use App\Support\AdminAudiences;
+use App\Support\AdminCampaigns;
+use App\Support\AdminEmails;
 use App\Support\CampaignHtml;
 use App\Support\EmailCatalog;
 use App\Support\UserFacingError;
@@ -17,6 +21,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -38,13 +43,14 @@ class CampaignController extends Controller
             $stats = $this->emptyCampaignStats();
         }
 
+        AdminCampaigns::rememberReturnQuery($request);
         $campaignStatus = search_text($request->query('status'));
         $attentionStatuses = [
             EmailCampaign::STATUS_QUEUED,
             EmailCampaign::STATUS_SENDING,
             EmailCampaign::STATUS_FAILED,
         ];
-        if ($campaignStatus !== 'attention' && ! in_array($campaignStatus, $attentionStatuses, true)) {
+        if ($campaignStatus !== 'attention' && ! in_array($campaignStatus, AdminCampaigns::listStatuses(), true)) {
             $campaignStatus = '';
         }
 
@@ -53,6 +59,12 @@ class CampaignController extends Controller
                 $campaigns = new LengthAwarePaginator([], 0, 15);
             } else {
                 $campaignQuery = EmailCampaign::query()->with('creator');
+                if ($this->schemaTableAvailable((new EmailCampaignRecipient)->getTable())) {
+                    $campaignQuery->withCount([
+                        'recipients as recipient_rows_count',
+                        'recipients as failed_recipients_count' => fn ($query) => $query->where('status', EmailCampaignRecipient::STATUS_FAILED),
+                    ]);
+                }
                 if ($campaignStatus === 'attention') {
                     $campaignQuery->whereIn('status', $attentionStatuses)
                         ->orderBy('created_at')
@@ -87,6 +99,16 @@ class CampaignController extends Controller
             ->reject(fn (array $tpl) => ($tpl['key'] ?? '') === 'audience_campaign')
             ->groupBy(fn (array $tpl) => $tpl['category'] ?: 'Other');
 
+        $resumeDraft = $this->editableDraft((int) (filter_number($request->input('draft')) ?? 0));
+        $inventorySnapshot = $this->inventorySnapshotForCompose($request, $resumeDraft);
+        $queue = [
+            'mail_connection' => config('email_notifications.queue_connection', config('queue.default')),
+            'mail_queue' => config('email_notifications.queue', 'emails'),
+            'auto_drain' => (bool) config('email_notifications.auto_drain'),
+            'mail_pending_jobs' => $this->queuedMailJobsCount(),
+            'mail_failed_jobs' => $this->failedMailJobsCount(),
+        ];
+
         return view('admin.campaigns.index', compact(
             'stats',
             'campaigns',
@@ -94,7 +116,10 @@ class CampaignController extends Controller
             'advertisers',
             'publishers',
             'pickerCapped',
-            'emailTemplates'
+            'emailTemplates',
+            'resumeDraft',
+            'queue',
+            'inventorySnapshot'
         ));
     }
 
@@ -118,11 +143,26 @@ class CampaignController extends Controller
         if (! in_array($status, $allowed, true)) {
             $status = '';
         }
+        $search = search_text($request->input('q'));
+        if (strlen($search) > 190) {
+            $search = substr($search, 0, 190);
+        }
 
         try {
             $recipients = $campaign->recipients()
                 ->with(['user', 'emailLog'])
                 ->when($status !== '', fn ($query) => $query->where('status', $status))
+                ->when($search !== '', function ($query) use ($search) {
+                    $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search).'%';
+                    $query->where(function ($inner) use ($like, $search) {
+                        $inner->where('email', 'like', $like)
+                            ->orWhereHas('user', function ($user) use ($like, $search) {
+                                $user->where('name', 'like', $like)
+                                    ->orWhere('email', 'like', $like)
+                                    ->orWhere('id', (int) $search);
+                            });
+                    });
+                })
                 ->orderBy('id')
                 ->paginate(25)
                 ->withQueryString();
@@ -146,8 +186,160 @@ class CampaignController extends Controller
             'campaign',
             'recipients',
             'counts',
-            'status'
+            'status',
+            'search'
+        ) + [
+            'campaignsBackUrl' => AdminCampaigns::listUrl(AdminCampaigns::sessionReturnQuery($request)),
+        ]);
+    }
+
+    public function letter(EmailCampaign $campaign)
+    {
+        $html = $this->renderCampaignLetter($campaign);
+        abort_unless($html, 404);
+
+        return response($html);
+    }
+
+    public function storeDraft(Request $request)
+    {
+        $this->canonicalizeAudienceInput($request);
+
+        $data = $request->validate($this->campaignContentRules());
+
+        if (! EmailCampaign::tableAvailable()) {
+            return back()->withInput()->with('error', 'Campaigns are unavailable on this database.');
+        }
+
+        $bodyHtml = CampaignHtml::sanitize($data['body_html']);
+        if (CampaignHtml::isBlank($data['body_html'])) {
+            return back()->withInput()->withErrors([
+                'body_html' => 'Write a message before saving a draft.',
+            ]);
+        }
+
+        $selectedIds = ($data['audience'] ?? null) === 'selected'
+            ? array_values(array_map('intval', $data['user_ids'] ?? []))
+            : null;
+        $respectPrefs = $request->boolean('respect_preferences');
+        $includeUnverified = $request->boolean('include_unverified');
+
+        try {
+            $attributes = EmailCampaign::attributesThatExist(array_merge(
+                $this->hydrateCampaignAttributes($data, $bodyHtml, $selectedIds, $respectPrefs, $includeUnverified, $this->inventorySliceArgs($request, $data['audience'] ?? null)),
+                [
+                    'recipients_count' => 0,
+                    'sent_count' => 0,
+                    'skipped_count' => 0,
+                    'status' => EmailCampaign::STATUS_DRAFT,
+                    'created_by' => auth()->id(),
+                ]
+            ));
+
+            $draft = $this->editableDraft((int) ($request->input('draft_id') ?? 0));
+            if ($draft) {
+                $draft->fill($attributes);
+                $draft->save();
+            } else {
+                $draft = EmailCampaign::create($attributes);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withInput()->with(
+                'error',
+                UserFacingError::message($e, 'We could not save this draft. Please try again.')
+            );
+        }
+
+        return redirect()
+            ->route('admin.campaigns.index', ['draft' => $draft->id])
+            ->with('success', 'Draft saved. Send when you are ready.');
+    }
+
+    public function sendTest(Request $request)
+    {
+        $adminEmail = (string) $request->user()->email;
+        $this->canonicalizeAudienceInput($request);
+        $data = $request->validate(array_merge($this->campaignContentRules(), [
+            'email' => ['required', 'email', Rule::in([$adminEmail])],
+        ]));
+
+        $bodyHtml = CampaignHtml::sanitize($data['body_html']);
+        if (CampaignHtml::isBlank($data['body_html'])) {
+            return back()->withInput()->withErrors([
+                'body_html' => 'Write a message before sending a test.',
+            ]);
+        }
+
+        $campaign = new EmailCampaign($this->hydrateCampaignAttributes(
+            $data,
+            $bodyHtml,
+            ($data['audience'] ?? null) === 'selected'
+                ? array_values(array_map('intval', $data['user_ids'] ?? []))
+                : null,
+            $request->boolean('respect_preferences'),
+            $request->boolean('include_unverified'),
+            $this->inventorySliceArgs($request, $data['audience'] ?? null),
         ));
+        $campaign->id = EmailCatalog::PREVIEW_ID;
+
+        $mailable = new AudienceCampaignMail($campaign, $this->previewRecipient());
+        $mailable->forceSend = true;
+        $mailable->skipUserPreference = true;
+        $mailable->dedupeKey = 'email_center_test:audience_campaign:'.(string) Str::uuid();
+
+        try {
+            Mail::to($adminEmail)->sendNow($mailable);
+        } catch (\Throwable $e) {
+            return back()->withInput()->with(
+                'error',
+                UserFacingError::message($e, 'Failed to send the test email. Please try again.')
+            );
+        }
+
+        return back()->withInput()->with(
+            'success',
+            'Test email handed to the mailer for '.$adminEmail.' (synthetic preview — not a live audience send).'
+        );
+    }
+
+    public function clone(EmailCampaign $campaign)
+    {
+        if (! EmailCampaign::tableAvailable()) {
+            return back()->with('error', 'Campaigns are unavailable on this database.');
+        }
+
+        try {
+            $copy = EmailCampaign::create(EmailCampaign::attributesThatExist([
+                'name' => Str::limit('Copy of '.($campaign->name ?: $campaign->subject), 120, ''),
+                'subject' => $campaign->subject,
+                'body_html' => $campaign->body_html,
+                'audience' => $campaign->audience,
+                'selected_user_ids' => $campaign->selected_user_ids,
+                'cta_label' => $campaign->cta_label,
+                'cta_url' => $campaign->cta_url,
+                'respect_preferences' => $campaign->respect_preferences,
+                'include_unverified' => $campaign->include_unverified,
+                'inventory_filters' => $campaign->inventory_filters,
+                'recipients_count' => 0,
+                'sent_count' => 0,
+                'skipped_count' => 0,
+                'status' => EmailCampaign::STATUS_DRAFT,
+                'created_by' => auth()->id(),
+            ]));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with(
+                'error',
+                UserFacingError::message($e, 'We could not copy this campaign. Please try again.')
+            );
+        }
+
+        return redirect()
+            ->route('admin.campaigns.index', ['draft' => $copy->id])
+            ->with('success', 'Draft created from this campaign.');
     }
 
     public function preview(Request $request)
@@ -160,7 +352,8 @@ class CampaignController extends Controller
 
             $html = EmailCatalog::previewHtml(
                 $data['template'],
-                $this->emailCenterAudience($data['audience'] ?? null)
+                AdminEmails::previewAudience($data['audience'] ?? null)
+                    ?? $this->emailCenterAudience($data['audience'] ?? null)
             );
             abort_unless($html, 404);
 
@@ -199,7 +392,8 @@ class CampaignController extends Controller
         $meta = EmailCatalog::get($key);
         abort_unless($meta, 404);
 
-        $previewAudience = $this->emailCenterAudience($data['audience'] ?? null);
+        $previewAudience = AdminEmails::previewAudience($data['audience'] ?? null)
+            ?? $this->emailCenterAudience($data['audience'] ?? null);
         $mailable = EmailCatalog::makeMailable($key, array_filter([
             'audience' => $previewAudience,
         ]));
@@ -236,16 +430,21 @@ class CampaignController extends Controller
 
         $includeUnverified = $request->boolean('include_unverified');
         $ids = $data['user_ids'] ?? [];
-        $count = $inventory->count($data['audience'], $ids, $includeUnverified);
+        $slice = $this->inventorySliceArgs($request, $data['audience']);
+        $count = $inventory->count($data['audience'], $ids, $includeUnverified, $slice['search'], $slice['filters']);
         $unverifiedExcluded = 0;
         if (! $includeUnverified) {
-            $unverifiedExcluded = max(0, $inventory->count($data['audience'], $ids, true) - $count);
+            $unverifiedExcluded = max(0, $inventory->count($data['audience'], $ids, true, $slice['search'], $slice['filters']) - $count);
         }
+
+        $filterSummary = AdminAudiences::summary($slice);
 
         return response()->json([
             'count' => $count,
             'label' => EmailCampaign::labelForAudience($data['audience']),
             'unverified_excluded' => $unverifiedExcluded,
+            'filtered' => $filterSummary !== '',
+            'filter_summary' => $filterSummary,
         ]);
     }
 
@@ -264,6 +463,8 @@ class CampaignController extends Controller
             return back()->withInput()->with('error', 'Select at least one user for a custom audience.');
         }
 
+        $draft = $this->editableDraft((int) ($request->input('draft_id') ?? 0));
+
         $bodyHtml = CampaignHtml::sanitize($data['body_html']);
         if (CampaignHtml::isBlank($data['body_html'])) {
             return back()->withInput()->withErrors([
@@ -272,8 +473,15 @@ class CampaignController extends Controller
         }
 
         $includeUnverified = $request->boolean('include_unverified');
+        $slice = $this->inventorySliceArgs($request, $data['audience']);
         try {
-            $recipients = $inventory->collectRecipientRows($data['audience'], $data['user_ids'] ?? [], $includeUnverified)
+            $recipients = $inventory->collectRecipientRows(
+                $data['audience'],
+                $data['user_ids'] ?? [],
+                $includeUnverified,
+                $slice['search'],
+                $slice['filters']
+            )
                 ->unique('id')
                 ->values();
         } catch (\Throwable $e) {
@@ -285,20 +493,25 @@ class CampaignController extends Controller
             );
         }
         if ($recipients->isEmpty()) {
-            return back()->withInput()->with('error', 'No recipients found for that audience.');
+            $empty = 'No recipients found for that audience.';
+            if (($slice['filters']['verified'] ?? 'all') === 'no' && ! $includeUnverified) {
+                $empty = 'No recipients: unverified filter is on and “include unverified” is off.';
+            }
+
+            return back()->withInput()->with('error', $empty);
         }
 
         $respectPrefs = $request->boolean('respect_preferences');
         $count = $recipients->count();
 
         try {
-            $campaign = DB::transaction(function () use ($data, $recipients, $count, $respectPrefs, $includeUnverified, $bodyHtml) {
+            $campaign = DB::transaction(function () use ($data, $recipients, $count, $respectPrefs, $includeUnverified, $bodyHtml, $draft, $slice) {
                 $selectedIds = $data['audience'] === 'selected'
                     ? $recipients->pluck('id')->map(fn ($id) => (int) $id)->values()->all()
                     : null;
 
-                $campaign = EmailCampaign::create(EmailCampaign::attributesThatExist(array_merge(
-                    $this->hydrateCampaignAttributes($data, $bodyHtml, $selectedIds, $respectPrefs, $includeUnverified),
+                $attributes = EmailCampaign::attributesThatExist(array_merge(
+                    $this->hydrateCampaignAttributes($data, $bodyHtml, $selectedIds, $respectPrefs, $includeUnverified, $slice),
                     [
                         'recipients_count' => $count,
                         'sent_count' => 0,
@@ -306,7 +519,15 @@ class CampaignController extends Controller
                         'status' => EmailCampaign::STATUS_QUEUED,
                         'created_by' => auth()->id(),
                     ]
-                )));
+                ));
+
+                if ($draft) {
+                    $draft->fill($attributes);
+                    $draft->save();
+                    $campaign = $draft;
+                } else {
+                    $campaign = EmailCampaign::create($attributes);
+                }
 
                 $now = now();
                 foreach ($recipients->chunk(200) as $chunk) {
@@ -370,11 +591,12 @@ class CampaignController extends Controller
             [
                 'audience' => $campaign->audience,
                 'recipients' => $count,
+                'inventory_filters' => $campaign->inventory_filters,
             ]
         );
 
         return redirect()
-            ->route('admin.campaigns.index')
+            ->route('admin.campaigns.show', $campaign)
             ->with('success', "Campaign queued for {$count} recipient(s).");
     }
 
@@ -405,7 +627,12 @@ class CampaignController extends Controller
         ?array $selectedUserIds,
         bool $respectPreferences,
         bool $includeUnverified,
+        array $inventorySnapshot = [],
     ): array {
+        $snapshot = ($data['audience'] ?? null) === 'selected'
+            ? ['search' => '', 'filters' => []]
+            : AdminAudiences::normalizeSnapshot($inventorySnapshot);
+
         return [
             'name' => filled($data['name'] ?? null) ? $data['name'] : $data['subject'],
             'subject' => $data['subject'],
@@ -418,7 +645,37 @@ class CampaignController extends Controller
             'cta_url' => $this->safeCtaUrl($data['cta_url'] ?? null),
             'respect_preferences' => $respectPreferences,
             'include_unverified' => $includeUnverified,
+            'inventory_filters' => $snapshot,
         ];
+    }
+
+    /**
+     * @return array{search: string, filters: array<string, mixed>}
+     */
+    protected function inventorySliceArgs(Request $request, ?string $audience): array
+    {
+        if ($audience === AudienceInventoryService::AUDIENCE_SELECTED) {
+            return ['search' => '', 'filters' => []];
+        }
+
+        return AdminAudiences::snapshotFromRequest($request);
+    }
+
+    /**
+     * @return array{search: string, filters: array<string, mixed>}
+     */
+    protected function inventorySnapshotForCompose(Request $request, ?EmailCampaign $resumeDraft): array
+    {
+        $fromRequest = AdminAudiences::snapshotFromRequest($request);
+        if (($fromRequest['search'] ?? '') !== '' || ($fromRequest['filters'] ?? []) !== []) {
+            return $fromRequest;
+        }
+
+        if ($resumeDraft && is_array($resumeDraft->inventory_filters)) {
+            return AdminAudiences::normalizeSnapshot($resumeDraft->inventory_filters);
+        }
+
+        return ['search' => '', 'filters' => []];
     }
 
     /**
@@ -464,6 +721,11 @@ class CampaignController extends Controller
 
     protected function emailCenterAudience(?string $audience): ?string
     {
+        $preview = AdminEmails::previewAudience($audience);
+        if ($preview !== null) {
+            return $preview;
+        }
+
         if (in_array($audience, ['advertiser', 'publisher', 'admin'], true)) {
             return $audience;
         }
@@ -667,6 +929,67 @@ class CampaignController extends Controller
         $canonical = AudienceInventoryService::canonicalAudienceKey($raw);
         if ($canonical !== null) {
             $request->merge(['audience' => $canonical]);
+        }
+    }
+
+    protected function editableDraft(int $id): ?EmailCampaign
+    {
+        if ($id < 1) {
+            return null;
+        }
+
+        $draft = EmailCampaign::query()->find($id);
+
+        return $draft?->isEditableDraft() ? $draft : null;
+    }
+
+    protected function previewRecipient(): User
+    {
+        $user = new User([
+            'name' => 'Sample user',
+            'email' => EmailCatalog::PREVIEW_EMAIL,
+        ]);
+        $user->id = EmailCatalog::PREVIEW_ID;
+
+        return $user;
+    }
+
+    protected function renderCampaignLetter(EmailCampaign $campaign): ?string
+    {
+        try {
+            $mailable = new AudienceCampaignMail($campaign, $this->previewRecipient());
+            $mailable->skipUserPreference = true;
+            $html = $mailable->render();
+
+            return is_string($html) && trim($html) !== '' ? $html : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function queuedMailJobsCount(): int
+    {
+        if (! $this->schemaTableAvailable('jobs')) {
+            return 0;
+        }
+
+        try {
+            return (int) DB::table('jobs')->where('payload', 'like', '%SendQueuedMailable%')->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function failedMailJobsCount(): int
+    {
+        if (! $this->schemaTableAvailable('failed_jobs')) {
+            return 0;
+        }
+
+        try {
+            return (int) DB::table('failed_jobs')->where('payload', 'like', '%SendQueuedMailable%')->count();
+        } catch (\Throwable) {
+            return 0;
         }
     }
 

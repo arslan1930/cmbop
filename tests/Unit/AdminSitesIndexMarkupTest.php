@@ -20,5 +20,8 @@ class AdminSitesIndexMarkupTest extends TestCase
         $this->assertStringContainsString('Waiting on publisher', $strip);
         $this->assertStringContainsString('Live unverified', $strip);
         $this->assertStringContainsString('admin-sites-header', $blade);
+        $this->assertStringContainsString('staffSitesEditUrl', $blade);
+        $this->assertStringContainsString("params.has('page') && !params.get('publisher') && !siteId", $blade);
+        $this->assertStringContainsString("params.get('sites_page')", $blade);
     }
 }

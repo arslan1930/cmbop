@@ -270,7 +270,7 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString("'Reject this site?'", $html);
         $this->assertStringContainsString('const isArchive = canArchiveSiteRow(site)', $html);
         $this->assertStringContainsString('JSON.stringify({ reason })', $html);
-        $this->assertStringContainsString('${STAFF_BASE}/sites/${site.id}/edit', $html);
+        $this->assertStringContainsString('staffSitesEditUrl(site.id)', $html);
         $this->assertStringContainsString('IS_MARKETING_EDITOR && listingLocked', $html);
         $this->assertStringContainsString('Missing market', $html);
         $this->assertStringContainsString('Below quality bar', $html);

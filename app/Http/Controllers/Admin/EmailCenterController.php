@@ -15,6 +15,7 @@ use App\Models\EmailLog;
 use App\Models\EmailNotificationSetting;
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Support\AdminEmails;
 use App\Support\EmailCatalog;
 use App\Support\MailJobPayload;
 use App\Support\UserFacingError;
@@ -39,8 +40,15 @@ class EmailCenterController extends Controller
     public function index(Request $request)
     {
         $stats = EmailLog::dashboardKpis();
-        $filters = $this->recentLogFilters($request);
-        $recentLogs = $this->recentEmailLogs($filters);
+        AdminEmails::rememberReturnQuery($request);
+        $filters = AdminEmails::recentFilters($request);
+        $recentLogs = $this->recentEmailLogs($request, $filters);
+        $kpiUrls = [
+            'sent_today' => AdminEmails::listUrl(AdminEmails::kpiQuery('sent_today')),
+            'pending' => AdminEmails::listUrl(AdminEmails::kpiQuery('pending')),
+            'failed' => AdminEmails::listUrl(AdminEmails::kpiQuery('failed')),
+            'delivered' => AdminEmails::listUrl(AdminEmails::kpiQuery('delivered')),
+        ];
         $templateStats = $this->emailTemplateStats();
         $settingRows = $this->emailNotificationSettingRows();
         $preferenceLabels = collect(config('email_notifications.preference_keys', []))
@@ -120,7 +128,8 @@ class EmailCenterController extends Controller
             'brand',
             'recentCampaigns',
             'criticalTypes',
-            'logFilters'
+            'logFilters',
+            'kpiUrls'
         ));
     }
 
@@ -188,8 +197,8 @@ class EmailCenterController extends Controller
         $template = EmailCatalog::get($key);
         abort_unless($template, 404);
 
-        $audience = $request->query('audience');
-        $html = EmailCatalog::previewHtml($key, is_string($audience) ? $audience : null);
+        $audience = AdminEmails::previewAudience($request->query('audience'));
+        $html = EmailCatalog::previewHtml($key, $audience);
         abort_unless($html, 404);
 
         return response($html);
@@ -198,10 +207,17 @@ class EmailCenterController extends Controller
     public function showLog(EmailLog $emailLog)
     {
         $relatedUser = User::query()->where('email', $emailLog->to_email)->first();
+        $metaUserId = (int) data_get($emailLog->meta, 'user_id');
+        if (! $relatedUser && $metaUserId > 0) {
+            $relatedUser = User::query()->find($metaUserId);
+        }
 
         return view('admin.emails.log', [
             'log' => $emailLog,
             'relatedUser' => $relatedUser,
+            'emailsBackUrl' => AdminEmails::listUrl(AdminEmails::storedReturnQuery(request())),
+            'relatedCampaignId' => (int) data_get($emailLog->meta, 'campaign_id'),
+            'relatedOrderId' => (int) data_get($emailLog->meta, 'order_id'),
         ]);
     }
 
@@ -211,16 +227,20 @@ class EmailCenterController extends Controller
         $data = $request->validate([
             'template' => ['required', 'string', Rule::in(array_keys(EmailCatalog::templates()))],
             'email' => ['required', 'email', Rule::in([$adminEmail])],
+            'audience' => ['nullable', 'string'],
         ]);
 
         $key = $data['template'];
         $template = EmailCatalog::get($key);
         abort_unless($template, 404);
+        $audience = AdminEmails::previewAudience($data['audience'] ?? null);
 
         $dedupe = 'email_center_test:'.$key.':'.(string) Str::uuid();
         $mailable = null;
         if (! $this->frameworkPreviewHtml($key)) {
-            $mailable = EmailCatalog::makeMailable($key);
+            $mailable = EmailCatalog::makeMailable($key, array_filter([
+                'audience' => $audience,
+            ]));
             abort_unless($mailable, 404);
         }
 
@@ -243,10 +263,26 @@ class EmailCenterController extends Controller
                 ['template' => $key, 'email' => $adminEmail]
             );
 
-            return back()->with(
-                'success',
-                'Test email sent to '.$adminEmail.' (synthetic preview — ignores global disable).'
-            );
+            $log = $this->schemaTableAvailable('email_logs')
+                ? EmailLog::query()
+                    ->where('dedupe_key', $dedupe)
+                    ->latest('id')
+                    ->first()
+                : null;
+            $status = $log?->status;
+            $message = match ($status) {
+                EmailLog::STATUS_DELIVERED => 'Test email delivered to '.$adminEmail.' (SMTP accepted — not inbox proof).',
+                EmailLog::STATUS_PENDING => 'Test email queued for '.$adminEmail.'. Recent still shows pending until the emails worker or auto-drain sends it.',
+                EmailLog::STATUS_FAILED => 'Test for '.$adminEmail.' logged as failed. Open Recent for the error.',
+                default => 'Test email handed to the mailer for '.$adminEmail.' (synthetic preview — ignores global disable).',
+            };
+
+            return redirect()
+                ->to(AdminEmails::listUrl([
+                    'to_email' => $adminEmail,
+                    'template_key' => $key,
+                ]))
+                ->with('success', $message);
         } catch (\Throwable $e) {
             $this->recordTestSendFailure($template, $key, $adminEmail, $dedupe, $e);
 
@@ -1429,41 +1465,16 @@ class EmailCenterController extends Controller
     }
 
     /**
-     * @return array{status: ?string, template_key: ?string, to_email: ?string, date_from: ?string, date_to: ?string}
+     * @return array{status: ?string, template_key: ?string, to_email: ?string, date_from: ?string, date_to: ?string, source: ?string}
      */
     protected function recentLogFilters(Request $request): array
     {
-        $status = $request->query('status');
-        $template = $request->query('template_key');
-        $email = $request->query('to_email');
-
-        return [
-            'status' => is_string($status) && in_array($status, ['pending', 'delivered', 'failed'], true)
-                ? $status
-                : null,
-            'template_key' => is_string($template) && $template !== ''
-                ? substr($template, 0, 80)
-                : null,
-            'to_email' => is_string($email) && $email !== ''
-                ? substr($email, 0, 190)
-                : null,
-            'date_from' => $this->validFilterDate($request->query('date_from')),
-            'date_to' => $this->validFilterDate($request->query('date_to')),
-        ];
+        return AdminEmails::recentFilters($request);
     }
 
     protected function validFilterDate(mixed $value): ?string
     {
-        if (! is_string($value) || $value === '') {
-            return null;
-        }
-
-        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
-        if (! $date instanceof \DateTimeImmutable) {
-            return null;
-        }
-
-        return $date->format('Y-m-d') === $value ? $value : null;
+        return AdminEmails::validDate($value);
     }
 
     protected function applyToEmailFilter($query, string $email)
@@ -1544,19 +1555,36 @@ class EmailCenterController extends Controller
     }
 
     /**
-     * @param  array{status: ?string, template_key: ?string, to_email: ?string, date_from: ?string, date_to: ?string}  $filters
+     * @param  array{status: ?string, template_key: ?string, to_email: ?string, date_from: ?string, date_to: ?string, source: ?string}  $filters
      */
-    private function recentEmailLogs(array $filters): LengthAwarePaginator
+    private function recentEmailLogs(Request $request, array $filters): LengthAwarePaginator
     {
         try {
+            $page = max(1, (int) (filter_number($request->input('page')) ?? 1));
+
             return EmailLog::query()
                 ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
                 ->when($filters['template_key'] ?? null, fn ($q, $key) => $q->where('template_key', $key))
                 ->when($filters['to_email'] ?? null, fn ($q, $email) => $this->applyToEmailFilter($q, $email))
                 ->when($filters['date_from'] ?? null, fn ($q, $from) => $q->whereRaw('date(coalesce(sent_at, created_at)) >= ?', [$from]))
                 ->when($filters['date_to'] ?? null, fn ($q, $to) => $q->whereRaw('date(coalesce(sent_at, created_at)) <= ?', [$to]))
+                ->when(($filters['source'] ?? null) === 'test', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->where('dedupe_key', 'like', 'email_center_test:%')
+                            ->orWhere('meta', 'like', '%email_center_test%');
+                    });
+                })
+                ->when(($filters['source'] ?? null) === 'live', function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->whereNull('dedupe_key')
+                            ->orWhere('dedupe_key', 'not like', 'email_center_test:%');
+                    })->where(function ($inner) {
+                        $inner->whereNull('meta')
+                            ->orWhere('meta', 'not like', '%email_center_test%');
+                    });
+                })
                 ->latest('id')
-                ->paginate(50)
+                ->paginate(50, ['*'], 'page', $page)
                 ->withQueryString()
                 ->fragment('ec-recent');
         } catch (\Throwable) {
@@ -1594,7 +1622,7 @@ class EmailCenterController extends Controller
     private function failedEmailLogs(): Collection
     {
         try {
-            return EmailLog::failed()->latest('id')->limit(20)->get();
+            return EmailLog::failed()->latest('id')->limit(5)->get();
         } catch (\Throwable) {
             return collect();
         }
@@ -1607,7 +1635,13 @@ class EmailCenterController extends Controller
         }
 
         try {
-            return EmailCampaign::query()->latest('id')->limit(3)->get();
+            return EmailCampaign::query()
+                ->withCount([
+                    'recipients as failed_recipients_count' => fn ($query) => $query->where('status', EmailCampaignRecipient::STATUS_FAILED),
+                ])
+                ->latest('id')
+                ->limit(3)
+                ->get();
         } catch (\Throwable) {
             return collect();
         }

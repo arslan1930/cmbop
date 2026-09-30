@@ -3,9 +3,11 @@
 @section('content')
 @php
     $statusFilter = $status ?? '';
+    $search = $search ?? '';
     $filterUrl = fn (?string $statusSlug) => route('admin.campaigns.show', array_filter([
         'campaign' => $campaign->id,
         'status' => $statusSlug ?: null,
+        'q' => $search !== '' ? $search : null,
     ]));
     $statusBadge = function (string $rowStatus): string {
         return match ($rowStatus) {
@@ -24,9 +26,14 @@
             <p class="text-muted mb-0">Recipient delivery status for this campaign. Failed rows open Email Center — there is no resend-all from here.</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ route('admin.campaigns.index') }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ $campaignsBackUrl ?? route('admin.campaigns.index') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fa fa-arrow-left me-1"></i> Back to campaigns
             </a>
+            <a class="btn btn-sm btn-outline-secondary" target="_blank" href="{{ route('admin.campaigns.letter', $campaign) }}">View sent HTML</a>
+            <form method="post" action="{{ route('admin.campaigns.clone', $campaign) }}">
+                @csrf
+                <button class="btn btn-sm btn-outline-primary" type="submit">Use as new draft</button>
+            </form>
             <a href="{{ route('admin.emails.index') }}" class="btn btn-sm btn-outline-secondary">
                 Email Center
             </a>
@@ -40,6 +47,9 @@
                     <div class="text-muted small">Subject</div>
                     <div class="fw-semibold">{{ $campaign->subject }}</div>
                     <div class="small text-muted mt-2">{{ $campaign->audienceLabel() }}</div>
+                    @if($campaign->inventoryFilterSummary() !== '')
+                        <div class="small text-muted">Filtered: {{ $campaign->inventoryFilterSummary() }}</div>
+                    @endif
                     <div class="small text-muted">{{ ucfirst($campaign->status) }} · {{ optional($campaign->sent_at)->format('M j, Y g:ia') ?: '—' }}</div>
                 </div>
             </div>
@@ -49,24 +59,34 @@
                 <div class="card-body">
                     <div class="row text-center g-2">
                         <div class="col">
+                            <a href="{{ $filterUrl(null) }}" class="text-decoration-none text-reset">
                             <div class="text-muted small">Recipients</div>
                             <div class="fs-5 fw-semibold">{{ number_format($campaign->recipients_count) }}</div>
+                            </a>
                         </div>
                         <div class="col">
+                            <a href="{{ $filterUrl('delivered') }}" class="text-decoration-none text-reset">
                             <div class="text-muted small">Delivered</div>
                             <div class="fs-5 fw-semibold">{{ number_format($counts['delivered'] ?? 0) }}</div>
+                            </a>
                         </div>
                         <div class="col">
+                            <a href="{{ $filterUrl('failed') }}" class="text-decoration-none text-reset">
                             <div class="text-muted small">Failed</div>
                             <div class="fs-5 fw-semibold">{{ number_format($counts['failed'] ?? 0) }}</div>
+                            </a>
                         </div>
                         <div class="col">
+                            <a href="{{ $filterUrl('skipped') }}" class="text-decoration-none text-reset">
                             <div class="text-muted small">Skipped</div>
                             <div class="fs-5 fw-semibold">{{ number_format($counts['skipped'] ?? 0) }}</div>
+                            </a>
                         </div>
                         <div class="col">
+                            <a href="{{ $filterUrl('pending') }}" class="text-decoration-none text-reset">
                             <div class="text-muted small">Pending / queued</div>
                             <div class="fs-5 fw-semibold">{{ number_format(($counts['pending'] ?? 0) + ($counts['queued'] ?? 0)) }}</div>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -77,6 +97,13 @@
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <strong>Recipients</strong>
+            <form method="get" action="{{ route('admin.campaigns.show', $campaign) }}" class="d-flex flex-wrap gap-2">
+                @if($statusFilter !== '')
+                    <input type="hidden" name="status" value="{{ $statusFilter }}">
+                @endif
+                <input type="search" name="q" value="{{ $search }}" class="form-control form-control-sm" placeholder="Search name or email" aria-label="Search recipients" style="min-width:12rem">
+                <button class="btn btn-sm btn-outline-secondary" type="submit">Search</button>
+            </form>
             <div class="d-flex flex-wrap gap-1">
                 <a href="{{ $filterUrl(null) }}" class="btn btn-sm {{ $statusFilter === '' ? 'btn-primary' : 'btn-outline-secondary' }}">All</a>
                 @foreach(['delivered' => 'Delivered', 'failed' => 'Failed', 'skipped' => 'Skipped', 'queued' => 'Queued', 'pending' => 'Pending'] as $slug => $label)
