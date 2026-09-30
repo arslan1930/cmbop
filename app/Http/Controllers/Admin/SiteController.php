@@ -77,6 +77,7 @@ class SiteController extends Controller
                 'needsReviewFilterActive' => false,
                 'openReviewCount' => 0,
                 'missingMarketCount' => 0,
+                'readyToActivateCount' => 0,
                 'healthCounts' => CatalogHealthQueue::emptyCounts(),
                 'waitingOnPublisherFilterActive' => false,
                 'waitingOnPublisherCount' => 0,
@@ -171,6 +172,7 @@ class SiteController extends Controller
             'listing_verified' => '0',
         ]);
         $belowQualityListCount = $this->staffSitesFilterTotal(['below_quality' => true]);
+        $readyToActivateCount = $this->staffSitesFilterTotal(['ready_to_activate' => true]);
         $placeholderListCount = $this->staffSitesFilterTotal(['placeholder' => true]);
         $missingCoverListCount = $this->staffSitesFilterTotal(['missing_cover' => true]);
         $missingMarketListCount = $this->staffSitesFilterTotal([
@@ -352,6 +354,7 @@ class SiteController extends Controller
             'waitingStage',
             'liveUnverifiedCount',
             'belowQualityListCount',
+            'readyToActivateCount',
             'placeholderListCount',
             'missingCoverListCount',
             'missingMarketListCount',
@@ -396,6 +399,7 @@ class SiteController extends Controller
             'listing_active' => ($filters['listing_active'] ?? '') !== '' ? $filters['listing_active'] : null,
             'listing_verified' => ($filters['listing_verified'] ?? '') !== '' ? $filters['listing_verified'] : null,
             'below_quality' => ! empty($filters['below_quality']) ? 1 : null,
+            'ready_to_activate' => ! empty($filters['ready_to_activate']) ? 1 : null,
             'missing_market' => ! empty($filters['missing_market']) ? 1 : null,
             'placeholder' => ! empty($filters['placeholder']) ? 1 : null,
             'missing_cover' => ! empty($filters['missing_cover']) ? 1 : null,
@@ -1351,6 +1355,9 @@ class SiteController extends Controller
             'orders_url' => $ordersUrl,
             'enrichment_failed' => (string) ($site->enrichment_status ?? '') === 'failed',
             'metrics_fetched_label' => $metricsLabel,
+            'metrics_source' => (Site::hasSitesColumn('metrics_manual') && (bool) $site->metrics_manual)
+                ? 'Manual'
+                : ($metricsLabel ? 'Scan' : null),
             'publisher_copy_strike' => $copyStrike,
         ];
     }
@@ -1404,6 +1411,10 @@ class SiteController extends Controller
             'needs_review' => $site->needsAdminReview(),
             'missing_market' => ! $site->hasMarketplaceCountry(),
             'below_quality_bar' => ! $site->hasGoodMetrics(),
+            'quality_failures' => $site->qualityBarFailures(),
+            'missing_cover' => ! $site->hasCatalogCover(),
+            'missing_tags' => $listingTag === null,
+            'ready_to_activate' => $site->isReadyToActivate(),
             'listing_locked' => $site->isLockedForMarketingEdits(),
             'awaits_publisher_details' => $site->awaitsPublisherDetails(),
             'details_complete' => $site->hasDetailsComplete(),
@@ -1620,6 +1631,36 @@ class SiteController extends Controller
         }
     }
 
+    /**
+     * Unfiltered portfolio counts for the open publisher. Catalog-health
+     * badges on the index stay global; this line is only this publisher.
+     *
+     * @return array{total: int, ready_to_activate: int, below_quality: int}
+     */
+    private function publisherSitesSummary(int $publisherId): array
+    {
+        $empty = ['total' => 0, 'ready_to_activate' => 0, 'below_quality' => 0];
+        if ($publisherId < 1) {
+            return $empty;
+        }
+
+        try {
+            $base = Site::query()->where('publisher_id', $publisherId)->notArchived();
+            $below = clone $base;
+            $this->constrainStaffBelowQuality($below);
+
+            return [
+                'total' => (int) (clone $base)->count(),
+                'ready_to_activate' => (int) (clone $base)->readyToActivate()->count(),
+                'below_quality' => (int) $below->count(),
+            ];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $empty;
+        }
+    }
+
     private function userSitesPayload(Request $request, User $user)
     {
         $columns = [
@@ -1748,6 +1789,7 @@ class SiteController extends Controller
                 'email' => (string) $user->email,
                 'copy_strike' => $user->inCatalogHideMode(),
             ],
+            'summary' => $this->publisherSitesSummary((int) $user->id),
             'sites' => $sites,
             'meta' => [
                 'current_page' => $paginator->currentPage(),
@@ -1761,6 +1803,7 @@ class SiteController extends Controller
                 'listing_active' => $filters['listing_active'],
                 'listing_verified' => $filters['listing_verified'],
                 'below_quality' => $filters['below_quality'],
+                'ready_to_activate' => $filters['ready_to_activate'],
                 'missing_market' => $filters['missing_market'],
                 'archived' => $filters['archived'],
                 'sort' => $filters['sort'],
@@ -1959,6 +2002,7 @@ class SiteController extends Controller
             'listing_active' => in_array($active, ['0', '1'], true) ? $active : '',
             'listing_verified' => in_array($verified, ['0', '1'], true) ? $verified : '',
             'below_quality' => $this->requestFlag($request, 'below_quality'),
+            'ready_to_activate' => $this->requestFlag($request, 'ready_to_activate'),
             'missing_market' => $this->requestFlag($request, 'missing_market'),
             'placeholder' => $this->requestFlag($request, 'placeholder'),
             'missing_cover' => $this->requestFlag($request, 'missing_cover'),
@@ -1981,6 +2025,7 @@ class SiteController extends Controller
             || ($filter['listing_active'] ?? '') !== ''
             || ($filter['listing_verified'] ?? '') !== ''
             || ! empty($filter['below_quality'])
+            || ! empty($filter['ready_to_activate'])
             || ! empty($filter['missing_market'])
             || ! empty($filter['placeholder'])
             || ! empty($filter['missing_cover'])
@@ -2051,6 +2096,10 @@ class SiteController extends Controller
 
         if (! empty($filter['below_quality'])) {
             $this->constrainStaffBelowQuality($query);
+        }
+
+        if (! empty($filter['ready_to_activate'])) {
+            $query->readyToActivate();
         }
 
         if (! empty($filter['missing_market'])) {
@@ -2192,6 +2241,7 @@ class SiteController extends Controller
             'listing_active' => '',
             'listing_verified' => '',
             'below_quality' => false,
+            'ready_to_activate' => false,
             'missing_market' => false,
             'placeholder' => false,
             'missing_cover' => false,
@@ -3703,6 +3753,7 @@ class SiteController extends Controller
             'publication_time' => 'sometimes|nullable|string|max:20',
             // Dedicated editor is free text; modal may send dofollow/nofollow.
             'link_type' => 'sometimes|nullable|string|max:50',
+            'site_tag' => 'sometimes|nullable|in:sponsored,partner_material,as_you_prefer,none',
             'sponsored' => 'sometimes|nullable|boolean',
             'partner_material' => 'sometimes|nullable|boolean',
             'as_you_prefer' => 'sometimes|nullable|boolean',
@@ -3970,7 +4021,7 @@ class SiteController extends Controller
             return $data;
         }
 
-        return SiteTag::exclusiveAttributePatch($data, $site);
+        return SiteTag::exclusiveAttributePatch($this->mergePostedSiteTag($data, $request), $site);
     }
 
     /**
@@ -4063,6 +4114,7 @@ class SiteController extends Controller
             'country' => 'required|string|max:10',
             'categories' => 'required|array|min:1|max:7',
             'site_image' => SiteImageUpload::fieldRules($request->hasFile('site_image')),
+            'site_tag' => 'sometimes|nullable|in:sponsored,partner_material,as_you_prefer,none',
         ];
         if ($canFixListing) {
             $rules['site_name'] = 'sometimes|required|string|max:255';
@@ -4273,7 +4325,26 @@ class SiteController extends Controller
             }
         }
 
-        return $payload;
+        return $this->mergePostedSiteTag($payload, $request);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function mergePostedSiteTag(array $data, Request $request): array
+    {
+        if (! $request->exists('site_tag') || ! class_exists(SiteTag::class)) {
+            return $data;
+        }
+
+        $raw = $request->input('site_tag');
+        $tag = is_string($raw) ? strtolower(trim($raw)) : '';
+        if ($tag === '' || $tag === 'none') {
+            $tag = null;
+        }
+
+        return array_merge($data, SiteTag::flags($tag));
     }
 
     /**
@@ -5452,6 +5523,7 @@ class SiteController extends Controller
 
         $updated = [];
         $skipped = [];
+        $warnings = [];
 
         foreach (array_values(array_unique(array_map('intval', $data['ids']))) as $id) {
             if ($id < 1) {
@@ -5503,6 +5575,10 @@ class SiteController extends Controller
             $body = $response->getData(true);
             if ($status >= 200 && $status < 300 && ! empty($body['success'])) {
                 $updated[] = $id;
+                $warning = trim((string) ($body['warning'] ?? ''));
+                if ($warning !== '' && ! in_array($warning, $warnings, true)) {
+                    $warnings[] = $warning;
+                }
             } else {
                 $skipped[] = [
                     'id' => $id,
@@ -5511,8 +5587,20 @@ class SiteController extends Controller
             }
         }
 
-        $message = count($updated).' updated'
-            .($skipped !== [] ? ', '.count($skipped).' skipped' : '');
+        $message = count($updated).' updated';
+        if ($skipped !== []) {
+            $reason = trim((string) ($skipped[0]['message'] ?? ''));
+            $message .= ', '.count($skipped).' skipped';
+            if ($reason !== '') {
+                $message .= ': '.$reason;
+                if (count($skipped) > 1) {
+                    $message .= ' (+'.(count($skipped) - 1).' more)';
+                }
+            }
+        }
+        if ($warnings !== []) {
+            $message = rtrim($message, ". \t").'. '.$warnings[0];
+        }
         if ($matchedTotal !== null && $matchedTotal > count($data['ids'])) {
             $message .= ' First '.count($data['ids']).' of '.$matchedTotal.'.';
         }

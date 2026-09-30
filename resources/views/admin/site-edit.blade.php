@@ -281,6 +281,7 @@
                             @error('categories')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
 
+                        @include('admin.sites.partials.site-tag-field')
                         <div class="col-12">
                             <label class="form-label fw-semibold" for="site_image">Site image</label>
                             <input type="file" id="site_image" name="site_image"
@@ -542,6 +543,7 @@
                             </div>
                         </div>
 
+                        @include('admin.sites.partials.site-tag-field')
                         <div class="col-12">
                             <label class="form-label fw-semibold" for="site_image">Site image</label>
                             <input type="file" id="site_image" name="site_image"

@@ -1,6 +1,13 @@
 /**
  * Admin / staff list tables — fit viewport width; scroll vertically only.
  */
+/* Publisher detail has its own counts. Hide the catalog-wide totals so they
+   are not read as this publisher's queue. */
+.staff-publisher-open #staffCatalogWide,
+.staff-publisher-open .staff-catalog-count {
+  display: none;
+}
+
 .admin-table-fit {
   max-width: 100%;
   overflow-x: clip;
