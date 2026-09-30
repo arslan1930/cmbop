@@ -1303,3 +1303,15 @@
   border-color: var(--brand-primary-soft);
   box-shadow: 0 0 0 0.2rem var(--focus-ring, rgba(63, 174, 178, 0.35));
 }
+
+@media (max-width: 767.98px) {
+  .admin-finance-overview .admin-finance-toolbar__form {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .admin-finance-overview .admin-finance-toolbar__search {
+    min-width: 0;
+    width: 100%;
+  }
+}

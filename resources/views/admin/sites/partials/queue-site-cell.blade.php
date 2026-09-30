@@ -61,6 +61,9 @@
                 $publisherReviewing = false;
                 $awaitingAccept = false;
                 $fromBulkRequest = false;
+                $missingCover = false;
+                $missingTags = false;
+                $qualityBadge = 'Below quality bar';
                 try {
                     $showFeatured = $site->isFeatured();
                     $showBulk = $site->joinsBulkDiscount();
@@ -71,6 +74,11 @@
                     $publisherReviewing = $site->hasDetailsComplete();
                     $awaitingAccept = $site->isPendingPublisherAcceptance();
                     $fromBulkRequest = $site->wasAddedFromBulkRequest();
+                    $missingCover = ! $site->hasCatalogCover();
+                    $missingTags = $site->tagValue() === null;
+                    if ($belowQuality) {
+                        $qualityBadge = $site->qualityBarBadgeText();
+                    }
                 } catch (\Throwable $e) {
                     $showFeatured = false;
                     $showBulk = false;
@@ -86,7 +94,13 @@
                 <span class="badge text-bg-danger">Missing market</span>
             @endif
             @if($belowQuality)
-                <span class="badge text-bg-warning text-dark">Below quality bar</span>
+                <span class="badge text-bg-warning text-dark">{{ $qualityBadge }}</span>
+            @endif
+            @if($missingCover)
+                <a href="{{ staff_route('sites.edit', $site->id) }}#site_image" class="badge text-bg-warning text-dark text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>
+            @endif
+            @if($missingTags)
+                <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
             @endif
             @if($archived)
                 <span class="badge text-bg-secondary">Archived</span>

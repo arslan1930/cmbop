@@ -4,6 +4,8 @@
 /* Publisher detail has its own counts. Hide the catalog-wide totals so they
    are not read as this publisher's queue. */
 .staff-publisher-open #staffCatalogWide,
+.staff-publisher-open .staff-sites-strip,
+.staff-publisher-open .staff-sites-strip-hint,
 .staff-publisher-open .staff-catalog-count {
   display: none;
 }

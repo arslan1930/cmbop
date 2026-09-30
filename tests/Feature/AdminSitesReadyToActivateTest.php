@@ -155,7 +155,7 @@ class AdminSitesReadyToActivateTest extends TestCase
             ->assertSee('Not for sale', false)
             ->assertSee('data-staff-filter="ready_to_activate"', false)
             ->assertSee('id="siteUserSummary"', false)
-            ->assertSee('id="staffCatalogWide"', false)
+            ->assertSee('staff-sites-strip', false)
             ->assertSee('setPublisherChrome', false)
             ->assertSee('formatJoined(site.categories_list, false, 0)', false)
             ->getContent();
@@ -166,9 +166,9 @@ class AdminSitesReadyToActivateTest extends TestCase
             ->assertOk()
             ->assertSee('Byothe.fr', false)
             ->assertDontSee('Maman de 4', false)
-            ->assertSee('btn-success', false)
+            ->assertSee('js-mkt-activate', false)
             ->assertSee('· Manual', false)
-            ->assertSee('title="Inactive">Not for sale', false);
+            ->assertSee('Verified', false);
 
         $this->actingAs($admin)
             ->get(route('admin.sites.index', ['all' => 1, 'below_quality' => 1]))

@@ -39,6 +39,9 @@
 <div class="container-fluid py-3 {{ request()->filled('publisher') ? 'staff-publisher-open' : '' }}" id="staffSitesPage">
 
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+<<<<<<< HEAD
+        <h4 class="mb-0 fw-bold">Sites Management</h4>
+=======
         <div>
             <h4 class="mb-0 fw-bold">Sites Management</h4>
             <div id="staffCatalogWide">
@@ -96,6 +99,7 @@
             @endif
             </div>
         </div>
+>>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
         <div class="d-flex flex-wrap gap-2">
             @if(!empty($needsReviewFilterActive))
                 @if(!empty($flatQueue))
@@ -127,6 +131,8 @@
             @if(!empty($allSitesMode))
                 <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
             @else
+<<<<<<< HEAD
+=======
                 <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
                     <i class="fa fa-bell me-1"></i> Needs review
                     @if(($openReviewCount ?? 0) > 0)
@@ -177,6 +183,7 @@
                         <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $liveUnverifiedCount }}</span>
                     @endif
                 </a>
+>>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
                 <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
             @endif
             @if(auth()->user()?->isAdmin())
@@ -345,7 +352,17 @@
                         data-review-name="{{ $site->site_name }}"
                         data-review-url="{{ $site->site_url }}"
                         data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
+<<<<<<< HEAD
+                        <td><input type="checkbox"
+                            data-staff-bulk-id="{{ $site->id }}"
+                            data-verified="{{ $site->verified ? '1' : '0' }}"
+                            data-active="{{ $site->active ? '1' : '0' }}"
+                            data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
+                            data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
+                            aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+=======
                         <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+>>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
                         <td class="d-none d-md-table-cell">{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             @include('admin.sites.partials.queue-site-cell')
@@ -362,6 +379,9 @@
                         </td>
                         <td class="small d-none d-md-table-cell">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
                         <td class="small d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
+<<<<<<< HEAD
+                        <td class="small d-none d-lg-table-cell">{{ $site->tagLabel('No tags') }}</td>
+=======
                         <td class="small d-none d-lg-table-cell">
                             @if($site->tagValue() === null)
                                 <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
@@ -369,6 +389,7 @@
                                 {{ $site->tagLabel() }}
                             @endif
                         </td>
+>>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
                         <td class="d-none d-md-table-cell">{{ number_format((int) $site->traffic) }}</td>
                         <td>@include('admin.sites.partials.row-price')</td>
                         <td class="small">@include('admin.sites.partials.listed-age')</td>
