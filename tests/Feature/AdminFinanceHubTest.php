@@ -1206,7 +1206,7 @@ class AdminFinanceHubTest extends TestCase
         $html = $this->actingAs($admin)
             ->get(route('admin.finance'))
             ->assertOk()
-            ->assertSee('Find user dossier')
+            ->assertSee('Find user or money')
             ->assertSee('Wallet ledger')
             ->assertSee('Export period CSV')
             ->getContent();

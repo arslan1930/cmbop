@@ -78,16 +78,13 @@ class SiteController extends Controller
                 'needsReviewFilterActive' => false,
                 'openReviewCount' => 0,
                 'missingMarketCount' => 0,
-<<<<<<< HEAD
                 'missingMarketListCount' => 0,
                 'scanFailedListCount' => 0,
                 'belowQualityListCount' => 0,
                 'liveUnverifiedCount' => 0,
                 'placeholderListCount' => 0,
                 'missingCoverListCount' => 0,
-=======
                 'readyToActivateCount' => 0,
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
                 'healthCounts' => CatalogHealthQueue::emptyCounts(),
                 'waitingOnPublisherFilterActive' => false,
                 'waitingOnPublisherCount' => 0,

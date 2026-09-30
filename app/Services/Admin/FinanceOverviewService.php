@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\Billing\InvoiceRepairQueue;
 use App\Services\OrderPaymentService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,6 +20,10 @@ use Illuminate\Support\Facades\Schema;
 
 class FinanceOverviewService
 {
+    public const PREVIEW_LIMIT = 8;
+
+    public const EXPAND_LIMIT = 500;
+
     /**
      * Same completed-deposit window the overview total uses.
      *
@@ -115,14 +120,14 @@ class FinanceOverviewService
      *
      * @return array<string, mixed>
      */
-    public function overview(array $period, bool $allWallets = false, bool $allDebt = false, float $minWallet = 0, bool $throwOnFailure = false): array
+    public function overview(array $period, bool $allWallets = false, bool $allDebt = false, float $minWallet = 0, bool $throwOnFailure = false, bool $allWithdrawals = false): array
     {
         try {
             $start = $period['start'];
             $end = $period['end'];
 
             $ops = $this->opsQueues($allDebt);
-            $liability = $this->walletLiability($allWallets, $minWallet);
+            $liability = $this->walletLiability($allWallets, $minWallet, $allWithdrawals);
             $moneyIn = $this->moneyIn($start, $end);
             $moneyOut = $this->moneyOut($start, $end);
             $platform = $this->platform($start, $end);
@@ -187,18 +192,25 @@ class FinanceOverviewService
                     'user_marked_paid_count' => 0,
                     'user_marked_paid_amount' => 0.0,
                     'charges' => [],
+                    'rows' => [],
                     'url' => route('admin.deposits', ['status' => 'pending']),
                 ],
                 'open_withdrawals' => [
                     'count' => 0,
                     'amount' => 0.0,
+                    'pending_count' => 0,
+                    'pending_amount' => 0.0,
+                    'processing_count' => 0,
+                    'processing_amount' => 0.0,
                     'url' => route('admin.withdrawals', ['queue' => 'open']),
                 ],
                 'unpaid_orders' => [
                     'count' => 0,
                     'amount' => 0.0,
+                    'rows' => [],
                     'url' => route('admin.payments', ['payment_status' => 'unpaid']),
                 ],
+                'alerts' => [],
                 'publisher_debt' => [
                     'count' => 0,
                     'amount' => 0.0,
@@ -337,20 +349,55 @@ class FinanceOverviewService
 
         $openCount = 0;
         $openAmount = 0.0;
+        $pendingWdCount = 0;
+        $pendingWdAmount = 0.0;
+        $processingWdCount = 0;
+        $processingWdAmount = 0.0;
         if (Withdrawal::tableAvailable()) {
             $openWithdrawals = Withdrawal::whereIn('status', ['pending', 'processing']);
             $openCount = (clone $openWithdrawals)->count();
             $openAmount = (float) (clone $openWithdrawals)->sum('net_amount');
+            $pendingWd = Withdrawal::where('status', 'pending');
+            $pendingWdCount = (clone $pendingWd)->count();
+            $pendingWdAmount = round((float) (clone $pendingWd)->sum('net_amount'), 2);
+            $processingWd = Withdrawal::where('status', 'processing');
+            $processingWdCount = (clone $processingWd)->count();
+            $processingWdAmount = round((float) (clone $processingWd)->sum('net_amount'), 2);
         }
         $unpaidCount = 0;
         $unpaidAmount = 0.0;
+        $unpaidRows = [];
         try {
             $pendingPayments = Order::query()->unpaidOps();
             $unpaidCount = (clone $pendingPayments)->count();
             $unpaidAmount = (float) (clone $pendingPayments)->sum('total_amount');
+            $unpaidRows = (clone $pendingPayments)
+                ->with('user:id,name,email')
+                ->orderBy('created_at')
+                ->limit(self::PREVIEW_LIMIT)
+                ->get()
+                ->map(fn (Order $order) => $this->unpaidPreviewRow($order))
+                ->all();
         } catch (\Throwable) {
             $unpaidCount = 0;
             $unpaidAmount = 0.0;
+            $unpaidRows = [];
+        }
+
+        $depositRows = [];
+        if (DepositRequest::tableAvailable() && $this->depositsHaveColumn('status')) {
+            try {
+                $depositRows = DepositRequest::query()
+                    ->with('user:id,name,email')
+                    ->where('status', 'pending')
+                    ->orderBy('created_at')
+                    ->limit(self::PREVIEW_LIMIT)
+                    ->get()
+                    ->map(fn (DepositRequest $deposit) => $this->depositPreviewRow($deposit))
+                    ->all();
+            } catch (\Throwable) {
+                $depositRows = [];
+            }
         }
 
         return [
@@ -360,19 +407,26 @@ class FinanceOverviewService
                 'user_marked_paid_count' => $userMarkedPaidCount,
                 'user_marked_paid_amount' => $userMarkedPaidAmount,
                 'charges' => $this->pendingDepositCharges(),
+                'rows' => $depositRows,
                 'url' => route('admin.deposits', ['status' => 'pending']),
             ],
             'open_withdrawals' => [
                 'count' => $openCount,
                 'amount' => $openAmount,
+                'pending_count' => $pendingWdCount,
+                'pending_amount' => $pendingWdAmount,
+                'processing_count' => $processingWdCount,
+                'processing_amount' => $processingWdAmount,
                 'url' => route('admin.withdrawals', ['queue' => 'open']),
             ],
             'unpaid_orders' => [
                 'count' => $unpaidCount,
                 'amount' => $unpaidAmount,
+                'rows' => $unpaidRows,
                 'url' => route('admin.payments', ['payment_status' => 'unpaid']),
             ],
-            'publisher_debt' => $this->publisherDebt($allDebt ? 500 : 8),
+            'publisher_debt' => $this->publisherDebt($allDebt ? self::EXPAND_LIMIT : self::PREVIEW_LIMIT),
+            'alerts' => $this->moneyAlerts(),
         ];
     }
 
@@ -411,13 +465,21 @@ class FinanceOverviewService
             ->orderByDesc('debt_balance')
             ->limit(max(1, $limit))
             ->get()
-            ->map(fn (Wallet $wallet) => [
-                'user_id' => $wallet->user_id,
-                'name' => $wallet->user?->name ?? 'User #'.$wallet->user_id,
-                'email' => $wallet->user?->email,
-                'debt' => round((float) $wallet->debt_balance, 2),
-                'url' => route('admin.finance.user', $wallet->user_id),
-            ])
+            ->map(function (Wallet $wallet) {
+                $age = $this->ageMeta($wallet->updated_at ?? $wallet->created_at);
+
+                return [
+                    'user_id' => $wallet->user_id,
+                    'name' => $wallet->user?->name ?? 'User #'.$wallet->user_id,
+                    'email' => $wallet->user?->email,
+                    'debt' => round((float) $wallet->debt_balance, 2),
+                    'url' => route('admin.finance.user', $wallet->user_id),
+                    'age_days' => $age['days'],
+                    'age_label' => $age['label'],
+                    'age_class' => $age['class'],
+                    'age_title' => $age['title'],
+                ];
+            })
             ->all();
 
         return [
@@ -431,7 +493,7 @@ class FinanceOverviewService
     /**
      * @return array<string, mixed>
      */
-    public function walletLiability(bool $allWallets = false, float $minWallet = 0): array
+    public function walletLiability(bool $allWallets = false, float $minWallet = 0, bool $allWithdrawals = false): array
     {
         $advertiserRoleId = $this->walletsAvailable() ? Wallet::advertiserRoleId() : null;
         $publisherRoleId = $this->walletsAvailable() ? Wallet::publisherRoleId() : null;
@@ -525,29 +587,42 @@ class FinanceOverviewService
 
             usort($topPublishers, fn ($a, $b) => $b['withdrawable'] <=> $a['withdrawable']);
             $publisherWalletTotal = count($topPublishers);
-            if (! $allWallets) {
-                $topPublishers = array_slice($topPublishers, 0, 8);
-            }
+            $walletCap = $allWallets ? self::EXPAND_LIMIT : self::PREVIEW_LIMIT;
+            $topPublishers = array_slice($topPublishers, 0, $walletCap);
         }
 
-        $openWithdrawals = Withdrawal::tableAvailable()
-            ? Withdrawal::with('user:id,name,email')
+        $openQuery = null;
+        $openWithdrawals = collect();
+        if (Withdrawal::tableAvailable()) {
+            $openQuery = Withdrawal::with('user:id,name,email')
                 ->whereIn('status', ['pending', 'processing'])
-                ->orderBy('created_at')
-                ->get()
-            : collect();
-        $openWithdrawalNets = round((float) $openWithdrawals->sum('net_amount'), 2);
+                ->orderBy('created_at');
+            $wdLimit = $allWithdrawals ? self::EXPAND_LIMIT : self::PREVIEW_LIMIT;
+            $openWithdrawals = (clone $openQuery)->limit($wdLimit)->get();
+        }
+        $openWithdrawalNets = $openQuery
+            ? round((float) (clone $openQuery)->sum('net_amount'), 2)
+            : 0.0;
 
-        $openWithdrawalTotal = $openWithdrawals->count();
-        $openWithdrawalRows = $openWithdrawals->take(8)->map(fn (Withdrawal $w) => [
-            'id' => $w->id,
-            'user_id' => $w->user_id,
-            'name' => $w->user?->name ?? 'User #'.$w->user_id,
-            'email' => $w->user?->email,
-            'net_amount' => (float) $w->net_amount,
-            'status' => $w->status,
-            'url' => route('admin.withdrawals', ['search' => (string) $w->id, 'queue' => 'open']),
-        ])->all();
+        $openWithdrawalTotal = $openQuery ? (clone $openQuery)->count() : 0;
+        $openWithdrawalRows = $openWithdrawals->map(function (Withdrawal $w) {
+            $age = $this->ageMeta($w->created_at);
+
+            return [
+                'id' => $w->id,
+                'user_id' => $w->user_id,
+                'name' => $w->user?->name ?? 'User #'.$w->user_id,
+                'email' => $w->user?->email,
+                'net_amount' => (float) $w->net_amount,
+                'status' => $w->status,
+                'status_label' => $this->withdrawalWorkLabel((string) $w->status),
+                'url' => route('admin.withdrawals', ['search' => (string) $w->id, 'queue' => 'open']),
+                'age_days' => $age['days'],
+                'age_label' => $age['label'],
+                'age_class' => $age['class'],
+                'age_title' => $age['title'],
+            ];
+        })->all();
 
         // What admin must send outside the app today (payout queue).
         $dueToPayNow = $openWithdrawalNets;
@@ -572,6 +647,199 @@ class FinanceOverviewService
             'open_withdrawal_rows' => $openWithdrawalRows,
             'open_withdrawals_total' => $openWithdrawalTotal,
             'other_currencies' => array_values($otherCurrencies),
+        ];
+    }
+
+    /**
+     * Live money work Dashboard already counts, for the overview alert row.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function moneyAlerts(): array
+    {
+        $alerts = [];
+
+        try {
+            if (OrderItemDispute::tableAvailable()) {
+                $n = OrderItemDispute::query()->where('status', OrderItemDispute::STATUS_OPEN)->count();
+                if ($n > 0) {
+                    $alerts[] = [
+                        'key' => 'disputes',
+                        'label' => 'Open disputes',
+                        'count' => $n,
+                        'url' => route('admin.orders.index', ['dispute' => 'open']),
+                    ];
+                }
+            }
+        } catch (\Throwable) {
+            // Leftover Hostinger: skip the alert.
+        }
+
+        $unrecorded = $this->liveUnrecordedChargeCount();
+        if (($unrecorded['orders'] + $unrecorded['features']) > 0) {
+            $alerts[] = [
+                'key' => 'unrecorded',
+                'label' => 'Card/PayPal charge not recorded',
+                'count' => $unrecorded['orders'] + $unrecorded['features'],
+                'url' => route('admin.payments', ['payment_status' => 'paid']),
+            ];
+        }
+
+        try {
+            $credits = $this->unfulfilledCardCredits(null, now()->endOfDay());
+            if ($credits > 0) {
+                $alerts[] = [
+                    'key' => 'leftover_credits',
+                    'label' => 'Leftover card credits',
+                    'amount' => $credits,
+                    'url' => route('admin.finance.ledger', ['search' => 'UNFULFILLED-CARD-']),
+                ];
+            }
+        } catch (\Throwable) {
+            // Ledger prefix search is optional.
+        }
+
+        try {
+            $missing = app(InvoiceRepairQueue::class)->missingTaxInvoiceCount();
+            if ($missing > 0) {
+                $alerts[] = [
+                    'key' => 'missing_tax',
+                    'label' => 'Missing tax invoices',
+                    'count' => $missing,
+                    'url' => route('admin.invoices.index', ['queue' => 'missing']),
+                ];
+            }
+        } catch (\Throwable) {
+            // Invoice repair queue is optional on leftover schema.
+        }
+
+        return $alerts;
+    }
+
+    /**
+     * @return array{orders: int, features: int}
+     */
+    private function liveUnrecordedChargeCount(): array
+    {
+        $orders = 0;
+        $features = 0;
+        try {
+            $external = Order::query()
+                ->where('payment_status', 'paid')
+                ->whereIn('payment_method', array_merge($this->cardOrderMethods(), ['paypal']));
+            if ($this->ordersHaveColumn('charge_currency')) {
+                $orders = (clone $external)->where(function ($q) {
+                    $q->whereNull('charge_currency')->orWhere('charge_currency', '');
+                })->count();
+            }
+        } catch (\Throwable) {
+            $orders = 0;
+        }
+
+        try {
+            if (Schema::hasTable('site_feature_purchases')
+                && Schema::hasColumn('site_feature_purchases', 'charge_currency')) {
+                $features = SiteFeaturePurchase::query()
+                    ->where('payment_method', 'stripe')
+                    ->where(function ($q) {
+                        $q->whereNull('charge_currency')->orWhere('charge_currency', '');
+                    })
+                    ->count();
+            }
+        } catch (\Throwable) {
+            $features = 0;
+        }
+
+        return ['orders' => $orders, 'features' => $features];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function depositPreviewRow(DepositRequest $deposit): array
+    {
+        $age = $this->ageMeta($deposit->created_at);
+        $reference = (string) ($deposit->reference_code ?: $deposit->id);
+
+        return [
+            'id' => $deposit->id,
+            'user_id' => $deposit->user_id,
+            'label' => $reference,
+            'name' => $deposit->user?->name ?? 'User #'.$deposit->user_id,
+            'email' => $deposit->user?->email,
+            'amount' => (float) $deposit->amount,
+            'method' => (string) ($deposit->payment_method ?: '—'),
+            'reported' => filled($deposit->user_marked_paid_at ?? null),
+            'url' => route('admin.deposits', ['search' => $reference, 'status' => 'pending']),
+            'age_days' => $age['days'],
+            'age_label' => $age['label'],
+            'age_class' => $age['class'],
+            'age_title' => $age['title'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function unpaidPreviewRow(Order $order): array
+    {
+        $age = $this->ageMeta($order->created_at);
+        $number = (string) ($order->order_number ?: $order->id);
+
+        return [
+            'id' => $order->id,
+            'user_id' => $order->user_id,
+            'label' => $number,
+            'name' => $order->user?->name ?? 'User #'.$order->user_id,
+            'email' => $order->user?->email,
+            'amount' => (float) $order->total_amount,
+            'url' => route('admin.orders.show', $order->id),
+            'age_days' => $age['days'],
+            'age_label' => $age['label'],
+            'age_class' => $age['class'],
+            'age_title' => $age['title'],
+        ];
+    }
+
+    private function withdrawalWorkLabel(string $status): string
+    {
+        return match ($status) {
+            'pending' => 'Approve',
+            'processing' => 'Send',
+            default => str_replace('_', ' ', $status),
+        };
+    }
+
+    /**
+     * @return array{days: ?int, label: string, class: string, title: string}
+     */
+    private function ageMeta(mixed $at): array
+    {
+        $empty = ['days' => null, 'label' => '—', 'class' => 'text-muted', 'title' => ''];
+        if (! $at instanceof \DateTimeInterface) {
+            if (! is_string($at) || trim($at) === '') {
+                return $empty;
+            }
+            try {
+                $at = Carbon::parse($at);
+            } catch (\Throwable) {
+                return $empty;
+            }
+        }
+
+        $days = (int) Carbon::parse($at)->diffInDays(now());
+        $class = 'text-muted';
+        if ($days >= 21) {
+            $class = 'text-danger fw-semibold';
+        } elseif ($days >= 7) {
+            $class = 'text-warning fw-semibold';
+        }
+
+        return [
+            'days' => $days,
+            'label' => $days === 0 ? 'Today' : $days.'d',
+            'class' => $class,
+            'title' => Carbon::parse($at)->timezone(config('app.timezone'))->format('M j, Y'),
         ];
     }
 

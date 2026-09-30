@@ -71,5 +71,5 @@
     @endforeach
 </div>
 @if($activeStrip)
-    <p class="small text-muted mb-3">{{ $activeStrip['hint'] }}</p>
+    <p class="small text-muted mb-3 staff-sites-strip-hint">{{ $activeStrip['hint'] }}</p>
 @endif

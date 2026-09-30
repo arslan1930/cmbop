@@ -37,20 +37,12 @@
                     <th class="admin-num-col d-none d-md-table-cell">#</th>
                     <th>Site</th>
                     <th>Publisher</th>
-<<<<<<< HEAD
                     <th class="admin-narrow-col d-none d-md-table-cell">DA / DR</th>
                     <th class="d-none d-lg-table-cell">Markets</th>
                     <th class="admin-narrow-col d-none d-lg-table-cell">Tag</th>
                     <th class="admin-narrow-col d-none d-md-table-cell">Traffic</th>
                     <th class="admin-narrow-col">Price</th>
                     <th class="admin-narrow-col">Listed</th>
-=======
-                    <th class="admin-narrow-col">DA / DR</th>
-                    <th>Markets</th>
-                    <th class="admin-narrow-col">Tag</th>
-                    <th class="admin-narrow-col">Traffic</th>
-                    <th class="admin-narrow-col">Buyer price</th>
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
                     <th class="admin-actions-col">Actions</th>
                 </tr>
             </thead>
@@ -77,50 +69,18 @@
                         && ! $hasOrders
                         && ($site->verified || $site->active);
                 @endphp
-<<<<<<< HEAD
                 <tr data-review-name="{{ $site->site_name }}"
                     data-review-url="{{ $site->site_url }}"
                     data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
-                    <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+                    <td><input type="checkbox"
+                        data-staff-bulk-id="{{ $site->id }}"
+                        data-verified="{{ $site->verified ? '1' : '0' }}"
+                        data-active="{{ $site->active ? '1' : '0' }}"
+                        data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
+                        data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
+                        aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                     <td class="d-none d-md-table-cell">{{ $allSites->firstItem() + $index }}</td>
                     <td>@include('admin.sites.partials.queue-site-cell')</td>
-=======
-                <tr>
-                    <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
-                    <td>{{ $allSites->firstItem() + $index }}</td>
-                    <td>
-                        <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
-                        <div class="small text-muted text-break">{{ $site->site_url }}</div>
-                        <div class="d-flex flex-wrap gap-1 mt-1">
-                            <span class="badge rounded-pill {{ $site->active ? 'bg-success' : 'bg-secondary' }}" title="{{ $site->active ? 'Active' : 'Inactive' }}">{{ $site->active ? 'For sale' : 'Not for sale' }}</span>
-                            <span class="badge rounded-pill {{ $site->verified ? 'bg-success' : 'bg-secondary' }}" title="{{ $site->verified ? 'Verified' : 'Unverified' }}">{{ $site->verified ? 'Checked' : 'Not checked' }}</span>
-                            @if(! $site->hasMarketplaceCountry())
-                                <span class="badge text-bg-danger">Missing market</span>
-                            @endif
-                            @if(! $site->hasGoodMetrics())
-                                <span class="badge text-bg-warning text-dark">{{ $site->qualityBarBadgeText() }}</span>
-                            @endif
-                            @if(! $site->hasCatalogCover())
-                                <a href="{{ staff_route('sites.edit', $site->id) }}#site_image" class="badge text-bg-warning text-dark text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>
-                            @endif
-                            @if($site->isArchived())
-                                <span class="badge text-bg-secondary">Archived</span>
-                            @endif
-                            @if($site->awaitsPublisherDetails())
-                                <span class="badge text-bg-secondary">Awaiting publisher</span>
-                            @endif
-                            @if($site->hasDetailsComplete())
-                                <span class="badge text-bg-secondary">Publisher reviewing</span>
-                            @endif
-                            @if($site->isPendingPublisherAcceptance())
-                                <span class="badge text-bg-info">Awaiting accept</span>
-                            @endif
-                            @if($site->wasAddedFromBulkRequest())
-                                <span class="badge text-bg-light border">Bulk request</span>
-                            @endif
-                        </div>
-                    </td>
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
                     <td class="small">
                         <div>{{ $site->publisher?->name ?? 'Unknown' }}</div>
                         <div class="text-muted">{{ $site->publisher?->email }}</div>
@@ -128,23 +88,10 @@
                             <span class="badge text-bg-dark">Copy-strike hide</span>
                         @endif
                     </td>
-<<<<<<< HEAD
                     <td class="small d-none d-md-table-cell">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
                     <td class="small d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
                     <td class="small d-none d-lg-table-cell">{{ $site->tagLabel('No tags') }}</td>
                     <td class="d-none d-md-table-cell">{{ number_format((int) $site->traffic) }}</td>
-=======
-                    <td class="small">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
-                    <td class="small">@include('admin.sites.partials.row-markets')</td>
-                    <td class="small">
-                        @if($site->tagValue() === null)
-                            <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
-                        @else
-                            {{ $site->tagLabel() }}
-                        @endif
-                    </td>
-                    <td>{{ number_format((int) $site->traffic) }}</td>
->>>>>>> 0bb3d9020eae73f9a21e06aacdfaefda4934bbfc
                     <td>@include('admin.sites.partials.row-price')</td>
                     <td class="small">@include('admin.sites.partials.listed-age')</td>
                     <td class="staff-queue-actions">

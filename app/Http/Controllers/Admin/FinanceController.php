@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DepositRequest;
+use App\Models\Order;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Models\Withdrawal;
 use App\Services\ActivityLogger;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Orders\OrderClawbackService;
@@ -40,9 +43,15 @@ class FinanceController extends Controller
         $userQuery = search_text($request->input('q'));
         $needle = $this->dossierSearchNeedle($userQuery);
         $userMatches = collect();
+        $moneyMatches = collect();
         $hasMoreMatches = false;
 
         if ($userQuery !== '') {
+            $moneyRedirect = $this->redirectToMoneyIfUnique($request, $userQuery);
+            if ($moneyRedirect) {
+                return $moneyRedirect;
+            }
+
             $redirect = $this->redirectToDossierIfUnique($userQuery);
             if ($redirect) {
                 return $redirect;
@@ -54,11 +63,14 @@ class FinanceController extends Controller
             // "foo_bar" still matches an underscore email.
             if (mb_strlen($needle) >= 2) {
                 $fetched = $this->searchUsers($userQuery, self::DOSSIER_SEARCH_LIMIT + 1);
-                if ($fetched->count() === 1) {
+                if ($fetched->count() === 1 && $this->moneyLookups($userQuery)->isEmpty()) {
                     return redirect()->route('admin.finance.user', $fetched->first());
                 }
                 $hasMoreMatches = $fetched->count() > self::DOSSIER_SEARCH_LIMIT;
                 $userMatches = $fetched->take(self::DOSSIER_SEARCH_LIMIT);
+                $moneyMatches = $this->moneyLookups($userQuery);
+            } else {
+                $moneyMatches = $this->moneyLookups($userQuery);
             }
         }
 
@@ -70,11 +82,21 @@ class FinanceController extends Controller
         );
 
         $minWallet = max(0, (float) $request->input('min_wallet', 0));
+        $allWallets = $request->query('wallets') === 'all';
+        $allDebt = $request->query('debt') === 'all';
+        $allWithdrawals = $request->query('withdrawals') === 'all';
+        $focus = search_text($request->input('focus'));
+        if (! in_array($focus, ['due', 'deposits', 'unpaid', 'debt'], true)) {
+            $focus = 'due';
+        }
+
         $data = $this->finance->overview(
             $period,
-            $request->query('wallets') === 'all',
-            $request->query('debt') === 'all',
-            $minWallet
+            $allWallets,
+            $allDebt,
+            $minWallet,
+            false,
+            $allWithdrawals
         );
 
         return view('admin.finance', [
@@ -83,10 +105,15 @@ class FinanceController extends Controller
             'dateFrom' => $input['date_from'] ?? null,
             'dateTo' => $input['date_to'] ?? null,
             'userQuery' => $userQuery,
-            'userQueryTooShort' => $userQuery !== '' && mb_strlen($needle) < 2,
+            'userQueryTooShort' => $userQuery !== '' && mb_strlen($needle) < 2 && $moneyMatches->isEmpty(),
             'hasMoreMatches' => $hasMoreMatches,
             'userMatches' => $userMatches,
+            'moneyMatches' => $moneyMatches,
             'minWallet' => $minWallet,
+            'allWallets' => $allWallets,
+            'allDebt' => $allDebt,
+            'allWithdrawals' => $allWithdrawals,
+            'focus' => $focus,
         ]);
     }
 
@@ -627,6 +654,143 @@ class FinanceController extends Controller
         $user = User::query()->whereKey((int) $userQuery)->first();
 
         return $user ? redirect()->route('admin.finance.user', $user) : null;
+    }
+
+    private function redirectToMoneyIfUnique(Request $request, string $query): ?RedirectResponse
+    {
+        $matches = $this->moneyLookups($query);
+        if ($matches->count() !== 1) {
+            return null;
+        }
+
+        $hit = $matches->first();
+        $keep = $this->periodQueryFromRequest($request);
+        $url = (string) ($hit['url'] ?? '');
+        if ($url === '') {
+            return null;
+        }
+        if (str_contains($url, 'admin/deposits')) {
+            return redirect()->to($url.(str_contains($url, '?') ? '&' : '?').http_build_query(array_merge($keep, ['finance' => 1])));
+        }
+
+        return redirect()->to($url);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function periodQueryFromRequest(Request $request): array
+    {
+        try {
+            $input = $this->validatedPeriodInput($request);
+        } catch (ValidationException) {
+            return [];
+        }
+
+        return array_filter([
+            'date_from' => $input['date_from'] ?? null,
+            'date_to' => $input['date_to'] ?? null,
+            'period' => ($input['date_from'] ?? null) || ($input['date_to'] ?? null)
+                ? null
+                : ($input['period'] ?? null),
+        ], fn ($value) => $value !== null && $value !== '');
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, url: string}>
+     */
+    private function moneyLookups(string $query): Collection
+    {
+        $q = trim($query);
+        if ($q === '') {
+            return collect();
+        }
+
+        $hits = collect();
+        $upper = strtoupper($q);
+
+        try {
+            if (DepositRequest::tableAvailable()) {
+                $depositQuery = DepositRequest::query()->limit(5);
+                if (str_starts_with($upper, 'DEP')) {
+                    $depositQuery->where('reference_code', $q);
+                } elseif (! $this->isExactDigitId($q)) {
+                    $depositQuery->where('reference_code', $q);
+                } else {
+                    $depositQuery->whereRaw('0 = 1');
+                }
+                foreach ($depositQuery->get(['id', 'reference_code', 'status']) as $deposit) {
+                    $hits->push([
+                        'type' => 'deposit',
+                        'label' => (string) ($deposit->reference_code ?: 'Deposit #'.$deposit->id),
+                        'url' => route('admin.deposits', [
+                            'search' => (string) ($deposit->reference_code ?: $deposit->id),
+                            'status' => $deposit->status === 'pending' ? 'pending' : 'completed',
+                        ]),
+                    ]);
+                }
+            }
+        } catch (\Throwable) {
+            // Leftover Hostinger: skip deposit lookup.
+        }
+
+        try {
+            if (Withdrawal::tableAvailable()) {
+                $wdId = null;
+                if (preg_match('/^WD-?(\d+)$/i', $q, $m)) {
+                    $wdId = (int) $m[1];
+                } elseif ($this->isExactDigitId($q) && str_starts_with($upper, 'WD')) {
+                    $wdId = (int) $q;
+                }
+                if ($wdId) {
+                    $wd = Withdrawal::query()->whereKey($wdId)->first(['id', 'status']);
+                    if ($wd) {
+                        $queue = in_array($wd->status, ['pending', 'processing'], true) ? 'open' : 'history';
+                        $hits->push([
+                            'type' => 'withdrawal',
+                            'label' => 'WD-'.$wd->id,
+                            'url' => route('admin.withdrawals', [
+                                'search' => (string) $wd->id,
+                                'queue' => $queue,
+                            ]),
+                        ]);
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Leftover Hostinger: skip withdrawal lookup.
+        }
+
+        try {
+            if (str_starts_with($upper, 'ORD') || str_starts_with($upper, 'ORDER')) {
+                $needle = preg_replace('/^ORD(?:ER)?-?/i', '', $q) ?: $q;
+                $order = Order::query()
+                    ->where(function ($inner) use ($q, $needle) {
+                        $inner->where('order_number', $q)->orWhere('order_number', $needle);
+                    })
+                    ->first(['id', 'order_number']);
+                if ($order) {
+                    $hits->push([
+                        'type' => 'order',
+                        'label' => (string) ($order->order_number ?: 'Order #'.$order->id),
+                        'url' => route('admin.orders.show', $order->id),
+                    ]);
+                }
+            } elseif (! $this->isExactDigitId($q)) {
+                $order = Order::query()->where('order_number', $q)->first(['id', 'order_number']);
+                if ($order) {
+                    $hits->push([
+                        'type' => 'order',
+                        'label' => (string) ($order->order_number ?: 'Order #'.$order->id),
+                        'url' => route('admin.orders.show', $order->id),
+                    ]);
+                }
+            }
+        } catch (\Throwable) {
+            // Leftover Hostinger: skip order lookup.
+        }
+
+        return $hits;
     }
 
     /**

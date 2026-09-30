@@ -5,10 +5,14 @@ namespace Tests\Feature;
 use App\Models\ActivityLog;
 use App\Models\DepositRequest;
 use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\OrderItemDispute;
 use App\Models\Role;
+use App\Models\Site;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
+use App\Services\Admin\FinanceOverviewService;
 use App\Services\Wallet\WalletLedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -46,18 +50,23 @@ class AdminFinanceOpsGapsTest extends TestCase
             'currency' => 'EUR',
         ]);
 
-        $html = $this->actingAs($admin)
+        $this->actingAs($admin)
             ->get(route('admin.finance', ['period' => 'all']))
             ->assertOk()
             ->assertSee('Clawback debt')
+            ->assertSee('Find user or money');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance', ['period' => 'all', 'focus' => 'debt']))
+            ->assertOk()
+            ->assertSee('Clawback debt')
             ->assertSee('€42.50')
-            ->assertSee('1 publisher wallet blocked')
             ->assertSee($publisher->email)
             ->assertSee(route('admin.finance.user', $publisher), false)
             ->getContent();
 
         $this->assertStringContainsString('id="finance-debt"', $html);
-        $this->assertStringContainsString('Find user dossier', $html);
+        $this->assertStringContainsString('staff-sites-strip', $html);
     }
 
     public function test_user_search_redirects_unique_match_to_dossier(): void
@@ -183,7 +192,7 @@ class AdminFinanceOpsGapsTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.finance', ['q' => $padded]))
             ->assertOk()
-            ->assertSee('No users match');
+            ->assertSee('No users or money records match');
     }
 
     public function test_dossier_rows_deep_link_to_admin_money_pages(): void
@@ -404,5 +413,333 @@ class AdminFinanceOpsGapsTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString("q.get('search')", $html);
+    }
+
+    public function test_overview_live_strip_splits_due_now_and_drops_duplicate_withdrawal_card(): void
+    {
+        $admin = $this->makeUser('admin');
+        $publisher = $this->makeUser('publisher');
+        $advertiser = $this->makeUser('advertiser');
+
+        $this->seedPublisherWallet($publisher, 25);
+
+        Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 40,
+            'fee' => 0,
+            'net_amount' => 40,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'a@b.com'],
+            'status' => 'pending',
+        ]);
+        Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 20,
+            'fee' => 0,
+            'net_amount' => 20,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'a@b.com'],
+            'status' => 'processing',
+        ]);
+
+        DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-QUEUE-1',
+            'amount' => 75,
+            'payment_method' => 'bank',
+            'status' => 'pending',
+            'user_marked_paid_at' => now(),
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance'))
+            ->assertOk()
+            ->assertSee('Due now')
+            ->assertSee('Pending deposits')
+            ->assertSee('Unpaid orders')
+            ->assertSee('Clawback debt')
+            ->assertSee('1 to approve · 1 to send')
+            ->assertSee('Approve')
+            ->assertSee('Send')
+            ->assertDontSee('Open withdrawals (how Due to pay now is built)')
+            ->getContent();
+
+        $this->assertStringContainsString('staff-sites-strip', $html);
+        $this->assertStringContainsString('id="finance-due"', $html);
+        $this->assertStringContainsString('id="finance-wallets"', $html);
+        $this->assertStringContainsString('adminFinanceMinWallet', $html);
+        $this->assertStringNotContainsString('Clear filters', $html);
+        $this->assertStringContainsString('Completed GMV', $html);
+        $this->assertStringContainsString('Paid GMV', $html);
+        $this->assertStringContainsString('Dashboard month GMV is Paid GMV.', $html);
+        $this->assertStringContainsString('finance=1', $html);
+        $this->assertStringContainsString('date_field=completed_at', $html);
+        $this->assertStringContainsString('date_field=paid_at', $html);
+        $this->assertStringContainsString('DEP-, WD-, ORD-', $html);
+    }
+
+    public function test_overview_focus_shows_deposit_and_unpaid_preview_rows(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $advertiser->update(['name' => 'Deposit Ann', 'email' => 'deposit-ann@example.test']);
+
+        DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-PREVIEW-9',
+            'amount' => 88.5,
+            'payment_method' => 'wise',
+            'status' => 'pending',
+            'user_marked_paid_at' => now(),
+        ]);
+
+        Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-UNPAID-9',
+            'subtotal' => 60,
+            'tax' => 0,
+            'total_amount' => 60,
+            'payment_method' => 'wallet',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance', ['focus' => 'deposits']))
+            ->assertOk()
+            ->assertSee('DEP-PREVIEW-9')
+            ->assertSee('Deposit Ann')
+            ->assertSee('€88.50')
+            ->assertSee('User-reported paid')
+            ->assertSee('id="finance-deposits"', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance', ['focus' => 'unpaid']))
+            ->assertOk()
+            ->assertSee('ORD-UNPAID-9')
+            ->assertSee('€60.00')
+            ->assertSee('id="finance-unpaid"', false);
+    }
+
+    public function test_overview_money_alerts_list_open_disputes(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+
+        $site = Site::create([
+            'publisher_id' => $publisher->id,
+            'site_name' => 'Dispute Site',
+            'site_url' => 'https://dispute-site.test',
+            'domain' => 'dispute-site-'.uniqid().'.test',
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'Technology',
+            'price' => 100,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Finance overview dispute alert site description.',
+            'verified' => true,
+            'active' => true,
+        ]);
+
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-DISPUTE-1',
+            'subtotal' => 115,
+            'tax' => 0,
+            'total_amount' => 115,
+            'payment_method' => 'card',
+            'payment_status' => 'paid',
+            'status' => 'completed',
+            'paid_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'content_link' => 'https://example.com/article',
+            'price' => 115,
+            'additional_price' => 0,
+            'publisher_price' => 100,
+            'platform_fee_percent' => 15,
+            'platform_fee_amount' => 15,
+        ]);
+
+        OrderItemDispute::ensureTable();
+        OrderItemDispute::create([
+            'order_id' => $order->id,
+            'order_item_id' => $item->id,
+            'opened_by' => $advertiser->id,
+            'status' => OrderItemDispute::STATUS_OPEN,
+            'reason' => 'Listing went down after completion.',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance'))
+            ->assertOk()
+            ->assertSee('Needs a look')
+            ->assertSee('Open disputes');
+    }
+
+    public function test_overview_search_jumps_to_unique_deposit_withdrawal_and_order(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $publisher = $this->makeUser('publisher');
+
+        DepositRequest::create([
+            'user_id' => $advertiser->id,
+            'reference_code' => 'DEP-JUMP-1',
+            'amount' => 30,
+            'payment_method' => 'bank',
+            'status' => 'pending',
+        ]);
+
+        $withdrawal = Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 12,
+            'fee' => 0,
+            'net_amount' => 12,
+            'payment_method' => 'paypal',
+            'payment_details' => ['email' => 'a@b.com'],
+            'status' => 'pending',
+        ]);
+
+        $order = Order::create([
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-JUMP-1',
+            'subtotal' => 40,
+            'tax' => 0,
+            'total_amount' => 40,
+            'payment_method' => 'wallet',
+            'payment_status' => 'pending',
+            'status' => 'pending',
+        ]);
+
+        $deposit = $this->actingAs($admin)
+            ->get(route('admin.finance', ['q' => 'DEP-JUMP-1', 'period' => 'week']));
+        $deposit->assertRedirect();
+        $depositLocation = (string) $deposit->headers->get('Location');
+        $this->assertStringContainsString('DEP-JUMP-1', $depositLocation);
+        $this->assertStringContainsString('finance=1', $depositLocation);
+        $this->assertStringContainsString('period=week', $depositLocation);
+
+        $defaultDeposit = $this->actingAs($admin)
+            ->get(route('admin.finance', ['q' => 'DEP-JUMP-1']));
+        $defaultDeposit->assertRedirect();
+        $this->assertStringContainsString('finance=1', (string) $defaultDeposit->headers->get('Location'));
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance', ['q' => 'WD-'.$withdrawal->id]))
+            ->assertRedirect(route('admin.withdrawals', [
+                'search' => (string) $withdrawal->id,
+                'queue' => 'open',
+            ]));
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance', ['q' => 'ORD-JUMP-1']))
+            ->assertRedirect(route('admin.orders.show', $order->id));
+
+        $this->actingAs($admin)
+            ->get(route('admin.finance', ['q' => (string) $advertiser->id]))
+            ->assertRedirect(route('admin.finance.user', $advertiser));
+    }
+
+    public function test_overview_sticky_chips_wallet_cap_and_reserved_link(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        $advertiser = $this->makeUser('advertiser');
+
+        Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advRole->id,
+            'balance' => 50,
+            'bonus_balance' => 0,
+            'reserved_balance' => 18,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        $preview = FinanceOverviewService::PREVIEW_LIMIT;
+        for ($i = 1; $i <= $preview + 1; $i++) {
+            $publisher = $this->makeUser('publisher');
+            Wallet::create([
+                'user_id' => $publisher->id,
+                'role_id' => $pubRole->id,
+                'balance' => 10 + $i,
+                'bonus_balance' => 0,
+                'reserved_balance' => 0,
+                'bonus_reserved' => 0,
+                'currency' => 'EUR',
+            ]);
+            Withdrawal::create([
+                'user_id' => $publisher->id,
+                'amount' => 5,
+                'fee' => 0,
+                'net_amount' => 5,
+                'payment_method' => 'paypal',
+                'payment_details' => ['email' => 'a@b.com'],
+                'status' => 'pending',
+            ]);
+        }
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.finance', [
+                'period' => 'all',
+                'min_wallet' => '10',
+                'focus' => 'due',
+            ]))
+            ->assertOk()
+            ->assertSee('Wallets ≥ €10.00')
+            ->assertSee('Period: All time')
+            ->assertSee('Clear filters')
+            ->assertSee('Reserved in flight')
+            ->assertSee('€18.00')
+            ->getContent();
+
+        $this->assertStringContainsString($preview.' of '.($preview + 1), $html);
+        $this->assertStringContainsString('id="finance-wallets"', $html);
+        $this->assertStringContainsString('adminFinanceMinWallet', $html);
+
+        $expanded = $this->actingAs($admin)
+            ->get(route('admin.finance', [
+                'withdrawals' => 'all',
+                'wallets' => 'all',
+                'focus' => 'due',
+            ]))
+            ->assertOk()
+            ->assertSee('All open payouts')
+            ->assertSee('All wallets')
+            ->getContent();
+        $this->assertStringNotContainsString($preview.' of '.($preview + 1), $expanded);
+
+        $css = (string) file_get_contents(public_path('assets/css/admin-components.css'));
+        $this->assertStringContainsString('.admin-finance-overview .admin-finance-toolbar__form', $css);
+        $this->assertStringContainsString('.admin-finance-overview .admin-finance-toolbar__search', $css);
+        $this->assertStringContainsString('@media (max-width: 767.98px)', $css);
+    }
+
+    private function seedPublisherWallet(User $publisher, float $balance): Wallet
+    {
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+
+        return Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => $balance,
+            'bonus_balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
     }
 }
