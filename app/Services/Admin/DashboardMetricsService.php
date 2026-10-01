@@ -5,6 +5,7 @@ namespace App\Services\Admin;
 use App\Models\BulkSiteRequest;
 use App\Models\ContentModerationLog;
 use App\Models\ContentSubmission;
+use App\Models\Country;
 use App\Models\DepositRequest;
 use App\Models\EmailCampaign;
 use App\Models\Order;
@@ -25,8 +26,10 @@ use App\Services\Reminders\StalledOrderQueue;
 use App\Services\Wallet\ManualDepositApproveLink;
 use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
 use App\Support\MarketingOpsQueues;
+use App\Support\ViewerCountry;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -147,7 +150,7 @@ class DashboardMetricsService
     /**
      * Order status + role distribution pie data.
      *
-     * @return array{orders: array{labels: mixed, values: mixed}, roles: array{labels: mixed, values: mixed}}
+     * @return array{orders: array{labels: mixed, values: mixed}, roles: array{labels: mixed, values: mixed}, countries: array<string, mixed>}
      */
     public function distributions(): array
     {
@@ -183,7 +186,283 @@ class DashboardMetricsService
                 'values' => $roleCounts->values()->map(fn ($v) => (int) $v)->values(),
                 'note' => 'Users with more than one role appear in more than one slice.',
             ],
+            'countries' => $this->userCountriesByIp(),
         ];
+    }
+
+    /**
+     * One row per account: signup/consent IP country when we can resolve it,
+     * otherwise a stored profile ISO country, otherwise unknown.
+     *
+     * @return array{labels: list<string>, codes: list<string>, values: list<int>, points: list<array{code: string, lat: float, lng: float, count: int}>, unknown: int, located: int}
+     */
+    private function userCountriesByIp(): array
+    {
+        $empty = [
+            'labels' => [],
+            'codes' => [],
+            'values' => [],
+            'points' => [],
+            'unknown' => 0,
+            'located' => 0,
+        ];
+
+        try {
+            if (! Schema::hasTable('users')) {
+                return $empty;
+            }
+
+            $ipByUser = $this->latestSignupIpsByUser();
+            $profileByUser = [];
+            $userIds = [];
+
+            $query = DB::table('users')->select('id');
+            if (User::hasUsersColumn('ip_address')) {
+                $query->addSelect('ip_address');
+            }
+            if (User::hasUsersColumn('country')) {
+                $query->addSelect('country');
+            }
+
+            foreach ($query->get() as $user) {
+                $id = (int) $user->id;
+                $userIds[] = $id;
+                if (! isset($ipByUser[$id]) && isset($user->ip_address) && trim((string) $user->ip_address) !== '') {
+                    $ipByUser[$id] = trim((string) $user->ip_address);
+                }
+                if (isset($user->country) && trim((string) $user->country) !== '') {
+                    $profileByUser[$id] = trim((string) $user->country);
+                }
+            }
+
+            $viewer = app(ViewerCountry::class);
+            $uniqueIps = array_values(array_unique(array_filter($ipByUser)));
+            $ipToCountry = [];
+            $lookups = 0;
+            $lookupBudget = app()->environment('testing') ? 0 : 200;
+            foreach ($uniqueIps as $ip) {
+                $allow = $lookups < $lookupBudget;
+                $before = Cache::has('viewer-country.'.$ip);
+                $code = $viewer->codeFromStoredIp($ip, $allow);
+                if ($allow && ! $before) {
+                    $lookups++;
+                }
+                if (is_string($code) && $code !== '') {
+                    $ipToCountry[$ip] = $code;
+                }
+            }
+
+            $counts = [];
+            $unknown = 0;
+            $storeCountry = [];
+            foreach ($userIds as $id) {
+                $code = null;
+                $ip = $ipByUser[$id] ?? null;
+                if (is_string($ip) && isset($ipToCountry[$ip])) {
+                    $code = $ipToCountry[$ip];
+                    if (! isset($profileByUser[$id])) {
+                        $storeCountry[$id] = $code;
+                    }
+                }
+                if ($code === null && isset($profileByUser[$id])) {
+                    $code = $this->normalizeCountryCode($profileByUser[$id]);
+                }
+                if ($code === null) {
+                    $unknown++;
+
+                    continue;
+                }
+                $counts[$code] = ($counts[$code] ?? 0) + 1;
+            }
+
+            $this->persistResolvedUserCountries($storeCountry);
+
+            arsort($counts);
+            $names = $this->countryNames();
+            $labels = [];
+            $codes = [];
+            $values = [];
+            foreach ($counts as $code => $total) {
+                $codes[] = $code;
+                $labels[] = $names[$code] ?? $code;
+                $values[] = $total;
+            }
+            if ($unknown > 0) {
+                $codes[] = '';
+                $labels[] = 'Unknown';
+                $values[] = $unknown;
+            }
+
+            $points = [];
+            foreach ($counts as $code => $total) {
+                $coord = $this->countryCentroid($code);
+                $points[] = [
+                    'code' => $code,
+                    'label' => $names[$code] ?? $code,
+                    'lat' => $coord[0] ?? null,
+                    'lng' => $coord[1] ?? null,
+                    'count' => $total,
+                ];
+            }
+
+            return [
+                'labels' => $labels,
+                'codes' => $codes,
+                'values' => $values,
+                'points' => $points,
+                'unknown' => $unknown,
+                'located' => array_sum($counts),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard country breakdown failed', ['error' => $e->getMessage()]);
+
+            return $empty;
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $storeCountry
+     */
+    private function persistResolvedUserCountries(array $storeCountry): void
+    {
+        if ($storeCountry === [] || app()->environment('testing') || ! User::hasUsersColumn('country')) {
+            return;
+        }
+
+        foreach ($storeCountry as $userId => $code) {
+            DB::table('users')
+                ->where('id', $userId)
+                ->where(function ($query) {
+                    $query->whereNull('country')->orWhere('country', '');
+                })
+                ->update(['country' => $code]);
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function latestSignupIpsByUser(): array
+    {
+        if (! Schema::hasTable('user_consents') || ! Schema::hasColumn('user_consents', 'ip_address')) {
+            return [];
+        }
+
+        $latestIds = DB::table('user_consents')
+            ->select('user_id', DB::raw('MAX(id) as id'))
+            ->whereNotNull('ip_address')
+            ->where('ip_address', '!=', '')
+            ->groupBy('user_id');
+
+        $rows = DB::table('user_consents as uc')
+            ->joinSub($latestIds, 'latest', function ($join) {
+                $join->on('uc.id', '=', 'latest.id');
+            })
+            ->select('uc.user_id', 'uc.ip_address')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $ip = trim((string) $row->ip_address);
+            if ($ip !== '') {
+                $out[(int) $row->user_id] = $ip;
+            }
+        }
+
+        return $out;
+    }
+
+    private function normalizeCountryCode(string $raw): ?string
+    {
+        $value = strtoupper(trim($raw));
+        if ($value === 'UK') {
+            $value = 'GB';
+        }
+        if (preg_match('/^[A-Z]{2}$/', $value) === 1) {
+            return $value;
+        }
+
+        static $byName = null;
+        if ($byName === null) {
+            $byName = [];
+            if (Schema::hasTable('countries')) {
+                foreach (Country::query()->get(['code', 'name']) as $country) {
+                    $byName[strtoupper(trim((string) $country->name))] = strtoupper((string) $country->code);
+                }
+            }
+        }
+
+        return $byName[$value] ?? null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function countryNames(): array
+    {
+        $names = [
+            'US' => 'United States',
+            'GB' => 'United Kingdom',
+            'DE' => 'Germany',
+            'FR' => 'France',
+            'ES' => 'Spain',
+            'IT' => 'Italy',
+            'NL' => 'Netherlands',
+            'PL' => 'Poland',
+            'IN' => 'India',
+            'PK' => 'Pakistan',
+            'BD' => 'Bangladesh',
+            'BR' => 'Brazil',
+            'CA' => 'Canada',
+            'AU' => 'Australia',
+            'UA' => 'Ukraine',
+            'RO' => 'Romania',
+            'TR' => 'Turkey',
+            'NG' => 'Nigeria',
+            'ID' => 'Indonesia',
+            'PH' => 'Philippines',
+        ];
+        if (! Schema::hasTable('countries')) {
+            return $names;
+        }
+        foreach (Country::query()->get(['code', 'name']) as $country) {
+            $code = strtoupper((string) $country->code);
+            if ($code !== '') {
+                $names[$code] = (string) $country->name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @return array{0: float, 1: float}|null
+     */
+    private function countryCentroid(string $code): ?array
+    {
+        $map = [
+            'US' => [39.8, -98.6], 'CA' => [56.1, -106.3], 'MX' => [23.6, -102.6],
+            'BR' => [-14.2, -51.9], 'AR' => [-38.4, -63.6], 'CL' => [-35.7, -71.5],
+            'CO' => [4.6, -74.3], 'PE' => [-9.2, -75.0],
+            'GB' => [55.4, -3.4], 'IE' => [53.1, -8.2], 'FR' => [46.2, 2.2],
+            'DE' => [51.2, 10.5], 'ES' => [40.5, -3.7], 'PT' => [39.4, -8.2],
+            'IT' => [41.9, 12.6], 'NL' => [52.1, 5.3], 'BE' => [50.5, 4.5],
+            'CH' => [46.8, 8.2], 'AT' => [47.5, 14.6], 'PL' => [51.9, 19.1],
+            'CZ' => [49.8, 15.5], 'SE' => [60.1, 18.6], 'NO' => [60.5, 8.5],
+            'DK' => [56.3, 9.5], 'FI' => [61.9, 25.7], 'RO' => [45.9, 25.0],
+            'HU' => [47.2, 19.5], 'GR' => [39.1, 21.8], 'UA' => [48.4, 31.2],
+            'TR' => [38.96, 35.2], 'RU' => [61.5, 105.3],
+            'IN' => [20.6, 79.0], 'PK' => [30.4, 69.3], 'BD' => [23.7, 90.4],
+            'CN' => [35.9, 104.2], 'JP' => [36.2, 138.3], 'KR' => [35.9, 127.8],
+            'ID' => [-0.8, 113.9], 'PH' => [12.9, 121.8], 'VN' => [14.1, 108.3],
+            'TH' => [15.9, 100.99], 'MY' => [4.2, 101.98], 'SG' => [1.35, 103.8],
+            'AU' => [-25.3, 133.8], 'NZ' => [-40.9, 174.9],
+            'ZA' => [-30.6, 22.9], 'NG' => [9.1, 8.7], 'EG' => [26.8, 30.8],
+            'KE' => [-0.02, 37.9], 'MA' => [31.8, -7.1], 'AE' => [23.4, 53.8],
+            'SA' => [23.9, 45.1], 'IL' => [31.0, 34.9],
+        ];
+
+        return $map[$code] ?? null;
     }
 
     /**

@@ -1,7 +1,8 @@
 @extends('admin.layouts.app')
 
 @section('content')
-<div class="container-fluid">
+<link href="{{ asset('assets/css/admin-dashboard.css') }}?v={{ @filemtime(public_path('assets/css/admin-dashboard.css')) ?: '1' }}" rel="stylesheet">
+<div class="container-fluid admin-dash">
 
     @include('admin.partials.page-header', [
         'title' => 'Admin Dashboard',
@@ -50,7 +51,7 @@
     <div class="row g-3 mb-4">
         <div class="col-12 d-none" id="kpiRetry"></div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index') }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index') }}">
                 <div class="card-body">
                     <div class="text-muted small">Total Users</div>
                     <div class="d-flex align-items-end justify-content-between">
@@ -68,7 +69,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body">
                     <div class="text-muted small">GMV this month</div>
                     <div class="d-flex align-items-end justify-content-between">
@@ -83,7 +84,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.sites.records') }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.sites.records') }}">
                 <div class="card-body">
                     <div class="text-muted small">Sites</div>
                     <div class="d-flex align-items-end justify-content-between">
@@ -97,7 +98,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="#dashboardActionQueues">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="#dashboardActionQueues">
                 <div class="card-body">
                     <div class="text-muted small">Needs Attention</div>
                     <div class="d-flex align-items-end justify-content-between">
@@ -114,13 +115,16 @@
 
     <!-- Finance strip (same numbers as /admin/finance) -->
     <div class="row g-3 mb-4">
-        <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <strong class="text-muted small"><span class="text-uppercase">Finance</span> <span id="financePeriod" class="fw-normal"></span></strong>
+        <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2 admin-dash-section-row">
+            <span class="d-flex align-items-baseline gap-2">
+                <strong class="admin-dash-section mb-0">Finance</strong>
+                <span id="financePeriod" class="small text-muted"></span>
+            </span>
             <a href="{{ route('admin.finance', ['period' => 'month']) }}" class="small">Open finance</a>
         </div>
         <div class="col-12 d-none" id="financeRetry"></div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 border-start border-4 border-danger cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.withdrawals', ['queue' => 'open']) }}">
+            <div class="card admin-dash-card admin-dash-card--alert h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.withdrawals', ['queue' => 'open']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Due to pay now</div>
                     <div class="fs-4 fw-semibold text-danger" id="financeDueNow">—</div>
@@ -129,7 +133,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">In publisher wallets</div>
                     <div class="fs-4 fw-semibold" id="financeInWallets">—</div>
@@ -138,7 +142,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Total publisher liability</div>
                     <div class="fs-4 fw-semibold" id="financeLiability">—</div>
@@ -147,7 +151,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Fee margin (this month)</div>
                     <div class="fs-4 fw-semibold" id="financeMargin">—</div>
@@ -159,7 +163,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Advertiser wallets</div>
                     <div class="fs-4 fw-semibold" id="financeAdvertiser">—</div>
@@ -168,7 +172,7 @@
             </div>
         </div>
         <div class="col-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.payments', ['payment_status' => 'unpaid']) }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.payments', ['payment_status' => 'unpaid']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">Unpaid orders</div>
                     <div class="fs-4 fw-semibold" id="financeUnpaid">—</div>
@@ -180,12 +184,12 @@
 
     <div class="row g-3 mb-4" id="marketplaceHealth">
         <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <strong class="text-muted small text-uppercase">Marketplace</strong>
+            <strong class="admin-dash-section">Marketplace</strong>
             <span class="small text-muted">People with both roles count in both signup figures.</span>
         </div>
         <div class="col-12 d-none" id="healthRetry"></div>
         <div class="col-6 col-xl">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index', ['role' => 'advertiser']) }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index', ['role' => 'advertiser']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">New advertisers</div>
                     <div class="fs-4 fw-semibold" id="healthAdvertisers">—</div>
@@ -194,7 +198,7 @@
             </div>
         </div>
         <div class="col-6 col-xl">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index', ['role' => 'publisher']) }}">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index', ['role' => 'publisher']) }}">
                 <div class="card-body py-3">
                     <div class="text-muted small">New publishers</div>
                     <div class="fs-4 fw-semibold" id="healthPublishers">—</div>
@@ -203,7 +207,7 @@
             </div>
         </div>
         <div class="col-6 col-xl">
-            <div class="card border-0 shadow-sm h-100">
+            <div class="card admin-dash-card h-100">
                 <div class="card-body py-3">
                     <div class="text-muted small">In progress</div>
                     <div class="fs-4 fw-semibold" id="healthInProgress">—</div>
@@ -216,7 +220,7 @@
             </div>
         </div>
         <div class="col-6 col-xl">
-            <div class="card border-0 shadow-sm h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="#stalledOrdersRow">
+            <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="#stalledOrdersRow">
                 <div class="card-body py-3">
                     <div class="text-muted small">Stalled</div>
                     <div class="fs-4 fw-semibold" id="healthStalled">—</div>
@@ -225,7 +229,7 @@
             </div>
         </div>
         <div class="col-6 col-xl">
-            <div class="card border-0 shadow-sm h-100">
+            <div class="card admin-dash-card h-100">
                 <div class="card-body py-3">
                     <div class="text-muted small">Median time to publish</div>
                     <div class="fs-4 fw-semibold" id="healthMedian">—</div>
@@ -243,8 +247,8 @@
     </div>
     <div class="row g-3 mb-4 js-queue-row">
         <div class="col-12 col-lg js-queue-panel" data-queue="deposits">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-wallet me-2 text-success"></i>Pending Deposits <span class="text-muted fw-normal small" data-queue-meta="deposits"></span></strong>
                     <a href="{{ route('admin.deposits', ['status' => 'pending']) }}" class="small">View all</a>
                 </div>
@@ -263,8 +267,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="withdrawals">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-money-bill-wave me-2 text-warning"></i>Pending Withdrawals <span class="text-muted fw-normal small" data-queue-meta="withdrawals"></span></strong>
                     <a href="{{ route('admin.withdrawals', ['queue' => 'open']) }}" class="small">View all</a>
                 </div>
@@ -283,8 +287,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="sites">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-globe me-2 text-primary"></i>Sites Awaiting Verify <span class="text-muted fw-normal small" data-queue-meta="sites"></span></strong>
                     <a href="{{ route('admin.sites.index', ['needs_review' => 1]) }}" class="small">View all</a>
                 </div>
@@ -306,8 +310,8 @@
 
     <div class="row g-3 mb-4 js-queue-row">
         <div class="col-12 col-lg js-queue-panel" data-queue="unpaid">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-money-bill me-2 text-info"></i>Unpaid orders <span class="text-muted fw-normal small" data-queue-meta="unpaid"></span></strong>
                     <a href="{{ route('admin.payments', ['payment_status' => 'unpaid']) }}" class="small">View all</a>
                 </div>
@@ -326,8 +330,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="disputes">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-gavel me-2 text-danger"></i>Open disputes <span class="text-muted fw-normal small" data-queue-meta="disputes"></span></strong>
                     <a href="{{ route('admin.orders.index', ['dispute' => 'open']) }}" class="small">View all</a>
                 </div>
@@ -346,8 +350,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="community">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-comments me-2 text-secondary"></i>Community inbox <span class="text-muted fw-normal small" data-queue-meta="community"></span></strong>
                     <a href="{{ route('admin.community.index', ['status' => 'pending']) }}" class="small">View all</a>
                 </div>
@@ -366,8 +370,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="enrichment">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-chart-line me-2 text-warning"></i>Enrichment failed <span class="text-muted fw-normal small" data-queue-meta="enrichment"></span></strong>
                     <a href="{{ route('admin.site-enrichment.index') }}" class="small">View all</a>
                 </div>
@@ -389,8 +393,8 @@
 
     <div class="row g-3 mb-4 js-queue-row">
         <div class="col-12 col-lg js-queue-panel" data-queue="bulk">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-layer-group me-2 text-primary"></i>Bulk requests <span class="text-muted fw-normal small" data-queue-meta="bulk"></span></strong>
                     <a href="{{ route('admin.bulk-site-requests.index', ['status' => 'needs_marketer']) }}" class="small">View all</a>
                 </div>
@@ -409,8 +413,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="mail">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-envelope-open-text me-2 text-danger"></i>Failed mail <span class="text-muted fw-normal small" data-queue-meta="mail"></span></strong>
                     <a href="{{ route('admin.emails.index') }}" class="small">View all</a>
                 </div>
@@ -429,8 +433,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="moderation">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-shield-alt me-2 text-danger"></i>Moderation errors <span class="text-muted fw-normal small" data-queue-meta="moderation"></span></strong>
                     <a href="{{ route('admin.moderation.index', ['status' => 'error']) }}" class="small">View all</a>
                 </div>
@@ -449,8 +453,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="catalog_hide">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-eye-slash me-2 text-warning"></i>Catalog hide-mode <span class="text-muted fw-normal small" data-queue-meta="catalog_hide"></span></strong>
                     <a href="{{ route('admin.catalog-activity') }}" class="small">View all</a>
                 </div>
@@ -472,8 +476,8 @@
 
     <div class="row g-3 mb-4 js-queue-row">
         <div class="col-12 col-lg js-queue-panel" data-queue="missing_tax">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-file-invoice me-2 text-danger"></i>Missing tax invoices <span class="text-muted fw-normal small" data-queue-meta="missing_tax"></span></strong>
                     <a href="{{ route('admin.invoices.index', ['queue' => 'missing']) }}" class="small">View all</a>
                 </div>
@@ -492,8 +496,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="missing_pdf">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-file-pdf me-2 text-warning"></i>Missing PDFs <span class="text-muted fw-normal small" data-queue-meta="missing_pdf"></span></strong>
                     <a href="{{ route('admin.invoices.index', ['pdf' => 'missing']) }}" class="small">View all</a>
                 </div>
@@ -512,8 +516,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="library">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-book me-2 text-primary"></i>Articles in review <span class="text-muted fw-normal small" data-queue-meta="library"></span></strong>
                     <a href="{{ route('admin.content-library.index', ['availability' => 'evaluating']) }}" class="small">View all</a>
                 </div>
@@ -532,8 +536,8 @@
             </div>
         </div>
         <div class="col-12 col-lg js-queue-panel" data-queue="campaigns">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-bullhorn me-2 text-danger"></i>Campaigns <span class="text-muted fw-normal small" data-queue-meta="campaigns"></span></strong>
                     <a href="{{ route('admin.campaigns.index', ['status' => 'attention']) }}" class="small">View all</a>
                 </div>
@@ -558,8 +562,8 @@
          Kept inside #dashboardActionQueues so Needs Attention scrolls here too. --}}
     <div class="row g-3 mb-4 d-none" id="stalledOrdersRow">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <div class="card admin-dash-card">
+                <div class="card-header admin-dash-card__head d-flex justify-content-between align-items-center">
                     <strong><i class="fa fa-triangle-exclamation me-2 text-danger"></i>Stalled orders <span class="badge text-bg-danger ms-1" id="stalledOrdersCount">0</span></strong>
                     <span class="text-muted small">Remind the publisher, or open the order to refund.</span>
                 </div>
@@ -625,27 +629,63 @@
 
     <div class="row g-3 mb-4">
         <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0">
-                    <strong><i class="fa fa-shopping-cart me-2 text-info"></i>Order pipeline</strong>
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head">
+                    <strong>Order pipeline</strong>
                     <div class="small text-muted mt-1">Paid orders in progress, plus completions from the last 30 days.</div>
                 </div>
-                <div class="card-body d-flex justify-content-center">
-                    <canvas id="orderStatusChart" style="max-height:260px;"></canvas>
-                    <div id="orderStatusRetry" class="d-none text-center text-muted py-2 align-self-center"></div>
+                <div class="card-body">
+                    <div class="admin-dash-chart admin-dash-chart--donut">
+                        <canvas id="orderStatusChart" style="max-height:168px;"></canvas>
+                    </div>
+                    <div id="orderStatusBars" class="admin-dash-dist"></div>
+                    <div id="orderStatusRetry" class="d-none text-center text-muted py-2"></div>
                 </div>
             </div>
         </div>
         <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0">
-                    <strong><i class="fa fa-users me-2 text-secondary"></i>Users by Role</strong>
+            <div class="card admin-dash-card h-100">
+                <div class="card-header admin-dash-card__head">
+                    <strong>Users by Role</strong>
                     <div class="small text-muted mt-1">Users with more than one role appear in more than one slice.</div>
                 </div>
-                <div class="card-body d-flex justify-content-center">
-                    <canvas id="roleChart" style="max-height:260px;"></canvas>
-                    <div id="roleRetry" class="d-none text-center text-muted py-2 align-self-center"></div>
+                <div class="card-body">
+                    <div class="admin-dash-chart admin-dash-chart--donut">
+                        <canvas id="roleChart" style="max-height:168px;"></canvas>
+                    </div>
+                    <div id="roleBars" class="admin-dash-dist"></div>
+                    <div id="roleRetry" class="d-none text-center text-muted py-2"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-xl-7">
+            <div class="card admin-dash-card admin-dash-demo">
+                <div class="admin-dash-demo__head">
+                    <div>
+                        <h3 class="admin-dash-demo__title">Customers Demographic</h3>
+                        <p class="admin-dash-demo__sub">Number of users based on country</p>
+                    </div>
+                    <div class="admin-dash-demo__menu" data-demo-menu>
+                        <button type="button" class="admin-dash-demo__kebab" aria-expanded="false" aria-haspopup="true" aria-label="Demographic actions">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M10.2441 6C10.2441 5.0335 11.0276 4.25 11.9941 4.25H12.0041C12.9706 4.25 13.7541 5.0335 13.7541 6C13.7541 6.9665 12.9706 7.75 12.0041 7.75H11.9941C11.0276 7.75 10.2441 6.9665 10.2441 6ZM10.2441 18C10.2441 17.0335 11.0276 16.25 11.9941 16.25H12.0041C12.9706 16.25 13.7541 17.0335 13.7541 18C13.7541 18.9665 12.9706 19.75 12.0041 19.75H11.9941C11.0276 19.75 10.2441 18.9665 10.2441 18ZM11.9941 10.25C11.0276 10.25 10.2441 11.0335 10.2441 12C10.2441 12.9665 11.0276 13.75 11.9941 13.75H12.0041C12.9706 13.75 13.7541 12.9665 13.7541 12C13.7541 11.0335 12.9706 10.25 12.0041 10.25H11.9941Z" fill="currentColor"></path>
+                            </svg>
+                        </button>
+                        <div class="admin-dash-demo__drop d-none" role="menu">
+                            <a href="{{ route('admin.users.index') }}" class="admin-dash-demo__drop-item" role="menuitem">View more</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-dash-map" id="userCountryMap">
+                    @include('admin.partials.demographic-world-map')
+                    <div class="admin-dash-map__dots" id="userCountryDots"></div>
+                    <div class="admin-dash-map__tip d-none" id="userCountryTip" role="tooltip"></div>
+                </div>
+                <div id="userCountryBars" class="admin-dash-dist admin-dash-dist--countries"></div>
+                <div id="userCountryRetry" class="d-none text-center text-muted py-2"></div>
             </div>
         </div>
     </div>
@@ -653,7 +693,7 @@
     <!-- Promotions widget (below attention work) -->
     <div class="row g-3 mb-4">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
+            <div class="card admin-dash-card">
                 <div class="card-body">
                     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
                         <div>
@@ -671,31 +711,31 @@
                     </div>
                     <div class="row g-3 mt-2">
                         <div class="col-6 col-md">
-                            <div class="border rounded-3 p-3 h-100">
+                            <div class="admin-dash-stat p-3 h-100">
                                 <div class="small text-muted">Live announcements</div>
                                 <div class="fs-4 fw-semibold" id="promoAnnouncements">—</div>
                             </div>
                         </div>
                         <div class="col-6 col-md">
-                            <div class="border rounded-3 p-3 h-100">
+                            <div class="admin-dash-stat p-3 h-100">
                                 <div class="small text-muted">Live banners</div>
                                 <div class="fs-4 fw-semibold" id="promoBanners">—</div>
                             </div>
                         </div>
                         <div class="col-6 col-md">
-                            <div class="border rounded-3 p-3 h-100">
+                            <div class="admin-dash-stat p-3 h-100">
                                 <div class="small text-muted">Impressions, last 7 days</div>
                                 <div class="fs-4 fw-semibold" id="promoImpressions">—</div>
                             </div>
                         </div>
                         <div class="col-6 col-md">
-                            <div class="border rounded-3 p-3 h-100">
+                            <div class="admin-dash-stat p-3 h-100">
                                 <div class="small text-muted">Clicks, last 7 days</div>
                                 <div class="fs-4 fw-semibold" id="promoClicks">—</div>
                             </div>
                         </div>
                         <div class="col-6 col-md">
-                            <div class="border rounded-3 p-3 h-100">
+                            <div class="admin-dash-stat p-3 h-100">
                                 <div class="small text-muted">Click-through, last 7 days</div>
                                 <div class="fs-4 fw-semibold" id="promoCtr">—</div>
                             </div>
@@ -751,6 +791,195 @@ function goWithQuery(path, params) {
 function chartPointer(event, elements) {
     const canvas = event.native && event.native.target;
     if (canvas) canvas.style.cursor = elements.length ? 'pointer' : 'default';
+}
+
+function flagEmoji(code) {
+    const cc = String(code || '').toUpperCase();
+    if (!/^[A-Z]{2}$/.test(cc)) return '';
+    return String.fromCodePoint(...[...cc].map((ch) => 127397 + ch.charCodeAt(0)));
+}
+
+function renderDistributionBars(containerId, labels, values, keys, hrefForKey, options) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const palette = ['#2563eb', '#0f766e', '#0ea5e9', '#334155', '#3faeb2', '#94a3b8', '#1a585e'];
+    const nums = (values || []).map((v) => Number(v) || 0);
+    const total = nums.reduce((sum, n) => sum + n, 0);
+    const codes = (options && options.codes) || [];
+    const unit = (options && options.unit) || '';
+    if (!labels || !labels.length || total <= 0) {
+        el.innerHTML = '';
+        return;
+    }
+    el.innerHTML = labels.map((label, i) => {
+        const value = nums[i] || 0;
+        const pct = Math.round((value / total) * 100);
+        const color = palette[i % palette.length];
+        const key = keys && keys[i];
+        const href = key && hrefForKey ? hrefForKey(key) : '';
+        const tag = href ? 'button' : 'div';
+        const hrefAttr = href ? ` type="button" data-href="${escapeHtml(href)}"` : '';
+        const flag = flagEmoji(codes[i]);
+        const mark = flag
+            ? `<span class="admin-dash-dist__flag" aria-hidden="true">${flag}</span>`
+            : `<span class="admin-dash-dist__dot" style="background:${color}"></span>`;
+        const countLabel = unit ? `${num(value)} ${unit}` : num(value);
+        const fill = (options && options.barColor) || color;
+        const rowClass = (options && options.rowClass) || 'admin-dash-dist__row';
+        const countryAttr = codes[i] ? ` data-country="${escapeHtml(String(codes[i]).toUpperCase())}"` : '';
+        const extraClass = (options && options.visibleLimit && i >= options.visibleLimit) ? ' d-none' : '';
+        return `<${tag} class="${rowClass}${extraClass}"${hrefAttr}${countryAttr}>
+            <div class="admin-dash-dist__who">
+                ${mark}
+                <div>
+                    <span class="admin-dash-dist__name">${escapeHtml(label)}</span>
+                    <span class="admin-dash-dist__count">${escapeHtml(countLabel)}</span>
+                </div>
+            </div>
+            <div class="admin-dash-dist__meter">
+                <span class="admin-dash-dist__track"><span class="admin-dash-dist__fill" style="width:${Math.max(pct, value > 0 ? 4 : 0)}%;background:${fill}"></span></span>
+                <span class="admin-dash-dist__pct">${pct}%</span>
+            </div>
+        </${tag}>`;
+    }).join('');
+    const limit = options && options.visibleLimit;
+    if (limit && labels.length > limit) {
+        const hidden = labels.length - limit;
+        el.insertAdjacentHTML('beforeend', `<button type="button" class="admin-dash-demo__more" data-demo-more aria-expanded="false">More (${hidden})</button>`);
+        bindCountryMore(el, hidden);
+    }
+}
+
+function bindCountryMore(el, hiddenCount) {
+    const btn = el.querySelector('[data-demo-more]');
+    if (!btn || btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => {
+        const open = btn.getAttribute('aria-expanded') === 'true';
+        const next = !open;
+        btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+        el.querySelectorAll('.admin-dash-dist__row--demo').forEach((row, i) => {
+            row.classList.toggle('d-none', !next && i >= 4);
+        });
+        btn.textContent = next ? 'Show less' : ('More (' + hiddenCount + ')');
+    });
+}
+
+function regionPinPoint(svg, path) {
+    try {
+        const box = path.getBBox();
+        const pt = svg.createSVGPoint();
+        pt.x = box.x + box.width / 2;
+        pt.y = box.y + box.height / 2;
+        return pt.matrixTransform(path.getCTM());
+    } catch (err) {
+        return null;
+    }
+}
+
+function renderCountryMap(points) {
+    const map = document.getElementById('userCountryMap') || document.querySelector('.admin-dash-map');
+    const svg = document.querySelector('.admin-dash-map__world');
+    const group = document.getElementById('jvm-markers-group');
+    const overlay = document.getElementById('userCountryDots');
+    if (overlay) overlay.innerHTML = '';
+    if (!svg || !group) return;
+    const rows = Array.isArray(points) ? points : [];
+    const byCode = {};
+    rows.forEach((p) => {
+        const code = String(p.code || '').toUpperCase();
+        if (code) byCode[code] = p;
+    });
+    svg.querySelectorAll('path.jvm-region').forEach((path) => {
+        const code = String(path.getAttribute('data-code') || '').toUpperCase();
+        path.classList.toggle('is-marked', Boolean(byCode[code]));
+    });
+    group.replaceChildren();
+    rows.forEach((p) => {
+        const code = String(p.code || '').toUpperCase();
+        if (!code) return;
+        const path = svg.querySelector('path[data-code="' + CSS.escape(code) + '"]');
+        if (!path) return;
+        const view = regionPinPoint(svg, path);
+        if (!view) return;
+        const pin = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        pin.setAttribute('class', 'admin-dash-map__pin');
+        pin.setAttribute('data-code', code);
+        pin.setAttribute('cx', String(view.x));
+        pin.setAttribute('cy', String(view.y));
+        pin.setAttribute('r', '4.5');
+        group.appendChild(pin);
+    });
+    bindDemographicHovers(map, svg, byCode);
+}
+
+function bindDemographicHovers(map, svg, byCode) {
+    if (!map || !svg) return;
+    map._demoByCode = byCode;
+    if (map.dataset.demoBound === '1') {
+        return;
+    }
+    map.dataset.demoBound = '1';
+    map._demoByCode = byCode;
+    const tip = document.getElementById('userCountryTip');
+
+    function clearHot() {
+        svg.querySelectorAll('path.jvm-region.is-hot').forEach((path) => path.classList.remove('is-hot'));
+        document.querySelectorAll('.admin-dash-dist__row--demo.is-hot').forEach((row) => row.classList.remove('is-hot'));
+        if (tip) tip.classList.add('d-none');
+    }
+
+    function showHot(code, clientX, clientY) {
+        const key = String(code || '').toUpperCase();
+        clearHot();
+        if (!key) return;
+        const path = svg.querySelector('path[data-code="' + CSS.escape(key) + '"]');
+        if (path) path.classList.add('is-hot');
+        const row = document.querySelector('#userCountryBars [data-country="' + CSS.escape(key) + '"]');
+        if (row) row.classList.add('is-hot');
+        const meta = map._demoByCode && map._demoByCode[key];
+        if (!tip || !meta) return;
+        const box = map.getBoundingClientRect();
+        tip.innerHTML = '<span class="admin-dash-map__tip-name">' + escapeHtml(meta.label || key) + '</span>'
+            + '<span class="admin-dash-map__tip-count">' + escapeHtml(num(meta.count)) + ' users</span>';
+        const left = clientX != null ? clientX - box.left : 0;
+        const top = clientY != null ? clientY - box.top : 0;
+        tip.style.left = left + 'px';
+        tip.style.top = top + 'px';
+        tip.classList.remove('d-none');
+    }
+
+    map.addEventListener('pointerover', (e) => {
+        const path = e.target.closest('path[data-code]');
+        if (!path || !map.contains(path)) return;
+        showHot(path.getAttribute('data-code'), e.clientX, e.clientY);
+    });
+    map.addEventListener('pointermove', (e) => {
+        const path = e.target.closest('path[data-code]');
+        if (!path || !map.contains(path)) return;
+        showHot(path.getAttribute('data-code'), e.clientX, e.clientY);
+    });
+    map.addEventListener('pointerleave', clearHot);
+
+    const bars = document.getElementById('userCountryBars');
+    if (bars && bars.dataset.demoBound !== '1') {
+        bars.dataset.demoBound = '1';
+        bars.addEventListener('pointerover', (e) => {
+            const row = e.target.closest('[data-country]');
+            if (!row) return;
+            const path = svg.querySelector('path[data-code="' + CSS.escape(row.getAttribute('data-country')) + '"]');
+            let x;
+            let y;
+            if (path) {
+                const box = map.getBoundingClientRect();
+                const region = path.getBoundingClientRect();
+                x = region.left + region.width / 2;
+                y = region.top;
+            }
+            showHot(row.getAttribute('data-country'), x, y);
+        });
+        bars.addEventListener('pointerleave', clearHot);
+    }
 }
 
 function applyAttentionCounts(d) {
@@ -1115,6 +1344,7 @@ async function loadDistributions() {
     const retryEls = [
         document.getElementById('orderStatusRetry'),
         document.getElementById('roleRetry'),
+        document.getElementById('userCountryRetry'),
     ];
     try {
         const json = await dashboardFetch(`{{ route('admin.dashboard.distributions') }}`);
@@ -1123,6 +1353,13 @@ async function loadDistributions() {
 
         const orderKeys = (json.orders && json.orders.keys) || [];
         const roleKeys = (json.roles && json.roles.keys) || [];
+        const donutOpts = {
+            cutout: '78%',
+            plugins: { legend: { display: false } },
+            layout: { padding: 8 },
+            onHover: chartPointer,
+        };
+        const donutStyle = { borderWidth: 4, borderColor: '#ffffff', hoverOffset: 2, borderRadius: 6 };
 
         orderStatusChart = makeChart(orderStatusChart, 'orderStatusChart', {
             type: 'doughnut',
@@ -1130,18 +1367,18 @@ async function loadDistributions() {
                 labels: json.orders.labels,
                 datasets: [{
                     data: json.orders.values,
-                    backgroundColor: palette
+                    backgroundColor: palette,
+                    ...donutStyle
                 }]
             },
             options: {
-                plugins: { legend: { position: 'bottom' } },
+                ...donutOpts,
                 onClick(event, elements) {
                     if (!elements.length) return;
                     const status = orderKeys[elements[0].index];
                     if (!status) return;
                     goWithQuery(ordersIndexUrl, { status: status });
                 },
-                onHover: chartPointer,
             }
         });
 
@@ -1151,20 +1388,60 @@ async function loadDistributions() {
                 labels: json.roles.labels,
                 datasets: [{
                     data: json.roles.values,
-                    backgroundColor: palette
+                    backgroundColor: palette,
+                    ...donutStyle
                 }]
             },
             options: {
-                plugins: { legend: { position: 'bottom' } },
+                ...donutOpts,
                 onClick(event, elements) {
                     if (!elements.length) return;
                     const role = roleKeys[elements[0].index];
                     if (!role) return;
                     goWithQuery(usersIndexUrl, { role: role });
                 },
-                onHover: chartPointer,
             }
         });
+
+        renderDistributionBars(
+            'orderStatusBars',
+            json.orders.labels,
+            json.orders.values,
+            orderKeys,
+            (status) => {
+                const url = new URL(ordersIndexUrl, window.location.origin);
+                url.searchParams.set('status', status);
+                return url.toString();
+            }
+        );
+        renderDistributionBars(
+            'roleBars',
+            json.roles.labels,
+            json.roles.values,
+            roleKeys,
+            (role) => {
+                const url = new URL(usersIndexUrl, window.location.origin);
+                url.searchParams.set('role', role);
+                return url.toString();
+            }
+        );
+
+        const countries = json.countries || {};
+        renderDistributionBars(
+            'userCountryBars',
+            countries.labels || [],
+            countries.values || [],
+            countries.codes || [],
+            null,
+            { codes: countries.codes || [], unit: 'users', barColor: '#3faeb2', rowClass: 'admin-dash-dist__row admin-dash-dist__row--demo', visibleLimit: 4 }
+        );
+        renderCountryMap(countries.points || []);
+        if (!(countries.labels || []).length) {
+            const empty = document.getElementById('userCountryBars');
+            if (empty) {
+                empty.innerHTML = '<div class="text-muted small">No signup-IP countries to show yet.</div>';
+            }
+        }
         retryEls.forEach(hideRetry);
     } catch (err) {
         retryEls.forEach((el) => showRetry(el, 'loadDistributions'));
@@ -1662,6 +1939,31 @@ document.addEventListener('click', (e) => {
         if (!days || days === chartDays) return;
         setChartRange(days);
         loadTrends().catch(err => console.error('Dashboard range reload failed', err));
+        return;
+    }
+
+    const kebab = e.target.closest('[data-demo-menu] .admin-dash-demo__kebab');
+    if (kebab) {
+        const menu = kebab.closest('[data-demo-menu]');
+        const drop = menu && menu.querySelector('.admin-dash-demo__drop');
+        const open = drop && drop.classList.contains('d-none');
+        document.querySelectorAll('.admin-dash-demo__drop').forEach((el) => el.classList.add('d-none'));
+        if (drop && open) {
+            drop.classList.remove('d-none');
+            kebab.setAttribute('aria-expanded', 'true');
+        } else if (kebab) {
+            kebab.setAttribute('aria-expanded', 'false');
+        }
+        return;
+    }
+    if (!e.target.closest('[data-demo-menu]')) {
+        document.querySelectorAll('.admin-dash-demo__drop').forEach((el) => el.classList.add('d-none'));
+        document.querySelectorAll('.admin-dash-demo__kebab').forEach((el) => el.setAttribute('aria-expanded', 'false'));
+    }
+
+    const distRow = e.target.closest('.admin-dash-dist__row[data-href]');
+    if (distRow) {
+        window.location.href = distRow.getAttribute('data-href');
         return;
     }
 

@@ -42,6 +42,50 @@ class ViewerCountry
         return $this->countryFromIp($request);
     }
 
+    /**
+     * ISO country for a stored signup/consent IP. Public addresses only.
+     * Uses the same cache as live viewer lookup. Set $allowLookup false to
+     * read cache only (admin dashboard batches unique IPs).
+     */
+    public function codeFromStoredIp(?string $ip, bool $allowLookup = true): ?string
+    {
+        $ip = $this->sanitizeIp($ip);
+        if ($ip === null || ! $this->isPublicIp($ip)) {
+            return null;
+        }
+
+        $key = 'viewer-country.'.$ip;
+        $cached = Cache::get($key);
+        if (is_string($cached) && preg_match('/^[A-Z]{2}$/', $cached) === 1) {
+            return $cached === 'UK' ? 'GB' : $cached;
+        }
+        if (Cache::has($key)) {
+            return null;
+        }
+        if (! $allowLookup || app()->environment('testing')) {
+            return null;
+        }
+
+        try {
+            $country = Cache::remember($key, 604800, function () use ($ip) {
+                $response = Http::timeout(1)->acceptJson()->get('https://ipwho.is/'.$ip);
+                if (! $response->ok()) {
+                    return null;
+                }
+                $code = strtoupper(trim((string) $response->json('country_code')));
+                if ($code === 'UK') {
+                    $code = 'GB';
+                }
+
+                return preg_match('/^[A-Z]{2}$/', $code) === 1 ? $code : null;
+            });
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return is_string($country) && $country !== '' ? $country : null;
+    }
+
     public function displayCurrency(?Request $request = null): string
     {
         if ($this->allowsLocalOverride()) {
