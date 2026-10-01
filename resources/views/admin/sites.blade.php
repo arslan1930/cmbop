@@ -127,6 +127,59 @@
             @if(!empty($allSitesMode))
                 <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
             @else
+<<<<<<< HEAD
+=======
+                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
+                    <i class="fa fa-bell me-1"></i> Needs review
+                    @if(($openReviewCount ?? 0) > 0)
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $openReviewCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
+                    Site queue
+                </a>
+                <a href="{{ staff_route('sites.index', array_filter(['waiting_on_publisher' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-secondary">
+                    Waiting on publisher
+                    @if(($waitingOnPublisherCount ?? 0) > 0)
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $waitingOnPublisherCount }}</span>
+                    @endif
+                </a>
+                @php
+                    $queueFiltersClear = $publisherSearch === ''
+                        && ($staffSiteFilters['country'] ?? '') === ''
+                        && ($staffSiteFilters['language'] ?? '') === ''
+                        && ($staffSiteFilters['niche'] ?? '') === ''
+                        && ($staffSiteFilters['tag'] ?? '') === ''
+                        && empty($staffSiteFilters['below_quality'])
+                        && empty($staffSiteFilters['missing_market'])
+                        && empty($staffSiteFilters['placeholder'])
+                        && empty($staffSiteFilters['missing_cover'])
+                        && empty($staffSiteFilters['bulk_request'])
+                        && empty($staffSiteFilters['archived']);
+                    $onLiveUnverified = !empty($allSitesMode)
+                        && ($staffSiteFilters['listing_active'] ?? '') === '1'
+                        && ($staffSiteFilters['listing_verified'] ?? '') === '0'
+                        && $queueFiltersClear
+                        && empty($staffSiteFilters['ready_to_activate']);
+                    $onReadyToActivate = !empty($allSitesMode)
+                        && !empty($staffSiteFilters['ready_to_activate'])
+                        && $queueFiltersClear
+                        && ($staffSiteFilters['listing_active'] ?? '') === ''
+                        && ($staffSiteFilters['listing_verified'] ?? '') === '';
+                @endphp
+                <a href="{{ staff_route('sites.index', ['all' => 1, 'ready_to_activate' => 1]) }}" class="btn btn-sm {{ $onReadyToActivate ? 'btn-success' : 'btn-outline-success' }}">
+                    Ready to activate
+                    @if(($readyToActivateCount ?? 0) > 0)
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $readyToActivateCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ $liveUnverifiedUrl }}" class="btn btn-sm {{ $onLiveUnverified ? 'btn-secondary' : 'btn-outline-secondary' }}">
+                    Live unverified
+                    @if(($liveUnverifiedCount ?? 0) > 0)
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $liveUnverifiedCount }}</span>
+                    @endif
+                </a>
+>>>>>>> ac0bd2d1c6040021266c63324c057b6a92039255
                 <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
             @endif
             @if(auth()->user()?->isAdmin())

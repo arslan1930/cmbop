@@ -204,6 +204,8 @@ class AdminCatalogCopyStrikeTest extends TestCase
             'catalog_copy_strike_count' => 2,
             'catalog_copy_warned_at' => now()->subHour(),
             'catalog_hide_until' => now()->addDay(),
+            'catalog_reveal_exempt' => true,
+            'catalog_reveal_exempt_until' => now()->addHour(),
         ])->save();
 
         CatalogCopyEvent::create([
@@ -222,6 +224,8 @@ class AdminCatalogCopyStrikeTest extends TestCase
         $this->assertSame(0, (int) $advertiser->catalog_copy_strike_count);
         $this->assertNull($advertiser->catalog_copy_warned_at);
         $this->assertNull($advertiser->catalog_hide_until);
+        $this->assertFalse((bool) $advertiser->catalog_reveal_exempt);
+        $this->assertNull($advertiser->catalog_reveal_exempt_until);
         $this->assertSame(1, CatalogCopyEvent::where('user_id', $advertiser->id)->count());
         $this->assertSame(
             (int) CatalogCopyEvent::where('user_id', $advertiser->id)->max('id'),
@@ -496,12 +500,18 @@ class AdminCatalogCopyStrikeTest extends TestCase
         ]);
         $this->reveal($advertiser, $site);
 
-        $this->actingAs($admin)
+        $html = $this->actingAs($admin)
             ->get(route('admin.catalog-activity.show', $advertiser->id))
             ->assertOk()
             ->assertSee('copied-host.example')
             ->assertSee('shown.example')
-            ->assertSee(SiteUrlReveal::SOURCE_CATALOG);
+            ->assertSee(SiteUrlReveal::SOURCE_CATALOG)
+            ->assertSee(route('admin.activity-logs.index', ['user_id' => $advertiser->id]), false)
+            ->assertSee(route('admin.sites.edit', $site->id), false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('>IP<', $html);
+        $this->assertStringNotContainsString('ip_address', $html);
     }
 
     public function test_windowed_orders_are_not_lifetime_ratio(): void
@@ -564,6 +574,113 @@ class AdminCatalogCopyStrikeTest extends TestCase
             ->assertOk()
             ->assertSee('Last unlock')
             ->assertSee($at->timezone(config('app.timezone'))->format('M j, H:i'));
+    }
+
+    public function test_queue_filters_survive_details_back(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $hidden = $this->userWithRole('advertiser', ['email' => 'back-copy@example.com']);
+        $hidden->forceFill([
+            'catalog_copy_strike_count' => 2,
+            'catalog_copy_warned_at' => now()->subHour(),
+            'catalog_hide_until' => now()->addHours(4),
+        ])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.catalog-activity', [
+                'days' => 30,
+                'copy' => 'all',
+                'q' => 'back-copy@',
+            ]))
+            ->assertOk();
+
+        $this->actingAs($admin)
+            ->get(route('admin.catalog-activity.show', $hidden->id))
+            ->assertOk()
+            ->assertSee(route('admin.catalog-activity', [
+                'days' => 30,
+                'copy' => 'all',
+                'q' => 'back-copy@',
+            ]), false);
+    }
+
+    public function test_lift_hide_clears_pace_exemption(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser', ['email' => 'trusted-lift@example.com']);
+        $advertiser->forceFill([
+            'catalog_copy_strike_count' => 2,
+            'catalog_copy_warned_at' => now()->subHour(),
+            'catalog_hide_until' => now()->addDay(),
+            'catalog_reveal_exempt' => true,
+            'catalog_reveal_exempt_until' => now()->addHour(),
+        ])->save();
+
+        $this->actingAs($admin)
+            ->from(route('admin.catalog-activity.show', $advertiser->id))
+            ->post(route('admin.catalog-activity.lift-hide', $advertiser->id))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $advertiser->refresh();
+        $this->assertFalse($advertiser->inCatalogHideMode());
+        $this->assertFalse((bool) $advertiser->catalog_reveal_exempt);
+        $this->assertNull($advertiser->catalog_reveal_exempt_until);
+    }
+
+    public function test_lift_hide_clears_stranded_trust_when_hide_already_ended(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser', ['email' => 'stranded-trust@example.com']);
+        $advertiser->forceFill([
+            'catalog_copy_strike_count' => 0,
+            'catalog_hide_until' => null,
+            'catalog_reveal_exempt' => true,
+            'catalog_reveal_exempt_until' => now()->addHour(),
+        ])->save();
+
+        $this->actingAs($admin)
+            ->from(route('admin.catalog-activity.show', $advertiser->id))
+            ->post(route('admin.catalog-activity.lift-hide', $advertiser->id))
+            ->assertRedirect()
+            ->assertSessionHas('success', fn ($msg) => ! str_contains((string) $msg, 'already out'));
+
+        $advertiser->refresh();
+        $this->assertFalse((bool) $advertiser->catalog_reveal_exempt);
+        $this->assertNull($advertiser->catalog_reveal_exempt_until);
+    }
+
+    public function test_show_page_marks_gone_sites_removed(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $advertiser = $this->userWithRole('advertiser', ['email' => 'gone-site@example.com']);
+
+        CatalogCopyEvent::create([
+            'user_id' => $advertiser->id,
+            'site_id' => 999999,
+            'normalized_host' => 'gone-host.example',
+            'created_at' => now(),
+        ]);
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.catalog-activity.show', $advertiser->id))
+            ->assertOk()
+            ->assertSee('gone-host.example')
+            ->assertSee('Removed', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString(route('admin.sites.edit', 999999), $html);
+    }
+
+    public function test_index_offers_fourteen_day_unlock_window(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.catalog-activity'))
+            ->assertOk()
+            ->assertSee('14d', false)
+            ->assertSee('Unlocks (7d)', false);
     }
 
     public function test_empty_unlock_table_explains_open_catalog_is_not_logged(): void

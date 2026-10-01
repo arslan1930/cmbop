@@ -2674,7 +2674,11 @@ class SiteController extends Controller
         $isMarketingEditor = $this->isMarketingEditor(auth()->user());
         $returnQuery = AdminSites::storedReturnQuery($request);
         $sitesBackUrl = $returnQuery !== []
+<<<<<<< HEAD
             ? staff_route('sites.index', $returnQuery, false)
+=======
+            ? AdminSites::listUrl($returnQuery)
+>>>>>>> ac0bd2d1c6040021266c63324c057b6a92039255
             : ($selectedPublisherId > 0
                 ? staff_route('sites.index', ['publisher' => $selectedPublisherId], false)
                 : staff_route('sites.index', [], false));

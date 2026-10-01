@@ -20,7 +20,7 @@
 
     <div class="card border-0 shadow-sm mb-3 admin-deposits-filter-card">
     <div class="card-body">
-    <form method="GET" class="admin-deposits-filters admin-orders-filters" data-admin-filter-live="1">
+    <form method="GET" class="admin-deposits-filters admin-orders-filters">
         <div class="admin-orders-filters__grid">
         <input type="hidden" name="status" value="{{ search_text(request('status')) }}">
         <div class="admin-orders-filters__search">

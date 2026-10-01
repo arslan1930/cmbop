@@ -19,6 +19,7 @@ class AdminContentLibraryTest extends TestCase
             'language' => 'en',
             'sort' => 'expires',
             'attachment' => 'order',
+            'file' => 'missing',
             'expiring' => 'soon',
             'from' => '2026-01-01',
             'to' => '2026-01-31',
@@ -34,6 +35,7 @@ class AdminContentLibraryTest extends TestCase
             'language' => 'en',
             'sort' => 'expires',
             'attachment' => 'order',
+            'file' => 'missing',
             'expiring' => 'soon',
             'from' => '2026-01-01',
             'to' => '2026-01-31',
@@ -49,6 +51,7 @@ class AdminContentLibraryTest extends TestCase
                 'sort' => 'latest',
                 'language' => 'all',
                 'attachment' => 'maybe',
+                'file' => 'gone',
                 'expiring' => 'later',
                 'page' => 1,
             ])

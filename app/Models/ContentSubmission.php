@@ -73,6 +73,7 @@ class ContentSubmission extends Model
         'language',
         'disk',
         'path',
+        'file_on_disk',
         'mime',
         'extension',
         'size_bytes',
@@ -120,6 +121,7 @@ class ContentSubmission extends Model
         'approval_notified_at' => 'datetime',
         'expires_at' => 'datetime',
         'archived_at' => 'datetime',
+        'file_on_disk' => 'boolean',
     ];
 
     public function user(): BelongsTo

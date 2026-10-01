@@ -106,12 +106,22 @@ See [`docs/ops-mail-reminders.md`](docs/ops-mail-reminders.md) for `APP_URL` /
 `MAIL_QUEUE_AUTO_DRAIN`. Canonical schedule lives in `bootstrap/app.php`.
 Admin → Campaigns (queued marketing mail + signed unsubscribe):
 [`docs/admin-campaigns.md`](docs/admin-campaigns.md).
+Admin → Audiences (census, CSV, Campaigns handoff):
+[`docs/admin-audiences.md`](docs/admin-audiences.md).
+Admin → Blogs (public posts, curated sync):
+[`docs/admin-blogs.md`](docs/admin-blogs.md).
+Admin → Email Center (delivery, templates, test send):
+[`docs/admin-emails.md`](docs/admin-emails.md).
 Admin → Promotions (notices, banners, welcome bonus, feature credits):
 [`docs/admin-promotions.md`](docs/admin-promotions.md).
 Admin → Moderation (policy, scan queue, test scan):
 [`docs/admin-moderation.md`](docs/admin-moderation.md).
 Admin → Content Library (article desk, overrides, archive):
 [`docs/admin-content-library.md`](docs/admin-content-library.md).
+Admin → Activity History (append-only ActivityLogger log):
+[`docs/admin-activity-logs.md`](docs/admin-activity-logs.md).
+Admin → Catalog Activity (hide-mode / copy-strike queue):
+[`docs/admin-catalog-activity.md`](docs/admin-catalog-activity.md).
 
 ### Durable media (Hostinger)
 Public uploads use the `public` disk (`/storage/...`). Leave `MEDIA_PATH` empty

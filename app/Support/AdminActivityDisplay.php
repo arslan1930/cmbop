@@ -73,7 +73,8 @@ class AdminActivityDisplay
      *     existingWalletIds: array<int, int>,
      *     existingAnnouncementIds: array<int, true>,
      *     existingBannerIds: array<int, true>,
-     *     existingSubmissionIds: array<int, true>
+     *     existingSubmissionIds: array<int, true>,
+     *     existingCampaignIds: array<int, true>
      * }
      */
     public static function preload(iterable $logs): array
@@ -91,6 +92,7 @@ class AdminActivityDisplay
             'announcement' => [],
             'banner' => [],
             'submission' => [],
+            'campaign' => [],
         ];
 
         foreach ($logs as $log) {
@@ -141,6 +143,7 @@ class AdminActivityDisplay
             'existingAnnouncementIds' => self::existingKeys(SiteAnnouncement::class, $buckets['announcement']),
             'existingBannerIds' => self::existingKeys(AdBanner::class, $buckets['banner']),
             'existingSubmissionIds' => self::existingKeys(ContentSubmission::class, $buckets['submission']),
+            'existingCampaignIds' => self::existingKeys(EmailCampaign::class, $buckets['campaign']),
         ];
     }
 
@@ -288,6 +291,7 @@ class AdminActivityDisplay
             SiteAnnouncement::class => 'existingAnnouncementIds',
             AdBanner::class => 'existingBannerIds',
             ContentSubmission::class => 'existingSubmissionIds',
+            EmailCampaign::class => 'existingCampaignIds',
             Wallet::class => 'existingWalletIds',
         ];
 
@@ -321,6 +325,7 @@ class AdminActivityDisplay
             SiteAnnouncement::class => 'announcement',
             AdBanner::class => 'banner',
             ContentSubmission::class => 'submission',
+            EmailCampaign::class => 'campaign',
         ];
 
         $bucket = $map[$type] ?? null;
@@ -431,7 +436,9 @@ class AdminActivityDisplay
             ContentSubmission::class => isset($lookup['existingSubmissionIds'][$id])
                 ? route('admin.content-library.show', $id)
                 : null,
-            EmailCampaign::class => route('admin.campaigns.index'),
+            EmailCampaign::class => isset($lookup['existingCampaignIds'][$id])
+                ? route('admin.campaigns.show', $id)
+                : null,
             ProblemReport::class => route('admin.community.index', ['tab' => 'problems']),
             Suggestion::class => route('admin.community.index', ['tab' => 'suggestions']),
             WebsiteSuggestion::class => route('admin.community.index', ['tab' => 'websites']),

@@ -12,10 +12,12 @@
         $exemptionMinutes = max(1, (int) config('catalog.url_reveal.pace.exemption_minutes', 60));
         $inHide = $status === \App\Models\User::CATALOG_COPY_HIDDEN;
         $exempt = $account->catalog_reveal_exempt_until && $account->catalog_reveal_exempt_until->isFuture();
+        $existingSiteIds = $existingSiteIds ?? [];
     @endphp
     <div class="mb-3 d-flex flex-wrap gap-2">
-        <a href="{{ route('admin.catalog-activity', ['user' => $account->id]) }}" class="btn btn-sm btn-outline-secondary">Back to queue</a>
-        <a href="{{ $userUrl }}" class="btn btn-sm btn-outline-secondary">Open user</a>
+        <a href="{{ $queueUrl ?? route('admin.catalog-activity', ['user' => $account->id]) }}" class="btn btn-sm btn-outline-secondary">Back to queue</a>
+        <a href="{{ $userUrl ?? route('admin.users.show', $account->id) }}" class="btn btn-sm btn-outline-secondary">Open user</a>
+        <a href="{{ $historyUrl ?? route('admin.activity-logs.index', ['user_id' => $account->id]) }}" class="btn btn-sm btn-outline-secondary">History</a>
         @if($inHide)
             <form method="POST" action="{{ route('admin.catalog-activity.lift-hide', $account->id) }}" class="d-inline"
                   data-slb-confirm="Lift hide mode? They stay on strike {{ (int) ($account->catalog_copy_strike_count ?? 0) }}; the next copy wave can re-hide them. Copy history is kept."
@@ -81,7 +83,16 @@
                         @forelse($copyEvents as $event)
                             <tr>
                                 <td>{{ $event->normalized_host }}</td>
-                                <td class="small text-muted">{{ $event->site?->site_name ?: ($event->site_id ? '#'.$event->site_id : '—') }}</td>
+                                <td class="small text-muted">
+                                    @php $copySiteId = (int) ($event->site_id ?? 0); @endphp
+                                    @if($event->site || ($copySiteId > 0 && !empty($existingSiteIds[$copySiteId])))
+                                        <a href="{{ route('admin.sites.edit', $copySiteId ?: $event->site->id) }}">{{ $event->site?->site_name ?: '#'.$copySiteId }}</a>
+                                    @elseif($copySiteId > 0)
+                                        #{{ $copySiteId }} <span class="badge bg-secondary">Removed</span>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td class="small text-muted">{{ $event->created_at?->timezone(config('app.timezone'))->format('M j, H:i') }}</td>
                             </tr>
                         @empty
@@ -107,21 +118,28 @@
                         <tr>
                             <th>Site</th>
                             <th>Source</th>
-                            <th>IP</th>
                             <th>When</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($reveals as $reveal)
                             <tr>
-                                <td>{{ $reveal->site?->domain ?: ($reveal->site?->site_name ?: '#'.$reveal->site_id) }}</td>
+                                <td>
+                                    @php $revealSiteId = (int) ($reveal->site_id ?? 0); @endphp
+                                    @if($reveal->site || ($revealSiteId > 0 && !empty($existingSiteIds[$revealSiteId])))
+                                        <a href="{{ route('admin.sites.edit', $revealSiteId ?: $reveal->site->id) }}">{{ $reveal->site?->domain ?: ($reveal->site?->site_name ?: '#'.$revealSiteId) }}</a>
+                                    @elseif($revealSiteId > 0)
+                                        #{{ $revealSiteId }} <span class="badge bg-secondary">Removed</span>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td>{{ $reveal->source ?: '—' }}</td>
-                                <td class="small text-muted">{{ $reveal->ip_address ?: '—' }}</td>
                                 <td class="small text-muted">{{ $reveal->created_at?->timezone(config('app.timezone'))->format('M j, H:i') }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">No hide-mode unlocks recorded.</td>
+                                <td colspan="3" class="text-center text-muted py-4">No hide-mode unlocks recorded.</td>
                             </tr>
                         @endforelse
                     </tbody>

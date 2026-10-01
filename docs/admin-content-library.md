@@ -20,6 +20,10 @@ Select a page of rows (up to `content_library.bulk_limit`, default 50). Bulk can
 
 Export CSV is the **first 2000** matching rows (id, title, email, market, availability, moderation, scores, order, file-on-disk, expiry).
 
+**Missing on disk** (`file=missing`) uses the stored `file_on_disk` flag. List and export first fill up to 200 unset flags (path present, flag `NULL`); show refreshes that article. It does not walk the disk tree.
+
+Staff retry / override / archive / restore write `activity_logs` on the article (`ActivityLogger::tryLog`). Show **Staff activity** lists those rows.
+
 ## Detail
 
 Staff actions stay on the article. **Revert override** is on the current scan in Moderation. Scan history lists recent logs for this article.

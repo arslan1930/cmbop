@@ -68,6 +68,9 @@
                     <label class="form-label" for="logTo">To</label>
                     <input type="date" id="logTo" name="to" value="{{ search_text(request('to')) }}" class="form-control">
                 </div>
+                @if(!empty($filterUserId))
+                    <input type="hidden" name="user_id" value="{{ (int) $filterUserId }}">
+                @endif
                 <div class="admin-deposits-filters__actions admin-orders-filters__actions">
                     <div class="d-flex flex-wrap gap-2">
                     <button class="btn btn-primary" type="submit">Apply filters</button>
@@ -79,6 +82,13 @@
             </div>
         </div>
     </form>
+    @if(!empty($filterUserId))
+        <div class="alert alert-light border py-2 px-3 small mb-3 d-flex flex-wrap align-items-center gap-2">
+            <span>Actor filter:</span>
+            <span class="fw-semibold">User #{{ (int) $filterUserId }}</span>
+            <a href="{{ route('admin.activity-logs.index', collect($exportQuery ?? [])->except('user_id')->all()) }}" class="ms-auto">Clear actor</a>
+        </div>
+    @endif
     @if(!empty($dateErrors))
         <div class="alert alert-warning border-0 py-2">
             {{ implode(' ', $dateErrors) }}

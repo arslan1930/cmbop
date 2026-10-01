@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\CatalogCopyEvent;
 use App\Models\DepositRequest;
 use App\Models\Order;
+use App\Models\Site;
 use App\Models\SiteUrlReveal;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\Catalog\CatalogCopyStrikeGuard;
 use App\Services\Catalog\RevealPaceGuard;
+use App\Support\AdminCatalogActivity;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\RedirectResponse;
@@ -35,14 +37,15 @@ class CatalogActivityController extends Controller
 {
     public const NO_ORDERS_UNLOCK_THRESHOLD = 100;
 
-    public const COPY_ATTENTION_DAYS = 14;
+    public const COPY_ATTENTION_DAYS = AdminCatalogActivity::COPY_ATTENTION_DAYS;
 
     public function index(Request $request, RevealPaceGuard $pace): View
     {
-        $days = max(1, min(90, (int) $request->integer('days', 7)));
-        $copyFilter = $request->query('copy') === 'all' ? 'all' : 'attention';
-        $q = trim((string) $request->query('q', ''));
-        $focusUserId = max(0, (int) $request->integer('user'));
+        $days = AdminCatalogActivity::days($request);
+        $copyFilter = AdminCatalogActivity::copyFilter($request);
+        $q = AdminCatalogActivity::search($request);
+        $focusUserId = AdminCatalogActivity::focusUserId($request);
+        AdminCatalogActivity::rememberReturnQuery($request);
 
         $shared = $this->sharedViewData($days, $copyFilter, $q, $focusUserId);
 
@@ -67,11 +70,12 @@ class CatalogActivityController extends Controller
         $q = (string) ($shared['q'] ?? '');
 
         if (! Schema::hasTable('site_url_reveals')) {
-            [$copyStrikeRows, $copyStrikeCapped] = $this->copyStrikeRows($request, $days, $pace);
+            [$copyStrikeRows, $copyStrikeCapped] = $this->copyStrikeRows($days, $pace, $shared);
 
             return view('admin.catalog-activity', array_merge($shared, [
                 'rows' => collect(),
                 'available' => false,
+                'unlockCapped' => false,
                 'copyStrikeRows' => $copyStrikeRows,
                 'copyStrikesAvailable' => $this->copyStrikeColumnsReady(),
                 'copyStrikeCapped' => $copyStrikeCapped,
@@ -87,8 +91,11 @@ class CatalogActivityController extends Controller
             ->when($matchingIds !== null, fn ($query) => $query->whereIn('user_id', $matchingIds))
             ->groupBy('user_id')
             ->orderByDesc('total')
-            ->limit(50)
+            ->limit(AdminCatalogActivity::UNLOCK_LIMIT + 1)
             ->get();
+
+        $unlockCapped = $counts->count() > AdminCatalogActivity::UNLOCK_LIMIT;
+        $counts = $counts->take(AdminCatalogActivity::UNLOCK_LIMIT)->values();
 
         $userIds = $counts->pluck('user_id');
         $users = User::whereIn('id', $userIds)->get()->keyBy('id');
@@ -151,11 +158,12 @@ class CatalogActivityController extends Controller
             ];
         })->filter()->values();
 
-        [$copyStrikeRows, $copyStrikeCapped] = $this->copyStrikeRows($request, $days, $pace);
+        [$copyStrikeRows, $copyStrikeCapped] = $this->copyStrikeRows($days, $pace, $shared);
 
         return view('admin.catalog-activity', array_merge($shared, [
             'rows' => $rows,
             'available' => true,
+            'unlockCapped' => $unlockCapped,
             'enforcing' => (bool) config('catalog.url_reveal.pace.enforce', true),
             'copyStrikeRows' => $copyStrikeRows,
             'copyStrikesAvailable' => $this->copyStrikeColumnsReady(),
@@ -193,8 +201,11 @@ class CatalogActivityController extends Controller
                 'status' => $model->catalogCopyStatus(),
                 'copyEvents' => $copyEvents,
                 'reveals' => $reveals,
+                'existingSiteIds' => $this->existingSiteIds($copyEvents->pluck('site_id')->merge($reveals->pluck('site_id'))),
                 'hideHours' => max(1, (int) config('catalog.copy_strikes.hide_hours', 24)),
                 'userUrl' => $this->userUrl($model->id),
+                'queueUrl' => AdminCatalogActivity::queueUrl(request(), (int) $model->id),
+                'historyUrl' => route('admin.activity-logs.index', ['user_id' => $model->id]),
             ]);
         } catch (ModelNotFoundException $e) {
             throw $e;
@@ -222,17 +233,21 @@ class CatalogActivityController extends Controller
             $strikesWere = (int) ($model->catalog_copy_strike_count ?? 0);
 
             if (! $wasHidden) {
-                if (! $model->hasRawDateValue('catalog_hide_until')) {
+                $staleUntil = $model->hasRawDateValue('catalog_hide_until');
+                $exempt = $this->hasPaceExemption($model);
+                if (! $staleUntil && ! $exempt) {
                     return ['noop' => true, 'model' => $model];
                 }
 
                 $model->catalog_hide_until = null;
+                $this->clearPaceExemption($model);
                 CatalogCopyStrikeGuard::watermarkEvents($model);
                 $model->save();
 
                 return [
                     'noop' => false,
-                    'healed_stale_until' => true,
+                    'healed_stale_until' => $staleUntil,
+                    'cleared_exempt' => $exempt,
                     'model' => $model,
                     'hide_until_was' => $hideUntilWas,
                     'strikes_were' => $strikesWere,
@@ -240,6 +255,7 @@ class CatalogActivityController extends Controller
             }
 
             $model->catalog_hide_until = null;
+            $this->clearPaceExemption($model);
             CatalogCopyStrikeGuard::watermarkEvents($model);
             $model->save();
 
@@ -357,11 +373,12 @@ class CatalogActivityController extends Controller
             $warnedAtWas = $model->catalog_copy_warned_at;
 
             if (! $wasHidden && $strikesWere === 0 && $warnedAtWas === null) {
-                if (! $model->hasRawDateValue('catalog_hide_until')) {
+                if (! $model->hasRawDateValue('catalog_hide_until') && ! $this->hasPaceExemption($model)) {
                     return ['noop' => true, 'model' => $model];
                 }
 
                 $model->catalog_hide_until = null;
+                $this->clearPaceExemption($model);
                 CatalogCopyStrikeGuard::watermarkEvents($model);
                 $model->save();
 
@@ -377,6 +394,7 @@ class CatalogActivityController extends Controller
             $model->catalog_hide_until = null;
             $model->catalog_copy_strike_count = 0;
             $model->catalog_copy_warned_at = null;
+            $this->clearPaceExemption($model);
             CatalogCopyStrikeGuard::watermarkEvents($model);
             $model->save();
 
@@ -481,17 +499,18 @@ class CatalogActivityController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $shared
      * @return array{0: Collection<int, array<string, mixed>>, 1: bool}
      */
-    private function copyStrikeRows(Request $request, int $days, RevealPaceGuard $pace): array
+    private function copyStrikeRows(int $days, RevealPaceGuard $pace, array $shared): array
     {
         if (! $this->copyStrikeColumnsReady()) {
             return [collect(), false];
         }
 
-        $copyFilter = $request->query('copy') === 'all' ? 'all' : 'attention';
-        $q = trim((string) $request->query('q', ''));
-        $focusUserId = max(0, (int) $request->integer('user'));
+        $copyFilter = (string) ($shared['copyFilter'] ?? 'attention');
+        $q = (string) ($shared['q'] ?? '');
+        $focusUserId = (int) ($shared['focusUserId'] ?? 0);
         $matchingIds = $this->matchingUserIds($q);
         $attentionSince = now()->subDays(self::COPY_ATTENTION_DAYS);
         $floor = User::PLAUSIBLE_SQL_DATETIME_FLOOR;
@@ -537,11 +556,11 @@ class CatalogActivityController extends Controller
             ->orderByDesc('catalog_hide_until')
             ->orderByDesc('catalog_copy_strike_count')
             ->orderByDesc('catalog_copy_warned_at')
-            ->limit(101)
+            ->limit(AdminCatalogActivity::COPY_LIMIT + 1)
             ->get();
 
-        $capped = $users->count() > 100;
-        $users = $users->take(100)->values();
+        $capped = $users->count() > AdminCatalogActivity::COPY_LIMIT;
+        $users = $users->take(AdminCatalogActivity::COPY_LIMIT)->values();
 
         // Notification deep-links use ?user= with no search. A later search
         // must not keep pinning that account via a leftover query param.
@@ -618,13 +637,21 @@ class CatalogActivityController extends Controller
      */
     private function emptyCatalogActivityPayload(): array
     {
+        $revealsReady = false;
+        try {
+            $revealsReady = Schema::hasTable('site_url_reveals');
+        } catch (\Throwable) {
+            $revealsReady = false;
+        }
+
         return [
             'rows' => collect(),
-            'available' => false,
+            'available' => $revealsReady,
+            'unlockCapped' => false,
             'copyStrikeRows' => collect(),
-            'copyStrikesAvailable' => false,
+            'copyStrikesAvailable' => $this->copyStrikeColumnsReady(),
             'copyStrikeCapped' => false,
-            'enforcing' => false,
+            'enforcing' => (bool) config('catalog.url_reveal.pace.enforce', true),
         ];
     }
 
@@ -645,6 +672,9 @@ class CatalogActivityController extends Controller
             'exemptionMinutes' => $exemptionMinutes,
             'noOrdersThreshold' => self::NO_ORDERS_UNLOCK_THRESHOLD,
             'copyAttentionDays' => self::COPY_ATTENTION_DAYS,
+            'unlockLimit' => AdminCatalogActivity::UNLOCK_LIMIT,
+            'copyLimit' => AdminCatalogActivity::COPY_LIMIT,
+            'dayChips' => AdminCatalogActivity::DAY_CHIPS,
         ];
     }
 
@@ -657,12 +687,12 @@ class CatalogActivityController extends Controller
             return null;
         }
 
-        $like = '%'.addcslashes($q, '%_\\').'%';
+        $like = like_contains($q);
 
         return User::query()
             ->where(function ($query) use ($like) {
-                $query->where('email', 'like', $like)
-                    ->orWhere('name', 'like', $like);
+                $query->whereRaw('email LIKE ? ESCAPE ?', [$like, '\\'])
+                    ->orWhereRaw('name LIKE ? ESCAPE ?', [$like, '\\']);
             })
             ->pluck('id');
     }
@@ -828,6 +858,33 @@ class CatalogActivityController extends Controller
         return route('admin.users.show', $userId);
     }
 
+    /**
+     * @param  Collection<int, mixed>  $siteIds
+     * @return array<int, true>
+     */
+    private function existingSiteIds(Collection $siteIds): array
+    {
+        $ids = $siteIds
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values();
+        if ($ids->isEmpty() || ! Schema::hasTable('sites')) {
+            return [];
+        }
+
+        try {
+            $existing = [];
+            foreach (Site::query()->whereIn('id', $ids->all())->pluck('id') as $id) {
+                $existing[(int) $id] = true;
+            }
+
+            return $existing;
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
     private function copyStrikeColumnsReady(): bool
     {
         try {
@@ -846,5 +903,28 @@ class CatalogActivityController extends Controller
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    private function clearPaceExemption(User $model): void
+    {
+        if (! $this->revealExemptColumnsReady()) {
+            return;
+        }
+
+        $model->catalog_reveal_exempt = false;
+        $model->catalog_reveal_exempt_until = null;
+    }
+
+    private function hasPaceExemption(User $model): bool
+    {
+        if (! $this->revealExemptColumnsReady()) {
+            return false;
+        }
+
+        if ($model->catalog_reveal_exempt || $model->catalog_reveal_exempt_until) {
+            return true;
+        }
+
+        return $model->hasRawDateValue('catalog_reveal_exempt_until');
     }
 }
