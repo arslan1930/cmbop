@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Middleware\HealHostingerProduction;
 use App\Support\DotEnvWriter;
 use App\Support\HostingerMediaPath;
+use App\Support\HostingerMysqlHost;
 use App\Support\ProductionReadiness;
 use App\Support\ProductionRepair;
 use Database\Seeders\RolesTableSeeder;
@@ -53,6 +54,20 @@ class HostingerSelfHealTest extends TestCase
         $this->assertFalse(HostingerMediaPath::looksLikeHostinger('/home/ubuntu/workspace'));
         $this->assertFalse(HostingerMediaPath::looksLikeHostinger('/workspace'));
         $this->assertFalse(HostingerMediaPath::looksLikeHostinger(base_path()));
+    }
+
+    public function test_hostinger_rewrites_loopback_mysql_host_to_socket_localhost(): void
+    {
+        $this->assertSame('localhost', HostingerMysqlHost::preferredHost('127.0.0.1', true));
+        $this->assertNull(HostingerMysqlHost::preferredHost('127.0.0.1', false));
+        $this->assertNull(HostingerMysqlHost::preferredHost('localhost', true));
+
+        config(['database.connections.mysql.host' => '127.0.0.1']);
+        $this->assertTrue(HostingerMysqlHost::applyRuntime(true));
+        $this->assertSame('localhost', config('database.connections.mysql.host'));
+
+        $this->assertFalse(HostingerMysqlHost::applyRuntime(true));
+        $this->assertFalse(HostingerMysqlHost::applyRuntime(false));
     }
 
     public function test_ensure_creates_preferred_dir_and_leaves_public_html(): void
@@ -304,6 +319,8 @@ class HostingerSelfHealTest extends TestCase
         $deploy = (string) file_get_contents(base_path('docs/deploy-hostinger.md'));
         $this->assertStringContainsString('HOSTINGER_WEB_HEAL', $deploy);
         $this->assertStringContainsString('ops:production-ready --repair', $deploy);
+        $this->assertStringContainsString('DB_HOST', $deploy);
+        $this->assertStringContainsString('localhost', $deploy);
 
         $agents = (string) file_get_contents(base_path('AGENTS.md'));
         $this->assertStringContainsString('HOSTINGER_WEB_HEAL', $agents);

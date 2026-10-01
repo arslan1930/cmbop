@@ -16,6 +16,7 @@ use App\Services\CartPricingService;
 use App\Services\EmailNotificationService;
 use App\Services\Wallet\WelcomeBonusService;
 use App\Support\BillingCustomerMailSuppressor;
+use App\Support\HostingerMysqlHost;
 use App\Support\MarketingOpsQueues;
 use App\Support\OrderLifecycleMailSuppressor;
 use App\Support\PublicStorageLink;
@@ -41,6 +42,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(OrderLifecycleMailSuppressor::class);
         $this->app->singleton(BillingCustomerMailSuppressor::class);
+
+        // Before any provider opens PDO: Hostinger blocks TCP 127.0.0.1:3306.
+        HostingerMysqlHost::applyRuntime();
 
         // Blade views call these helpers on every form page. Composer "files"
         // autoload is enough after dump-autoload, but a deploy that only

@@ -32,6 +32,8 @@ below are non-obvious gotchas discovered during setup.
 `127.0.0.1:3306`). Several migrations use raw MySQL DDL
 (`ALTER TABLE ... MODIFY COLUMN ... ENUM(...)`) that SQLite cannot run.
 PHPUnit uses `.env.testing` (sqlite) and is fine.
+On Hostinger set `DB_HOST=localhost` (unix socket). `127.0.0.1` is TCP and
+fails with `SQLSTATE[HY000] [2002] Operation not permitted`.
 
 MariaDB does not auto-start. Start it each session (it is not in the update script
 because the update script must not start services):

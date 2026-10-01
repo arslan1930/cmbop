@@ -25,6 +25,8 @@ class ProductionRepair
 
         $wroteEnv = false;
 
+        $this->ensureMysqlHost($notes, $persistEnv, $wroteEnv);
+
         if ($migrate) {
             $this->migrate($notes);
         } else {
@@ -145,6 +147,32 @@ class ProductionRepair
             $notes[] = 'roles seed failed: '.$e->getMessage();
             Log::error('Production repair roles seed failed', ['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Hostinger PHP cannot TCP to 127.0.0.1:3306 (error 2002 Operation not permitted).
+     *
+     * @param  list<string>  $notes
+     */
+    private function ensureMysqlHost(array &$notes, bool $persistEnv, bool &$wroteEnv): void
+    {
+        $onHostinger = HostingerMediaPath::looksLikeHostinger();
+        HostingerMysqlHost::applyRuntime($onHostinger);
+
+        if (! $onHostinger) {
+            return;
+        }
+
+        $envHost = trim((string) ($_ENV['DB_HOST'] ?? $_SERVER['DB_HOST'] ?? getenv('DB_HOST') ?: ''));
+        if ($envHost !== '127.0.0.1') {
+            return;
+        }
+
+        $wrote = $this->persistKey('DB_HOST', 'localhost', $persistEnv);
+        $wroteEnv = $wroteEnv || $wrote;
+        $notes[] = $wrote
+            ? 'DB_HOST set to localhost (Hostinger MySQL socket)'
+            : 'DB_HOST runtime set to localhost (Hostinger MySQL socket)';
     }
 
     /**
