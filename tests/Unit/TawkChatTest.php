@@ -39,14 +39,19 @@ class TawkChatTest extends TestCase
         $this->assertNull(TawkChat::embedSrc());
     }
 
-    public function test_missing_config_key_falls_back_to_env_default(): void
+    public function test_missing_config_key_does_not_invent_a_property_id(): void
     {
         config(['services.tawk' => []]);
 
-        $this->assertTrue(TawkChat::enabled());
-        $this->assertSame(
-            'https://embed.tawk.to/6aa6a3693d02a53444168308/default',
-            TawkChat::embedSrc()
-        );
+        $php = (string) file_get_contents(app_path('Support/TawkChat.php'));
+        $this->assertStringNotContainsString('6aa6a3693d02a53444168308', $php);
+
+        $config = (string) file_get_contents(config_path('services.php'));
+        $this->assertStringNotContainsString("'TAWK_PROPERTY_ID', '6aa6a3693d02a53444168308'", $config);
+
+        if (trim((string) env('TAWK_PROPERTY_ID', '')) === '') {
+            $this->assertNull(TawkChat::embedSrc());
+            $this->assertFalse(TawkChat::enabled());
+        }
     }
 }

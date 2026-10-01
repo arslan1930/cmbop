@@ -86,10 +86,10 @@ return [
     /*
     | Public Tawk.to visitor chat (not order chat). Empty TAWK_PROPERTY_ID
     | turns the widget off. IDs appear in the page source once embedded.
-    | Ignored while services.support_chat.enabled is true.
+    | Ignored while services.support_chat.enabled is true — first-party wins.
     */
     'tawk' => [
-        'property_id' => trim((string) env('TAWK_PROPERTY_ID', '6aa6a3693d02a53444168308')),
+        'property_id' => trim((string) env('TAWK_PROPERTY_ID', '')),
         'widget_id' => trim((string) env('TAWK_WIDGET_ID', 'default')),
     ],
 
