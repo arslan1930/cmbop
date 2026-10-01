@@ -2672,12 +2672,7 @@ class SiteController extends Controller
         $categories = Category::catalogPickerNames();
         $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
         $isMarketingEditor = $this->isMarketingEditor(auth()->user());
-        $returnQuery = AdminSites::storedReturnQuery($request);
-        $sitesBackUrl = $returnQuery !== []
-            ? staff_route('sites.index', $returnQuery, false)
-            : ($selectedPublisherId > 0
-                ? staff_route('sites.index', ['publisher' => $selectedPublisherId], false)
-                : staff_route('sites.index', [], false));
+        $sitesBackUrl = $this->staffSitesBackUrl($request, $selectedPublisherId);
 
         return view('admin.site-create', compact(
             'publishers',
@@ -3305,12 +3300,7 @@ class SiteController extends Controller
         }
         $selectedPublisherId = (int) $rawSelectedPublisher;
         $publishers = $this->publishersForStaffAssign($selectedPublisherId);
-        $returnQuery = AdminSites::storedReturnQuery($request);
-        $sitesBackUrl = $returnQuery !== []
-            ? staff_route('sites.index', $returnQuery, false)
-            : ($selectedPublisherId > 0
-                ? staff_route('sites.index', ['publisher' => $selectedPublisherId], false)
-                : staff_route('sites.index', [], false));
+        $sitesBackUrl = $this->staffSitesBackUrl($request, $selectedPublisherId);
 
         return view('admin.site-bulk-create', compact('publishers', 'selectedPublisherId', 'sitesBackUrl'));
     }
@@ -3578,14 +3568,7 @@ class SiteController extends Controller
         // Same A–Z niche list as Catalog main search filter.
         $categories = Category::catalogPickerNames();
         $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
-
-        $returnQuery = AdminSites::storedReturnQuery(request());
-        $sitesBackUrl = $returnQuery !== []
-            ? AdminSites::listUrl($returnQuery)
-            : staff_route('sites.index', array_filter([
-                'publisher' => $site->publisher_id,
-                'site' => $site->id,
-            ]));
+        $sitesBackUrl = $this->staffSitesBackUrl(request(), (int) $site->publisher_id, (int) $site->id);
 
         $editData = compact(
             'site',
@@ -3975,16 +3958,8 @@ class SiteController extends Controller
         $message = 'Site updated successfully.'.($emailSent ? ' Publisher notified.' : '');
 
         if ($isMarketingEditor) {
-            $returnQuery = AdminSites::storedReturnQuery($request);
-            $back = $returnQuery !== []
-                ? AdminSites::listUrl($returnQuery)
-                : staff_route('sites.index', array_filter([
-                    'publisher' => $site->publisher_id,
-                    'site' => $site->id,
-                ]));
-
             return redirect()
-                ->to($back)
+                ->to($this->staffSitesBackUrl($request, (int) $site->publisher_id, (int) $site->id))
                 ->with('success', $message);
         }
 
@@ -4747,6 +4722,22 @@ class SiteController extends Controller
             ->withCount('sites')
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'email_verified_at']);
+    }
+
+    /**
+     * Same-origin Sites list URL. Query-string return filters only — never PUT body.
+     */
+    private function staffSitesBackUrl(Request $request, int $publisherId = 0, ?int $siteId = null): string
+    {
+        $returnQuery = AdminSites::storedReturnQuery($request);
+        if ($returnQuery !== []) {
+            return staff_route('sites.index', $returnQuery, false);
+        }
+
+        return staff_route('sites.index', array_filter([
+            'publisher' => $publisherId > 0 ? $publisherId : null,
+            'site' => ($siteId ?? 0) > 0 ? $siteId : null,
+        ]), false);
     }
 
     /**
