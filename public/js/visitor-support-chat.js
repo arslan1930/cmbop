@@ -10,7 +10,7 @@
 
   var STORAGE_KEY = root.getAttribute('data-storage-key') || 'slb-support-chat-v1';
   var endpoint = root.getAttribute('data-endpoint') || '';
-  var welcome = root.getAttribute('data-welcome') || 'Hi! 👋 How can we help you today?';
+  var welcome = root.getAttribute('data-welcome') || 'Hi! How can we help with guest posts, wallet, or your sites?';
   var panel = document.getElementById('slbLiveChatPanel');
   var launcher = document.getElementById('slbLiveChatLauncher');
   var closer = document.getElementById('slbLiveChatClose');
@@ -20,6 +20,7 @@
   var sendBtn = document.getElementById('slbLiveChatSend');
   var typing = document.getElementById('slbLiveChatTyping');
   var errorEl = document.getElementById('slbLiveChatError');
+  var chipsEl = document.getElementById('slbLiveChatChips');
   var sending = false;
   var messages = [];
   var sessionId = '';
@@ -224,7 +225,14 @@
     if (typing) {
       logEl.appendChild(typing);
     }
+    syncChips();
     logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function syncChips() {
+    if (!chipsEl) return;
+    var hasUser = messages.some(function (m) { return m.role === 'user'; });
+    chipsEl.hidden = hasUser;
   }
 
   function setTyping(on) {
@@ -413,6 +421,16 @@
   initLauncherLottie();
   if (launcher) launcher.addEventListener('click', toggleChat);
   if (closer) closer.addEventListener('click', closeChat);
+  if (chipsEl) {
+    chipsEl.addEventListener('click', function (event) {
+      var chip = event.target && event.target.closest ? event.target.closest('.slb-live-chat__chip') : null;
+      if (!chip || sending) return;
+      var question = String(chip.getAttribute('data-question') || chip.textContent || '').trim();
+      if (!question || !input) return;
+      input.value = question;
+      submitComposer();
+    });
+  }
   if (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();

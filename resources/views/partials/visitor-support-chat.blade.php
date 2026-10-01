@@ -1,13 +1,25 @@
 {{-- First-party visitor support chat. Order chat is separate. --}}
 @php
     $company = 'SEOLinkBuildings';
-    $welcome = 'Hi! 👋 How can we help you today?';
+    $welcome = 'Hi! How can we help with guest posts, wallet, or your sites?';
+    $statusLabel = 'Usually replies by email';
+    $supportQuestions = [
+        'How do I create an account?',
+        'How does the marketplace work?',
+        'What does a placement cost?',
+    ];
     if (class_exists(\App\Support\VisitorSupportChat::class)) {
         if (method_exists(\App\Support\VisitorSupportChat::class, 'companyName')) {
             $company = \App\Support\VisitorSupportChat::companyName();
         }
         if (method_exists(\App\Support\VisitorSupportChat::class, 'welcomeMessage')) {
             $welcome = \App\Support\VisitorSupportChat::welcomeMessage();
+        }
+        if (method_exists(\App\Support\VisitorSupportChat::class, 'statusLabel')) {
+            $statusLabel = \App\Support\VisitorSupportChat::statusLabel();
+        }
+        if (method_exists(\App\Support\VisitorSupportChat::class, 'questionsForRole')) {
+            $supportQuestions = \App\Support\VisitorSupportChat::questionsForRole();
         }
     }
 @endphp
@@ -32,7 +44,7 @@
                 <p class="slb-live-chat__name" id="slbLiveChatTitle">{{ $company }}</p>
                 <p class="slb-live-chat__status">
                     <span class="slb-live-chat__dot" aria-hidden="true"></span>
-                    Available
+                    {{ $statusLabel }}
                 </p>
             </div>
             <button type="button" class="slb-live-chat__close" id="slbLiveChatClose" aria-label="Close chat">
@@ -57,6 +69,13 @@
             <span></span><span></span><span></span>
         </div>
         <p class="slb-live-chat__error" id="slbLiveChatError" role="alert"></p>
+        @if (count($supportQuestions) > 0)
+            <div class="slb-live-chat__chips" id="slbLiveChatChips">
+                @foreach ($supportQuestions as $question)
+                    <button type="button" class="slb-live-chat__chip" data-question="{{ $question }}">{{ $question }}</button>
+                @endforeach
+            </div>
+        @endif
         <form class="slb-live-chat__composer" id="slbLiveChatForm">
             <textarea
                 class="slb-live-chat__input"

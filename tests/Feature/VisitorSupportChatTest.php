@@ -35,15 +35,20 @@ class VisitorSupportChatTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertDontSee('id="slbLiveChat"', false)
-            ->assertDontSee('visitor-support-chat.js', false)
-            ->assertSee('embed.tawk.to', false)
+            ->assertSee('id="slbLiveChat"', false)
+            ->assertSee('visitor-support-chat.js', false)
+            ->assertSee('How do I create an account?', false)
+            ->assertSee('Usually replies by email', false)
+            ->assertSee('SEOLinkBuildings', false)
+            ->assertDontSee('embed.tawk.to', false)
+            ->assertDontSee('Customer Support', false)
             ->assertDontSee('aria-label="Open help and feedback"', false);
 
         $js = (string) file_get_contents(public_path('js/visitor-support-chat.js'));
         $this->assertStringContainsString('function sendChatMessage', $js);
         $this->assertStringContainsString('window.sendChatMessage', $js);
         $this->assertStringContainsString('localStorage', $js);
+        $this->assertStringContainsString('slbLiveChatChips', $js);
     }
 
     public function test_advertiser_dashboard_renders_first_party_widget(): void
@@ -54,8 +59,22 @@ class VisitorSupportChatTest extends TestCase
         $this->actingAs($advertiser)
             ->get(route('advertiser.dashboard'))
             ->assertOk()
-            ->assertDontSee('id="slbLiveChat"', false)
-            ->assertSee('embed.tawk.to', false);
+            ->assertSee('id="slbLiveChat"', false)
+            ->assertSee('How do I place an order?', false)
+            ->assertDontSee('embed.tawk.to', false);
+    }
+
+    public function test_publisher_dashboard_renders_first_party_widget(): void
+    {
+        config(['services.support_chat.enabled' => true]);
+
+        $publisher = $this->userWithRole('publisher');
+        $this->actingAs($publisher)
+            ->get(route('publisher.dashboard'))
+            ->assertOk()
+            ->assertSee('id="slbLiveChat"', false)
+            ->assertSee('How do I add a website?', false)
+            ->assertDontSee('embed.tawk.to', false);
     }
 
     public function test_local_provider_returns_a_reply(): void
@@ -138,6 +157,43 @@ class VisitorSupportChatTest extends TestCase
         $this->assertStringContainsString('class_exists(\\App\\Support\\VisitorSupportChat::class)', $partial);
         $this->assertStringContainsString("method_exists(\\App\\Support\\VisitorSupportChat::class, 'companyName')", $partial);
         $this->assertStringContainsString("method_exists(\\App\\Support\\VisitorSupportChat::class, 'welcomeMessage')", $partial);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\VisitorSupportChat::class, 'statusLabel')", $partial);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\VisitorSupportChat::class, 'questionsForRole')", $partial);
         $this->assertStringContainsString("Route::has('support.chat')", $partial);
+    }
+
+    public function test_questions_follow_the_active_role(): void
+    {
+        $this->assertSame(
+            ['How do I create an account?', 'How does the marketplace work?', 'What does a placement cost?'],
+            VisitorSupportChat::questionsForRole('guest')
+        );
+
+        $advertiser = $this->userWithRole('advertiser');
+        $this->actingAs($advertiser);
+        $this->assertSame('advertiser', VisitorSupportChat::supportRole());
+        $this->assertContains('How does the wallet work?', VisitorSupportChat::questionsForRole());
+    }
+
+    public function test_logged_in_user_without_a_role_gets_guest_chips(): void
+    {
+        config(['services.support_chat.enabled' => true]);
+
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => null,
+        ]);
+
+        $this->actingAs($user);
+        $this->assertSame('guest', VisitorSupportChat::supportRole());
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('id="slbLiveChat"', false)
+            ->assertSee('How do I create an account?', false)
+            ->assertDontSee('SQLSTATE', false);
+
+        $php = (string) file_get_contents(app_path('Support/VisitorSupportChat.php'));
+        $this->assertStringContainsString('$activeRole?->name', $php);
     }
 }

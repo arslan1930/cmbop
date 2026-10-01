@@ -15,11 +15,11 @@ class TawkChat
     public static function embedSrc(): ?string
     {
         // Leftover config/services.php has no tawk key — still honor .env
-        // so live Hostinger can embed without a leftover 500.
+        // so live Hostinger can embed without a leftover 500. Empty default:
+        // do not ship a built-in property ID.
         $property = self::configOrEnv(
             'services.tawk.property_id',
-            'TAWK_PROPERTY_ID',
-            '6aa6a3693d02a53444168308'
+            'TAWK_PROPERTY_ID'
         );
         $widget = self::configOrEnv(
             'services.tawk.widget_id',

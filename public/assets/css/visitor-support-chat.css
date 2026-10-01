@@ -307,6 +307,43 @@
   display: block;
 }
 
+.slb-live-chat__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 12px 10px;
+  background: #fff;
+}
+
+.slb-live-chat__chips[hidden] {
+  display: none;
+}
+
+.slb-live-chat__chip {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--brand-primary-border, #b8e4e4);
+  border-radius: 999px;
+  background: var(--brand-primary-bg, #e6f5f5);
+  color: var(--brand-primary, #1a585e);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.slb-live-chat__chip:hover {
+  background: var(--brand-primary-tint, #f4fbfb);
+  border-color: var(--brand-primary, #1a585e);
+}
+
+.slb-live-chat__chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--bs-focus-ring-color, rgba(14, 165, 233, 0.28));
+}
+
 .slb-live-chat__composer {
   display: flex;
   align-items: flex-end;
@@ -415,5 +452,15 @@
 
   [data-theme="dark"] .slb-live-chat__name {
     color: #f8fafc;
+  }
+
+  [data-theme="dark"] .slb-live-chat__chips {
+    background: #0f172a;
+  }
+
+  [data-theme="dark"] .slb-live-chat__chip {
+    background: #134347;
+    border-color: #1a585e;
+    color: #e2e8f0;
   }
 }
