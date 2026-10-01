@@ -38,11 +38,6 @@
 @endphp
 <div class="container-fluid py-3 {{ request()->filled('publisher') ? 'staff-publisher-open' : '' }}" id="staffSitesPage">
 
-<<<<<<< HEAD
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-        <h4 class="mb-0 fw-bold">Sites Management</h4>
-        <div class="d-flex flex-wrap gap-2">
-=======
     <div class="admin-sites-header d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
             <h4 class="mb-0 fw-bold">Sites Management</h4>
@@ -102,7 +97,6 @@
             </div>
         </div>
         <div class="admin-sites-header__actions d-flex flex-wrap gap-2">
->>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
             @if(!empty($needsReviewFilterActive))
                 @if(!empty($flatQueue))
                     <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-secondary">
@@ -133,59 +127,6 @@
             @if(!empty($allSitesMode))
                 <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
             @else
-<<<<<<< HEAD
-=======
-                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
-                    <i class="fa fa-bell me-1"></i> Needs review
-                    @if(($openReviewCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $openReviewCount }}</span>
-                    @endif
-                </a>
-                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
-                    Site queue
-                </a>
-                <a href="{{ staff_route('sites.index', array_filter(['waiting_on_publisher' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-secondary">
-                    Waiting on publisher
-                    @if(($waitingOnPublisherCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $waitingOnPublisherCount }}</span>
-                    @endif
-                </a>
-                @php
-                    $queueFiltersClear = $publisherSearch === ''
-                        && ($staffSiteFilters['country'] ?? '') === ''
-                        && ($staffSiteFilters['language'] ?? '') === ''
-                        && ($staffSiteFilters['niche'] ?? '') === ''
-                        && ($staffSiteFilters['tag'] ?? '') === ''
-                        && empty($staffSiteFilters['below_quality'])
-                        && empty($staffSiteFilters['missing_market'])
-                        && empty($staffSiteFilters['placeholder'])
-                        && empty($staffSiteFilters['missing_cover'])
-                        && empty($staffSiteFilters['bulk_request'])
-                        && empty($staffSiteFilters['archived']);
-                    $onLiveUnverified = !empty($allSitesMode)
-                        && ($staffSiteFilters['listing_active'] ?? '') === '1'
-                        && ($staffSiteFilters['listing_verified'] ?? '') === '0'
-                        && $queueFiltersClear
-                        && empty($staffSiteFilters['ready_to_activate']);
-                    $onReadyToActivate = !empty($allSitesMode)
-                        && !empty($staffSiteFilters['ready_to_activate'])
-                        && $queueFiltersClear
-                        && ($staffSiteFilters['listing_active'] ?? '') === ''
-                        && ($staffSiteFilters['listing_verified'] ?? '') === '';
-                @endphp
-                <a href="{{ staff_route('sites.index', ['all' => 1, 'ready_to_activate' => 1]) }}" class="btn btn-sm {{ $onReadyToActivate ? 'btn-success' : 'btn-outline-success' }}">
-                    Ready to activate
-                    @if(($readyToActivateCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $readyToActivateCount }}</span>
-                    @endif
-                </a>
-                <a href="{{ $liveUnverifiedUrl }}" class="btn btn-sm {{ $onLiveUnverified ? 'btn-secondary' : 'btn-outline-secondary' }}">
-                    Live unverified
-                    @if(($liveUnverifiedCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $liveUnverifiedCount }}</span>
-                    @endif
-                </a>
->>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
                 <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
             @endif
             @if(auth()->user()?->isAdmin())
@@ -357,7 +298,6 @@
                         data-review-name="{{ $site->site_name }}"
                         data-review-url="{{ $site->site_url }}"
                         data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
-<<<<<<< HEAD
                         <td><input type="checkbox"
                             data-staff-bulk-id="{{ $site->id }}"
                             data-verified="{{ $site->verified ? '1' : '0' }}"
@@ -365,9 +305,6 @@
                             data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
                             data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
                             aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
-=======
-                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
->>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
                         <td class="d-none d-md-table-cell">{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             @include('admin.sites.partials.queue-site-cell')

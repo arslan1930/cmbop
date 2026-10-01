@@ -71,33 +71,30 @@ class LoginController extends Controller
         ];
         $remember = $request->boolean('remember');
 
-        // Attempt login
-        if (! Auth::attempt($credentials, $remember)) {
+        // Validate without Auth::attempt — login regenerates the session CSRF,
+        // which 419s the same-page "Need a verification email?" fetch.
+        if (! Auth::validate($credentials)) {
             return $this->invalidCredentialsResponse();
         }
 
-        $user = Auth::user();
+        $user = Auth::getProvider()->retrieveByCredentials($credentials);
+        if (! $user) {
+            return $this->invalidCredentialsResponse();
+        }
 
         // Same JSON as a bad password so login cannot confirm the account exists.
         if (method_exists($user, 'hasVerifiedEmail') && ! $user->hasVerifiedEmail()) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
             return $this->invalidCredentialsResponse();
         }
 
         if (method_exists($user, 'isSuspended') && $user->isSuspended()) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
             return response()->json([
                 'status' => 'error',
                 'message' => $this->copy('login.suspended', 'This account has been suspended. Contact support if you think this is a mistake.'),
             ]);
         }
 
+        Auth::login($user, $remember);
         $request->session()->regenerate();
 
         // Relative dashboard path — survives APP_URL=localhost misconfig

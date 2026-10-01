@@ -344,11 +344,7 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertFalse($noMarket->hasMarketplaceCountry());
         $thinRow = $this->queueRowHtml($html, $thin->id);
         $this->assertStringNotContainsString('js-mkt-activate', $thinRow);
-<<<<<<< HEAD
         $this->assertStringContainsString('Fix metrics', $thinRow);
-=======
-        $this->assertStringContainsString('disabled', $thinRow);
->>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
         $this->assertStringContainsString('This listing is below the quality bar', $html);
         $this->assertStringContainsString('Set a marketplace country before activating', $html);
         $flatCardStart = (int) strpos($html, 'data-flat-queue="1"');

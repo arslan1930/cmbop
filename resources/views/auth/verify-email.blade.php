@@ -18,21 +18,21 @@
                     </p>
 
                     @if (! empty($authenticatedUnverified))
-                        <form method="POST" action="{{ route('verification.send') }}">
+                        <form method="POST" action="{{ route('verification.send', absolute: false) }}">
                             @csrf
                             <button type="submit" class="btn btn-primary w-100 mb-2">
                                 Resend Verification Email
                             </button>
                         </form>
 
-                        <form method="POST" action="{{ route('logout') }}">
+                        <form method="POST" action="{{ route('logout', absolute: false) }}">
                             @csrf
                             <button type="submit" class="btn btn-link text-muted">
                                 Logout
                             </button>
                         </form>
                     @else
-                        <form method="POST" action="{{ route('verification.resend') }}" class="text-start">
+                        <form method="POST" action="{{ route('verification.resend', absolute: false) }}" class="text-start">
                             @csrf
                             <div class="mb-3">
                                 <label class="form-label" for="verifyEmail">Email</label>

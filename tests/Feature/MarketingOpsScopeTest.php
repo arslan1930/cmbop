@@ -362,7 +362,7 @@ class MarketingOpsScopeTest extends TestCase
         $this->assertStringContainsString('staffSitesEditUrl(site.id)', $sitesHtml);
         $this->assertStringContainsString("site.archived) ? 'View' : 'Edit'", $sitesHtml);
         $this->assertStringContainsString('function firstStaffValidationError', $sitesHtml);
-        $this->assertStringContainsString('/edit#description', $sitesHtml);
+        $this->assertStringContainsString("staffSitesEditUrl(id, '#description')", $sitesHtml);
         $this->assertStringContainsString('site-row-preview', $sitesHtml);
         $this->assertStringContainsString('sitePreviewPaths', $sitesHtml);
         $this->assertStringContainsString('initSitePreviewZoom', $sitesHtml);

@@ -169,7 +169,7 @@ class EmailVerificationController extends Controller
 
         return back()
             ->withInput()
-            ->with('info', $message)
+            ->with('success', $message)
             ->with('verify_email', $email);
     }
 

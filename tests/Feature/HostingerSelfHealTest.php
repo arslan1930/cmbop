@@ -8,6 +8,7 @@ use App\Support\HostingerMediaPath;
 use App\Support\HostingerMysqlHost;
 use App\Support\ProductionReadiness;
 use App\Support\ProductionRepair;
+use App\Support\PublicStorageLink;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,6 +23,17 @@ use Tests\TestCase;
 class HostingerSelfHealTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        config([
+            'filesystems.media_path' => '',
+            'filesystems.disks.public.root' => storage_path('app/public'),
+        ]);
+        PublicStorageLink::ensure();
+
+        parent::tearDown();
+    }
 
     public function test_heal_middleware_is_on_the_http_kernel(): void
     {
@@ -148,6 +160,11 @@ class HostingerSelfHealTest extends TestCase
             }
         } finally {
             $this->removeDir($dir);
+            config([
+                'filesystems.media_path' => '',
+                'filesystems.disks.public.root' => storage_path('app/public'),
+            ]);
+            PublicStorageLink::ensure();
         }
     }
 

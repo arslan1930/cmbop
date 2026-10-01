@@ -338,11 +338,15 @@ class EmailVerificationLinkTest extends TestCase
     {
         Notification::fake();
 
-        $this->get(route('verification.notice'))
+        $html = $this->get(route('verification.notice'))
             ->assertOk()
             ->assertSee('Resend Verification Email', false)
             ->assertSee('name="email"', false)
-            ->assertDontSee('Logout', false);
+            ->assertDontSee('Logout', false)
+            ->getContent();
+
+        $this->assertStringContainsString('action="'.route('verification.resend', absolute: false).'"', $html);
+        $this->assertStringNotContainsString('action="http', $html);
 
         $unverified = User::factory()->create([
             'email' => 'notice-resend@example.com',
@@ -354,9 +358,40 @@ class EmailVerificationLinkTest extends TestCase
                 'email' => $unverified->email,
             ])
             ->assertRedirect(route('verification.notice'))
-            ->assertSessionHas('info');
+            ->assertSessionHas('success');
 
         Notification::assertSentTo($unverified, VerifyEmail::class);
+    }
+
+    public function test_unverified_login_keeps_csrf_so_resend_still_works(): void
+    {
+        Notification::fake();
+
+        $role = Role::where('name', 'advertiser')->firstOrFail();
+        $user = User::factory()->create([
+            'email' => 'login-then-resend@example.com',
+            'email_verified_at' => null,
+            'password' => 'password',
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        $this->get(route('login'))->assertOk();
+        $token = session()->token();
+
+        $this->postJson(route('login.post'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertOk()->assertJsonPath('status', 'error');
+
+        $this->assertGuest();
+        $this->assertSame($token, session()->token());
+
+        $this->postJson(route('verification.resend'), [
+            'email' => $user->email,
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        Notification::assertSentTo($user, VerifyEmail::class);
     }
 
     public function test_verified_user_is_redirected_away_from_verification_notice(): void
@@ -427,8 +462,14 @@ class EmailVerificationLinkTest extends TestCase
             'email_verified_at' => null,
         ]);
 
-        $this->actingAs($user)
-            ->from(route('verification.notice'))
+        $html = $this->actingAs($user)
+            ->get(route('verification.notice'))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('action="'.route('verification.send', absolute: false).'"', $html);
+        $this->assertStringContainsString('action="'.route('logout', absolute: false).'"', $html);
+
+        $this->from(route('verification.notice'))
             ->post(route('verification.send'))
             ->assertRedirect(route('verification.notice'))
             ->assertSessionHas('success');

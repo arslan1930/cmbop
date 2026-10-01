@@ -62,4 +62,16 @@ class AdminSitesReturnQueryTest extends TestCase
         );
         $this->assertSame(staff_route('sites.index'), AdminSites::listUrl(['page' => ['2']]));
     }
+
+    public function test_index_query_ignores_edit_form_body_filters(): void
+    {
+        $put = Request::create('/marketing/sites/1', 'PUT', [
+            'country' => 'de',
+            'language' => 'de',
+            'site_name' => 'Corrected Name',
+        ]);
+
+        $this->assertSame([], AdminSites::indexQuery($put));
+        $this->assertSame([], AdminSites::storedReturnQuery($put));
+    }
 }

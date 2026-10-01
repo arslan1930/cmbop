@@ -16,6 +16,9 @@ class AdminSites
      */
     public static function indexQuery(Request $request): array
     {
+        // List filters live in the query string. PUT/POST bodies (site edit
+        // country, language, …) must not be treated as Sites-index filters.
+        $request = Request::create('/', 'GET', $request->query());
         $listMode = self::flag($request, 'all')
             || self::flag($request, 'flat')
             || self::flag($request, 'needs_review')

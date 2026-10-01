@@ -579,7 +579,7 @@ class AdminSiteActivateGuardTest extends TestCase
         $this->assertStringNotContainsString('marketingCanActivate()', $activatePartial);
         $this->assertStringContainsString('staff-site-activate-button', $adminBlade);
         $this->assertStringContainsString('staff-site-activate-button', $mktBlade);
-        $this->assertStringContainsString('/edit#description', $adminBlade);
+        $this->assertStringContainsString("staffSitesEditUrl(id, '#description')", $adminBlade);
         $this->assertStringContainsString('/edit#description', $mktBlade);
         $this->assertStringNotContainsString('Promise.resolve(true)', $adminBlade);
     }
@@ -636,10 +636,6 @@ class AdminSiteActivateGuardTest extends TestCase
 
         $row = $this->queueRowHtml($html, $site->id);
         $this->assertStringNotContainsString('js-mkt-activate', $row);
-<<<<<<< HEAD
-=======
-        $this->assertStringContainsString('disabled', $row);
->>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
         $this->assertStringContainsString('Fix metrics', $row);
         $this->assertStringContainsString('This listing is below the quality bar', $html);
     }

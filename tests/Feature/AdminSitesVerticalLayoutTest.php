@@ -78,7 +78,7 @@ class AdminSitesVerticalLayoutTest extends TestCase
         $this->assertStringContainsString('Metrics &amp; image', $blade);
         $this->assertStringContainsString('swal-description', $blade);
         $this->assertStringContainsString('nextDescription.trim() !== originalDescription.trim()', $blade);
-        $this->assertStringContainsString('edit#description', $blade);
+        $this->assertStringContainsString("staffSitesEditUrl(id, '#description')", $blade);
         $this->assertStringContainsString('admin-expand-row', $blade);
         $this->assertStringContainsString('setSiteDetailsOpen', $blade);
         $this->assertStringContainsString('setSiteDetailsOpen(highlightId, true)', $blade);

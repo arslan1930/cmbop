@@ -246,5 +246,6 @@ class AuthLoginHardeningTest extends TestCase
         $this->assertStringContainsString('New account? Verify your email first.', $markup);
         $this->assertStringContainsString('id="resendStatus"', $markup);
         $this->assertStringContainsString("'X-Requested-With': 'XMLHttpRequest'", $resendBlock);
+        $this->assertStringContainsString("route('verification.resend', absolute: false)", $markup);
     }
 }
