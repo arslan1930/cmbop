@@ -9,8 +9,8 @@
             <h4 class="mb-1 fw-bold">Add sites in bulk</h4>
             <p class="text-muted mb-0 small">
                 Up to {{ \App\Models\BulkSiteRequest::MAX_SITES_PER_REQUEST }} sites for one publisher.
-                Each one is an invite: Awaiting accept, not verified, and not activated.
-                The publisher gets one email and one bell.
+                This opens <strong>one new bulk-request batch</strong>. Each row is an invite: Awaiting accept, not verified, and not activated.
+                The publisher gets one email and one bell, then must Accept each listing.
             </p>
         </div>
         <a href="{{ $sitesBackUrl }}" class="btn btn-sm btn-outline-secondary">← Back to Sites</a>

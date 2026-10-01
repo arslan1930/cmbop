@@ -73,6 +73,12 @@ class BulkSiteRequestController extends Controller
                 $withCount['sites as ready_count'] = fn ($sites) => $sites->notArchived()
                     ->where('onboarding_status', Site::ONBOARDING_READY_FOR_REVIEW);
             }
+            if (Site::hasSitesColumn('publisher_accepted_at') && Site::hasSitesColumn('assigned_by_user_id')) {
+                $withCount['sites as pending_accept_count'] = fn ($sites) => $sites->notArchived()
+                    ->pendingPublisherAcceptance();
+                $withCount['sites as staff_assigned_count'] = fn ($sites) => $sites->notArchived()
+                    ->whereNotNull('assigned_by_user_id');
+            }
 
             $this->healUnfinishedCompletedBulkRequests();
 

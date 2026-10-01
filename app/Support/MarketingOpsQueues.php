@@ -265,14 +265,10 @@ class MarketingOpsQueues
     public static function constrainBulkFinished(Builder $q): void
     {
         $q->whereDoesntHave('items', fn ($items) => $items->whereNull('site_id'));
-        if (Site::hasSitesColumn('onboarding_status')) {
-            $q->whereDoesntHave('sites', function ($sites) {
-                $sites->notArchived()->whereIn('onboarding_status', [
-                    Site::ONBOARDING_AWAITING_DETAILS,
-                    Site::ONBOARDING_DETAILS_COMPLETE,
-                ]);
-            });
-        }
+        $q->whereDoesntHave('sites', function ($sites) {
+            $sites->notArchived();
+            BulkSiteRequest::constrainSitesPendingPublisher($sites);
+        });
     }
 
     public static function siteQueueLabel(Site $site): string

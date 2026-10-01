@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Mail\AdminAssignedSiteNotification;
+use App\Mail\BulkSiteRequestSubmitted;
+use App\Models\BulkSiteRequest;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\InAppNotification;
@@ -181,16 +183,26 @@ class MarketingAssignSiteForPublisherTest extends TestCase
         $this->assertSame(12000, (int) $site->traffic);
         $this->assertEqualsWithDelta(99.0, (float) $site->price, 0.001);
         $this->assertTrue($site->isPendingPublisherAcceptance());
+        $this->assertTrue($site->wasAddedFromBulkRequest());
+        $this->assertNotNull($site->bulk_site_request_id);
+        $bulk = BulkSiteRequest::query()->find($site->bulk_site_request_id);
+        $this->assertNotNull($bulk);
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->status);
+        $this->assertSame((int) $this->marketer->id, (int) $bulk->handled_by);
+        $this->assertSame(1, $bulk->pendingPublisherCount());
         $this->assertNull($site->sensitive_prices);
         $this->assertStringContainsString('Invites', (string) session('success'));
         $this->assertStringNotContainsString('below the marketing Activate bar', (string) session('success'));
         $actions = session('success_actions');
         $this->assertSame('Edit listing', $actions[1]['label'] ?? null);
+        $this->assertSame('Open batch', $actions[2]['label'] ?? null);
         $this->assertStringContainsString('/marketing/sites/'.$site->id.'/edit', (string) ($actions[1]['url'] ?? ''));
+        $this->assertStringContainsString('/marketing/bulk-site-requests/'.$bulk->id, (string) ($actions[2]['url'] ?? ''));
 
         Mail::assertQueued(AdminAssignedSiteNotification::class, function ($mail) {
             return $mail->hasTo($this->publisher->email);
         });
+        Mail::assertNotQueued(BulkSiteRequestSubmitted::class);
 
         $bell = InAppNotification::query()
             ->where('user_id', $this->publisher->id)

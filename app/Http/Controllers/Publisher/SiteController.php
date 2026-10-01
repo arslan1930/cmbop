@@ -575,6 +575,7 @@ class SiteController extends Controller
 
                 $locked->publisher_accepted_at = now();
                 $locked->save();
+                $locked->bulkSiteRequest?->refreshProgressStatus();
 
                 return $locked;
             });
@@ -678,7 +679,17 @@ class SiteController extends Controller
                     'screenshot' => is_string($locked->screenshot_path) ? $locked->screenshot_path : null,
                     'thumb' => is_string($locked->screenshot_thumb_path) ? $locked->screenshot_thumb_path : null,
                 ];
+                $bulkRequestId = $locked->bulk_site_request_id;
+                $wasStaffInvite = filled($locked->assigned_by_user_id);
                 $locked->delete();
+
+                if ($bulkRequestId) {
+                    $bulk = BulkSiteRequest::query()->find($bulkRequestId);
+                    if ($bulk && $wasStaffInvite) {
+                        $bulk->forgetUnlinkedStaffInviteItems();
+                    }
+                    $bulk?->refreshProgressStatus();
+                }
 
                 return $snapshot;
             });

@@ -29,7 +29,7 @@
             'label' => 'Waiting on publisher',
             'count' => (int) ($waitingOnPublisherCount ?? 0),
             'url' => staff_route('bulk-site-requests.index', array_filter(['status' => \App\Support\MarketingOpsQueues::FILTER_WAITING_PUBLISHER, 'q' => $q !== '' ? $q : null])),
-            'hint' => 'Drafts still with the publisher. Not staff work yet.',
+            'hint' => 'Drafts still with the publisher, including staff-added invites waiting on Accept. Not staff work yet.',
             'active' => $selectedStatus === \App\Support\MarketingOpsQueues::FILTER_WAITING_PUBLISHER,
         ],
         [
@@ -186,7 +186,10 @@
                             } elseif ($listedDays !== null && $listedDays >= 7) {
                                 $listedClass = 'text-warning fw-semibold';
                             }
-                            $waitingPublisher = ((int) ($req->awaiting_details_count ?? 0) + (int) ($req->reviewing_count ?? 0)) > 0;
+                            $waitingPublisher = ((int) ($req->awaiting_details_count ?? 0)
+                                + (int) ($req->reviewing_count ?? 0)
+                                + (int) ($req->pending_accept_count ?? 0)) > 0;
+                            $staffAssignedCount = (int) ($req->staff_assigned_count ?? 0);
                         @endphp
                         <tr>
                             <td>{{ $req->id }}</td>
@@ -200,9 +203,17 @@
                                 @if($req->blocksPublisherNewBulk())
                                     <span class="badge text-bg-warning text-dark">Blocks new bulk</span>
                                 @endif
+                                @if($staffAssignedCount > 0)
+                                    <div class="small text-muted mt-1">Staff added {{ $staffAssignedCount }} {{ \Illuminate\Support\Str::plural('site', $staffAssignedCount) }}</div>
+                                @endif
                             </td>
                             <td>{{ $req->estimated_count ?? '—' }}</td>
-                            <td><span class="badge text-bg-light border">{{ $req->statusLabel() }}</span></td>
+                            <td>
+                                <span class="badge text-bg-light border">{{ $req->statusLabel() }}</span>
+                                @if($staffAssignedCount > 0)
+                                    <span class="badge text-bg-info ms-1">Staff batch</span>
+                                @endif
+                            </td>
                             <td>{{ $req->sites_count }}</td>
                             <td>{{ $req->pending_items_count }}</td>
                             <td class="d-none d-lg-table-cell">{{ (int) ($req->awaiting_details_count ?? 0) }}</td>

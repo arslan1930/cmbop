@@ -525,6 +525,9 @@
                 <a href="#" class="btn btn-sm btn-primary d-none" id="addSiteForPublisherBtn">
                     <i class="fa fa-plus me-1"></i> Add site
                 </a>
+                <a href="#" class="btn btn-sm btn-outline-primary d-none" id="addBulkSitesForPublisherBtn">
+                    <i class="fa fa-layer-group me-1"></i> Add sites in bulk
+                </a>
                 <button class="btn btn-sm btn-outline-secondary" id="backBtn">
                     ← Back
                 </button>
@@ -741,6 +744,7 @@ function resetPublisherSiteFilters() {
 function fetchUserSites(id, page){
     const userRow = document.querySelector(`.user-row[data-id="${id}"]`);
     const addBtn = document.getElementById('addSiteForPublisherBtn');
+    const addBulkBtn = document.getElementById('addBulkSitesForPublisherBtn');
 
     document.getElementById('usersSection').classList.add('d-none');
     document.getElementById('sitesSection').classList.remove('d-none');
@@ -767,6 +771,12 @@ function fetchUserSites(id, page){
         createParams.set('publisher', String(id));
         addBtn.href = `${STAFF_BASE}/sites/create?${createParams.toString()}`;
         addBtn.classList.remove('d-none');
+    }
+    if (addBulkBtn) {
+        const bulkParams = staffSitesReturnParams();
+        bulkParams.set('publisher', String(id));
+        addBulkBtn.href = `${STAFF_BASE}/sites/bulk-create?${bulkParams.toString()}`;
+        addBulkBtn.classList.remove('d-none');
     }
 
     document.getElementById('sitesTable').innerHTML =
@@ -2096,8 +2106,13 @@ function renderSites(data){
             const resendInviteItem = site.pending_publisher_acceptance
                 ? `<li><button type="button" class="dropdown-item resend-invite" data-id="${site.id}"><i class="fa fa-paper-plane me-2"></i>Resend invite</button></li>`
                 : '';
-            const bulkOriginBadge = site.added_from_bulk_request
-                ? `<span class="badge text-bg-light border badge-needs-review ms-1">Bulk request</span>`
+            const bulkOriginBadge = site.staff_assigned_batch
+                ? `<span class="badge text-bg-light border badge-needs-review ms-1">Staff batch</span>`
+                : (site.added_from_bulk_request
+                    ? `<span class="badge text-bg-light border badge-needs-review ms-1">Bulk request</span>`
+                    : '');
+            const openBatchItem = site.bulk_site_request_id
+                ? `<li><a class="dropdown-item" href="${STAFF_BASE}/bulk-site-requests/${encodeURIComponent(site.bulk_site_request_id)}"><i class="fa fa-layer-group me-2"></i>Open batch</a></li>`
                 : '';
             const csvMetricsBadge = site.csv_metrics_spot_check
                 ? `<span class="badge text-bg-light border badge-needs-review ms-1" title="Publisher-supplied DA/DR/traffic from agency CSV — spot-check before activate">CSV metrics — spot-check</span>`
@@ -2262,6 +2277,7 @@ function renderSites(data){
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end admin-manage-menu">
                         ${editItem}
+                        ${openBatchItem}
                         ${resendInviteItem}
                         ${deleteItem}
                         ${(activeItem || verifyItem) ? '<li><hr class="dropdown-divider"></li>' : ''}

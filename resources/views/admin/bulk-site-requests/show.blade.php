@@ -30,6 +30,9 @@
                 (—)
             @endif
             · Status: <strong>{{ $bulkRequest->statusLabel() }}</strong>
+            @if($bulkRequest->isStaffAssignedBatch())
+                <span class="badge text-bg-info ms-1">Staff batch</span>
+            @endif
             · Pending to add: {{ $pendingItems->count() }}
             · Sites added: {{ $bulkRequest->sites->count() }}
             · Handler: <strong>{{ $bulkRequest->handler?->name ?? 'Unclaimed' }}</strong>
@@ -126,7 +129,11 @@
         <div class="col-lg-8 bulk-request-main">
             <p class="small text-muted mb-0">
                 {{ $pendingItems->count() }} pending to add · {{ $bulkRequest->items->count() - $pendingItems->count() }} already added.
-                Review each website in Done below.
+                @if($pendingItems->isNotEmpty())
+                    Review each website in Done below.
+                @elseif($bulkRequest->isStaffAssignedBatch())
+                    Staff-added listings. The publisher must Accept each one — nothing to Done here.
+                @endif
             </p>
         </div>
     </div>

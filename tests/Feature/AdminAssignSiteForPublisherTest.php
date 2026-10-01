@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminAssignedSitesBatchNotification;
+use App\Mail\BulkSiteRequestSubmitted;
 use App\Mail\WebsiteSuggestionReviewed;
 use App\Models\ActivityLog;
+use App\Models\BulkSiteRequest;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\InAppNotification;
@@ -19,6 +21,7 @@ use App\Models\WebsiteSuggestion;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Support\CommunityInbox;
+use App\Support\MarketingOpsQueues;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
@@ -112,12 +115,29 @@ class AdminAssignSiteForPublisherTest extends TestCase
         $this->assertFalse((bool) $site->verified);
         $this->assertTrue($site->isPendingPublisherAcceptance());
         $this->assertFalse($site->needsAdminReview());
+        $this->assertTrue($site->wasAddedFromBulkRequest());
+        $this->assertNotNull($site->bulk_site_request_id);
+        $bulk = BulkSiteRequest::query()->find($site->bulk_site_request_id);
+        $this->assertNotNull($bulk);
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->status);
+        $this->assertSame((int) $this->admin->id, (int) $bulk->handled_by);
+        $this->assertSame(1, $bulk->pendingPublisherCount());
+        $this->assertFalse($bulk->needsProgressHeal());
+        $this->assertSame(1, $bulk->items()->count());
+        $this->assertSame((int) $site->id, (int) $bulk->items()->first()->site_id);
+        $this->assertTrue($bulk->isStaffAssignedBatch());
+        $this->assertTrue(MarketingOpsQueues::bulkWaitingOnPublisher()->whereKey($bulk->id)->exists());
+        $this->assertFalse(
+            BulkSiteRequest::query()->whereKey($bulk->id)->where(fn ($q) => MarketingOpsQueues::constrainBulkFinished($q))->exists()
+        );
         $this->assertStringContainsString('Invites', (string) session('success'));
         $actions = session('success_actions');
         $this->assertIsArray($actions);
         $this->assertSame('Add another for this publisher', $actions[0]['label'] ?? null);
         $this->assertSame('Edit listing', $actions[1]['label'] ?? null);
+        $this->assertSame('Open batch', $actions[2]['label'] ?? null);
         $this->assertStringContainsString('/admin/sites/'.$site->id.'/edit', (string) ($actions[1]['url'] ?? ''));
+        $this->assertStringContainsString('/admin/bulk-site-requests/'.$bulk->id, (string) ($actions[2]['url'] ?? ''));
         $log = ActivityLog::query()
             ->where('action', 'site.assigned_for_acceptance')
             ->where('subject_id', $site->id)
@@ -146,6 +166,42 @@ class AdminAssignSiteForPublisherTest extends TestCase
         $this->assertStringContainsString('status=invites', (string) $bell->action_url);
         $this->assertStringContainsString('staff review', (string) $bell->message);
         $this->assertStringNotContainsString('You can still verify ownership with the TXT file', (string) $bell->message);
+
+        Mail::assertNotQueued(BulkSiteRequestSubmitted::class);
+
+        $this->actingAs($this->admin)
+            ->getJson(route('admin.users.sites', $this->publisher))
+            ->assertOk()
+            ->assertJsonPath('sites.0.staff_assigned_batch', true)
+            ->assertJsonPath('sites.0.bulk_site_request_id', $bulk->id)
+            ->assertJsonPath('sites.0.pending_publisher_acceptance', true);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.index', ['status' => MarketingOpsQueues::FILTER_WAITING_PUBLISHER]))
+            ->assertOk()
+            ->assertSee('Staff added 1 site', false)
+            ->assertSee('Staff batch', false)
+            ->assertSee((string) $bulk->id, false);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk->id))
+            ->assertOk()
+            ->assertSee('Staff batch', false)
+            ->assertSee('Waiting on accept', false)
+            ->assertSee('nothing to Done here', false)
+            ->assertDontSee('Review each website in Done below', false);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.sites.index'))
+            ->assertOk()
+            ->assertSee('id="addBulkSitesForPublisherBtn"', false)
+            ->assertSee('Staff batch', false)
+            ->assertSee('Open batch', false);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.sites.bulk-create'))
+            ->assertOk()
+            ->assertSee('one new bulk-request batch', false);
 
         $this->actingAs($this->publisher)
             ->get(route('publisher.sites.ajax', ['status' => 'pending']))
@@ -903,6 +959,7 @@ class AdminAssignSiteForPublisherTest extends TestCase
             ->assertSee('staff-assign-site-form', false)
             ->assertSee('data-admin-select-no-submit="1"', false)
             ->assertSee('CSV bulk create', false)
+            ->assertSee('that also opens one new batch', false)
             ->assertSee('aria-label="Listing pipeline"', false)
             ->assertSee('written_request', false)
             ->assertSee('This emails and bells the publisher', false)
@@ -1234,8 +1291,48 @@ class AdminAssignSiteForPublisherTest extends TestCase
         $this->assertTrue($two->isPendingPublisherAcceptance());
         $this->assertFalse((bool) $one->active);
         $this->assertFalse((bool) $two->verified);
+        $this->assertSame((int) $one->bulk_site_request_id, (int) $two->bulk_site_request_id);
+        $bulk = BulkSiteRequest::query()->find($one->bulk_site_request_id);
+        $this->assertNotNull($bulk);
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->status);
+        $this->assertSame(2, $bulk->items()->count());
+        $this->assertSame(2, $bulk->pendingPublisherCount());
+        $this->assertSame(1, BulkSiteRequest::query()->where('publisher_id', $this->publisher->id)->count());
         Mail::assertQueued(AdminAssignedSitesBatchNotification::class, 1);
         Mail::assertNotQueued(AdminAssignedSiteNotification::class);
+        Mail::assertNotQueued(BulkSiteRequestSubmitted::class);
+        $actions = session('success_actions');
+        $this->assertSame('Open batch', $actions[1]['label'] ?? null);
+        $this->assertStringContainsString('batch #'.$bulk->id, (string) session('success'));
+    }
+
+    public function test_staff_assign_batch_completes_after_publisher_accepts(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->staffAssignMarket();
+
+        $this->actingAs($this->admin)->post(
+            route('admin.sites.store'),
+            $this->staffAssignPayload($country, $language, $niche, 'https://batch-accept.example')
+        )->assertRedirect()->assertSessionHas('success');
+
+        $site = Site::where('domain', 'batch-accept.example')->firstOrFail();
+        $bulk = BulkSiteRequest::query()->findOrFail($site->bulk_site_request_id);
+        $this->assertSame(1, $bulk->pendingPublisherCount());
+        $this->assertFalse($bulk->healProgressStatusIfStale());
+        $this->assertSame(BulkSiteRequest::STATUS_AWAITING_PUBLISHER, $bulk->fresh()->status);
+
+        $this->actingAs($this->publisher)
+            ->postJson(route('publisher.sites.accept-assignment', $site->id))
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $bulk->refresh();
+        $this->assertSame(0, $bulk->pendingPublisherCount());
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->status);
+        $this->assertFalse((bool) $site->fresh()->active);
+        $this->assertFalse((bool) $site->fresh()->verified);
+        $this->assertFalse(MarketingOpsQueues::bulkWaitingOnPublisher()->whereKey($bulk->id)->exists());
     }
 
     public function test_bulk_invite_saves_nothing_when_one_row_is_bad(): void

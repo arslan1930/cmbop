@@ -67,7 +67,8 @@
             verify (TXT badge) before Activate. Accept ≠ Verified, and catalog Activate is not automatic.
         @endif
         See the <a href="{{ staff_route('staff-handbook', [], false) }}">{{ __('messages.staff_handbook_title') }}</a>.
-        Many sites for one publisher? Use <a href="{{ $bulkCreateUrl }}">CSV bulk create</a>.
+        Many sites for one publisher? Use <a href="{{ $bulkCreateUrl }}">CSV bulk create</a>
+        — that also opens one new batch.
     </p>
 
     @if(filled($occupyingListingUrl))

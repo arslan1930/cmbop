@@ -184,7 +184,9 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('site-row-actions__manage', $html);
         $this->assertStringContainsString('site-row-actions__offers', $html);
         $this->assertStringContainsString('>Offers</span>', $html);
-        $this->assertStringContainsString('Feature · €10', $html);
+        $this->assertStringContainsString('>Feature</span>', $html);
+        $this->assertStringContainsString('Monthly €15.00', $html);
+        $this->assertStringContainsString('Yearly €100.00', $html);
         $this->assertStringContainsString('>Sale</span>', $html);
         $this->assertStringContainsString('>Bulk</span>', $html);
         $this->assertStringContainsString('10–80% off when an advertiser buys', $html);
@@ -208,7 +210,7 @@ class PublisherMySitesPageTest extends TestCase
         $this->assertStringContainsString('reloadSitesAfterPromo', $js);
         $this->assertStringContainsString('promoEscapeHtml', $js);
         $this->assertStringContainsString('Extend featuring', $js);
-        $this->assertStringContainsString('adds another', $js);
+        $this->assertStringContainsString('Pick a package to add more days', $js);
         $this->assertStringContainsString("attr('data-featured-until')", $js);
         $this->assertStringContainsString("attr('data-ends')", $js);
         $this->assertStringContainsString('function promoDaysLeft', $js);

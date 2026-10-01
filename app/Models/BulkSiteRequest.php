@@ -94,21 +94,117 @@ class BulkSiteRequest extends Model
     }
 
     /**
-     * Sites still with the publisher (filling details or reviewing before submit).
+     * Sites still with the publisher (filling details, reviewing, or Accept).
      */
     public function pendingPublisherCount(): int
     {
-        if (! Site::hasSitesColumn('onboarding_status')) {
-            return 0;
+        $query = $this->sites()->notArchived();
+        static::constrainSitesPendingPublisher($query);
+
+        return $query->count();
+    }
+
+    /**
+     * Publisher still owes work on these listings.
+     *
+     * @param  Builder<Site>  $query
+     */
+    public static function constrainSitesPendingPublisher($query): void
+    {
+        $query->where(function ($inner) {
+            $added = false;
+            if (Site::hasSitesColumn('onboarding_status')) {
+                $inner->whereIn('onboarding_status', [
+                    Site::ONBOARDING_AWAITING_DETAILS,
+                    Site::ONBOARDING_DETAILS_COMPLETE,
+                ]);
+                $added = true;
+            }
+            if (Site::hasSitesColumn('publisher_accepted_at')
+                && Site::hasSitesColumn('assigned_by_user_id')) {
+                if ($added) {
+                    $inner->orWhere(fn ($accept) => $accept->pendingPublisherAcceptance());
+                } else {
+                    $inner->pendingPublisherAcceptance();
+                }
+
+                return;
+            }
+            if (! $added) {
+                $inner->whereRaw('0 = 1');
+            }
+        });
+    }
+
+    /**
+     * Staff Add site / Add sites in bulk: listings already filled, waiting on Accept.
+     */
+    public function isStaffAssignedBatch(): bool
+    {
+        if (! Site::hasSitesColumn('assigned_by_user_id')) {
+            return false;
         }
 
-        return $this->sites()
-            ->notArchived()
-            ->whereIn('onboarding_status', [
-                Site::ONBOARDING_AWAITING_DETAILS,
-                Site::ONBOARDING_DETAILS_COMPLETE,
-            ])
-            ->count();
+        if (array_key_exists('staff_assigned_count', $this->getAttributes())) {
+            return (int) $this->staff_assigned_count > 0;
+        }
+
+        return $this->sites()->whereNotNull('assigned_by_user_id')->exists();
+    }
+
+    /**
+     * @param  list<Site>  $sites
+     */
+    public static function openForStaffInvites(int $publisherId, int $staffUserId, array $sites): self
+    {
+        $sites = array_values(array_filter(
+            $sites,
+            static fn ($site) => $site instanceof Site && (int) $site->id > 0
+        ));
+        if ($sites === []) {
+            throw new \InvalidArgumentException('Staff bulk batch requires at least one saved site.');
+        }
+
+        $bulk = static::create([
+            'publisher_id' => $publisherId,
+            'handled_by' => $staffUserId,
+            'status' => self::STATUS_AWAITING_PUBLISHER,
+            'estimated_count' => count($sites),
+            'seeded_at' => now(),
+        ]);
+
+        foreach ($sites as $site) {
+            $attrs = [];
+            if (Site::hasSitesColumn('bulk_site_request_id')) {
+                $attrs['bulk_site_request_id'] = $bulk->id;
+            }
+            if (Site::hasSitesColumn('added_from_bulk_request')) {
+                $attrs['added_from_bulk_request'] = true;
+            }
+            if ($attrs !== []) {
+                $site->forceFill($attrs)->save();
+            }
+
+            BulkSiteRequestItem::create([
+                'bulk_site_request_id' => $bulk->id,
+                'site_url' => (string) $site->site_url,
+                'domain' => (string) $site->domain,
+                'price' => $site->price,
+                'site_id' => $site->id,
+            ]);
+        }
+
+        $bulk->refreshProgressStatus();
+
+        return $bulk->fresh() ?? $bulk;
+    }
+
+    /**
+     * Staff-invite site removed: do not re-pend a URL+price row for marketer Done.
+     */
+    public function forgetUnlinkedStaffInviteItems(): void
+    {
+        $this->items()->whereNull('site_id')->delete();
     }
 
     /**
@@ -185,6 +281,20 @@ class BulkSiteRequest extends Model
                 $this->forceFill([
                     'status' => self::STATUS_REQUESTED,
                     'completed_at' => null,
+                ])->save();
+
+                return;
+            }
+
+            // Staff-assigned invites were removed; nothing for a marketer to Done.
+            if ($this->items()->doesntExist()
+                && (int) $this->estimated_count > 0
+                && $this->status === self::STATUS_AWAITING_PUBLISHER
+                && filled($this->handled_by)
+                && $this->seeded_at) {
+                $this->forceFill([
+                    'status' => self::STATUS_COMPLETED,
+                    'completed_at' => $this->completed_at ?? now(),
                 ])->save();
 
                 return;
@@ -310,14 +420,7 @@ class BulkSiteRequest extends Model
                         $q->whereHas('items', fn ($items) => $items->whereNull('site_id'))
                             ->orWhereHas('sites', function ($sites) {
                                 $sites->notArchived();
-                                if (Site::hasSitesColumn('onboarding_status')) {
-                                    $sites->whereIn('onboarding_status', [
-                                        Site::ONBOARDING_AWAITING_DETAILS,
-                                        Site::ONBOARDING_DETAILS_COMPLETE,
-                                    ]);
-                                } else {
-                                    $sites->whereRaw('0 = 1');
-                                }
+                                static::constrainSitesPendingPublisher($sites);
                             });
                     });
             });
@@ -369,7 +472,10 @@ class BulkSiteRequest extends Model
 
         $pendingPublisher = array_key_exists('awaiting_details_count', $this->getAttributes())
             || array_key_exists('reviewing_count', $this->getAttributes())
-            ? (int) ($this->awaiting_details_count ?? 0) + (int) ($this->reviewing_count ?? 0)
+            || array_key_exists('pending_accept_count', $this->getAttributes())
+            ? (int) ($this->awaiting_details_count ?? 0)
+                + (int) ($this->reviewing_count ?? 0)
+                + (int) ($this->pending_accept_count ?? 0)
             : $this->pendingPublisherCount();
 
         return $pendingItems > 0 || $pendingPublisher > 0;

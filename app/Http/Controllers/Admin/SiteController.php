@@ -1478,6 +1478,9 @@ class SiteController extends Controller
             'listing_tag' => $listingTag,
             'listing_tag_label' => SiteTag::label($listingTag) ?? SiteTag::NONE_LABEL,
             'added_from_bulk_request' => $site->wasAddedFromBulkRequest(),
+            'bulk_site_request_id' => $site->bulk_site_request_id ? (int) $site->bulk_site_request_id : null,
+            'assigned_by_user_id' => $site->assigned_by_user_id ? (int) $site->assigned_by_user_id : null,
+            'staff_assigned_batch' => filled($site->assigned_by_user_id) && $site->wasAddedFromBulkRequest(),
             'description' => $site->description,
             'description_textarea' => SiteDescriptionRules::textareaValue((string) $site->description),
             'description_looks_english' => $site->descriptionLooksLikeEnglish(),
@@ -1779,6 +1782,7 @@ class SiteController extends Controller
             'screenshot_path',
             'screenshot_thumb_path',
             'agency_site_import_id',
+            'bulk_site_request_id',
             'metrics_manual',
             'featured_until',
             'custom_discount_percent',
@@ -2871,11 +2875,12 @@ class SiteController extends Controller
             ->sanitize(scalar_text($request->input('description')));
 
         $site = null;
+        $bulk = null;
         $storedImagePath = null;
         $publisherId = (int) $request->input('publisher_id');
 
         try {
-            DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, $publisherId, &$storedImagePath, &$site) {
+            DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, $publisherId, &$storedImagePath, &$site, &$bulk) {
                 Site::releaseCancelledBulkDomain($domain, $publisherId);
                 $existing = $this->findSiteByDomain($domain, lock: true);
                 if ($existing) {
@@ -2984,6 +2989,8 @@ class SiteController extends Controller
                 if ((bool) $site->verified || (bool) $site->active) {
                     throw new \RuntimeException('Staff site invite flags did not persist after save.');
                 }
+
+                $bulk = BulkSiteRequest::openForStaffInvites($publisherId, (int) auth()->id(), [$site]);
             });
         } catch (ValidationException $e) {
             $this->deleteStoredSiteImage($storedImagePath);
@@ -3054,12 +3061,27 @@ class SiteController extends Controller
                     'assigned_by_user_id' => auth()->id(),
                     'domain' => $site->domain,
                     'written_request' => true,
+                    'bulk_site_request_id' => $bulk?->id,
                     ...array_filter([
                         'request_source' => CommunityInbox::plainLine($request->input('request_source')),
                     ]),
                 ],
                 $site->site_name
             );
+            if ($bulk) {
+                ActivityLogger::log(
+                    'bulk_request.staff_assigned',
+                    (auth()->user()->name ?? 'Staff').' opened staff batch #'.$bulk->id.' for publisher acceptance',
+                    $bulk,
+                    [
+                        'bulk_site_request_id' => $bulk->id,
+                        'publisher_id' => $publisherId,
+                        'site_ids' => [$site->id],
+                        'site_count' => 1,
+                    ],
+                    'Bulk request #'.$bulk->id
+                );
+            }
         } catch (\Throwable $e) {
             Log::warning('Failed to log staff-assigned site: '.$e->getMessage());
         }
@@ -3107,6 +3129,12 @@ class SiteController extends Controller
             $successActions[] = [
                 'url' => staff_route('sites.edit', $site->id, false),
                 'label' => 'Edit listing',
+            ];
+        }
+        if ($bulk?->id) {
+            $successActions[] = [
+                'url' => staff_route('bulk-site-requests.show', $bulk->id, false),
+                'label' => 'Open batch',
             ];
         }
 
@@ -3391,11 +3419,13 @@ class SiteController extends Controller
         }
 
         $sites = [];
+        $bulk = null;
         try {
-            DB::transaction(function () use ($ready, $publisherId, &$sites) {
+            DB::transaction(function () use ($ready, $publisherId, &$sites, &$bulk) {
                 foreach ($ready as $row) {
                     $sites[] = $this->persistStaffInvite($row, $publisherId);
                 }
+                $bulk = BulkSiteRequest::openForStaffInvites($publisherId, (int) auth()->id(), $sites);
             });
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
@@ -3436,11 +3466,31 @@ class SiteController extends Controller
                         'domain' => $site->domain,
                         'written_request' => true,
                         'bulk' => true,
+                        'bulk_site_request_id' => $bulk?->id,
                     ],
                     $site->site_name
                 );
             } catch (\Throwable $e) {
                 Log::warning('Failed to log staff bulk site: '.$e->getMessage());
+            }
+        }
+
+        if ($bulk) {
+            try {
+                ActivityLogger::log(
+                    'bulk_request.staff_assigned',
+                    (auth()->user()->name ?? 'Staff').' opened staff batch #'.$bulk->id.' for publisher acceptance',
+                    $bulk,
+                    [
+                        'bulk_site_request_id' => $bulk->id,
+                        'publisher_id' => $publisherId,
+                        'site_ids' => collect($sites)->pluck('id')->all(),
+                        'site_count' => count($sites),
+                    ],
+                    'Bulk request #'.$bulk->id
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Failed to log staff bulk batch: '.$e->getMessage());
             }
         }
 
@@ -3483,7 +3533,7 @@ class SiteController extends Controller
         }
 
         $count = count($sites);
-        $success = $count.' '.($count === 1 ? 'site' : 'sites').' added for acceptance.';
+        $success = $count.' '.($count === 1 ? 'site' : 'sites').' added as batch'.($bulk?->id ? ' #'.$bulk->id : '').' for acceptance.';
         $success .= ($emailed || $belled)
             ? ($count === 1
                 ? ' Publisher was notified — they must open My Sites → Invites and Accept.'
@@ -3493,9 +3543,29 @@ class SiteController extends Controller
             $success .= ' '.$below.' listing(s) are below the marketing Activate bar (DA ≥ '.Site::GOOD_MIN_DA.', DR ≥ '.Site::GOOD_MIN_DR.', traffic ≥ '.number_format(Site::GOOD_MIN_TRAFFIC).').';
         }
 
+        $redirectParams = ['publisher' => $publisherId];
+        if (($sites[0] ?? null)?->id) {
+            $redirectParams['site'] = $sites[0]->id;
+        }
+
+        $successActions = [
+            [
+                'url' => staff_route('sites.bulk-create', ['publisher' => $publisherId], false),
+                'label' => 'Add more in bulk',
+            ],
+        ];
+        if ($bulk?->id) {
+            $successActions[] = [
+                'url' => staff_route('bulk-site-requests.show', $bulk->id, false),
+                'label' => 'Open batch',
+            ];
+        }
+
         return redirect()
-            ->to(staff_route('sites.index', ['publisher' => $publisherId]))
-            ->with('success', $success);
+            ->to(staff_route('sites.index', $redirectParams, false))
+            ->with('success', $success)
+            ->with('success_actions', $successActions)
+            ->with('success_action', $successActions[0]);
     }
 
     public function resendInvite(Request $request, int $id): JsonResponse
@@ -6475,6 +6545,7 @@ class SiteController extends Controller
                 'siteId' => $site->id,
                 'domain' => $site->domain,
                 'bulkRequestId' => $site->bulk_site_request_id,
+                'wasStaffInvite' => filled($site->assigned_by_user_id),
                 'onboarding' => $site->onboarding_status,
                 'rejectionReason' => $rejectionReason,
                 'publisher' => $site->publisher,
@@ -6556,7 +6627,7 @@ class SiteController extends Controller
                 $siteName
             );
 
-            $this->syncLinkedBulkAfterSiteRemoved($bulkRequestId);
+            $this->syncLinkedBulkAfterSiteRemoved($bulkRequestId, (bool) ($outcome['wasStaffInvite'] ?? false));
 
             return response()->json([
                 'success' => true,
@@ -6587,7 +6658,8 @@ class SiteController extends Controller
 
         // Deleting a seeded draft re-pends the URL+price row (site_id nullOnDelete).
         // That is a staff correction, not a rejection — Done-reject notifies instead.
-        if (! $this->bulkItemWasRepended($bulkRequestId, $domain)) {
+        // Staff-assigned invites are real removals: notify even though the item unlinks.
+        if (($outcome['wasStaffInvite'] ?? false) || ! $this->bulkItemWasRepended($bulkRequestId, $domain)) {
             $this->notifyPublisherSiteRemoved($notifySnapshot, $publisher, $rejectionReason, 'removed');
         }
 
@@ -6608,7 +6680,7 @@ class SiteController extends Controller
             $siteName
         );
 
-        $this->syncLinkedBulkAfterSiteRemoved($bulkRequestId);
+        $this->syncLinkedBulkAfterSiteRemoved($bulkRequestId, (bool) ($outcome['wasStaffInvite'] ?? false));
 
         return response()->json([
             'success' => true,
@@ -6617,7 +6689,7 @@ class SiteController extends Controller
         ]);
     }
 
-    private function syncLinkedBulkAfterSiteRemoved(?int $bulkRequestId): void
+    private function syncLinkedBulkAfterSiteRemoved(?int $bulkRequestId, bool $wasStaffInvite = false): void
     {
         if (! $bulkRequestId) {
             return;
@@ -6626,6 +6698,10 @@ class SiteController extends Controller
         $bulk = BulkSiteRequest::query()->find($bulkRequestId);
         if (! $bulk) {
             return;
+        }
+
+        if ($wasStaffInvite) {
+            $bulk->forgetUnlinkedStaffInviteItems();
         }
 
         $bulk->refreshProgressStatus();
