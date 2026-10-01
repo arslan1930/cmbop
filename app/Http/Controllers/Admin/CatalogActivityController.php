@@ -233,7 +233,9 @@ class CatalogActivityController extends Controller
             $strikesWere = (int) ($model->catalog_copy_strike_count ?? 0);
 
             if (! $wasHidden) {
-                if (! $model->hasRawDateValue('catalog_hide_until')) {
+                $staleUntil = $model->hasRawDateValue('catalog_hide_until');
+                $exempt = $this->hasPaceExemption($model);
+                if (! $staleUntil && ! $exempt) {
                     return ['noop' => true, 'model' => $model];
                 }
 
@@ -244,7 +246,8 @@ class CatalogActivityController extends Controller
 
                 return [
                     'noop' => false,
-                    'healed_stale_until' => true,
+                    'healed_stale_until' => $staleUntil,
+                    'cleared_exempt' => $exempt,
                     'model' => $model,
                     'hide_until_was' => $hideUntilWas,
                     'strikes_were' => $strikesWere,
@@ -370,11 +373,12 @@ class CatalogActivityController extends Controller
             $warnedAtWas = $model->catalog_copy_warned_at;
 
             if (! $wasHidden && $strikesWere === 0 && $warnedAtWas === null) {
-                if (! $model->hasRawDateValue('catalog_hide_until')) {
+                if (! $model->hasRawDateValue('catalog_hide_until') && ! $this->hasPaceExemption($model)) {
                     return ['noop' => true, 'model' => $model];
                 }
 
                 $model->catalog_hide_until = null;
+                $this->clearPaceExemption($model);
                 CatalogCopyStrikeGuard::watermarkEvents($model);
                 $model->save();
 
@@ -390,6 +394,7 @@ class CatalogActivityController extends Controller
             $model->catalog_hide_until = null;
             $model->catalog_copy_strike_count = 0;
             $model->catalog_copy_warned_at = null;
+            $this->clearPaceExemption($model);
             CatalogCopyStrikeGuard::watermarkEvents($model);
             $model->save();
 
@@ -908,5 +913,18 @@ class CatalogActivityController extends Controller
 
         $model->catalog_reveal_exempt = false;
         $model->catalog_reveal_exempt_until = null;
+    }
+
+    private function hasPaceExemption(User $model): bool
+    {
+        if (! $this->revealExemptColumnsReady()) {
+            return false;
+        }
+
+        if ($model->catalog_reveal_exempt || $model->catalog_reveal_exempt_until) {
+            return true;
+        }
+
+        return $model->hasRawDateValue('catalog_reveal_exempt_until');
     }
 }

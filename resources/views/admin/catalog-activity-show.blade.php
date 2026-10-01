@@ -12,10 +12,11 @@
         $exemptionMinutes = max(1, (int) config('catalog.url_reveal.pace.exemption_minutes', 60));
         $inHide = $status === \App\Models\User::CATALOG_COPY_HIDDEN;
         $exempt = $account->catalog_reveal_exempt_until && $account->catalog_reveal_exempt_until->isFuture();
+        $existingSiteIds = $existingSiteIds ?? [];
     @endphp
     <div class="mb-3 d-flex flex-wrap gap-2">
         <a href="{{ $queueUrl ?? route('admin.catalog-activity', ['user' => $account->id]) }}" class="btn btn-sm btn-outline-secondary">Back to queue</a>
-        <a href="{{ $userUrl }}" class="btn btn-sm btn-outline-secondary">Open user</a>
+        <a href="{{ $userUrl ?? route('admin.users.show', $account->id) }}" class="btn btn-sm btn-outline-secondary">Open user</a>
         <a href="{{ $historyUrl ?? route('admin.activity-logs.index', ['user_id' => $account->id]) }}" class="btn btn-sm btn-outline-secondary">History</a>
         @if($inHide)
             <form method="POST" action="{{ route('admin.catalog-activity.lift-hide', $account->id) }}" class="d-inline"

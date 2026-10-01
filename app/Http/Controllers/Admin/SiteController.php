@@ -2617,30 +2617,6 @@ class SiteController extends Controller
         }
         $selectedPublisherId = (int) $rawSelectedPublisher;
 
-<<<<<<< HEAD
-=======
-        $publishers = $this->publishersForStaffAssign($selectedPublisherId);
-
-        $selectedPublisherUnverified = $selectedPublisherId > 0
-            && $publishers->contains(
-                fn (User $publisher) => (int) $publisher->id === $selectedPublisherId
-                    && blank($publisher->email_verified_at)
-            );
-
-        $languages = Language::marketplace()->orderBy('name')->get();
-        $countries = Country::marketplace()->orderBy('name')->get();
-        // Same A–Z niche list as Catalog main search filter.
-        $categories = Category::catalogPickerNames();
-        $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
-        $isMarketingEditor = $this->isMarketingEditor(auth()->user());
-        $returnQuery = AdminSites::storedReturnQuery($request);
-        $sitesBackUrl = $returnQuery !== []
-            ? AdminSites::listUrl($returnQuery)
-            : ($selectedPublisherId > 0
-                ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
-                : staff_route('sites.index'));
-
->>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
         $prefillSiteName = CommunityInbox::plainLine($request->query('site_name'));
         $prefillSiteUrl = CommunityInbox::safeHttpUrl($request->query('site_url')) ?? '';
         $prefillExampleUrl = CommunityInbox::safeHttpUrl($request->query('example_url')) ?? '';
@@ -2696,9 +2672,12 @@ class SiteController extends Controller
         $categories = Category::catalogPickerNames();
         $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
         $isMarketingEditor = $this->isMarketingEditor(auth()->user());
-        $sitesBackUrl = $selectedPublisherId > 0
-            ? staff_route('sites.index', ['publisher' => $selectedPublisherId], false)
-            : staff_route('sites.index', [], false);
+        $returnQuery = AdminSites::storedReturnQuery($request);
+        $sitesBackUrl = $returnQuery !== []
+            ? AdminSites::listUrl($returnQuery)
+            : ($selectedPublisherId > 0
+                ? staff_route('sites.index', ['publisher' => $selectedPublisherId], false)
+                : staff_route('sites.index', [], false));
 
         return view('admin.site-create', compact(
             'publishers',
@@ -3326,18 +3305,12 @@ class SiteController extends Controller
         }
         $selectedPublisherId = (int) $rawSelectedPublisher;
         $publishers = $this->publishersForStaffAssign($selectedPublisherId);
-<<<<<<< HEAD
-        $sitesBackUrl = $selectedPublisherId > 0
-            ? staff_route('sites.index', ['publisher' => $selectedPublisherId], false)
-            : staff_route('sites.index', [], false);
-=======
         $returnQuery = AdminSites::storedReturnQuery($request);
         $sitesBackUrl = $returnQuery !== []
             ? AdminSites::listUrl($returnQuery)
             : ($selectedPublisherId > 0
-                ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
-                : staff_route('sites.index'));
->>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
+                ? staff_route('sites.index', ['publisher' => $selectedPublisherId], false)
+                : staff_route('sites.index', [], false));
 
         return view('admin.site-bulk-create', compact('publishers', 'selectedPublisherId', 'sitesBackUrl'));
     }

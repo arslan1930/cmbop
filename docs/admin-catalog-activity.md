@@ -16,10 +16,10 @@ Details → **Back to queue** restores the last index filters (`days`, `copy`, `
 
 ## Staff actions
 
-- **Lift hide** — names and URLs show again. Strikes and copy history stay. Pace **trust is cleared** (exemption is only meaningful while hide is on).
+- **Lift hide** — names and URLs show again. Strikes and copy history stay. Pace **trust is cleared**, including leftover trust after hide already ended (exemption is only meaningful while hide is on).
 - **Reset strikes** — ladder back to zero. Hide stays on until you lift it. Copy history is kept.
 - **Mark as trusted** — pauses pace checks for `catalog.url_reveal.pace.exemption_minutes` while hide is on.
-- Deprecated `POST .../clear-copy-hide` still lifts hide **and** resets strikes for old bookmarks.
+- Deprecated `POST .../clear-copy-hide` still lifts hide **and** resets strikes for old bookmarks, and also clears trust.
 
 **History** on Details is Activity History pinned to `user_id`. Unlock IPs stay off this HTML table. Live sites deep-link; gone sites show **Removed**.
 
