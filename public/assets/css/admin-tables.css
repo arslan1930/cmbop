@@ -89,14 +89,20 @@
   width: 3rem;
 }
 
+.admin-table-fit .staff-publisher-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .admin-table-fit .admin-narrow-col {
   width: 6.5rem;
 }
 
-/* Sites Management publisher list — keep large counts from colliding with Action. */
+/* Sites Management publisher list — count first, status pills below. */
 .admin-table-fit .admin-sites-count-col {
-  width: 9.5rem;
-  min-width: 8.5rem;
+  width: 11.5rem;
+  min-width: 10.5rem;
   overflow-wrap: normal;
   word-break: normal;
   hyphens: manual;
@@ -104,11 +110,20 @@
 
 .admin-table-fit .admin-sites-count-badges {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  align-items: center;
-  justify-content: flex-start;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  align-items: flex-start;
+  justify-content: center;
   max-width: 100%;
+}
+
+.admin-table-fit .admin-sites-count-total {
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--brand-ink, #1f2937);
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-table-fit .admin-sites-count-badges .badge {
@@ -116,6 +131,86 @@
   white-space: nowrap;
   max-width: 100%;
   font-variant-numeric: tabular-nums;
+}
+
+.admin-table-fit .admin-sites-count-review {
+  background: #fff4e5;
+  color: #9a6b12;
+  border: 1px solid #f3d7a3;
+}
+
+.admin-table-fit .admin-sites-need-hint {
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  color: #9a6b12;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* All-sites / flat queue: do not crush 11 columns into the viewport. */
+.admin-table-fit[data-all-sites="1"],
+.admin-table-fit[data-flat-queue="1"] {
+  overflow-x: auto;
+}
+
+.admin-table-fit[data-all-sites="1"] > .table-responsive,
+.admin-table-fit[data-flat-queue="1"] > .table-responsive {
+  overflow-x: auto;
+}
+
+.admin-table-fit .staff-queue-table {
+  min-width: 76rem;
+}
+
+.admin-table-fit .staff-queue-table .staff-queue-site-col {
+  width: 18rem;
+}
+
+.admin-table-fit .staff-queue-table .staff-queue-publisher-col {
+  width: 11rem;
+}
+
+.admin-table-fit .staff-queue-table .staff-queue-markets-col {
+  width: 12rem;
+}
+
+.admin-table-fit .staff-queue-table .admin-actions-col,
+.admin-table-fit .staff-queue-table .staff-queue-actions {
+  width: 11.5rem;
+  min-width: 11.5rem;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.admin-table-fit .staff-queue-table .site-row-preview {
+  width: 88px;
+  min-width: 88px;
+  max-width: 88px;
+}
+
+.admin-table-fit .staff-queue-table .queue-site-copy {
+  min-width: 0;
+}
+
+.admin-table-fit .staff-queue-table .queue-site-name,
+.admin-table-fit .staff-queue-table .queue-site-url,
+.admin-table-fit .staff-queue-table .staff-queue-publisher {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-table-fit .staff-queue-table .staff-queue-markets {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.admin-table-fit .staff-queue-table .staff-queue-actions .d-flex {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
 }
 
 .admin-table-fit .admin-id-col {

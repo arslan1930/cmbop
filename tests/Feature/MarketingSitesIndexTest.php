@@ -237,7 +237,7 @@ class MarketingSitesIndexTest extends TestCase
             ->assertSee('waiting for Activate or delete (pending only)', false)
             ->getContent();
 
-        $this->assertStringContainsString('1 new', $html);
+        $this->assertStringContainsString('1 needs review', $html);
 
         $payload = $this->actingAs($this->marketer)
             ->getJson(route('marketing.users.sites', $publisher->id))
@@ -336,7 +336,7 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString(route('marketing.sites.edit', $ready->id, false), $html);
         $this->assertStringContainsString('js-mkt-activate', $html);
         $this->assertStringContainsString('delete-site', $html);
-        $this->assertStringContainsString('>Reject</button>', $html);
+        $this->assertStringContainsString('aria-label="Reject"', $html);
         $this->assertStringContainsString($first->email, $html);
         $this->assertStringContainsString($second->email, $html);
         $this->assertStringContainsString('id="usersSection" class="d-none"', $html);
@@ -565,9 +565,9 @@ class MarketingSitesIndexTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('toggle-verify', $html);
-        $this->assertStringContainsString('>Verify</button>', $html);
+        $this->assertStringContainsString('aria-label="Verify"', $html);
         $this->assertStringContainsString('delete-site', $html);
-        $this->assertStringContainsString('>Reject</button>', $html);
+        $this->assertStringContainsString('aria-label="Reject"', $html);
         $this->assertStringContainsString('js-mkt-activate', $html);
         $this->assertStringContainsString('queryLooksLikeSiteSearch', $html);
         $this->assertStringContainsString('refetchOpenPublisherSites', $html);

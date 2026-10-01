@@ -290,7 +290,7 @@ class BulkSiteRequestController extends Controller
             'publisher',
             'handler',
             'items' => fn ($q) => $q->orderBy('id'),
-            'sites' => fn ($q) => $q->notArchived()->orderBy('id'),
+            'sites' => fn ($q) => $q->notArchived()->inactiveDrafts()->orderBy('id'),
         ])->findOrFail($id);
 
         // Heal stuck batches: completed-with-pending-rows, drafts deleted so
@@ -303,7 +303,7 @@ class BulkSiteRequestController extends Controller
                 $bulkRequest->refresh();
                 $bulkRequest->load([
                     'items' => fn ($q) => $q->orderBy('id'),
-                    'sites' => fn ($q) => $q->notArchived()->orderBy('id'),
+                    'sites' => fn ($q) => $q->notArchived()->inactiveDrafts()->orderBy('id'),
                 ]);
             } catch (\Throwable $e) {
                 Log::warning('Bulk request progress heal failed', [
@@ -598,6 +598,196 @@ class BulkSiteRequestController extends Controller
         return redirect()
             ->to(staff_route('bulk-site-requests.index'))
             ->with('success', $flash);
+    }
+
+    public function undoReview(Request $request, int $id)
+    {
+        $bulkRequest = BulkSiteRequest::with(['sites' => fn ($q) => $q->notArchived()])->findOrFail($id);
+        if ($bulkRequest->isCancelled()) {
+            return back()->with('error', 'Cannot undo review on a cancelled request.');
+        }
+
+        $wanted = $this->requestedBulkSiteIds($request);
+        $changed = 0;
+        $domains = [];
+
+        try {
+            DB::transaction(function () use ($bulkRequest, $wanted, &$changed, &$domains) {
+                $locked = BulkSiteRequest::query()->lockForUpdate()->find($bulkRequest->id);
+                if (! $locked || $locked->isCancelled()) {
+                    return;
+                }
+
+                $sites = $locked->sites()->notArchived()->lockForUpdate()->get();
+                Site::ensureOnboardingStatusColumnAcceptsValues();
+                foreach ($sites as $site) {
+                    if ($wanted !== [] && ! in_array((int) $site->id, $wanted, true)) {
+                        continue;
+                    }
+                    if (! $site->isBulkReviewUndoable()) {
+                        continue;
+                    }
+
+                    $site->forceFill([
+                        'onboarding_status' => Site::ONBOARDING_STAFF_HOLD,
+                        'active' => false,
+                        'verified' => false,
+                    ])->save();
+                    $changed++;
+                    $domains[] = (string) $site->domain;
+                }
+
+                if ($changed > 0) {
+                    $locked->forceFill(['handled_by' => auth()->id()])->save();
+                    $locked->refreshProgressStatus();
+                }
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with(
+                'error',
+                UserFacingError::message($e, 'We could not undo publisher review. Please try again.')
+            );
+        }
+
+        if ($changed === 0) {
+            return back()->with('error', 'No sites are still waiting on the publisher. Undo is only for Send for review listings they have not Accepted or Edited.');
+        }
+
+        ActivityLogger::tryLog(
+            'bulk_request.undo_review',
+            (auth()->user()->name ?? 'Staff').' withdrew '.$changed.' site(s) from publisher review on bulk request #'.$bulkRequest->id,
+            $bulkRequest,
+            [
+                'bulk_site_request_id' => $bulkRequest->id,
+                'publisher_id' => $bulkRequest->publisher_id,
+                'site_count' => $changed,
+                'domains' => $domains,
+            ],
+            'Bulk request #'.$bulkRequest->id
+        );
+
+        return back()->with(
+            'success',
+            $changed === 1
+                ? 'Review withdrawn. The site is off the publisher list. Publish now to make it active.'
+                : $changed.' sites were withdrawn from publisher review. Publish now to make them active.'
+        );
+    }
+
+    public function publishNow(Request $request, int $id)
+    {
+        $bulkRequest = BulkSiteRequest::with(['sites' => fn ($q) => $q->notArchived(), 'publisher'])->findOrFail($id);
+        if ($bulkRequest->isCancelled()) {
+            return back()->with('error', 'Cannot publish sites on a cancelled request.');
+        }
+
+        $wanted = $this->requestedBulkSiteIds($request);
+        $changed = 0;
+        $domains = [];
+
+        try {
+            DB::transaction(function () use ($bulkRequest, $wanted, &$changed, &$domains) {
+                $locked = BulkSiteRequest::query()->lockForUpdate()->find($bulkRequest->id);
+                if (! $locked || $locked->isCancelled()) {
+                    return;
+                }
+
+                $sites = $locked->sites()->notArchived()->lockForUpdate()->get();
+                foreach ($sites as $site) {
+                    if ($wanted !== [] && ! in_array((int) $site->id, $wanted, true)) {
+                        continue;
+                    }
+                    if (! $site->isBulkReadyToPublishNow()) {
+                        continue;
+                    }
+
+                    $site->forceFill([
+                        'active' => true,
+                        'verified' => false,
+                        'onboarding_status' => null,
+                        'publisher_accepted_at' => now(),
+                    ])->save();
+                    $changed++;
+                    $domains[] = (string) $site->domain;
+                }
+
+                if ($changed > 0) {
+                    $locked->forceFill(['handled_by' => auth()->id()])->save();
+                    $locked->refreshProgressStatus();
+                }
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with(
+                'error',
+                UserFacingError::message($e, 'We could not publish those sites. Please try again.')
+            );
+        }
+
+        if ($changed === 0) {
+            return back()->with('error', 'Undo review first. Publish now is only for sites withdrawn from the publisher, not listings they are still reviewing.');
+        }
+
+        ActivityLogger::tryLog(
+            'bulk_request.publish_now',
+            (auth()->user()->name ?? 'Staff').' published '.$changed.' site(s) from bulk request #'.$bulkRequest->id,
+            $bulkRequest,
+            [
+                'bulk_site_request_id' => $bulkRequest->id,
+                'publisher_id' => $bulkRequest->publisher_id,
+                'created_count' => $changed,
+                'domains' => $domains,
+                'done_mode' => 'publish',
+                'source' => 'undo_review',
+            ],
+            'Bulk request #'.$bulkRequest->id
+        );
+
+        $fresh = $bulkRequest->fresh(['publisher']);
+        $publisher = $fresh?->publisher;
+        try {
+            if ($publisher?->email && $fresh) {
+                Mail::to($publisher->email)->send(
+                    new BulkSitesSeededNotification($fresh, $changed, $publisher, $domains)
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to email publisher after bulk publish-now: '.$e->getMessage());
+        }
+
+        try {
+            if ($fresh) {
+                app(InAppNotificationService::class)->notifyPublisherBulkSitesAdded($fresh, $changed);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send in-app bulk publish-now notice: '.$e->getMessage());
+        }
+
+        return back()->with(
+            'success',
+            $changed === 1
+                ? '1 site is now active on the publisher’s account (not verified).'
+                : $changed.' sites are now active on the publisher’s account (not verified).'
+        );
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function requestedBulkSiteIds(Request $request): array
+    {
+        $raw = $request->input('site_ids', []);
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn ($id) => (int) $id, $raw),
+            static fn (int $id) => $id > 0
+        )));
     }
 
     /**

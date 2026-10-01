@@ -13,6 +13,9 @@
 .pulse-badge {
   --pulse-badge-scale: 1.12;
   --pulse-badge-ring: rgba(220, 38, 38, 0.45);
+  --pulse-badge-glow-mid: rgba(220, 38, 38, 0.18);
+  --pulse-badge-alert-start: rgba(220, 38, 38, 0.35);
+  --pulse-badge-alert-mid: rgba(220, 38, 38, 0.2);
   position: relative;
   transform-origin: center center;
 }
@@ -41,27 +44,27 @@
   0%, 100% {
     transform: scale(1);
     opacity: 1;
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
   50% {
     transform: scale(var(--pulse-badge-scale));
     opacity: 0.92;
-    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18);
+    box-shadow: 0 0 0 4px var(--pulse-badge-glow-mid);
   }
 }
 
 @keyframes pulse-badge-alert-pop {
   0% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35);
+    box-shadow: 0 0 0 0 var(--pulse-badge-alert-start);
   }
   35% {
     transform: scale(1.28);
-    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.2);
+    box-shadow: 0 0 0 6px var(--pulse-badge-alert-mid);
   }
   100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 

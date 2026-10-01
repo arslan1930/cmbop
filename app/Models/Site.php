@@ -103,6 +103,9 @@ class Site extends Model
 
     public const ONBOARDING_READY_FOR_REVIEW = 'ready_for_review';
 
+    /** Staff withdrew Send for review; waiting for Publish now (not with the publisher). */
+    public const ONBOARDING_STAFF_HOLD = 'staff_hold';
+
     protected $casts = [
         'verified' => 'boolean',
         'verified_at' => 'datetime',
@@ -855,6 +858,58 @@ class Site extends Model
     }
 
     /**
+     * Send-for-review listing the publisher has not Accepted or Edited yet.
+     */
+    public function isBulkReviewUndoable(): bool
+    {
+        if ($this->isArchived() || $this->isFromCancelledBulk()) {
+            return false;
+        }
+        if ((bool) $this->active || (bool) $this->verified) {
+            return false;
+        }
+        if (! static::hasSitesColumn('onboarding_status')
+            || $this->onboarding_status !== self::ONBOARDING_DETAILS_COMPLETE) {
+            return false;
+        }
+        if (static::hasSitesColumn('assigned_by_user_id') && filled($this->assigned_by_user_id)) {
+            return false;
+        }
+        if (static::hasSitesColumn('publisher_accepted_at')
+            && $this->safeDateAttribute('publisher_accepted_at') instanceof \DateTimeInterface) {
+            return false;
+        }
+
+        return $this->bulk_site_request_id || $this->wasAddedFromBulkRequest();
+    }
+
+    /**
+     * Staff withdrew review; listing is off the catalog until Publish now.
+     */
+    public function isBulkReadyToPublishNow(): bool
+    {
+        if ($this->isArchived() || $this->isFromCancelledBulk()) {
+            return false;
+        }
+        if ((bool) $this->active || (bool) $this->verified) {
+            return false;
+        }
+        if (! static::hasSitesColumn('onboarding_status')
+            || $this->onboarding_status !== self::ONBOARDING_STAFF_HOLD) {
+            return false;
+        }
+        if (static::hasSitesColumn('assigned_by_user_id') && filled($this->assigned_by_user_id)) {
+            return false;
+        }
+        if (static::hasSitesColumn('publisher_accepted_at')
+            && $this->safeDateAttribute('publisher_accepted_at') instanceof \DateTimeInterface) {
+            return false;
+        }
+
+        return $this->bulk_site_request_id || $this->wasAddedFromBulkRequest();
+    }
+
+    /**
      * Set exactly one listing tag (empty / none clears all three flags).
      */
     public function applyExclusiveTag(mixed $tag): void
@@ -1254,6 +1309,19 @@ class Site extends Model
     }
 
     /**
+     * Bulk request show list: not live yet (review, staff hold, needs details).
+     *
+     * @param  Builder<Site>  $query
+     * @return Builder<Site>
+     */
+    public function scopeInactiveDrafts(Builder $query): Builder
+    {
+        return $query->where(function ($active) {
+            $active->where('active', 0)->orWhereNull('active');
+        });
+    }
+
+    /**
      * Hard delete is safe only for pending listings that were never ordered.
      */
     public function canBeHardDeleted(): bool
@@ -1419,7 +1487,8 @@ class Site extends Model
 
         // details_complete = publisher preview stage; not admin-queueable yet.
         return $this->onboarding_status === null
-            || $this->onboarding_status === self::ONBOARDING_READY_FOR_REVIEW;
+            || $this->onboarding_status === self::ONBOARDING_READY_FOR_REVIEW
+            || $this->onboarding_status === self::ONBOARDING_STAFF_HOLD;
     }
 
     /**

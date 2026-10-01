@@ -226,6 +226,10 @@ class MarketingOpsQueues
                             ->where('estimated_count', '>', 0)
                             ->whereDoesntHave('items')
                             ->whereDoesntHave('sites', fn ($sites) => $sites->notArchived());
+                    })
+                    ->orWhereHas('sites', function ($sites) {
+                        $sites->notArchived();
+                        BulkSiteRequest::constrainSitesReadyToPublishNow($sites);
                     });
             });
     }
@@ -275,6 +279,9 @@ class MarketingOpsQueues
     {
         if ($site->isPendingPublisherAcceptance()) {
             return 'Waiting on accept';
+        }
+        if ($site->isBulkReadyToPublishNow()) {
+            return 'Ready to publish';
         }
 
         return match ($site->onboarding_status) {

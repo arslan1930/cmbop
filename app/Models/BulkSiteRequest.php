@@ -104,6 +104,42 @@ class BulkSiteRequest extends Model
         return $query->count();
     }
 
+    public function readyToPublishNowCount(): int
+    {
+        $query = $this->sites()->notArchived();
+        static::constrainSitesReadyToPublishNow($query);
+
+        return $query->count();
+    }
+
+    /**
+     * Staff withdrew Send for review; still needs Publish now / Activate.
+     *
+     * @param  Builder<Site>  $query
+     */
+    public static function constrainSitesReadyToPublishNow($query): void
+    {
+        $query->where(function ($active) {
+            $active->where('active', 0)->orWhereNull('active');
+        })->where(function ($verified) {
+            $verified->where('verified', 0)->orWhereNull('verified');
+        });
+        if (Site::hasSitesColumn('onboarding_status')) {
+            $query->where('onboarding_status', Site::ONBOARDING_STAFF_HOLD);
+        }
+        if (Site::hasSitesColumn('assigned_by_user_id')) {
+            $query->whereNull('assigned_by_user_id');
+        }
+        if (Site::hasSitesColumn('publisher_accepted_at')) {
+            $query->wherePublisherAcceptanceIsMissing();
+        }
+        if (Site::hasSitesColumn('added_from_bulk_request')) {
+            $query->where('added_from_bulk_request', true);
+        } elseif (Site::hasSitesColumn('bulk_site_request_id')) {
+            $query->whereNotNull('bulk_site_request_id');
+        }
+    }
+
     /**
      * Publisher still owes work on these listings.
      *
@@ -222,9 +258,14 @@ class BulkSiteRequest extends Model
         $hasPendingItems = $this->hasPendingItems();
         $hasSites = $this->sites()->notArchived()->exists();
         $pendingPublisher = $this->pendingPublisherCount();
+        $readyToPublish = $this->readyToPublishNowCount();
 
         // Unverify/deactivate restore onboarding; status may still say completed.
         if ($pendingPublisher > 0 && $this->status !== self::STATUS_AWAITING_PUBLISHER) {
+            return true;
+        }
+
+        if ($readyToPublish > 0 && $this->status === self::STATUS_COMPLETED) {
             return true;
         }
 
@@ -330,8 +371,9 @@ class BulkSiteRequest extends Model
             return;
         }
 
-        // Publisher finished current drafts, but marketer still has URL+price rows to Done.
-        if ($pendingItems > 0) {
+        // Publisher finished current drafts, but marketer still has URL+price
+        // rows to Done, or staff still needs Publish now after undo-review.
+        if ($pendingItems > 0 || $this->readyToPublishNowCount() > 0) {
             $this->forceFill([
                 'status' => self::STATUS_SEEDED,
                 'completed_at' => null,

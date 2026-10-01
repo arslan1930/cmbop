@@ -44,6 +44,8 @@ class AdminSitesVerticalLayoutTest extends TestCase
         $this->assertStringContainsString('.admin-role-badges', $css);
         $this->assertStringContainsString('.admin-sites-count-col', $css);
         $this->assertStringContainsString('.admin-sites-count-badges', $css);
+        $this->assertStringContainsString('.staff-queue-table', $css);
+        $this->assertStringContainsString('min-width: 76rem', $css);
         $this->assertFileEquals(
             public_path('assets/css/admin-tables.css'),
             public_path('assets/css/admin-tables.css')
@@ -67,6 +69,11 @@ class AdminSitesVerticalLayoutTest extends TestCase
         $this->assertStringContainsString('admin-table-fit', $blade);
         $this->assertStringContainsString('admin-sites-count-col', $blade);
         $this->assertStringContainsString('admin-sites-count-badges', $blade);
+        $this->assertStringContainsString('admin-sites-count-total', $blade);
+        $this->assertStringContainsString('needs review', $blade);
+        $this->assertStringContainsString("compactSiteCell' => true", $blade);
+        $this->assertStringContainsString('row-da-dr', $blade);
+        $this->assertStringContainsString('row-traffic', $blade);
         $this->assertStringContainsString('formatSitesCount', $blade);
         $this->assertStringContainsString('number_format($totalSitesCount)', $blade);
         $this->assertStringContainsString('admin-manage-dropdown', $blade);
@@ -86,7 +93,10 @@ class AdminSitesVerticalLayoutTest extends TestCase
         $this->assertStringContainsString('.admin-expand-row.is-open', $css);
         $this->assertStringContainsString('admin-site-info-stack', $blade);
         $this->assertStringContainsString('Manage', $blade);
+        $this->assertStringContainsString('staff-action-icon-btn', $blade);
         $this->assertStringContainsString('revealAllPublisherSites', $blade);
+        $this->assertStringContainsString('data-needs-review="1"', $blade);
+        $this->assertStringContainsString('pulse-review', $blade);
         $this->assertStringContainsString('dropNeedsReviewQueryParam', $blade);
         $this->assertStringContainsString('data?.sites', $blade);
         $this->assertStringContainsString('data-bs-popper-config', $blade);

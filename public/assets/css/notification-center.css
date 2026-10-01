@@ -67,24 +67,26 @@
 
 .nc-badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: -5px;
+  right: -6px;
   box-sizing: border-box;
-  width: 18px;
-  height: 18px;
-  min-width: 18px;
-  padding: 0;
-  border-radius: 50%;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  padding: 2px 5px;
+  border-radius: 999px;
   background: var(--nc-danger, #dc2626);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
+  letter-spacing: 0.01em;
   text-align: center;
   border: 2px solid #fff;
   display: none;
   align-items: center;
   justify-content: center;
+  white-space: nowrap;
 }
 
 .nc-badge.is-visible {
@@ -453,13 +455,19 @@ a.nc-item:focus {
   flex: 0 0 auto;
 }
 
-.nc-dot {
-  width: 7px;
-  height: 7px;
+.nc-dot,
+.nc-theme .nc-dot.pulse-badge {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--nc-primary);
+  background: var(--nc-primary, #3faeb2) !important;
   flex-shrink: 0;
   display: inline-block;
+  /* Beat the default red PulseBadge tokens so unread dots stay Teal Trust. */
+  --pulse-badge-ring: rgba(63, 174, 178, 0.5);
+  --pulse-badge-glow-mid: rgba(63, 174, 178, 0.32);
+  --pulse-badge-alert-start: rgba(26, 88, 94, 0.35);
+  --pulse-badge-alert-mid: rgba(63, 174, 178, 0.28);
 }
 
 .nc-item:not(.is-unread) .nc-dot {

@@ -62,10 +62,21 @@
         ? route('admin.orders.index', ['search' => $ordersSearch])
         : null;
 @endphp
-<div class="small text-muted">
+@php
+    $marketsTitle = trim(implode(' · ', array_filter([
+        $formatStaffList($countryList, true, 0),
+        $formatStaffList($languageList, true, 0),
+        $formatStaffList($categoryList, false, 0),
+        $linkLabel,
+        $site->sponsored ? 'Sponsored' : null,
+        $metricsSource,
+        $metricsLabel,
+    ])));
+@endphp
+<div class="small text-muted staff-queue-markets" title="{{ $marketsTitle }}">
     {{ $formatStaffList($countryList, true) }}
     · {{ $formatStaffList($languageList, true) }}
-    · {{ $formatStaffList($categoryList, false, 7) }}
+    · {{ $formatStaffList($categoryList, false, 2) }}
     @if($linkLabel)
         · {{ $linkLabel }}
     @endif
@@ -73,7 +84,7 @@
         · Sponsored
     @endif
     @if($metricsSource)
-        · {{ $metricsSource }}@if($metricsLabel) {{ $metricsLabel }}@endif
+        · {{ $metricsSource }}
     @endif
 </div>
 <div class="small mt-1">

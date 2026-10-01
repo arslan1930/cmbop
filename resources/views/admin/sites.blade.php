@@ -261,10 +261,10 @@
                     <tr>
                         <th class="admin-num-col"><input type="checkbox" data-staff-bulk-all="flat" aria-label="Select all sites on this page"></th>
                         <th class="admin-num-col d-none d-md-table-cell">#</th>
-                        <th>Site</th>
-                        <th>Publisher</th>
+                        <th class="staff-queue-site-col">Site</th>
+                        <th class="staff-queue-publisher-col">Publisher</th>
                         <th class="admin-narrow-col d-none d-md-table-cell">DA / DR</th>
-                        <th class="d-none d-lg-table-cell">Markets</th>
+                        <th class="staff-queue-markets-col d-none d-lg-table-cell">Markets</th>
                         <th class="admin-narrow-col d-none d-lg-table-cell">Tag</th>
                         <th class="admin-narrow-col d-none d-md-table-cell">Traffic</th>
                         <th class="admin-narrow-col">Price</th>
@@ -306,21 +306,21 @@
                             data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
                             aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                         <td class="d-none d-md-table-cell">{{ $flatQueueSites->firstItem() + $index }}</td>
-                        <td>
-                            @include('admin.sites.partials.queue-site-cell')
+                        <td class="staff-queue-site-col">
+                            @include('admin.sites.partials.queue-site-cell', ['compactSiteCell' => true])
                             @if($site->isPendingPublisherAcceptance())
                                 <button type="button" class="btn btn-sm btn-outline-info resend-invite py-0 px-2 mt-1" data-id="{{ $site->id }}">Resend invite</button>
                             @endif
                         </td>
-                        <td class="small">
-                            <div>{{ $site->publisher?->name ?? 'Unknown' }}</div>
-                            <div class="text-muted">{{ $site->publisher?->email }}</div>
+                        <td class="small staff-queue-publisher-col">
+                            <div class="staff-queue-publisher" title="{{ $site->publisher?->name ?? 'Unknown' }}">{{ $site->publisher?->name ?? 'Unknown' }}</div>
+                            <div class="text-muted staff-queue-publisher" title="{{ $site->publisher?->email }}">{{ $site->publisher?->email }}</div>
                             @if($site->publisher?->inCatalogHideMode())
                                 <span class="badge text-bg-dark">Copy-strike hide</span>
                             @endif
                         </td>
-                        <td class="small d-none d-md-table-cell">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
-                        <td class="small d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
+                        <td class="small d-none d-md-table-cell">@include('admin.sites.partials.row-da-dr')</td>
+                        <td class="small staff-queue-markets-col d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
                         <td class="small d-none d-lg-table-cell">
                             @if($site->tagValue() === null)
                                 <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
@@ -328,35 +328,56 @@
                                 {{ $site->tagLabel() }}
                             @endif
                         </td>
-                        <td class="d-none d-md-table-cell">{{ number_format((int) $site->traffic) }}</td>
+                        <td class="small d-none d-md-table-cell">@include('admin.sites.partials.row-traffic')</td>
                         <td>@include('admin.sites.partials.row-price')</td>
                         <td class="small">@include('admin.sites.partials.listed-age')</td>
                         <td class="staff-queue-actions">
                             <div class="d-flex flex-wrap gap-1">
-                                <button type="button" class="btn btn-sm btn-outline-dark" data-staff-review="{{ $site->id }}">Review</button>
-                                <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
-                                <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary">{{ $isMarketingEditor && $site->isLockedForMarketingEdits() && ! $site->marketingCanEditDescription() ? 'View' : 'Edit' }}</a>
+                                @php
+                                    $editOrView = $isMarketingEditor && $site->isLockedForMarketingEdits() && ! $site->marketingCanEditDescription() ? 'View' : 'Edit';
+                                @endphp
+                                <button type="button" class="btn btn-sm btn-outline-dark staff-action-icon-btn" data-staff-review="{{ $site->id }}" title="Review" aria-label="Review">
+                                    <i class="fa fa-search" aria-hidden="true"></i>
+                                </button>
+                                <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary staff-action-icon-btn" title="Open" aria-label="Open">
+                                    <i class="fa fa-folder-open" aria-hidden="true"></i>
+                                </a>
+                                <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary staff-action-icon-btn" title="{{ $editOrView }}" aria-label="{{ $editOrView }}">
+                                    <i class="fa {{ $editOrView === 'View' ? 'fa-eye' : 'fa-edit' }}" aria-hidden="true"></i>
+                                </a>
                                 @if(empty($waitingOnPublisherFilterActive))
                                     @if(auth()->user()?->isAdmin() && ! $site->verified)
                                         <button type="button"
-                                        class="btn btn-sm btn-outline-success toggle-verify"
+                                        class="btn btn-sm btn-outline-success toggle-verify staff-action-icon-btn"
                                         data-id="{{ $site->id }}"
                                         data-status="1"
                                         data-name="{{ $site->site_name }}"
-                                        @if($site->hasDetailsComplete()) data-publisher-reviewing="1" @endif>Verify</button>
+                                        title="Verify"
+                                        aria-label="Verify"
+                                        @if($site->hasDetailsComplete()) data-publisher-reviewing="1" @endif>
+                                            <i class="fa fa-check" aria-hidden="true"></i>
+                                        </button>
                                     @endif
-                                    @include('partials.staff-site-activate-button', ['site' => $site])
+                                    @include('partials.staff-site-activate-button', ['site' => $site, 'iconOnly' => true])
                                     @if($canDeleteFlat)
                                         <button type="button"
-                                                class="btn btn-sm btn-outline-danger delete-site"
-                                                data-id="{{ $site->id }}"
-                                                data-name="{{ $site->site_name }}">Reject</button>
-                                    @elseif($canArchiveFlat)
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-danger delete-site"
+                                                class="btn btn-sm btn-outline-danger delete-site staff-action-icon-btn"
                                                 data-id="{{ $site->id }}"
                                                 data-name="{{ $site->site_name }}"
-                                                data-archive="1">Archive</button>
+                                                title="Reject"
+                                                aria-label="Reject">
+                                            <i class="fa fa-times" aria-hidden="true"></i>
+                                        </button>
+                                    @elseif($canArchiveFlat)
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger delete-site staff-action-icon-btn"
+                                                data-id="{{ $site->id }}"
+                                                data-name="{{ $site->site_name }}"
+                                                data-archive="1"
+                                                title="Archive"
+                                                aria-label="Archive">
+                                            <i class="fa fa-archive" aria-hidden="true"></i>
+                                        </button>
                                     @endif
                                 @endif
                             </div>
@@ -401,7 +422,6 @@
 
                     <thead class="table-light">
                         <tr>
-                            <th class="admin-num-col">#</th>
                             <th>Name</th>
                             <th>Email</th>
                             <th class="admin-sites-count-col">Sites</th>
@@ -410,43 +430,60 @@
                     </thead>
 
                     <tbody id="usersTable">
-                    @forelse($users as $index => $user)
+                    @forelse($users as $user)
+                        @php
+                            $needsReviewCount = (int) ($user->needs_review_sites_count
+                                ?? $user->unverified_sites_count
+                                ?? 0);
+                            $waitingFilling = (int) ($user->waiting_filling_sites_count ?? 0);
+                            $waitingReviewing = (int) ($user->waiting_reviewing_sites_count ?? 0);
+                            $waitingAccept = (int) ($user->waiting_accept_sites_count ?? 0);
+                            $totalSitesCount = (int) ($user->sites_count ?? 0);
+                            $filtersNarrow = ($staffSiteFilters['tag'] ?? '') !== ''
+                                || ($staffSiteFilters['country'] ?? '') !== ''
+                                || ($staffSiteFilters['language'] ?? '') !== ''
+                                || ($staffSiteFilters['niche'] ?? '') !== ''
+                                || ($staffSiteFilters['listing_active'] ?? '') !== ''
+                                || ($staffSiteFilters['listing_verified'] ?? '') !== ''
+                                || !empty($staffSiteFilters['below_quality'])
+                                || !empty($staffSiteFilters['missing_market'])
+                                || !empty($staffSiteFilters['placeholder'])
+                                || !empty($staffSiteFilters['missing_cover'])
+                                || !empty($staffSiteFilters['bulk_request']);
+                            $matchedCount = (int) ($user->matched_sites_count ?? 0);
+                        @endphp
                         <tr class="user-row" data-id="{{ $user->id }}" style="height:60px;">
-                            <td>{{ $users->firstItem() + $index }}</td>
                             <td class="fw-semibold" data-publisher-name="{{ $user->name }}">
-                                {{ $user->name }}
+                                <span class="staff-publisher-name">
+                                    @if($needsReviewCount > 0)
+                                        <button type="button"
+                                                class="pulse-dot pulse-review select-user"
+                                                data-id="{{ $user->id }}"
+                                                data-needs-review="1"
+                                                title="Open sites needing review"
+                                                aria-label="Open sites needing review"></button>
+                                    @endif
+                                    <span>{{ $user->name }}</span>
+                                </span>
                                 @if($user->inCatalogHideMode())
                                     <span class="badge text-bg-dark ms-1">Copy-strike hide</span>
                                 @endif
                             </td>
                             <td class="slb-text-break">{{ $user->email }}</td>
                             <td class="admin-sites-count-col">
-                                @php
-                                    $needsReviewCount = (int) ($user->needs_review_sites_count
-                                        ?? $user->unverified_sites_count
-                                        ?? 0);
-                                    $waitingFilling = (int) ($user->waiting_filling_sites_count ?? 0);
-                                    $waitingReviewing = (int) ($user->waiting_reviewing_sites_count ?? 0);
-                                    $waitingAccept = (int) ($user->waiting_accept_sites_count ?? 0);
-                                    $totalSitesCount = (int) ($user->sites_count ?? 0);
-                                    $filtersNarrow = ($staffSiteFilters['tag'] ?? '') !== ''
-                                        || ($staffSiteFilters['country'] ?? '') !== ''
-                                        || ($staffSiteFilters['language'] ?? '') !== ''
-                                        || ($staffSiteFilters['niche'] ?? '') !== ''
-                                        || ($staffSiteFilters['listing_active'] ?? '') !== ''
-                                        || ($staffSiteFilters['listing_verified'] ?? '') !== ''
-                                        || !empty($staffSiteFilters['below_quality'])
-                                        || !empty($staffSiteFilters['missing_market'])
-                                        || !empty($staffSiteFilters['placeholder'])
-                                        || !empty($staffSiteFilters['missing_cover'])
-                                        || !empty($staffSiteFilters['bulk_request']);
-                                    $matchedCount = (int) ($user->matched_sites_count ?? 0);
-                                @endphp
                                 <div class="admin-sites-count-badges">
+                                    <span class="admin-sites-count-total" title="All sites for this publisher">
+                                        {{ number_format($totalSitesCount) }} {{ $totalSitesCount === 1 ? 'site' : 'sites' }}
+                                    </span>
                                     @if($needsReviewCount > 0)
-                                        <span class="badge rounded-pill text-bg-warning" data-review-count="1" title="Sites waiting for admin decision">
-                                            {{ number_format($needsReviewCount) }} new
-                                        </span>
+                                        <button type="button"
+                                                class="badge rounded-pill admin-sites-count-review select-user"
+                                                data-id="{{ $user->id }}"
+                                                data-needs-review="1"
+                                                data-review-count="1"
+                                                title="Open sites waiting for admin decision">
+                                            {{ number_format($needsReviewCount) }} {{ $needsReviewCount === 1 ? 'needs review' : 'need review' }}
+                                        </button>
                                     @endif
                                     @if($waitingFilling > 0)
                                         <span class="badge rounded-pill text-bg-secondary" data-waiting-stage="filling" title="Publisher is still filling details">
@@ -463,9 +500,6 @@
                                             {{ number_format($waitingAccept) }} accepting
                                         </span>
                                     @endif
-                                    <span class="badge rounded-pill bg-secondary" title="Total sites: {{ number_format($totalSitesCount) }}">
-                                        {{ number_format($totalSitesCount) }} total
-                                    </span>
                                     @if(($publisherSearch !== '' || $filtersNarrow) && ($publisherSearch === '' || $matchedCount > 0 || $filtersNarrow))
                                         <button type="button"
                                                 class="badge rounded-pill text-bg-primary border-0 select-user"
@@ -486,7 +520,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-4">
+                            <td colspan="4" class="text-center text-muted py-4">
                                 @if($publisherSearch !== '' || count($listQuery) > 0)
                                     Nothing matches these filters.
                                     <a href="{{ staff_route('sites.index') }}">Clear filters</a>
@@ -1003,7 +1037,7 @@ function adjustPublisherReviewBadge(publisherId, delta) {
         badge.remove();
         return;
     }
-    badge.textContent = formatSitesCount(next) + ' new';
+    badge.textContent = formatSitesCount(next) + (next === 1 ? ' needs review' : ' need review');
 }
 
 function decrementLabeledCount(el, formatted) {
@@ -1421,8 +1455,15 @@ document.addEventListener('click', function(e){
             siteSearch.value = (siteQ !== '' && !siteQ.includes('@')) ? siteQ : '';
         }
         sessionStorage.setItem('selected_user', id);
-        // Publishers list may be queue-filtered; always show every site for this publisher.
-        revealAllPublisherSites();
+        if (btn.dataset.needsReview === '1') {
+            const needsOnlyEl = document.getElementById('sitesNeedsReviewOnly');
+            if (needsOnlyEl) {
+                needsOnlyEl.checked = true;
+            }
+        } else {
+            // View Sites / matched: show every site for this publisher.
+            revealAllPublisherSites();
+        }
         fetchUserSites(id);
         return;
     }
@@ -2236,12 +2277,12 @@ function renderSites(data){
                 const fixTitle = site.activate_block_reason
                     ? escapeHtml(site.activate_block_reason)
                     : 'Update DA, DR, or traffic.';
-                primaryAction = `<a class="btn btn-sm btn-outline-warning" href="${staffSitesEditUrl(site.id, '#da')}" title="${fixTitle}">Fix metrics</a>`;
+                primaryAction = `<a class="btn btn-sm btn-outline-warning staff-action-icon-btn" href="${staffSitesEditUrl(site.id, '#da')}" title="${fixTitle}" aria-label="Fix metrics"><i class="fa fa-chart-line" aria-hidden="true"></i></a>`;
             } else if (!isActive && site.missing_market) {
-                primaryAction = `<a class="btn btn-sm btn-outline-danger" href="${staffSitesEditUrl(site.id, '#country')}">Set country</a>`;
+                primaryAction = `<a class="btn btn-sm btn-outline-danger staff-action-icon-btn" href="${staffSitesEditUrl(site.id, '#country')}" title="Set country" aria-label="Set country"><i class="fa fa-globe" aria-hidden="true"></i></a>`;
             } else if (!isActive && !activateBlocked && CAN_TOGGLE_ACTIVE) {
                 const thinListing = !!site.missing_cover || !!site.missing_tags;
-                primaryAction = `<button type="button" class="btn btn-sm ${thinListing ? 'btn-outline-success' : 'btn-outline-primary'} toggle-active" data-id="${site.id}" data-status="1"${thinListing ? ' title="Can go live. Cover or tags are still missing."' : ''}>Activate</button>`;
+                primaryAction = `<button type="button" class="btn btn-sm ${thinListing ? 'btn-outline-success' : 'btn-outline-primary'} toggle-active staff-action-icon-btn" data-id="${site.id}" data-status="1" title="${thinListing ? 'Can go live. Cover or tags are still missing.' : 'Activate'}" aria-label="Activate"><i class="fa fa-play" aria-hidden="true"></i></button>`;
             }
             const activeItem = CAN_TOGGLE_ACTIVE
                 ? (isActive
@@ -2267,13 +2308,15 @@ function renderSites(data){
 
             const manageHtml = `
                 <div class="dropdown admin-manage-dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle staff-action-icon-btn" type="button"
                             data-bs-toggle="dropdown"
                             data-bs-auto-close="true"
                             data-bs-popper-config='${managePopperConfig}'
                             aria-expanded="false"
-                            aria-haspopup="true">
-                        Manage
+                            aria-haspopup="true"
+                            title="Manage"
+                            aria-label="Manage">
+                        <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end admin-manage-menu">
                         ${editItem}

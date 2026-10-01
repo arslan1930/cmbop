@@ -174,13 +174,15 @@ class AdminSitesReadyToActivateTest extends TestCase
             ->get(route('admin.sites.index', ['all' => 1, 'below_quality' => 1]))
             ->assertOk()
             ->assertSee('Below quality bar — DR 10 (need 30), traffic 3,000 (need 10,000)', false)
+            ->assertSee('need 30', false)
+            ->assertSee('need 10,000', false)
             ->assertSee('No cover', false)
             ->assertSee('No tags', false)
             ->assertSee('· Scan', false)
             ->assertSee('href="'.e(route('admin.sites.edit', $thin)).'#da"', false)
             ->assertSee('href="'.e(route('admin.sites.edit', $thin)).'#site_image"', false)
             ->assertSee('href="'.e(route('admin.sites.edit', $thin)).'#site_tag"', false)
-            ->assertSee('>Fix metrics</a>', false)
+            ->assertSee('aria-label="Fix metrics"', false)
             ->assertDontSee('btn-success js-mkt-activate', false);
 
         $this->actingAs($admin)

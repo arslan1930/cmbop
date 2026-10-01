@@ -39,9 +39,9 @@
     @else
         <span class="site-row-preview is-empty" aria-label="No preview"><i class="fa fa-image" aria-hidden="true"></i></span>
     @endif
-    <div class="min-w-0">
-        <div class="fw-semibold">{{ $site->site_name ?: '—' }}</div>
-        <div class="small text-muted text-break">{{ $site->site_url }}</div>
+    <div class="min-w-0 queue-site-copy">
+        <div class="fw-semibold queue-site-name" title="{{ $site->site_name ?: '' }}">{{ $site->site_name ?: '—' }}</div>
+        <div class="small text-muted queue-site-url" title="{{ $site->site_url }}">{{ $site->site_url }}</div>
         <div class="d-flex flex-wrap gap-1 mt-1">
             @if($site->verified)
                 <span class="badge rounded-pill bg-success">Verified</span>
@@ -94,12 +94,12 @@
                 <span class="badge text-bg-danger">Missing market</span>
             @endif
             @if($belowQuality)
-                <span class="badge text-bg-warning text-dark">{{ $qualityBadge }}</span>
+                <span class="badge text-bg-warning text-dark" title="{{ $qualityBadge }}">{{ !empty($compactSiteCell) ? 'Below quality bar' : $qualityBadge }}</span>
             @endif
             @if($missingCover)
                 <a href="{{ staff_route('sites.edit', $site->id) }}#site_image" class="badge text-bg-warning text-dark text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>
             @endif
-            @if($missingTags)
+            @if($missingTags && empty($compactSiteCell))
                 <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
             @endif
             @if($archived)

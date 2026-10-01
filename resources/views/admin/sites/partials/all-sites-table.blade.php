@@ -35,10 +35,10 @@
                 <tr>
                     <th class="admin-num-col"><input type="checkbox" data-staff-bulk-all="all" aria-label="Select all sites on this page"></th>
                     <th class="admin-num-col d-none d-md-table-cell">#</th>
-                    <th>Site</th>
-                    <th>Publisher</th>
+                    <th class="staff-queue-site-col">Site</th>
+                    <th class="staff-queue-publisher-col">Publisher</th>
                     <th class="admin-narrow-col d-none d-md-table-cell">DA / DR</th>
-                    <th class="d-none d-lg-table-cell">Markets</th>
+                    <th class="staff-queue-markets-col d-none d-lg-table-cell">Markets</th>
                     <th class="admin-narrow-col d-none d-lg-table-cell">Tag</th>
                     <th class="admin-narrow-col d-none d-md-table-cell">Traffic</th>
                     <th class="admin-narrow-col">Price</th>
@@ -80,16 +80,16 @@
                         data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
                         aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                     <td class="d-none d-md-table-cell">{{ $allSites->firstItem() + $index }}</td>
-                    <td>@include('admin.sites.partials.queue-site-cell')</td>
-                    <td class="small">
-                        <div>{{ $site->publisher?->name ?? 'Unknown' }}</div>
-                        <div class="text-muted">{{ $site->publisher?->email }}</div>
+                    <td class="staff-queue-site-col">@include('admin.sites.partials.queue-site-cell', ['compactSiteCell' => true])</td>
+                    <td class="small staff-queue-publisher-col">
+                        <div class="staff-queue-publisher" title="{{ $site->publisher?->name ?? 'Unknown' }}">{{ $site->publisher?->name ?? 'Unknown' }}</div>
+                        <div class="text-muted staff-queue-publisher" title="{{ $site->publisher?->email }}">{{ $site->publisher?->email }}</div>
                         @if($site->publisher?->inCatalogHideMode())
                             <span class="badge text-bg-dark">Copy-strike hide</span>
                         @endif
                     </td>
-                    <td class="small d-none d-md-table-cell">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
-                    <td class="small d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
+                    <td class="small d-none d-md-table-cell">@include('admin.sites.partials.row-da-dr')</td>
+                    <td class="small staff-queue-markets-col d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
                     <td class="small d-none d-lg-table-cell">
                         @if($site->tagValue() === null)
                             <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
@@ -97,34 +97,55 @@
                             {{ $site->tagLabel() }}
                         @endif
                     </td>
-                    <td class="d-none d-md-table-cell">{{ number_format((int) $site->traffic) }}</td>
+                    <td class="small d-none d-md-table-cell">@include('admin.sites.partials.row-traffic')</td>
                     <td>@include('admin.sites.partials.row-price')</td>
                     <td class="small">@include('admin.sites.partials.listed-age')</td>
                     <td class="staff-queue-actions">
                         <div class="d-flex flex-wrap gap-1">
-                            <button type="button" class="btn btn-sm btn-outline-dark" data-staff-review="{{ $site->id }}">Review</button>
-                            <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
-                            <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary">{{ $isMarketingEditor && $site->isLockedForMarketingEdits() && ! $site->marketingCanEditDescription() ? 'View' : 'Edit' }}</a>
+                            @php
+                                $editOrView = $isMarketingEditor && $site->isLockedForMarketingEdits() && ! $site->marketingCanEditDescription() ? 'View' : 'Edit';
+                            @endphp
+                            <button type="button" class="btn btn-sm btn-outline-dark staff-action-icon-btn" data-staff-review="{{ $site->id }}" title="Review" aria-label="Review">
+                                <i class="fa fa-search" aria-hidden="true"></i>
+                            </button>
+                            <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary staff-action-icon-btn" title="Open" aria-label="Open">
+                                <i class="fa fa-folder-open" aria-hidden="true"></i>
+                            </a>
+                            <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary staff-action-icon-btn" title="{{ $editOrView }}" aria-label="{{ $editOrView }}">
+                                <i class="fa {{ $editOrView === 'View' ? 'fa-eye' : 'fa-edit' }}" aria-hidden="true"></i>
+                            </a>
                             @if(auth()->user()?->isAdmin() && ! $site->verified && ! $site->isArchived())
                                 <button type="button"
-                                        class="btn btn-sm btn-outline-success toggle-verify"
+                                        class="btn btn-sm btn-outline-success toggle-verify staff-action-icon-btn"
                                         data-id="{{ $site->id }}"
                                         data-status="1"
                                         data-name="{{ $site->site_name }}"
-                                        @if($site->hasDetailsComplete()) data-publisher-reviewing="1" @endif>Verify</button>
+                                        title="Verify"
+                                        aria-label="Verify"
+                                        @if($site->hasDetailsComplete()) data-publisher-reviewing="1" @endif>
+                                    <i class="fa fa-check" aria-hidden="true"></i>
+                                </button>
                             @endif
-                            @include('partials.staff-site-activate-button', ['site' => $site])
+                            @include('partials.staff-site-activate-button', ['site' => $site, 'iconOnly' => true])
                             @if($canDeleteRow)
                                 <button type="button"
-                                        class="btn btn-sm btn-outline-danger delete-site"
-                                        data-id="{{ $site->id }}"
-                                        data-name="{{ $site->site_name }}">Reject</button>
-                            @elseif($canArchiveRow)
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-danger delete-site"
+                                        class="btn btn-sm btn-outline-danger delete-site staff-action-icon-btn"
                                         data-id="{{ $site->id }}"
                                         data-name="{{ $site->site_name }}"
-                                        data-archive="1">Archive</button>
+                                        title="Reject"
+                                        aria-label="Reject">
+                                    <i class="fa fa-times" aria-hidden="true"></i>
+                                </button>
+                            @elseif($canArchiveRow)
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger delete-site staff-action-icon-btn"
+                                        data-id="{{ $site->id }}"
+                                        data-name="{{ $site->site_name }}"
+                                        data-archive="1"
+                                        title="Archive"
+                                        aria-label="Archive">
+                                    <i class="fa fa-archive" aria-hidden="true"></i>
+                                </button>
                             @endif
                         </div>
                     </td>

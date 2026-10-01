@@ -47,8 +47,12 @@
     }
 
     function markDrawHost(el) {
-        el.classList.add('slb-icon-svg', 'm-draw');
+        el.classList.add('slb-icon-svg');
         var host = el.closest('a,button,.dropdown-item,.btn');
+        if (host && (host.classList.contains('bulk-draft-icon-btn') || host.classList.contains('staff-action-icon-btn'))) {
+            return;
+        }
+        el.classList.add('m-draw');
         if (host) {
             host.classList.add('m-draw');
         }

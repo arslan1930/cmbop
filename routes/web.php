@@ -1214,6 +1214,10 @@ $registerStaffOpsRoutes = function () {
         ->name('bulk-site-requests.draft');
     Route::post('/bulk-site-requests/{id}/cancel', [AdminBulkSiteRequestController::class, 'cancel'])
         ->name('bulk-site-requests.cancel');
+    Route::post('/bulk-site-requests/{id}/undo-review', [AdminBulkSiteRequestController::class, 'undoReview'])
+        ->name('bulk-site-requests.undo-review');
+    Route::post('/bulk-site-requests/{id}/publish-now', [AdminBulkSiteRequestController::class, 'publishNow'])
+        ->name('bulk-site-requests.publish-now');
 
     Route::get('/site-enrichment', [SiteEnrichmentController::class, 'index'])
         ->name('site-enrichment.index');

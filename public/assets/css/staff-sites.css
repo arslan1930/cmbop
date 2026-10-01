@@ -29,6 +29,24 @@
   animation: pulse-red 1.5s infinite;
 }
 
+.pulse-review {
+  width: 5px;
+  height: 5px;
+  background: #3faeb2;
+  animation: pulse-review 1.5s infinite;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  margin-right: 0;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-review {
+  0% { box-shadow: 0 0 0 0 rgba(63, 174, 178, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(63, 174, 178, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(63, 174, 178, 0); }
+}
+
 @keyframes pulse-green {
   0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
   70% { box-shadow: 0 0 0 6px rgba(40, 167, 69, 0); }
@@ -43,7 +61,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pulse-green,
-  .pulse-red {
+  .pulse-red,
+  .pulse-review {
     animation: none;
   }
 }
@@ -532,6 +551,74 @@
   width: 1rem;
   height: 1rem;
   accent-color: var(--brand-primary, #1a585e);
+}
+
+.staff-action-icon-btn,
+.staff-action-icon-btn:hover,
+.staff-action-icon-btn:focus,
+.staff-action-icon-btn:active,
+.bulk-request-show .bulk-draft-icon-btn,
+.bulk-request-show .bulk-draft-icon-btn:hover,
+.bulk-request-show .bulk-draft-icon-btn:focus,
+.bulk-request-show .bulk-draft-icon-btn:active {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  line-height: 1;
+  box-sizing: border-box;
+  vertical-align: middle;
+  background-color: #fff;
+  color: inherit;
+  box-shadow: none;
+  transform: none;
+  transition: none;
+  animation: none;
+}
+
+.staff-action-icon-btn.dropdown-toggle::after {
+  display: none;
+}
+
+.staff-action-icon-btn.m-draw:hover svg path,
+.staff-action-icon-btn.m-draw:hover svg circle,
+.staff-action-icon-btn.m-draw:hover svg line,
+.staff-action-icon-btn.m-draw:hover svg polyline,
+.staff-action-icon-btn.m-draw:hover svg rect,
+.staff-action-icon-btn.m-draw:hover svg ellipse,
+.staff-action-icon-btn.m-draw:hover svg polygon,
+.staff-action-icon-btn .m-draw:hover svg path,
+.staff-action-icon-btn .m-draw:hover svg circle,
+.staff-action-icon-btn .m-draw:hover svg line,
+.staff-action-icon-btn .m-draw:hover svg polyline,
+.staff-action-icon-btn .m-draw:hover svg rect,
+.staff-action-icon-btn .m-draw:hover svg ellipse,
+.staff-action-icon-btn .m-draw:hover svg polygon,
+.bulk-request-show .bulk-draft-icon-btn.m-draw:hover svg path,
+.bulk-request-show .bulk-draft-icon-btn.m-draw:hover svg circle,
+.bulk-request-show .bulk-draft-icon-btn.m-draw:hover svg line,
+.bulk-request-show .bulk-draft-icon-btn.m-draw:hover svg polyline,
+.bulk-request-show .bulk-draft-icon-btn.m-draw:hover svg rect,
+.bulk-request-show .bulk-draft-icon-btn.m-draw:hover svg ellipse,
+.bulk-request-show .bulk-draft-icon-btn.m-draw:hover svg polygon,
+.bulk-request-show .bulk-draft-icon-btn .m-draw:hover svg path,
+.bulk-request-show .bulk-draft-icon-btn .m-draw:hover svg circle,
+.bulk-request-show .bulk-draft-icon-btn .m-draw:hover svg line,
+.bulk-request-show .bulk-draft-icon-btn .m-draw:hover svg polyline,
+.bulk-request-show .bulk-draft-icon-btn .m-draw:hover svg rect,
+.bulk-request-show .bulk-draft-icon-btn .m-draw:hover svg ellipse,
+.bulk-request-show .bulk-draft-icon-btn .m-draw:hover svg polygon {
+  animation: none !important;
+  -webkit-animation: none !important;
+}
+
+.bulk-request-show form.d-inline {
+  display: inline-flex;
+  vertical-align: middle;
 }
 
 .bulk-request-show input[type="file"].form-control::file-selector-button {

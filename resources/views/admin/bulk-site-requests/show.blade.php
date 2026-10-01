@@ -796,11 +796,46 @@
         <div class="col-12 bulk-request-stack">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <h6 class="fw-semibold mb-3">Sites on publisher panel ({{ $bulkRequest->sites->count() }})</h6>
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                        <h6 class="fw-semibold mb-0">Draft sites ({{ $bulkRequest->sites->count() }})</h6>
+                        @php
+                            $undoableSites = $bulkRequest->sites->filter(fn ($site) => $site->isBulkReviewUndoable());
+                            $publishNowSites = $bulkRequest->sites->filter(fn ($site) => $site->isBulkReadyToPublishNow());
+                        @endphp
+                        <div class="d-flex flex-wrap gap-2">
+                            @if($undoableSites->isNotEmpty() && ! $bulkRequest->isCancelled())
+                                <form method="POST" action="{{ staff_route('bulk-site-requests.undo-review', $bulkRequest, false) }}" class="d-inline" id="bulkDraftUndoForm"
+                                      data-slb-confirm="Withdraw the selected sites from publisher review? They will not go live. You can Publish now after that."
+                                      data-bulk-draft-action="undo">
+                                    @csrf
+                                    <span data-bulk-draft-ids></span>
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn" title="Undo review" aria-label="Undo review">
+                                        <i class="fa fa-undo" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            @endif
+                            @if($publishNowSites->isNotEmpty() && ! $bulkRequest->isCancelled())
+                                <form method="POST" action="{{ staff_route('bulk-site-requests.publish-now', $bulkRequest, false) }}" class="d-inline" id="bulkDraftPublishForm"
+                                      data-slb-confirm="Publish the selected sites now? They go live (not verified)."
+                                      data-bulk-draft-action="publish">
+                                    @csrf
+                                    <span data-bulk-draft-ids></span>
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn" title="Publish now" aria-label="Publish now">
+                                        <i class="fa fa-check" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
+                    </div>
                     <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0">
+                        <table class="table table-sm align-middle mb-0" id="bulkDraftSitesTable">
                             <thead>
                                 <tr>
+                                    <th class="text-center" style="width:2.25rem;">
+                                        @if($bulkRequest->sites->isNotEmpty())
+                                            <input type="checkbox" id="bulkDraftSelectAll" data-bulk-draft-select-all aria-label="Select all draft sites">
+                                        @endif
+                                    </th>
                                     <th>Site</th>
                                     <th>Price</th>
                                     <th>DR/DA</th>
@@ -818,8 +853,19 @@
                                             'site' => $site->id,
                                         ]));
                                         $catalogUrl = $catalogDomain !== '' ? route('advertiser.catalog', ['search' => $catalogDomain]) : null;
+                                        $canUndoRow = $site->isBulkReviewUndoable() && ! $bulkRequest->isCancelled();
+                                        $canPublishRow = $site->isBulkReadyToPublishNow() && ! $bulkRequest->isCancelled();
                                     @endphp
                                     <tr id="bulk-site-row-{{ $site->id }}">
+                                        <td class="text-center">
+                                            <input type="checkbox"
+                                                   class="bulk-draft-row-check"
+                                                   data-bulk-draft-row
+                                                   data-can-undo="{{ $canUndoRow ? '1' : '0' }}"
+                                                   data-can-publish="{{ $canPublishRow ? '1' : '0' }}"
+                                                   value="{{ $site->id }}"
+                                                   aria-label="Select {{ $site->site_name }}">
+                                        </td>
                                         <td>
                                             <div class="fw-semibold">{{ $site->site_name }}</div>
                                             <div class="small text-muted">{{ $site->domain }}</div>
@@ -833,24 +879,52 @@
                                             </span>
                                         </td>
                                         <td class="text-end text-nowrap">
-                                            <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary">Open</a>
-                                            <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                            <a href="{{ $openUrl }}" class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn" title="Open" aria-label="Open">
+                                                <i class="fa fa-folder-open" aria-hidden="true"></i>
+                                            </a>
+                                            <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn" title="Edit" aria-label="Edit">
+                                                <i class="fa fa-pencil" aria-hidden="true"></i>
+                                            </a>
                                             @if($catalogUrl)
-                                                <a href="{{ $catalogUrl }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener">View in catalog</a>
+                                                <a href="{{ $catalogUrl }}" class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn" target="_blank" rel="noopener" title="View in catalog" aria-label="View in catalog">
+                                                    <i class="fa fa-external-link" aria-hidden="true"></i>
+                                                </a>
+                                            @endif
+                                            @if($canUndoRow)
+                                                <form method="POST" action="{{ staff_route('bulk-site-requests.undo-review', $bulkRequest, false) }}" class="d-inline"
+                                                      data-slb-confirm="Withdraw this site from publisher review? It will not go live.">
+                                                    @csrf
+                                                    <input type="hidden" name="site_ids[]" value="{{ $site->id }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn" title="Undo review" aria-label="Undo review">
+                                                        <i class="fa fa-undo" aria-hidden="true"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                            @if($canPublishRow)
+                                                <form method="POST" action="{{ staff_route('bulk-site-requests.publish-now', $bulkRequest, false) }}" class="d-inline"
+                                                      data-slb-confirm="Publish this site now? It goes live (not verified).">
+                                                    @csrf
+                                                    <input type="hidden" name="site_ids[]" value="{{ $site->id }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn" title="Publish now" aria-label="Publish now">
+                                                        <i class="fa fa-check" aria-hidden="true"></i>
+                                                    </button>
+                                                </form>
                                             @endif
                                             @if($canDeleteDrafts && (auth()->user()->isAdmin() || $site->canBeDeletedByMarketing()))
                                                 <button type="button"
-                                                        class="btn btn-sm btn-outline-danger bulk-draft-delete"
+                                                        class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn bulk-draft-delete"
                                                         data-site-id="{{ $site->id }}"
-                                                        data-site-name="{{ $site->site_name }}">
-                                                    Delete
+                                                        data-site-name="{{ $site->site_name }}"
+                                                        title="Delete"
+                                                        aria-label="Delete">
+                                                    <i class="fa fa-trash" aria-hidden="true"></i>
                                                 </button>
                                             @endif
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-muted text-center py-3">No sites added yet.</td>
+                                        <td colspan="7" class="text-muted text-center py-3">No draft sites on this request. Live listings stay on Sites, not here.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -2045,6 +2119,50 @@ document.querySelectorAll('form.bulk-request-cancel').forEach(function (form) {
         }
     });
 });
+
+(function bindDraftSiteChecks() {
+    const table = document.getElementById('bulkDraftSitesTable');
+    if (!table) return;
+    const selectAll = table.querySelector('[data-bulk-draft-select-all]');
+    const rows = function () {
+        return Array.from(table.querySelectorAll('[data-bulk-draft-row]'));
+    };
+    const syncSelectAll = function () {
+        if (!selectAll) return;
+        const boxes = rows();
+        const checked = boxes.filter(function (box) { return box.checked; }).length;
+        selectAll.checked = boxes.length > 0 && checked === boxes.length;
+        selectAll.indeterminate = checked > 0 && checked < boxes.length;
+    };
+    const writeActionIds = function (form) {
+        const action = form.getAttribute('data-bulk-draft-action');
+        const flag = action === 'publish' ? 'data-can-publish' : 'data-can-undo';
+        const checked = rows().filter(function (box) { return box.checked; });
+        const pool = (checked.length ? checked : rows()).filter(function (box) {
+            return box.getAttribute(flag) === '1';
+        });
+        const holder = form.querySelector('[data-bulk-draft-ids]');
+        if (!holder) return;
+        holder.innerHTML = pool.map(function (box) {
+            return '<input type="hidden" name="site_ids[]" value="' + String(box.value).replace(/"/g, '') + '">';
+        }).join('');
+    };
+    const refreshActionIds = function () {
+        document.querySelectorAll('form[data-bulk-draft-action]').forEach(writeActionIds);
+    };
+    selectAll?.addEventListener('change', function () {
+        rows().forEach(function (box) { box.checked = selectAll.checked; });
+        syncSelectAll();
+        refreshActionIds();
+    });
+    table.addEventListener('change', function (event) {
+        if (event.target && event.target.hasAttribute('data-bulk-draft-row')) {
+            syncSelectAll();
+            refreshActionIds();
+        }
+    });
+    refreshActionIds();
+})();
 
 document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
     btn.addEventListener('click', async function () {

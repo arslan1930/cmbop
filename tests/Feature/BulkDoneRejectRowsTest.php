@@ -191,6 +191,15 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->assertStringContainsString('rejected.length === 0 || noteOk', $blade);
         $this->assertStringNotContainsString('route(\'admin.bulk-site-requests.done\'', $blade);
         $this->assertStringContainsString("document.querySelectorAll('.bulk-draft-delete')", $blade);
+        $this->assertStringContainsString('data-bulk-draft-select-all', $blade);
+        $this->assertStringContainsString('data-bulk-draft-row', $blade);
+        $this->assertStringContainsString('bulk-draft-icon-btn', $blade);
+        $this->assertStringContainsString('fa-folder-open', $blade);
+        $this->assertStringContainsString('fa-pencil', $blade);
+        $this->assertStringContainsString('fa-trash', $blade);
+        $this->assertStringContainsString('title="Open"', $blade);
+        $this->assertStringNotContainsString('>Open</a>', $blade);
+        $this->assertStringNotContainsString('>Delete</button>', $blade);
         $this->assertStringContainsString("input: 'textarea'", $blade);
         $this->assertStringContainsString('Reason for the publisher', $blade);
         $this->assertStringContainsString('JSON.stringify({ reason })', $blade);

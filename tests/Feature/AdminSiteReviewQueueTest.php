@@ -336,7 +336,7 @@ class AdminSiteReviewQueueTest extends TestCase
             ->assertSee('Needs review queue', false)
             ->assertSee($publisher->email, false)
             ->assertDontSee($other->email, false)
-            ->assertSee('1 new', false)
+            ->assertSee('1 needs review', false)
             ->assertSee('dropNeedsReviewQueryParam', false)
             ->getContent();
 
