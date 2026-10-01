@@ -40,6 +40,14 @@ class AdminContentLibrary
     }
 
     /**
+     * @return list<string>
+     */
+    public static function files(): array
+    {
+        return ['missing'];
+    }
+
+    /**
      * @return array<string, string|int>
      */
     public static function indexQuery(Request $request): array
@@ -71,6 +79,11 @@ class AdminContentLibrary
             $attachment = '';
         }
 
+        $file = strtolower(search_text($request->input('file')));
+        if (! in_array($file, self::files(), true)) {
+            $file = '';
+        }
+
         $expiring = strtolower(search_text($request->input('expiring')));
         if ($expiring !== 'soon') {
             $expiring = '';
@@ -96,6 +109,7 @@ class AdminContentLibrary
             'language' => $language !== '' ? $language : null,
             'sort' => $sort !== '' ? $sort : null,
             'attachment' => $attachment !== '' ? $attachment : null,
+            'file' => $file !== '' ? $file : null,
             'expiring' => $expiring !== '' ? $expiring : null,
             'from' => $from !== '' ? $from : null,
             'to' => $to !== '' ? $to : null,

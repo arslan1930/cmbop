@@ -29,6 +29,9 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class ContentLibraryController extends Controller
 {
+    /** @var array<string, bool> */
+    private array $schemaColumnCache = [];
+
     public function __construct(
         private ContentLibrarySearchQuery $librarySearch,
         private ArticleHtmlSanitizer $sanitizer,
@@ -66,6 +69,7 @@ class ContentLibraryController extends Controller
         $submissions = $this->emptyLibraryPaginator($page);
         if ($this->schemaTableAvailable('content_submissions')) {
             try {
+                $this->refreshStaleFileOnDiskFlags();
                 $query = ContentSubmission::query()
                     ->forLibraryList()
                     ->with($this->libraryListRelations());
@@ -106,6 +110,7 @@ class ContentLibraryController extends Controller
             'advertiserQuery' => $filters['advertiser'],
             'sort' => $filters['sort'],
             'attachment' => $filters['attachment'],
+            'file' => $filters['file'],
             'expiring' => $filters['expiring'],
             'from' => $filters['from'],
             'to' => $filters['to'],
@@ -157,6 +162,7 @@ class ContentLibraryController extends Controller
         try {
             $placement = $submission->libraryPlacementItem();
             $fileOnDisk = $this->staffActions->fileOnDisk($submission);
+            $this->persistFileOnDiskFlag($submission, $fileOnDisk);
             $previewHtml = $this->staffPreviewHtml($submission);
             $reasons = $submission->evaluationReasonGroups();
             $matchedTerms = $submission->evaluationMatchedTerms();
@@ -292,6 +298,18 @@ class ContentLibraryController extends Controller
             ? (string) ($result['message'] ?: $this->overrideFlash($fresh, $data['decision']))
             : $this->overrideFlash($fresh, $data['decision']);
 
+        if ($fresh && empty($result['already'])) {
+            $this->logLibraryStaff(
+                'content.overridden',
+                $data['decision'] === 'approved' ? 'approved' : 'rejected',
+                $fresh,
+                [
+                    'decision' => $data['decision'],
+                    'moderation_status' => $fresh->moderation_status,
+                ]
+            );
+        }
+
         return back()->with('success', $flash);
     }
 
@@ -389,6 +407,7 @@ class ContentLibraryController extends Controller
             'advertiser' => $advertiser,
             'sort' => (string) ($query['sort'] ?? 'latest'),
             'attachment' => (string) ($query['attachment'] ?? ''),
+            'file' => (string) ($query['file'] ?? ''),
             'expiring' => (string) ($query['expiring'] ?? ''),
             'from' => (string) ($query['from'] ?? ''),
             'to' => (string) ($query['to'] ?? ''),
@@ -427,6 +446,9 @@ class ContentLibraryController extends Controller
             });
         } elseif (($filters['attachment'] ?? '') === 'none' && $this->schemaTableAvailable('orders')) {
             $query->withoutOpenOwnerOrder()->withoutActiveOrderClaim()->withoutOpenOrderItemLink();
+        }
+        if (($filters['file'] ?? '') === 'missing' && $this->schemaColumnAvailable('content_submissions', 'file_on_disk')) {
+            $query->whereNotNull('path')->where('path', '!=', '')->where('file_on_disk', false);
         }
         if (($filters['expiring'] ?? '') === 'soon') {
             $query->nearExpiryInLibrary(AdminContentLibrary::EXPIRING_DAYS);
@@ -597,6 +619,9 @@ class ContentLibraryController extends Controller
             } elseif (($filters['attachment'] ?? '') === 'none' && $this->schemaTableAvailable('orders')) {
                 $base->withoutOpenOwnerOrder()->withoutActiveOrderClaim()->withoutOpenOrderItemLink();
             }
+            if (($filters['file'] ?? '') === 'missing' && $this->schemaColumnAvailable('content_submissions', 'file_on_disk')) {
+                $base->whereNotNull('path')->where('path', '!=', '')->where('file_on_disk', false);
+            }
             if (($filters['expiring'] ?? '') === 'soon') {
                 $base->nearExpiryInLibrary(AdminContentLibrary::EXPIRING_DAYS);
             }
@@ -697,6 +722,9 @@ class ContentLibraryController extends Controller
         }
         if (($filters['attachment'] ?? '') !== '') {
             $query['attachment'] = $filters['attachment'];
+        }
+        if (($filters['file'] ?? '') === 'missing') {
+            $query['file'] = 'missing';
         }
         if (($filters['expiring'] ?? '') === 'soon') {
             $query['expiring'] = 'soon';
@@ -828,11 +856,30 @@ class ContentLibraryController extends Controller
         }
     }
 
+    private function schemaColumnAvailable(string $table, string $column): bool
+    {
+        $key = $table.'.'.$column;
+        if (array_key_exists($key, $this->schemaColumnCache)) {
+            return $this->schemaColumnCache[$key];
+        }
+
+        if (! $this->schemaTableAvailable($table)) {
+            return $this->schemaColumnCache[$key] = false;
+        }
+
+        try {
+            return $this->schemaColumnCache[$key] = Schema::hasColumn($table, $column);
+        } catch (\Throwable) {
+            return $this->schemaColumnCache[$key] = false;
+        }
+    }
+
     public function export(Request $request): StreamedResponse|RedirectResponse
     {
         $filters = $this->parseFilters($request);
 
         try {
+            $this->refreshStaleFileOnDiskFlags();
             $query = ContentSubmission::query()->forLibraryList()->with(['user:id,name,email']);
             if ($this->schemaTableAvailable('orders')) {
                 $query->with(['order:id,order_number']);
@@ -950,6 +997,14 @@ class ContentLibraryController extends Controller
                     $this->staffActions->restore($submission);
                 } else {
                     $this->staffActions->archive($submission);
+                }
+                $fresh = $submission->fresh() ?? $submission;
+                if ($action === 'retry') {
+                    $this->logLibraryStaff('content.re_evaluated', 're-evaluated', $fresh);
+                } elseif ($action === 'restore') {
+                    $this->logLibraryStaff('content.restored', 'restored', $fresh);
+                } else {
+                    $this->logLibraryStaff('content.archived', 'archived', $fresh);
                 }
                 $done++;
             } catch (ValidationException) {
@@ -1106,7 +1161,66 @@ class ContentLibraryController extends Controller
             if (! $submission instanceof ContentSubmission) {
                 continue;
             }
-            $submission->setAttribute('file_on_disk', $this->staffActions->fileOnDisk($submission));
+            $this->persistFileOnDiskFlag($submission, $this->staffActions->fileOnDisk($submission));
         }
+    }
+
+    private function refreshStaleFileOnDiskFlags(int $limit = 200): void
+    {
+        if (! $this->schemaColumnAvailable('content_submissions', 'file_on_disk')) {
+            return;
+        }
+
+        try {
+            $rows = ContentSubmission::query()
+                ->whereNotNull('path')
+                ->where('path', '!=', '')
+                ->whereNull('file_on_disk')
+                ->orderBy('id')
+                ->limit(max(1, $limit))
+                ->get(['id', 'path', 'disk']);
+        } catch (\Throwable) {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $this->persistFileOnDiskFlag($row, $this->staffActions->fileOnDisk($row));
+        }
+    }
+
+    private function persistFileOnDiskFlag(ContentSubmission $submission, bool $onDisk): void
+    {
+        $submission->setAttribute('file_on_disk', $onDisk);
+        if (! $submission->hasStoredFile() || ! $this->schemaColumnAvailable('content_submissions', 'file_on_disk')) {
+            return;
+        }
+
+        $want = $onDisk ? 1 : 0;
+        $stored = $submission->getRawOriginal('file_on_disk');
+        if ($stored !== null && (int) $stored === $want) {
+            return;
+        }
+
+        try {
+            ContentSubmission::query()->whereKey($submission->id)->update(['file_on_disk' => $want]);
+        } catch (\Throwable) {
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function logLibraryStaff(string $action, string $verb, ContentSubmission $submission, array $extra = []): void
+    {
+        ActivityLogger::tryLog(
+            $action,
+            (auth()->user()?->name ?? 'Admin').' '.$verb.' library article #'.$submission->id,
+            $submission,
+            array_merge([
+                'submission_id' => $submission->id,
+                'user_id' => $submission->user_id,
+            ], $extra),
+            'Article #'.$submission->id
+        );
     }
 }

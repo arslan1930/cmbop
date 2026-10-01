@@ -104,6 +104,15 @@ class SearchQueryHardeningTest extends TestCase
             ->assertOk();
 
         $this->actingAs($this->admin)
+            ->get(route('admin.catalog-activity', [
+                'q' => ['injected'],
+                'user' => ['x'],
+                'days' => ['14'],
+                'copy' => ['all'],
+            ]))
+            ->assertOk();
+
+        $this->actingAs($this->admin)
             ->get(route('admin.bulk-site-requests.index', ['status' => ['pending']]))
             ->assertOk();
     }

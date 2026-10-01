@@ -22,6 +22,8 @@ Hub **Now on the site** and list **Showing** badges reuse `PromotionService::act
 
 Announcement and banner list filters are stored in session (`AdminPromotions`). Create/edit **Back** and post-save redirects keep those filters.
 
+List GET bars do **not** set `data-admin-filter-live=1`, so theme-selects submit the filter. Create/edit and the hub feature-credit form keep `live=1` so a theme-select does not POST the editor.
+
 ## Feature credits
 
 The publisher dropdown is publishers who already have sites. Sites load from `GET /admin/promotions/feature-credit-sites?user_id=`. Grant still requires `site.publisher_id === user_id`.

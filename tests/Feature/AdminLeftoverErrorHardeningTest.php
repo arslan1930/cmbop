@@ -151,6 +151,7 @@ class AdminLeftoverErrorHardeningTest extends TestCase
 
         $this->assertSafePage($response);
         $response->assertOk();
+        $response->assertDontSee('run migrations to create', false);
     }
 
     public function test_bulk_requests_index_still_renders_when_table_is_gone(): void

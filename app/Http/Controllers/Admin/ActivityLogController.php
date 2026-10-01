@@ -180,6 +180,7 @@ class ActivityLogController extends Controller
             'filtersActive' => $this->filterQueryParams($request) !== [],
             'selectedAction' => $selectedAction,
             'selectedRole' => $selectedRole,
+            'filterUserId' => (int) (filter_number($request->input('user_id')) ?? 0) ?: null,
         ]);
     }
 
@@ -188,7 +189,8 @@ class ActivityLogController extends Controller
      *     dateErrors: list<string>,
      *     filtersActive: bool,
      *     selectedAction: string,
-     *     selectedRole: string
+     *     selectedRole: string,
+     *     filterUserId: int|null
      * }}
      */
     private function filteredQuery(Request $request): array
@@ -202,7 +204,7 @@ class ActivityLogController extends Controller
         );
 
         $term = search_text($request->input('user'));
-        $userId = (int) $request->input('user_id');
+        $userId = (int) (filter_number($request->input('user_id')) ?? 0);
         if ($term !== '') {
             $like = like_contains($term);
             $query->where(function ($q) use ($like, $term) {
@@ -263,6 +265,7 @@ class ActivityLogController extends Controller
                 'filtersActive' => $filtersActive,
                 'selectedAction' => $selectedAction,
                 'selectedRole' => $selectedRole,
+                'filterUserId' => $userId > 0 ? $userId : null,
             ],
         ];
     }
@@ -300,11 +303,15 @@ class ActivityLogController extends Controller
     private function filterQueryParams(Request $request): array
     {
         $out = [];
-        foreach (['user', 'user_id', 'q', 'action', 'role', 'from', 'to'] as $key) {
+        foreach (['user', 'q', 'action', 'role', 'from', 'to'] as $key) {
             $value = $request->input($key);
             if (is_string($value) && $value !== '') {
                 $out[$key] = $value;
             }
+        }
+        $userId = (int) (filter_number($request->input('user_id')) ?? 0);
+        if ($userId > 0) {
+            $out['user_id'] = $userId;
         }
 
         return $out;

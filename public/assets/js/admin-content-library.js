@@ -76,7 +76,7 @@
         }
     });
 
-    ['adminLibraryCountry', 'adminLibraryLanguage', 'adminLibrarySort', 'adminLibraryAttachment', 'adminLibraryExpiring'].forEach(function (id) {
+    ['adminLibraryCountry', 'adminLibraryLanguage', 'adminLibrarySort', 'adminLibraryAttachment', 'adminLibraryFile', 'adminLibraryExpiring'].forEach(function (id) {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('change', function () {

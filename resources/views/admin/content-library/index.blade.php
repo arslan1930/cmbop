@@ -65,6 +65,13 @@
             </select>
         </div>
         <div>
+            <label class="form-label" for="adminLibraryFile">File</label>
+            <select name="file" id="adminLibraryFile" class="form-select">
+                <option value="" @selected(($file ?? '') === '')>Any</option>
+                <option value="missing" @selected(($file ?? '') === 'missing')>Missing on disk</option>
+            </select>
+        </div>
+        <div>
             <label class="form-label" for="adminLibraryExpiring">Expiry</label>
             <select name="expiring" id="adminLibraryExpiring" class="form-select">
                 <option value="" @selected(($expiring ?? '') === '')>Any</option>

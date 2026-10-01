@@ -263,4 +263,42 @@ class AdminContentLibraryDeskTest extends TestCase
             ->assertSee('#'.$current->id, false)
             ->assertSee(route('admin.moderation.show', $old), false);
     }
+
+    public function test_file_missing_filter_uses_stored_flag(): void
+    {
+        $admin = $this->admin();
+        $advertiser = $this->advertiser();
+        $ghost = $this->createApprovedSubmission($advertiser);
+        $ghost->update([
+            'title' => 'Ghost Filter Piece',
+            'path' => 'content-uploads/missing-on-disk.docx',
+            'file_on_disk' => null,
+        ]);
+        $present = $this->createApprovedSubmission($advertiser);
+        $present->update(['title' => 'Present Filter Piece']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.index', ['file' => 'missing']))
+            ->assertOk()
+            ->assertSee('Ghost Filter Piece')
+            ->assertDontSee('Present Filter Piece');
+    }
+
+    public function test_archive_writes_staff_activity_on_show(): void
+    {
+        $admin = $this->admin();
+        $submission = $this->createApprovedSubmission($this->advertiser());
+        $submission->update(['title' => 'Activity Piece']);
+
+        $this->actingAs($admin)
+            ->from(route('admin.content-library.show', $submission))
+            ->post(route('admin.content-library.archive', $submission))
+            ->assertRedirect();
+
+        $this->actingAs($admin)
+            ->get(route('admin.content-library.show', $submission))
+            ->assertOk()
+            ->assertSee('Staff activity')
+            ->assertSee('archived library article #'.$submission->id, false);
+    }
 }

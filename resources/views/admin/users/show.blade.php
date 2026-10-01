@@ -444,7 +444,7 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <strong>Activity</strong>
-                    <a href="{{ route('admin.activity-logs.index', ['search' => $user->email]) }}" class="small">History</a>
+                    <a href="{{ route('admin.activity-logs.index', ['user_id' => $user->id]) }}" class="small">History</a>
                 </div>
                 <div class="card-body">
                     @forelse($activities as $activity)

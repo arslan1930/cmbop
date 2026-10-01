@@ -518,11 +518,21 @@ class AdminActivityLogTest extends TestCase
             'subject_id' => 9,
             'subject_label' => 'Checkout broken',
         ]);
+        $campaign = EmailCampaign::create([
+            'name' => 'August promo',
+            'subject' => 'August promo',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 0,
+            'status' => EmailCampaign::STATUS_QUEUED,
+            'respect_preferences' => false,
+            'created_by' => $this->admin->id,
+        ]);
         $this->makeLog([
             'action' => 'campaign.queued',
             'description' => 'Queued a campaign',
             'subject_type' => EmailCampaign::class,
-            'subject_id' => 3,
+            'subject_id' => $campaign->id,
             'subject_label' => 'August promo',
         ]);
 
@@ -536,7 +546,8 @@ class AdminActivityLogTest extends TestCase
 
         $this->assertStringContainsString(route('admin.withdrawals'), $html);
         $this->assertStringContainsString(route('admin.community.index', ['tab' => 'problems']), $html);
-        $this->assertStringContainsString(route('admin.campaigns.index'), $html);
+        $this->assertStringContainsString(route('admin.campaigns.show', $campaign), $html);
+        $this->assertStringNotContainsString(route('admin.campaigns.show', 999999), $html);
     }
 
     public function test_search_activate_does_not_match_deactivated(): void
@@ -764,6 +775,80 @@ class AdminActivityLogTest extends TestCase
             ->assertOk()
             ->assertSee('Today real stamp', false)
             ->assertDontSee('Leftover filter stamp', false);
+    }
+
+    public function test_overridden_library_article_has_a_label(): void
+    {
+        $this->makeLog([
+            'action' => 'content.overridden',
+            'description' => 'Ada Admin approved library article #12',
+            'subject_label' => 'Article #12',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.activity-logs.index'))
+            ->assertOk()
+            ->assertSee('Overrode library article', false);
+    }
+
+    public function test_user_id_pin_survives_apply_and_export_query(): void
+    {
+        $otherRole = Role::where('name', 'admin')->firstOrFail();
+        $other = User::factory()->create([
+            'name' => 'Pinned Admin',
+            'email' => 'pinned-admin@example.com',
+            'email_verified_at' => now(),
+            'active_role_id' => $otherRole->id,
+        ]);
+        $other->roles()->attach($otherRole->id);
+
+        $this->makeLog([
+            'user_id' => $other->id,
+            'user_name' => $other->name,
+            'user_email' => $other->email,
+            'description' => 'Pinned actor row',
+        ]);
+        $this->makeLog(['description' => 'Ada should hide']);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.activity-logs.index', ['user_id' => $other->id]))
+            ->assertOk()
+            ->assertSee('Pinned actor row', false)
+            ->assertDontSee('Ada should hide', false)
+            ->assertSee('Actor filter', false)
+            ->getContent();
+
+        $this->assertStringContainsString('name="user_id"', $html);
+        $this->assertStringContainsString(
+            route('admin.activity-logs.export', ['user_id' => $other->id]),
+            $html
+        );
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.activity-logs.index', ['user_id' => ['x']]))
+            ->assertOk()
+            ->assertSee('Ada should hide', false)
+            ->assertSee('Pinned actor row', false);
+    }
+
+    public function test_missing_campaign_is_removed_not_a_dead_show_link(): void
+    {
+        $this->makeLog([
+            'action' => 'campaign.queued',
+            'description' => 'Queued a gone campaign',
+            'subject_type' => EmailCampaign::class,
+            'subject_id' => 999999,
+            'subject_label' => 'Gone promo',
+        ]);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.activity-logs.index'))
+            ->assertOk()
+            ->assertSee('Gone promo', false)
+            ->assertSee('Removed', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString(route('admin.campaigns.show', 999999), $html);
     }
 
     private function makeLog(array $overrides = []): ActivityLog
