@@ -85,22 +85,23 @@ class CatalogProblemReport
     }
 
     /** Admin/marketing Sites list focused on this row — not the edit form. */
-    public static function staffListingUrl(?Site $site): ?string
+    public static function staffListingUrl(?Site $site, bool $absolute = true): ?string
     {
         if (! $site || (int) $site->id <= 0) {
             return null;
         }
 
         try {
-            $params = ['site' => (int) $site->id];
+            $params = [];
             $publisherId = (int) ($site->publisher_id ?? 0);
             if ($publisherId > 0) {
                 $params['publisher'] = $publisherId;
             } else {
                 $params['all'] = 1;
             }
+            $params['site'] = (int) $site->id;
 
-            return staff_route('sites.index', $params);
+            return staff_route('sites.index', $params, $absolute);
         } catch (\Throwable $e) {
             return null;
         }

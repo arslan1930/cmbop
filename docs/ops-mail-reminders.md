@@ -44,6 +44,13 @@ and web traffic drains mail + runs due schedule events.
 
 Confirm a test registration writes a welcome/verify link (with `MAIL_MAILER=log`, search `storage/logs/laravel.log` for `email/verify`).
 
+Verification mail (`VerifyEmail`) is **synchronous** — it does not wait on the
+`emails` queue. Welcome mail is queued separately. Guests resend from
+`/email/verify` (or login → “Need a verification email?”). Both paths are
+enumeration-safe and do not confirm whether the address exists. If
+`MAIL_MAILER=log`, nothing reaches an inbox. Staff can resend or mark verified
+on Admin → Users.
+
 ## Admin campaigns
 
 Admin → Updates & Campaigns is queued bulk marketing mail (`AudienceCampaignMail`),

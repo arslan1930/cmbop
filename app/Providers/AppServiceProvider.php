@@ -16,6 +16,7 @@ use App\Services\CartPricingService;
 use App\Services\EmailNotificationService;
 use App\Services\Wallet\WelcomeBonusService;
 use App\Support\BillingCustomerMailSuppressor;
+use App\Support\HostingerMysqlHost;
 use App\Support\MarketingOpsQueues;
 use App\Support\OrderLifecycleMailSuppressor;
 use App\Support\PublicStorageLink;
@@ -41,6 +42,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(OrderLifecycleMailSuppressor::class);
         $this->app->singleton(BillingCustomerMailSuppressor::class);
+
+        // Before any provider opens PDO: Hostinger blocks TCP 127.0.0.1:3306.
+        HostingerMysqlHost::applyRuntime();
 
         // Blade views call these helpers on every form page. Composer "files"
         // autoload is enough after dump-autoload, but a deploy that only
@@ -122,6 +126,66 @@ class AppServiceProvider extends ServiceProvider
                             ? user_message('password.reset_throttled', 'Too many attempts. Try again later.')
                             : 'Too many attempts. Try again later.',
                     ], 429, $headers);
+                });
+        });
+
+        // Isolated from numeric throttle:N,M. Those share one per-user key, so
+        // catalog favicons / copy-track / live search would burn a 10/min
+        // report bucket after a few seconds of browsing.
+        RateLimiter::for('catalog-site-report', function (Request $request) {
+            $id = $request->user()?->getAuthIdentifier() ?: $request->ip();
+
+            return Limit::perMinute(10)
+                ->by('catalog-site-report:'.$id)
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You sent several reports just now. Wait a minute and try again.',
+                    ], 429, $headers);
+                });
+        });
+
+        $verificationThrottleMessage = static function (): string {
+            return function_exists('user_message')
+                ? user_message('verification.throttled', 'Too many verification emails. Please wait a minute and try again.')
+                : 'Too many verification emails. Please wait a minute and try again.';
+        };
+
+        RateLimiter::for('email-verify-click', function (Request $request) {
+            return Limit::perMinute(6)->by('email-verify-click:'.$request->ip());
+        });
+
+        RateLimiter::for('email-verify-send', function (Request $request) use ($verificationThrottleMessage) {
+            $id = $request->user()?->getAuthIdentifier() ?: $request->ip();
+
+            return Limit::perMinute(6)
+                ->by('email-verify-send:'.$id)
+                ->response(function (Request $request, array $headers) use ($verificationThrottleMessage) {
+                    return redirect()
+                        ->route('verification.notice')
+                        ->with('error', $verificationThrottleMessage());
+                });
+        });
+
+        RateLimiter::for('email-verify-resend', function (Request $request) use ($verificationThrottleMessage) {
+            $email = strtolower(trim((string) $request->input('email', '')));
+
+            return Limit::perMinute(3)
+                ->by('email-verify-resend:'.$request->ip().'|'.$email)
+                ->response(function (Request $request, array $headers) use ($verificationThrottleMessage) {
+                    $message = $verificationThrottleMessage();
+                    if ($request->expectsJson() || $request->wantsJson()) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => $message,
+                        ], 429, $headers);
+                    }
+
+                    return redirect()
+                        ->route('verification.notice')
+                        ->withInput()
+                        ->with('error', $message)
+                        ->with('verify_email', $request->input('email'));
                 });
         });
 

@@ -134,9 +134,12 @@
                                 </div>
 
                                 <button type="submit" class="auth-cta">Access Dashboard</button>
+                            </form>
 
                                 <div class="text-center mt-3" id="resendDiv">
-                                    <button type="button" class="btn btn-link p-0 auth-meta-link" id="resendBtn">Need a verification email?</button>
+                                    <p class="small text-muted mb-2">New account? Verify your email first.</p>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="resendBtn">Need a verification email?</button>
+                                    <p class="small mt-2 mb-0 d-none" id="resendStatus" role="status" aria-live="polite"></p>
                                 </div>
 
                                 <div class="auth-trust-row" aria-label="Trust indicators">
@@ -154,7 +157,6 @@
                                         <a href="{{ url('/') }}" class="auth-meta-link">← Back to Home</a>
                                     </div>
                                 </div>
-                            </form>
 
                             <div class="auth-divider"><span>or</span></div>
 
@@ -303,31 +305,55 @@ document.getElementById('loginForm')?.addEventListener('submit', async function(
     }
 });
 
-document.getElementById('resendBtn')?.addEventListener('click', async function () {
+document.getElementById('resendBtn')?.addEventListener('click', async function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
     const email = (document.getElementById('loginEmail')?.value || '').trim();
     const toastContainer = document.getElementById('toastContainer');
-    if (!email) {
-        const toastEl = buildLoginToast('Enter your email first.', 'danger');
+    const statusEl = document.getElementById('resendStatus');
+    const btn = this;
+
+    function showResendMessage(message, variant) {
+        if (statusEl) {
+            statusEl.textContent = message;
+            statusEl.classList.remove('d-none', 'text-success', 'text-danger', 'text-muted');
+            statusEl.classList.add(variant === 'success' ? 'text-success' : (variant === 'danger' ? 'text-danger' : 'text-muted'));
+        }
+        if (typeof showAppToast === 'function') {
+            showAppToast(message, variant === 'success' ? 'success' : (variant === 'danger' ? 'danger' : 'info'));
+            return;
+        }
+        if (!toastContainer) return;
+        const toastEl = buildLoginToast(message, variant);
         toastContainer.appendChild(toastEl);
-        new bootstrap.Toast(toastEl).show();
+        if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+            new bootstrap.Toast(toastEl).show();
+        }
+    }
+
+    if (!email) {
+        showResendMessage('Enter your email first.', 'danger');
+        document.getElementById('loginEmail')?.focus();
         return;
     }
 
-    const sendingToast = buildLoginToast('Sending verification email...', 'info');
-    toastContainer.appendChild(sendingToast);
-    const sendingToastInstance = new bootstrap.Toast(sendingToast);
-    sendingToastInstance.show();
+    btn.disabled = true;
+    showResendMessage('Sending verification email...', 'info');
 
     try {
         const emailData = new FormData();
         emailData.append('email', email);
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+        emailData.append('_token', csrf);
 
         const res2 = await fetch("{{ route('verification.resend', absolute: false) }}", {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+                'X-CSRF-TOKEN': csrf,
                 'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
             body: emailData
         });
@@ -338,22 +364,18 @@ document.getElementById('resendBtn')?.addEventListener('click', async function (
         } catch (parseErr) {
             result = {};
         }
-        sendingToastInstance.hide();
 
-        const ok = result.status === 'success';
+        const ok = res2.ok && result.status === 'success';
         const msg = ok
-            ? (result.message || 'Verification email resent successfully.')
+            ? (result.message || 'If that email is registered and still unverified, a new link is on its way.')
             : ((typeof slbHttpMessage === 'function')
                 ? slbHttpMessage({ status: res2.status, data: result }, result.message || 'Failed to send email. Please try again.')
                 : (result.message || 'Failed to send email. Please try again.'));
-        const toast2 = buildLoginToast(msg, ok ? 'success' : 'danger');
-        toastContainer.appendChild(toast2);
-        new bootstrap.Toast(toast2).show();
+        showResendMessage(msg, ok ? 'success' : 'danger');
     } catch (err) {
-        sendingToastInstance.hide();
-        const toast2 = buildLoginToast('Failed to send email. Please try again.', 'danger');
-        toastContainer.appendChild(toast2);
-        new bootstrap.Toast(toast2).show();
+        showResendMessage('Failed to send email. Please try again.', 'danger');
+    } finally {
+        btn.disabled = false;
     }
 });
 

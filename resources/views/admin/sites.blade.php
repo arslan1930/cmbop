@@ -38,6 +38,11 @@
 @endphp
 <div class="container-fluid py-3 {{ request()->filled('publisher') ? 'staff-publisher-open' : '' }}" id="staffSitesPage">
 
+<<<<<<< HEAD
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <h4 class="mb-0 fw-bold">Sites Management</h4>
+        <div class="d-flex flex-wrap gap-2">
+=======
     <div class="admin-sites-header d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
             <h4 class="mb-0 fw-bold">Sites Management</h4>
@@ -97,6 +102,7 @@
             </div>
         </div>
         <div class="admin-sites-header__actions d-flex flex-wrap gap-2">
+>>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
             @if(!empty($needsReviewFilterActive))
                 @if(!empty($flatQueue))
                     <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-secondary">
@@ -127,6 +133,8 @@
             @if(!empty($allSitesMode))
                 <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
             @else
+<<<<<<< HEAD
+=======
                 <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
                     <i class="fa fa-bell me-1"></i> Needs review
                     @if(($openReviewCount ?? 0) > 0)
@@ -177,6 +185,7 @@
                         <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $liveUnverifiedCount }}</span>
                     @endif
                 </a>
+>>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
                 <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
             @endif
             @if(auth()->user()?->isAdmin())
@@ -348,7 +357,17 @@
                         data-review-name="{{ $site->site_name }}"
                         data-review-url="{{ $site->site_url }}"
                         data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
+<<<<<<< HEAD
+                        <td><input type="checkbox"
+                            data-staff-bulk-id="{{ $site->id }}"
+                            data-verified="{{ $site->verified ? '1' : '0' }}"
+                            data-active="{{ $site->active ? '1' : '0' }}"
+                            data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
+                            data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
+                            aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+=======
                         <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+>>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
                         <td class="d-none d-md-table-cell">{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             @include('admin.sites.partials.queue-site-cell')

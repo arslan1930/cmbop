@@ -58,6 +58,9 @@ production page view. It does not migrate and it does not run the scheduler.
    so new uploads become WebP.
 10. Confirm MySQL, `APP_URL`, `MEDIA_PATH`, uploads, mail drain, and the scheduler:
    `php artisan ops:production-ready --repair --strict`
+   MySQL hostname must be `localhost` (unix socket), not `127.0.0.1`. Hostinger
+   blocks TCP to 127.0.0.1:3306 with `SQLSTATE[HY000] [2002] Operation not permitted`.
+   `--repair` rewrites leftover `DB_HOST=127.0.0.1` on Hostinger. Then `php artisan config:clear`.
    Add system cron `* * * * * php artisan schedule:run`, or POST `/cron/run`
    with header `X-Cron-Key` every minute. Page views do not run the scheduler.
    Then spot-check register → verify email →

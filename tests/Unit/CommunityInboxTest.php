@@ -141,6 +141,22 @@ class CommunityInboxTest extends TestCase
         ], CommunityInbox::createListingQuery($suggestion));
     }
 
+    public function test_create_listing_query_sets_example_url_when_path_exists(): void
+    {
+        $suggestion = new WebsiteSuggestion([
+            'website_name' => 'Fresh Tech Blog',
+            'website_url' => 'https://fresh-tech.example/guest-post',
+        ]);
+        $suggestion->id = 13;
+
+        $this->assertSame([
+            'suggestion_id' => 13,
+            'site_name' => 'Fresh Tech Blog',
+            'site_url' => 'https://fresh-tech.example',
+            'example_url' => 'https://fresh-tech.example/guest-post',
+        ], CommunityInbox::createListingQuery($suggestion));
+    }
+
     public function test_create_listing_query_drops_unsafe_url_and_long_locale(): void
     {
         $suggestion = new WebsiteSuggestion([

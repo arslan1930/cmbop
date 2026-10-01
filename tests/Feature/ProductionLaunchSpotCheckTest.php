@@ -59,7 +59,7 @@ class ProductionLaunchSpotCheckTest extends TestCase
         $advertiserRoleId = Role::where('name', 'advertiser')->value('id');
         $wallet = $advertiser->wallets()->where('role_id', $advertiserRoleId)->first();
         $this->assertNotNull($wallet);
-        $this->assertEquals(20.0, (float) $wallet->bonus_balance);
+        $this->assertEquals(0.0, (float) $wallet->bonus_balance);
 
         Notification::assertSentTo($advertiser, VerifyEmail::class);
 
@@ -80,6 +80,9 @@ class ProductionLaunchSpotCheckTest extends TestCase
             'password' => 'password123',
         ])->assertOk()->assertJsonPath('status', 'success');
         $this->assertAuthenticatedAs($advertiser->fresh());
+
+        $wallet->refresh();
+        $wallet->update(['balance' => 50]);
 
         $publisher = $this->userWithRole('publisher');
         Storage::disk('public')->put('sites/spot-check-cover.webp', 'fake-webp-body');
@@ -133,7 +136,7 @@ class ProductionLaunchSpotCheckTest extends TestCase
                 'payment_method' => 'wallet',
                 'reference_code' => 'SPOT1',
                 'publication_mode' => 'immediate',
-                'use_bonus' => '1',
+                'use_bonus' => '0',
             ])
             ->assertOk()
             ->assertJson(['success' => true]);

@@ -726,7 +726,7 @@ class CommunityFeedbackTest extends TestCase
         $this->assertStringContainsString('site_name=Fresh%20Tech%20Blog', $html);
         $this->assertStringContainsString('Already in catalog', $html);
         $this->assertStringContainsString(
-            route('admin.sites.index', ['publisher' => $site->publisher_id, 'site' => $site->id]),
+            e(route('admin.sites.index', ['publisher' => $site->publisher_id, 'site' => $site->id])),
             $html
         );
         $this->assertStringNotContainsString('suggestion_id='.$occupied->id, $html);
@@ -1004,7 +1004,7 @@ class CommunityFeedbackTest extends TestCase
 
         $this->assertStringContainsString('Already in catalog', $html);
         $this->assertStringContainsString(
-            route('admin.sites.index', ['publisher' => $site->publisher_id, 'site' => $site->id]),
+            e(route('admin.sites.index', ['publisher' => $site->publisher_id, 'site' => $site->id])),
             $html
         );
         $this->assertStringNotContainsString('Create listing', $html);

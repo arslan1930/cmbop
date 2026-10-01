@@ -205,16 +205,17 @@ class RegisterController extends Controller
         }
 
         $message = $verificationSent
-            ? 'Registration successful! A verification email has been sent. Please verify your email to login.'
-            : 'Registration successful! We could not send the verification email automatically — please use “Resend verification” on the login page.';
+            ? 'Registration successful! A verification email has been sent. Check your inbox, then sign in. If the link expires, resend from this page.'
+            : 'Registration successful! We could not send the verification email automatically — use Resend Verification Email on this page.';
 
-        session()->flash('message', $message);
+        session()->flash('success', $message);
+        session()->flash('verify_email', $user->email);
 
         return response()->json([
             'status' => 'success',
             'message' => $message,
             'verification_sent' => $verificationSent,
-            'redirect' => route('login', absolute: false),
+            'redirect' => route('verification.notice', absolute: false),
         ]);
     }
 

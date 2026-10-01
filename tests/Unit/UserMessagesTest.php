@@ -53,6 +53,12 @@ class UserMessagesTest extends TestCase
             'moderation.contact_article',
             'cron.disabled',
             'cron.forbidden',
+            'verification.link_expired',
+            'verification.resent',
+            'verification.sent',
+            'verification.already',
+            'verification.verified',
+            'verification.throttled',
         ];
 
         foreach ($keys as $key) {

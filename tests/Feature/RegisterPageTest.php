@@ -80,16 +80,17 @@ class RegisterPageTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('verification_sent', true)
-            ->assertJsonPath('redirect', '/login');
+            ->assertJsonPath('redirect', '/email/verify');
 
         $user = User::where('email', 'alice-reg@example.com')->first();
         $this->assertNotNull($user);
 
         Notification::assertSentTo($user, VerifyEmail::class);
 
-        $this->get(route('login'))
+        $this->get(route('verification.notice'))
             ->assertOk()
-            ->assertSee('Registration successful', false);
+            ->assertSee('Registration successful', false)
+            ->assertSee('alice-reg@example.com', false);
 
         $advertiserRoleId = Role::where('name', 'advertiser')->value('id');
         $wallet = $user->wallets()->where('role_id', $advertiserRoleId)->first();

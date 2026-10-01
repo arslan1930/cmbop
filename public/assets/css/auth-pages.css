@@ -545,7 +545,7 @@ body.slb-marketing:has(.auth-page) {
 
 .auth-page #toastContainer,
 .toast-container {
-  z-index: 1200;
+  z-index: var(--shell-z-toast, 10000);
 }
 
 .auth-page .auth-input,
@@ -592,10 +592,15 @@ body.slb-marketing:has(.auth-page) {
   .auth-form-title {
     font-size: 1.5rem;
   }
-  /* Keep Create Account clear of the floating help FAB */
+  /* Keep Create Account / resend clear of the floating help FAB */
   .auth-cta,
-  .auth-secondary-btn {
+  .auth-secondary-btn,
+  #resendBtn {
     position: relative;
     z-index: 2;
+  }
+  #resendDiv {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.25rem;
   }
 }

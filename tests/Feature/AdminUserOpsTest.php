@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ActivityLog;
 use App\Models\Role;
 use App\Models\User;
+use App\Notifications\VerifyEmail;
 use App\Support\UserMessages;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -205,6 +206,42 @@ class AdminUserOpsTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_resend_verification_email(): void
+    {
+        Notification::fake();
+
+        $admin = $this->userWithRole('admin');
+        $member = $this->userWithRole('advertiser', [
+            'name' => 'Needs Verify',
+            'email' => 'needs.verify@example.com',
+            'email_verified_at' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.users.show', $member))
+            ->post(route('admin.users.resend-verification', $member))
+            ->assertRedirect()
+            ->assertSessionHas('success', 'Verification email sent to needs.verify@example.com.');
+
+        Notification::assertSentTo($member, VerifyEmail::class);
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'user.verification_resent',
+            'subject_id' => $member->id,
+        ]);
+
+        $verified = $this->userWithRole('publisher', [
+            'email' => 'already.ok@example.com',
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.users.show', $verified))
+            ->post(route('admin.users.resend-verification', $verified))
+            ->assertRedirect()
+            ->assertSessionHas('success', 'This email is already verified.');
+
+        Notification::assertNotSentTo($verified, VerifyEmail::class);
+    }
+
     public function test_cannot_suspend_self_or_another_admin(): void
     {
         $admin = $this->userWithRole('admin', [
@@ -278,7 +315,7 @@ class AdminUserOpsTest extends TestCase
             ->assertOk()
             ->assertSee('Catalog hidden')
             ->assertSee(route('admin.catalog-activity.show', $member), false)
-            ->assertSee(route('admin.community.index', ['tab' => 'problems', 'q' => $member->email]), false)
+            ->assertSee(e(route('admin.community.index', ['tab' => 'problems', 'q' => $member->email])), false)
             ->assertSee(route('admin.sites.index', ['publisher' => $member->id]), false)
             ->assertSee('btn-edit-company', false)
             ->assertSee('btn-edit-payout', false);

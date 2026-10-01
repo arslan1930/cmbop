@@ -5765,6 +5765,9 @@ function openCatalogSiteReport(button) {
                     }).then(async function (res) {
                         const data = await res.json().catch(function () { return {}; });
                         if (!res.ok || !data.success) {
+                            if (res.status === 429) {
+                                throw new Error(data.message || 'You sent several reports just now. Wait a minute and try again.');
+                            }
                             throw new Error(data.message || 'We could not remove that report.');
                         }
                         applyCatalogReported(siteId, '');
@@ -5804,6 +5807,9 @@ function openCatalogSiteReport(button) {
         }).then(async function (res) {
             const data = await res.json().catch(function () { return {}; });
             if (!res.ok || !data.success) {
+                if (res.status === 429) {
+                    throw new Error(data.message || 'You sent several reports just now. Wait a minute and try again.');
+                }
                 throw new Error(data.message || 'We could not submit that report.');
             }
             applyCatalogReported(siteId, data.report || result.value);

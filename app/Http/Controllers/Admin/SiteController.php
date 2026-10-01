@@ -16,6 +16,7 @@ use App\Models\InAppNotification;
 use App\Models\Language;
 use App\Models\Site;
 use App\Models\User;
+use App\Models\WebsiteSuggestion;
 use App\Services\ActivityLogger;
 use App\Services\CheckoutSchemaService;
 use App\Services\CommunityInboxNotifier;
@@ -27,6 +28,7 @@ use App\Services\SiteEnrichment\SiteEnrichmentService;
 use App\Services\SiteEnrichment\SiteMetricsAggregator;
 use App\Support\AdminSites;
 use App\Support\CatalogHealthQueue;
+use App\Support\CatalogProblemReport;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
 use App\Support\PublicStorageLink;
@@ -2615,6 +2617,8 @@ class SiteController extends Controller
         }
         $selectedPublisherId = (int) $rawSelectedPublisher;
 
+<<<<<<< HEAD
+=======
         $publishers = $this->publishersForStaffAssign($selectedPublisherId);
 
         $selectedPublisherUnverified = $selectedPublisherId > 0
@@ -2636,8 +2640,10 @@ class SiteController extends Controller
                 ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
                 : staff_route('sites.index'));
 
+>>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
         $prefillSiteName = CommunityInbox::plainLine($request->query('site_name'));
         $prefillSiteUrl = CommunityInbox::safeHttpUrl($request->query('site_url')) ?? '';
+        $prefillExampleUrl = CommunityInbox::safeHttpUrl($request->query('example_url')) ?? '';
         $prefillCountry = strtolower(search_text($request->query('country')));
         if (strlen($prefillCountry) !== 2) {
             $prefillCountry = '';
@@ -2647,6 +2653,52 @@ class SiteController extends Controller
             $prefillLanguage = '';
         }
         $suggestionId = CommunityInbox::suggestionIdFrom($request->query('suggestion_id'));
+        $prefillSuggestionNotes = '';
+        $occupyingListingUrl = null;
+
+        if ($suggestionId > 0) {
+            $suggestion = WebsiteSuggestion::query()->find($suggestionId);
+            if ($suggestion) {
+                $prefillSuggestionNotes = CommunityInbox::plainLine($suggestion->notes);
+                if ($prefillExampleUrl === '') {
+                    $suggestionUrl = CommunityInbox::safeHttpUrl($suggestion->website_url);
+                    if ($suggestionUrl) {
+                        $path = parse_url($suggestionUrl, PHP_URL_PATH);
+                        if (is_string($path) && $path !== '' && $path !== '/') {
+                            $prefillExampleUrl = $suggestionUrl;
+                        }
+                    }
+                }
+                $domain = CommunityInbox::suggestionLookupDomain($suggestion);
+                if ($domain !== '') {
+                    $occupying = Site::findOccupyingDomain($domain);
+                    if ($occupying) {
+                        $occupyingListingUrl = CatalogProblemReport::staffListingUrl($occupying, false);
+                        if ($selectedPublisherId <= 0) {
+                            $selectedPublisherId = (int) $occupying->publisher_id;
+                        }
+                    }
+                }
+            }
+        }
+
+        $publishers = $this->selectedPublishersForStaffAssign($selectedPublisherId);
+
+        $selectedPublisherUnverified = $selectedPublisherId > 0
+            && $publishers->contains(
+                fn (User $publisher) => (int) $publisher->id === $selectedPublisherId
+                    && ! $publisher->hasVerifiedEmail()
+            );
+
+        $languages = Language::marketplace()->orderBy('name')->get();
+        $countries = Country::marketplace()->orderBy('name')->get();
+        // Same A–Z niche list as Catalog main search filter.
+        $categories = Category::catalogPickerNames();
+        $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
+        $isMarketingEditor = $this->isMarketingEditor(auth()->user());
+        $sitesBackUrl = $selectedPublisherId > 0
+            ? staff_route('sites.index', ['publisher' => $selectedPublisherId], false)
+            : staff_route('sites.index', [], false);
 
         return view('admin.site-create', compact(
             'publishers',
@@ -2660,8 +2712,11 @@ class SiteController extends Controller
             'sitesBackUrl',
             'prefillSiteName',
             'prefillSiteUrl',
+            'prefillExampleUrl',
             'prefillCountry',
             'prefillLanguage',
+            'prefillSuggestionNotes',
+            'occupyingListingUrl',
             'suggestionId'
         ));
     }
@@ -2781,6 +2836,7 @@ class SiteController extends Controller
             'site_tag' => 'nullable|in:sponsored,partner_material,as_you_prefer,none',
             'written_request' => 'accepted',
             'suggestion_id' => 'nullable|integer',
+            'request_source' => 'nullable|string|max:120',
         ] + $this->placementOfferValidationRules(), array_merge($this->siteImageValidationMessages(), [
             'written_request.accepted' => 'Confirm you have a written request from this publisher’s account email.',
             'price.max' => 'Price must be at most €999,999.99.',
@@ -2797,6 +2853,11 @@ class SiteController extends Controller
 
             if (! $publisher) {
                 $validator->errors()->add('publisher_id', 'Choose a valid publisher account.');
+            } elseif (! $publisher->hasVerifiedEmail()) {
+                $validator->errors()->add(
+                    'publisher_id',
+                    'This publisher has not verified their email. They cannot Accept until they verify.'
+                );
             }
 
             $existing = $this->findSiteByDomain($domain);
@@ -3019,6 +3080,9 @@ class SiteController extends Controller
                     'assigned_by_user_id' => auth()->id(),
                     'domain' => $site->domain,
                     'written_request' => true,
+                    ...array_filter([
+                        'request_source' => CommunityInbox::plainLine($request->input('request_source')),
+                    ]),
                 ],
                 $site->site_name
             );
@@ -3059,13 +3123,24 @@ class SiteController extends Controller
             $redirectParams['site'] = $site->id;
         }
 
-        return redirect()
-            ->to(staff_route('sites.index', $redirectParams))
-            ->with('success', $success)
-            ->with('success_action', [
-                'url' => staff_route('sites.create', ['publisher' => $publisherId]),
+        $successActions = [
+            [
+                'url' => staff_route('sites.create', ['publisher' => $publisherId], false),
                 'label' => 'Add another for this publisher',
-            ]);
+            ],
+        ];
+        if ($site?->id) {
+            $successActions[] = [
+                'url' => staff_route('sites.edit', $site->id, false),
+                'label' => 'Edit listing',
+            ];
+        }
+
+        return redirect()
+            ->to(staff_route('sites.index', $redirectParams, false))
+            ->with('success', $success)
+            ->with('success_actions', $successActions)
+            ->with('success_action', $successActions[0]);
     }
 
     public function domainCheck(Request $request): JsonResponse
@@ -3084,6 +3159,7 @@ class SiteController extends Controller
         return response()->json([
             'available' => $existing === null,
             'domain' => $domain,
+            'listing_url' => $existing ? CatalogProblemReport::staffListingUrl($existing, false) : null,
             'message' => $existing
                 ? $this->domainAlreadyRegisteredMessage($existing)
                 : $domain.' is not registered yet.',
@@ -3103,12 +3179,92 @@ class SiteController extends Controller
 
         $query = Site::query()->where('publisher_id', $publisher->id)->orderBy('domain');
         $total = (clone $query)->count();
-        $domains = $query->limit(12)->pluck('domain')->filter()->values()->all();
+        $sites = $query->limit(12)->get(['id', 'domain', 'publisher_id']);
+        $domains = $sites->map(function (Site $site) {
+            return [
+                'domain' => (string) $site->domain,
+                'listing_url' => CatalogProblemReport::staffListingUrl($site, false),
+            ];
+        })->values()->all();
+
+        $userUrl = null;
+        try {
+            if (auth()->user()?->isAdmin()) {
+                $userUrl = route('admin.users.show', $publisher->id, false);
+            }
+        } catch (\Throwable) {
+            $userUrl = null;
+        }
 
         return response()->json([
             'domains' => $domains,
             'total' => $total,
+            'publisher' => [
+                'id' => $publisher->id,
+                'name' => $publisher->name,
+                'email' => $publisher->email,
+                'verified' => $publisher->hasVerifiedEmail(),
+                'sites_count' => $total,
+            ],
+            'sites_url' => staff_route('sites.index', ['publisher' => $publisher->id], false),
+            'user_url' => $userUrl,
         ]);
+    }
+
+    public function searchPublishers(Request $request): JsonResponse
+    {
+        $q = search_text($request->query('q'));
+        $selectedId = (int) $request->query('selected', $request->query('publisher', 0));
+
+        $query = $this->staffAssignPublisherBaseQuery()
+            ->whereEmailVerified()
+            ->withCount('sites');
+
+        if ($q !== '') {
+            $like = like_contains($q);
+            $query->where(function ($inner) use ($like) {
+                $inner->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
+                    ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\'])
+                    ->orWhereHas('sites', function ($sites) use ($like) {
+                        $sites->whereRaw('domain LIKE ? ESCAPE ?', [$like, '\\']);
+                    });
+            })->orderBy('name')->limit(20);
+        } else {
+            $query->orderByDesc('id')->limit(8);
+        }
+
+        $rows = $query->get();
+
+        if ($selectedId > 0 && ! $rows->contains(fn (User $user) => (int) $user->id === $selectedId)) {
+            $selected = $this->staffAssignPublisherBaseQuery()
+                ->whereKey($selectedId)
+                ->withCount('sites')
+                ->first();
+            if ($selected) {
+                $rows = $rows->prepend($selected);
+            }
+        }
+
+        $options = $rows->map(function (User $publisher) {
+            $count = (int) ($publisher->sites_count ?? 0);
+            $label = $publisher->name.' · '.$publisher->email;
+            if ($count > 0) {
+                $label .= ' ('.$count.' '.Str::plural('site', $count).')';
+            }
+            if (! $publisher->hasVerifiedEmail()) {
+                $label .= ' · unverified';
+            }
+
+            return [
+                'value' => (string) $publisher->id,
+                'label' => $label,
+                'data' => [
+                    'verified' => $publisher->hasVerifiedEmail() ? '1' : '0',
+                ],
+            ];
+        })->values()->all();
+
+        return response()->json(['options' => $options]);
     }
 
     public function lookupMetrics(Request $request, SiteMetricsAggregator $metrics): JsonResponse
@@ -3170,12 +3326,18 @@ class SiteController extends Controller
         }
         $selectedPublisherId = (int) $rawSelectedPublisher;
         $publishers = $this->publishersForStaffAssign($selectedPublisherId);
+<<<<<<< HEAD
+        $sitesBackUrl = $selectedPublisherId > 0
+            ? staff_route('sites.index', ['publisher' => $selectedPublisherId], false)
+            : staff_route('sites.index', [], false);
+=======
         $returnQuery = AdminSites::storedReturnQuery($request);
         $sitesBackUrl = $returnQuery !== []
             ? AdminSites::listUrl($returnQuery)
             : ($selectedPublisherId > 0
                 ? staff_route('sites.index', ['publisher' => $selectedPublisherId])
                 : staff_route('sites.index'));
+>>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
 
         return view('admin.site-bulk-create', compact('publishers', 'selectedPublisherId', 'sitesBackUrl'));
     }
@@ -4614,6 +4776,33 @@ class SiteController extends Controller
             ->get(['id', 'name', 'email', 'email_verified_at']);
     }
 
+    /**
+     * Create form only: selected publisher (if any). Typeahead loads the rest.
+     *
+     * @return Collection<int, User>
+     */
+    private function selectedPublishersForStaffAssign(int $selectedPublisherId)
+    {
+        if ($selectedPublisherId <= 0) {
+            return collect();
+        }
+
+        return $this->staffAssignPublisherBaseQuery()
+            ->whereKey($selectedPublisherId)
+            ->withCount('sites')
+            ->get();
+    }
+
+    /**
+     * @return Builder<User>
+     */
+    private function staffAssignPublisherBaseQuery()
+    {
+        return User::query()
+            ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
+            ->when(User::hasUsersColumn('suspended_at'), fn ($q) => $q->whereNull('suspended_at'));
+    }
+
     private function domainFromUrl(string $url): ?string
     {
         $host = parse_url($url, PHP_URL_HOST);
@@ -4639,19 +4828,6 @@ class SiteController extends Controller
                 $validator->errors()->add(
                     'price_homepage.'.$days,
                     'Enter a fee for the '.$days.'-day homepage offer, or leave it unchecked. Use 0 for free.'
-                );
-            }
-        }
-
-        foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
-            if (! $request->boolean('sensitive.'.$topic)) {
-                continue;
-            }
-            $raw = $request->input('price_sensitive.'.$topic);
-            if ($raw === null || (is_string($raw) && trim($raw) === '')) {
-                $validator->errors()->add(
-                    'price_sensitive.'.$topic,
-                    'Enter an extra price for '.$topic.', or leave it unchecked. Use 0 for none.'
                 );
             }
         }
