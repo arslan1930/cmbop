@@ -162,7 +162,12 @@ class CatalogLiveResultsEndpointTest extends TestCase
         foreach (['advertiser.catalog.results', 'advertiser.catalog.bulk-deals'] as $name) {
             $route = Route::getRoutes()->getByName($name);
             $this->assertNotNull($route, $name);
-            $this->assertContains('throttle:60,1', $route->gatherMiddleware(), $name);
+            $this->assertTrue(
+                collect($route->gatherMiddleware())->contains(
+                    fn ($middleware) => is_string($middleware) && str_starts_with($middleware, 'throttle:60,1')
+                ),
+                $name
+            );
         }
     }
 

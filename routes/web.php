@@ -53,6 +53,7 @@ use App\Http\Controllers\Advertiser\SiteUrlRevealController;
 use App\Http\Controllers\Advertiser\SiteVisitController;
 use App\Http\Controllers\Advertiser\WebsiteSuggestionController;
 use App\Http\Controllers\AnnouncementClickController;
+use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -110,14 +111,11 @@ use App\Support\RomanianMoneyLanders;
 use App\Support\SpanishMoneyLanders;
 use App\Support\SwissMoneyLanders;
 use App\Support\WelcomeBonusCopy;
-use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Validator;
 
 /*
 |--------------------------------------------------------------------------
@@ -1117,47 +1115,15 @@ Route::post('/reset-password', [ResetPasswordController::class, 'update'])
     ->middleware('throttle:password-update')
     ->name('password.update');
 
-// Email Verification Notice (user can see this page if they are logged in)
-Route::get('/email/verify', function () {
-    return view('auth.verify-email');
-})->middleware('auth')->name('verification.notice');
+// Email verification notice — public so expired-link users can resend without signing in.
+Route::get('/email/verify', [EmailVerificationController::class, 'notice'])
+    ->name('verification.notice');
 
 // Email verification link (no auth required — user clicks from email)
 // Must stay public: signup does not log the user in before they verify.
-Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
-    // Relative signature — host/scheme must not be part of the HMAC (email
-    // links are prefixed with a public origin that may differ from APP_URL).
-    // Ignore tracker params email clients often append (utm_*, fbclid, …).
-    if (! $request->hasValidRelativeSignatureWhileIgnoring(signed_url_ignored_query_params())) {
-        return redirect('/login')->with(
-            'error',
-            'This verification link is invalid or has expired. Please sign in and resend a new verification email, or use “Resend verification” on the login page.'
-        );
-    }
-
-    $user = User::findOrFail($id);
-
-    if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
-        abort(403, 'Invalid verification link.');
-    }
-
-    if (! $user->hasVerifiedEmail()) {
-        $user->markEmailAsVerified();
-        event(new Verified($user));
-    }
-
-    // Do not auto-login — send the user to sign in manually after verify.
-    if (Auth::check()) {
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-    }
-
-    return redirect('/login')->with(
-        'message',
-        'Email verified successfully. Please sign in to continue.'
-    );
-})->middleware('throttle:6,1')->name('verification.verify');
+Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+    ->middleware('throttle:email-verify-click')
+    ->name('verification.verify');
 
 // Marketing unsubscribe (signed GET confirm + POST one-click). Same route name
 // so one signature works for both methods. CSRF is excepted for Gmail POSTs.
@@ -1166,54 +1132,15 @@ Route::match(['get', 'post'], '/email/unsubscribe/{user}', EmailUnsubscribeContr
     ->middleware('throttle:30,1')
     ->name('email.unsubscribe');
 
-// Resend verification email (requires login)
-Route::post('/email/verification-notification', function (Request $request) {
-    $request->user()->sendEmailVerificationNotification();
+// Resend verification email (requires login — leftover sessions only)
+Route::post('/email/verification-notification', [EmailVerificationController::class, 'send'])
+    ->middleware(['auth', 'throttle:email-verify-send'])
+    ->name('verification.send');
 
-    return back()->with('message', 'Verification link sent!');
-})->middleware(['auth', 'throttle:6,1'])->name('verification.send');
-
-// ✅ NEW: Resend verification WITHOUT login (AJAX)
-Route::post('/email/resend', function (Request $request) {
-    $validator = Validator::make($request->all(), [
-        'email' => 'required|email',
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'status' => 'validation',
-            'message' => function_exists('user_message')
-                ? user_message('register.validation', 'Please fix the highlighted fields and try again.')
-                : 'Please fix the highlighted fields and try again.',
-            'errors' => $validator->errors(),
-        ], 422);
-    }
-
-    try {
-        $user = class_exists(User::class)
-            ? User::where('email', $request->email)->first()
-            : null;
-
-        if ($user && method_exists($user, 'hasVerifiedEmail') && ! $user->hasVerifiedEmail()
-            && method_exists($user, 'sendEmailVerificationNotification')) {
-            $user->sendEmailVerificationNotification();
-        }
-    } catch (Throwable $e) {
-        Log::error('Verification resend failed', ['error' => $e->getMessage()]);
-
-        return response()->json([
-            'status' => 'error',
-            'message' => function_exists('user_message')
-                ? user_message('generic.retry', 'Something went wrong. Please try again.')
-                : 'Something went wrong. Please try again.',
-        ], 503);
-    }
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Verification email resent successfully.',
-    ]);
-})->middleware('throttle:3,1')->name('verification.resend');
+// Guest resend (login AJAX + verify-notice form). Enumeration-safe.
+Route::post('/email/resend', [EmailVerificationController::class, 'resend'])
+    ->middleware('throttle:email-verify-resend')
+    ->name('verification.resend');
 
 // ✅ NEW: Role Switch (Dropdown) Route
 Route::post('/switch-role', [RoleController::class, 'switchRole'])
@@ -1232,6 +1159,9 @@ $registerStaffOpsRoutes = function () {
         ->name('sites.domain-check');
     Route::get('/sites/publisher-domains', [AdminSiteController::class, 'publisherDomains'])
         ->name('sites.publisher-domains');
+    Route::get('/sites/publishers-search', [AdminSiteController::class, 'searchPublishers'])
+        ->middleware('throttle:30,1')
+        ->name('sites.publishers-search');
     Route::post('/sites/lookup-metrics', [AdminSiteController::class, 'lookupMetrics'])
         ->middleware('throttle:20,1')
         ->name('sites.lookup-metrics');
@@ -1719,45 +1649,45 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
 
         // Typeahead for the main search box — JSON only, never a full page.
         Route::get('/catalog/suggest', [CatalogListingController::class, 'suggest'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:60,1,catalog-suggest')
             ->name('catalog.suggest');
 
         // Live search / filter results fragment (HTML partial, same query as index).
         Route::get('/catalog/results', [CatalogListingController::class, 'results'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:60,1,catalog-results')
             ->name('catalog.results');
 
         // Bulk deals rail fragment — follows country= like the listing (Option 1).
         Route::get('/catalog/bulk-deals', [CatalogListingController::class, 'bulkDeals'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:60,1,catalog-bulk-deals')
             ->name('catalog.bulk-deals');
 
         // One publisher domain per request. Throttled on top of the daily
         // allowance so a script cannot burn a funded account's unlimited quota
         // faster than a person could click.
         Route::get('/catalog/sites/{site}/favicon', CatalogFaviconController::class)
-            ->middleware('throttle:180,1')
+            ->middleware('throttle:180,1,catalog-favicon')
             ->whereNumber('site')
             ->name('catalog.favicon');
 
         Route::post('/catalog/sites/{site}/reveal-url', SiteUrlRevealController::class)
-            ->middleware('throttle:120,1')
+            ->middleware('throttle:120,1,catalog-reveal-url')
             ->name('catalog.reveal-url');
 
         // Hide sticks across reloads; the disclosure row is kept for audit/pace.
         Route::post('/catalog/sites/{site}/hide-url', SiteUrlConcealController::class)
-            ->middleware('throttle:120,1')
+            ->middleware('throttle:120,1,catalog-hide-url')
             ->name('catalog.hide-url');
 
         // Clipboard copies of URL/domain identity → strike ladder (warn → 24h hide).
         Route::post('/catalog/copy-track', CatalogCopyTrackController::class)
-            ->middleware('throttle:180,1')
+            ->middleware('throttle:180,1,catalog-copy-track')
             ->name('catalog.copy-track');
 
         // Opening a site goes through us so the listing can offer "Open site"
         // without the domain ever appearing in the page.
         Route::get('/go/{site}', SiteVisitController::class)
-            ->middleware('throttle:120,1')
+            ->middleware('throttle:120,1,catalog-visit')
             ->name('catalog.visit');
 
         // Suggest a website missing from the catalog
@@ -1785,10 +1715,10 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::post('/catalog/sites/{site}/note', [CatalogController::class, 'saveSiteNote'])
             ->name('catalog.site-note');
         Route::post('/catalog/sites/{site}/report', [CatalogController::class, 'reportSite'])
-            ->middleware('throttle:10,1')
+            ->middleware('throttle:catalog-site-report')
             ->name('catalog.site-report');
         Route::delete('/catalog/sites/{site}/report', [CatalogController::class, 'deleteSiteReport'])
-            ->middleware('throttle:10,1')
+            ->middleware('throttle:catalog-site-report')
             ->name('catalog.site-report.delete');
 
         // Dedicated Saved Sites manager (favorites + blacklist)

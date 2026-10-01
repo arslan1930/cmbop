@@ -359,7 +359,7 @@ class CommunityInbox
     /**
      * Query string to prefill staff site-create from a website suggestion.
      *
-     * @return array{site_name?: string, site_url?: string, country?: string, language?: string, suggestion_id: int}
+     * @return array{site_name?: string, site_url?: string, example_url?: string, country?: string, language?: string, suggestion_id: int}
      */
     public static function createListingQuery(WebsiteSuggestion $suggestion): array
     {
@@ -370,7 +370,18 @@ class CommunityInbox
         }
         $url = self::safeHttpUrl($suggestion->website_url);
         if ($url) {
-            $params['site_url'] = $url;
+            $parts = parse_url($url);
+            $scheme = is_string($parts['scheme'] ?? null) ? $parts['scheme'] : '';
+            $host = is_string($parts['host'] ?? null) ? $parts['host'] : '';
+            $path = is_string($parts['path'] ?? null) ? $parts['path'] : '';
+            if ($scheme !== '' && $host !== '') {
+                $params['site_url'] = $scheme.'://'.$host;
+                if ($path !== '' && $path !== '/') {
+                    $params['example_url'] = $url;
+                }
+            } else {
+                $params['site_url'] = $url;
+            }
         }
         $country = strtolower(search_text($suggestion->country));
         if (strlen($country) === 2) {

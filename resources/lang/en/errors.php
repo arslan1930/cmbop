@@ -34,6 +34,15 @@ return [
         'unavailable' => 'This action is temporarily unavailable. Please try again later.',
     ],
 
+    'verification' => [
+        'link_expired' => 'This verification link is invalid or has expired. Enter your email below to request a new one.',
+        'resent' => 'If that email is registered and still unverified, a new link is on its way.',
+        'sent' => 'A new verification link has been sent to your email address.',
+        'already' => 'This email is already verified. Please sign in.',
+        'verified' => 'Email verified successfully. Please sign in to continue.',
+        'throttled' => 'Too many verification emails. Please wait a minute and try again.',
+    ],
+
     'oauth' => [
         'unavailable' => 'Google sign-in is not available. Please use email and password.',
         'temporary' => 'Google sign-in is temporarily unavailable. Please try again or use email and password.',

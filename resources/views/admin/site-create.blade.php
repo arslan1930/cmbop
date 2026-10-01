@@ -12,9 +12,15 @@
     $sitesBackUrl = $sitesBackUrl ?? staff_route('sites.index');
     $prefillSiteName = $prefillSiteName ?? '';
     $prefillSiteUrl = $prefillSiteUrl ?? '';
+    $prefillExampleUrl = $prefillExampleUrl ?? '';
     $prefillCountry = $prefillCountry ?? '';
     $prefillLanguage = $prefillLanguage ?? '';
+    $prefillSuggestionNotes = $prefillSuggestionNotes ?? '';
+    $occupyingListingUrl = $occupyingListingUrl ?? null;
     $suggestionId = (int) ($suggestionId ?? 0);
+    $bulkCreateUrl = staff_route('sites.bulk-create', array_filter([
+        'publisher' => $selectedPublisherId > 0 ? $selectedPublisherId : null,
+    ]), false);
     $rawNiches = old('categories', []);
     if (! is_string($rawNiches) && ! is_iterable($rawNiches)) {
         $rawNiches = [];
@@ -33,103 +39,158 @@
         ->values()
         ->all();
 @endphp
-<div class="container-fluid py-3">
+<div class="container-fluid py-3 staff-assign-site">
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
             <h4 class="mb-1 fw-bold">Add site for publisher</h4>
-            <p class="text-muted mb-0 small">
-                Create a listing with core details plus optional homepage, social, and sensitive-topic prices. The publisher gets email + bell and must Accept it into My Sites.
-                @if($isMarketingEditor)
-                    After Accept, admin verifies first (TXT badge). You Activate only after that — and only if DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}, and a marketplace country is set.
-                @else
-                    After Accept, verify (TXT badge) before Activate. Accept ≠ Verified, and catalog Activate is not automatic.
-                @endif
-                See the <a href="{{ staff_route('staff-handbook') }}">{{ __('messages.staff_handbook_title') }}</a>.
-            </p>
         </div>
-        <a href="{{ $sitesBackUrl }}" class="btn btn-sm btn-outline-secondary">← Back to Sites</a>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ $bulkCreateUrl }}" class="btn btn-sm btn-outline-secondary">CSV bulk create</a>
+            <a href="{{ $sitesBackUrl }}" class="btn btn-sm btn-outline-secondary">← Back to Sites</a>
+        </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
-        <div class="card-body">
-            <form method="POST" action="{{ staff_route('sites.store', [], false) }}" enctype="multipart/form-data" id="staffAssignSiteForm" class="admin-deposits-filters" data-admin-filter-live="1">
-                @csrf
-                @if((int) old_text('suggestion_id', $suggestionId) > 0)
-                    <input type="hidden" name="suggestion_id" value="{{ (int) old_text('suggestion_id', $suggestionId) }}">
-                    <div class="alert alert-info border-0 py-2 px-3 small mb-3">
-                        Prefilling from website suggestion #{{ (int) old_text('suggestion_id', $suggestionId) }}. Saving this listing will mark that suggestion accepted.
-                    </div>
-                @endif
+    <div class="staff-sites-strip mb-2" aria-label="Listing pipeline">
+        @foreach(['Invite', 'Accept', 'Verify', 'Activate'] as $stepIndex => $stepLabel)
+            <div class="staff-sites-strip__cell {{ $stepIndex === 0 ? 'is-active' : '' }}">
+                <span class="staff-sites-strip__count">{{ $stepIndex + 1 }}</span>
+                <span class="staff-sites-strip__label">{{ $stepLabel }}</span>
+            </div>
+        @endforeach
+    </div>
+    <p class="small text-muted mb-3 staff-sites-strip-hint">
+        Saving starts <strong>Invite</strong> only. The publisher must Accept, then
+        @if($isMarketingEditor)
+            admin verifies first (TXT badge). You Activate only after that — and only if DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}, and a marketplace country is set.
+        @else
+            verify (TXT badge) before Activate. Accept ≠ Verified, and catalog Activate is not automatic.
+        @endif
+        See the <a href="{{ staff_route('staff-handbook', [], false) }}">{{ __('messages.staff_handbook_title') }}</a>.
+        Many sites for one publisher? Use <a href="{{ $bulkCreateUrl }}">CSV bulk create</a>.
+    </p>
 
+    @if(filled($occupyingListingUrl))
+        <div class="alert alert-warning border-0 py-2 px-3 small mb-3" role="status">
+            This domain is already in the catalog.
+            <a href="{{ $occupyingListingUrl }}" class="alert-link">Open listing</a>
+            instead of creating a duplicate.
+        </div>
+    @endif
+
+    @if($prefillSuggestionNotes !== '')
+        <div class="alert alert-secondary border-0 py-2 px-3 small mb-3" role="note">
+            <strong class="d-block mb-1">Suggester notes</strong>
+            {{ $prefillSuggestionNotes }}
+        </div>
+    @endif
+
+    <form method="POST" action="{{ staff_route('sites.store', [], false) }}" enctype="multipart/form-data"
+          id="staffAssignSiteForm"
+          class="staff-assign-site-form admin-deposits-filters"
+          data-admin-filter-live="1"
+          data-admin-select-no-submit="1">
+        @csrf
+        @if((int) old_text('suggestion_id', $suggestionId) > 0)
+            <input type="hidden" name="suggestion_id" value="{{ (int) old_text('suggestion_id', $suggestionId) }}">
+            <div class="alert alert-info border-0 py-2 px-3 small mb-3">
+                Prefilling from website suggestion #{{ (int) old_text('suggestion_id', $suggestionId) }}. Saving this listing will mark that suggestion accepted.
+            </div>
+        @endif
+
+        <div class="card border-0 shadow-sm mb-3 staff-assign-site-section">
+            <div class="card-body">
+                <h5 class="fw-semibold mb-3">Publisher</h5>
+                <label class="form-label fw-semibold" for="publisher_id">Publisher <span class="text-danger">*</span></label>
+                <select id="publisher_id" name="publisher_id" class="form-select @error('publisher_id') is-invalid @enderror" required
+                        data-admin-select-search="1"
+                        data-admin-select-search-url="{{ staff_route('sites.publishers-search', [], false) }}"
+                        data-admin-select-search-label="Search publishers by name, email, or domain"
+                        data-admin-select-search-empty="No publishers match"
+                        data-admin-select-placeholder="Select publisher…">
+                    <option value="">Select publisher…</option>
+                    @foreach($publishers as $publisher)
+                        <option value="{{ $publisher->id }}"
+                            data-verified="{{ $publisher->hasVerifiedEmail() ? '1' : '0' }}"
+                            @selected((int) old_text('publisher_id', $selectedPublisherId) === (int) $publisher->id)>
+                            {{ $publisher->name }} · {{ $publisher->email }}
+                            @if((int) ($publisher->sites_count ?? 0) > 0)
+                                ({{ (int) $publisher->sites_count }} {{ \Illuminate\Support\Str::plural('site', (int) $publisher->sites_count) }})
+                            @endif
+                            @if(! $publisher->hasVerifiedEmail())
+                                · unverified
+                            @endif
+                        </option>
+                    @endforeach
+                </select>
+                <div class="form-text">Type a name, email, or domain to find a verified-email publisher. Suspended accounts are left out.</div>
+                <div class="staff-assign-publisher-dossier mt-2 d-none" id="publisherDossier">
+                    <div class="small mb-1" id="publisherDossierMeta"></div>
+                    <div class="small text-muted" id="publisherDomains"></div>
+                </div>
+                <div class="alert alert-warning border-0 py-2 px-3 small mb-0 mt-2 {{ $selectedPublisherUnverified ? '' : 'd-none' }}" id="unverifiedPublisherWarn" role="status">
+                    This publisher has not verified their email. They cannot log in to Accept the invite until they verify. Choose a verified publisher before saving.
+                </div>
+                @error('publisher_id')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3 staff-assign-site-section">
+            <div class="card-body">
+                <h5 class="fw-semibold mb-3">Listing URLs</h5>
                 <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label fw-semibold" for="publisher_id">Publisher <span class="text-danger">*</span></label>
-                        <select id="publisher_id" name="publisher_id" class="form-select @error('publisher_id') is-invalid @enderror" required
-                                data-admin-select-search="1"
-                                data-admin-select-search-label="Search publishers by name or email"
-                                data-admin-select-search-empty="No publishers match">
-                            <option value="">Select publisher…</option>
-                            @foreach($publishers as $publisher)
-                                <option value="{{ $publisher->id }}"
-                                    data-verified="{{ filled($publisher->email_verified_at) ? '1' : '0' }}"
-                                    @selected((int) old_text('publisher_id', $selectedPublisherId) === (int) $publisher->id)>
-                                    {{ $publisher->name }} · {{ $publisher->email }}
-                                    @if((int) ($publisher->sites_count ?? 0) > 0)
-                                        ({{ (int) $publisher->sites_count }} {{ \Illuminate\Support\Str::plural('site', (int) $publisher->sites_count) }})
-                                    @endif
-                                    @if(blank($publisher->email_verified_at))
-                                        · unverified
-                                    @endif
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="form-text">Verified-email publishers only. Suspended accounts are left out. An unverified account from the URL still appears with a warning.</div>
-                        <div class="small text-muted mt-2 d-none" id="publisherDomains"></div>
-                        <div class="alert alert-warning border-0 py-2 px-3 small mb-0 mt-2 {{ $selectedPublisherUnverified ? '' : 'd-none' }}" id="unverifiedPublisherWarn" role="status">
-                            This publisher has not verified their email. They cannot log in to Accept the invite until they verify.
-                        </div>
-                        @error('publisher_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    </div>
-
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="site_name">Site name <span class="text-danger">*</span></label>
                         <input type="text" id="site_name" name="site_name" class="form-control @error('site_name') is-invalid @enderror"
                                value="{{ old_text('site_name', $prefillSiteName) }}" required maxlength="255">
+                        <div class="form-text">
+                            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" id="fillNameFromUrlBtn">Fill name from URL</button>
+                        </div>
                         @error('site_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="site_url">Site URL <span class="text-danger">*</span></label>
                         <input type="text" id="site_url" name="site_url" class="form-control @error('site_url') is-invalid @enderror"
                                value="{{ old_text('site_url', $prefillSiteUrl) }}" required placeholder="https://example.com">
+                        <div class="form-text" id="siteUrlCanonical"></div>
                         <div class="form-text" id="siteUrlStatus" role="status"></div>
                         @error('site_url')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
-
-                    <div class="col-md-6">
+                    <div class="col-12">
                         <label class="form-label fw-semibold" for="example_url">Example post URL <span class="text-danger">*</span></label>
                         <input type="text" id="example_url" name="example_url" class="form-control @error('example_url') is-invalid @enderror"
-                               value="{{ old_text('example_url') }}" required placeholder="https://example.com/sample-post">
-                        <div class="form-text">Must be on the same domain as the site URL.</div>
+                               value="{{ old_text('example_url', $prefillExampleUrl) }}" required placeholder="https://example.com/sample-post">
+                        <div class="form-text">
+                            Must be on the same domain as the site URL.
+                            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" id="fillExampleFromUrlBtn">Use origin/sample-post</button>
+                        </div>
                         @error('example_url')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3 staff-assign-site-section">
+            <div class="card-body">
+                <h5 class="fw-semibold mb-3">Metrics &amp; market</h5>
+                <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="price">Price (€) <span class="text-danger">*</span></label>
                         <input type="number" id="price" name="price" class="form-control @error('price') is-invalid @enderror"
                                min="0" step="0.01" required value="{{ old_text('price') }}">
                         @error('price')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
-
+                    <div class="col-md-6 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary staff-assign-lookup" id="lookupMetricsBtn">
+                            Look up metrics
+                        </button>
+                    </div>
                     <div class="col-md-4">
-                        <div class="d-flex justify-content-between align-items-center gap-2">
-                            <label class="form-label fw-semibold mb-0" for="da">DA <span class="text-danger">*</span></label>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="lookupMetricsBtn">Look up metrics</button>
-                        </div>
+                        <label class="form-label fw-semibold" for="da">DA <span class="text-danger">*</span></label>
                         <input type="number" id="da" name="da" class="form-control @error('da') is-invalid @enderror"
                                min="0" max="100" step="1" inputmode="numeric" required
                                placeholder="0–100" value="{{ old_text('da') }}">
                         <div class="form-text">Domain Authority (0–100). Whole numbers only.</div>
-                        <div class="form-text" id="metricsStatus" role="status"></div>
                         @error('da')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-4">
@@ -149,6 +210,7 @@
                         @error('traffic')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-12">
+                        <div class="form-text mb-0" id="metricsStatus" role="status"></div>
                         <div class="form-text mb-0" id="qualityBarStatic"
                              data-min-da="{{ \App\Models\Site::GOOD_MIN_DA }}"
                              data-min-dr="{{ \App\Models\Site::GOOD_MIN_DR }}"
@@ -162,7 +224,10 @@
 
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="country">Country <span class="text-danger">*</span></label>
-                        <select id="country" name="country" class="form-select @error('country') is-invalid @enderror" required>
+                        <select id="country" name="country" class="form-select @error('country') is-invalid @enderror" required
+                                data-admin-select-search="1"
+                                data-admin-select-search-label="Search countries"
+                                data-admin-select-search-empty="No countries match">
                             <option value="">Select…</option>
                             @foreach($countries as $country)
                                 <option value="{{ strtolower($country->code) }}"
@@ -176,7 +241,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="language">Language <span class="text-danger">*</span></label>
-                        <input type="hidden" name="language" id="selectedLanguage" value="{{ old_text('language', $prefillLanguage) }}">
+                        <input type="hidden" id="selectedLanguage" value="{{ old_text('language', $prefillLanguage) }}">
                         <select id="language" name="language" class="form-select @error('language') is-invalid @enderror" required>
                             <option value="">{{ old_text('country', $prefillCountry) !== '' ? 'Select…' : 'Select country first' }}</option>
                             @foreach($languages as $language)
@@ -274,105 +339,117 @@
                             'required' => true,
                         ])
                     </div>
-
-                    @php
-                        $homepageDays = config('site_placement.homepage_days', [1, 7, 30]);
-                        $hasSensitiveOld = collect(['crypto','trading','CBD','forex'])->contains(function ($t) {
-                            $flag = old("sensitive.$t");
-                            $price = old("price_sensitive.$t");
-                            return ($flag !== null && $flag !== '' && $flag !== [])
-                                || ($price !== null && $price !== '' && $price !== []);
-                        });
-                    @endphp
-                    <div class="col-12">
-                        <input type="hidden" name="placement_offers_form" value="1">
-                        <div class="border rounded p-3 bg-light">
-                            <p class="fw-semibold mb-1">Homepage &amp; social promotions (optional)</p>
-                            <p class="small text-muted mb-3">Advertisers see these in catalog Site Details. Leave unchecked to hide the offer.</p>
-                            <p class="fw-semibold small mb-2">Homepage placement</p>
-                            <div class="d-flex flex-wrap gap-3 mb-3">
-                                @foreach($homepageDays as $days)
-                                    <div style="min-width:140px;">
-                                        <div class="form-check">
-                                            <input type="checkbox" name="homepage[{{ $days }}]" value="1"
-                                                   class="form-check-input" id="staffHomepage{{ $days }}"
-                                                   {{ old("homepage.$days") ? 'checked' : '' }}>
-                                            <label class="form-check-label" for="staffHomepage{{ $days }}">{{ $days }} day{{ $days > 1 ? 's' : '' }}</label>
-                                        </div>
-                                        <input type="number" name="price_homepage[{{ $days }}]" class="form-control mt-1 @error('price_homepage.'.$days) is-invalid @enderror"
-                                               placeholder="Fee (€) — 0 = Free" min="0" step="0.01" inputmode="decimal"
-                                               value="{{ old_text('price_homepage.'.$days) }}">
-                                        @error('price_homepage.'.$days)<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                    </div>
-                                @endforeach
-                            </div>
-                            <p class="fw-semibold small mb-2">Social media sharing (always free)</p>
-                            <div class="d-flex flex-wrap gap-3">
-                                @foreach(['facebook' => 'Facebook', 'instagram' => 'Instagram', 'x' => 'X'] as $channel => $label)
-                                    <div class="form-check">
-                                        <input type="checkbox" name="social[{{ $channel }}]" value="1"
-                                               class="form-check-input" id="staffSocial{{ ucfirst($channel) }}"
-                                               {{ old("social.$channel") ? 'checked' : '' }}>
-                                        <label class="form-check-label" for="staffSocial{{ ucfirst($channel) }}">{{ $label }}</label>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12">
-                        <button type="button"
-                                class="disclosure-toggle"
-                                id="sensitiveDisclosureBtn"
-                                aria-expanded="{{ $hasSensitiveOld ? 'true' : 'false' }}"
-                                aria-controls="sensitiveDisclosurePanel">
-                            <i class="fa fa-chevron-{{ $hasSensitiveOld ? 'down' : 'right' }}" aria-hidden="true"></i>
-                            Sensitive topics (optional)
-                        </button>
-                        <p class="small text-muted mb-0 mt-1">Only open if this publisher accepts crypto, trading, CBD, or forex. Checked + blank extra = €0 surcharge.</p>
-                        <div class="disclosure-panel" id="sensitiveDisclosurePanel" @unless($hasSensitiveOld) hidden @endunless>
-                            <div class="row bg-light p-3 rounded mt-2">
-                                <div class="col-12">
-                                    <div class="d-flex flex-wrap gap-3">
-                                        @foreach(['crypto','trading','CBD','forex'] as $topic)
-                                        <div class="me-3">
-                                            <div class="form-check">
-                                                <input type="checkbox" name="sensitive[{{ $topic }}]" value="1" class="form-check-input" id="sensitive{{ $topic }}" {{ old("sensitive.$topic") ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="sensitive{{ $topic }}">{{ ucfirst($topic) }}</label>
-                                            </div>
-                                            <input type="number" name="price_sensitive[{{ $topic }}]" class="form-control mt-1 @error('price_sensitive.'.$topic) is-invalid @enderror" placeholder="Extra (€) — 0 = none" value="{{ old_text('price_sensitive.'.$topic) }}" min="0" step="0.01">
-                                            @error('price_sensitive.'.$topic)<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                        </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12">
-                        <div class="form-check">
-                            <input class="form-check-input @error('written_request') is-invalid @enderror"
-                                   type="checkbox" name="written_request" id="written_request" value="1"
-                                   @checked(old('written_request')) required>
-                            <label class="form-check-label" for="written_request">
-                                I have a written request from this publisher’s account email
-                            </label>
-                        </div>
-                        <div class="form-text">Handbook: only after a ticket, email, or in-product chat from that account.</div>
-                        @error('written_request')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                    </div>
                 </div>
-
-                <div class="d-flex flex-wrap gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fa fa-plus me-1"></i> Add site &amp; notify publisher
-                    </button>
-                    <a href="{{ $sitesBackUrl }}" class="btn btn-outline-secondary">Cancel</a>
-                </div>
-            </form>
+            </div>
         </div>
-    </div>
+
+        @php
+            $homepageDays = config('site_placement.homepage_days', [1, 7, 30]);
+            $hasSensitiveOld = collect(['crypto','trading','CBD','forex'])->contains(function ($t) {
+                $flag = old("sensitive.$t");
+                $price = old("price_sensitive.$t");
+                return ($flag !== null && $flag !== '' && $flag !== [])
+                    || ($price !== null && $price !== '' && $price !== []);
+            });
+        @endphp
+        <div class="card border-0 shadow-sm mb-3 staff-assign-site-section">
+            <div class="card-body">
+                <h5 class="fw-semibold mb-1">Placement extras</h5>
+                <p class="small text-muted mb-3">Shown in catalog Site Details. Leave unchecked to hide the offer. Fee 0 = free (homepage) or no extra (sensitive topics). Social sharing is always free.</p>
+                <input type="hidden" name="placement_offers_form" value="1">
+                <p class="fw-semibold small mb-2">Homepage placement</p>
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    @foreach($homepageDays as $days)
+                        <div style="min-width:140px;">
+                            <div class="form-check">
+                                <input type="checkbox" name="homepage[{{ $days }}]" value="1"
+                                       class="form-check-input staff-assign-fee-toggle" id="staffHomepage{{ $days }}"
+                                       data-fee-input="price_homepage[{{ $days }}]"
+                                       {{ old("homepage.$days") ? 'checked' : '' }}>
+                                <label class="form-check-label" for="staffHomepage{{ $days }}">{{ $days }} day{{ $days > 1 ? 's' : '' }}</label>
+                            </div>
+                            <input type="number" name="price_homepage[{{ $days }}]" class="form-control mt-1 @error('price_homepage.'.$days) is-invalid @enderror"
+                                   placeholder="Fee (€) — 0 = Free" min="0" step="0.01" inputmode="decimal"
+                                   value="{{ old_text('price_homepage.'.$days) }}">
+                            @error('price_homepage.'.$days)<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                    @endforeach
+                </div>
+                <p class="fw-semibold small mb-2">Social media sharing (always free)</p>
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    @foreach(['facebook' => 'Facebook', 'instagram' => 'Instagram', 'x' => 'X'] as $channel => $label)
+                        <div class="form-check">
+                            <input type="checkbox" name="social[{{ $channel }}]" value="1"
+                                   class="form-check-input" id="staffSocial{{ ucfirst($channel) }}"
+                                   {{ old("social.$channel") ? 'checked' : '' }}>
+                            <label class="form-check-label" for="staffSocial{{ ucfirst($channel) }}">{{ $label }}</label>
+                        </div>
+                    @endforeach
+                </div>
+                <button type="button"
+                        class="disclosure-toggle"
+                        id="sensitiveDisclosureBtn"
+                        aria-expanded="{{ $hasSensitiveOld ? 'true' : 'false' }}"
+                        aria-controls="sensitiveDisclosurePanel">
+                    <i class="fa fa-chevron-{{ $hasSensitiveOld ? 'down' : 'right' }}" aria-hidden="true"></i>
+                    Sensitive topics (optional)
+                </button>
+                <p class="small text-muted mb-0 mt-1">Only open if this publisher accepts crypto, trading, CBD, or forex. Checked + blank extra fills as €0.</p>
+                <div class="disclosure-panel" id="sensitiveDisclosurePanel" @unless($hasSensitiveOld) hidden @endunless>
+                    <div class="row bg-light p-3 rounded mt-2">
+                        <div class="col-12">
+                            <div class="d-flex flex-wrap gap-3">
+                                @foreach(['crypto','trading','CBD','forex'] as $topic)
+                                <div class="me-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="sensitive[{{ $topic }}]" value="1"
+                                               class="form-check-input staff-assign-fee-toggle" id="sensitive{{ $topic }}"
+                                               data-fee-input="price_sensitive[{{ $topic }}]"
+                                               {{ old("sensitive.$topic") ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="sensitive{{ $topic }}">{{ ucfirst($topic) }}</label>
+                                    </div>
+                                    <input type="number" name="price_sensitive[{{ $topic }}]" class="form-control mt-1 @error('price_sensitive.'.$topic) is-invalid @enderror" placeholder="Extra (€) — 0 = none" value="{{ old_text('price_sensitive.'.$topic) }}" min="0" step="0.01">
+                                    @error('price_sensitive.'.$topic)<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3 staff-assign-site-section">
+            <div class="card-body">
+                <h5 class="fw-semibold mb-3">Written request</h5>
+                <div class="form-check">
+                    <input class="form-check-input @error('written_request') is-invalid @enderror"
+                           type="checkbox" name="written_request" id="written_request" value="1"
+                           @checked(old('written_request')) required>
+                    <label class="form-check-label" for="written_request">
+                        I have a written request from this publisher’s account email
+                    </label>
+                </div>
+                <div class="form-text mb-3">Handbook: only after a ticket, email, or in-product chat from that account.</div>
+                @error('written_request')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                <label class="form-label fw-semibold" for="request_source">Request source <span class="text-muted fw-normal">(optional)</span></label>
+                <input type="text" id="request_source" name="request_source" class="form-control" maxlength="120"
+                       value="{{ old_text('request_source') }}"
+                       placeholder="Ticket #, email subject, or chat date">
+                <div class="form-text">Stored on the activity log only — not shown to the publisher.</div>
+            </div>
+        </div>
+
+        <div class="staff-assign-site-save">
+            <div class="d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-primary" id="assignSubmitBtn"
+                        @disabled($selectedPublisherUnverified)>
+                    <i class="fa fa-plus me-1"></i> Add site &amp; notify publisher
+                </button>
+                <a href="{{ $sitesBackUrl }}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </div>
+    </form>
 </div>
 
 <link href="{{ same_origin_asset('assets/css/multi-select.css') }}?v={{ @filemtime(public_path('assets/css/multi-select.css')) ?: '1' }}" rel="stylesheet">
@@ -484,59 +561,116 @@
     }
 
     const prefills = @json($prefillNiches);
-    const ms = window.initMultiSelect({
-        wrapperId: 'categoryWrapper',
-        inputId: 'categoryInput',
-        dropdownId: 'categoryDropdown',
-        optionsId: 'categoryOptions',
-        hiddenInputId: 'selectedCategories',
-        searchId: 'categorySearch',
-        emptyId: 'categoryEmpty',
-        maxSelections: 7,
-        placeholderText: 'Select niches (max 7)…',
-    });
+    const ms = typeof window.initMultiSelect === 'function'
+        ? window.initMultiSelect({
+            wrapperId: 'categoryWrapper',
+            inputId: 'categoryInput',
+            dropdownId: 'categoryDropdown',
+            optionsId: 'categoryOptions',
+            hiddenInputId: 'selectedCategories',
+            searchId: 'categorySearch',
+            emptyId: 'categoryEmpty',
+            maxSelections: 7,
+            placeholderText: 'Select niches (max 7)…',
+        })
+        : null;
     if (ms && prefills.length) {
         ms.setSelectedItems(prefills, prefills);
     }
 
     const publisherSelect = document.getElementById('publisher_id');
     const unverifiedWarn = document.getElementById('unverifiedPublisherWarn');
+    const publisherDossier = document.getElementById('publisherDossier');
+    const publisherDossierMeta = document.getElementById('publisherDossierMeta');
     const publisherDomains = document.getElementById('publisherDomains');
-    const domainCheckUrl = @json(staff_route('sites.domain-check'));
-    const publisherDomainsUrl = @json(staff_route('sites.publisher-domains'));
-    const lookupMetricsUrl = @json(staff_route('sites.lookup-metrics'));
+    const assignSubmitBtn = document.getElementById('assignSubmitBtn');
+    const domainCheckUrl = {!! json_encode(staff_route('sites.domain-check', [], false), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) !!};
+    const publisherDomainsUrl = {!! json_encode(staff_route('sites.publisher-domains', [], false), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) !!};
+    const lookupMetricsUrl = {!! json_encode(staff_route('sites.lookup-metrics', [], false), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) !!};
     const csrfToken = @json(csrf_token());
 
-    function refreshUnverifiedPublisherWarn() {
-        if (!unverifiedWarn || !publisherSelect) return;
+    function publisherIsUnverified() {
+        if (!publisherSelect) return false;
         const selected = publisherSelect.options[publisherSelect.selectedIndex];
-        const unverified = !!(selected && selected.value && selected.getAttribute('data-verified') === '0');
-        unverifiedWarn.classList.toggle('d-none', !unverified);
+        return !!(selected && selected.value && selected.getAttribute('data-verified') === '0');
+    }
+
+    function refreshUnverifiedPublisherWarn() {
+        const unverified = publisherIsUnverified();
+        if (unverifiedWarn) unverifiedWarn.classList.toggle('d-none', !unverified);
+        if (assignSubmitBtn) assignSubmitBtn.disabled = unverified;
+    }
+
+    function appendText(parent, text) {
+        parent.appendChild(document.createTextNode(text));
     }
 
     function refreshPublisherDomains() {
-        if (!publisherDomains || !publisherSelect) return;
+        if (!publisherDossier || !publisherSelect) return;
         const id = publisherSelect.value;
         if (!id) {
-            publisherDomains.classList.add('d-none');
-            publisherDomains.textContent = '';
+            publisherDossier.classList.add('d-none');
+            if (publisherDossierMeta) publisherDossierMeta.replaceChildren();
+            if (publisherDomains) publisherDomains.replaceChildren();
             return;
         }
         fetch(publisherDomainsUrl + '?publisher=' + encodeURIComponent(id), { headers: { 'Accept': 'application/json' } })
             .then(function (res) { return res.json(); })
             .then(function (data) {
-                const domains = Array.isArray(data.domains) ? data.domains : [];
-                const total = Number(data.total || domains.length);
-                if (!domains.length) {
-                    publisherDomains.textContent = 'This publisher has no sites yet.';
-                } else {
-                    const extra = total > domains.length ? ' (+' + (total - domains.length) + ' more)' : '';
-                    publisherDomains.textContent = 'Already on this account: ' + domains.join(', ') + extra;
+                const pub = data.publisher && typeof data.publisher === 'object' ? data.publisher : {};
+                if (publisherDossierMeta) {
+                    publisherDossierMeta.replaceChildren();
+                    const line = document.createElement('div');
+                    const name = String(pub.name || '').trim();
+                    const email = String(pub.email || '').trim();
+                    line.textContent = [name, email].filter(Boolean).join(' · ');
+                    publisherDossierMeta.appendChild(line);
+                    const links = document.createElement('div');
+                    if (data.sites_url) {
+                        const a = document.createElement('a');
+                        a.href = data.sites_url;
+                        a.textContent = 'Open Sites for this publisher';
+                        links.appendChild(a);
+                    }
+                    if (data.user_url) {
+                        if (links.childNodes.length) appendText(links, ' · ');
+                        const a = document.createElement('a');
+                        a.href = data.user_url;
+                        a.textContent = 'Open user';
+                        links.appendChild(a);
+                    }
+                    if (links.childNodes.length) publisherDossierMeta.appendChild(links);
                 }
-                publisherDomains.classList.remove('d-none');
+                if (publisherDomains) {
+                    publisherDomains.replaceChildren();
+                    const domains = Array.isArray(data.domains) ? data.domains : [];
+                    const total = Number(data.total || domains.length);
+                    if (!domains.length) {
+                        publisherDomains.textContent = 'This publisher has no sites yet.';
+                    } else {
+                        appendText(publisherDomains, 'Already on this account: ');
+                        domains.forEach(function (row, i) {
+                            if (i) appendText(publisherDomains, ', ');
+                            const domain = typeof row === 'string' ? row : String(row.domain || '');
+                            const listing = typeof row === 'object' ? String(row.listing_url || '') : '';
+                            if (listing && domain) {
+                                const a = document.createElement('a');
+                                a.href = listing;
+                                a.textContent = domain;
+                                publisherDomains.appendChild(a);
+                            } else {
+                                appendText(publisherDomains, domain);
+                            }
+                        });
+                        if (total > domains.length) {
+                            appendText(publisherDomains, ' (+' + (total - domains.length) + ' more)');
+                        }
+                    }
+                }
+                publisherDossier.classList.remove('d-none');
             })
             .catch(function () {
-                publisherDomains.classList.add('d-none');
+                publisherDossier.classList.add('d-none');
             });
     }
 
@@ -551,15 +685,64 @@
 
     const siteUrlInput = document.getElementById('site_url');
     const siteUrlStatus = document.getElementById('siteUrlStatus');
+    const siteUrlCanonical = document.getElementById('siteUrlCanonical');
+    const siteNameInput = document.getElementById('site_name');
+    const exampleUrlInput = document.getElementById('example_url');
     const metricsStatus = document.getElementById('metricsStatus');
     let domainTimer = null;
     let domainCheckSeq = 0;
+
+    function siteOrigin(raw) {
+        const value = String(raw || '').trim();
+        if (!value) return '';
+        try {
+            const parsed = new URL(value.includes('://') ? value : 'https://' + value);
+            return parsed.hostname ? parsed.origin : '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function hostAsName(raw) {
+        const origin = siteOrigin(raw);
+        if (!origin) return '';
+        try {
+            const host = new URL(origin).hostname.replace(/^www\./i, '');
+            const bit = host.split('.')[0] || '';
+            if (!bit) return '';
+            return bit.charAt(0).toUpperCase() + bit.slice(1);
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function refreshCanonical() {
+        if (!siteUrlCanonical) return;
+        const origin = siteUrlInput ? siteOrigin(siteUrlInput.value) : '';
+        siteUrlCanonical.textContent = origin ? ('Origin: ' + origin) : '';
+    }
+
+    function fillNameFromUrl(force) {
+        if (!siteNameInput || !siteUrlInput) return;
+        if (!force && String(siteNameInput.value || '').trim() !== '') return;
+        const name = hostAsName(siteUrlInput.value);
+        if (name) siteNameInput.value = name;
+    }
+
+    function fillExampleFromUrl(force) {
+        if (!exampleUrlInput || !siteUrlInput) return;
+        if (!force && String(exampleUrlInput.value || '').trim() !== '') return;
+        const origin = siteOrigin(siteUrlInput.value);
+        if (origin) exampleUrlInput.value = origin + '/sample-post';
+    }
+
     function checkDomain() {
         if (!siteUrlInput || !siteUrlStatus) return;
         const value = String(siteUrlInput.value || '').trim();
         const seq = ++domainCheckSeq;
+        refreshCanonical();
         if (value.length < 4) {
-            siteUrlStatus.textContent = '';
+            siteUrlStatus.replaceChildren();
             siteUrlStatus.classList.remove('text-danger');
             return;
         }
@@ -567,12 +750,20 @@
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 if (seq !== domainCheckSeq) return;
-                siteUrlStatus.textContent = data.message || '';
+                siteUrlStatus.replaceChildren();
+                if (data.message) appendText(siteUrlStatus, data.message);
+                if (data.available === false && data.listing_url) {
+                    appendText(siteUrlStatus, ' ');
+                    const a = document.createElement('a');
+                    a.href = data.listing_url;
+                    a.textContent = 'Open listing';
+                    siteUrlStatus.appendChild(a);
+                }
                 siteUrlStatus.classList.toggle('text-danger', data.available === false);
             })
             .catch(function () {
                 if (seq !== domainCheckSeq) return;
-                siteUrlStatus.textContent = '';
+                siteUrlStatus.replaceChildren();
                 siteUrlStatus.classList.remove('text-danger');
             });
     }
@@ -581,13 +772,26 @@
             clearTimeout(domainTimer);
             domainTimer = setTimeout(checkDomain, 400);
         });
-        siteUrlInput.addEventListener('blur', checkDomain);
+        siteUrlInput.addEventListener('blur', function () {
+            checkDomain();
+            fillNameFromUrl(false);
+            fillExampleFromUrl(false);
+        });
+        refreshCanonical();
+        if (String(siteUrlInput.value || '').trim()) checkDomain();
     }
+    const fillNameBtn = document.getElementById('fillNameFromUrlBtn');
+    if (fillNameBtn) fillNameBtn.addEventListener('click', function () { fillNameFromUrl(true); });
+    const fillExampleBtn = document.getElementById('fillExampleFromUrlBtn');
+    if (fillExampleBtn) fillExampleBtn.addEventListener('click', function () { fillExampleFromUrl(true); });
 
     const lookupBtn = document.getElementById('lookupMetricsBtn');
+    const lookupIdleLabel = lookupBtn ? String(lookupBtn.textContent || 'Look up metrics').trim() : 'Look up metrics';
     if (lookupBtn && siteUrlInput) {
         lookupBtn.addEventListener('click', function () {
             lookupBtn.disabled = true;
+            lookupBtn.classList.add('is-busy');
+            lookupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Looking up…';
             fetch(lookupMetricsUrl, {
                 method: 'POST',
                 headers: {
@@ -616,9 +820,21 @@
                 }
             }).finally(function () {
                 lookupBtn.disabled = false;
+                lookupBtn.classList.remove('is-busy');
+                lookupBtn.textContent = lookupIdleLabel;
             });
         });
     }
+
+    document.querySelectorAll('.staff-assign-fee-toggle').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            if (!cb.checked) return;
+            const name = cb.getAttribute('data-fee-input');
+            if (!name) return;
+            const input = document.querySelector('input[name="' + name.replace(/"/g, '') + '"]');
+            if (input && String(input.value || '').trim() === '') input.value = '0';
+        });
+    });
 
     const imagePreview = document.getElementById('siteImagePreview');
     if (imageInput && imagePreview) {
@@ -667,6 +883,16 @@
                 langEl.disabled = false;
             }
             syncLanguageHidden();
+            if (publisherIsUnverified()) {
+                e.preventDefault();
+                refreshUnverifiedPublisherWarn();
+                if (window.slbAlert) {
+                    window.slbAlert({ icon: 'warning', title: 'Choose a publisher who has verified their email' });
+                } else if (window.Swal) {
+                    Swal.fire({ icon: 'warning', title: 'Choose a publisher who has verified their email', timer: 2800, showConfirmButton: false });
+                }
+                return;
+            }
             if (!languageValue()) {
                 e.preventDefault();
                 if (window.slbAlert) {

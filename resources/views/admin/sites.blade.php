@@ -39,67 +39,7 @@
 <div class="container-fluid py-3 {{ request()->filled('publisher') ? 'staff-publisher-open' : '' }}" id="staffSitesPage">
 
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-<<<<<<< HEAD
         <h4 class="mb-0 fw-bold">Sites Management</h4>
-=======
-        <div>
-            <h4 class="mb-0 fw-bold">Sites Management</h4>
-            <div id="staffCatalogWide">
-            <div class="small text-muted mt-1">Catalog-wide</div>
-            @if(($openReviewCount ?? 0) > 0)
-                <small class="text-muted">
-                    <span class="badge text-bg-warning">{{ $openReviewCount }}</span>
-                    site{{ $openReviewCount === 1 ? '' : 's' }} need{{ $openReviewCount === 1 ? 's' : '' }} review
-                </small>
-            @endif
-            @if(($missingMarketListCount ?? 0) > 0)
-                <small class="text-muted d-block mt-1">
-                    <a href="{{ staff_route('sites.index', ['all' => 1, 'listing_active' => 1, 'missing_market' => 1]) }}" class="link-secondary">
-                        <span class="badge text-bg-danger">{{ $missingMarketListCount }}</span>
-                        active site{{ $missingMarketListCount === 1 ? '' : 's' }} missing market country
-                    </a>
-                </small>
-            @endif
-            @php
-                $liveUnverifiedUrl = staff_route('sites.index', ['all' => 1, 'listing_active' => 1, 'listing_verified' => 0]);
-                $healthLinks = [
-                    'below_quality' => [
-                        'label' => 'below quality bar',
-                        'count' => (int) ($belowQualityListCount ?? 0),
-                        'url' => staff_route('sites.index', ['all' => 1, 'below_quality' => 1]),
-                    ],
-                    'unverified' => [
-                        'label' => 'unverified active',
-                        'count' => (int) ($liveUnverifiedCount ?? 0),
-                        'url' => $liveUnverifiedUrl,
-                    ],
-                    'placeholder' => [
-                        'label' => 'placeholder',
-                        'count' => (int) ($placeholderListCount ?? 0),
-                        'url' => staff_route('sites.index', ['all' => 1, 'placeholder' => 1]),
-                    ],
-                    'missing_cover' => [
-                        'label' => 'missing cover',
-                        'count' => (int) ($missingCoverListCount ?? 0),
-                        'url' => staff_route('sites.index', ['all' => 1, 'missing_cover' => 1]),
-                    ],
-                ];
-                $healthPreview = collect($healthLinks)->filter(fn ($row) => $row['count'] > 0);
-            @endphp
-            @if($healthPreview->isNotEmpty())
-                <small class="text-muted d-block mt-1">
-                    Catalog health:
-                    @foreach($healthPreview as $healthRow)
-                        <a href="{{ $healthRow['url'] }}" class="link-secondary">
-                            <span class="badge text-bg-warning">{{ $healthRow['count'] }}</span>
-                            {{ $healthRow['label'] }}
-                        </a>@if(! $loop->last), @endif
-                    @endforeach
-                </small>
-            @endif
-            </div>
-        </div>
->>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
         <div class="d-flex flex-wrap gap-2">
             @if(!empty($needsReviewFilterActive))
                 @if(!empty($flatQueue))
@@ -131,59 +71,6 @@
             @if(!empty($allSitesMode))
                 <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
             @else
-<<<<<<< HEAD
-=======
-                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
-                    <i class="fa fa-bell me-1"></i> Needs review
-                    @if(($openReviewCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $openReviewCount }}</span>
-                    @endif
-                </a>
-                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
-                    Site queue
-                </a>
-                <a href="{{ staff_route('sites.index', array_filter(['waiting_on_publisher' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-secondary">
-                    Waiting on publisher
-                    @if(($waitingOnPublisherCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $waitingOnPublisherCount }}</span>
-                    @endif
-                </a>
-                @php
-                    $queueFiltersClear = $publisherSearch === ''
-                        && ($staffSiteFilters['country'] ?? '') === ''
-                        && ($staffSiteFilters['language'] ?? '') === ''
-                        && ($staffSiteFilters['niche'] ?? '') === ''
-                        && ($staffSiteFilters['tag'] ?? '') === ''
-                        && empty($staffSiteFilters['below_quality'])
-                        && empty($staffSiteFilters['missing_market'])
-                        && empty($staffSiteFilters['placeholder'])
-                        && empty($staffSiteFilters['missing_cover'])
-                        && empty($staffSiteFilters['bulk_request'])
-                        && empty($staffSiteFilters['archived']);
-                    $onLiveUnverified = !empty($allSitesMode)
-                        && ($staffSiteFilters['listing_active'] ?? '') === '1'
-                        && ($staffSiteFilters['listing_verified'] ?? '') === '0'
-                        && $queueFiltersClear
-                        && empty($staffSiteFilters['ready_to_activate']);
-                    $onReadyToActivate = !empty($allSitesMode)
-                        && !empty($staffSiteFilters['ready_to_activate'])
-                        && $queueFiltersClear
-                        && ($staffSiteFilters['listing_active'] ?? '') === ''
-                        && ($staffSiteFilters['listing_verified'] ?? '') === '';
-                @endphp
-                <a href="{{ staff_route('sites.index', ['all' => 1, 'ready_to_activate' => 1]) }}" class="btn btn-sm {{ $onReadyToActivate ? 'btn-success' : 'btn-outline-success' }}">
-                    Ready to activate
-                    @if(($readyToActivateCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $readyToActivateCount }}</span>
-                    @endif
-                </a>
-                <a href="{{ $liveUnverifiedUrl }}" class="btn btn-sm {{ $onLiveUnverified ? 'btn-secondary' : 'btn-outline-secondary' }}">
-                    Live unverified
-                    @if(($liveUnverifiedCount ?? 0) > 0)
-                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $liveUnverifiedCount }}</span>
-                    @endif
-                </a>
->>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
                 <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
             @endif
             @if(auth()->user()?->isAdmin())
@@ -352,7 +239,6 @@
                         data-review-name="{{ $site->site_name }}"
                         data-review-url="{{ $site->site_url }}"
                         data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
-<<<<<<< HEAD
                         <td><input type="checkbox"
                             data-staff-bulk-id="{{ $site->id }}"
                             data-verified="{{ $site->verified ? '1' : '0' }}"
@@ -360,9 +246,6 @@
                             data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
                             data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
                             aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
-=======
-                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
->>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
                         <td class="d-none d-md-table-cell">{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             @include('admin.sites.partials.queue-site-cell')
@@ -379,9 +262,6 @@
                         </td>
                         <td class="small d-none d-md-table-cell">{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}</td>
                         <td class="small d-none d-lg-table-cell">@include('admin.sites.partials.row-markets')</td>
-<<<<<<< HEAD
-                        <td class="small d-none d-lg-table-cell">{{ $site->tagLabel('No tags') }}</td>
-=======
                         <td class="small d-none d-lg-table-cell">
                             @if($site->tagValue() === null)
                                 <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
@@ -389,7 +269,6 @@
                                 {{ $site->tagLabel() }}
                             @endif
                         </td>
->>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
                         <td class="d-none d-md-table-cell">{{ number_format((int) $site->traffic) }}</td>
                         <td>@include('admin.sites.partials.row-price')</td>
                         <td class="small">@include('admin.sites.partials.listed-age')</td>

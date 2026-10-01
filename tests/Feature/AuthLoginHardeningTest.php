@@ -242,5 +242,9 @@ class AuthLoginHardeningTest extends TestCase
         $resendBlock = substr($markup, $resendPos, 900);
         $this->assertStringContainsString("'Accept': 'application/json'", $resendBlock);
         $this->assertStringContainsString("credentials: 'same-origin'", $resendBlock);
+        $this->assertStringContainsString('res2.ok && result.status === \'success\'', $markup);
+        $this->assertStringContainsString('New account? Verify your email first.', $markup);
+        $this->assertStringContainsString('id="resendStatus"', $markup);
+        $this->assertStringContainsString("'X-Requested-With': 'XMLHttpRequest'", $resendBlock);
     }
 }

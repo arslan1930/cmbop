@@ -101,7 +101,11 @@ class MarketingAssignSiteForPublisherTest extends TestCase
             ->assertSee('id="qualityBarWarn"', false)
             ->assertDontSee('Activate / Deactivate as usual', false)
             ->assertSee('id="selectedLanguage"', false)
-            ->assertSee('id="publisherFilter"', false)
+            ->assertSee('id="publisher_id"', false)
+            ->assertSee('data-admin-select-search-url', false)
+            ->assertSee('/marketing/sites/publishers-search', false)
+            ->assertDontSee('data-admin-select-search-url="http', false)
+            ->assertSee('staff-assign-site-form', false)
             ->assertSee('written_request', false)
             ->assertSee('I have a written request', false)
             ->assertSee('This emails and bells the publisher', false)
@@ -116,7 +120,9 @@ class MarketingAssignSiteForPublisherTest extends TestCase
             ->assertSee('name="social[facebook]"', false)
             ->assertSee('name="sensitive[crypto]"', false)
             ->assertSee('name="price_sensitive[crypto]"', false)
-            ->assertSee('optional homepage, social, and sensitive-topic prices', false)
+            ->assertSee('Shown in catalog Site Details', false)
+            ->assertDontSee('optional homepage, social, and sensitive-topic prices', false)
+            ->assertDontSee('id="publisherFilter"', false)
             ->assertSee('Must be on the same domain as the site URL.', false)
             ->getContent();
 
@@ -177,6 +183,9 @@ class MarketingAssignSiteForPublisherTest extends TestCase
         $this->assertNull($site->sensitive_prices);
         $this->assertStringContainsString('Invites', (string) session('success'));
         $this->assertStringNotContainsString('below the marketing Activate bar', (string) session('success'));
+        $actions = session('success_actions');
+        $this->assertSame('Edit listing', $actions[1]['label'] ?? null);
+        $this->assertStringContainsString('/marketing/sites/'.$site->id.'/edit', (string) ($actions[1]['url'] ?? ''));
 
         Mail::assertQueued(AdminAssignedSiteNotification::class, function ($mail) {
             return $mail->hasTo($this->publisher->email);
@@ -296,6 +305,10 @@ class MarketingAssignSiteForPublisherTest extends TestCase
         $this->assertStringContainsString('publisher='.$unverified->id, $html);
         $this->assertDoesNotMatchRegularExpression(
             '/class="[^"]*d-none[^"]*" id="unverifiedPublisherWarn"/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/id="assignSubmitBtn"[^>]*\bdisabled\b/',
             $html
         );
     }

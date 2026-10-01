@@ -1019,7 +1019,7 @@ class AdminDashboardTest extends TestCase
             'payment_method' => 'wallet',
             'payment_status' => 'paid',
             'status' => 'processing',
-            'paid_at' => now()->subDay(),
+            'paid_at' => now(),
         ]);
         Order::create([
             'user_id' => $advertiser->id,
@@ -1032,7 +1032,7 @@ class AdminDashboardTest extends TestCase
             'payment_status' => 'paid',
             'status' => 'completed',
             'paid_at' => now()->subMonthNoOverflow()->startOfMonth()->addDay(),
-            'completed_at' => now()->subMonthNoOverflow()->startOfMonth()->addDays(2),
+            'completed_at' => now()->subDays(40),
         ]);
 
         Withdrawal::create([

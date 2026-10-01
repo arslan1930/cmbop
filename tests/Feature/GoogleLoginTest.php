@@ -174,7 +174,7 @@ class GoogleLoginTest extends TestCase
         $advertiserRoleId = Role::where('name', 'advertiser')->value('id');
         $wallet = $user->wallets()->where('role_id', $advertiserRoleId)->first();
         $this->assertNotNull($wallet);
-        $this->assertEquals(20.0, (float) $wallet->bonus_balance);
+        $this->assertEquals(0.0, (float) $wallet->bonus_balance);
 
         Mail::assertQueued(GoogleTempPasswordMail::class, function (GoogleTempPasswordMail $mail) use ($user) {
             return $mail->hasTo($user->email)

@@ -276,7 +276,7 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString('Below quality bar', $html);
         $this->assertStringContainsString('QUALITY_MIN_DA', $html);
         $this->assertStringContainsString('sitesPerPage', $html);
-        $this->assertStringContainsString('Site queue', $html);
+        $this->assertStringContainsString('staff-sites-strip', $html);
         $this->assertStringNotContainsString("}).then(() => {\n                toast('Deleted successfully');", $html);
     }
 
@@ -344,11 +344,7 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertFalse($noMarket->hasMarketplaceCountry());
         $thinRow = $this->queueRowHtml($html, $thin->id);
         $this->assertStringNotContainsString('js-mkt-activate', $thinRow);
-<<<<<<< HEAD
         $this->assertStringContainsString('Fix metrics', $thinRow);
-=======
-        $this->assertStringContainsString('disabled', $thinRow);
->>>>>>> 00fa8eb24cd013d89fbf75bc6f4f262e79444ab5
         $this->assertStringContainsString('This listing is below the quality bar', $html);
         $this->assertStringContainsString('Set a marketplace country before activating', $html);
         $flatCardStart = (int) strpos($html, 'data-flat-queue="1"');

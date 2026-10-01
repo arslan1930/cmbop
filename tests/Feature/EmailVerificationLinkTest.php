@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
@@ -189,7 +190,7 @@ class EmailVerificationLinkTest extends TestCase
 
         $hash = sha1($user->email);
         $this->get('/email/verify/'.$user->id.'/'.$hash)
-            ->assertRedirect('/login')
+            ->assertRedirect(route('verification.notice'))
             ->assertSessionHas('error');
 
         $this->assertNull($user->fresh()->email_verified_at);
@@ -265,7 +266,7 @@ class EmailVerificationLinkTest extends TestCase
         ]);
         $unknown->assertOk()->assertJson([
             'status' => 'success',
-            'message' => 'Verification email resent successfully.',
+            'message' => 'If that email is registered and still unverified, a new link is on its way.',
         ]);
 
         $verified = User::factory()->create([
@@ -276,7 +277,7 @@ class EmailVerificationLinkTest extends TestCase
             'email' => $verified->email,
         ])->assertOk()->assertJson([
             'status' => 'success',
-            'message' => 'Verification email resent successfully.',
+            'message' => 'If that email is registered and still unverified, a new link is on its way.',
         ]);
 
         Notification::assertNothingSent();
@@ -289,8 +290,24 @@ class EmailVerificationLinkTest extends TestCase
             'email' => $unverified->email,
         ])->assertOk()->assertJson([
             'status' => 'success',
-            'message' => 'Verification email resent successfully.',
+            'message' => 'If that email is registered and still unverified, a new link is on its way.',
         ]);
+
+        Notification::assertSentTo($unverified, VerifyEmail::class);
+    }
+
+    public function test_verification_resend_matches_email_case_insensitively(): void
+    {
+        Notification::fake();
+
+        $unverified = User::factory()->create([
+            'email' => 'Still-Unverified@Example.com',
+            'email_verified_at' => null,
+        ]);
+
+        $this->postJson(route('verification.resend'), [
+            'email' => 'still-unverified@example.com',
+        ])->assertOk()->assertJsonPath('status', 'success');
 
         Notification::assertSentTo($unverified, VerifyEmail::class);
     }
@@ -315,5 +332,146 @@ class EmailVerificationLinkTest extends TestCase
         $user->sendEmailVerificationNotification();
 
         Notification::assertSentTo($user, VerifyEmail::class);
+    }
+
+    public function test_guest_can_open_verification_notice_and_resend_from_the_form(): void
+    {
+        Notification::fake();
+
+        $this->get(route('verification.notice'))
+            ->assertOk()
+            ->assertSee('Resend Verification Email', false)
+            ->assertSee('name="email"', false)
+            ->assertDontSee('Logout', false);
+
+        $unverified = User::factory()->create([
+            'email' => 'notice-resend@example.com',
+            'email_verified_at' => null,
+        ]);
+
+        $this->from(route('verification.notice'))
+            ->post(route('verification.resend'), [
+                'email' => $unverified->email,
+            ])
+            ->assertRedirect(route('verification.notice'))
+            ->assertSessionHas('info');
+
+        Notification::assertSentTo($unverified, VerifyEmail::class);
+    }
+
+    public function test_verified_user_is_redirected_away_from_verification_notice(): void
+    {
+        $role = Role::where('name', 'advertiser')->firstOrFail();
+        $user = User::factory()->create([
+            'email' => 'already-ok@example.com',
+            'email_verified_at' => now(),
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        $this->actingAs($user)
+            ->get(route('verification.notice'))
+            ->assertRedirect(route('advertiser.dashboard', absolute: false));
+    }
+
+    public function test_expired_verification_link_lands_on_notice_not_login(): void
+    {
+        $role = Role::where('name', 'publisher')->firstOrFail();
+        $user = User::factory()->create([
+            'email' => 'expired-link@example.com',
+            'email_verified_at' => null,
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        $url = VerifyEmail::signedUrlFor($user);
+
+        $this->travel(1441)->minutes();
+
+        $this->get($url)
+            ->assertRedirect(route('verification.notice'))
+            ->assertSessionHas('error');
+
+        $this->assertNull($user->fresh()->email_verified_at);
+        $this->assertGuest();
+    }
+
+    public function test_verification_link_still_works_after_one_hour_within_24h_window(): void
+    {
+        $role = Role::where('name', 'advertiser')->firstOrFail();
+        $user = User::factory()->create([
+            'email' => 'day-long@example.com',
+            'email_verified_at' => null,
+            'active_role_id' => $role->id,
+        ]);
+        $user->roles()->attach($role->id);
+
+        $url = VerifyEmail::signedUrlFor($user);
+
+        $this->travel(61)->minutes();
+
+        $this->get($url)
+            ->assertRedirect('/login')
+            ->assertSessionHas('message');
+
+        $this->assertNotNull($user->fresh()->email_verified_at);
+        $this->assertGuest();
+    }
+
+    public function test_auth_resend_flashes_success(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create([
+            'email' => 'auth-resend@example.com',
+            'email_verified_at' => null,
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('verification.notice'))
+            ->post(route('verification.send'))
+            ->assertRedirect(route('verification.notice'))
+            ->assertSessionHas('success');
+
+        Notification::assertSentTo($user, VerifyEmail::class);
+    }
+
+    public function test_guest_resend_is_throttled_after_three_attempts(): void
+    {
+        Notification::fake();
+
+        $unverified = User::factory()->create([
+            'email' => 'throttle-resend@example.com',
+            'email_verified_at' => null,
+        ]);
+
+        $payload = ['email' => $unverified->email];
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->postJson(route('verification.resend'), $payload)
+                ->assertOk()
+                ->assertJsonPath('status', 'success');
+        }
+
+        $this->postJson(route('verification.resend'), $payload)
+            ->assertStatus(429)
+            ->assertJsonPath('status', 'error');
+
+        Notification::assertSentToTimes($unverified, VerifyEmail::class, 3);
+    }
+
+    public function test_verification_routes_use_named_limiters(): void
+    {
+        $verify = Route::getRoutes()->getByName('verification.verify');
+        $send = Route::getRoutes()->getByName('verification.send');
+        $resend = Route::getRoutes()->getByName('verification.resend');
+
+        $this->assertNotNull($verify);
+        $this->assertNotNull($send);
+        $this->assertNotNull($resend);
+
+        $this->assertTrue(collect($verify->gatherMiddleware())->contains('throttle:email-verify-click'));
+        $this->assertTrue(collect($send->gatherMiddleware())->contains('throttle:email-verify-send'));
+        $this->assertTrue(collect($resend->gatherMiddleware())->contains('throttle:email-verify-resend'));
     }
 }

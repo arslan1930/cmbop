@@ -66,8 +66,11 @@ There is no default user/admin seeder; an admin must be promoted manually in the
   Google's bundle for nothing. Brute-force protection is rate limiting only
   (see `LoginController` / `ForgotPasswordController`), so keep those limits in
   place. Do not reintroduce a captcha without wiring server-side verification.
-- Login is blocked until the email is verified. With `MAIL_MAILER=log`, the
-  verification link is written to `storage/logs/laravel.log` (search for
+- Login is blocked until the email is verified. Expired or missing links are
+  resent from `/email/verify` (no login required); login has a backup
+  “Need a verification email?” control. Links last
+  `AUTH_VERIFICATION_EXPIRE_MINUTES` (default 24 hours). With `MAIL_MAILER=log`,
+  the verification link is written to `storage/logs/laravel.log` (search for
   `email/verify`). Visiting that link (no auth required) verifies the account.
 
 ### Email is queued, not synchronous

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminAssignedSitesBatchNotification;
 use App\Mail\WebsiteSuggestionReviewed;
+use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\InAppNotification;
@@ -17,6 +18,7 @@ use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
+use App\Support\CommunityInbox;
 use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
@@ -88,10 +90,12 @@ class AdminAssignSiteForPublisherTest extends TestCase
             'description' => str_repeat('Quality editorial site for guest posts. ', 4),
             'site_tag' => 'as_you_prefer',
             'written_request' => 1,
+            'request_source' => 'Ticket 44',
         ]);
 
         $response->assertRedirect();
         $response->assertSessionHas('success');
+        $response->assertSessionHas('success_actions');
 
         $site = Site::where('domain', 'staff-added-news.example')->first();
         $this->assertNotNull($site);
@@ -109,6 +113,17 @@ class AdminAssignSiteForPublisherTest extends TestCase
         $this->assertTrue($site->isPendingPublisherAcceptance());
         $this->assertFalse($site->needsAdminReview());
         $this->assertStringContainsString('Invites', (string) session('success'));
+        $actions = session('success_actions');
+        $this->assertIsArray($actions);
+        $this->assertSame('Add another for this publisher', $actions[0]['label'] ?? null);
+        $this->assertSame('Edit listing', $actions[1]['label'] ?? null);
+        $this->assertStringContainsString('/admin/sites/'.$site->id.'/edit', (string) ($actions[1]['url'] ?? ''));
+        $log = ActivityLog::query()
+            ->where('action', 'site.assigned_for_acceptance')
+            ->where('subject_id', $site->id)
+            ->first();
+        $this->assertNotNull($log);
+        $this->assertSame('Ticket 44', $log->properties['request_source'] ?? null);
 
         Mail::assertQueued(AdminAssignedSiteNotification::class, function ($mail) {
             if (! $mail->hasTo($this->publisher->email)) {
@@ -878,7 +893,17 @@ class AdminAssignSiteForPublisherTest extends TestCase
             ->assertSee('Select a language', false)
             ->assertSee('data-max-kb', false)
             ->assertSee('Site image must be under', false)
-            ->assertSee('id="publisherFilter"', false)
+            ->assertSee('id="publisher_id"', false)
+            ->assertSee('data-admin-select-search-url', false)
+            ->assertSee('/admin/sites/publishers-search', false)
+            ->assertDontSee('data-admin-select-search-url="http', false)
+            ->assertSee('/admin/sites/domain-check', false)
+            ->assertSee('/admin/sites/publisher-domains', false)
+            ->assertSee('/admin/sites/lookup-metrics', false)
+            ->assertSee('staff-assign-site-form', false)
+            ->assertSee('data-admin-select-no-submit="1"', false)
+            ->assertSee('CSV bulk create', false)
+            ->assertSee('aria-label="Listing pipeline"', false)
             ->assertSee('written_request', false)
             ->assertSee('This emails and bells the publisher', false)
             ->assertSee('Click to toggle; type to search; Enter adds the highlighted match. Max 7.', false)
@@ -886,13 +911,20 @@ class AdminAssignSiteForPublisherTest extends TestCase
             ->assertSee('name="description"', false)
             ->assertSee('name="price_homepage[7]"', false)
             ->assertSee('name="sensitive[crypto]"', false)
-            ->assertSee('optional homepage, social, and sensitive-topic prices', false)
+            ->assertSee('Shown in catalog Site Details', false)
+            ->assertDontSee('optional homepage, social, and sensitive-topic prices', false)
+            ->assertDontSee('id="publisherFilter"', false)
             ->assertSee('Must be on the same domain as the site URL.', false)
             ->getContent();
 
         $this->assertStringNotContainsString('required disabled', $html);
         $this->assertMatchesRegularExpression('/<select[^>]+id="language"[^>]*required/', $html);
         $this->assertDoesNotMatchRegularExpression('/<select[^>]+id="language"[^>]*disabled/', $html);
+        $this->assertSame(1, preg_match_all('/name="language"/', $html));
+        $selectJs = file_get_contents(public_path('assets/js/admin-theme-selects.js'));
+        $this->assertStringContainsString('adminSelectSearchUrl', $selectJs);
+        $this->assertStringContainsString('adminSelectNoSubmit', $selectJs);
+        $this->assertStringContainsString('staff-assign-site-form', $selectJs);
     }
 
     public function test_admin_create_page_survives_array_old_description(): void
@@ -928,9 +960,53 @@ class AdminAssignSiteForPublisherTest extends TestCase
         $this->actingAs($this->admin)
             ->get(route('admin.sites.create'))
             ->assertOk()
-            ->assertSee($this->publisher->email, false)
             ->assertDontSee($leftover->email, false)
+            ->assertDontSee($this->publisher->email, false)
             ->assertDontSee('Something went wrong');
+
+        $this->actingAs($this->admin)
+            ->getJson(route('admin.sites.publishers-search', ['q' => 'leftover-unverified-pub']))
+            ->assertOk()
+            ->assertJsonCount(0, 'options');
+
+        $this->actingAs($this->admin)
+            ->getJson(route('admin.sites.publishers-search', ['q' => $this->publisher->email]))
+            ->assertOk()
+            ->assertJsonFragment(['value' => (string) $this->publisher->id]);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.sites.create', ['publisher' => $leftover->id]))
+            ->assertOk()
+            ->assertSee($leftover->email, false)
+            ->assertSee('cannot log in to Accept', false);
+    }
+
+    public function test_admin_store_rejects_unverified_publisher(): void
+    {
+        $publisherRole = Role::where('name', 'publisher')->firstOrFail();
+        $unverified = User::factory()->create([
+            'email' => 'cannot-accept-yet@example.com',
+            'email_verified_at' => null,
+            'active_role_id' => $publisherRole->id,
+        ]);
+        $unverified->roles()->attach($publisherRole->id);
+        [$country, $language, $niche] = $this->staffAssignMarket();
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.sites.create', ['publisher' => $unverified->id]))
+            ->post(route('admin.sites.store'), array_merge(
+                $this->staffAssignPayload(
+                    $country,
+                    $language,
+                    $niche,
+                    'https://unverified-invite.example'
+                ),
+                ['publisher_id' => $unverified->id]
+            ))
+            ->assertRedirect(route('admin.sites.create', ['publisher' => $unverified->id]))
+            ->assertSessionHasErrors('publisher_id');
+
+        $this->assertNull(Site::where('domain', 'unverified-invite.example')->first());
     }
 
     public function test_admin_create_with_suggestion_id_marks_the_website_suggestion_accepted(): void
@@ -1059,10 +1135,77 @@ class AdminAssignSiteForPublisherTest extends TestCase
         Mail::fake();
         $this->actingAs($this->admin)->post(route('admin.sites.store'), $this->staffAssignPayload($country, $language, $niche, 'https://taken-domain.example'));
 
+        $takenId = Site::where('domain', 'taken-domain.example')->value('id');
         $this->actingAs($this->admin)
             ->getJson(route('admin.sites.domain-check', ['site_url' => 'https://taken-domain.example']))
             ->assertOk()
-            ->assertJsonPath('available', false);
+            ->assertJsonPath('available', false)
+            ->assertJsonPath('listing_url', route('admin.sites.index', [
+                'publisher' => $this->publisher->id,
+                'site' => $takenId,
+            ], false));
+
+        $this->actingAs($this->admin)
+            ->getJson(route('admin.sites.publisher-domains', ['publisher' => $this->publisher->id]))
+            ->assertOk()
+            ->assertJsonPath('sites_url', route('admin.sites.index', [
+                'publisher' => $this->publisher->id,
+            ], false))
+            ->assertJsonFragment([
+                'domain' => 'taken-domain.example',
+                'listing_url' => route('admin.sites.index', [
+                    'publisher' => $this->publisher->id,
+                    'site' => $takenId,
+                ], false),
+            ]);
+    }
+
+    public function test_admin_create_prefills_suggestion_notes_and_warns_when_taken(): void
+    {
+        $existing = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'site_name' => 'Taken Sugg',
+            'site_url' => 'https://taken-sugg.example',
+            'domain' => 'taken-sugg.example',
+            'example_url' => 'https://taken-sugg.example/post',
+            'da' => 30,
+            'dr' => 30,
+            'traffic' => 5000,
+            'country' => 'de',
+            'language' => 'de',
+            'category' => 'News',
+            'categories' => ['News'],
+            'price' => 50,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Taken suggestion listing copy here. ', 3),
+            'verified' => false,
+            'active' => false,
+        ]);
+
+        $suggestion = WebsiteSuggestion::create([
+            'website_name' => 'Taken Sugg',
+            'website_url' => 'https://taken-sugg.example/guest-post',
+            'domain' => 'taken-sugg.example',
+            'notes' => "Please add this\r\nto the catalog",
+            'status' => 'pending',
+        ]);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.sites.create', CommunityInbox::createListingQuery($suggestion)))
+            ->assertOk()
+            ->assertSee('Please add this to the catalog', false)
+            ->assertSee('already in the catalog', false)
+            ->assertSee('Open listing', false)
+            ->assertSee('https://taken-sugg.example/guest-post', false)
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<option[^>]+value="'.$this->publisher->id.'"[^>]+selected/',
+            $html
+        );
+        $this->assertStringContainsString((string) $existing->id, $html);
     }
 
     public function test_bulk_invite_creates_two_sites_and_one_notice(): void

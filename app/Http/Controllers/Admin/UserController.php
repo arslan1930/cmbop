@@ -319,7 +319,7 @@ class UserController extends Controller
             $user->name
         );
 
-        return back()->with('success', 'Verification email queued for '.$user->email.'.');
+        return back()->with('success', 'Verification email sent to '.$user->email.'.');
     }
 
     public function sendPasswordReset(Request $request, User $user)

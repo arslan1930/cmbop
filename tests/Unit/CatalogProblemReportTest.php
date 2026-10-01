@@ -68,9 +68,10 @@ class CatalogProblemReportTest extends TestCase
         $url = CatalogProblemReport::staffListingUrl($site);
 
         $this->assertNotNull($url);
-        $this->assertStringContainsString('publisher=8', $url);
-        $this->assertStringContainsString('site=14', $url);
+        $this->assertStringContainsString('publisher=8&site=14', $url);
         $this->assertStringNotContainsString('/sites/14/edit', $url);
+        $relative = CatalogProblemReport::staffListingUrl($site, false);
+        $this->assertSame('/admin/sites?publisher=8&site=14', $relative);
     }
 
     public function test_is_catalog_from_subject_or_message(): void

@@ -803,7 +803,32 @@
   color: #64748b;
 }
 
+.staff-assign-site-section .card-body {
+  padding: 1.15rem 1.25rem;
+}
+
+.staff-assign-site-save {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  background: #fff;
+  border-top: 1px solid var(--border-subtle, #e2e8f0);
+  padding: 0.85rem 0 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.staff-assign-lookup.is-busy {
+  pointer-events: none;
+}
+
 @media (max-width: 767.98px) {
+  .staff-assign-site-save {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
   .staff-queue-table thead {
     display: none;
   }
