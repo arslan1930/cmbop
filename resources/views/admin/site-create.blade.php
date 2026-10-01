@@ -343,81 +343,7 @@
             </div>
         </div>
 
-        @php
-            $homepageDays = config('site_placement.homepage_days', [1, 7, 30]);
-            $hasSensitiveOld = collect(['crypto','trading','CBD','forex'])->contains(function ($t) {
-                $flag = old("sensitive.$t");
-                $price = old("price_sensitive.$t");
-                return ($flag !== null && $flag !== '' && $flag !== [])
-                    || ($price !== null && $price !== '' && $price !== []);
-            });
-        @endphp
-        <div class="card border-0 shadow-sm mb-3 staff-assign-site-section">
-            <div class="card-body">
-                <h5 class="fw-semibold mb-1">Placement extras</h5>
-                <p class="small text-muted mb-3">Shown in catalog Site Details. Leave unchecked to hide the offer. Fee 0 = free (homepage) or no extra (sensitive topics). Social sharing is always free.</p>
-                <input type="hidden" name="placement_offers_form" value="1">
-                <p class="fw-semibold small mb-2">Homepage placement</p>
-                <div class="d-flex flex-wrap gap-3 mb-3">
-                    @foreach($homepageDays as $days)
-                        <div style="min-width:140px;">
-                            <div class="form-check">
-                                <input type="checkbox" name="homepage[{{ $days }}]" value="1"
-                                       class="form-check-input staff-assign-fee-toggle" id="staffHomepage{{ $days }}"
-                                       data-fee-input="price_homepage[{{ $days }}]"
-                                       {{ old("homepage.$days") ? 'checked' : '' }}>
-                                <label class="form-check-label" for="staffHomepage{{ $days }}">{{ $days }} day{{ $days > 1 ? 's' : '' }}</label>
-                            </div>
-                            <input type="number" name="price_homepage[{{ $days }}]" class="form-control mt-1 @error('price_homepage.'.$days) is-invalid @enderror"
-                                   placeholder="Fee (€) — 0 = Free" min="0" step="0.01" inputmode="decimal"
-                                   value="{{ old_text('price_homepage.'.$days) }}">
-                            @error('price_homepage.'.$days)<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        </div>
-                    @endforeach
-                </div>
-                <p class="fw-semibold small mb-2">Social media sharing (always free)</p>
-                <div class="d-flex flex-wrap gap-3 mb-3">
-                    @foreach(['facebook' => 'Facebook', 'instagram' => 'Instagram', 'x' => 'X'] as $channel => $label)
-                        <div class="form-check">
-                            <input type="checkbox" name="social[{{ $channel }}]" value="1"
-                                   class="form-check-input" id="staffSocial{{ ucfirst($channel) }}"
-                                   {{ old("social.$channel") ? 'checked' : '' }}>
-                            <label class="form-check-label" for="staffSocial{{ ucfirst($channel) }}">{{ $label }}</label>
-                        </div>
-                    @endforeach
-                </div>
-                <button type="button"
-                        class="disclosure-toggle"
-                        id="sensitiveDisclosureBtn"
-                        aria-expanded="{{ $hasSensitiveOld ? 'true' : 'false' }}"
-                        aria-controls="sensitiveDisclosurePanel">
-                    <i class="fa fa-chevron-{{ $hasSensitiveOld ? 'down' : 'right' }}" aria-hidden="true"></i>
-                    Sensitive topics (optional)
-                </button>
-                <p class="small text-muted mb-0 mt-1">Only open if this publisher accepts crypto, trading, CBD, or forex. Checked + blank extra fills as €0.</p>
-                <div class="disclosure-panel" id="sensitiveDisclosurePanel" @unless($hasSensitiveOld) hidden @endunless>
-                    <div class="row bg-light p-3 rounded mt-2">
-                        <div class="col-12">
-                            <div class="d-flex flex-wrap gap-3">
-                                @foreach(['crypto','trading','CBD','forex'] as $topic)
-                                <div class="me-3">
-                                    <div class="form-check">
-                                        <input type="checkbox" name="sensitive[{{ $topic }}]" value="1"
-                                               class="form-check-input staff-assign-fee-toggle" id="sensitive{{ $topic }}"
-                                               data-fee-input="price_sensitive[{{ $topic }}]"
-                                               {{ old("sensitive.$topic") ? 'checked' : '' }}>
-                                        <label class="form-check-label" for="sensitive{{ $topic }}">{{ ucfirst($topic) }}</label>
-                                    </div>
-                                    <input type="number" name="price_sensitive[{{ $topic }}]" class="form-control mt-1 @error('price_sensitive.'.$topic) is-invalid @enderror" placeholder="Extra (€) — 0 = none" value="{{ old_text('price_sensitive.'.$topic) }}" min="0" step="0.01">
-                                    @error('price_sensitive.'.$topic)<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                </div>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        @include('admin.sites.partials.placement-extras', ['layout' => 'card', 'site' => null])
 
         <div class="card border-0 shadow-sm mb-3 staff-assign-site-section">
             <div class="card-body">
@@ -826,16 +752,6 @@
         });
     }
 
-    document.querySelectorAll('.staff-assign-fee-toggle').forEach(function (cb) {
-        cb.addEventListener('change', function () {
-            if (!cb.checked) return;
-            const name = cb.getAttribute('data-fee-input');
-            if (!name) return;
-            const input = document.querySelector('input[name="' + name.replace(/"/g, '') + '"]');
-            if (input && String(input.value || '').trim() === '') input.value = '0';
-        });
-    });
-
     const imagePreview = document.getElementById('siteImagePreview');
     if (imageInput && imagePreview) {
         imageInput.addEventListener('change', function () {
@@ -851,25 +767,6 @@
                 imagePreview.classList.remove('d-none');
             };
             reader.readAsDataURL(file);
-        });
-    }
-
-    const sensitiveBtn = document.getElementById('sensitiveDisclosureBtn');
-    const sensitivePanel = document.getElementById('sensitiveDisclosurePanel');
-    if (sensitiveBtn && sensitivePanel) {
-        sensitiveBtn.addEventListener('click', function () {
-            const open = sensitivePanel.hasAttribute('hidden');
-            if (open) {
-                sensitivePanel.removeAttribute('hidden');
-            } else {
-                sensitivePanel.setAttribute('hidden', '');
-            }
-            sensitiveBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-            const icon = sensitiveBtn.querySelector('i');
-            if (icon) {
-                icon.classList.toggle('fa-chevron-right', !open);
-                icon.classList.toggle('fa-chevron-down', open);
-            }
         });
     }
 

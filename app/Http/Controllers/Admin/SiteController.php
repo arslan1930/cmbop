@@ -4327,14 +4327,7 @@ class SiteController extends Controller
             unset($data['site_image']);
         }
 
-        $placementPatch = null;
-        if ($request->boolean('placement_offers_form')) {
-            $homepagePrices = $this->collectHomepagePlacementPrices($request);
-            $placementPatch = [
-                'homepage_placement_prices' => $homepagePrices !== [] ? $homepagePrices : null,
-                'social_promotion' => $this->collectSocialPromotion($request),
-            ];
-        }
+        $placementPatch = $this->placementOffersPatch($request);
 
         $data = array_filter($data, function ($value, $key) {
             // Optional example URL must be clearable; other nulls mean "leave unchanged".
@@ -4481,6 +4474,9 @@ class SiteController extends Controller
             $rules['price'] = 'sometimes|required|numeric|min:0|max:999999.99';
             $rules['description'] = 'sometimes|nullable|string|max:20000';
         }
+        if ($canFixListing && $request->boolean('placement_offers_form')) {
+            $rules = array_merge($rules, $this->placementOfferValidationRules());
+        }
 
         if ($request->exists('site_name') && is_string($request->input('site_name'))) {
             $request->merge(['site_name' => $this->normalizeSiteName($request->input('site_name'))]);
@@ -4502,9 +4498,14 @@ class SiteController extends Controller
             }
         }
 
-        $validator = Validator::make($request->all(), $rules, array_merge($this->siteImageValidationMessages(), [
-            'price.max' => 'Price must be at most €999,999.99.',
-        ]));
+        $validator = Validator::make(
+            $request->all(),
+            $rules,
+            array_merge($this->siteImageValidationMessages(), [
+                'price.max' => 'Price must be at most €999,999.99.',
+            ]),
+            $this->placementOfferValidationAttributes()
+        );
 
         // site_image is often a stored path string after upload-image; only
         // validate as a file when a real upload is present.
@@ -4574,6 +4575,10 @@ class SiteController extends Controller
                     $validator->errors()->add('description', $message);
                 }
             }
+
+            if ($canFixListing && $request->boolean('placement_offers_form')) {
+                $this->rejectBlankCheckedPlacementFees($validator, $request);
+            }
         });
 
         if ($validator->fails()) {
@@ -4628,6 +4633,11 @@ class SiteController extends Controller
             }
             if ($incomingDescription !== null) {
                 $payload['description'] = $incomingDescription;
+            }
+
+            $placementPatch = $this->placementOffersPatch($request);
+            if ($placementPatch !== null) {
+                $payload = array_merge($payload, $placementPatch);
             }
         }
 
@@ -5214,6 +5224,27 @@ class SiteController extends Controller
         }
 
         return ['save' => 'We could not save this website. Please try again.'];
+    }
+
+    /**
+     * Homepage / social / sensitive extras posted from staff create or edit.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function placementOffersPatch(Request $request): ?array
+    {
+        if (! $request->boolean('placement_offers_form')) {
+            return null;
+        }
+
+        $homepagePrices = $this->collectHomepagePlacementPrices($request);
+        $sensitivePrices = $this->collectSensitivePrices($request);
+
+        return [
+            'homepage_placement_prices' => $homepagePrices !== [] ? $homepagePrices : null,
+            'social_promotion' => $this->collectSocialPromotion($request),
+            'sensitive_prices' => $sensitivePrices !== [] ? $sensitivePrices : null,
+        ];
     }
 
     /**

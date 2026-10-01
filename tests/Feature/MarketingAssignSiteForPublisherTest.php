@@ -120,6 +120,7 @@ class MarketingAssignSiteForPublisherTest extends TestCase
             ->assertSee('name="social[facebook]"', false)
             ->assertSee('name="sensitive[crypto]"', false)
             ->assertSee('name="price_sensitive[crypto]"', false)
+            ->assertSee("getElementById('sensitiveDisclosureBtn')", false)
             ->assertSee('Shown in catalog Site Details', false)
             ->assertDontSee('optional homepage, social, and sensitive-topic prices', false)
             ->assertDontSee('id="publisherFilter"', false)

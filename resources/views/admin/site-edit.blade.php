@@ -54,6 +54,11 @@
         <div class="d-flex gap-2 flex-wrap">
             <a href="{{ $sitesBackUrl }}" class="btn btn-sm btn-outline-secondary">← Back</a>
             <a href="{{ $sitesBackUrl }}" class="btn btn-sm btn-outline-primary">Sites list</a>
+            @if((int) $site->publisher_id > 0)
+                <a href="{{ staff_route('sites.create', ['publisher' => $site->publisher_id], false) }}" class="btn btn-sm btn-primary">
+                    <i class="fa fa-plus me-1"></i> Add site for this publisher
+                </a>
+            @endif
         </div>
     </div>
 
@@ -127,6 +132,11 @@
                             <div class="text-muted small">Traffic</div>
                             <div class="fw-semibold">{{ number_format((int) $site->traffic) }}</div>
                         </div>
+                        @include('admin.sites.partials.placement-extras', [
+                            'layout' => 'inset',
+                            'site' => $site,
+                            'editable' => false,
+                        ])
                         <div class="col-12">
                             @if($site->marketingCanEditDescription())
                                 <form method="POST" action="{{ staff_route('sites.update', $site->id, false) }}">
@@ -305,6 +315,10 @@
                             </div>
                         </div>
 
+                        @include('admin.sites.partials.placement-extras', [
+                            'layout' => 'inset',
+                            'site' => $site,
+                        ])
                     </div>
 
                     <div class="d-flex flex-wrap gap-2 mt-4">
@@ -498,49 +512,10 @@
                                    value="{{ old_text('link_type', $site->link_type) }}" placeholder="dofollow">
                         </div>
 
-                        @php
-                            $homepageDays = config('site_placement.homepage_days', [1, 7, 30]);
-                            $existingHomepage = is_array($site->homepage_placement_prices) ? $site->homepage_placement_prices : [];
-                            $existingSocial = is_array($site->social_promotion) ? $site->social_promotion : [];
-                        @endphp
-                        <div class="col-12">
-                            <input type="hidden" name="placement_offers_form" value="1">
-                            <div class="border rounded p-3 bg-light">
-                                <p class="fw-semibold mb-1">Homepage &amp; social promotions (optional)</p>
-                                <p class="small text-muted mb-3">Advertisers see these in catalog Site Details. Leave unchecked to hide the offer.</p>
-                                <p class="fw-semibold small mb-2">Homepage placement</p>
-                                <div class="d-flex flex-wrap gap-3 mb-3">
-                                    @foreach($homepageDays as $days)
-                                        @php
-                                            $checked = old("homepage.$days", array_key_exists((string) $days, $existingHomepage) || array_key_exists($days, $existingHomepage));
-                                            $priceVal = old_text("price_homepage.$days", $existingHomepage[(string) $days] ?? $existingHomepage[$days] ?? '');
-                                        @endphp
-                                        <div style="min-width:140px;">
-                                            <div class="form-check">
-                                                <input type="checkbox" name="homepage[{{ $days }}]" value="1"
-                                                       class="form-check-input" id="adminHomepage{{ $days }}"
-                                                       {{ $checked ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="adminHomepage{{ $days }}">{{ $days }} day{{ $days > 1 ? 's' : '' }}</label>
-                                            </div>
-                                            <input type="number" name="price_homepage[{{ $days }}]" class="form-control mt-1"
-                                                   placeholder="Fee (€) — 0 = Free" min="0" step="0.01" inputmode="decimal"
-                                                   value="{{ $priceVal }}">
-                                        </div>
-                                    @endforeach
-                                </div>
-                                <p class="fw-semibold small mb-2">Social media sharing (always free)</p>
-                                <div class="d-flex flex-wrap gap-3">
-                                    @foreach(['facebook' => 'Facebook', 'instagram' => 'Instagram', 'x' => 'X'] as $channel => $label)
-                                        <div class="form-check">
-                                            <input type="checkbox" name="social[{{ $channel }}]" value="1"
-                                                   class="form-check-input" id="adminSocial{{ ucfirst($channel) }}"
-                                                   {{ old("social.$channel", !empty($existingSocial[$channel])) ? 'checked' : '' }}>
-                                            <label class="form-check-label" for="adminSocial{{ ucfirst($channel) }}">{{ $label }}</label>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
+                        @include('admin.sites.partials.placement-extras', [
+                            'layout' => 'inset',
+                            'site' => $site,
+                        ])
 
                         @include('admin.sites.partials.site-tag-field')
                         <div class="col-12">

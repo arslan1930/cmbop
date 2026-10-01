@@ -1267,4 +1267,113 @@ class AdminSiteUpdateGuardTest extends TestCase
         $this->assertSame('de', $site->country);
         $this->assertSame('de', $site->language);
     }
+
+    public function test_edit_page_shows_sensitive_topics_and_add_site_for_publisher(): void
+    {
+        $site = $this->site([
+            'sensitive_prices' => ['crypto' => 15],
+        ]);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.sites.edit', $site->id))
+            ->assertOk()
+            ->assertSee('Edit site', false)
+            ->assertSee('name="sensitive[crypto]"', false)
+            ->assertSee('name="sensitive[trading]"', false)
+            ->assertSee('name="sensitive[CBD]"', false)
+            ->assertSee('name="sensitive[forex]"', false)
+            ->assertSee('name="price_sensitive[crypto]"', false)
+            ->assertSee('id="sensitiveDisclosureBtn"', false)
+            ->assertSee("getElementById('sensitiveDisclosureBtn')", false)
+            ->assertSee('Add site for this publisher', false)
+            ->assertSee('/admin/sites/create?publisher='.$this->publisher->id, false)
+            ->assertSee('value="15"', false)
+            ->getContent();
+
+        $this->assertStringContainsString('checked', $html);
+        $this->assertStringNotContainsString('id="sensitiveDisclosurePanel" hidden', $html);
+    }
+
+    public function test_edit_page_survives_array_shaped_stored_extras(): void
+    {
+        $site = $this->site([
+            'sensitive_prices' => ['crypto' => ['15']],
+            'homepage_placement_prices' => ['7' => ['25']],
+            'social_promotion' => ['facebook' => ['1']],
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.sites.edit', $site->id))
+            ->assertOk()
+            ->assertSee('Edit site', false)
+            ->assertSee('name="sensitive[crypto]"', false)
+            ->assertDontSee('htmlspecialchars', false)
+            ->assertSee('Add site for this publisher', false);
+    }
+
+    public function test_update_persists_and_clears_sensitive_prices(): void
+    {
+        Mail::fake();
+        $site = $this->site();
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.sites.edit', $site->id))
+            ->put(route('admin.sites.update', $site->id), [
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'da' => 40,
+                'dr' => 42,
+                'traffic' => 15000,
+                'price' => 80,
+                'country' => 'de',
+                'language' => 'de',
+                'placement_offers_form' => 1,
+                'sensitive' => ['crypto' => '1', 'forex' => '1'],
+                'price_sensitive' => ['crypto' => '15', 'forex' => ''],
+            ])
+            ->assertRedirect(route('admin.sites.edit', $site->id))
+            ->assertSessionHasNoErrors();
+
+        $site->refresh();
+        $this->assertEqualsWithDelta(15.0, (float) ($site->sensitive_prices['crypto'] ?? 0), 0.001);
+        $this->assertEqualsWithDelta(0.0, (float) ($site->sensitive_prices['forex'] ?? -1), 0.001);
+        Mail::assertNothingOutgoing();
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.sites.edit', $site->id))
+            ->put(route('admin.sites.update', $site->id), [
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'da' => 40,
+                'dr' => 42,
+                'traffic' => 15000,
+                'price' => 80,
+                'country' => 'de',
+                'language' => 'de',
+                'placement_offers_form' => 1,
+            ])
+            ->assertRedirect(route('admin.sites.edit', $site->id))
+            ->assertSessionHasNoErrors();
+
+        $this->assertNull($site->fresh()->sensitive_prices);
+    }
+
+    public function test_update_rejects_array_shaped_sensitive_fee(): void
+    {
+        $site = $this->site();
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.sites.edit', $site->id))
+            ->put(route('admin.sites.update', $site->id), [
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'placement_offers_form' => 1,
+                'sensitive' => ['crypto' => '1'],
+                'price_sensitive' => ['crypto' => ['15']],
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('price_sensitive.crypto');
+
+        $this->assertNull($site->fresh()->sensitive_prices);
+    }
 }

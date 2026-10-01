@@ -253,8 +253,10 @@ class HomepageSocialPlacementOfferTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.sites.edit', $site->id))
             ->assertOk()
-            ->assertSee('Homepage &amp; social promotions (optional)', false)
-            ->assertSee('name="placement_offers_form"', false);
+            ->assertSee('Placement extras', false)
+            ->assertSee('name="placement_offers_form"', false)
+            ->assertSee('name="sensitive[crypto]"', false)
+            ->assertSee('Add site for this publisher', false);
 
         $this->actingAs($admin)
             ->put(route('admin.sites.update', $site->id), [

@@ -334,6 +334,10 @@ class MarketingOpsScopeTest extends TestCase
             ->assertDontSee('Verify / activate are admin-only.', false)
             ->assertSee('assets/js/staff-site-status.js', false)
             ->assertSee('Leave it empty to keep the current brief', false)
+            ->assertSee('name="sensitive[crypto]"', false)
+            ->assertSee('name="price_sensitive[crypto]"', false)
+            ->assertSee('Add site for this publisher', false)
+            ->assertSee('/marketing/sites/create?publisher='.$site->publisher_id, false)
             ->getContent();
 
         $descriptionPos = strpos($html, 'data-site-description-editor');
@@ -673,6 +677,8 @@ class MarketingOpsScopeTest extends TestCase
             ->assertDontSee('Fix the URL, price, description, or metrics if needed', false)
             ->assertDontSee('Marketing cannot change it', false)
             ->assertSee('assets/js/staff-site-status.js', false)
+            ->assertSee('name="sensitive[crypto]"', false)
+            ->assertSee('Add site for this publisher', false)
             ->getContent();
 
         $this->assertDoesNotMatchRegularExpression(
@@ -747,6 +753,9 @@ class MarketingOpsScopeTest extends TestCase
             ->assertDontSee('name="site_url"', false)
             ->assertDontSee('name="price"', false)
             ->assertDontSee('name="da"', false)
+            ->assertDontSee('name="sensitive[crypto]"', false)
+            ->assertSee('Add site for this publisher', false)
+            ->assertSee('/marketing/sites/create?publisher='.$site->publisher_id, false)
             ->getContent();
 
         $this->assertSame(
@@ -904,7 +913,7 @@ class MarketingOpsScopeTest extends TestCase
         $expectedBack = staff_route('sites.index', [
             'publisher' => $site->publisher_id,
             'site' => $site->id,
-        ]);
+        ], false);
 
         $this->actingAs($this->admin)
             ->get(route('admin.sites.edit', $site->id))
@@ -1084,5 +1093,100 @@ class MarketingOpsScopeTest extends TestCase
         Mail::assertQueued(SiteStatusNotification::class, function (SiteStatusNotification $mail) use ($site) {
             return $mail->hasTo($site->publisher->email) && $mail->action === 'update';
         });
+    }
+
+    public function test_marketer_pending_edit_persists_sensitive_prices(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Pending Extras Target',
+            'site_url' => 'https://pending-extras.example',
+            'domain' => 'pending-extras.example',
+            'price' => 99.5,
+            'description' => 'Publisher will replace this later with enough characters',
+        ]);
+        $category = Category::query()->where('name', 'Business & Finance')->first()
+            ?? Category::query()->firstOrFail();
+
+        $this->actingAs($this->marketer)
+            ->put(route('marketing.sites.update', $site->id), [
+                'site_name' => $site->site_name,
+                'site_url' => $site->site_url,
+                'price' => 99.5,
+                'da' => 33,
+                'dr' => 44,
+                'traffic' => 5000,
+                'language' => 'de',
+                'country' => 'de',
+                'categories' => $category->name,
+                'placement_offers_form' => 1,
+                'sensitive' => ['crypto' => '1'],
+                'price_sensitive' => ['crypto' => '15'],
+                'homepage' => ['7' => '1'],
+                'price_homepage' => ['7' => '25'],
+                'social' => ['facebook' => '1'],
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $site->refresh();
+        $this->assertEqualsWithDelta(15.0, (float) ($site->sensitive_prices['crypto'] ?? 0), 0.001);
+        $this->assertSame([7 => 25.0], $site->homepagePlacementOptions());
+        $this->assertSame(['facebook'], $site->enabledSocialChannels());
+    }
+
+    public function test_marketer_locked_edit_ignores_posted_sensitive_prices(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Live Extras Locked',
+            'site_url' => 'https://live-extras-locked.example',
+            'domain' => 'live-extras-locked.example',
+            'da' => 55,
+            'verified' => true,
+            'active' => true,
+            'sensitive_prices' => ['crypto' => 15],
+            'description' => 'Publisher brief stays visible on the locked marketing view.',
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->put(route('marketing.sites.update', $site->id), [
+                'description' => 'This listing is for your audience and the publishers who write guest posts here.',
+                'placement_offers_form' => 1,
+                'sensitive' => ['crypto' => '1'],
+                'price_sensitive' => ['crypto' => '99'],
+                'da' => 10,
+            ])
+            ->assertRedirect();
+
+        $site->refresh();
+        $this->assertEqualsWithDelta(15.0, (float) ($site->sensitive_prices['crypto'] ?? 0), 0.001);
+        $this->assertSame(55, (int) $site->da);
+        $this->assertSame(
+            'This listing is for your audience and the publishers who write guest posts here.',
+            $site->description
+        );
+    }
+
+    public function test_marketer_locked_edit_survives_array_shaped_extras(): void
+    {
+        $site = $this->makeSite([
+            'site_name' => 'Live Extras Corrupt',
+            'site_url' => 'https://live-extras-corrupt.example',
+            'domain' => 'live-extras-corrupt.example',
+            'da' => 55,
+            'verified' => true,
+            'active' => true,
+            'sensitive_prices' => ['crypto' => ['15']],
+            'homepage_placement_prices' => ['7' => ['25']],
+            'social_promotion' => ['facebook' => ['1']],
+            'description' => 'Publisher brief stays visible on the locked marketing view.',
+        ]);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.sites.edit', $site->id))
+            ->assertOk()
+            ->assertSee('Edit description', false)
+            ->assertDontSee('htmlspecialchars', false)
+            ->assertDontSee('name="sensitive[crypto]"', false)
+            ->assertDontSee('name="price_homepage[7]"', false);
     }
 }
