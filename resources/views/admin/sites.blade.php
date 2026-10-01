@@ -38,9 +38,71 @@
 @endphp
 <div class="container-fluid py-3 {{ request()->filled('publisher') ? 'staff-publisher-open' : '' }}" id="staffSitesPage">
 
+<<<<<<< HEAD
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <h4 class="mb-0 fw-bold">Sites Management</h4>
         <div class="d-flex flex-wrap gap-2">
+=======
+    <div class="admin-sites-header d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h4 class="mb-0 fw-bold">Sites Management</h4>
+            <div id="staffCatalogWide">
+            <div class="small text-muted mt-1">Catalog-wide</div>
+            @if(($openReviewCount ?? 0) > 0)
+                <small class="text-muted">
+                    <span class="badge text-bg-warning">{{ $openReviewCount }}</span>
+                    site{{ $openReviewCount === 1 ? '' : 's' }} need{{ $openReviewCount === 1 ? 's' : '' }} review
+                </small>
+            @endif
+            @if(($missingMarketListCount ?? 0) > 0)
+                <small class="text-muted d-block mt-1">
+                    <a href="{{ staff_route('sites.index', ['all' => 1, 'listing_active' => 1, 'missing_market' => 1]) }}" class="link-secondary">
+                        <span class="badge text-bg-danger">{{ $missingMarketListCount }}</span>
+                        active site{{ $missingMarketListCount === 1 ? '' : 's' }} missing market country
+                    </a>
+                </small>
+            @endif
+            @php
+                $liveUnverifiedUrl = staff_route('sites.index', ['all' => 1, 'listing_active' => 1, 'listing_verified' => 0]);
+                $healthLinks = [
+                    'below_quality' => [
+                        'label' => 'below quality bar',
+                        'count' => (int) ($belowQualityListCount ?? 0),
+                        'url' => staff_route('sites.index', ['all' => 1, 'below_quality' => 1]),
+                    ],
+                    'unverified' => [
+                        'label' => 'unverified active',
+                        'count' => (int) ($liveUnverifiedCount ?? 0),
+                        'url' => $liveUnverifiedUrl,
+                    ],
+                    'placeholder' => [
+                        'label' => 'placeholder',
+                        'count' => (int) ($placeholderListCount ?? 0),
+                        'url' => staff_route('sites.index', ['all' => 1, 'placeholder' => 1]),
+                    ],
+                    'missing_cover' => [
+                        'label' => 'missing cover',
+                        'count' => (int) ($missingCoverListCount ?? 0),
+                        'url' => staff_route('sites.index', ['all' => 1, 'missing_cover' => 1]),
+                    ],
+                ];
+                $healthPreview = collect($healthLinks)->filter(fn ($row) => $row['count'] > 0);
+            @endphp
+            @if($healthPreview->isNotEmpty())
+                <small class="text-muted d-block mt-1">
+                    Catalog health:
+                    @foreach($healthPreview as $healthRow)
+                        <a href="{{ $healthRow['url'] }}" class="link-secondary">
+                            <span class="badge text-bg-warning">{{ $healthRow['count'] }}</span>
+                            {{ $healthRow['label'] }}
+                        </a>@if(! $loop->last), @endif
+                    @endforeach
+                </small>
+            @endif
+            </div>
+        </div>
+        <div class="admin-sites-header__actions d-flex flex-wrap gap-2">
+>>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
             @if(!empty($needsReviewFilterActive))
                 @if(!empty($flatQueue))
                     <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-secondary">
@@ -71,6 +133,59 @@
             @if(!empty($allSitesMode))
                 <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
             @else
+<<<<<<< HEAD
+=======
+                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
+                    <i class="fa fa-bell me-1"></i> Needs review
+                    @if(($openReviewCount ?? 0) > 0)
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $openReviewCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-warning">
+                    Site queue
+                </a>
+                <a href="{{ staff_route('sites.index', array_filter(['waiting_on_publisher' => 1, 'flat' => 1] + $publisherSearchQuery)) }}" class="btn btn-sm btn-outline-secondary">
+                    Waiting on publisher
+                    @if(($waitingOnPublisherCount ?? 0) > 0)
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $waitingOnPublisherCount }}</span>
+                    @endif
+                </a>
+                @php
+                    $queueFiltersClear = $publisherSearch === ''
+                        && ($staffSiteFilters['country'] ?? '') === ''
+                        && ($staffSiteFilters['language'] ?? '') === ''
+                        && ($staffSiteFilters['niche'] ?? '') === ''
+                        && ($staffSiteFilters['tag'] ?? '') === ''
+                        && empty($staffSiteFilters['below_quality'])
+                        && empty($staffSiteFilters['missing_market'])
+                        && empty($staffSiteFilters['placeholder'])
+                        && empty($staffSiteFilters['missing_cover'])
+                        && empty($staffSiteFilters['bulk_request'])
+                        && empty($staffSiteFilters['archived']);
+                    $onLiveUnverified = !empty($allSitesMode)
+                        && ($staffSiteFilters['listing_active'] ?? '') === '1'
+                        && ($staffSiteFilters['listing_verified'] ?? '') === '0'
+                        && $queueFiltersClear
+                        && empty($staffSiteFilters['ready_to_activate']);
+                    $onReadyToActivate = !empty($allSitesMode)
+                        && !empty($staffSiteFilters['ready_to_activate'])
+                        && $queueFiltersClear
+                        && ($staffSiteFilters['listing_active'] ?? '') === ''
+                        && ($staffSiteFilters['listing_verified'] ?? '') === '';
+                @endphp
+                <a href="{{ staff_route('sites.index', ['all' => 1, 'ready_to_activate' => 1]) }}" class="btn btn-sm {{ $onReadyToActivate ? 'btn-success' : 'btn-outline-success' }}">
+                    Ready to activate
+                    @if(($readyToActivateCount ?? 0) > 0)
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $readyToActivateCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ $liveUnverifiedUrl }}" class="btn btn-sm {{ $onLiveUnverified ? 'btn-secondary' : 'btn-outline-secondary' }}">
+                    Live unverified
+                    @if(($liveUnverifiedCount ?? 0) > 0)
+                        <span class="badge text-bg-dark ms-1 staff-catalog-count">{{ $liveUnverifiedCount }}</span>
+                    @endif
+                </a>
+>>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
                 <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
             @endif
             @if(auth()->user()?->isAdmin())
@@ -219,10 +334,13 @@
                 <tbody>
                 @forelse($flatQueueSites as $index => $site)
                     @php
-                        $openUrl = staff_route('sites.index', array_filter([
-                            'publisher' => $site->publisher_id,
-                            'site' => $site->id,
-                        ]));
+                        $openUrl = staff_route('sites.index', array_filter(
+                            [
+                                'publisher' => $site->publisher_id,
+                                'site' => $site->id,
+                            ] + ($sitesReturnQuery ?? []),
+                            static fn ($value) => $value !== null && $value !== ''
+                        ));
                         $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
                         $hasOrders = $site->orderItemsCount() > 0;
                         $canDeleteFlat = ! $site->isArchived()
@@ -239,6 +357,7 @@
                         data-review-name="{{ $site->site_name }}"
                         data-review-url="{{ $site->site_url }}"
                         data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
+<<<<<<< HEAD
                         <td><input type="checkbox"
                             data-staff-bulk-id="{{ $site->id }}"
                             data-verified="{{ $site->verified ? '1' : '0' }}"
@@ -246,6 +365,9 @@
                             data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
                             data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
                             aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+=======
+                        <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+>>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
                         <td class="d-none d-md-table-cell">{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td>
                             @include('admin.sites.partials.queue-site-cell')
@@ -575,6 +697,40 @@ const QUALITY_MIN_DR = {{ (int) \App\Models\Site::GOOD_MIN_DR }};
 const QUALITY_MIN_TRAFFIC = {{ (int) \App\Models\Site::GOOD_MIN_TRAFFIC }};
 let allSites = [];
 let pendingHighlightSiteId = null;
+let lastSitesPage = 1;
+
+function staffSitesReturnParams() {
+    const params = new URLSearchParams(window.location.search);
+    if (lastSitesPage > 1) {
+        params.set('sites_page', String(lastSitesPage));
+    } else {
+        params.delete('sites_page');
+    }
+    params.delete('site');
+    params.delete('edit_site');
+    return params;
+}
+
+function staffSitesEditUrl(id, hash) {
+    const q = staffSitesReturnParams().toString();
+    return `${STAFF_BASE}/sites/${id}/edit` + (q ? `?${q}` : '') + (hash || '');
+}
+
+function syncPublisherListUrl(publisherId, sitesPage) {
+    try {
+        const url = new URL(window.location.href);
+        if (publisherId) {
+            url.searchParams.set('publisher', String(publisherId));
+        }
+        if (Number(sitesPage) > 1) {
+            url.searchParams.set('sites_page', String(sitesPage));
+        } else {
+            url.searchParams.delete('sites_page');
+        }
+        const next = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
+        window.history.replaceState({}, '', next);
+    } catch (e) {}
+}
 
 function setPublisherChrome(open) {
     document.getElementById('staffSitesPage')?.classList.toggle('staff-publisher-open', !!open);
@@ -670,7 +826,9 @@ function fetchUserSites(id, page){
     if (summaryEl) summaryEl.textContent = '';
 
     if (addBtn) {
-        addBtn.href = `${STAFF_BASE}/sites/create?publisher=${encodeURIComponent(id)}`;
+        const createParams = staffSitesReturnParams();
+        createParams.set('publisher', String(id));
+        addBtn.href = `${STAFF_BASE}/sites/create?${createParams.toString()}`;
         addBtn.classList.remove('d-none');
     }
 
@@ -678,6 +836,8 @@ function fetchUserSites(id, page){
         `<tr><td colspan="7">Loading...</td></tr>`;
 
     const pageNum = Number(page) > 1 ? Number(page) : 1;
+    lastSitesPage = pageNum;
+    syncPublisherListUrl(id, pageNum);
     if (pageNum > 1) {
         pendingHighlightSiteId = null;
     }
@@ -1472,7 +1632,7 @@ document.addEventListener('click', function(e){
                 looksEnglish: site.description_looks_english,
                 excerpt: site.description_excerpt || '',
                 name: site.site_name || '',
-                editUrl: `${STAFF_BASE}/sites/${id}/edit#description`,
+                editUrl: staffSitesEditUrl(id, '#description'),
             };
             const fallbackActivateText = activateOpts.name
                 ? 'Make "' + activateOpts.name + '" live in the catalog?'
@@ -1798,7 +1958,7 @@ function sitePreviewHtml(site) {
     if (!paths.thumb) {
         const empty = `<span class="site-row-preview is-empty" aria-label="No preview"><i class="fa fa-image" aria-hidden="true"></i></span>`;
         if (site.missing_cover) {
-            return `<a href="${STAFF_BASE}/sites/${site.id}/edit#site_image" class="text-decoration-none" title="Add a cover. This does not block going live.">${empty}</a>`;
+            return `<a href="${staffSitesEditUrl(site.id, '#site_image')}" class="text-decoration-none" title="Add a cover. This does not block going live.">${empty}</a>`;
         }
         return empty;
     }
@@ -2015,10 +2175,10 @@ function renderSites(data){
                 ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="DA ≥ ${QUALITY_MIN_DA}, DR ≥ ${QUALITY_MIN_DR}, traffic ≥ ${QUALITY_MIN_TRAFFIC.toLocaleString('en-US')}">Below quality bar${qualityFailures.length ? ' — ' + escapeHtml(qualityFailures.join(', ')) : ''}</span>`
                 : '';
             const missingCoverBadge = site.missing_cover
-                ? `<a href="${STAFF_BASE}/sites/${site.id}/edit#site_image" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>`
+                ? `<a href="${staffSitesEditUrl(site.id, '#site_image')}" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>`
                 : '';
             const missingTagsBadge = site.missing_tags
-                ? `<a href="${STAFF_BASE}/sites/${site.id}/edit#site_tag" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>`
+                ? `<a href="${staffSitesEditUrl(site.id, '#site_tag')}" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>`
                 : '';
             const scanBadge = site.enrichment_failed
                 ? `<span class="badge text-bg-danger badge-needs-review ms-1">Scan failed</span>`
@@ -2091,7 +2251,7 @@ function renderSites(data){
                 || !!site.listing_locked
             );
             const editLabel = (IS_MARKETING_EDITOR && !!site.archived) ? 'View' : 'Edit';
-            const editItem = `<li><a class="dropdown-item" href="${STAFF_BASE}/sites/${site.id}/edit"><i class="fa fa-edit me-2"></i>${editLabel}</a></li>`
+            const editItem = `<li><a class="dropdown-item" href="${staffSitesEditUrl(site.id)}"><i class="fa fa-edit me-2"></i>${editLabel}</a></li>`
                 + (IS_MARKETING_EDITOR
                     ? ''
                     : `<li><button type="button" class="dropdown-item edit-site" data-id="${site.id}"><i class="fa fa-image me-2"></i>Metrics &amp; image</button></li>`);
@@ -2124,9 +2284,9 @@ function renderSites(data){
                 const fixTitle = site.activate_block_reason
                     ? escapeHtml(site.activate_block_reason)
                     : 'Update DA, DR, or traffic.';
-                primaryAction = `<a class="btn btn-sm btn-outline-warning" href="${STAFF_BASE}/sites/${site.id}/edit#da" title="${fixTitle}">Fix metrics</a>`;
+                primaryAction = `<a class="btn btn-sm btn-outline-warning" href="${staffSitesEditUrl(site.id, '#da')}" title="${fixTitle}">Fix metrics</a>`;
             } else if (!isActive && site.missing_market) {
-                primaryAction = `<a class="btn btn-sm btn-outline-danger" href="${STAFF_BASE}/sites/${site.id}/edit#country">Set country</a>`;
+                primaryAction = `<a class="btn btn-sm btn-outline-danger" href="${staffSitesEditUrl(site.id, '#country')}">Set country</a>`;
             } else if (!isActive && !activateBlocked && CAN_TOGGLE_ACTIVE) {
                 const thinListing = !!site.missing_cover || !!site.missing_tags;
                 primaryAction = `<button type="button" class="btn btn-sm ${thinListing ? 'btn-outline-success' : 'btn-outline-primary'} toggle-active" data-id="${site.id}" data-status="1"${thinListing ? ' title="Can go live. Cover or tags are still missing."' : ''}>Activate</button>`;
@@ -2204,7 +2364,7 @@ function renderSites(data){
                                     <div class="col-md-4"><strong>Link Type</strong><div>${escapeHtml(site.link_type_label || site.link_type || '-')}</div></div>
                                     <div class="col-md-4"><strong>Sponsored</strong><div>${site.sponsored ? 'Yes':'No'}</div></div>
                                     <div class="col-md-4"><strong>Buyer price</strong><div>€${site.price ?? '-'}</div></div>
-                                    <div class="col-12"><strong>Description</strong><div class="slb-text-break">${escapeHtml(site.description_textarea || site.description_excerpt || site.description || '-')}</div><a class="small" href="${STAFF_BASE}/sites/${site.id}/edit#description">Edit description</a></div>
+                                    <div class="col-12"><strong>Description</strong><div class="slb-text-break">${escapeHtml(site.description_textarea || site.description_excerpt || site.description || '-')}</div><a class="small" href="${staffSitesEditUrl(site.id, '#description')}">Edit description</a></div>
                                     ${(site.image_url || siteMediaUrl(site.site_image) || siteStorageUrl(site.site_image)) ? `<div class="col-12"><strong>Site Image</strong><div class="site-preview-detail"><img data-detail-src="${escapeHtml(site.image_url || siteMediaUrl(site.site_image) || siteStorageUrl(site.site_image))}" alt="Site image" loading="lazy" decoding="async"></div></div>` : ''}
                                 </div>
                             </div>
@@ -2237,7 +2397,8 @@ document.getElementById('backBtn').addEventListener('click', function(){
     try {
         const url = new URL(window.location.href);
         if (url.searchParams.get('all') === '1') {
-            ['publisher', 'site', 'edit_site'].forEach((key) => url.searchParams.delete(key));
+            ['publisher', 'site', 'edit_site', 'sites_page'].forEach((key) => url.searchParams.delete(key));
+            lastSitesPage = 1;
             window.location = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
             return;
         }
@@ -2253,7 +2414,8 @@ document.getElementById('backBtn').addEventListener('click', function(){
     // Drop deep-link params so refresh stays on the publisher list (not stuck on sites).
     try {
         const url = new URL(window.location.href);
-        ['publisher', 'site', 'edit_site'].forEach((key) => url.searchParams.delete(key));
+        ['publisher', 'site', 'edit_site', 'sites_page'].forEach((key) => url.searchParams.delete(key));
+        lastSitesPage = 1;
         const next = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '');
         window.history.replaceState({}, '', next);
     } catch (e) {}
@@ -2627,7 +2789,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     // queue, then immediately covered it with whichever publisher you happened
     // to open last, and the button looked dead.
     const wantsReviewQueue = params.has('needs_review') || params.get('verified') === '0' || params.has('waiting_on_publisher');
-    const pagingTheList = params.has('page');
+    const pagingTheList = params.has('page') && !params.get('publisher') && !siteId;
     if (pagingTheList || ((wantsReviewQueue || ALL_SITES) && !params.get('publisher') && !siteId)) {
         sessionStorage.removeItem('selected_user');
     }
@@ -2651,9 +2813,9 @@ window.addEventListener('DOMContentLoaded',()=>{
         if (siteSearch && queryLooksLikeSiteSearch(indexQ) && !siteSearch.value) {
             siteSearch.value = indexQ;
         }
-        fetchUserSites(publisherId).then(() => {
+        fetchUserSites(publisherId, params.get('sites_page')).then(() => {
             if (editSiteId) {
-                window.location.href = `${STAFF_BASE}/sites/${editSiteId}/edit`;
+                window.location.href = staffSitesEditUrl(editSiteId);
                 return;
             }
         });
@@ -2679,7 +2841,7 @@ document.addEventListener('click', function (e) {
             excerpt: btn.dataset.descriptionExcerpt || '',
             name: name,
             confirmText: 'Activate',
-            editUrl: `${STAFF_BASE}/sites/${id}/edit#description`,
+            editUrl: staffSitesEditUrl(id, '#description'),
         })
         : (typeof window.slbConfirm === 'function')
             ? window.slbConfirm({

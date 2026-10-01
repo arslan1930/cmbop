@@ -685,6 +685,41 @@ class SitePromotionTest extends TestCase
         $this->assertEqualsWithDelta(50.0, (float) Wallet::where('user_id', $publisher->id)->value('balance'), 0.01);
     }
 
+    public function test_admin_feature_credit_sites_are_limited_to_the_publisher(): void
+    {
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->syncWithoutDetaching([$adminRole->id]);
+        $publisher = $this->publisherWithWallet(50);
+        $site = $this->site($publisher);
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $advertiser = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $advertiserRole->id,
+        ]);
+        $advertiser->roles()->syncWithoutDetaching([$advertiserRole->id]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.promotions.feature-credits.sites', ['user_id' => $publisher->id]))
+            ->assertOk()
+            ->assertJsonPath('sites.0.id', $site->id)
+            ->assertJsonPath('sites.0.domain', 'promo.example');
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.promotions.feature-credits.sites', ['user_id' => $advertiser->id]))
+            ->assertNotFound();
+
+        $hub = $this->actingAs($admin)
+            ->get(route('admin.promotions.index'))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString((string) $publisher->email, $hub);
+        $this->assertStringNotContainsString((string) $advertiser->email, $hub);
+    }
+
     public function test_non_admin_cannot_grant_a_feature_credit(): void
     {
         $publisher = $this->publisherWithWallet();

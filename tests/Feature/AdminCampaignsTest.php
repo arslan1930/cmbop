@@ -298,7 +298,10 @@ class AdminCampaignsTest extends TestCase
             ->assertSee('value="advertisers_no_paid_orders"', false)
             ->assertSee('Advertisers: paid customers', false)
             ->assertSee('Advertisers: deposited, no paid orders', false)
-            ->assertSee('Publishers: no active sites', false);
+            ->assertSee('Publishers: no active sites', false)
+            ->assertSee('Save draft', false)
+            ->assertSee('Send test to me', false)
+            ->assertSee('Mail queue', false);
 
         $html = $this->actingAs($admin)
             ->get(route('admin.campaigns.index'))
@@ -371,6 +374,24 @@ class AdminCampaignsTest extends TestCase
             ->assertSee('data-value="password_reset"', false)
             ->assertSee('data-value="email_verification"', false)
             ->assertDontSee('data-value="audience_campaign"', false);
+    }
+
+    public function test_compose_keeps_inventory_filter_handoff(): void
+    {
+        $admin = $this->makeUser('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.campaigns.index', [
+                'audience' => 'advertisers',
+                'country' => 'DE',
+                'verified' => 'yes',
+            ]))
+            ->assertOk()
+            ->assertSee('Inventory filters will apply to this send', false)
+            ->assertSee('name="country"', false)
+            ->assertSee('value="DE"', false)
+            ->assertSee('name="verified"', false)
+            ->assertSee('value="yes"', false);
     }
 
     public function test_from_template_fills_subject_and_sanitized_body(): void
@@ -504,7 +525,7 @@ class AdminCampaignsTest extends TestCase
                 'body_html' => '   ',
                 'respect_preferences' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHasErrors('body_html');
 
         $this->assertSame(0, EmailCampaign::query()->count());
@@ -618,7 +639,7 @@ class AdminCampaignsTest extends TestCase
             ->post(route('admin.campaigns.send'), $this->campaignPayload([
                 'respect_preferences' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success', fn ($msg) => str_contains((string) $msg, 'Campaign queued for 1 recipient'));
 
         $campaign = EmailCampaign::query()->latest('id')->first();
@@ -646,7 +667,7 @@ class AdminCampaignsTest extends TestCase
             ->post(route('admin.campaigns.send'), $this->campaignPayload([
                 'respect_preferences' => '1',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success', fn ($msg) => str_contains((string) $msg, 'Campaign queued for 2 recipient'));
 
         $campaign = EmailCampaign::query()->latest('id')->first();
@@ -737,7 +758,7 @@ class AdminCampaignsTest extends TestCase
                 'respect_preferences' => '0',
                 'include_unverified' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'));
+            ->assertRedirect();
 
         Mail::assertQueued(AudienceCampaignMail::class, fn (AudienceCampaignMail $mail) => $mail->hasTo($verified->email));
         Mail::assertNotQueued(AudienceCampaignMail::class, fn (AudienceCampaignMail $mail) => $mail->hasTo($unverified->email));
@@ -757,7 +778,7 @@ class AdminCampaignsTest extends TestCase
                 'respect_preferences' => '0',
                 'include_unverified' => '1',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         Mail::assertQueued(AudienceCampaignMail::class, fn (AudienceCampaignMail $mail) => $mail->hasTo($unverified->email));
@@ -775,13 +796,70 @@ class AdminCampaignsTest extends TestCase
             ->post(route('admin.campaigns.send'), $this->campaignPayload([
                 'respect_preferences' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'));
+            ->assertRedirect();
 
         $campaign = EmailCampaign::query()->latest('id')->first();
         $this->assertNotNull($campaign);
         $this->assertFalse((bool) $campaign->include_unverified);
         $this->assertFalse($campaign->isDraft());
         $this->assertFalse($campaign->isEditableDraft());
+    }
+
+    public function test_send_honors_inventory_country_filter(): void
+    {
+        Mail::fake();
+
+        $admin = $this->makeUser('admin');
+        $de = $this->makeUser('advertiser');
+        $de->forceFill(['country' => 'DE'])->save();
+        $fr = $this->makeUser('advertiser');
+        $fr->forceFill(['country' => 'FR'])->save();
+
+        $this->actingAs($admin)
+            ->post(route('admin.campaigns.send'), $this->campaignPayload([
+                'respect_preferences' => '0',
+                'country' => 'DE',
+            ]))
+            ->assertRedirect();
+
+        $campaign = EmailCampaign::query()->latest('id')->first();
+        $this->assertNotNull($campaign);
+        $this->assertSame(1, (int) $campaign->recipients_count);
+        $this->assertSame('DE', data_get($campaign->inventory_filters, 'filters.country'));
+        $this->assertTrue(
+            EmailCampaignRecipient::query()
+                ->where('email_campaign_id', $campaign->id)
+                ->where('user_id', $de->id)
+                ->exists()
+        );
+        $this->assertFalse(
+            EmailCampaignRecipient::query()
+                ->where('email_campaign_id', $campaign->id)
+                ->where('user_id', $fr->id)
+                ->exists()
+        );
+        $this->actingAs($admin)
+            ->get(route('admin.campaigns.show', $campaign))
+            ->assertOk()
+            ->assertSee('Filtered: DE', false);
+    }
+
+    public function test_recipient_count_honors_inventory_filters(): void
+    {
+        $admin = $this->makeUser('admin');
+        $de = $this->makeUser('advertiser');
+        $de->forceFill(['country' => 'DE'])->save();
+        $this->makeUser('advertiser');
+
+        $this->actingAs($admin)
+            ->post(route('admin.campaigns.recipient-count'), [
+                'audience' => 'advertisers',
+                'country' => 'DE',
+                'include_unverified' => '0',
+            ])
+            ->assertOk()
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('filtered', true);
     }
 
     public function test_draft_helpers_require_draft_status_and_no_recipients(): void
@@ -842,7 +920,7 @@ class AdminCampaignsTest extends TestCase
                 'user_ids' => [$admin->id, $advertiser->id],
                 'respect_preferences' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         $campaign = EmailCampaign::query()->latest('id')->first();
@@ -995,7 +1073,7 @@ class AdminCampaignsTest extends TestCase
                 'audience' => 'advertisers_paid_orders',
                 'respect_preferences' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         $campaign = EmailCampaign::query()->latest('id')->first();
@@ -1016,7 +1094,7 @@ class AdminCampaignsTest extends TestCase
             ->post(route('admin.campaigns.send'), $this->campaignPayload([
                 'respect_preferences' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success', fn ($msg) => str_contains((string) $msg, 'Campaign queued for 1 recipient'));
 
         $campaign = EmailCampaign::query()->latest('id')->first();
@@ -1077,7 +1155,7 @@ class AdminCampaignsTest extends TestCase
             ->post(route('admin.campaigns.send'), $this->campaignPayload([
                 'respect_preferences' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success', fn ($msg) => str_contains((string) $msg, 'already sent'));
 
         $this->assertSame(0, ActivityLog::query()->where('action', 'campaign.queued')->count());
@@ -1103,7 +1181,7 @@ class AdminCampaignsTest extends TestCase
             ->post(route('admin.campaigns.send'), $this->campaignPayload([
                 'respect_preferences' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'));
+            ->assertRedirect();
 
         $campaign = EmailCampaign::query()->latest('id')->first();
         $this->assertSame(EmailCampaign::STATUS_QUEUED, $campaign->status);
@@ -1162,7 +1240,7 @@ class AdminCampaignsTest extends TestCase
             ->post(route('admin.campaigns.send'), $this->campaignPayload([
                 'respect_preferences' => '1',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         $campaign = EmailCampaign::query()->latest('id')->first();
@@ -1331,7 +1409,7 @@ class AdminCampaignsTest extends TestCase
             ->post(route('admin.campaigns.send'), $this->campaignPayload([
                 'respect_preferences' => '0',
             ]))
-            ->assertRedirect(route('admin.campaigns.index'));
+            ->assertRedirect();
 
         $campaign = EmailCampaign::query()->latest('id')->first();
         $recipient = $campaign->recipients()->where('user_id', $advertiser->id)->first();
@@ -7078,5 +7156,195 @@ class AdminCampaignsTest extends TestCase
         $this->assertSame('duplicate', $mailable->suppressReason);
         $this->assertSame($dedupe, $mailable->dedupeKey);
         $this->assertSame(1, EmailLog::query()->where('dedupe_key', $dedupe)->where('status', EmailLog::STATUS_DELIVERED)->count());
+    }
+
+    public function test_send_redirects_to_campaign_show(): void
+    {
+        Queue::fake();
+        $admin = $this->makeUser('admin');
+        $this->makeUser('advertiser');
+
+        $this->actingAs($admin)
+            ->post(route('admin.campaigns.send'), $this->campaignPayload([
+                'respect_preferences' => '0',
+            ]))
+            ->assertRedirect(route('admin.campaigns.show', EmailCampaign::query()->latest('id')->first()))
+            ->assertSessionHas('success');
+    }
+
+    public function test_history_lists_failed_count_and_name(): void
+    {
+        $admin = $this->makeUser('admin');
+        $campaign = EmailCampaign::create([
+            'name' => 'BF25 blast',
+            'subject' => 'A very long subject that should not be the only label',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'recipients_count' => 2,
+            'sent_count' => 1,
+            'status' => EmailCampaign::STATUS_SENT,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $admin->id,
+            'email' => $admin->email,
+            'status' => EmailCampaignRecipient::STATUS_FAILED,
+            'skip_reason' => EmailCampaignRecipient::SKIP_ERROR,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.campaigns.index'))
+            ->assertOk()
+            ->assertSee('BF25 blast', false)
+            ->assertSee('1 failed', false)
+            ->assertSee($admin->name, false);
+    }
+
+    public function test_show_back_keeps_list_query(): void
+    {
+        $admin = $this->makeUser('admin');
+        $campaign = EmailCampaign::create([
+            'name' => 'Held',
+            'subject' => 'Held',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'status' => EmailCampaign::STATUS_FAILED,
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.campaigns.index', ['status' => 'failed', 'page' => 2]))
+            ->assertOk();
+
+        $this->actingAs($admin)
+            ->get(route('admin.campaigns.show', $campaign))
+            ->assertOk()
+            ->assertSee('status=failed', false)
+            ->assertSee('page=2', false)
+            ->assertSee('View sent HTML', false);
+    }
+
+    public function test_show_recipient_search_filters_rows(): void
+    {
+        $admin = $this->makeUser('admin');
+        $keep = $this->makeUser('advertiser');
+        $hide = $this->makeUser('advertiser');
+        $campaign = EmailCampaign::create([
+            'name' => 'Search me',
+            'subject' => 'Search me',
+            'body_html' => '<p>Hi</p>',
+            'audience' => 'advertisers',
+            'status' => EmailCampaign::STATUS_SENT,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $keep->id,
+            'email' => $keep->email,
+            'status' => EmailCampaignRecipient::STATUS_DELIVERED,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $hide->id,
+            'email' => $hide->email,
+            'status' => EmailCampaignRecipient::STATUS_DELIVERED,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.campaigns.show', ['campaign' => $campaign, 'q' => $keep->email]))
+            ->assertOk()
+            ->assertSee($keep->email, false)
+            ->assertDontSee($hide->email, false);
+    }
+
+    public function test_draft_save_does_not_dispatch_or_insert_recipients(): void
+    {
+        Queue::fake();
+        $admin = $this->makeUser('admin');
+        $this->makeUser('advertiser');
+
+        $this->actingAs($admin)
+            ->post(route('admin.campaigns.draft'), $this->campaignPayload([
+                'name' => 'Held draft',
+                'respect_preferences' => '0',
+            ]))
+            ->assertRedirect(route('admin.campaigns.index', ['draft' => EmailCampaign::query()->latest('id')->value('id')]))
+            ->assertSessionHas('success');
+
+        $draft = EmailCampaign::query()->latest('id')->first();
+        $this->assertTrue($draft->isEditableDraft());
+        $this->assertSame(0, $draft->recipients()->count());
+        Queue::assertNothingPushed();
+    }
+
+    public function test_clone_creates_draft_without_recipients(): void
+    {
+        $admin = $this->makeUser('admin');
+        $advertiser = $this->makeUser('advertiser');
+        $campaign = EmailCampaign::create([
+            'name' => 'Original',
+            'subject' => 'Original subject',
+            'body_html' => '<p>Body</p>',
+            'audience' => 'advertisers',
+            'status' => EmailCampaign::STATUS_SENT,
+            'created_by' => $admin->id,
+        ]);
+        EmailCampaignRecipient::create([
+            'email_campaign_id' => $campaign->id,
+            'user_id' => $advertiser->id,
+            'email' => $advertiser->email,
+            'status' => EmailCampaignRecipient::STATUS_DELIVERED,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.campaigns.clone', $campaign))
+            ->assertRedirect();
+
+        $copy = EmailCampaign::query()->where('id', '!=', $campaign->id)->latest('id')->first();
+        $this->assertTrue($copy->isEditableDraft());
+        $this->assertSame('Original subject', $copy->subject);
+        $this->assertSame(0, $copy->recipients()->count());
+    }
+
+    public function test_send_test_to_admin_does_not_create_audience_rows(): void
+    {
+        Mail::fake();
+        $admin = $this->makeUser('admin');
+        $this->makeUser('advertiser');
+
+        $this->actingAs($admin)
+            ->from(route('admin.campaigns.index'))
+            ->post(route('admin.campaigns.test'), $this->campaignPayload([
+                'email' => $admin->email,
+                'respect_preferences' => '0',
+            ]))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame(0, EmailCampaign::query()->count());
+        $this->assertSame(0, EmailCampaignRecipient::query()->count());
+        Mail::assertSent(AudienceCampaignMail::class, function (AudienceCampaignMail $mail) use ($admin) {
+            return $mail->hasTo($admin->email);
+        });
+    }
+
+    public function test_letter_renders_stored_html(): void
+    {
+        $admin = $this->makeUser('admin');
+        $campaign = EmailCampaign::create([
+            'name' => 'Letter',
+            'subject' => 'Letter subject',
+            'body_html' => '<p>Stored campaign body</p>',
+            'audience' => 'advertisers',
+            'status' => EmailCampaign::STATUS_SENT,
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.campaigns.letter', $campaign))
+            ->assertOk()
+            ->assertSee('Stored campaign body', false)
+            ->assertSee('Letter subject', false);
     }
 }

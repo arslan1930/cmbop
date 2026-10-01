@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ContentModerationLog;
 use App\Models\ContentModerationSetting;
+use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\ContentUpload\ContentUploadService;
+use App\Support\AdminModeration;
 use App\Support\PhpIniSize;
 use App\Support\UserFacingError;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +18,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ContentModerationController extends Controller
@@ -45,6 +48,7 @@ class ContentModerationController extends Controller
         } catch (\Throwable) {
             $stats = [
                 'total' => 0,
+                'needs' => 0,
                 'approved' => 0,
                 'rejected' => 0,
                 'errors' => 0,
@@ -54,14 +58,19 @@ class ContentModerationController extends Controller
             ];
         }
 
-        $status = strtolower(trim(scalar_text($request->query('status', 'all'))));
-        if (! in_array($status, ['all', 'approved', 'rejected', 'error', 'skipped', 'overridden'], true)) {
+        AdminModeration::rememberReturnQuery($request);
+        $filters = AdminModeration::indexQuery($request);
+        $status = (string) ($filters['status'] ?? 'all');
+        if ($status === '') {
             $status = 'all';
         }
-        $search = search_text($request->query('q'));
-        $category = strtolower(trim(scalar_text($request->query('category', 'all'))));
-        $from = scalar_text($request->query('from', ''));
-        $to = scalar_text($request->query('to', ''));
+        $search = (string) ($filters['q'] ?? '');
+        $category = (string) ($filters['category'] ?? 'all');
+        if ($category === '') {
+            $category = 'all';
+        }
+        $from = (string) ($filters['from'] ?? '');
+        $to = (string) ($filters['to'] ?? '');
 
         $page = (int) scalar_text($request->query('page', 1));
         if ($page < 1) {
@@ -73,14 +82,16 @@ class ContentModerationController extends Controller
             try {
                 $with = ['user:id,name,email'];
                 if ($this->schemaTableAvailable('content_submissions')) {
-                    $with[] = 'submission';
+                    $with[] = 'submission:id,title,original_filename,moderation_log_id,user_id';
                 }
 
                 $query = ContentModerationLog::query()
                     ->with($with)
                     ->latest('id');
 
-                if ($status === 'approved') {
+                if ($status === 'needs') {
+                    $query->needsDecision();
+                } elseif ($status === 'approved') {
                     $query->where('status', ContentModerationLog::STATUS_APPROVED)
                         ->notSkipped()
                         ->where('admin_override', false);
@@ -103,6 +114,12 @@ class ContentModerationController extends Controller
                             ->orWhereHas('user', function ($u) use ($like) {
                                 $u->where('email', 'like', $like)->orWhere('name', 'like', $like);
                             });
+                        if ($this->schemaTableAvailable('content_submissions')) {
+                            $q->orWhereHas('submission', function ($s) use ($like) {
+                                $s->where('title', 'like', $like)
+                                    ->orWhere('original_filename', 'like', $like);
+                            });
+                        }
                         if (ctype_digit($search)) {
                             $q->orWhere('id', (int) $search)
                                 ->orWhere('content_submission_id', (int) $search);
@@ -114,15 +131,11 @@ class ContentModerationController extends Controller
                     $query->where('detected_category', $category);
                 }
 
-                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
+                if ($from !== '') {
                     $query->whereDate('created_at', '>=', $from);
-                } else {
-                    $from = '';
                 }
-                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+                if ($to !== '') {
                     $query->whereDate('created_at', '<=', $to);
-                } else {
-                    $to = '';
                 }
 
                 $logs = $query->paginate(25, ['*'], 'page', $page)->withQueryString();
@@ -168,6 +181,8 @@ class ContentModerationController extends Controller
             $builtinExceptions = [];
         }
 
+        $listUrl = AdminModeration::listUrl($filters);
+
         return view('admin.moderation.index', compact(
             'cfg',
             'activeCategories',
@@ -187,10 +202,11 @@ class ContentModerationController extends Controller
             'from',
             'to',
             'builtinExceptions',
+            'listUrl',
         ));
     }
 
-    public function show(ContentModerationLog $log, ContentModerationService $moderation): View
+    public function show(Request $request, ContentModerationLog $log, ContentModerationService $moderation): View
     {
         $relations = ['user:id,name,email', 'overrider:id,name,email'];
         if ($this->schemaTableAvailable('content_submissions')) {
@@ -227,6 +243,7 @@ class ContentModerationController extends Controller
             'log' => $log,
             'submission' => $submission,
             'report' => $report,
+            'listUrl' => $this->moderationListUrl($request),
         ]);
     }
 
@@ -237,7 +254,7 @@ class ContentModerationController extends Controller
         }
 
         $allCats = array_keys(config('content_moderation.categories', []));
-        $data = $request->validate([
+        $data = $request->validateWithBag('policy', [
             'enabled' => ['sometimes', 'boolean'],
             'confidence_threshold' => ['required', 'integer', 'min:1', 'max:99'],
             'min_word_count' => ['nullable', 'integer', 'min:0', 'max:5000'],
@@ -246,17 +263,10 @@ class ContentModerationController extends Controller
             'exceptions' => ['nullable', 'string'],
             'categories' => ['nullable', 'array'],
             'categories.*' => ['string', Rule::in($allCats)],
-            'allowed_extensions' => ['nullable', 'string'],
-            'max_kilobytes' => ['nullable', 'integer', 'min:10240', 'max:10240'],
-            'scheduling_enabled' => ['sometimes', 'boolean'],
-            'uploads_enabled' => ['sometimes', 'boolean'],
-            'require_same_language' => ['sometimes', 'boolean'],
-            'retention_months' => ['nullable', 'integer', 'min:1', 'max:24'],
-            'min_uniqueness' => ['nullable', 'integer', 'min:0', 'max:100'],
         ]);
 
         try {
-            return $this->persistModerationSettings($request, $data, $allCats);
+            return $this->persistPolicySettings($request, $data, $allCats);
         } catch (\RuntimeException $e) {
             return back()->withInput()->with('error', UserFacingError::message(
                 $e,
@@ -267,11 +277,88 @@ class ContentModerationController extends Controller
         }
     }
 
+    public function updateUploadSettings(Request $request): RedirectResponse
+    {
+        if (! $this->schemaTableAvailable('content_moderation_settings')) {
+            return back()->with('error', 'Upload settings are unavailable because the destination table is missing.');
+        }
+
+        $data = $request->validateWithBag('upload', [
+            'scheduling_enabled' => ['sometimes', 'boolean'],
+            'uploads_enabled' => ['sometimes', 'boolean'],
+            'require_same_language' => ['sometimes', 'boolean'],
+            'retention_months' => ['nullable', 'integer', 'min:1', 'max:24'],
+            'min_uniqueness' => ['nullable', 'integer', 'min:0', 'max:100'],
+        ]);
+
+        try {
+            return $this->persistUploadSettings($request, $data);
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->with('error', UserFacingError::message(
+                $e,
+                'Could not save upload settings on this database.'
+            ));
+        } catch (\Throwable) {
+            return back()->withInput()->with('error', 'Could not save upload settings on this database.');
+        }
+    }
+
+    public function testScan(Request $request, ContentModerationService $moderation): RedirectResponse
+    {
+        $data = $request->validate([
+            'url' => ['nullable', 'string', 'max:2000'],
+            'text' => ['nullable', 'string', 'max:200000'],
+        ]);
+        $url = trim((string) ($data['url'] ?? ''));
+        $text = trim((string) ($data['text'] ?? ''));
+        if ($url === '' && $text === '') {
+            throw ValidationException::withMessages([
+                'text' => 'Paste article text or a public URL.',
+            ]);
+        }
+
+        try {
+            $report = $moderation->previewScan($url !== '' ? $url : null, $text !== '' ? $text : null);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $this->redirectToModerationList()
+                ->withInput($data)
+                ->with('error', UserFacingError::message($e, 'Could not run the test scan.'));
+        }
+
+        return $this->redirectToModerationList()
+            ->with('moderation_test', $report)
+            ->withInput($data);
+    }
+
+    public function rescan(Request $request, ContentModerationLog $log, ContentModerationService $moderation): RedirectResponse
+    {
+        $admin = $request->user();
+        if (! $admin instanceof User) {
+            abort(403);
+        }
+
+        try {
+            $result = $moderation->rescanStaffLog($log, $admin);
+        } catch (\Throwable) {
+            return back()->with('error', 'Could not re-scan this log on this database.');
+        }
+
+        if (! empty($result['ok']) && $result['log'] instanceof ContentModerationLog) {
+            return redirect()
+                ->route('admin.moderation.show', $result['log'])
+                ->with('success', $result['message']);
+        }
+
+        return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @param  list<string>  $allCats
      */
-    private function persistModerationSettings(Request $request, array $data, array $allCats): RedirectResponse
+    private function persistPolicySettings(Request $request, array $data, array $allCats): RedirectResponse
     {
         $wasEnabled = (bool) ((ContentModerationSetting::getValue('config_override', []) ?: [])['enabled']
             ?? config('content_moderation.enabled', true));
@@ -297,7 +384,35 @@ class ContentModerationController extends Controller
         $enabled = array_values(array_intersect($allCats, $selected));
         ContentModerationSetting::setValue('disabled_categories', $disabled);
         ContentModerationSetting::setValue('enabled_categories', $enabled);
+        ContentModerationSetting::clearCache();
 
+        $after = $this->moderationSettingsSnapshot();
+        if ($before !== $after) {
+            ActivityLogger::tryLog(
+                'moderation.settings_updated',
+                ($request->user()?->name ?? 'Admin').' updated content moderation settings',
+                null,
+                [
+                    'scope' => 'policy',
+                    'enabled' => $after['enabled'],
+                    'was_enabled' => $wasEnabled,
+                    'confidence_threshold' => $after['confidence_threshold'],
+                    'disabled_categories' => $after['disabled_categories'],
+                    'previous_disabled_categories' => is_array($previousDisabled) ? array_values($previousDisabled) : [],
+                    'extra_keyword_count' => count($keywords),
+                ]
+            );
+        }
+
+        return $this->redirectToModerationList()->with('success', 'Content policy settings saved.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function persistUploadSettings(Request $request, array $data): RedirectResponse
+    {
+        $before = $this->moderationSettingsSnapshot();
         $uploadOverride = ContentModerationSetting::getValue('upload_config', []) ?: [];
         $uploadOverride['allowed_extensions'] = ['docx'];
         $uploadOverride['preferred_extension'] = 'docx';
@@ -311,43 +426,35 @@ class ContentModerationController extends Controller
         $uploadOverride['evaluation'] = $uploadOverride['evaluation'] ?? config('content_upload.evaluation', []);
         $uploadOverride['evaluation']['min_uniqueness'] = (int) ($data['min_uniqueness'] ?? 50);
         ContentModerationSetting::setValue('upload_config', $uploadOverride);
-
         ContentModerationSetting::clearCache();
 
-        $after = $this->normalizeModerationSettings([
-            'enabled' => $request->boolean('enabled'),
-            'confidence_threshold' => (int) $data['confidence_threshold'],
-            'min_word_count' => (int) ($data['min_word_count'] ?? 500),
-            'block_on_quality_failure' => $request->boolean('block_on_quality_failure'),
-            'extra_keywords' => $keywords,
-            'exceptions' => $exceptions,
-            'disabled_categories' => $disabled,
-            'enabled_categories' => $enabled,
-            'uploads_enabled' => $request->boolean('uploads_enabled'),
-            'retention_months' => (int) ($data['retention_months'] ?? 6),
-            'scheduling_enabled' => $request->boolean('scheduling_enabled'),
-            'require_same_language' => $request->boolean('require_same_language'),
-            'min_uniqueness' => (int) ($data['min_uniqueness'] ?? 50),
-        ]);
-
+        $after = $this->moderationSettingsSnapshot();
         if ($before !== $after) {
             ActivityLogger::tryLog(
                 'moderation.settings_updated',
-                ($request->user()?->name ?? 'Admin').' updated content moderation settings',
+                ($request->user()?->name ?? 'Admin').' updated article upload settings',
                 null,
                 [
-                    'enabled' => $after['enabled'],
-                    'was_enabled' => $wasEnabled,
-                    'confidence_threshold' => $after['confidence_threshold'],
-                    'disabled_categories' => $after['disabled_categories'],
-                    'previous_disabled_categories' => is_array($previousDisabled) ? array_values($previousDisabled) : [],
-                    'extra_keyword_count' => count($keywords),
+                    'scope' => 'upload',
                     'uploads_enabled' => $after['uploads_enabled'],
+                    'retention_months' => $after['retention_months'],
                 ]
             );
         }
 
-        return back()->with('success', 'Moderation and content upload settings saved.');
+        return $this->redirectToModerationList()->with('success', 'Article upload settings saved.');
+    }
+
+    private function moderationListUrl(?Request $request = null): string
+    {
+        $request = $request ?: request();
+
+        return AdminModeration::listUrl(AdminModeration::sessionReturnQuery($request));
+    }
+
+    private function redirectToModerationList(): RedirectResponse
+    {
+        return redirect()->to($this->moderationListUrl());
     }
 
     public function override(Request $request, ContentModerationLog $log, ContentModerationService $moderation): RedirectResponse

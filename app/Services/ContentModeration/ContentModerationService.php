@@ -808,6 +808,7 @@ class ContentModerationService
     {
         $empty = [
             'total' => 0,
+            'needs' => 0,
             'approved' => 0,
             'rejected' => 0,
             'errors' => 0,
@@ -823,9 +824,11 @@ class ContentModerationService
         try {
             return [
                 'total' => ContentModerationLog::query()->count(),
+                'needs' => ContentModerationLog::query()->needsDecision()->count(),
                 'approved' => ContentModerationLog::query()
                     ->where('status', ContentModerationLog::STATUS_APPROVED)
                     ->notSkipped()
+                    ->where('admin_override', false)
                     ->count(),
                 'rejected' => ContentModerationLog::query()
                     ->where('status', ContentModerationLog::STATUS_REJECTED)
@@ -840,6 +843,124 @@ class ContentModerationService
         } catch (\Throwable) {
             return $empty;
         }
+    }
+
+    /**
+     * Score text or a fetched URL without writing a log or touching checkout.
+     *
+     * @return array{
+     *     ok:bool,
+     *     passed:bool,
+     *     status:string,
+     *     message:string,
+     *     word_count:?int,
+     *     max_confidence:int,
+     *     detected_category:?string,
+     *     matched_terms:list<string>,
+     *     blocked_urls:list<string>,
+     *     skipped:bool
+     * }
+     */
+    public function previewScan(?string $url, ?string $text): array
+    {
+        $empty = [
+            'ok' => false,
+            'passed' => false,
+            'status' => 'error',
+            'message' => 'Paste article text or a public URL.',
+            'word_count' => null,
+            'max_confidence' => 0,
+            'detected_category' => null,
+            'matched_terms' => [],
+            'blocked_urls' => [],
+            'skipped' => false,
+        ];
+
+        $url = trim((string) $url);
+        $text = trim((string) $text);
+        $title = '';
+        $html = '';
+        $links = [];
+
+        if ($text === '' && $url !== '') {
+            if (! preg_match('#^https?://#i', $url)) {
+                return array_merge($empty, ['message' => 'Use an http(s) URL.']);
+            }
+            $fetched = $this->fetcher->fetch($url);
+            if (! ($fetched['ok'] ?? false)) {
+                return array_merge($empty, [
+                    'message' => (string) ($fetched['error_message'] ?? 'Could not fetch that URL.'),
+                ]);
+            }
+            $text = trim((string) ($fetched['text'] ?? ''));
+            $html = (string) ($fetched['html'] ?? '');
+            $title = (string) ($fetched['title'] ?? '');
+            $links = is_array($fetched['links'] ?? null) ? $fetched['links'] : [];
+        }
+
+        if ($text === '') {
+            return $empty;
+        }
+
+        $cfg = $this->effectiveConfig();
+        $quality = $this->quality->analyze($text, $html, $links, $cfg['quality'] ?? []);
+        $blocking = $quality['blocking_issues'] ?? [];
+        $alwaysBlock = array_intersect($blocking, ['url_shortener', 'placeholder']);
+        $qualityBlocks = $alwaysBlock !== []
+            || ((bool) ($cfg['quality']['block_on_quality_failure'] ?? false) && $blocking !== []);
+
+        if (! $this->isEnabled()) {
+            return [
+                'ok' => true,
+                'passed' => ! $qualityBlocks,
+                'status' => $qualityBlocks ? 'rejected' : 'skipped',
+                'message' => $qualityBlocks
+                    ? 'Moderation is off, but quality rules still blocked this text.'
+                    : 'Moderation is switched off. This is a skip, not a real pass.',
+                'word_count' => $quality['word_count'] ?? str_word_count($text),
+                'max_confidence' => 0,
+                'detected_category' => null,
+                'matched_terms' => [],
+                'blocked_urls' => [],
+                'skipped' => ! $qualityBlocks,
+            ];
+        }
+
+        $categories = $this->activeCategories();
+        $extraKeywords = ContentModerationSetting::getValue('extra_keywords', []) ?: [];
+        $exceptions = array_merge(
+            $cfg['exceptions'] ?? [],
+            ContentModerationSetting::getValue('exceptions', []) ?: []
+        );
+        $score = $this->engine->score(
+            title: $title,
+            text: $text,
+            links: $links,
+            categories: $categories,
+            extraKeywords: is_array($extraKeywords) ? $extraKeywords : [],
+            exceptions: is_array($exceptions) ? $exceptions : [],
+        );
+        $threshold = $this->threshold();
+        $restrictedFail = $score['max_confidence'] >= $threshold;
+        $passed = ! $restrictedFail && ! $qualityBlocks;
+        $category = $restrictedFail ? $score['detected_category'] : null;
+
+        return [
+            'ok' => true,
+            'passed' => $passed,
+            'status' => $passed ? 'approved' : 'rejected',
+            'message' => $passed
+                ? 'Would pass current policy.'
+                : ($restrictedFail
+                    ? 'Would reject: '.($category ?: 'restricted content').' at '.$score['max_confidence'].'%.'
+                    : 'Would reject on quality rules.'),
+            'word_count' => $quality['word_count'] ?? str_word_count($text),
+            'max_confidence' => (int) $score['max_confidence'],
+            'detected_category' => $category,
+            'matched_terms' => array_values(array_map('strval', $score['matched_terms'] ?? [])),
+            'blocked_urls' => array_values(array_map('strval', $score['blocked_urls'] ?? [])),
+            'skipped' => false,
+        ];
     }
 
     /**
@@ -1500,6 +1621,77 @@ class ContentModerationService
                 'message' => 'Override reverted. The article was re-checked against current policy.',
             ];
         });
+    }
+
+    /**
+     * @return array{ok:bool, log:?ContentModerationLog, submission:?ContentSubmission, message:string}
+     */
+    public function rescanStaffLog(ContentModerationLog $log, User $admin): array
+    {
+        if ($log->status !== ContentModerationLog::STATUS_ERROR) {
+            return ['ok' => false, 'log' => $log, 'submission' => $this->submissionForLog($log), 'message' => 'Only failed scans can be re-run from here.'];
+        }
+
+        $submission = $this->submissionForLog($log);
+        if ($submission) {
+            if ($submission->isArchived()) {
+                return ['ok' => false, 'log' => $log, 'submission' => $submission, 'message' => 'Archived articles cannot be re-scanned. Restore the article first.'];
+            }
+            if (! filled($submission->extracted_text) && ! filled($submission->preview_html)) {
+                return ['ok' => false, 'log' => $log, 'submission' => $submission, 'message' => 'This article has no text to re-scan.'];
+            }
+
+            $result = $this->scanExtractedContent(
+                text: $this->scanPolicyTextFromSubmission($submission),
+                html: (string) ($submission->preview_html ?? ''),
+                sourceLabel: 'upload:'.$submission->id,
+                user: $submission->user,
+                title: $this->scanTitle($submission),
+                links: $this->linksFromSubmission($submission),
+                contentSubmissionId: (int) $submission->id,
+            );
+            $newLog = $result['log'] instanceof ContentModerationLog ? $result['log'] : null;
+            $newStatus = $result['passed']
+                ? ContentSubmission::STATUS_APPROVED
+                : (($result['status'] ?? '') === 'error'
+                    ? ContentSubmission::STATUS_ERROR
+                    : ContentSubmission::STATUS_REJECTED);
+            $fields = [
+                'moderation_status' => $newStatus,
+                'moderation_log_id' => $newLog?->id,
+                'scan_token' => $result['scan_token'] ?? $submission->scan_token,
+            ];
+            if ($this->checkoutShouldSyncEvaluation($submission, $newStatus, $result)) {
+                $fields = array_merge($fields, $this->evaluationFieldsFromScan($submission, $result));
+            }
+            $submission->update($fields);
+
+            return [
+                'ok' => true,
+                'log' => $newLog,
+                'submission' => $submission->fresh(),
+                'message' => $newLog
+                    ? 'Re-scan finished ('.$newLog->status.').'
+                    : 'Re-scan finished.',
+            ];
+        }
+
+        $url = trim((string) $log->document_url);
+        if (! preg_match('#^https?://#i', $url)) {
+            return ['ok' => false, 'log' => $log, 'submission' => null, 'message' => 'This failed scan has no article or public URL to fetch.'];
+        }
+
+        $result = $this->scan($url, $log->user, true);
+        $newLog = $result['log'] instanceof ContentModerationLog ? $result['log'] : null;
+
+        return [
+            'ok' => (bool) $newLog,
+            'log' => $newLog,
+            'submission' => null,
+            'message' => $newLog
+                ? 'Re-scan finished ('.$newLog->status.').'
+                : (string) ($result['user_message'] ?? 'Could not re-scan that URL.'),
+        ];
     }
 
     protected function overrideAlreadyApplies(

@@ -72,7 +72,7 @@ class AdminBlogPublishTest extends TestCase
             'is_published' => true,
         ]);
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->post(route('admin.blogs.store'), [
                 'status' => 'published',
                 'translations' => [
@@ -82,11 +82,11 @@ class AdminBlogPublishTest extends TestCase
                         'content' => '<p>New body that must not hijack the legacy URL.</p>',
                     ],
                 ],
-            ])
-            ->assertRedirect(route('admin.blogs.index'));
+            ]);
 
         $created = Blog::query()->where('title', 'New Shared Slug')->first();
         $this->assertNotNull($created);
+        $response->assertRedirect(route('admin.blogs.edit', $created->id));
         $this->assertNotSame('shared-public-slug', $created->slug);
         $this->assertNotSame(
             'shared-public-slug',
@@ -109,7 +109,7 @@ class AdminBlogPublishTest extends TestCase
     {
         $admin = $this->adminUser();
 
-        $this->actingAs($admin)->post(route('admin.blogs.store'), [
+        $response = $this->actingAs($admin)->post(route('admin.blogs.store'), [
             'status' => 'published',
             'translations' => [
                 'en' => [
@@ -118,9 +118,10 @@ class AdminBlogPublishTest extends TestCase
                     'content' => '<p>Custom body.</p>',
                 ],
             ],
-        ])->assertRedirect(route('admin.blogs.index'));
+        ]);
 
         $blog = Blog::query()->where('slug', 'brand-new-custom-post')->firstOrFail();
+        $response->assertRedirect(route('admin.blogs.edit', $blog->id));
         $this->assertNotNull($blog->manually_edited_at);
         $this->assertNull($blog->curated_key);
     }
@@ -227,7 +228,8 @@ class AdminBlogPublishTest extends TestCase
                 ],
             ])
             ->assertRedirect(route('admin.blogs.create'))
-            ->assertSessionHasErrors();
+            ->assertSessionHasErrors()
+            ->assertSessionHas('warning', 'Choose the featured image again.');
 
         $this->assertDatabaseMissing('blogs', ['slug' => 'no-persist-featured']);
         $this->assertSame([], Storage::disk('public')->allFiles('blogs/featured'));
@@ -260,7 +262,7 @@ class AdminBlogPublishTest extends TestCase
     {
         $admin = $this->adminUser();
 
-        $this->actingAs($admin)->post(route('admin.blogs.store'), [
+        $response = $this->actingAs($admin)->post(route('admin.blogs.store'), [
             'status' => 'published',
             'translations' => [
                 'en' => [
@@ -269,9 +271,10 @@ class AdminBlogPublishTest extends TestCase
                     'content' => '<p>Hello</p><script>alert(1)</script>',
                 ],
             ],
-        ])->assertRedirect(route('admin.blogs.index'));
+        ]);
 
         $blog = Blog::query()->where('slug', 'sanitized-store')->firstOrFail();
+        $response->assertRedirect(route('admin.blogs.edit', $blog->id));
         $this->assertStringNotContainsString('<script', $blog->content);
         $this->assertStringContainsString('<p>Hello</p>', $blog->content);
     }
@@ -486,7 +489,7 @@ class AdminBlogPublishTest extends TestCase
     {
         $admin = $this->adminUser();
 
-        $this->actingAs($admin)->post(route('admin.blogs.store'), [
+        $response = $this->actingAs($admin)->post(route('admin.blogs.store'), [
             'status' => 'draft',
             'author' => 'Ada Lovelace',
             'translations' => [
@@ -496,7 +499,9 @@ class AdminBlogPublishTest extends TestCase
                     'content' => '<p>Body</p>',
                 ],
             ],
-        ])->assertRedirect(route('admin.blogs.index'));
+        ]);
+        $created = Blog::query()->where('slug', 'unique-filter-title-xyz')->firstOrFail();
+        $response->assertRedirect(route('admin.blogs.edit', $created->id));
 
         $this->actingAs($admin)
             ->get(route('admin.blogs.index', ['q' => 'Unique Filter Title XYZ', 'status' => 'draft', 'kind' => 'custom']))

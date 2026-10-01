@@ -132,6 +132,7 @@ class BlogController extends Controller
         return view('admin.blogs.create', [
             'locales' => $locales,
             'formLocales' => AdminBlog::formLocales(null, $request),
+            'indexQuery' => AdminBlog::rememberReturnQuery($request),
         ]);
     }
 
@@ -146,8 +147,9 @@ class BlogController extends Controller
             $translations = $this->sanitizeTranslations((array) $request->input('translations', []), true);
             $this->assertPrimaryLocalePresent($this->requestedPrimaryLocale($request), $translations);
 
-            if ($request->hasFile('featured_image')) {
-                $featuredImage = $this->storeBlogImage($request->file('featured_image'), 'blogs/featured');
+            $featuredFile = $request->file('featured_image');
+            if ($featuredFile instanceof UploadedFile) {
+                $featuredImage = $this->storeBlogImage($featuredFile, 'blogs/featured');
                 if ($featuredImage === null) {
                     throw ValidationException::withMessages([
                         'featured_image' => [self::imageConversionFailedMessage()],
@@ -168,8 +170,9 @@ class BlogController extends Controller
                 ? Str::limit(trim((string) $en['excerpt']), 300)
                 : Str::limit(strip_tags((string) $en['content']), 160);
             $primaryLocale = $this->requestedPrimaryLocale($request);
+            $status = AdminBlog::resolveStoreStatus($request);
 
-            $blog = DB::transaction(function () use ($request, $featuredImage, $tags, $translations, $en, $enSlug, $legacyExcerpt, $primaryLocale) {
+            $blog = DB::transaction(function () use ($request, $featuredImage, $tags, $translations, $en, $enSlug, $legacyExcerpt, $primaryLocale, $status) {
                 $blog = Blog::create([
                     'title' => $en['title'],
                     'slug' => $enSlug,
@@ -179,8 +182,8 @@ class BlogController extends Controller
                     'featured_image' => $featuredImage,
                     'author' => search_text($request->input('author')) ?: (auth()->user()?->name ?? 'Admin'),
                     'tags' => $tags,
-                    'status' => $request->status,
-                    'published_at' => $request->status === 'published' ? now() : null,
+                    'status' => $status,
+                    'published_at' => $status === 'published' ? now() : null,
                     'created_by' => auth()->id(),
                     'updated_by' => auth()->id(),
                     'manually_edited_at' => now(),
@@ -224,14 +227,19 @@ class BlogController extends Controller
                 $blog->title
             );
 
-            return redirect()->route('admin.blogs.index')
+            return redirect()->route('admin.blogs.edit', $blog->id)
                 ->with('success', 'Blog "'.$blog->title.'" created successfully!');
         } catch (ValidationException $e) {
             $this->deleteOrphanedBlogUpload($featuredImage);
 
-            return redirect()->back()
+            $redirect = redirect()->back()
                 ->withErrors($e->errors())
                 ->withInput();
+            if ($request->hasFile('featured_image')) {
+                $redirect->with('warning', 'Choose the featured image again.');
+            }
+
+            return $redirect;
         } catch (\Throwable $e) {
             $this->deleteOrphanedBlogUpload($featuredImage);
             Log::error('Blog creation failed: '.$e->getMessage());
@@ -334,6 +342,7 @@ class BlogController extends Controller
                 'blog' => $blog,
                 'locales' => $this->publicLocales(),
                 'formLocales' => AdminBlog::formLocales($blog, request()),
+                'indexQuery' => AdminBlog::storedReturnQuery(request()),
             ]);
         } catch (ModelNotFoundException $e) {
             return redirect()->route('admin.blogs.index')
@@ -409,8 +418,9 @@ class BlogController extends Controller
             }
             $data['slug'] = $slugsByLocale[$primaryLocale] ?? $enSlug;
 
-            if ($request->hasFile('featured_image')) {
-                $newFeaturedImage = $this->storeBlogImage($request->file('featured_image'), 'blogs/featured');
+            $featuredFile = $request->file('featured_image');
+            if ($featuredFile instanceof UploadedFile) {
+                $newFeaturedImage = $this->storeBlogImage($featuredFile, 'blogs/featured');
                 if ($newFeaturedImage === null) {
                     throw ValidationException::withMessages([
                         'featured_image' => [self::imageConversionFailedMessage()],

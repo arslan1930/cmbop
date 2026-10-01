@@ -213,12 +213,19 @@ dropdown).
   uses the same picker universe (usable emails: not blank/tab-only and
   containing `@`), not the verified-only KPI. Tab-only / no-`@` accounts
   must not appear in the picker or they crowd the cap and then fail at send.
-- Inventory search / filters apply to the table and CSV only. **Email this
-  audience** still sends the full segment (verified by default). When any
-  filter is active the inventory page shows a warning; the Email button
-  still links to compose for the whole tab (no filter query string).
+- Inventory search / filters apply to the table, CSV, **and** Campaigns
+  send. **Email this filtered list** (or **Email full segment** when no
+  send filters) passes `audience` plus the filter query into compose.
+  The snapshot is stored on `email_campaigns.inventory_filters` and
+  applied in `count` / `collectRecipientRows` (not dumped into the 200-cap
+  selected picker). Campaigns still skip unverified addresses unless
+  “include unverified” is ticked. `verified=no` with that box off yields
+  zero recipients. Country is an exact pick from distinct `users.country`
+  values (case-insensitive equality).
 - Audience CSV is streamed (`chunkById`), UTF-8 BOM, formula-safe cells,
-  capped at 10_000 rows, throttled `12/min`, and logged as `audience.exported`.
+  capped at 10_000 rows (the page shows how many will download), throttled
+  `12/min`, and logged as `audience.exported`. Filename uses the human
+  label plus the date (`no-paid-orders-2026-09-30.csv`).
 
 Do **not** change `queryForRole()` default (still includes unverified). Digests
 and add-site / deposit reminders keep their own queries.

@@ -23,6 +23,8 @@
             : '';
         $exceptionsText = collect($exceptions ?? [])->map(fn ($e) => is_string($e) ? $e : '')->filter()->implode("\n");
         $oldCategories = old('categories');
+        $policyErrors = $errors->getBag('policy');
+        $uploadErrors = $errors->getBag('upload');
     @endphp
 
     @if(! $moderationOn)
@@ -45,13 +47,28 @@
         </div>
     @endif
 
+    @php
+        $today = now()->toDateString();
+        $kpiTiles = [
+            ['label' => 'Needs decision', 'key' => 'needs', 'query' => ['status' => 'needs'], 'class' => 'text-warning'],
+            ['label' => 'Approved', 'key' => 'approved', 'query' => ['status' => 'approved'], 'class' => 'text-success'],
+            ['label' => 'Rejected', 'key' => 'rejected', 'query' => ['status' => 'rejected'], 'class' => 'text-danger'],
+            ['label' => 'Errors', 'key' => 'errors', 'query' => ['status' => 'error'], 'class' => 'text-warning'],
+            ['label' => 'Overridden', 'key' => 'overridden', 'query' => ['status' => 'overridden'], 'class' => ''],
+            ['label' => 'Today', 'key' => 'today', 'query' => ['from' => $today, 'to' => $today], 'class' => ''],
+        ];
+    @endphp
     <div class="row g-3 mb-4">
-        <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Scans</div><h3 class="mb-0">{{ number_format($stats['total'] ?? 0) }}</h3></div></div></div>
-        <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Approved</div><h3 class="mb-0 text-success">{{ number_format($stats['approved'] ?? 0) }}</h3></div></div></div>
-        <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Rejected</div><h3 class="mb-0 text-danger">{{ number_format($stats['rejected'] ?? 0) }}</h3></div></div></div>
-        <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Errors</div><h3 class="mb-0 text-warning">{{ number_format($stats['errors'] ?? 0) }}</h3></div></div></div>
-        <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Not checked</div><h3 class="mb-0">{{ number_format($stats['skipped'] ?? 0) }}</h3></div></div></div>
-        <div class="col-6 col-xl-2"><div class="card border-0 shadow-sm"><div class="card-body"><div class="text-muted small">Today</div><h3 class="mb-0">{{ number_format($stats['today'] ?? 0) }}</h3></div></div></div>
+        @foreach($kpiTiles as $tile)
+            <div class="col-6 col-xl-2">
+                <a href="{{ route('admin.moderation.index', $tile['query']) }}" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+                        <div class="text-muted small">{{ $tile['label'] }}</div>
+                        <h3 class="mb-0 {{ $tile['class'] }}">{{ number_format($stats[$tile['key']] ?? 0) }}</h3>
+                    </div></div>
+                </a>
+            </div>
+        @endforeach
     </div>
 
     <div class="row g-4">
@@ -64,12 +81,15 @@
                         @csrf
                         <h6 class="fw-semibold">Content policy</h6>
                         <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" name="enabled" value="1" id="modEnabled" @checked($errors->any() ? old('enabled') : ($cfg['enabled'] ?? true))>
+                            <input class="form-check-input" type="checkbox" name="enabled" value="1" id="modEnabled" @checked($policyErrors->isNotEmpty() ? old('enabled') : ($cfg['enabled'] ?? true))>
                             <label class="form-check-label" for="modEnabled">Enable content moderation</label>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Confidence threshold ({{ $cfg['confidence_threshold'] ?? 70 }}%)</label>
                             <input type="number" name="confidence_threshold" class="form-control" min="1" max="99" value="{{ old_text('confidence_threshold', $cfg['confidence_threshold'] ?? 70) }}" required>
+                            @error('confidence_threshold', 'policy')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
                             <div class="form-text">Reject when a restricted category score meets or exceeds this value.</div>
                         </div>
                         <div class="mb-3">
@@ -78,7 +98,7 @@
                         </div>
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" name="block_on_quality_failure" value="1" id="blockQuality"
-                                @checked($errors->any() ? old('block_on_quality_failure') : ($cfg['quality']['block_on_quality_failure'] ?? true))>
+                                @checked($policyErrors->isNotEmpty() ? old('block_on_quality_failure') : ($cfg['quality']['block_on_quality_failure'] ?? true))>
                             <label class="form-check-label" for="blockQuality">Block orders on too many outbound links or placeholder text</label>
                         </div>
 
@@ -120,17 +140,22 @@
                             @endif
                         </div>
 
-                        <hr class="my-3">
+                        <button type="submit" class="btn btn-primary">Save policy</button>
+                    </form>
+
+                    <hr class="my-4">
+                    <form method="POST" action="{{ route('admin.moderation.upload-settings') }}" id="moderation-upload-form">
+                        @csrf
                         <h6 class="fw-semibold">Upload / placement</h6>
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" name="uploads_enabled" value="1" id="uploadsEnabled"
-                                @checked($errors->any() ? old('uploads_enabled') : ($uploadCfg['enabled'] ?? true))>
+                                @checked($uploadErrors->isNotEmpty() ? old('uploads_enabled') : ($uploadCfg['enabled'] ?? true))>
                             <label class="form-check-label" for="uploadsEnabled">Allow new article uploads</label>
                             <div class="form-text">Kill-switch — advertisers can still browse and order existing approved articles when off.</div>
                         </div>
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" name="require_same_language" value="1" id="requireSameLanguage"
-                                @checked($errors->any() ? old('require_same_language') : ($uploadCfg['placement']['require_same_language'] ?? false))>
+                                @checked($uploadErrors->isNotEmpty() ? old('require_same_language') : ($uploadCfg['placement']['require_same_language'] ?? false))>
                             <label class="form-check-label" for="requireSameLanguage">Require same language for placement</label>
                             <div class="form-text">Off (default): soft-prefer matching languages and warn in cart. On: hard-block mismatches.</div>
                         </div>
@@ -170,12 +195,47 @@
                         </div>
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" name="scheduling_enabled" value="1" id="schedEnabled"
-                                @checked($errors->any() ? old('scheduling_enabled') : ($uploadCfg['scheduling']['enabled'] ?? true))>
+                                @checked($uploadErrors->isNotEmpty() ? old('scheduling_enabled') : ($uploadCfg['scheduling']['enabled'] ?? true))>
                             <label class="form-check-label" for="schedEnabled">Enable publication scheduling</label>
                         </div>
 
-                        <button type="submit" class="btn btn-primary">Save settings</button>
+                        <button type="submit" class="btn btn-primary">Save upload settings</button>
                     </form>
+
+                    <hr class="my-4">
+                    <h6 class="fw-semibold">Test scan</h6>
+                    <p class="small text-muted">Scores text or a public URL against the saved policy. Nothing is stored and checkout is not touched.</p>
+                    <form method="POST" action="{{ route('admin.moderation.test-scan') }}">
+                        @csrf
+                        <div class="mb-2">
+                            <label class="form-label" for="moderationTestUrl">Public URL</label>
+                            <input type="text" name="url" id="moderationTestUrl" class="form-control" value="{{ old_text('url') }}" maxlength="2000" placeholder="https://">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="moderationTestText">Or paste text</label>
+                            <textarea name="text" id="moderationTestText" class="form-control" rows="4" maxlength="200000" placeholder="Article body">{{ old_text('text') }}</textarea>
+                            @error('text')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <button type="submit" class="btn btn-outline-primary btn-sm">Run test scan</button>
+                    </form>
+                    @if(session('moderation_test'))
+                        @php $preview = session('moderation_test'); @endphp
+                        <div class="alert {{ ($preview['passed'] ?? false) ? 'alert-success' : 'alert-warning' }} small mt-3 mb-0" role="status">
+                            <strong>{{ $preview['status'] ?? 'error' }}</strong>
+                            — {{ $preview['message'] ?? '' }}
+                            @if(! empty($preview['word_count']))
+                                · {{ $preview['word_count'] }} words
+                            @endif
+                            @if(! empty($preview['max_confidence']))
+                                · {{ $preview['max_confidence'] }}%
+                            @endif
+                            @if(! empty($preview['matched_terms']))
+                                <div class="mt-1">Matched: {{ implode(', ', $preview['matched_terms']) }}</div>
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -186,15 +246,16 @@
                     <strong>Moderation Logs</strong>
                 </div>
                 <div class="card-body border-bottom py-3">
-                    <form method="GET" action="{{ route('admin.moderation.index') }}" class="admin-deposits-filters admin-orders-filters">
+                    <form method="GET" action="{{ route('admin.moderation.index') }}" class="admin-deposits-filters admin-orders-filters" data-admin-filter-live="1">
                         <div class="admin-orders-filters__grid">
                         <div class="admin-orders-filters__search">
-                            <x-slb-search-field name="q" id="adminModerationSearch" :value="$search ?? ''" placeholder="Email, upload id, URL" input-class="form-control" label-class="form-label" />
+                            <x-slb-search-field name="q" id="adminModerationSearch" :value="$search ?? ''" placeholder="Title, email, upload id, URL" input-class="form-control" label-class="form-label" />
                         </div>
                         <div>
                             <label class="form-label" for="adminModerationStatus">Status</label>
                             <select name="status" id="adminModerationStatus" class="form-select">
                                 <option value="all" @selected(($status ?? 'all') === 'all')>All ({{ (int) ($stats['total'] ?? 0) }})</option>
+                                <option value="needs" @selected(($status ?? '') === 'needs')>Needs decision ({{ (int) ($stats['needs'] ?? 0) }})</option>
                                 <option value="approved" @selected(($status ?? '') === 'approved')>Approved ({{ (int) ($stats['approved'] ?? 0) }})</option>
                                 <option value="rejected" @selected(($status ?? '') === 'rejected')>Rejected ({{ (int) ($stats['rejected'] ?? 0) }})</option>
                                 <option value="error" @selected(($status ?? '') === 'error')>Errors ({{ (int) ($stats['errors'] ?? 0) }})</option>
@@ -235,6 +296,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>When</th>
+                                    <th>Article</th>
                                     <th>User</th>
                                     <th>Result</th>
                                     <th>Confidence</th>
@@ -247,7 +309,16 @@
                                 @forelse($logs as $log)
                                     <tr>
                                         <td class="small text-muted">{{ $log->created_at?->format('M j, g:ia') }}</td>
-                                        <td class="small">{{ $log->user?->email ?? '—' }}</td>
+                                        <td class="small">
+                                            <div class="fw-semibold">{{ $log->displayTitle() }}</div>
+                                        </td>
+                                        <td class="small">
+                                            @if($log->user)
+                                                <a href="{{ route('admin.users.show', $log->user) }}">{{ $log->user->email }}</a>
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
                                         <td>
                                             @if($log->wasSkipped())
                                                 <span class="badge bg-warning text-dark">
@@ -282,17 +353,6 @@
                                                     {{ $log->articleUrlIsExternal() ? 'Doc' : 'Article' }}
                                                 </a>
                                             @endif
-                                            @if($log->isOverridable($log->submission))
-                                                <form method="POST" action="{{ route('admin.moderation.override', $log) }}" class="d-inline-block mt-1 text-start"
-                                                      data-slb-confirm="Approve this submission via admin override?"
-                                                      data-slb-confirm-title="Override moderation?"
-                                                      data-slb-confirm-text="Approve override"
-                                                      data-slb-confirm-icon="warning">
-                                                    @csrf
-                                                    <input type="text" name="notes" class="form-control form-control-sm mb-1" placeholder="Reason (required)" required minlength="3" maxlength="2000" style="min-width:11rem;">
-                                                    <button class="btn btn-sm btn-outline-primary" type="submit">Override</button>
-                                                </form>
-                                            @endif
                                             @if($log->admin_override && $log->submission && (int) $log->submission->moderation_log_id === (int) $log->id)
                                                 <form method="POST" action="{{ route('admin.moderation.revert', $log) }}" class="d-inline"
                                                       data-slb-confirm="Re-check this article and drop the override?"
@@ -306,7 +366,7 @@
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="7" class="text-center text-muted py-4">No scans match these filters.</td></tr>
+                                    <tr><td colspan="8" class="text-center text-muted py-4">No scans match these filters.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>

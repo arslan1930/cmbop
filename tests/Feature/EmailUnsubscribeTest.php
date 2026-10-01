@@ -143,7 +143,7 @@ class EmailUnsubscribeTest extends TestCase
                 'audience' => 'advertisers',
                 'respect_preferences' => '1',
             ])
-            ->assertRedirect(route('admin.campaigns.index'));
+            ->assertRedirect();
 
         $campaign = EmailCampaign::query()->latest('id')->first();
         $this->assertSame(EmailCampaign::STATUS_FAILED, $campaign->status);

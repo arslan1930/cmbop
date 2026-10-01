@@ -7,6 +7,7 @@ use App\Mail\AudienceCampaignMail;
 use App\Models\Concerns\ToleratesMissingSchema;
 use App\Models\Concerns\ToleratesUnparseableDates;
 use App\Services\AudienceInventoryService;
+use App\Support\AdminAudiences;
 use App\Support\MailJobPayload;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Database\Eloquent\Model;
@@ -47,12 +48,14 @@ class EmailCampaign extends Model
         'status',
         'respect_preferences',
         'include_unverified',
+        'inventory_filters',
         'created_by',
         'sent_at',
     ];
 
     protected $casts = [
         'selected_user_ids' => 'array',
+        'inventory_filters' => 'array',
         'respect_preferences' => 'boolean',
         'include_unverified' => 'boolean',
         'recipients_count' => 'integer',
@@ -182,6 +185,11 @@ class EmailCampaign extends Model
     public function audienceLabel(): string
     {
         return self::labelForAudience($this->audience);
+    }
+
+    public function inventoryFilterSummary(): string
+    {
+        return AdminAudiences::summary(is_array($this->inventory_filters) ? $this->inventory_filters : []);
     }
 
     public static function failStreakKey(int $campaignId): string

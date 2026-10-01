@@ -101,6 +101,87 @@ class PromotionService
         }
     }
 
+    /**
+     * What each audience sees today — same take/rotation as the public site.
+     *
+     * @return array{
+     *     notices: array<string, Collection<int, SiteAnnouncement>>,
+     *     banners: array<string, array<string, AdBanner>>
+     * }
+     */
+    public function staffNowShowing(): array
+    {
+        $notices = [];
+        $banners = [];
+
+        foreach (['public', 'advertiser', 'publisher'] as $audience) {
+            $notices[$audience] = $this->activeAnnouncements($audience);
+            $banners[$audience] = [];
+            foreach (array_keys(config('promotions.banner_placements', [])) as $placement) {
+                $wired = config('promotions.wired_placements.'.$placement, []);
+                if (! is_array($wired) || ! in_array($audience, $wired, true)) {
+                    continue;
+                }
+                $winner = $this->activeBanners($placement, $audience)->first();
+                if ($winner) {
+                    $banners[$audience][$placement] = $winner;
+                }
+            }
+        }
+
+        return ['notices' => $notices, 'banners' => $banners];
+    }
+
+    /**
+     * @param  array{notices: array<string, Collection<int, SiteAnnouncement>>, banners: array<string, array<string, AdBanner>>}  $nowShowing
+     * @return list<int>
+     */
+    public static function showingNoticeIds(array $nowShowing): array
+    {
+        $ids = [];
+        foreach ($nowShowing['notices'] ?? [] as $list) {
+            foreach ($list as $item) {
+                $ids[] = (int) $item->id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array{notices: array<string, Collection<int, SiteAnnouncement>>, banners: array<string, array<string, AdBanner>>}  $nowShowing
+     * @return list<int>
+     */
+    public static function showingBannerIds(array $nowShowing): array
+    {
+        $ids = [];
+        foreach ($nowShowing['banners'] ?? [] as $byPlacement) {
+            foreach ($byPlacement as $banner) {
+                $ids[] = (int) $banner->id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    public function announcementShowingState(SiteAnnouncement $item, array $showingNoticeIds): ?string
+    {
+        if (! $item->isCurrentlyLive()) {
+            return null;
+        }
+
+        return in_array((int) $item->id, $showingNoticeIds, true) ? 'showing' : 'queued';
+    }
+
+    public function bannerShowingState(AdBanner $item, array $showingBannerIds): ?string
+    {
+        if (! $item->isCurrentlyLive() || ! $item->imageSrc()) {
+            return null;
+        }
+
+        return in_array((int) $item->id, $showingBannerIds, true) ? 'showing' : 'rotated_out';
+    }
+
     public function dashboardStats(): array
     {
         $empty = [

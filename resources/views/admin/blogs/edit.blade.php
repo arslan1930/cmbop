@@ -1,5 +1,9 @@
 @extends('admin.layouts.app')
 
+@php
+    $listUrl = \App\Support\AdminBlog::listUrl($indexQuery ?? []);
+@endphp
+
 @section('content')
 <div class="container-fluid">
     <div class="row mb-4">
@@ -8,7 +12,7 @@
             <p class="text-muted">Update your blog post</p>
         </div>
         <div class="col-md-6 text-end">
-            <a href="{{ route('admin.blogs.index') }}" class="btn btn-secondary">
+            <a href="{{ $listUrl }}" class="btn btn-secondary">
                 <i class="fa fa-arrow-left me-2"></i> Back to Blogs
             </a>
         </div>
@@ -19,7 +23,7 @@
             <strong>Please fix the following errors:</strong>
             <ul class="mb-0 mt-2">
                 @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
+                    <li>{{ scalar_text($error) }}</li>
                 @endforeach
             </ul>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss message"></button>
@@ -106,12 +110,12 @@
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Primary locale</label>
                             <select name="primary_locale" class="form-select @error('primary_locale') is-invalid @enderror">
-                                <option value="">Auto (current URL locale)</option>
+                                <option value="" {{ old_text('primary_locale', $blog->primary_locale) === '' ? 'selected' : '' }}>English (UK) — default canonical</option>
                                 @foreach(($locales ?? \App\Support\AdminBlog::publicLocales()) as $code)
-                                    <option value="{{ $code }}" {{ old_text('primary_locale', $blog->primary_locale) === $code ? 'selected' : '' }}>{{ strtoupper($code) }}</option>
+                                    <option value="{{ $code }}" {{ old_text('primary_locale', $blog->primary_locale) === $code ? 'selected' : '' }}>{{ \App\Support\AdminBlog::shortLabel($code) }}</option>
                                 @endforeach
                             </select>
-                            <small class="text-muted">Preferred canonical locale for this post</small>
+                            <small class="text-muted">Public <code>/blog/{slug}</code> uses this locale’s slug. English title and body are still required.</small>
                             @error('primary_locale')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -121,8 +125,8 @@
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Status <span class="text-danger">*</span></label>
                             <select name="status" class="form-select @error('status') is-invalid @enderror" required>
-                                <option value="draft" {{ old('status', $blog->status) == 'draft' ? 'selected' : '' }}>Draft</option>
-                                <option value="published" {{ old('status', $blog->status) == 'published' ? 'selected' : '' }}>Published</option>
+                                <option value="draft" {{ \App\Support\AdminBlog::normalizeStatus(old_text('status', $blog->status)) === 'draft' ? 'selected' : '' }}>Draft</option>
+                                <option value="published" {{ \App\Support\AdminBlog::normalizeStatus(old_text('status', $blog->status)) === 'published' ? 'selected' : '' }}>Published</option>
                             </select>
                             @error('status')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -135,7 +139,7 @@
                     <button type="submit" class="btn btn-primary px-4" id="submitBtn">
                         <i class="fa fa-save me-2"></i> Update Blog
                     </button>
-                    <a href="{{ route('admin.blogs.index') }}" class="btn btn-secondary px-4">
+                    <a href="{{ $listUrl }}" class="btn btn-secondary px-4">
                         <i class="fa fa-times me-2"></i> Cancel
                     </a>
                 </div>

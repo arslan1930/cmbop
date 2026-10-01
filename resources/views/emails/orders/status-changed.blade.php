@@ -6,7 +6,7 @@ We're happy to let you know that your order #{{ $order->order_number }} is now c
 
 We hope you're pleased with the results!
 
-**Ready to place another order?**
+<strong>Ready to place another order?</strong>
 
 Boost your online presence even further by securing additional high-quality links. Click below to get started on your next order and stay ahead of the competition:
 

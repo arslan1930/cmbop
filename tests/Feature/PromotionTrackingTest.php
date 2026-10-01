@@ -318,6 +318,10 @@ class PromotionTrackingTest extends TestCase
 
         $this->assertSame(1, $tracking->countSince(AdBanner::class, PromotionTrackingService::EVENT_IMPRESSION, $since));
         $this->assertSame(1, $tracking->countForSubjectSince($banner, PromotionTrackingService::EVENT_IMPRESSION, $since));
+        $this->assertSame(
+            [$banner->id => 1],
+            $tracking->countsForSubjectsSince(AdBanner::class, [$banner->id], PromotionTrackingService::EVENT_IMPRESSION, $since)
+        );
     }
 
     public function test_public_promo_routes_are_throttled(): void
@@ -343,6 +347,6 @@ class PromotionTrackingTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.promotions.preview', ['audience' => 'public']))
             ->assertOk()
-            ->assertSee('Preview only', false);
+            ->assertSee('Sandbox only', false);
     }
 }

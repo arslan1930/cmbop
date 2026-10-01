@@ -59,6 +59,11 @@ function initBlogQuill(locale) {
         activeLocale = locale;
         document.getElementById('quillImageInput').click();
     });
+    quills[locale].on('text-change', function () {
+        if (typeof markBlogFormDirty === 'function') {
+            markBlogFormDirty();
+        }
+    });
 }
 
 blogEditorLocales.forEach(initBlogQuill);
@@ -103,6 +108,12 @@ blogEditorLocales.forEach(initBlogQuill);
         var trigger = tabs.querySelector('[data-bs-target="#locale-pane-' + locale + '"]');
         if (trigger && window.bootstrap && bootstrap.Tab) {
             bootstrap.Tab.getOrCreateInstance(trigger).show();
+        }
+        if (typeof refreshBlogSlugHints === 'function') {
+            refreshBlogSlugHints();
+        }
+        if (typeof refreshAllSeoCounts === 'function') {
+            refreshAllSeoCounts();
         }
     });
 
@@ -169,7 +180,91 @@ articleImagesManager = new AdminBlogImages({
     csrfToken: csrfToken
 });
 
+function blogPublicPathHint(locale, slug) {
+    slug = String(slug || '').trim().replace(/^\/+|\/+$/g, '') || 'your-slug';
+    locale = String(locale || 'en').toLowerCase();
+    if (locale === 'en' || locale === '' || locale === '__locale__') {
+        return '/blog/' + slug;
+    }
+    return '/' + locale + '/blog/' + slug;
+}
+
+function slugifyTitle(title) {
+    return String(title || '').toLowerCase().trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+function refreshBlogSlugHints() {
+    document.querySelectorAll('.js-blog-slug-hint').forEach(function (hint) {
+        var locale = hint.getAttribute('data-blog-locale') || 'en';
+        var pane = document.getElementById('locale-pane-' + locale);
+        if (!pane) {
+            return;
+        }
+        var slugInput = pane.querySelector('.js-blog-slug');
+        var titleInput = pane.querySelector('.js-blog-title');
+        var raw = ((slugInput && slugInput.value) || '').trim() || slugifyTitle(titleInput && titleInput.value);
+        var path = hint.querySelector('.js-blog-slug-path');
+        if (path) {
+            path.textContent = window.location.origin + blogPublicPathHint(locale, raw);
+        }
+    });
+}
+
+function refreshSeoCount(input) {
+    if (!input || !input.getAttribute) {
+        return;
+    }
+    var key = input.getAttribute('data-seo-count-for');
+    if (!key) {
+        return;
+    }
+    var max = parseInt(input.getAttribute('data-seo-max') || input.getAttribute('maxlength') || '0', 10);
+    var el = document.querySelector('[data-seo-count="' + key + '"]');
+    if (el) {
+        el.textContent = String((input.value || '').length) + ' / ' + max;
+    }
+}
+
+function refreshAllSeoCounts() {
+    document.querySelectorAll('[data-seo-count-for]').forEach(refreshSeoCount);
+}
+
+var blogFormDirty = false;
+function markBlogFormDirty() {
+    blogFormDirty = true;
+}
+
+document.addEventListener('input', function (e) {
+    var target = e.target;
+    if (!target) {
+        return;
+    }
+    if (typeof target.matches === 'function' && target.matches('.js-blog-slug, .js-blog-title')) {
+        refreshBlogSlugHints();
+    }
+    if (typeof target.getAttribute === 'function' && target.getAttribute('data-seo-count-for')) {
+        refreshSeoCount(target);
+    }
+});
+
+refreshBlogSlugHints();
+refreshAllSeoCounts();
+
 var form = document.getElementById('blogForm');
+if (form && form.getAttribute('data-blog-unsaved-guard') === '1') {
+    form.addEventListener('input', markBlogFormDirty);
+    form.addEventListener('change', markBlogFormDirty);
+    window.addEventListener('beforeunload', function (e) {
+        if (!blogFormDirty) {
+            return;
+        }
+        e.preventDefault();
+        e.returnValue = '';
+    });
+}
+
 if (form) form.addEventListener('submit', function (e) {
     Object.keys(quills).forEach(function (locale) {
         var input = document.getElementById('contentInput-' + locale);
@@ -186,5 +281,6 @@ if (form) form.addEventListener('submit', function (e) {
         Swal.fire('Error', 'Please enter English content before submitting.', 'error');
         return false;
     }
+    blogFormDirty = false;
 });
 </script>

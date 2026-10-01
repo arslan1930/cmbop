@@ -109,6 +109,78 @@ class AdminBlog
         return in_array($value, ['draft', 'published'], true) ? $value : '';
     }
 
+    /**
+     * Create-form intent wins; otherwise status, otherwise draft.
+     */
+    public static function resolveStoreStatus(Request $request): string
+    {
+        $intent = search_text($request->input('intent'));
+        if ($intent === 'publish') {
+            return 'published';
+        }
+        if ($intent === 'draft') {
+            return 'draft';
+        }
+
+        return self::normalizeStatus($request->input('status')) ?: 'draft';
+    }
+
+    /**
+     * Client-only public path shape (no uniqueness check).
+     */
+    public static function publicBlogPathHint(string $locale, string $slug): string
+    {
+        $locale = self::normalizeLocale($locale) ?: 'en';
+        $slug = trim($slug, '/');
+        if ($slug === '') {
+            $slug = 'your-slug';
+        }
+
+        if ($locale === 'en') {
+            return '/blog/'.$slug;
+        }
+
+        return '/'.$locale.'/blog/'.$slug;
+    }
+
+    /**
+     * @return array<string, string|int>
+     */
+    public static function rememberReturnQuery(Request $request): array
+    {
+        $query = self::indexQuery($request);
+        try {
+            $request->session()->put('admin_blogs_return', $query);
+        } catch (\Throwable) {
+        }
+
+        return $query;
+    }
+
+    /**
+     * @return array<string, string|int>
+     */
+    public static function storedReturnQuery(Request $request): array
+    {
+        try {
+            $stored = $request->session()->get('admin_blogs_return');
+        } catch (\Throwable) {
+            return [];
+        }
+        if (! is_array($stored)) {
+            return [];
+        }
+
+        return self::indexQuery(Request::create('/', 'GET', $stored));
+    }
+
+    public static function listUrl(mixed $query = []): string
+    {
+        $query = is_array($query) ? self::indexQuery(Request::create('/', 'GET', $query)) : [];
+
+        return route('admin.blogs.index', $query);
+    }
+
     public static function normalizeKind(mixed $value): string
     {
         $value = search_text($value);

@@ -763,6 +763,11 @@
   color: #0f766e;
 }
 
+.admin-sites-header__actions {
+  max-width: min(52rem, 100%);
+  justify-content: flex-end;
+}
+
 .staff-sites-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));

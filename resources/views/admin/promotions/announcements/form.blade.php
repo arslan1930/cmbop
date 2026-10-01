@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{{ asset('assets/css/promotions.css') }}">
 <div class="container-fluid" style="max-width: 1100px;">
     <div class="mb-4">
-        <a href="{{ staff_route('promotions.announcements.index') }}" class="text-decoration-none small text-muted">
+        <a href="{{ $listUrl ?? staff_route('promotions.announcements.index') }}" class="text-decoration-none small text-muted">
             <i class="fa fa-arrow-left me-1"></i> Back to announcements
         </a>
         <h1 class="h3 mb-1 mt-2">{{ $mode === 'create' ? 'New Announcement' : 'Edit Announcement' }}</h1>
@@ -135,7 +135,7 @@
                             <button type="submit" class="btn btn-primary">
                                 {{ $mode === 'create' ? 'Create announcement' : 'Save changes' }}
                             </button>
-                            <a href="{{ staff_route('promotions.announcements.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                            <a href="{{ $listUrl ?? staff_route('promotions.announcements.index') }}" class="btn btn-outline-secondary">Cancel</a>
                         </div>
                     </form>
                     <div class="d-flex flex-wrap gap-2 mt-2">
@@ -153,7 +153,7 @@
                                 : [];
                         @endphp
                         @if(auth()->user()?->isAdmin() && $mode === 'edit' && $campaignHandoff !== [])
-                            <a href="{{ route('admin.campaigns.index', $campaignHandoff) }}" class="btn btn-outline-secondary">Email this audience</a>
+                            <a href="{{ route('admin.campaigns.index', $campaignHandoff) }}" class="btn btn-outline-secondary" title="Opens Campaigns compose for marketplace accounts. Public notices have no email list.">Open in Campaigns</a>
                         @endif
                     </div>
                 </div>

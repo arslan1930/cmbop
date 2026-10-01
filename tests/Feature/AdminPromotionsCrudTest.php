@@ -238,6 +238,7 @@ class AdminPromotionsCrudTest extends TestCase
             ->getContent();
         $this->assertStringContainsString('audience=both', html_entity_decode($indexHtml));
         $this->assertStringContainsString('body_html=', $indexHtml);
+        $this->assertStringContainsString('Open in Campaigns', $indexHtml);
         $this->assertStringNotContainsString('audience=advertisers', html_entity_decode($indexHtml));
 
         $editHtml = $this->actingAs($this->admin)
@@ -276,6 +277,58 @@ class AdminPromotionsCrudTest extends TestCase
             ->get(route('admin.promotions.announcements.index'))
             ->assertOk()
             ->assertSee('Homepage only', false)
+            ->assertDontSee('Open in Campaigns', false)
             ->assertDontSee('>Email</a>', false);
+    }
+
+    public function test_third_live_notice_is_queued_behind_the_site_cap(): void
+    {
+        config(['promotions.max_live_announcements' => 2]);
+
+        foreach (['First shown', 'Second shown', 'Third queued'] as $i => $title) {
+            SiteAnnouncement::create([
+                'title' => $title,
+                'message' => 'Body',
+                'type' => 'general',
+                'style' => 'info',
+                'audience' => 'all',
+                'is_active' => true,
+                'priority' => $i + 1,
+                'created_by' => $this->admin->id,
+            ]);
+        }
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.promotions.announcements.index'))
+            ->assertOk()
+            ->assertSee('Showing', false)
+            ->assertSee('Live, not shown', false)
+            ->getContent();
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.promotions.index'))
+            ->assertOk()
+            ->assertSee('Now on the site', false)
+            ->assertSee('First shown', false)
+            ->assertSee('Second shown', false);
+        $this->assertStringContainsString('Third queued', $html);
+    }
+
+    public function test_announcement_form_back_keeps_list_filters(): void
+    {
+        $this->actingAs($this->admin)
+            ->get(route('admin.promotions.announcements.index', [
+                'audience' => 'advertiser',
+                'q' => 'sale',
+            ]))
+            ->assertOk();
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.promotions.announcements.create'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('audience=advertiser', html_entity_decode($html));
+        $this->assertStringContainsString('q=sale', $html);
     }
 }

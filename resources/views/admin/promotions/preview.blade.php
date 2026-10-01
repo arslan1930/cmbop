@@ -13,8 +13,14 @@
 <body class="bg-light">
 <div class="container py-4">
     <div class="alert alert-warning" role="status">
-        Preview only — impressions are not counted. Audience: <strong>{{ $audience }}</strong>
+        Sandbox only — this is not the real header, catalog, or dashboard chrome. Impressions are not counted.
+        Notices use the same top {{ (int) config('promotions.max_live_announcements', 2) }} as the site.
+        Banners use today’s rotation ({{ (int) config('promotions.banners_per_placement', 1) }} per wired slot).
+        Audience: <strong>{{ $audience }}</strong>
         · Placement: <strong>{{ $placement }}</strong>
+        @if(empty($placementWired))
+            · This placement is not wired for that audience, so no banner is shown.
+        @endif
     </div>
     @include('components.site-announcements', ['audience' => $audience, 'track' => false])
     @include('components.ad-banners', ['placement' => $placement, 'audience' => $audience, 'track' => false])

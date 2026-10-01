@@ -70,7 +70,9 @@ class WelcomeEmail extends PlatformMailable
     protected function workspaceRole(): string
     {
         if (EmailCatalog::isPreviewUser($this->user)) {
-            return 'advertiser';
+            $preview = strtolower((string) $this->user->getAttribute('preview_workspace'));
+
+            return $preview === 'publisher' ? 'publisher' : 'advertiser';
         }
 
         $active = strtolower((string) ($this->user->activeRole() ?? ''));

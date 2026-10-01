@@ -20,7 +20,7 @@
 
     <div class="card border-0 shadow-sm mb-3 admin-deposits-filter-card">
     <div class="card-body">
-    <form method="GET" class="admin-deposits-filters admin-orders-filters">
+    <form method="GET" class="admin-deposits-filters admin-orders-filters" data-admin-filter-live="1">
         <div class="admin-orders-filters__grid">
         <input type="hidden" name="status" value="{{ search_text(request('status')) }}">
         <div class="admin-orders-filters__search">
@@ -70,14 +70,8 @@
                     <tbody>
                         @forelse($banners as $banner)
                             @php
-                                $imps7 = 0;
-                                $clicks7 = 0;
-                                try {
-                                    $since = now()->subDays(7)->startOfDay();
-                                    $tracker = app(\App\Services\PromotionTrackingService::class);
-                                    $imps7 = $tracker->countForSubjectSince($banner, 'impression', $since);
-                                    $clicks7 = $tracker->countForSubjectSince($banner, 'click', $since);
-                                } catch (\Throwable) {}
+                                $imps7 = (int) ($imps7ById[$banner->id] ?? 0);
+                                $clicks7 = (int) ($clicks7ById[$banner->id] ?? 0);
                                 $ctr7 = $imps7 > 0 ? round(100 * $clicks7 / $imps7, 1) : 0;
                             @endphp
                             <tr>
@@ -101,7 +95,12 @@
                                     {{ number_format((int) $banner->impressions) }} views · {{ number_format((int) $banner->clicks) }} clicks
                                     <div>7d CTR {{ number_format($ctr7, 1) }}%</div>
                                 </td>
-                                <td>@include('admin.promotions.partials.status-badge', ['item' => $banner])</td>
+                                <td>@include('admin.promotions.partials.status-badge', [
+                                    'item' => $banner,
+                                    'showingState' => ($banner->isCurrentlyLive() && $banner->imageSrc())
+                                        ? (in_array((int) $banner->id, $showingBannerIds ?? [], true) ? 'showing' : 'rotated_out')
+                                        : null,
+                                ])</td>
                                 <td class="text-end text-nowrap">
                                     @if($banner->trashed())
                                         <form action="{{ staff_route('promotions.banners.restore', $banner->id) }}" method="POST" class="d-inline">

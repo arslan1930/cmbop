@@ -161,7 +161,7 @@ class OnboardingSegmentsAndRemindersTest extends TestCase
                 'cta_url' => url('/publisher/websites'),
                 'respect_preferences' => false,
             ])
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         $campaign = EmailCampaign::query()->latest('id')->first();

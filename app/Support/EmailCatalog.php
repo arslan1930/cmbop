@@ -760,9 +760,15 @@ class EmailCatalog
         $item = self::sampleOrderItem();
         $site = self::sampleSite();
         $user = self::sampleUser();
-        $audience = in_array($options['audience'] ?? '', ['advertiser', 'publisher', 'admin'], true)
-            ? $options['audience']
+        $rawAudience = is_string($options['audience'] ?? null) ? $options['audience'] : '';
+        $completed = $rawAudience === 'completed';
+        $audience = in_array($rawAudience, ['advertiser', 'publisher', 'admin'], true)
+            ? $rawAudience
             : 'advertiser';
+        if ($key === 'welcome' && $audience === 'publisher') {
+            $user->setAttribute('preview_workspace', 'publisher');
+            $user->email_verified_at = now();
+        }
 
         return match ($key) {
             'welcome' => new WelcomeEmail($user),
@@ -771,11 +777,11 @@ class EmailCatalog
             'order_status_changed' => new OrderStatusChanged(
                 order: $order,
                 recipient: $user,
-                audience: $audience,
+                audience: $completed ? 'advertiser' : $audience,
                 changeKind: 'status',
-                previousValue: 'pending',
-                newValue: 'processing',
-                description: match ($audience) {
+                previousValue: $completed ? 'review' : 'pending',
+                newValue: $completed ? 'completed' : 'processing',
+                description: $completed ? null : match ($audience) {
                     'publisher' => 'This order is now processing — please continue the placement.',
                     'admin' => 'Order status changed to processing (admin copy).',
                     default => 'Great news — the publisher accepted this order and work can begin.',

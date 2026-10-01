@@ -1463,6 +1463,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('promotions.welcome-bonus.amount');
         Route::post('/promotions/feature-offers', [AdminPromotionController::class, 'updateFeatureOffers'])
             ->name('promotions.feature-offers.update');
+        Route::get('/promotions/feature-credit-sites', [AdminPromotionController::class, 'featureCreditSites'])
+            ->name('promotions.feature-credits.sites');
         Route::post('/promotions/feature-credits', [AdminPromotionController::class, 'grantFeatureCredit'])
             ->name('promotions.feature-credits.store');
 
@@ -1483,15 +1485,36 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/campaigns/send', [AdminCampaignController::class, 'send'])
             ->middleware('throttle:6,1')
             ->name('campaigns.send');
+        Route::post('/campaigns/draft', [AdminCampaignController::class, 'storeDraft'])
+            ->middleware('throttle:12,1')
+            ->name('campaigns.draft');
+        Route::post('/campaigns/test', [AdminCampaignController::class, 'sendTest'])
+            ->middleware('throttle:6,1')
+            ->name('campaigns.test');
+        Route::get('/campaigns/{campaign}/letter', [AdminCampaignController::class, 'letter'])
+            ->whereNumber('campaign')
+            ->name('campaigns.letter');
+        Route::post('/campaigns/{campaign}/clone', [AdminCampaignController::class, 'clone'])
+            ->whereNumber('campaign')
+            ->middleware('throttle:12,1')
+            ->name('campaigns.clone');
         Route::get('/campaigns/{campaign}', [AdminCampaignController::class, 'show'])
             ->whereNumber('campaign')
             ->name('campaigns.show');
 
         Route::get('/moderation', [AdminContentModerationController::class, 'index'])->name('moderation.index');
         Route::post('/moderation/settings', [AdminContentModerationController::class, 'updateSettings'])->name('moderation.settings');
+        Route::post('/moderation/upload-settings', [AdminContentModerationController::class, 'updateUploadSettings'])
+            ->name('moderation.upload-settings');
+        Route::post('/moderation/test-scan', [AdminContentModerationController::class, 'testScan'])
+            ->middleware('throttle:20,1')
+            ->name('moderation.test-scan');
         Route::get('/moderation/logs/{log}', [AdminContentModerationController::class, 'show'])->name('moderation.show');
         Route::post('/moderation/logs/{log}/override', [AdminContentModerationController::class, 'override'])->name('moderation.override');
         Route::post('/moderation/logs/{log}/revert', [AdminContentModerationController::class, 'revert'])->name('moderation.revert');
+        Route::post('/moderation/logs/{log}/rescan', [AdminContentModerationController::class, 'rescan'])
+            ->middleware('throttle:20,1')
+            ->name('moderation.rescan');
 
         Route::get('/content-library', [AdminContentLibraryController::class, 'index'])->name('content-library.index');
         Route::get('/content-library/results', [AdminContentLibraryController::class, 'results'])->name('content-library.results');
@@ -1502,6 +1525,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/content-library/bulk-archive', [AdminContentLibraryController::class, 'bulkArchive'])
             ->middleware('throttle:10,1')
             ->name('content-library.bulk-archive');
+        Route::post('/content-library/bulk-restore', [AdminContentLibraryController::class, 'bulkRestore'])
+            ->middleware('throttle:10,1')
+            ->name('content-library.bulk-restore');
         Route::get('/content-library/{submission}', [AdminContentLibraryController::class, 'show'])->name('content-library.show');
         Route::get('/content-library/{submission}/download', [AdminContentLibraryController::class, 'download'])->name('content-library.download');
         Route::post('/content-library/{submission}/retry', [AdminContentLibraryController::class, 'retry'])

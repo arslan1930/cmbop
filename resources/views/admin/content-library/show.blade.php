@@ -21,7 +21,7 @@
         'archived' => 'dark',
         default => 'secondary',
     };
-    $indexUrl = route('admin.content-library.index', $filterQuery ?? []);
+    $indexUrl = $listUrl ?? route('admin.content-library.index', $filterQuery ?? []);
     $advertiserUrl = $submission->user?->adminShowUrl();
     $libraryOrder = $libraryOrder ?? $submission->libraryOrder();
     $orderUrl = $libraryOrder
@@ -180,7 +180,43 @@
                         @if($submission->moderationLog->admin_notes)
                             <p class="mb-2">{{ $submission->moderationLog->admin_notes }}</p>
                         @endif
-                        <p class="text-muted mb-0">Use Staff actions to approve, reject, or archive. Revert an override from the scan log.</p>
+                        <p class="text-muted mb-0">Use Staff actions to approve, reject, or archive. Revert an override on the current scan.</p>
+                    </div>
+                </div>
+            @endif
+
+            @if(($scanHistory ?? []) !== [])
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white"><strong>Scan history</strong></div>
+                    <div class="card-body small">
+                        <ul class="mb-0 ps-3">
+                            @foreach($scanHistory as $scan)
+                                <li class="mb-1">
+                                    <a href="{{ route('admin.moderation.show', $scan) }}">#{{ $scan->id }}</a>
+                                    · {{ $scan->wasSkipped() ? 'Not checked' : $scan->status }}
+                                    @if($scan->admin_override)
+                                        · override
+                                    @endif
+                                    <span class="text-muted">{{ $scan->created_at?->format('M j, g:ia') }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            @endif
+
+            @if(($staffActivity ?? []) !== [])
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white"><strong>Staff activity</strong></div>
+                    <div class="card-body small">
+                        <ul class="mb-0 ps-3">
+                            @foreach($staffActivity as $entry)
+                                <li class="mb-1">
+                                    {{ $entry->description ?: $entry->action }}
+                                    <span class="text-muted">{{ $entry->created_at?->format('M j, g:ia') }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
                     </div>
                 </div>
             @endif
@@ -272,7 +308,10 @@
                     @endif
 
                     @if($canRestore)
-                        <form method="POST" action="{{ route('admin.content-library.restore', $submission) }}">
+                        <form method="POST" action="{{ route('admin.content-library.restore', $submission) }}"
+                              data-slb-confirm="Restore this article from archive?"
+                              data-slb-confirm-title="Restore article?"
+                              data-slb-confirm-text="Restore">
                             @csrf
                             <button type="submit" class="btn btn-sm btn-outline-primary">Restore from archive</button>
                         </form>

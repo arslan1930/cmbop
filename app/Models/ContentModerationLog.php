@@ -7,6 +7,7 @@ use App\Models\Concerns\ToleratesUnparseableDates;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 
 class ContentModerationLog extends Model
 {
@@ -112,6 +113,60 @@ class ContentModerationLog extends Model
                 ->orWhereNull('signals->moderation_disabled')
                 ->orWhere('signals->moderation_disabled', false);
         });
+    }
+
+    /**
+     * Rejected/error scans that still need a person — current decision only.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeNeedsDecision(Builder $query): Builder
+    {
+        $query->whereIn('status', [self::STATUS_REJECTED, self::STATUS_ERROR])
+            ->where('admin_override', false)
+            ->notSkipped();
+
+        try {
+            if (! Schema::hasTable('content_submissions')) {
+                return $query;
+            }
+        } catch (\Throwable) {
+            return $query;
+        }
+
+        $logs = $query->getModel()->getTable();
+
+        return $query->where(function (Builder $outer) use ($logs) {
+            $outer->whereNull($logs.'.content_submission_id')
+                ->orWhereDoesntHave('submission')
+                ->orWhereHas('submission', function (Builder $submission) use ($logs) {
+                    $submission->where(function (Builder $current) use ($logs) {
+                        $current->whereNull('moderation_log_id')
+                            ->orWhereColumn('content_submissions.moderation_log_id', $logs.'.id');
+                    });
+                });
+        });
+    }
+
+    public function displayTitle(): string
+    {
+        $submission = $this->relationLoaded('submission') ? $this->submission : null;
+        if ($submission) {
+            $title = trim((string) ($submission->title ?: $submission->original_filename));
+            if ($title !== '') {
+                return $title;
+            }
+        }
+
+        $url = trim((string) $this->document_url);
+        if (preg_match('#^https?://#i', $url)) {
+            $host = parse_url($url, PHP_URL_HOST);
+
+            return is_string($host) && $host !== '' ? $host : $url;
+        }
+
+        return $url !== '' ? $url : 'Scan #'.$this->id;
     }
 
     public function categoryLabel(): string

@@ -7,6 +7,33 @@ use PHPUnit\Framework\TestCase;
 
 class CampaignHtmlTest extends TestCase
 {
+    public function test_order_status_mail_uses_html_strong_not_markdown_asterisks(): void
+    {
+        $path = dirname(__DIR__, 2).'/resources/views/emails/orders/status-changed.blade.php';
+        $statusMail = (string) file_get_contents($path);
+
+        $this->assertStringContainsString('<strong>Ready to place another order?</strong>', $statusMail);
+        $this->assertStringNotContainsString('**Ready to place another order?**', $statusMail);
+    }
+
+    public function test_leftover_markdown_asterisks_become_emphasis(): void
+    {
+        $clean = CampaignHtml::sanitize('**Limited offer** and **Ready to place another order?**');
+
+        $this->assertStringContainsString('<strong>Limited offer</strong>', $clean);
+        $this->assertStringContainsString('<strong>Ready to place another order?</strong>', $clean);
+        $this->assertStringNotContainsString('**Limited', $clean);
+        $this->assertStringNotContainsString('**Ready', $clean);
+    }
+
+    public function test_email_masks_are_not_treated_as_markdown(): void
+    {
+        $clean = CampaignHtml::sanitize('PayPal · jo***@example.com and exam***.com');
+
+        $this->assertStringContainsString('jo***@example.com', $clean);
+        $this->assertStringContainsString('exam***.com', $clean);
+    }
+
     public function test_plain_text_is_escaped_and_wrapped(): void
     {
         $clean = CampaignHtml::sanitize("Price < €50\nNext line");

@@ -463,40 +463,7 @@
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Seller / Service Provider:</p>
                                         <p style="font-weight: 600; margin: 0;">{{ billing_company_for_documents()['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)' }}</p>
                                     </div>
-                                    <div style="margin-bottom: 12px;">
-                                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Beneficiary:</p>
-                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>
-                                    </div>
-                                    <div style="margin-bottom: 12px;">
-                                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">IBAN:</p>
-                                        <div id="bankIban" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['iban'] ?? 'BE40 9059 9538 0863' }}</div>
-                                        <button type="button" class="copy-btn mt-1" data-target="bankIban">Copy IBAN</button>
-                                    </div>
-                                    <div style="margin-bottom: 12px;">
-                                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">BIC/SWIFT:</p>
-                                        <div id="bankBic" style="background: white; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: monospace;">{{ $depositPayment['bic'] ?? 'TRWIBEB1XXX' }}</div>
-                                        <button type="button" class="copy-btn mt-1" data-target="bankBic">Copy BIC</button>
-                                    </div>
-                                    @if(!empty($depositPayment['phone']))
-                                        <div style="margin-bottom: 12px;">
-                                            <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Phone no:</p>
-                                            <p style="font-weight: 600; margin: 0;">{{ $depositPayment['phone'] }}</p>
-                                        </div>
-                                    @endif
-                                    @foreach(($depositPayment['address_lines'] ?? []) as $line)
-                                        <div style="margin-bottom: 12px;">
-                                            @if($loop->first)
-                                                <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Address:</p>
-                                            @endif
-                                            <p style="font-weight: 600; margin: 0;">{{ $line }}</p>
-                                        </div>
-                                    @endforeach
-                                    @if(!empty($depositPayment['registration_no']))
-                                        <div style="margin-bottom: 12px;">
-                                            <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Registration No:</p>
-                                            <p style="font-weight: 600; margin: 0;">{{ $depositPayment['registration_no'] }}</p>
-                                        </div>
-                                    @endif
+                                    @include('partials.deposit-bank-account', ['depositPayment' => $depositPayment, 'showExtended' => true, 'showCopy' => true])
                                     <div>
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">VAT:</p>
                                         <p style="font-weight: 600; margin: 0;">{{ $depositPayment['vat_note'] ?? 'Not VAT registered – no VAT charged' }}</p>

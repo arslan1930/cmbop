@@ -190,7 +190,8 @@ class ContentLibraryImprovementsPlanTest extends TestCase
             ->get(route('admin.content-library.index', ['q' => 'Fragment']))
             ->assertOk()
             ->assertSee('Fragment Playbook')
-            ->assertDontSee('admin-content-library.js', false);
+            ->assertDontSee('admin-content-library.js', false)
+            ->assertDontSee('data-admin-filter-live="1"', false);
     }
 
     public function test_admin_show_uses_single_staff_actions_card(): void

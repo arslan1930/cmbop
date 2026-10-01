@@ -76,7 +76,7 @@
         }
     });
 
-    ['adminLibraryCountry', 'adminLibraryLanguage', 'adminLibrarySort'].forEach(function (id) {
+    ['adminLibraryCountry', 'adminLibraryLanguage', 'adminLibrarySort', 'adminLibraryAttachment', 'adminLibraryExpiring'].forEach(function (id) {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('change', function () {
@@ -85,22 +85,44 @@
         }
     });
 
+    ['adminLibraryFrom', 'adminLibraryTo'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', schedule);
+        }
+    });
+
+    region.addEventListener('change', function (e) {
+        if (!e.target || e.target.id !== 'adminLibrarySelectPage') {
+            return;
+        }
+        region.querySelectorAll('input[name="ids[]"]').forEach(function (box) {
+            box.checked = !!e.target.checked;
+        });
+    });
+
     region.addEventListener('click', function (e) {
         const chip = e.target.closest('#adminLibraryChips a');
-        if (!chip || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        const pageLink = e.target.closest('.pagination a');
+        const link = chip || pageLink;
+        if (!link || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
             return;
         }
         e.preventDefault();
         try {
-            const url = new URL(chip.href, window.location.origin);
-            const availability = url.searchParams.get('availability') || 'all';
-            const hidden = document.getElementById('adminLibraryAvailability');
-            if (hidden) {
-                hidden.value = availability;
+            const url = new URL(link.href, window.location.origin);
+            if (chip) {
+                const availability = url.searchParams.get('availability') || 'all';
+                const hidden = document.getElementById('adminLibraryAvailability');
+                if (hidden) {
+                    hidden.value = availability;
+                }
+                fetchResults(paramsFromForm(), true);
+                return;
             }
-            fetchResults(paramsFromForm(), true);
+            fetchResults(url.searchParams, true);
         } catch (err) {
-            window.location.href = chip.href;
+            window.location.href = link.href;
         }
     });
 })();

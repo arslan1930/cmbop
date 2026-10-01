@@ -3,19 +3,40 @@
 @section('content')
 @php
     $filterQuery = $filterQuery ?? [];
+    $sendQuery = $sendQuery ?? [];
+    $countries = $countries ?? [];
+    $exportMatchCount = (int) ($exportMatchCount ?? $users->total());
     $filters = $filters ?? ['verified' => 'all', 'registered_from' => '', 'registered_to' => '', 'country' => '', 'marketing' => 'all', 'exclude_dual_role' => false, 'sort' => 'name', 'dir' => 'asc'];
-    $hasActiveFilters = $search !== '' || ($filters['verified'] ?? 'all') !== 'all' || ($filters['registered_from'] ?? '') !== '' || ($filters['registered_to'] ?? '') !== '' || ($filters['country'] ?? '') !== '' || ($filters['marketing'] ?? 'all') !== 'all' || !empty($filters['exclude_dual_role']);
+    $hasActiveFilters = \App\Support\AdminAudiences::hasListFilters($search, $filters);
+    $hasSendFilters = \App\Support\AdminAudiences::hasSendFilters($search, $filters);
     $statAll = fn (string $key) => (int) ($stats[$key.'_all'] ?? $stats[$key] ?? 0);
     $statVerified = fn (string $key) => (int) ($stats[$key.'_verified'] ?? 0);
     $tabUrl = fn (string $tabSlug) => route('admin.audiences.index', array_merge($filterQuery, ['tab' => $tabSlug]));
     $exportLabel = \App\Services\AudienceInventoryService::exportLabel($tab);
     $userUrl = fn ($user) => $user->adminShowUrl();
+    $emailQuery = array_merge(['audience' => $campaignAudience], $sendQuery);
+    $exportCapped = $exportMatchCount > \App\Services\AudienceInventoryService::EXPORT_LIMIT;
+    $exportRows = min($exportMatchCount, \App\Services\AudienceInventoryService::EXPORT_LIMIT);
+    $countryValues = collect($countries)->pluck('value');
+    $currentCountry = (string) ($filters['country'] ?? '');
+    $segmentTabs = [
+        ['tab' => 'advertisers', 'stat' => 'advertisers', 'icon' => 'fa-bullseye', 'label' => 'Advertisers'],
+        ['tab' => 'publishers', 'stat' => 'publishers', 'icon' => 'fa-globe', 'label' => 'Publishers'],
+        ['tab' => 'both', 'stat' => 'both_unique', 'icon' => 'fa-users', 'label' => 'Unique'],
+        ['tab' => 'no_orders', 'stat' => 'advertisers_never_checked_out', 'icon' => 'fa-shopping-bag', 'label' => 'Never checked out'],
+        ['tab' => 'no_paid_orders', 'stat' => 'advertisers_no_paid_orders', 'icon' => 'fa-receipt', 'label' => 'No paid orders'],
+        ['tab' => 'paid_orders', 'stat' => 'advertisers_paid_orders', 'icon' => 'fa-check-circle', 'label' => 'Paid customers'],
+        ['tab' => 'no_sites', 'stat' => 'publishers_no_sites', 'icon' => 'fa-link', 'label' => 'No sites'],
+        ['tab' => 'no_active_sites', 'stat' => 'publishers_no_active_sites', 'icon' => 'fa-unlink', 'label' => 'No active sites'],
+        ['tab' => 'never_deposited', 'stat' => 'advertisers_never_deposited', 'icon' => 'fa-wallet', 'label' => 'Never deposited'],
+        ['tab' => 'deposited_no_orders', 'stat' => 'advertisers_deposited_no_orders', 'icon' => 'fa-piggy-bank', 'label' => 'Deposited, no paid orders'],
+    ];
 @endphp
 <div class="container-fluid">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
             <h1 class="h3 mb-1">Audience Inventory</h1>
-            <p class="text-muted mb-0">Registered advertisers and publishers — download lists or use them for email campaigns. Campaigns email verified users only unless you tick “include unverified”.</p>
+            <p class="text-muted mb-0">Registered advertisers and publishers — download lists or email the same slice from Campaigns. Campaigns email verified users only unless you tick “include unverified”.</p>
         </div>
         <div class="d-flex gap-2">
             <a href="{{ route('admin.campaigns.index') }}" class="btn btn-sm btn-primary">
@@ -27,53 +48,45 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        @foreach([
-            ['tab' => 'advertisers', 'stat' => 'advertisers', 'title' => 'Advertisers', 'hint' => 'Users with advertiser role'],
-            ['tab' => 'publishers', 'stat' => 'publishers', 'title' => 'Publishers', 'hint' => 'Users with publisher role'],
-            ['tab' => 'both', 'stat' => 'both_unique', 'title' => 'Unique (either role)', 'hint' => 'Combined reach without duplicates'],
-            ['tab' => 'no_orders', 'stat' => 'advertisers_never_checked_out', 'title' => 'Never checked out', 'hint' => 'Advertisers with no order row'],
-            ['tab' => 'no_paid_orders', 'stat' => 'advertisers_no_paid_orders', 'title' => 'No paid orders', 'hint' => 'Advertisers with no paid or refunded order'],
-            ['tab' => 'paid_orders', 'stat' => 'advertisers_paid_orders', 'title' => 'Paid customers', 'hint' => 'Advertisers with a paid or refunded order'],
-            ['tab' => 'no_sites', 'stat' => 'publishers_no_sites', 'title' => 'No sites', 'hint' => 'Publishers who never listed a site'],
-            ['tab' => 'no_active_sites', 'stat' => 'publishers_no_active_sites', 'title' => 'No active sites', 'hint' => 'Publishers with no catalog-visible listing'],
-            ['tab' => 'never_deposited', 'stat' => 'advertisers_never_deposited', 'title' => 'Never deposited', 'hint' => 'Advertisers who never funded a wallet'],
-            ['tab' => 'deposited_no_orders', 'stat' => 'advertisers_deposited_no_orders', 'title' => 'Deposited, no paid orders', 'hint' => 'Funded a wallet but never became a customer'],
-        ] as $card)
-            <div class="col-md-6 col-xl-3">
-                <a href="{{ $tabUrl($card['tab']) }}" class="text-decoration-none text-reset">
-                    <div class="card border-0 shadow-sm h-100 {{ $tab === $card['tab'] ? 'border-primary' : '' }}">
-                        <div class="card-body">
-                            <div class="text-muted small">{{ $card['title'] }}</div>
-                            <h3 class="mb-0">{{ number_format($statAll($card['stat'])) }}</h3>
-                            <div class="small text-muted mt-1">{{ number_format($statVerified($card['stat'])) }} emailable (verified)</div>
-                            <div class="small text-muted">{{ $card['hint'] }}</div>
+    <details class="mb-3">
+        <summary class="small text-muted" style="cursor:pointer;">Census (all / emailable)</summary>
+        <div class="row g-3 mt-1">
+            @foreach([
+                ['tab' => 'advertisers', 'stat' => 'advertisers', 'title' => 'Advertisers', 'hint' => 'Users with advertiser role'],
+                ['tab' => 'publishers', 'stat' => 'publishers', 'title' => 'Publishers', 'hint' => 'Users with publisher role'],
+                ['tab' => 'both', 'stat' => 'both_unique', 'title' => 'Unique (either role)', 'hint' => 'Combined reach without duplicates'],
+                ['tab' => 'no_orders', 'stat' => 'advertisers_never_checked_out', 'title' => 'Never checked out', 'hint' => 'Advertisers with no order row'],
+                ['tab' => 'no_paid_orders', 'stat' => 'advertisers_no_paid_orders', 'title' => 'No paid orders', 'hint' => 'Advertisers with no paid or refunded order'],
+                ['tab' => 'paid_orders', 'stat' => 'advertisers_paid_orders', 'title' => 'Paid customers', 'hint' => 'Advertisers with a paid or refunded order'],
+                ['tab' => 'no_sites', 'stat' => 'publishers_no_sites', 'title' => 'No sites', 'hint' => 'Publishers who never listed a site'],
+                ['tab' => 'no_active_sites', 'stat' => 'publishers_no_active_sites', 'title' => 'No active sites', 'hint' => 'Publishers with no catalog-visible listing'],
+                ['tab' => 'never_deposited', 'stat' => 'advertisers_never_deposited', 'title' => 'Never deposited', 'hint' => 'Advertisers who never funded a wallet'],
+                ['tab' => 'deposited_no_orders', 'stat' => 'advertisers_deposited_no_orders', 'title' => 'Deposited, no paid orders', 'hint' => 'Funded a wallet but never became a customer'],
+            ] as $card)
+                <div class="col-md-6 col-xl-3">
+                    <a href="{{ $tabUrl($card['tab']) }}" class="text-decoration-none text-reset">
+                        <div class="card border-0 shadow-sm h-100 {{ $tab === $card['tab'] ? 'border-primary' : '' }}">
+                            <div class="card-body">
+                                <div class="text-muted small">{{ $card['title'] }}</div>
+                                <h3 class="mb-0">{{ number_format($statAll($card['stat'])) }}</h3>
+                                <div class="small text-muted mt-1">{{ number_format($statVerified($card['stat'])) }} emailable (verified)</div>
+                                <div class="small text-muted">{{ $card['hint'] }}</div>
+                            </div>
                         </div>
-                    </div>
-                </a>
-            </div>
-        @endforeach
-    </div>
+                    </a>
+                </div>
+            @endforeach
+        </div>
+    </details>
 
-    <p class="small text-muted mb-3">Never checked out ⊂ No paid orders ⊂ Advertisers. Deposited, no paid orders is a credited deposit ∩ no paid/refunded order (abandoned checkout stays in). Never deposited is independent (wallet funding, not checkout). Email sends the whole segment, not the filtered table.</p>
+    <p class="small text-muted mb-3">Never checked out ⊂ No paid orders ⊂ Advertisers. Deposited, no paid orders is a credited deposit ∩ no paid/refunded order (abandoned checkout stays in). Never deposited is independent (wallet funding, not checkout). Filtered email and CSV use the same slice (CSV stops at {{ number_format(\App\Services\AudienceInventoryService::EXPORT_LIMIT) }}).</p>
 
     <ul class="nav nav-tabs mb-3 flex-wrap">
-        @foreach([
-            ['tab' => 'advertisers', 'stat' => 'advertisers', 'icon' => 'fa-bullseye', 'label' => 'Advertisers'],
-            ['tab' => 'publishers', 'stat' => 'publishers', 'icon' => 'fa-globe', 'label' => 'Publishers'],
-            ['tab' => 'both', 'stat' => 'both_unique', 'icon' => 'fa-users', 'label' => 'Unique'],
-            ['tab' => 'no_orders', 'stat' => 'advertisers_never_checked_out', 'icon' => 'fa-shopping-bag', 'label' => 'Never checked out'],
-            ['tab' => 'no_paid_orders', 'stat' => 'advertisers_no_paid_orders', 'icon' => 'fa-receipt', 'label' => 'No paid orders'],
-            ['tab' => 'paid_orders', 'stat' => 'advertisers_paid_orders', 'icon' => 'fa-check-circle', 'label' => 'Paid customers'],
-            ['tab' => 'no_sites', 'stat' => 'publishers_no_sites', 'icon' => 'fa-link', 'label' => 'No sites'],
-            ['tab' => 'no_active_sites', 'stat' => 'publishers_no_active_sites', 'icon' => 'fa-unlink', 'label' => 'No active sites'],
-            ['tab' => 'never_deposited', 'stat' => 'advertisers_never_deposited', 'icon' => 'fa-wallet', 'label' => 'Never deposited'],
-            ['tab' => 'deposited_no_orders', 'stat' => 'advertisers_deposited_no_orders', 'icon' => 'fa-piggy-bank', 'label' => 'Deposited, no paid orders'],
-        ] as $nav)
+        @foreach($segmentTabs as $nav)
             <li class="nav-item">
                 <a class="nav-link {{ $tab === $nav['tab'] ? 'active' : '' }}" href="{{ $tabUrl($nav['tab']) }}">
                     <i class="fa {{ $nav['icon'] }} me-1"></i> {{ $nav['label'] }}
-                    <span class="badge bg-primary-subtle text-primary ms-1">{{ $statAll($nav['stat']) }}</span>
+                    <span class="badge bg-primary-subtle text-primary ms-1">{{ number_format($statAll($nav['stat'])) }} <span class="fw-normal">/ {{ number_format($statVerified($nav['stat'])) }}</span></span>
                 </a>
             </li>
         @endforeach
@@ -105,15 +118,26 @@
                 </div>
                 <div>
                     <label class="form-label" for="audienceCountry">Country</label>
-                    <input type="text" name="country" id="audienceCountry" class="form-control" value="{{ $filters['country'] ?? '' }}" maxlength="64" placeholder="DE">
+                    <select name="country" id="audienceCountry" class="form-select">
+                        <option value="">All countries</option>
+                        @foreach($countries as $countryRow)
+                            <option value="{{ $countryRow['value'] }}" @selected(strcasecmp($currentCountry, $countryRow['value']) === 0)>
+                                {{ $countryRow['value'] }} ({{ number_format($countryRow['count']) }})
+                            </option>
+                        @endforeach
+                        @if($currentCountry !== '' && ! $countryValues->contains(fn ($value) => strcasecmp((string) $value, $currentCountry) === 0))
+                            <option value="{{ $currentCountry }}" selected>{{ $currentCountry }}</option>
+                        @endif
+                    </select>
                 </div>
                 <div>
                     <label class="form-label" for="audienceMarketing">Marketing</label>
                     <select name="marketing" id="audienceMarketing" class="form-select">
                         <option value="all" @selected(($filters['marketing'] ?? 'all') === 'all')>All</option>
-                        <option value="opted_in" @selected(($filters['marketing'] ?? '') === 'opted_in')>Opted in</option>
+                        <option value="opted_in" @selected(($filters['marketing'] ?? '') === 'opted_in')>Not opted out</option>
                         <option value="opted_out" @selected(($filters['marketing'] ?? '') === 'opted_out')>Opted out</option>
                     </select>
+                    <div class="form-text">Not opted out includes people who never set a preference.</div>
                 </div>
                 <div>
                     <label class="form-label" for="audienceSort">Sort</label>
@@ -134,6 +158,7 @@
                         <input class="form-check-input" type="checkbox" name="exclude_dual_role" value="1" id="audienceExcludeDual" @checked(!empty($filters['exclude_dual_role']))>
                         <label class="form-check-label small" for="audienceExcludeDual">Exclude dual-role users</label>
                     </div>
+                    <div class="form-text">Hides people with both advertiser and publisher roles.</div>
                 </div>
                 <div class="admin-deposits-filters__actions admin-orders-filters__actions">
                     <button class="btn btn-primary" type="submit">Apply</button>
@@ -146,16 +171,23 @@
             <div class="d-flex flex-wrap gap-2 mt-3">
                 <a href="{{ route('admin.audiences.export', array_merge($filterQuery, ['audience' => $tab])) }}" class="btn btn-sm btn-outline-success">
                     <i class="fa fa-download me-1"></i>
-                    {{ $search !== '' || $hasActiveFilters ? 'Download filtered CSV' : 'Download '.$exportLabel.' CSV' }}
+                    Download {{ number_format($exportRows) }} row{{ $exportRows === 1 ? '' : 's' }} CSV
                 </a>
-                <a href="{{ route('admin.campaigns.index', ['audience' => $campaignAudience]) }}" class="btn btn-sm btn-primary" title="Emails the full segment (verified by default), not the filtered table.">
-                    <i class="fa fa-envelope me-1"></i> Email this audience
+                <a href="{{ route('admin.campaigns.index', $emailQuery) }}#campaign-compose" class="btn btn-sm btn-primary"
+                    title="{{ $hasSendFilters ? 'Emails this filtered list (verified by default).' : 'Emails the full segment (verified by default).' }}">
+                    <i class="fa fa-envelope me-1"></i>
+                    {{ $hasSendFilters ? 'Email this filtered list' : 'Email full segment' }}
                 </a>
-                <span class="small text-muted align-self-center">Showing {{ number_format($users->total()) }} of {{ number_format($statAll(\App\Services\AudienceInventoryService::statKeyForTab($tab))) }} in this census.</span>
+                <span class="small text-muted align-self-center">
+                    Showing {{ number_format($users->total()) }} of {{ number_format($statAll(\App\Services\AudienceInventoryService::statKeyForTab($tab))) }} in this census.
+                    @if($exportCapped)
+                        CSV stops at {{ number_format(\App\Services\AudienceInventoryService::EXPORT_LIMIT) }} of {{ number_format($exportMatchCount) }}.
+                    @endif
+                </span>
             </div>
-            @if($hasActiveFilters)
-                <div class="alert alert-warning mt-3 mb-0" role="alert">
-                    Filters apply to this table and CSV only. <strong>Email this audience</strong> still sends the full segment (verified by default), not the filtered rows.
+            @if($hasSendFilters)
+                <div class="alert alert-info mt-3 mb-0" role="alert">
+                    Filters apply to this table, CSV, and <strong>Email this filtered list</strong>. Campaigns still skip unverified addresses unless you tick “include unverified”.
                 </div>
             @endif
         </div>
@@ -170,6 +202,7 @@
                             <th>Roles</th>
                             <th>Active role</th>
                             <th>Verified</th>
+                            <th>Marketing</th>
                             <th>Country</th>
                             <th>Paid orders</th>
                             <th>Sites</th>
@@ -201,15 +234,22 @@
                                         <span class="badge bg-secondary">No</span>
                                     @endif
                                 </td>
+                                <td>
+                                    @if(!empty($user->marketing_opted_out))
+                                        <span class="badge bg-warning text-dark">Opted out</span>
+                                    @else
+                                        <span class="badge bg-light text-dark">Not opted out</span>
+                                    @endif
+                                </td>
                                 <td class="small text-muted">{{ $user->country ?: '—' }}</td>
-                                <td>{{ (int) ($user->paid_orders_count ?? 0) }}</td>
-                                <td>{{ (int) ($user->sites_count ?? 0) }}</td>
-                                <td>{{ (int) ($user->completed_deposits_count ?? 0) }}</td>
+                                <td><a href="{{ $userUrl($user) }}" class="link-dark">{{ (int) ($user->paid_orders_count ?? 0) }}</a></td>
+                                <td><a href="{{ $userUrl($user) }}" class="link-dark">{{ (int) ($user->sites_count ?? 0) }}</a></td>
+                                <td><a href="{{ $userUrl($user) }}" class="link-dark">{{ (int) ($user->completed_deposits_count ?? 0) }}</a></td>
                                 <td class="small text-muted">{{ optional($user->created_at)->format('M j, Y') }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="11" class="text-center text-muted py-5">
+                                <td colspan="12" class="text-center text-muted py-5">
                                     @if($hasActiveFilters)
                                         No users match these filters.
                                         <a href="{{ route('admin.audiences.index', ['tab' => $tab]) }}">Clear filters</a>

@@ -20,7 +20,7 @@
 
     <div class="card border-0 shadow-sm mb-3 admin-deposits-filter-card">
     <div class="card-body">
-    <form method="GET" class="admin-deposits-filters admin-orders-filters">
+    <form method="GET" class="admin-deposits-filters admin-orders-filters" data-admin-filter-live="1">
         <div class="admin-orders-filters__grid">
         <input type="hidden" name="status" value="{{ search_text(request('status')) }}">
         <div class="admin-orders-filters__search">
@@ -82,8 +82,16 @@
                                 <td><span class="badge bg-light text-dark"><i class="fa {{ $item->typeIcon() }} me-1"></i>{{ $item->typeLabel() }}</span></td>
                                 <td class="small">{{ scalar_text(config('promotions.audiences.'.scalar_text($item->audience), $item->audience)) }}</td>
                                 <td class="small text-muted">@include('admin.promotions.partials.schedule', ['item' => $item])</td>
-                                <td class="small text-muted">{{ number_format((int) $item->clicks) }} clicks</td>
-                                <td>@include('admin.promotions.partials.status-badge', ['item' => $item])</td>
+                                <td class="small text-muted">
+                                    {{ number_format((int) ($clicks7ById[$item->id] ?? 0)) }} clicks / 7d
+                                    <div>{{ number_format((int) $item->clicks) }} all-time</div>
+                                </td>
+                                <td>@include('admin.promotions.partials.status-badge', [
+                                    'item' => $item,
+                                    'showingState' => $item->isCurrentlyLive()
+                                        ? (in_array((int) $item->id, $showingNoticeIds ?? [], true) ? 'showing' : 'queued')
+                                        : null,
+                                ])</td>
                                 <td class="text-end text-nowrap">
                                     @if($item->trashed())
                                         <form action="{{ staff_route('promotions.announcements.restore', $item->id) }}" method="POST" class="d-inline">
@@ -97,7 +105,7 @@
                                             <button class="btn btn-sm btn-outline-secondary" type="submit">Duplicate</button>
                                         </form>
                                         @if(auth()->user()?->isAdmin() && $campaignHandoff !== [])
-                                            <a href="{{ route('admin.campaigns.index', $campaignHandoff) }}" class="btn btn-sm btn-outline-secondary" title="Campaigns email marketplace users, not public visitors">Email</a>
+                                            <a href="{{ route('admin.campaigns.index', $campaignHandoff) }}" class="btn btn-sm btn-outline-secondary" title="Opens Campaigns compose for marketplace accounts. Public notices have no email list.">Open in Campaigns</a>
                                         @endif
                                         <form action="{{ staff_route('promotions.announcements.toggle', $item) }}" method="POST" class="d-inline">
                                             @csrf

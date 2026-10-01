@@ -35,8 +35,12 @@ return [
     'deposit_payment' => [
         'seller_name' => env('BILLING_DEPOSIT_SELLER_NAME') ?: 'Teqno Ltd',
         'beneficiary' => env('BILLING_DEPOSIT_BENEFICIARY') ?: 'Teqno Ltd',
-        'bic' => env('BILLING_DEPOSIT_BIC') ?: 'TRWIBEB1XXX',
-        'iban' => env('BILLING_DEPOSIT_IBAN') ?: 'BE40 9059 9538 0863',
+        'bic' => env('BILLING_DEPOSIT_BIC') ?: 'TRWIGB2LXXX',
+        'iban' => env('BILLING_DEPOSIT_IBAN') ?: 'GB30 TRWI 2308 0132 9321 94',
+        'uk_account_number' => env('BILLING_DEPOSIT_UK_ACCOUNT') ?: '32932194',
+        'uk_sort_code' => env('BILLING_DEPOSIT_UK_SORT') ?: '23-08-01',
+        'uk_transfer_note' => env('BILLING_DEPOSIT_UK_NOTE') ?: 'Use when sending money from the UK',
+        'intl_transfer_note' => env('BILLING_DEPOSIT_INTL_NOTE') ?: 'Use when sending money from outside the UK',
         'phone' => env('BILLING_DEPOSIT_PHONE') ?: '+447445152374',
         'address_lines' => array_values(array_filter([
             env('BILLING_DEPOSIT_ADDRESS_LINE1') ?: '20 Wenlock Road, London, England, N1 7GU',

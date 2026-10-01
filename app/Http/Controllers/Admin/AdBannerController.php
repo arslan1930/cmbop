@@ -7,8 +7,11 @@ use App\Models\AdBanner;
 use App\Services\ActivityLogger;
 use App\Services\PromotionListQuery;
 use App\Services\PromotionService;
+use App\Services\PromotionTrackingService;
 use App\Services\SiteEnrichment\ImageOptimizationService;
+use App\Support\AdminPromotions;
 use App\Support\PromotionUrl;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
@@ -22,8 +25,13 @@ class AdBannerController extends Controller
 {
     public function index(Request $request)
     {
+        AdminPromotions::rememberReturnQuery($request, 'banners');
+
         $banners = new LengthAwarePaginator([], 0, 20);
         $statusCounts = ['all' => 0, 'live' => 0, 'scheduled' => 0, 'expired' => 0, 'paused' => 0, 'trashed' => 0];
+        $showingBannerIds = [];
+        $imps7ById = [];
+        $clicks7ById = [];
 
         try {
             if (Schema::hasTable('ad_banners')) {
@@ -31,15 +39,28 @@ class AdBannerController extends Controller
                 $query = AdBanner::query();
                 PromotionListQuery::apply($query, $request, 'name', 'title');
                 $banners = $query->latest('id')->paginate(20)->withQueryString();
+                $nowShowing = app(PromotionService::class)->staffNowShowing();
+                $showingBannerIds = PromotionService::showingBannerIds($nowShowing);
+                $ids = $banners->pluck('id')->all();
+                $since = now()->subDays(7)->startOfDay();
+                $tracker = app(PromotionTrackingService::class);
+                $imps7ById = $tracker->countsForSubjectsSince(AdBanner::class, $ids, PromotionTrackingService::EVENT_IMPRESSION, $since);
+                $clicks7ById = $tracker->countsForSubjectsSince(AdBanner::class, $ids, PromotionTrackingService::EVENT_CLICK, $since);
             }
         } catch (\Throwable $e) {
             Log::warning('Admin banners index failed', ['error' => $e->getMessage()]);
         }
 
-        return view('admin.promotions.banners.index', compact('banners', 'statusCounts'));
+        return view('admin.promotions.banners.index', compact(
+            'banners',
+            'statusCounts',
+            'showingBannerIds',
+            'imps7ById',
+            'clicks7ById'
+        ));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         return view('admin.promotions.banners.form', [
             'banner' => new AdBanner([
@@ -53,6 +74,7 @@ class AdBannerController extends Controller
                 'priority' => 100,
             ]),
             'mode' => 'create',
+            'listUrl' => $this->bannersListUrl($request),
         ]);
     }
 
@@ -81,17 +103,17 @@ class AdBannerController extends Controller
 
         $warning = $this->unwiredWarning($data['placement'] ?? '');
 
-        return redirect()
-            ->route(staff_route_prefix().'promotions.banners.index')
+        return $this->redirectToBannersList()
             ->with('success', 'Banner created.')
             ->with('warning', $warning);
     }
 
-    public function edit(AdBanner $banner)
+    public function edit(Request $request, AdBanner $banner)
     {
         return view('admin.promotions.banners.form', [
             'banner' => $banner,
             'mode' => 'edit',
+            'listUrl' => $this->bannersListUrl($request),
         ]);
     }
 
@@ -113,8 +135,7 @@ class AdBannerController extends Controller
 
         $warning = $this->unwiredWarning($data['placement'] ?? '');
 
-        return redirect()
-            ->route(staff_route_prefix().'promotions.banners.index')
+        return $this->redirectToBannersList()
             ->with('success', 'Banner updated.')
             ->with('warning', $warning);
     }
@@ -122,8 +143,7 @@ class AdBannerController extends Controller
     public function destroy(AdBanner $banner)
     {
         if (! AdBanner::deletedAtColumnReady()) {
-            return redirect()
-                ->route(staff_route_prefix().'promotions.banners.index')
+            return $this->redirectToBannersList()
                 ->with('error', 'Banner could not be deleted until the database migration has been run. Pause it instead.');
         }
 
@@ -132,8 +152,7 @@ class AdBannerController extends Controller
         try {
             $banner->delete();
         } catch (\Throwable) {
-            return redirect()
-                ->route(staff_route_prefix().'promotions.banners.index')
+            return $this->redirectToBannersList()
                 ->with('error', 'Banner could not be deleted.');
         }
         $this->log('banner.deleted', $banner, 'deleted banner');
@@ -144,8 +163,7 @@ class AdBannerController extends Controller
             'until' => now()->addMinutes(10)->timestamp,
         ]);
 
-        return redirect()
-            ->route(staff_route_prefix().'promotions.banners.index')
+        return $this->redirectToBannersList()
             ->with('success', 'Banner “'.$name.'” deleted.');
     }
 
@@ -197,8 +215,7 @@ class AdBannerController extends Controller
         try {
             $copy->save();
         } catch (\Throwable) {
-            return redirect()
-                ->route(staff_route_prefix().'promotions.banners.index')
+            return $this->redirectToBannersList()
                 ->with('error', 'Banner could not be duplicated.');
         }
         $this->log('banner.duplicated', $copy, 'duplicated banner', ['source_id' => $banner->id]);
@@ -354,6 +371,18 @@ class AdBannerController extends Controller
         }
 
         return 'This placement is not mounted on any layout. The banner will not appear.';
+    }
+
+    private function bannersListUrl(?Request $request = null): string
+    {
+        $request = $request ?: request();
+
+        return AdminPromotions::listUrl('banners', AdminPromotions::sessionReturnQuery($request, 'banners'));
+    }
+
+    private function redirectToBannersList(): RedirectResponse
+    {
+        return redirect()->to($this->bannersListUrl());
     }
 
     private function bannersHaveColumn(string $column): bool

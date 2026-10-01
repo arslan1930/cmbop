@@ -30,6 +30,8 @@ class CampaignHtml
             return '';
         }
 
+        $html = self::convertLeftoverMarkdown($html);
+
         if (! self::containsAllowedTag($html)) {
             return '<p>'.nl2br(e($html), false).'</p>';
         }
@@ -57,6 +59,20 @@ class CampaignHtml
         $out = trim($out);
 
         return $out !== '' ? $out : '<p>'.nl2br(e($html), false).'</p>';
+    }
+
+    /**
+     * Markdown mail views still contain **bold** when copied into Campaigns
+     * without going through CommonMark. Turn those into real tags so the
+     * editor does not show leftover asterisks.
+     */
+    public static function convertLeftoverMarkdown(string $html): string
+    {
+        $html = preg_replace('/^#{1,3}\s+(.+)$/m', '<h2>$1</h2>', $html) ?? $html;
+        $html = preg_replace('/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/', '<a href="$2">$1</a>', $html) ?? $html;
+
+        // Only paired **phrase** — do not treat jo***@ / exam***.com masks as markdown.
+        return preg_replace('/\*{2}([^*\r\n@]+)\*{2}/u', '<strong>$1</strong>', $html) ?? $html;
     }
 
     public static function isBlank(string $html): bool

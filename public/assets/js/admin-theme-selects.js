@@ -29,6 +29,9 @@
 
     function enhance(select) {
         if (select.closest('.admin-deposits-theme-select, .community-theme-select')) return;
+        // Quill Snow uses native <select>s for header/color. Wrapping them
+        // turns the toolbar into stacked "Normal" / "All" listboxes.
+        if (select.closest('.ql-toolbar, .ql-picker, .ql-container, .ql-snow')) return;
         const parent = select.parentNode;
         if (!parent) return;
 

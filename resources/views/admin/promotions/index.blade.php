@@ -37,6 +37,7 @@
     </div>
 
     @include('admin.promotions.partials.undo-bar')
+    @include('admin.promotions.partials.now-showing')
 
     @if(empty($announcementsTableReady) || empty($bannersTableReady) || (auth()->user()?->isAdmin() && empty($welcomeBonusTableReady)))
         <div class="alert alert-danger" role="alert">
@@ -185,9 +186,9 @@
                 <form method="POST" action="{{ route('admin.promotions.feature-credits.store') }}" class="admin-deposits-filters row g-2 align-items-end" data-admin-filter-live="1">
                     @csrf
                     <div class="col-md-4">
-                        <label class="form-label" for="featureCreditUser">User</label>
-                        <select id="featureCreditUser" name="user_id" class="form-select" data-admin-select-search="1" data-admin-select-search-label="Search users" data-admin-select-search-empty="No matching users">
-                            <option value="">Choose a user</option>
+                        <label class="form-label" for="featureCreditUser">Publisher</label>
+                        <select id="featureCreditUser" name="user_id" class="form-select" data-admin-select-search="1" data-admin-select-search-label="Search publishers" data-admin-select-search-empty="No matching publishers">
+                            <option value="">Choose a publisher</option>
                             @foreach($featureCreditUsers ?? [] as $creditUser)
                                 <option value="{{ $creditUser->id }}" @selected((string) old('user_id') === (string) $creditUser->id)>
                                     {{ trim((string) $creditUser->name) !== '' ? $creditUser->name.' — '.$creditUser->email : $creditUser->email }}
@@ -200,10 +201,13 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="featureCreditSite">Site</label>
-                        <select id="featureCreditSite" name="site_id" class="form-select" data-admin-select-search="1" data-admin-select-search-label="Search sites" data-admin-select-search-empty="No sites for this user">
-                            <option value="">{{ old('user_id') ? 'Choose a site' : 'Select a user first' }}</option>
+                        <select id="featureCreditSite" name="site_id" class="form-select"
+                                data-sites-url="{{ route('admin.promotions.feature-credits.sites') }}"
+                                data-selected-id="{{ old('site_id') }}"
+                                data-admin-select-search="1" data-admin-select-search-label="Search sites" data-admin-select-search-empty="No sites for this publisher">
+                            <option value="">{{ old('user_id') ? 'Choose a site' : 'Select a publisher first' }}</option>
                             @foreach($featureCreditSites ?? [] as $creditSite)
-                                <option value="{{ $creditSite->id }}" data-publisher-id="{{ $creditSite->publisher_id }}" @selected((string) old('site_id') === (string) $creditSite->id) @disabled((string) old('user_id') === '' || (string) old('user_id') !== (string) $creditSite->publisher_id)>
+                                <option value="{{ $creditSite->id }}" @selected((string) old('site_id') === (string) $creditSite->id)>
                                     {{ trim((string) $creditSite->site_name) !== '' ? $creditSite->site_name.' — '.$creditSite->domain : $creditSite->domain }}
                                 </option>
                             @endforeach
@@ -363,7 +367,12 @@
                                         <td><span class="badge bg-light text-dark">{{ $item->typeLabel() }}</span></td>
                                         <td class="small text-muted">{{ scalar_text(config('promotions.audiences.'.scalar_text($item->audience), $item->audience)) }}</td>
                                         <td class="small text-muted">@include('admin.promotions.partials.schedule', ['item' => $item])</td>
-                                        <td>@include('admin.promotions.partials.status-badge', ['item' => $item])</td>
+                                        <td>@include('admin.promotions.partials.status-badge', [
+                                            'item' => $item,
+                                            'showingState' => $item->isCurrentlyLive()
+                                                ? (in_array((int) $item->id, $showingNoticeIds ?? [], true) ? 'showing' : 'queued')
+                                                : null,
+                                        ])</td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -404,7 +413,12 @@
                                         </td>
                                         <td class="small">{{ $banner->width }}×{{ $banner->height }}</td>
                                         <td class="small text-muted">@include('admin.promotions.partials.schedule', ['item' => $banner])</td>
-                                        <td>@include('admin.promotions.partials.status-badge', ['item' => $banner])</td>
+                                        <td>@include('admin.promotions.partials.status-badge', [
+                                            'item' => $banner,
+                                            'showingState' => ($banner->isCurrentlyLive() && $banner->imageSrc())
+                                                ? (in_array((int) $banner->id, $showingBannerIds ?? [], true) ? 'showing' : 'rotated_out')
+                                                : null,
+                                        ])</td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -501,24 +515,51 @@
     var user = document.getElementById('featureCreditUser');
     var site = document.getElementById('featureCreditSite');
     if (!user || !site) return;
+    var url = site.getAttribute('data-sites-url') || '';
+    var selectedId = String(site.getAttribute('data-selected-id') || '');
 
-    function syncSites() {
-        var userId = String(user.value || '');
-        var placeholder = site.options[0];
-        if (placeholder && !placeholder.value) {
-            placeholder.textContent = userId ? 'Choose a site' : 'Select a user first';
-        }
-        Array.prototype.forEach.call(site.options, function (opt) {
-            if (!opt.value) return;
-            opt.disabled = String(opt.getAttribute('data-publisher-id') || '') !== userId;
-        });
-        var selected = site.options[site.selectedIndex];
-        if (!userId || (selected && selected.disabled)) site.value = '';
-        site.dispatchEvent(new Event('change', { bubbles: true }));
+    function optionLabel(row) {
+        var name = String(row.site_name || '').trim();
+        var domain = String(row.domain || '');
+        return name !== '' ? name + ' — ' + domain : domain;
     }
 
-    user.addEventListener('change', syncSites);
-    syncSites();
+    function fill(rows) {
+        site.replaceChildren();
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = user.value ? 'Choose a site' : 'Select a publisher first';
+        site.appendChild(placeholder);
+        (rows || []).forEach(function (row) {
+            var opt = document.createElement('option');
+            opt.value = String(row.id);
+            opt.textContent = optionLabel(row);
+            if (String(row.id) === selectedId) opt.selected = true;
+            site.appendChild(opt);
+        });
+        site.dispatchEvent(new Event('change', { bubbles: true }));
+        site.dispatchEvent(new Event('admin-select-refresh'));
+    }
+
+    function loadSites() {
+        if (!user.value || !url) {
+            fill([]);
+            return;
+        }
+        site.innerHTML = '<option value="">Loading…</option>';
+        fetch(url + '?user_id=' + encodeURIComponent(user.value), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        }).then(function (res) { return res.ok ? res.json() : { sites: [] }; })
+          .then(function (data) { fill(data.sites || []); })
+          .catch(function () { fill([]); });
+    }
+
+    user.addEventListener('change', function () {
+        selectedId = '';
+        loadSites();
+    });
+    if (user.value && site.options.length <= 1) loadSites();
 })();
 </script>
 @endpush

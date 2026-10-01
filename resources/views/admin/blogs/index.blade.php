@@ -25,7 +25,7 @@
                     <i class="fa fa-sync me-2"></i> Sync curated SEO blogs
                 </button>
             </form>
-            <a href="{{ route('admin.blogs.create') }}" class="btn btn-primary">
+            <a href="{{ route('admin.blogs.create', $indexQuery) }}" class="btn btn-primary">
                 <i class="fa fa-plus me-2"></i> Create New Blog
             </a>
         </div>
@@ -232,7 +232,7 @@
                                     <a href="{{ route('admin.blogs.index') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
                                 @else
                                     <p class="text-muted">No blogs found. Create your first blog post!</p>
-                                    <a href="{{ route('admin.blogs.create') }}" class="btn btn-primary btn-sm">
+                                    <a href="{{ route('admin.blogs.create', $indexQuery) }}" class="btn btn-primary btn-sm">
                                         <i class="fa fa-plus me-2"></i> Create Blog
                                     </a>
                                 @endif

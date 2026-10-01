@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{{ asset('assets/css/promotions.css') }}">
 <div class="container-fluid" style="max-width: 1100px;">
     <div class="mb-4">
-        <a href="{{ staff_route('promotions.banners.index') }}" class="text-decoration-none small text-muted">
+        <a href="{{ $listUrl ?? staff_route('promotions.banners.index') }}" class="text-decoration-none small text-muted">
             <i class="fa fa-arrow-left me-1"></i> Back to banners
         </a>
         <h1 class="h3 mb-1 mt-2">{{ $mode === 'create' ? 'New Ad Banner' : 'Edit Ad Banner' }}</h1>
@@ -135,7 +135,7 @@
                             <button type="submit" class="btn btn-primary">
                                 {{ $mode === 'create' ? 'Create banner' : 'Save changes' }}
                             </button>
-                            <a href="{{ staff_route('promotions.banners.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                            <a href="{{ $listUrl ?? staff_route('promotions.banners.index') }}" class="btn btn-outline-secondary">Cancel</a>
                         </div>
                     </form>
                     <div class="d-flex flex-wrap gap-2 mt-2">

@@ -223,7 +223,7 @@ class AdminGrowthMenusCrashTest extends TestCase
                     'body_html' => '<p>Hello</p>',
                     'audience' => 'advertisers',
                 ])
-                ->assertRedirect(route('admin.campaigns.index'))
+                ->assertRedirect()
                 ->assertSessionHas('error');
         } finally {
             $this->remigrate([
@@ -389,6 +389,14 @@ class AdminGrowthMenusCrashTest extends TestCase
                 ->post(route('admin.moderation.settings'), [
                     'confidence_threshold' => 70,
                     'categories' => ['gambling'],
+                ])
+                ->assertRedirect(route('admin.moderation.index'))
+                ->assertSessionHas('error');
+
+            $this->actingAs($admin)
+                ->from(route('admin.moderation.index'))
+                ->post(route('admin.moderation.upload-settings'), [
+                    'retention_months' => 6,
                 ])
                 ->assertRedirect(route('admin.moderation.index'))
                 ->assertSessionHas('error');

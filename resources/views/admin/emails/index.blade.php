@@ -14,6 +14,7 @@
         'sent' => 'success',
     ];
     $adminEmail = auth()->user()->email;
+    $kpiUrls = $kpiUrls ?? [];
 @endphp
 
 <div class="container-fluid">
@@ -32,37 +33,48 @@
 
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
+            <a href="{{ $kpiUrls['sent_today'] ?? route('admin.emails.index').'#ec-recent' }}" class="text-decoration-none text-reset">
             <div class="card ec-kpi">
                 <div class="card-body">
-                    <div class="label">📧 Total Emails Sent Today</div>
+                    <div class="label">📧 Logged today</div>
                     <div class="value">{{ number_format($stats['sent_today']) }}</div>
+                    <p class="ec-kpi-note mb-0">Any status · created today</p>
                 </div>
             </div>
+            </a>
         </div>
         <div class="col-6 col-lg-3">
+            <a href="{{ $kpiUrls['pending'] ?? route('admin.emails.index', ['status' => 'pending']).'#ec-recent' }}" class="text-decoration-none text-reset">
             <div class="card ec-kpi">
                 <div class="card-body">
-                    <div class="label">📬 Pending Emails</div>
+                    <div class="label">📬 Open pending</div>
                     <div class="value text-warning">{{ number_format($stats['pending']) }}</div>
+                    <p class="ec-kpi-note mb-0">{{ number_format($stats['pending_today'] ?? 0) }} today · all-time open</p>
                 </div>
             </div>
+            </a>
         </div>
         <div class="col-6 col-lg-3">
+            <a href="{{ $kpiUrls['failed'] ?? route('admin.emails.index', ['status' => 'failed']).'#ec-recent' }}" class="text-decoration-none text-reset">
             <div class="card ec-kpi">
                 <div class="card-body">
-                    <div class="label">❌ Failed Emails</div>
+                    <div class="label">❌ Open failed</div>
                     <div class="value text-danger">{{ number_format($stats['failed']) }}</div>
+                    <p class="ec-kpi-note mb-0">{{ number_format($stats['failed_today'] ?? 0) }} today · all-time open</p>
                 </div>
             </div>
+            </a>
         </div>
         <div class="col-6 col-lg-3">
+            <a href="{{ $kpiUrls['delivered'] ?? route('admin.emails.index', ['status' => 'delivered']).'#ec-recent' }}" class="text-decoration-none text-reset">
             <div class="card ec-kpi">
                 <div class="card-body">
-                    <div class="label">✅ Delivered Today</div>
+                    <div class="label">✅ Delivered today</div>
                     <div class="value text-success">{{ number_format($stats['delivered']) }}</div>
-                    <p class="ec-kpi-note mb-0">SMTP delivered ≠ inbox</p>
+                    <p class="ec-kpi-note mb-0">SMTP accepted ≠ inbox</p>
                 </div>
             </div>
+            </a>
         </div>
     </div>
 
@@ -83,6 +95,14 @@
                                 @foreach(['delivered', 'pending', 'failed'] as $status)
                                     <option value="{{ $status }}" @selected(($logFilters['status'] ?? '') === $status)>{{ ucfirst($status) }}</option>
                                 @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label" for="ecLogSource">Source</label>
+                            <select name="source" id="ecLogSource" class="form-select">
+                                <option value="">Live + tests</option>
+                                <option value="live" @selected(($logFilters['source'] ?? '') === 'live')>Live only</option>
+                                <option value="test" @selected(($logFilters['source'] ?? '') === 'test')>Tests only</option>
                             </select>
                         </div>
                         <div>
@@ -143,12 +163,29 @@
                                                     {{ ucfirst($log->status) }}
                                                 </span>
                                             </td>
-                                            <td class="small">{{ $log->template_key ?: '—' }}</td>
+                                            <td class="small">
+                                                {{ \App\Support\AdminEmails::templateName($log->template_key) }}
+                                                @if(\App\Support\AdminEmails::isTestLog($log))
+                                                    <span class="badge bg-info text-dark">Test</span>
+                                                @endif
+                                            </td>
                                             <td class="small">{{ $log->to_email }}</td>
                                             <td class="small text-truncate" style="max-width:220px;">{{ $log->subject }}</td>
                                             <td class="small text-muted">{{ optional($log->sent_at ?? $log->created_at)->diffForHumans() }}</td>
-                                            <td class="text-end">
-                                                <a href="{{ route('admin.emails.log', $log) }}" class="small" onclick="event.stopPropagation()">View</a>
+                                            <td class="text-end" onclick="event.stopPropagation()">
+                                                <div class="d-flex justify-content-end gap-2">
+                                                    <a href="{{ route('admin.emails.log', $log) }}" class="small">View</a>
+                                                    @if($log->status === \App\Models\EmailLog::STATUS_FAILED)
+                                                        <form method="post" action="{{ route('admin.emails.retry') }}"
+                                                              data-slb-confirm="Retry this failed email?"
+                                                              data-slb-confirm-title="Retry email?"
+                                                              data-slb-confirm-text="Retry">
+                                                            @csrf
+                                                            <input type="hidden" name="log_id" value="{{ $log->id }}">
+                                                            <button class="btn btn-link btn-sm p-0 text-danger" type="submit">Retry</button>
+                                                        </form>
+                                                    @endif
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -189,14 +226,15 @@
                 <div class="card-body">
                     <h5 class="mb-3">Queue health</h5>
                     <div class="row g-2 mb-3 small">
-                        <div class="col-6"><div class="border rounded-3 p-2">Connection: <strong>{{ $queue['connection'] }}</strong></div></div>
-                        <div class="col-6"><div class="border rounded-3 p-2">Mail queue: <strong>{{ $queue['mail_queue'] }}</strong></div></div>
+                        <div class="col-6"><div class="border rounded-3 p-2">App queue: <strong>{{ $queue['connection'] }}</strong></div></div>
+                        <div class="col-6"><div class="border rounded-3 p-2">Mail connection: <strong>{{ $queue['mail_connection'] }}</strong></div></div>
+                        <div class="col-6"><div class="border rounded-3 p-2">Mail queue name: <strong>{{ $queue['mail_queue'] }}</strong></div></div>
                         <div class="col-6"><div class="border rounded-3 p-2">Auto-drain: <strong>{{ $queue['auto_drain'] ? 'on' : 'off' }}</strong></div></div>
-                        <div class="col-6"><div class="border rounded-3 p-2">Mail pending: <strong>{{ $queue['mail_pending_jobs'] }}</strong></div></div>
-                        <div class="col-6"><div class="border rounded-3 p-2">Mail failed jobs: <strong>{{ $queue['mail_failed_jobs'] }}</strong></div></div>
-                        <div class="col-6"><div class="border rounded-3 p-2">All failed jobs: <strong>{{ $queue['failed_jobs'] }}</strong></div></div>
+                        <div class="col-6"><div class="border rounded-3 p-2">Mail jobs pending: <strong>{{ $queue['mail_pending_jobs'] }}</strong></div></div>
+                        <div class="col-6"><div class="border rounded-3 p-2">Mail jobs failed: <strong>{{ $queue['mail_failed_jobs'] }}</strong></div></div>
+                        <div class="col-6"><div class="border rounded-3 p-2">All failed jobs (any queue): <strong>{{ $queue['failed_jobs'] }}</strong></div></div>
                     </div>
-                    <p class="small text-muted mb-3">Worker must be <code>queue:work --queue=default,emails</code> <strong>or</strong> auto-drain.</p>
+                    <p class="small text-muted mb-3">Worker must include <code>emails</code> (<code>queue:work --queue=default,emails</code>) <strong>or</strong> leave auto-drain on. Retry below only requeues <strong>mail</strong> failed jobs.</p>
 
                     <form method="post" action="{{ route('admin.emails.retry') }}" class="mb-3"
                           data-slb-confirm="Retry failed mail queue jobs only? Email logs stay failed until a send succeeds. Other failed jobs are left untouched."
@@ -224,11 +262,17 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="mb-2 d-none" id="ecTestAudienceWrap">
+                            <label class="form-label" for="ecTestAudience">Variant</label>
+                            <select name="audience" id="ecTestAudience" class="form-select">
+                                <option value="">Default sample</option>
+                            </select>
+                        </div>
                         <div class="mb-2">
                             <label class="form-label">Send to</label>
                             <input type="email" name="email" class="form-control" value="{{ $adminEmail }}" readonly required>
                         </div>
-                        <p class="small text-muted mb-2">Sends a synthetic preview to your admin inbox — not a live customer email.</p>
+                        <p class="small text-muted mb-2">Sends a synthetic preview to your admin inbox — not a live customer email. After send, Recent opens on that log.</p>
                         <button class="btn btn-primary w-100" type="submit">
                             <i class="fa fa-paper-plane me-1"></i> Send Test Email
                         </button>
@@ -249,11 +293,14 @@
                             @foreach($recentCampaigns as $campaign)
                                 <li class="d-flex justify-content-between gap-2 py-1 border-bottom">
                                     <span>
-                                        <strong>{{ $campaign->name }}</strong>
+                                        <a href="{{ route('admin.campaigns.show', $campaign) }}"><strong>{{ $campaign->name }}</strong></a>
                                         <span class="text-muted">· {{ $campaign->audienceLabel() }}</span>
                                     </span>
                                     <span>
                                         {{ (int) $campaign->sent_count }} sent
+                                        @if((int) ($campaign->failed_recipients_count ?? 0) > 0)
+                                            · {{ (int) $campaign->failed_recipients_count }} failed
+                                        @endif
                                         <span class="badge bg-{{ $statusBadge[$campaign->status] ?? 'secondary' }}">{{ $campaign->status }}</span>
                                     </span>
                                 </li>
@@ -286,11 +333,12 @@
                                 <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
                                     <h6>{{ $tpl['name'] }}</h6>
                                     <div class="d-flex flex-wrap justify-content-end gap-1">
-                                        <span class="badge bg-{{ $statusBadge[$tpl['status']] ?? 'secondary' }}">{{ $tpl['status'] }}</span>
                                         @if(!empty($tpl['framework']))
                                             <span class="badge bg-secondary">framework</span>
                                         @elseif(empty($tpl['enabled']))
                                             <span class="badge bg-warning text-dark">disabled</span>
+                                        @else
+                                            <span class="badge bg-{{ $statusBadge[$tpl['status']] ?? 'secondary' }}">{{ $tpl['status'] }}</span>
                                         @endif
                                     </div>
                                 </div>
@@ -314,6 +362,15 @@
                                     @if($tpl['key'] === 'order_status_changed')
                                         <a class="btn btn-sm btn-outline-secondary" target="_blank" href="{{ route('admin.emails.preview', ['key' => $tpl['key'], 'audience' => 'publisher']) }}">Publisher</a>
                                         <a class="btn btn-sm btn-outline-secondary" target="_blank" href="{{ route('admin.emails.preview', ['key' => $tpl['key'], 'audience' => 'admin']) }}">Admin</a>
+                                        <a class="btn btn-sm btn-outline-secondary" target="_blank" href="{{ route('admin.emails.preview', ['key' => $tpl['key'], 'audience' => 'completed']) }}">Completed</a>
+                                    @endif
+                                    @if($tpl['key'] === 'welcome')
+                                        <a class="btn btn-sm btn-outline-secondary" target="_blank" href="{{ route('admin.emails.preview', ['key' => $tpl['key'], 'audience' => 'publisher']) }}">Publisher</a>
+                                    @endif
+                                    @if(($tpl['key'] ?? '') !== 'audience_campaign')
+                                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('admin.campaigns.index', ['template' => $tpl['key']]) }}">
+                                            Use in Campaigns
+                                        </a>
                                     @endif
                                     <form method="post" action="{{ route('admin.emails.test') }}"
                                           data-slb-confirm="Send a synthetic {{ $tpl['name'] }} preview to {{ $adminEmail }}?"
@@ -341,9 +398,10 @@
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <div>
                     <h5 class="mb-1">Notification Settings</h5>
-                    <p class="small text-muted mb-0">Enable or disable specific notification types globally. User preferences still apply on top.</p>
+                    <p class="small text-muted mb-0">Templates above are the catalog (preview / test). This table is the global on/off. User profile prefs still apply. Campaigns also honor marketing opt-out when “respect preferences” is on.</p>
                 </div>
-                <div class="admin-deposits-filters" data-admin-filter-live="1" style="min-width:12rem;max-width:16rem">
+                <div class="admin-deposits-filters d-flex flex-wrap gap-2" data-admin-filter-live="1" style="min-width:12rem;max-width:28rem">
+                <input type="search" id="ec-settings-search" class="form-control" placeholder="Search settings…" aria-label="Search notification settings">
                 <select id="ec-settings-audience" class="form-select" aria-label="Filter settings by audience">
                     <option value="">All audiences</option>
                     @foreach($settings->pluck('audience')->unique()->sort() as $audience)
@@ -366,8 +424,13 @@
                         </thead>
                         <tbody>
                             @foreach($settings as $setting)
-                                <tr data-audience="{{ $setting['audience'] }}">
-                                    <td class="fw-semibold">{{ $setting['name'] }}</td>
+                                <tr data-audience="{{ $setting['audience'] }}" data-name="{{ strtolower($setting['name'].' '.$setting['type']) }}">
+                                    <td class="fw-semibold">
+                                        {{ $setting['name'] }}
+                                        @if(\App\Support\EmailCatalog::get($setting['type']))
+                                            <a class="small fw-normal ms-1" target="_blank" href="{{ route('admin.emails.preview', $setting['type']) }}">Preview</a>
+                                        @endif
+                                    </td>
                                     <td><span class="badge bg-light text-dark">{{ $setting['audience'] }}</span></td>
                                     <td class="small text-muted">{{ $setting['preference_label'] ?: '—' }}</td>
                                     <td class="text-end">
@@ -397,6 +460,7 @@
                         · Reply-To: {{ $brand['reply_to'] ?? '—' }}
                         · Support: {{ $brand['support_email'] ?? '—' }}
                         <br><strong>Important:</strong> Change sender/reply-to/support via <code>.env</code> (<code>MAIL_*</code>, <code>MAIL_SUPPORT_EMAIL</code>, <code>MAIL_REPLY_TO_ADDRESS</code>).
+                        <br>Ops notes in the repo: <code>docs/ops-mail-reminders.md</code>, <code>docs/admin-campaigns.md</code>.
                     </p>
                     <button class="btn btn-primary btn-sm" type="submit">Save settings</button>
                 </div>
@@ -407,13 +471,16 @@
     <div class="card ec-card mb-4" id="ec-failed">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Failed Email Log</h5>
-                @if(($queue['mail_failed_jobs'] ?? 0) > 0)
-                    <a href="#ec-tools" class="small">View failed mail jobs ({{ $queue['mail_failed_jobs'] }})</a>
-                @endif
+                <h5 class="mb-0">Latest failed logs</h5>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ \App\Support\AdminEmails::listUrl(['status' => 'failed']) }}" class="small">All failed in Recent</a>
+                    @if(($queue['mail_failed_jobs'] ?? 0) > 0)
+                        <a href="#ec-tools" class="small">Mail jobs failed ({{ $queue['mail_failed_jobs'] }})</a>
+                    @endif
+                </div>
             </div>
             @if($failedLogs->isEmpty())
-                <p class="text-muted mb-0">No failed sends in the log — also check Failed mail jobs.</p>
+                <p class="text-muted mb-0">No failed sends in the log — also check mail jobs failed in Queue health.</p>
             @else
                 <div class="table-responsive">
                     <table class="table table-sm mb-0">
@@ -430,7 +497,12 @@
                             @foreach($failedLogs as $log)
                                 <tr>
                                     <td>{{ $log->to_email }}</td>
-                                    <td>{{ $log->template_key ?: '—' }}</td>
+                                    <td class="small">
+                                        {{ \App\Support\AdminEmails::templateName($log->template_key) }}
+                                        @if(\App\Support\AdminEmails::isTestLog($log))
+                                            <span class="badge bg-info text-dark">Test</span>
+                                        @endif
+                                    </td>
                                     <td class="small text-danger">
                                         <span>{{ \Illuminate\Support\Str::limit($log->error, 120) }}</span>
                                         @if(strlen((string) $log->error) > 120)
@@ -465,6 +537,39 @@
 </div>
 <script>
 (function () {
+    var testTemplate = document.getElementById('ecTestTemplate');
+    var testAudienceWrap = document.getElementById('ecTestAudienceWrap');
+    var testAudience = document.getElementById('ecTestAudience');
+    var variantOptions = {
+        welcome: [['', 'Advertiser (default)'], ['publisher', 'Publisher']],
+        order_status_changed: [['', 'Advertiser processing'], ['publisher', 'Publisher'], ['admin', 'Admin'], ['completed', 'Advertiser completed']]
+    };
+    function syncTestAudience() {
+        if (!testTemplate || !testAudienceWrap || !testAudience) return;
+        var key = testTemplate.value;
+        var opts = variantOptions[key] || [];
+        testAudience.innerHTML = '';
+        if (!opts.length) {
+            testAudienceWrap.classList.add('d-none');
+            testAudience.removeAttribute('name');
+            testAudience.dispatchEvent(new Event('admin-select-refresh'));
+            return;
+        }
+        testAudience.setAttribute('name', 'audience');
+        opts.forEach(function (pair) {
+            var option = document.createElement('option');
+            option.value = pair[0];
+            option.textContent = pair[1];
+            testAudience.appendChild(option);
+        });
+        testAudienceWrap.classList.remove('d-none');
+        testAudience.dispatchEvent(new Event('admin-select-refresh'));
+    }
+    if (testTemplate) {
+        testTemplate.addEventListener('change', syncTestAudience);
+        syncTestAudience();
+    }
+
     var search = document.getElementById('ec-template-search');
     var empty = document.querySelector('.ec-search-empty');
     if (search) {
@@ -488,13 +593,22 @@
     }
 
     var audience = document.getElementById('ec-settings-audience');
-    if (audience) {
-        audience.addEventListener('change', function () {
-            var value = audience.value;
-            document.querySelectorAll('#ec-settings-form tbody tr').forEach(function (row) {
-                row.classList.toggle('d-none', !!(value && row.getAttribute('data-audience') !== value));
-            });
+    var settingsSearch = document.getElementById('ec-settings-search');
+    function filterSettingsRows() {
+        var value = audience ? audience.value : '';
+        var q = settingsSearch ? settingsSearch.value.trim().toLowerCase() : '';
+        document.querySelectorAll('#ec-settings-form tbody tr').forEach(function (row) {
+            var audienceOk = !value || row.getAttribute('data-audience') === value;
+            var hay = row.getAttribute('data-name') || '';
+            var searchOk = !q || hay.indexOf(q) !== -1;
+            row.classList.toggle('d-none', !(audienceOk && searchOk));
         });
+    }
+    if (audience) {
+        audience.addEventListener('change', filterSettingsRows);
+    }
+    if (settingsSearch) {
+        settingsSearch.addEventListener('input', filterSettingsRows);
     }
 
     var form = document.getElementById('ec-settings-form');

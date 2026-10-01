@@ -54,7 +54,7 @@
                             'publisher' => $site->publisher_id,
                             'site' => $site->id,
                             'all' => 1,
-                        ] + ($listQuery ?? []),
+                        ] + ($sitesReturnQuery ?? $listQuery ?? []),
                         static fn ($value) => $value !== null && $value !== ''
                     ));
                     $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
@@ -72,6 +72,7 @@
                 <tr data-review-name="{{ $site->site_name }}"
                     data-review-url="{{ $site->site_url }}"
                     data-review-metrics="{{ $site->da ?? '—' }} / {{ $site->dr ?? '—' }}">
+<<<<<<< HEAD
                     <td><input type="checkbox"
                         data-staff-bulk-id="{{ $site->id }}"
                         data-verified="{{ $site->verified ? '1' : '0' }}"
@@ -79,6 +80,9 @@
                         data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
                         data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
                         aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+=======
+                    <td><input type="checkbox" data-staff-bulk-id="{{ $site->id }}" data-verified="{{ $site->verified ? '1' : '0' }}" data-active="{{ $site->active ? '1' : '0' }}" data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}" data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}" aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
+>>>>>>> 773155727232e9e15b034bdd5c23df38e87a70a7
                     <td class="d-none d-md-table-cell">{{ $allSites->firstItem() + $index }}</td>
                     <td>@include('admin.sites.partials.queue-site-cell')</td>
                     <td class="small">

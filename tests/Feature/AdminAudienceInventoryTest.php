@@ -335,10 +335,14 @@ class AdminAudienceInventoryTest extends TestCase
         $admin = $this->makeUser('admin');
         $risky = $this->makeUser('advertiser', ['name' => '=1+1']);
 
-        $csv = $this->actingAs($admin)
+        $export = $this->actingAs($admin)
             ->get(route('admin.audiences.export', ['audience' => 'advertisers']))
-            ->assertOk()
-            ->streamedContent();
+            ->assertOk();
+        $this->assertStringContainsString(
+            'advertisers-'.now()->format('Y-m-d').'.csv',
+            (string) $export->headers->get('content-disposition')
+        );
+        $csv = $export->streamedContent();
 
         $this->assertStringContainsString("'=1+1", $csv);
         $this->assertStringContainsString($risky->email, $csv);
@@ -360,35 +364,56 @@ class AdminAudienceInventoryTest extends TestCase
             ->assertSee('No users match these filters', false);
     }
 
-    public function test_filtered_inventory_warns_email_still_sends_full_segment(): void
+    public function test_filtered_inventory_emails_the_same_slice(): void
     {
         $admin = $this->makeUser('admin');
-        $this->makeUser('advertiser');
-
-        $warning = 'Filters apply to this table and CSV only.';
-        $emailHref = route('admin.campaigns.index', ['audience' => 'advertisers']);
+        $this->makeUser('advertiser', ['country' => 'DE']);
 
         $this->actingAs($admin)
             ->get(route('admin.audiences.index', ['tab' => 'advertisers']))
             ->assertOk()
-            ->assertDontSee($warning, false)
-            ->assertSee('href="'.$emailHref.'"', false);
+            ->assertSee('Email full segment', false)
+            ->assertSee('audience=advertisers', false)
+            ->assertSee('id="audienceCountry"', false)
+            ->assertSee('>DE (', false);
 
-        $this->actingAs($admin)
+        $filtered = $this->actingAs($admin)
             ->get(route('admin.audiences.index', [
                 'tab' => 'advertisers',
                 'verified' => 'yes',
                 'country' => 'DE',
             ]))
             ->assertOk()
-            ->assertSee($warning, false)
-            ->assertSee('still sends the full segment', false)
-            ->assertSee('href="'.$emailHref.'"', false)
-            ->assertDontSee('href="'.route('admin.campaigns.index', [
-                'audience' => 'advertisers',
-                'verified' => 'yes',
-                'country' => 'DE',
-            ]).'"', false);
+            ->assertSee('Email this filtered list', false)
+            ->assertSee('Filters apply to this table, CSV, and', false)
+            ->assertSee('Download 1 row CSV', false);
+
+        $filtered->assertSee('audience=advertisers', false)
+            ->assertSee('verified=yes', false)
+            ->assertSee('country=DE', false);
+    }
+
+    public function test_count_with_filters_matches_paginate_total(): void
+    {
+        $this->makeUser('advertiser', ['country' => 'DE']);
+        $this->makeUser('advertiser', ['country' => 'FR']);
+        $inventory = app(AudienceInventoryService::class);
+        $filters = [
+            'verified' => 'yes',
+            'country' => 'DE',
+            'marketing' => 'all',
+            'exclude_dual_role' => false,
+            'registered_from' => '',
+            'registered_to' => '',
+            'sort' => 'name',
+            'dir' => 'asc',
+        ];
+
+        $this->assertSame(
+            $inventory->paginate('advertisers', null, 25, $filters)->total(),
+            $inventory->count('advertisers', null, false, null, $filters)
+        );
+        $this->assertSame(1, $inventory->count('advertisers', null, false, null, $filters));
     }
 
     public function test_unknown_audience_key_is_empty_for_count_collect_and_send(): void
@@ -499,7 +524,7 @@ class AdminAudienceInventoryTest extends TestCase
                 'cta_url' => url('/advertiser/catalog'),
                 'respect_preferences' => false,
             ])
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         $campaign = EmailCampaign::query()->latest('id')->first();
@@ -526,7 +551,7 @@ class AdminAudienceInventoryTest extends TestCase
                 'cta_url' => url('/advertiser/catalog'),
                 'respect_preferences' => false,
             ])
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         $campaign = EmailCampaign::query()->latest('id')->first();
@@ -645,7 +670,7 @@ class AdminAudienceInventoryTest extends TestCase
                 'audience' => 'advertisers',
                 'respect_preferences' => false,
             ])
-            ->assertRedirect(route('admin.campaigns.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         $campaign = EmailCampaign::query()->latest('id')->first();

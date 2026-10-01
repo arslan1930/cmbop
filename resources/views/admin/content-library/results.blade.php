@@ -9,6 +9,11 @@
         'archived' => 'Archived',
         'expired' => 'Expired',
     ];
+    $chipTitles = [
+        'available' => 'Checkout-ready (file, market, rights, and a valid link pair).',
+        'all' => 'Unused expired articles are on the Expired chip, not here.',
+        'expired' => 'Unused expired articles hidden from All.',
+    ];
     $filterBase = $filterQuery ?? [];
     $chipUrl = function (string $availability) use ($filterBase) {
         $params = $filterBase;
@@ -36,15 +41,17 @@
     $bulkLimit = (int) ($bulkLimit ?? 50);
 @endphp
 
-<nav class="d-flex flex-wrap gap-2 mb-3" aria-label="Library availability filter" id="adminLibraryChips">
+<nav class="d-flex flex-wrap gap-2 mb-2" aria-label="Library availability filter" id="adminLibraryChips">
     @foreach($chipDefs as $key => $label)
         @php $count = (int) ($availabilityCounts[$key] ?? 0); @endphp
         <a href="{{ $chipUrl($key) }}"
-           class="btn btn-sm {{ $availability === $key ? 'btn-primary' : 'btn-outline-secondary' }}">
+           class="btn btn-sm {{ $availability === $key ? 'btn-primary' : 'btn-outline-secondary' }}"
+           @if(! empty($chipTitles[$key])) title="{{ $chipTitles[$key] }}" @endif>
             {{ $label }} ({{ $count }})
         </a>
     @endforeach
 </nav>
+<p class="small text-muted mb-3">Approved means checkout-ready, not only that a scan passed. All omits unused expired articles — use Expired.</p>
 
 <form method="POST" action="{{ route('admin.content-library.bulk-archive') }}" id="adminLibraryBulkForm">
     @csrf
@@ -62,10 +69,17 @@
                 data-slb-confirm-text="Archive">
             Archive selected
         </button>
+        <button type="submit" class="btn btn-sm btn-outline-secondary"
+                formaction="{{ route('admin.content-library.bulk-restore') }}"
+                data-slb-confirm="Restore the selected archived articles?"
+                data-slb-confirm-title="Restore selected?"
+                data-slb-confirm-text="Restore">
+            Restore selected
+        </button>
         <a href="{{ route('admin.content-library.export', $filterQuery ?? []) }}" class="btn btn-sm btn-outline-secondary ms-auto">
             Export CSV
         </a>
-        <span class="small text-muted align-self-center">Up to {{ $bulkLimit }} at a time</span>
+        <span class="small text-muted align-self-center">Up to {{ $bulkLimit }} at a time · first {{ (int) ($exportLimit ?? 2000) }} rows</span>
     </div>
 
     <div class="card border-0 shadow-sm">
@@ -73,7 +87,9 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th style="width:2rem;"></th>
+                        <th style="width:2rem;">
+                            <input type="checkbox" id="adminLibrarySelectPage" class="form-check-input" aria-label="Select articles on this page">
+                        </th>
                         <th>ID</th>
                         <th>Title</th>
                         <th>Advertiser</th>
