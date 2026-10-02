@@ -26,8 +26,8 @@
 }
 
 .slb-live-chat__launcher {
-  width: 192px;
-  height: 192px;
+  width: 84px;
+  height: 84px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -43,8 +43,8 @@
 }
 
 .slb-live-chat__launcher-lottie {
-  width: 192px;
-  height: 192px;
+  width: 84px;
+  height: 84px;
   pointer-events: none;
 }
 
@@ -161,6 +161,7 @@
 .slb-live-chat__messages {
   flex: 1 1 auto;
   min-height: 180px;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 14px;
   display: flex;
@@ -169,8 +170,25 @@
   background: var(--surface-2, #f7fafb);
 }
 
-.slb-live-chat__bubble {
+.slb-live-chat__stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   max-width: 85%;
+  min-width: 0;
+  padding-bottom: 18px;
+}
+
+.slb-live-chat__row--user .slb-live-chat__stack {
+  align-self: flex-end;
+}
+
+.slb-live-chat__row--support .slb-live-chat__stack {
+  align-self: flex-start;
+}
+
+.slb-live-chat__bubble {
+  max-width: 100%;
   padding: 8px 12px;
   border-radius: 12px;
   font-size: 0.875rem;
@@ -194,34 +212,92 @@
   border-bottom-left-radius: 4px;
 }
 
-.slb-live-chat__reactions {
-  display: none;
+.slb-live-chat__toolbar {
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 4px;
+  width: max-content;
+  padding: 3px 4px;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  z-index: 2;
+  box-sizing: border-box;
 }
 
-.slb-live-chat__row:hover .slb-live-chat__reactions,
-.slb-live-chat__row.is-reacting .slb-live-chat__reactions,
-.slb-live-chat__row.is-editing .slb-live-chat__reactions {
+.slb-live-chat__row--user .slb-live-chat__toolbar {
+  left: auto;
+  right: 0;
+}
+
+.slb-live-chat__stack:has(.slb-live-chat__picked) .slb-live-chat__toolbar {
+  bottom: -26px;
+}
+
+.slb-live-chat__row:hover .slb-live-chat__toolbar,
+.slb-live-chat__row:focus-within .slb-live-chat__toolbar,
+.slb-live-chat__row.is-reacting .slb-live-chat__toolbar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.slb-live-chat__row.is-editing .slb-live-chat__toolbar {
+  display: none;
+}
+
+.slb-live-chat__reactions {
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
 }
 
 .slb-live-chat__picked {
-  align-self: flex-start;
-  font-size: 0.85rem;
-  line-height: 1;
+  position: absolute;
+  right: 6px;
+  bottom: -2px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid var(--brand-primary-border, #b8e4e4);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.8rem;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
 }
 
 .slb-live-chat__row--user .slb-live-chat__picked {
-  align-self: flex-end;
+  right: auto;
+  left: 6px;
 }
 
 .slb-live-chat__edit {
   border: 0;
   background: transparent;
   color: var(--brand-ink-muted, #697078);
-  font-size: 0.75rem;
-  padding: 0;
+  font-size: 0.7rem;
+  padding: 0 4px;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.slb-live-chat__edit:hover {
+  color: var(--brand-primary, #1a585e);
 }
 
 .slb-live-chat__edit-input {
@@ -234,13 +310,17 @@
 }
 
 .slb-live-chat__reaction {
-  border: 1px solid var(--brand-primary-border, #b8e4e4);
-  background: #fff;
+  border: 0;
+  background: transparent;
   border-radius: 999px;
-  padding: 0 6px;
-  line-height: 1.4;
-  font-size: 0.8rem;
+  padding: 2px 4px;
+  line-height: 1.2;
+  font-size: 0.85rem;
   cursor: pointer;
+}
+
+.slb-live-chat__reaction:hover {
+  background: var(--brand-primary-tint, #f4fbfb);
 }
 
 .slb-live-chat__reaction.is-on {
@@ -251,7 +331,10 @@
 .slb-live-chat__row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding-top: 8px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .slb-live-chat__row--user {
@@ -424,6 +507,7 @@
 @media (prefers-reduced-motion: reduce) {
   .slb-live-chat__launcher,
   .slb-live-chat__panel,
+  .slb-live-chat__toolbar,
   .slb-live-chat__typing span {
     transition: none;
     animation: none;
@@ -462,5 +546,16 @@
     background: #134347;
     border-color: #1a585e;
     color: #e2e8f0;
+  }
+
+  [data-theme="dark"] .slb-live-chat__toolbar,
+  [data-theme="dark"] .slb-live-chat__picked {
+    background: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+
+  [data-theme="dark"] .slb-live-chat__reaction:hover {
+    background: #134347;
   }
 }

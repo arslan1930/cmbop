@@ -37,6 +37,9 @@ class VisitorSupportChatTest extends TestCase
             ->assertOk()
             ->assertSee('id="slbLiveChat"', false)
             ->assertSee('visitor-support-chat.js', false)
+            ->assertSee('chat-box.json', false)
+            ->assertSee('lottie_light.min.js', false)
+            ->assertDontSee('chatbot.json', false)
             ->assertSee('How do I create an account?', false)
             ->assertSee('Usually replies by email', false)
             ->assertSee('SEOLinkBuildings', false)
@@ -49,6 +52,8 @@ class VisitorSupportChatTest extends TestCase
         $this->assertStringContainsString('window.sendChatMessage', $js);
         $this->assertStringContainsString('localStorage', $js);
         $this->assertStringContainsString('slbLiveChatChips', $js);
+        $this->assertStringContainsString('slb-live-chat__toolbar', $js);
+        $this->assertStringContainsString('slb-live-chat__reaction', $js);
     }
 
     public function test_advertiser_dashboard_renders_first_party_widget(): void

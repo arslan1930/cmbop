@@ -164,57 +164,74 @@
       var isUser = m.role === 'user';
       row.className = 'slb-live-chat__row ' + (isUser ? 'slb-live-chat__row--user' : 'slb-live-chat__row--support');
 
+      var wrap = document.createElement('div');
+      wrap.className = 'slb-live-chat__stack';
+
       var bubble = document.createElement('div');
       bubble.className = 'slb-live-chat__bubble ' + (isUser ? 'slb-live-chat__bubble--user' : 'slb-live-chat__bubble--support');
       bubble.textContent = m.content || '';
 
-      var meta = document.createElement('div');
-      meta.className = 'slb-live-chat__meta';
-      meta.textContent = (isUser ? 'You · ' : 'Support · ') + formatTime(m.at) + (m.edited ? ' · edited' : '');
-
-      row.appendChild(bubble);
-      row.appendChild(meta);
-
-      if (m.reaction) {
-        var picked = document.createElement('span');
-        picked.className = 'slb-live-chat__picked';
-        picked.textContent = m.reaction;
-        row.appendChild(picked);
-      }
-
-      if (canEdit(index)) {
-        var edit = document.createElement('button');
-        edit.type = 'button';
-        edit.className = 'slb-live-chat__edit';
-        edit.textContent = 'Edit';
-        edit.addEventListener('click', function () {
-          startEdit(row, bubble, m);
-        });
-        row.appendChild(edit);
-      }
+      var toolbar = document.createElement('div');
+      toolbar.className = 'slb-live-chat__toolbar';
+      toolbar.setAttribute('role', 'toolbar');
+      toolbar.setAttribute('aria-label', 'Message actions');
 
       var reactions = document.createElement('div');
       reactions.className = 'slb-live-chat__reactions';
-      ['👍', '❤️', '🙏'].forEach(function (emoji) {
+      ['👍', '❤️', '😂', '😮', '🙏'].forEach(function (emoji) {
         var button = document.createElement('button');
         button.type = 'button';
         button.className = 'slb-live-chat__reaction' + (m.reaction === emoji ? ' is-on' : '');
         button.textContent = emoji;
         button.setAttribute('aria-label', 'React ' + emoji);
-        button.addEventListener('click', function () {
+        button.setAttribute('aria-pressed', m.reaction === emoji ? 'true' : 'false');
+        button.addEventListener('click', function (event) {
+          event.stopPropagation();
           m.reaction = m.reaction === emoji ? '' : emoji;
           saveState();
           render();
         });
         reactions.appendChild(button);
       });
-      row.appendChild(reactions);
+      toolbar.appendChild(reactions);
+
+      if (canEdit(index)) {
+        var edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'slb-live-chat__edit';
+        edit.textContent = 'Edit';
+        edit.addEventListener('click', function (event) {
+          event.stopPropagation();
+          startEdit(row, bubble, m);
+        });
+        toolbar.appendChild(edit);
+      }
+
+      wrap.appendChild(bubble);
+      wrap.appendChild(toolbar);
+
+      if (m.reaction) {
+        var picked = document.createElement('span');
+        picked.className = 'slb-live-chat__picked';
+        picked.textContent = m.reaction;
+        picked.setAttribute('aria-label', 'Reaction ' + m.reaction);
+        wrap.appendChild(picked);
+      }
+
+      var meta = document.createElement('div');
+      meta.className = 'slb-live-chat__meta';
+      meta.textContent = (isUser ? 'You · ' : 'Support · ') + formatTime(m.at) + (m.edited ? ' · edited' : '');
+
+      row.appendChild(wrap);
+      row.appendChild(meta);
+
       var hold;
       row.addEventListener('pointerdown', function (event) {
         if (event.target.closest && event.target.closest('button, textarea')) return;
-        hold = window.setTimeout(function () { row.classList.add('is-reacting'); }, 450);
+        hold = window.setTimeout(function () { row.classList.add('is-reacting'); }, 380);
       });
       row.addEventListener('pointerup', function () { window.clearTimeout(hold); });
+      row.addEventListener('pointercancel', function () { window.clearTimeout(hold); });
       row.addEventListener('pointerleave', function (event) {
         window.clearTimeout(hold);
         if (event.pointerType === 'touch') return;
@@ -401,21 +418,35 @@
     var anim = window.lottie.loadAnimation({
       container: box,
       renderer: 'svg',
-      loop: true,
+      loop: false,
       autoplay: false,
       path: src,
     });
     box._slbLottie = anim;
+    function restMark() {
+      anim.loop = false;
+      anim.goToAndStop(40, true);
+    }
+    function playMark() {
+      if (reduce || !anim.isLoaded) return;
+      anim.loop = false;
+      anim.goToAndPlay(1, true);
+    }
+    anim.addEventListener('complete', function () {
+      restMark();
+    });
     anim.addEventListener('DOMLoaded', function () {
-      anim.goToAndStop(0, true);
+      restMark();
+      var svg = box.querySelector('svg');
+      if (svg) {
+        svg.style.width = '84px';
+        svg.style.height = '84px';
+      }
     });
-    if (reduce || !launcher) return;
-    launcher.addEventListener('mouseenter', function () {
-      anim.goToAndPlay(0, true);
-    });
-    launcher.addEventListener('mouseleave', function () {
-      anim.goToAndStop(0, true);
-    });
+    if (launcher && !reduce) {
+      launcher.addEventListener('mouseenter', playMark);
+      launcher.addEventListener('mouseleave', restMark);
+    }
   }
 
   initLauncherLottie();

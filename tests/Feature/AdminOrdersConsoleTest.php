@@ -278,6 +278,11 @@ class AdminOrdersConsoleTest extends TestCase
             ->assertSee("boot.get('date_to')", false)
             ->assertSee("boot.get('page')", false)
             ->assertSee('type="button" id="resetFiltersBtn"', false)
+            ->assertSee('admin-orders-filters__grid', false)
+            ->assertSee('id="searchInput"', false)
+            ->assertSee('id="searchInputClear"', false)
+            ->assertSee('Date applies to', false)
+            ->assertSee('id="dateFieldFilter"', false)
             ->assertSee('requested > lastPage', false)
             ->assertDontSee('setTimeout(() => loadOrders(1), 0)', false);
     }
