@@ -15,21 +15,15 @@
             <form id="orderFilterForm" class="admin-deposits-filters admin-orders-filters" data-admin-filter-live="1">
                 <div class="admin-orders-filters__grid">
                 <div class="admin-orders-filters__search">
-                    <label class="form-label" for="searchInput">Search</label>
-                    <div class="slb-search-wrap">
-                        <input type="search"
-                               id="searchInput"
-                               class="form-control"
-                               placeholder="Order #, reference, user, site, publisher…"
-                               title="Results update as you type"
-                               autocomplete="off"
-                               enterkeyhint="search"
-                               aria-describedby="adminOrdersSearchStatus">
-                        <button type="button" id="adminOrdersSearchClear" class="btn btn-sm btn-link slb-search-clear d-none" aria-label="Clear search">
-                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div id="adminOrdersSearchStatus" class="form-text slb-search-status" role="status" aria-live="polite"></div>
+                    <x-slb-search-field
+                        name="search"
+                        id="searchInput"
+                        placeholder="Order #, reference, user, site, publisher…"
+                        title="Results update as you type"
+                        input-class="form-control"
+                        label-class="form-label"
+                        mode=""
+                    />
                 </div>
                 <div>
                     <label class="form-label" for="statusFilter">Order status</label>
@@ -84,6 +78,20 @@
                     </select>
                 </div>
                 <div>
+                    <label class="form-label" for="stalledFilter">Stalled</label>
+                    <select id="stalledFilter" class="form-select">
+                        <option value="">All</option>
+                        <option value="1">Stalled only</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="modificationFilter">Revision</label>
+                    <select id="modificationFilter" class="form-select">
+                        <option value="">All</option>
+                        <option value="yes">Modification requested</option>
+                    </select>
+                </div>
+                <div>
                     <label class="form-label" for="dateFrom">From</label>
                     <input type="date" id="dateFrom" class="form-control" aria-label="From date">
                 </div>
@@ -99,24 +107,14 @@
                         <option value="completed_at">Completed</option>
                     </select>
                 </div>
-                <div>
-                    <label class="form-label" for="stalledFilter">Stalled</label>
-                    <select id="stalledFilter" class="form-select">
-                        <option value="">All</option>
-                        <option value="1">Stalled only</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="form-label" for="modificationFilter">Revision</label>
-                    <select id="modificationFilter" class="form-select">
-                        <option value="">All</option>
-                        <option value="yes">Modification requested</option>
-                    </select>
-                </div>
                 <div class="admin-deposits-filters__actions admin-orders-filters__actions">
                     <div class="d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-primary">Filter</button>
-                        <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary">Reset</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-search me-1"></i> Filter
+                        </button>
+                        <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary">
+                            <i class="fa fa-undo me-1"></i> Reset
+                        </button>
                         <a href="{{ route('admin.orders.export') }}" id="ordersExport" class="btn btn-outline-primary">CSV</a>
                     </div>
                 </div>
@@ -436,8 +434,8 @@
         if (typeof window.SlbLiveSearch === 'undefined') return;
         window.SlbLiveSearch.init(document.getElementById('searchInput'), {
             mode: 'event',
-            statusEl: document.getElementById('adminOrdersSearchStatus'),
-            clearBtn: document.getElementById('adminOrdersSearchClear'),
+            statusEl: document.getElementById('searchInputStatus'),
+            clearBtn: document.getElementById('searchInputClear'),
             onSearch: function () { loadOrders(1); },
         });
     });

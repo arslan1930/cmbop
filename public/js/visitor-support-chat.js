@@ -9,6 +9,24 @@
   if (!root) return;
 
   var STORAGE_KEY = root.getAttribute('data-storage-key') || 'slb-support-chat-v1';
+  var REACTIONS = [
+    { emoji: '👍', name: 'Like', tokens: [':)', ':-)', ':+1:'] },
+    { emoji: '❤️', name: 'Love', tokens: ['<3', ':heart:'] },
+    { emoji: '😂', name: 'Funny', tokens: [':D', ':-D', ':joy:'] },
+    { emoji: '😮', name: 'Wow', tokens: [':o', ':-o', ':O'] },
+    { emoji: '🙏', name: 'Thanks', tokens: [':pray:'] },
+  ];
+
+  function expandEmoticons(text) {
+    var next = String(text || '');
+    REACTIONS.forEach(function (item) {
+      item.tokens.forEach(function (token) {
+        var escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        next = next.replace(new RegExp(escaped, 'g'), item.emoji);
+      });
+    });
+    return next;
+  }
   var endpoint = root.getAttribute('data-endpoint') || '';
   var welcome = root.getAttribute('data-welcome') || 'Hi! How can we help with guest posts, wallet, or your sites?';
   var panel = document.getElementById('slbLiveChatPanel');
@@ -164,57 +182,97 @@
       var isUser = m.role === 'user';
       row.className = 'slb-live-chat__row ' + (isUser ? 'slb-live-chat__row--user' : 'slb-live-chat__row--support');
 
+      var wrap = document.createElement('div');
+      wrap.className = 'slb-live-chat__stack';
+
       var bubble = document.createElement('div');
       bubble.className = 'slb-live-chat__bubble ' + (isUser ? 'slb-live-chat__bubble--user' : 'slb-live-chat__bubble--support');
       bubble.textContent = m.content || '';
 
-      var meta = document.createElement('div');
-      meta.className = 'slb-live-chat__meta';
-      meta.textContent = (isUser ? 'You · ' : 'Support · ') + formatTime(m.at) + (m.edited ? ' · edited' : '');
+      var trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'slb-live-chat__react-trigger';
+      trigger.setAttribute('aria-label', 'Add a reaction');
+      trigger.setAttribute('aria-haspopup', 'true');
+      trigger.textContent = ':)';
+      trigger.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        row.classList.toggle('is-reacting');
+      });
 
-      row.appendChild(bubble);
-      row.appendChild(meta);
+      var flyout = document.createElement('div');
+      flyout.className = 'slb-live-chat__react-flyout';
+      flyout.setAttribute('role', 'toolbar');
+      flyout.setAttribute('aria-label', 'Message reactions');
+      REACTIONS.forEach(function (item) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'slb-live-chat__reaction' + (m.reaction === item.emoji ? ' is-on' : '');
+        button.setAttribute('data-name', item.name);
+        button.setAttribute('aria-label', item.name);
+        button.setAttribute('aria-pressed', m.reaction === item.emoji ? 'true' : 'false');
+        var face = document.createElement('span');
+        face.className = 'slb-live-chat__reaction-face';
+        face.setAttribute('aria-hidden', 'true');
+        face.textContent = item.emoji;
+        button.appendChild(face);
+        button.addEventListener('click', function (event) {
+          event.stopPropagation();
+          m.reaction = m.reaction === item.emoji ? '' : item.emoji;
+          row.classList.remove('is-reacting');
+          saveState();
+          render();
+        });
+        flyout.appendChild(button);
+      });
 
-      if (m.reaction) {
-        var picked = document.createElement('span');
-        picked.className = 'slb-live-chat__picked';
-        picked.textContent = m.reaction;
-        row.appendChild(picked);
-      }
+      wrap.appendChild(bubble);
+      wrap.appendChild(trigger);
+      wrap.appendChild(flyout);
 
       if (canEdit(index)) {
         var edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'slb-live-chat__edit';
         edit.textContent = 'Edit';
-        edit.addEventListener('click', function () {
+        edit.addEventListener('click', function (event) {
+          event.stopPropagation();
           startEdit(row, bubble, m);
         });
-        row.appendChild(edit);
+        wrap.appendChild(edit);
       }
 
-      var reactions = document.createElement('div');
-      reactions.className = 'slb-live-chat__reactions';
-      ['👍', '❤️', '🙏'].forEach(function (emoji) {
-        var button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'slb-live-chat__reaction' + (m.reaction === emoji ? ' is-on' : '');
-        button.textContent = emoji;
-        button.setAttribute('aria-label', 'React ' + emoji);
-        button.addEventListener('click', function () {
-          m.reaction = m.reaction === emoji ? '' : emoji;
+      if (m.reaction) {
+        var picked = document.createElement('button');
+        picked.type = 'button';
+        picked.className = 'slb-live-chat__picked';
+        var pickedItem = REACTIONS.filter(function (item) { return item.emoji === m.reaction; })[0];
+        picked.textContent = m.reaction + (pickedItem ? ' ' + pickedItem.name : '');
+        picked.setAttribute('aria-label', 'Remove reaction ' + (pickedItem ? pickedItem.name : m.reaction));
+        picked.addEventListener('click', function (event) {
+          event.stopPropagation();
+          m.reaction = '';
           saveState();
           render();
         });
-        reactions.appendChild(button);
-      });
-      row.appendChild(reactions);
+        wrap.appendChild(picked);
+      }
+
+      var meta = document.createElement('div');
+      meta.className = 'slb-live-chat__meta';
+      meta.textContent = (isUser ? 'You · ' : 'Support · ') + formatTime(m.at) + (m.edited ? ' · edited' : '');
+
+      row.appendChild(wrap);
+      row.appendChild(meta);
+
       var hold;
       row.addEventListener('pointerdown', function (event) {
         if (event.target.closest && event.target.closest('button, textarea')) return;
-        hold = window.setTimeout(function () { row.classList.add('is-reacting'); }, 450);
+        hold = window.setTimeout(function () { row.classList.add('is-reacting'); }, 380);
       });
       row.addEventListener('pointerup', function () { window.clearTimeout(hold); });
+      row.addEventListener('pointercancel', function () { window.clearTimeout(hold); });
       row.addEventListener('pointerleave', function (event) {
         window.clearTimeout(hold);
         if (event.pointerType === 'touch') return;
@@ -348,7 +406,7 @@
 
   function submitComposer() {
     if (sending || !input) return;
-    var text = String(input.value || '').trim();
+    var text = expandEmoticons(String(input.value || '')).trim();
     if (!text) return;
     if (text.length > 4000) {
       setError('Please keep messages under 4,000 characters.');
@@ -401,21 +459,35 @@
     var anim = window.lottie.loadAnimation({
       container: box,
       renderer: 'svg',
-      loop: true,
+      loop: false,
       autoplay: false,
       path: src,
     });
     box._slbLottie = anim;
+    function restMark() {
+      anim.loop = false;
+      anim.goToAndStop(40, true);
+    }
+    function playMark() {
+      if (reduce || !anim.isLoaded) return;
+      anim.loop = false;
+      anim.goToAndPlay(1, true);
+    }
+    anim.addEventListener('complete', function () {
+      restMark();
+    });
     anim.addEventListener('DOMLoaded', function () {
-      anim.goToAndStop(0, true);
+      restMark();
+      var svg = box.querySelector('svg');
+      if (svg) {
+        svg.style.width = '84px';
+        svg.style.height = '84px';
+      }
     });
-    if (reduce || !launcher) return;
-    launcher.addEventListener('mouseenter', function () {
-      anim.goToAndPlay(0, true);
-    });
-    launcher.addEventListener('mouseleave', function () {
-      anim.goToAndStop(0, true);
-    });
+    if (launcher && !reduce) {
+      launcher.addEventListener('mouseenter', playMark);
+      launcher.addEventListener('mouseleave', restMark);
+    }
   }
 
   initLauncherLottie();
@@ -442,6 +514,17 @@
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         submitComposer();
+      }
+    });
+    input.addEventListener('input', function () {
+      var caret = input.selectionStart;
+      var before = input.value;
+      var next = expandEmoticons(before);
+      if (next === before) return;
+      input.value = next;
+      if (typeof caret === 'number') {
+        var shifted = caret + (next.length - before.length);
+        input.setSelectionRange(shifted, shifted);
       }
     });
   }

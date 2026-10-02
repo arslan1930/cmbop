@@ -58,16 +58,6 @@
                         static fn ($value) => $value !== null && $value !== ''
                     ));
                     $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
-                    $hasOrders = $site->orderItemsCount() > 0;
-                    $canDeleteRow = ! $site->isArchived()
-                        && ! $hasOrders
-                        && ! $site->verified
-                        && ! $site->active
-                        && (auth()->user()?->isAdmin() || $isMarketingEditor);
-                    $canArchiveRow = (bool) auth()->user()?->isAdmin()
-                        && ! $site->isArchived()
-                        && ! $hasOrders
-                        && ($site->verified || $site->active);
                 @endphp
                 <tr data-review-name="{{ $site->site_name }}"
                     data-review-url="{{ $site->site_url }}"
@@ -78,6 +68,8 @@
                         data-active="{{ $site->active ? '1' : '0' }}"
                         data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
                         data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
+                        @if($site->wasAddedByPublisher()) data-publisher-added="1" @endif
+                        @if($site->isBulkRequestDraft()) data-bulk-draft="1" @endif
                         aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                     <td class="d-none d-md-table-cell">{{ $allSites->firstItem() + $index }}</td>
                     <td class="staff-queue-site-col">@include('admin.sites.partials.queue-site-cell', ['compactSiteCell' => true])</td>
@@ -127,26 +119,7 @@
                                 </button>
                             @endif
                             @include('partials.staff-site-activate-button', ['site' => $site, 'iconOnly' => true])
-                            @if($canDeleteRow)
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-danger delete-site staff-action-icon-btn"
-                                        data-id="{{ $site->id }}"
-                                        data-name="{{ $site->site_name }}"
-                                        title="Reject"
-                                        aria-label="Reject">
-                                    <i class="fa fa-times" aria-hidden="true"></i>
-                                </button>
-                            @elseif($canArchiveRow)
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-danger delete-site staff-action-icon-btn"
-                                        data-id="{{ $site->id }}"
-                                        data-name="{{ $site->site_name }}"
-                                        data-archive="1"
-                                        title="Archive"
-                                        aria-label="Archive">
-                                    <i class="fa fa-archive" aria-hidden="true"></i>
-                                </button>
-                            @endif
+                            @include('admin.sites.partials.row-reject-archive-actions', ['site' => $site])
                         </div>
                     </td>
                 </tr>

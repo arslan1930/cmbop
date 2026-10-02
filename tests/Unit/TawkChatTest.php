@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Support\TawkChat;
+use App\Support\VisitorSupportChat;
 use Tests\TestCase;
 
 class TawkChatTest extends TestCase
@@ -53,5 +54,15 @@ class TawkChatTest extends TestCase
             $this->assertNull(TawkChat::embedSrc());
             $this->assertFalse(TawkChat::enabled());
         }
+    }
+
+    public function test_predefined_messages_follow_role_questions(): void
+    {
+        $this->assertSame(
+            VisitorSupportChat::questionsForRole('guest'),
+            TawkChat::predefinedMessages('guest')
+        );
+        $this->assertContains('How do I place an order?', TawkChat::predefinedMessages('advertiser'));
+        $this->assertContains('How do I add a website?', TawkChat::predefinedMessages('publisher'));
     }
 }

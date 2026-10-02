@@ -180,7 +180,7 @@
     @if($mode !== 'flat')
         <label class="form-check small mb-1">
             <input class="form-check-input" type="checkbox" name="archived" value="1" data-staff-filter="archived" @checked(!empty($filters['archived']))>
-            Show archived
+            Archived only
         </label>
     @endif
     @if($getForm)

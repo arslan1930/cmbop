@@ -1195,6 +1195,10 @@ $registerStaffOpsRoutes = function () {
     // Admin: any site. Marketing: pending / not-live (!verified && !active) only.
     Route::delete('/sites/{id}', [AdminSiteController::class, 'destroy'])
         ->name('sites.destroy');
+    Route::post('/sites/{id}/archive', [AdminSiteController::class, 'archive'])
+        ->name('sites.archive');
+    Route::post('/sites/{id}/unarchive', [AdminSiteController::class, 'unarchive'])
+        ->name('sites.unarchive');
 
     Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
         ->name('bulk-site-requests.index');

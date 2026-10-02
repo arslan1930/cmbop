@@ -279,7 +279,7 @@ class AdminSiteReviewQueueTest extends TestCase
             ->first();
 
         $this->assertSame(InAppNotification::STATUS_ARCHIVED, $note?->status);
-        $this->assertDatabaseMissing('sites', ['id' => $siteId]);
+        $this->assertNotNull(Site::query()->find($siteId)?->archived_at);
     }
 
     public function test_queue_counts_exclude_awaiting_details_drafts(): void

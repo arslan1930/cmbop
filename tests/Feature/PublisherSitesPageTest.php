@@ -274,9 +274,10 @@ class PublisherSitesPageTest extends TestCase
         $this->assertTrue((bool) $site->active);
 
         $this->actingAs($this->publisher)
-            ->get(route('publisher.sites.ajax', ['status' => 'archived']))
+            ->get(route('publisher.sites.ajax', ['status' => 'pending']))
             ->assertOk()
-            ->assertSee('Archived');
+            ->assertSee('With admin', false)
+            ->assertDontSee('>Archived<', false);
 
         $this->actingAs($this->publisher)
             ->postJson(route('publisher.sites.unarchive', $site->id))

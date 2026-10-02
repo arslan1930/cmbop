@@ -8,6 +8,9 @@
     $tawkVisitor = null;
     $tawkAttributes = [];
     $tawkTags = [];
+    $tawkQuestions = [];
+    $tawkCompany = 'SEOLinkBuildings';
+    $tawkWelcome = 'Hi! How can we help with guest posts, wallet, or your sites?';
     $supportRole = 'guest';
     if (class_exists(\App\Support\VisitorSupportChat::class)
         && method_exists(\App\Support\VisitorSupportChat::class, 'supportRole')) {
@@ -37,6 +40,21 @@
                 'page' => $page,
             ];
             $tawkTags = [$supportRole];
+            $tawkQuestions = class_exists(\App\Support\TawkChat::class)
+                && method_exists(\App\Support\TawkChat::class, 'predefinedMessages')
+                ? \App\Support\TawkChat::predefinedMessages($supportRole)
+                : [];
+            foreach ($tawkQuestions as $i => $question) {
+                $tawkAttributes['predefined_'.($i + 1)] = $question;
+            }
+            $tawkCompany = class_exists(\App\Support\VisitorSupportChat::class)
+                && method_exists(\App\Support\VisitorSupportChat::class, 'companyName')
+                ? \App\Support\VisitorSupportChat::companyName()
+                : (string) config('app.name', 'SEOLinkBuildings');
+            $tawkWelcome = class_exists(\App\Support\VisitorSupportChat::class)
+                && method_exists(\App\Support\VisitorSupportChat::class, 'welcomeMessage')
+                ? \App\Support\VisitorSupportChat::welcomeMessage()
+                : 'Hi! How can we help with guest posts, wallet, or your sites?';
             if (auth()->check()) {
                 $user = auth()->user();
                 $name = trim((string) ($user->name ?? ''));
@@ -74,6 +92,43 @@
   pointer-events: none;
 }
 .slb-chat-mark__unread.is-on { display: inline-flex; }
+.slb-tawk-theme-header {
+  display: none;
+  position: fixed;
+  z-index: 1000004;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: 16px 16px 0 0;
+  background: #1a585e;
+  color: #fff;
+  font: 700 14px/1.2 var(--font-sans, system-ui, sans-serif);
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+.slb-tawk-theme-header__icon {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.slb-tawk-theme-header__icon svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+.slb-tawk-theme-header__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 </style>
 <script>
 window.Tawk_API = window.Tawk_API || {};
@@ -92,6 +147,193 @@ Tawk_API.visitor = {!! json_encode($tawkVisitor, JSON_UNESCAPED_SLASHES | JSON_U
 @endif
 var tawkAttributes = {!! json_encode($tawkAttributes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
 var tawkTags = {!! json_encode($tawkTags, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
+var tawkQuestions = {!! json_encode($tawkQuestions ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
+var tawkCompany = {!! json_encode($tawkCompany ?? config('app.name', 'SEOLinkBuildings'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
+var tawkWelcome = {!! json_encode($tawkWelcome ?? 'Hi! How can we help with guest posts, wallet, or your sites?', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
+var tawkTheme = {
+  header: {
+    background: '#1a585e',
+    text: '#ffffff',
+    color: '#ffffff',
+    icon: '#ffffff',
+    icons: '#ffffff',
+    button: '#ffffff',
+    action: '#ffffff'
+  },
+  agent: { messageBackground: '#e6f5f5', messageText: '#1a585e' },
+  visitor: { messageBackground: '#1a585e', messageText: '#ffffff' }
+};
+
+function tawkSettingsUrl(url) {
+  return /va\.tawk\.to\/v1\//.test(String(url || ''));
+}
+
+function brandTawkColor(value) {
+  if (typeof value !== 'string') return value;
+  var hex = value.trim().toLowerCase();
+  if (/^#(54c76e|55c87a|55cd82|00ce7d|00d67e|2ecc71|4caf50|3fcf4e|70c656|00b955|1ecd67|25d366)$/.test(hex)) {
+    return '#1a585e';
+  }
+  return value;
+}
+
+function brandTawkLine(value) {
+  value = brandTawkColor(value);
+  var trimmed = value.replace(/<[^>]+>/g, '').replace(/^[\s\u{1F300}-\u{1FAFF}]+/u, '').trim();
+  if (/^customer support$/i.test(trimmed)) return tawkCompany;
+  if (/^i have a question[.!?]?$/i.test(trimmed)) return tawkQuestions[0] || value;
+  if (/^tell me more[.!?]?$/i.test(trimmed)) return tawkQuestions[1] || value;
+  if (/^just browsing[.!?]?$/i.test(trimmed)) return tawkQuestions[2] || tawkQuestions[0] || value;
+  if (/^hi!? how can we help\??$/i.test(trimmed)) return tawkWelcome;
+  if (/^we typically reply in a few minutes\.?$/i.test(trimmed)) return tawkWelcome;
+  return value;
+}
+
+function brandTawkCopy(value) {
+  if (typeof value !== 'string') return value;
+  if (value.indexOf('[option]') !== -1) {
+    var kept = [];
+    var replaced = false;
+    value.split('\n').forEach(function (line) {
+      if (/^\s*\[option\]/i.test(line)) {
+        replaced = true;
+        return;
+      }
+      kept.push(brandTawkLine(line));
+    });
+    if (replaced && tawkQuestions.length) {
+      tawkQuestions.forEach(function (question) {
+        kept.push('[option]' + question);
+      });
+    }
+    return kept.join('\n');
+  }
+  return brandTawkLine(value);
+}
+
+function brandTawkNode(node) {
+  if (!node || typeof node !== 'object') return;
+  if (node.theme && typeof node.theme === 'object') {
+    node.theme.header = Object.assign({}, node.theme.header, tawkTheme.header);
+    node.theme.agent = Object.assign({}, node.theme.agent, tawkTheme.agent);
+    node.theme.visitor = Object.assign({}, node.theme.visitor, tawkTheme.visitor);
+  }
+  if (node.type === 'suggested-messages' && node.content && Array.isArray(node.content.options) && tawkQuestions.length) {
+    node.content.options = tawkQuestions.map(function (question) {
+      return { text: question };
+    });
+  }
+  if (Array.isArray(node.options) && node.options.length && node.options.every(function (item) {
+    return item && typeof item === 'object' && typeof item.text === 'string';
+  }) && node.options.some(function (item) {
+    return /i have a question|tell me more|just browsing/i.test(item.text);
+  }) && tawkQuestions.length) {
+    node.options = tawkQuestions.map(function (question) {
+      return Object.assign({}, node.options[0], { text: question });
+    });
+  }
+  Object.keys(node).forEach(function (key) {
+    var value = node[key];
+    if (typeof value === 'string') node[key] = brandTawkCopy(value);
+    else brandTawkNode(value);
+  });
+}
+
+function brandTawkSettings(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+  brandTawkNode(payload);
+  return payload;
+}
+
+function brandTawkSocketData(data) {
+  if (typeof data !== 'string' || data.indexOf('{') !== 0) return data;
+  if (data.indexOf('[option]') === -1 && !/i have a question|tell me more|customer support|hi!? how can we help/i.test(data) && data.indexOf('"theme"') === -1) {
+    return data;
+  }
+  try {
+    return JSON.stringify(brandTawkSettings(JSON.parse(data)));
+  } catch (e) {
+    return brandTawkCopy(data);
+  }
+}
+
+var NativeWebSocket = window.WebSocket;
+if (typeof NativeWebSocket === 'function') {
+  window.WebSocket = function (url, protocols) {
+    var socket = protocols === undefined ? new NativeWebSocket(url) : new NativeWebSocket(url, protocols);
+    if (!/tawk\.to/i.test(String(url || ''))) return socket;
+    var add = socket.addEventListener.bind(socket);
+    socket.addEventListener = function (type, listener, options) {
+      if (type !== 'message' || typeof listener !== 'function') {
+        return add(type, listener, options);
+      }
+      return add('message', function (event) {
+        var next = brandTawkSocketData(event.data);
+        if (next === event.data) return listener.call(this, event);
+        return listener.call(this, new MessageEvent('message', {
+          data: next,
+          origin: event.origin,
+          lastEventId: event.lastEventId,
+          source: event.source,
+          ports: event.ports
+        }));
+      }, options);
+    };
+    return socket;
+  };
+  window.WebSocket.prototype = NativeWebSocket.prototype;
+  window.WebSocket.CONNECTING = NativeWebSocket.CONNECTING;
+  window.WebSocket.OPEN = NativeWebSocket.OPEN;
+  window.WebSocket.CLOSING = NativeWebSocket.CLOSING;
+  window.WebSocket.CLOSED = NativeWebSocket.CLOSED;
+}
+
+var nativeFetch = window.fetch;
+if (typeof nativeFetch === 'function') {
+  window.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url);
+    return nativeFetch.apply(this, arguments).then(function (response) {
+      if (!tawkSettingsUrl(url)) return response;
+      return response.json().then(function (body) {
+        brandTawkSettings(body);
+        return new Response(JSON.stringify(body), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      });
+    });
+  };
+}
+
+var xhrOpen = XMLHttpRequest.prototype.open;
+var xhrSend = XMLHttpRequest.prototype.send;
+XMLHttpRequest.prototype.open = function (method, url) {
+  this.__slbTawkUrl = String(url || '');
+  return xhrOpen.apply(this, arguments);
+};
+function brandTawkXhr(xhr) {
+  if (xhr.readyState !== 4 || xhr.status < 200 || xhr.status >= 300) return;
+  try {
+    var branded = JSON.stringify(brandTawkSettings(JSON.parse(xhr.responseText)));
+    Object.defineProperty(xhr, 'responseText', { configurable: true, get: function () { return branded; } });
+    Object.defineProperty(xhr, 'response', { configurable: true, get: function () { return branded; } });
+  } catch (e) {}
+}
+
+XMLHttpRequest.prototype.send = function () {
+  if (tawkSettingsUrl(this.__slbTawkUrl)) {
+    var xhr = this;
+    var previousOnload = xhr.onload;
+    xhr.addEventListener('readystatechange', function () { brandTawkXhr(xhr); }, true);
+    xhr.addEventListener('load', function () { brandTawkXhr(xhr); }, true);
+    xhr.onload = function () {
+      brandTawkXhr(xhr);
+      if (typeof previousOnload === 'function') return previousOnload.apply(this, arguments);
+    };
+  }
+  return xhrSend.apply(this, arguments);
+};
 var launcher = document.createElement('button');
 launcher.type = 'button';
 launcher.className = 'slb-chat-mark';
@@ -154,11 +396,38 @@ var paintTimer = setInterval(function () {
   }
 }, 50);
 
+function tawkPanel() {
+  return Array.prototype.find.call(document.querySelectorAll('iframe[title="chat widget"], iframe[title="Chat widget"]'), function (iframe) {
+    return iframe.offsetWidth > 200 && iframe.offsetHeight > 200 && getComputedStyle(iframe).visibility !== 'hidden';
+  }) || null;
+}
+
+function syncTawkChrome() {
+  var panel = tawkPanel();
+  var open = document.documentElement.classList.contains('slb-tawk-open') && panel;
+  if (!open) {
+    themeBar.style.display = 'none';
+    return;
+  }
+  var box = panel.getBoundingClientRect();
+  themeBar.style.display = 'flex';
+  themeBar.style.left = box.left + 'px';
+  themeBar.style.top = box.top + 'px';
+  themeBar.style.width = box.width + 'px';
+  themeBar.style.height = '52px';
+}
+
 function lockPage(open) {
   document.documentElement.classList.toggle('slb-tawk-open', !!open);
   launcher.classList.remove('is-hidden');
   launcher.setAttribute('aria-label', open ? 'Close chat' : 'Open chat');
   launcher.style.zIndex = open ? '1000003' : '1081';
+  syncTawkChrome();
+  if (open) {
+    [50, 200, 500, 1000].forEach(function (ms) {
+      window.setTimeout(syncTawkChrome, ms);
+    });
+  }
 }
 
 var hidingBubble = false;
@@ -179,13 +448,30 @@ function hideBubble() {
     hidingBubble = false;
   }
 }
+var themeBar = document.createElement('div');
+themeBar.className = 'slb-tawk-theme-header';
+themeBar.setAttribute('aria-hidden', 'true');
+themeBar.innerHTML = '<span class="slb-tawk-theme-header__icon slb-tawk-theme-header__back" aria-hidden="true">'
+  + '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+  + '<path d="M15 5L8 12l7 7" stroke="#ffffff" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>'
+  + '</svg></span>'
+  + '<span class="slb-tawk-theme-header__title"></span>'
+  + '<span class="slb-tawk-theme-header__icon slb-tawk-theme-header__menu" aria-hidden="true">'
+  + '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+  + '<circle cx="12" cy="6" r="1.7" fill="#ffffff"/>'
+  + '<circle cx="12" cy="12" r="1.7" fill="#ffffff"/>'
+  + '<circle cx="12" cy="18" r="1.7" fill="#ffffff"/>'
+  + '</svg></span>';
+themeBar.querySelector('.slb-tawk-theme-header__title').textContent = {!! json_encode(config('app.name', 'SEOLinkBuildings'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
+
 function mountLauncher() {
   if (!document.body) {
     document.addEventListener('DOMContentLoaded', mountLauncher);
     return;
   }
   if (!launcher.isConnected) document.body.appendChild(launcher);
-  new MutationObserver(function () { hideBubble(); }).observe(document.body, { childList: true, subtree: true });
+  if (!themeBar.isConnected) document.body.appendChild(themeBar);
+  new MutationObserver(function () { hideBubble(); syncTawkChrome(); }).observe(document.body, { childList: true, subtree: true });
 }
 mountLauncher();
 
@@ -271,6 +557,7 @@ Tawk_API.onChatMaximized = function () {
   paintUnread();
   lockPage(true);
 };
+window.addEventListener('resize', syncTawkChrome);
 Tawk_API.onChatMessageAgent = function () {
   if (document.documentElement.classList.contains('slb-tawk-open')) return;
   unread += 1;

@@ -102,7 +102,12 @@
         aria-expanded="false"
         aria-controls="slbLiveChatPanel"
     >
-        <span class="slb-live-chat__launcher-lottie" id="slbLiveChatLottie" data-lottie="{{ asset('assets/vendor/lottie/chatbot.json') }}" aria-hidden="true"></span>
+        <span
+            class="slb-live-chat__launcher-lottie"
+            id="slbLiveChatLottie"
+            data-lottie="{{ asset('assets/vendor/lottie/chat-box.json') }}?v={{ @filemtime(public_path('assets/vendor/lottie/chat-box.json')) ?: '1' }}"
+            aria-hidden="true"
+        ></span>
     </button>
 </div>
 <script src="{{ asset('assets/vendor/lottie-web/lottie_light.min.js') }}?v={{ @filemtime(public_path('assets/vendor/lottie-web/lottie_light.min.js')) ?: '1' }}" defer></script>

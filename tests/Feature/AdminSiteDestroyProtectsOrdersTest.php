@@ -132,18 +132,47 @@ class AdminSiteDestroyProtectsOrdersTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->deleteJson(route('admin.sites.destroy', $site->id), [
-                'reason' => 'Publisher asked to take the listing down.',
-            ])
+            ->deleteJson(route('admin.sites.destroy', $site->id))
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('archived', true);
+            ->assertJsonPath('archived', true)
+            ->assertJsonPath('quiet', true);
 
         $fresh = $site->fresh();
         $this->assertNotNull($fresh);
         $this->assertNotNull($fresh->archived_at);
         $this->assertSame(0, (int) $fresh->active);
         $this->assertTrue((bool) $fresh->verified);
+        $this->assertTrue($fresh->wasAddedByPublisher());
+
+        Mail::assertNotQueued(SiteStatusNotification::class);
+        $this->assertDatabaseMissing('in_app_notifications', [
+            'user_id' => $publisher->id,
+            'type' => 'site_status',
+        ]);
+    }
+
+    public function test_admin_archives_staff_assigned_site_with_publisher_notice(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->site($publisher, [
+            'site_name' => 'Staff Assigned Live',
+            'site_url' => 'https://staff-assigned-live.example',
+            'domain' => 'staff-assigned-live.example',
+            'assigned_by_user_id' => $admin->id,
+        ]);
+
+        $this->assertFalse($site->wasAddedByPublisher());
+
+        $this->actingAs($admin)
+            ->deleteJson(route('admin.sites.destroy', $site->id), [
+                'reason' => 'Publisher asked to take the listing down.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('archived', true)
+            ->assertJsonPath('quiet', false);
 
         Mail::assertQueued(SiteStatusNotification::class, function (SiteStatusNotification $mail) use ($publisher) {
             return $mail->hasTo($publisher->email) && $mail->action === 'archived';
@@ -152,7 +181,168 @@ class AdminSiteDestroyProtectsOrdersTest extends TestCase
         $this->assertDatabaseHas('in_app_notifications', [
             'user_id' => $publisher->id,
             'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+            'type' => 'site_status',
         ]);
+    }
+
+    public function test_admin_bulk_archives_publisher_sites_quietly(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->site($publisher, [
+            'site_name' => 'Bulk Quiet Archive',
+            'site_url' => 'https://bulk-quiet-archive.example',
+            'domain' => 'bulk-quiet-archive.example',
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.bulk-action'), [
+                'action' => 'archive',
+                'ids' => [$site->id],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertNotNull($site->fresh()->archived_at);
+        Mail::assertNotQueued(SiteStatusNotification::class);
+    }
+
+    public function test_admin_bulk_archives_bulk_draft_quietly_without_reason(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->site($publisher, [
+            'site_name' => 'Bulk Draft Quiet Archive',
+            'site_url' => 'https://bulk-draft-quiet-archive.example',
+            'domain' => 'bulk-draft-quiet-archive.example',
+            'verified' => false,
+            'active' => false,
+            'added_from_bulk_request' => true,
+        ]);
+
+        $this->assertTrue($site->canQuietStaffArchive());
+        $this->assertFalse($site->wasAddedByPublisher());
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.bulk-action'), [
+                'action' => 'archive',
+                'ids' => [$site->id],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertNotNull($site->fresh()->archived_at);
+        Mail::assertNotQueued(SiteStatusNotification::class);
+    }
+
+    public function test_admin_bulk_archive_requires_reason_for_staff_assigned_sites(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->site($publisher, [
+            'site_name' => 'Bulk Staff Archive',
+            'site_url' => 'https://bulk-staff-archive.example',
+            'domain' => 'bulk-staff-archive.example',
+            'assigned_by_user_id' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.bulk-action'), [
+                'action' => 'archive',
+                'ids' => [$site->id],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['reason']);
+
+        $this->assertNull($site->fresh()->archived_at);
+        Mail::assertNotQueued(SiteStatusNotification::class);
+    }
+
+    public function test_inactive_publisher_site_reject_hard_deletes_with_notice(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->site($publisher, [
+            'site_name' => 'Inactive Publisher Draft',
+            'site_url' => 'https://inactive-publisher-draft.example',
+            'domain' => 'inactive-publisher-draft.example',
+            'verified' => false,
+            'active' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->deleteJson(route('admin.sites.destroy', $site->id), [
+                'reason' => 'Does not meet marketplace quality guidelines.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('archived', false);
+
+        $this->assertDatabaseMissing('sites', ['id' => $site->id]);
+        Mail::assertQueued(SiteStatusNotification::class, function (SiteStatusNotification $mail) use ($publisher) {
+            return $mail->hasTo($publisher->email) && $mail->action === 'removed';
+        });
+    }
+
+    public function test_inactive_publisher_site_archives_quietly_via_archive_route(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->site($publisher, [
+            'site_name' => 'Inactive Publisher Draft',
+            'site_url' => 'https://inactive-publisher-draft.example',
+            'domain' => 'inactive-publisher-draft.example',
+            'verified' => false,
+            'active' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.archive', $site->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('archived', true)
+            ->assertJsonPath('quiet', true);
+
+        $fresh = $site->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNotNull($fresh->archived_at);
+        $this->assertSame(0, (int) $fresh->active);
+        Mail::assertNotQueued(SiteStatusNotification::class);
+        $this->assertDatabaseMissing('in_app_notifications', [
+            'user_id' => $publisher->id,
+            'type' => 'site_status',
+        ]);
+    }
+
+    public function test_admin_restores_archived_site(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $site = $this->site($publisher, [
+            'site_name' => 'Restore Me',
+            'site_url' => 'https://restore-me.example',
+            'domain' => 'restore-me.example',
+            'verified' => false,
+            'active' => false,
+            'archived_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.sites.unarchive', $site->id))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $fresh = $site->fresh();
+        $this->assertNull($fresh->archived_at);
+        $this->assertSame(0, (int) $fresh->active);
+    }
+
+    public function test_marketing_has_no_archive_routes(): void
+    {
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('admin.sites.archive'));
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('admin.sites.unarchive'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('marketing.sites.archive'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('marketing.sites.unarchive'));
     }
 
     public function test_pending_site_without_orders_is_still_hard_deleted(): void
@@ -165,6 +355,7 @@ class AdminSiteDestroyProtectsOrdersTest extends TestCase
             'domain' => 'pending-draft.example',
             'verified' => false,
             'active' => false,
+            'assigned_by_user_id' => $admin->id,
         ]);
 
         $this->actingAs($admin)
@@ -209,7 +400,8 @@ class AdminSiteDestroyProtectsOrdersTest extends TestCase
             ->getJson(route('admin.users.sites', $publisher->id))
             ->assertOk()
             ->assertJsonPath('sites.0.orders_count', 1)
-            ->assertJsonPath('sites.0.archived', false);
+            ->assertJsonPath('sites.0.archived', false)
+            ->assertJsonPath('sites.0.publisher_added', true);
     }
 
     public function test_marketer_site_list_includes_orders_count(): void
@@ -245,16 +437,33 @@ class AdminSiteDestroyProtectsOrdersTest extends TestCase
             ->assertJsonPath('sites', []);
     }
 
-    public function test_sites_management_ui_offers_archive_not_blind_delete(): void
+    public function test_sites_management_ui_offers_reject_archive_and_restore(): void
     {
         $blade = file_get_contents(resource_path('views/admin/sites.blade.php'));
 
         $this->assertStringContainsString('canArchiveSiteRow', $blade);
         $this->assertStringContainsString('Has orders — deactivate instead', $blade);
         $this->assertStringContainsString('Archive this site?', $blade);
-        $this->assertStringContainsString('body: JSON.stringify({ reason })', $blade);
+        $this->assertStringContainsString('Reject this site?', $blade);
+        $this->assertStringContainsString('Restore this site?', $blade);
+        $this->assertStringContainsString('siteWasAddedByPublisher', $blade);
+        $this->assertStringContainsString('siteIsQuietArchive', $blade);
+        $this->assertStringContainsString('The publisher is not notified.', $blade);
+        $this->assertStringContainsString('/archive', $blade);
+        $this->assertStringContainsString('/unarchive', $blade);
+        $this->assertStringContainsString('body: JSON.stringify(quietArchive ? {} : { reason })', $blade);
         $this->assertStringContainsString('if (!res.ok || !data.success)', $blade);
         $this->assertStringContainsString('Please enter a reason (at least 10 characters).', $blade);
+        $this->assertStringContainsString('data-publisher-added', $blade);
+        $this->assertStringContainsString('archivedChipQuery', $blade);
+
+        $filters = file_get_contents(resource_path('views/admin/sites/partials/list-filters.blade.php'));
+        $this->assertStringContainsString('Archived only', $filters);
+
+        $actions = file_get_contents(resource_path('views/admin/sites/partials/row-reject-archive-actions.blade.php'));
+        $this->assertStringContainsString('unarchive-site', $actions);
+        $this->assertStringContainsString('archive-site', $actions);
+        $this->assertStringContainsString('title="Reject"', $actions);
     }
 
     public function test_order_items_site_id_foreign_key_restricts_delete(): void

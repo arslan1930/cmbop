@@ -106,6 +106,7 @@ class SiteController extends Controller
                 'waitingStageCounts' => ['filling' => 0, 'reviewing' => 0, 'accept' => 0],
                 'waitingStage' => '',
                 'sitesReturnQuery' => [],
+                'archivedListCount' => 0,
             ]);
         }
     }
@@ -136,7 +137,7 @@ class SiteController extends Controller
             && ! $request->filled('publisher')
             && ! $request->filled('site')
         ) {
-            $exactSite = $this->uniqueStaffSiteForExactSearch($publisherSearch);
+            $exactSite = $this->uniqueStaffSiteForExactSearch($publisherSearch, $staffSiteFilters);
             if ($exactSite) {
                 return redirect()->to(staff_route('sites.index', $this->staffSitesIndexRedirectQuery(
                     $publisherSearch,
@@ -193,6 +194,7 @@ class SiteController extends Controller
             'missing_market' => true,
         ]);
         $scanFailedListCount = $this->staffSitesFilterTotal(['scan_failed' => true]);
+        $archivedListCount = $this->staffSitesFilterTotal(['archived' => true]);
         $healthCounts = CatalogHealthQueue::counts();
         $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
         $flatQueueSites = null;
@@ -256,7 +258,9 @@ class SiteController extends Controller
 
             $query = User::query()
                 ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
-                ->withCount(['sites' => fn ($q) => $q->notArchived()])
+                ->withCount(['sites' => function ($q) use ($staffSiteFilters) {
+                    $this->applyStaffSitesArchiveScope($q, $staffSiteFilters);
+                }])
                 ->withCount(['sites as needs_review_sites_count' => function ($q) use ($reviewQueue, $reviewListNarrows, $narrowQueueSites) {
                     $reviewQueue($q);
                     if ($reviewListNarrows) {
@@ -387,6 +391,7 @@ class SiteController extends Controller
             'allSites',
             'sitesExportLimited',
             'sitesExportUrl',
+            'archivedListCount',
             'staffSiteFilters',
             'listingTagOptions',
             'marketplaceCountries',
@@ -1508,6 +1513,8 @@ class SiteController extends Controller
                 : null,
             'csv_metrics_spot_check' => $site->isFromAgencyCsvImport() && (bool) $site->metrics_manual,
             'archived' => $site->isArchived(),
+            'publisher_added' => $site->wasAddedByPublisher(),
+            'bulk_request_draft' => $site->isBulkRequestDraft(),
             'can_activate' => $this->staffCanActivateSite($site),
             'activate_block_reason' => $this->staffActivateBlockReason($site),
             'orders_count' => $site->orderItemsCount(),
@@ -1836,8 +1843,7 @@ class SiteController extends Controller
             ->where('publisher_id', $user->id)
             ->where(function ($outer) use ($filters, $siteSearch, $needsReviewOnly, $pinSiteId) {
                 $outer->where(function ($matched) use ($filters, $siteSearch, $needsReviewOnly) {
-                    // Show archived adds no predicate. An empty group compiles to "()"
-                    // and the publisher site list 500s.
+                    // Always start with a predicate so an empty group cannot compile to "()".
                     $matched->whereRaw('1 = 1');
                     $this->applyStaffSitesArchiveScope($matched, $filters);
                     if ($siteSearch !== '') {
@@ -1928,7 +1934,7 @@ class SiteController extends Controller
 
     /**
      * Publishers whose name, email, or company match, or who own a matching site.
-     * Archived sites stay out unless Show archived is on.
+     * Archived sites stay out unless the Archived filter is on.
      *
      * @param  array{archived?: bool, tag?: ?string, country?: string, listing_active?: string, listing_verified?: string, below_quality?: bool, missing_market?: bool}  $filters
      */
@@ -2047,9 +2053,13 @@ class SiteController extends Controller
     /**
      * Exact site-id or canonical domain hit — used to deep-link a unique result.
      */
-    private function uniqueStaffSiteForExactSearch(string $search): ?Site
+    /**
+     * @param  array{archived?: bool}  $filters
+     */
+    private function uniqueStaffSiteForExactSearch(string $search, array $filters = []): ?Site
     {
-        $query = Site::query()->notArchived();
+        $query = Site::query();
+        $this->applyStaffSitesArchiveScope($query, $filters);
 
         $siteId = $this->canonicalStaffId($search);
         if ($siteId !== null) {
@@ -2179,7 +2189,8 @@ class SiteController extends Controller
             || ($filter['price_max'] ?? null) !== null
             || ($filter['traffic_min'] ?? null) !== null
             || ($filter['da_min'] ?? null) !== null
-            || ($filter['metrics_age'] ?? '') !== '';
+            || ($filter['metrics_age'] ?? '') !== ''
+            || ! empty($filter['archived']);
     }
 
     private function staffSitesListSortKey(mixed $sort): string
@@ -2198,6 +2209,8 @@ class SiteController extends Controller
     private function applyStaffSitesArchiveScope($query, array $filter): void
     {
         if (! empty($filter['archived'])) {
+            $query->archived();
+
             return;
         }
 
@@ -5940,7 +5953,10 @@ class SiteController extends Controller
             return false;
         }
 
-        return (bool) $site->verified || (bool) $site->active;
+        return (bool) $site->verified
+            || (bool) $site->active
+            || $site->wasAddedByPublisher()
+            || $site->isBulkRequestDraft();
     }
 
     // VERIFY / UNVERIFY (approve / reject) — admin only
@@ -6003,11 +6019,32 @@ class SiteController extends Controller
                 'message' => 'Only admins can archive sites.',
             ], 403);
         }
-        if (in_array($data['action'], ['reject', 'deactivate', 'archive'], true)) {
+        if (in_array($data['action'], ['reject', 'deactivate'], true)) {
             $request->validate([
                 'reason' => ['required', 'string', 'min:10', 'max:1000'],
             ]);
             $data['reason'] = trim((string) $request->input('reason'));
+        }
+        if ($data['action'] === 'archive') {
+            $needsReason = false;
+            foreach (array_values(array_unique(array_map('intval', $data['ids'] ?? []))) as $archiveId) {
+                if ($archiveId < 1) {
+                    continue;
+                }
+                $candidate = Site::query()->find($archiveId);
+                if ($candidate
+                    && $this->staffSiteQualifiesForBulkArchive($candidate)
+                    && ! $candidate->canQuietStaffArchive()) {
+                    $needsReason = true;
+                    break;
+                }
+            }
+            if ($needsReason) {
+                $request->validate([
+                    'reason' => ['required', 'string', 'min:10', 'max:1000'],
+                ]);
+            }
+            $data['reason'] = trim((string) $request->input('reason', ''));
         }
 
         $updated = [];
@@ -6034,7 +6071,7 @@ class SiteController extends Controller
             $payload = match ($data['action']) {
                 'verify' => ['verified' => 1],
                 'activate' => ['active' => 1],
-                'reject', 'archive' => ['reason' => $data['reason']],
+                'reject', 'archive' => ['reason' => $data['reason'] ?? ''],
                 'deactivate' => ['active' => 0, 'reason' => $data['reason']],
             };
             $sub = Request::create($request->url(), 'POST', $payload);
@@ -6045,7 +6082,8 @@ class SiteController extends Controller
                 $response = match ($data['action']) {
                     'verify' => $this->verify($sub, $id),
                     'activate', 'deactivate' => $this->toggleActive($sub, $id),
-                    'reject', 'archive' => $this->destroy($sub, $id),
+                    'reject' => $this->destroy($sub, $id),
+                    'archive' => $this->archive($sub, $id),
                 };
             } catch (ValidationException $e) {
                 $skipped[] = [
@@ -6487,7 +6525,203 @@ class SiteController extends Controller
         $site->status_reason_by = auth()->id();
     }
 
-    // DELETE — pending never-ordered: hard delete. Live listings: archive.
+    /**
+     * @return array<string, mixed>
+     */
+    private function staffArchiveLockedOutcome(Request $request, Site $site, $user): array
+    {
+        $orderCount = $site->orderItemsCount();
+        if ($orderCount > 0) {
+            return [
+                'http' => 422,
+                'payload' => [
+                    'success' => false,
+                    'message' => $orderCount === 1
+                        ? 'This site has 1 order and cannot be archived. Deactivate it to hide it from the catalog.'
+                        : 'This site has '.$orderCount.' orders and cannot be archived. Deactivate it to hide it from the catalog.',
+                    'order_count' => $orderCount,
+                ],
+            ];
+        }
+
+        if ($site->isArchived()) {
+            return [
+                'http' => 422,
+                'payload' => [
+                    'success' => false,
+                    'message' => 'This site is already archived.',
+                ],
+            ];
+        }
+
+        $quietArchive = $site->canQuietStaffArchive();
+        $rejectionReason = $this->validatedStatusReason($request, ! $quietArchive);
+
+        Site::ensureStatusReasonColumns();
+        $this->applyStatusReason($site, $rejectionReason);
+
+        if (! $site->archiveByStaff($rejectionReason)) {
+            return [
+                'http' => 503,
+                'payload' => [
+                    'success' => false,
+                    'message' => 'Archive is not available yet.',
+                ],
+            ];
+        }
+
+        return [
+            'action' => 'archived',
+            'site' => $site->fresh() ?? $site,
+            'siteName' => $site->site_name,
+            'siteId' => $site->id,
+            'domain' => $site->domain,
+            'bulkRequestId' => $site->bulk_site_request_id,
+            'wasStaffInvite' => filled($site->assigned_by_user_id),
+            'onboarding' => $site->onboarding_status,
+            'rejectionReason' => $rejectionReason,
+            'quietArchive' => $quietArchive,
+            'publisher' => $site->publisher,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $outcome
+     */
+    private function finishStaffArchive(array $outcome, $user)
+    {
+        $site = $outcome['site'];
+        $siteName = $outcome['siteName'];
+        $siteId = $outcome['siteId'];
+        $domain = $outcome['domain'];
+        $bulkRequestId = $outcome['bulkRequestId'];
+        $onboarding = $outcome['onboarding'];
+        $rejectionReason = $outcome['rejectionReason'];
+        $publisher = $outcome['publisher'];
+
+        try {
+            app(InAppNotificationService::class)->completeAdminSiteReviewNotifications($site);
+        } catch (\Throwable $e) {
+            Log::warning('Could not complete site review notifications before archive: '.$e->getMessage());
+        }
+
+        if (empty($outcome['quietArchive'])) {
+            $this->notifyPublisherSiteRemoved($site, $publisher, $rejectionReason, 'archived');
+        }
+
+        ActivityLogger::tryLog(
+            'site.archived',
+            ($user->name ?? 'Staff').' archived site "'.$siteName.'"'.($domain ? ' ('.$domain.')' : ''),
+            $site,
+            [
+                'site_id' => $siteId,
+                'site_name' => $siteName,
+                'domain' => $domain,
+                'bulk_site_request_id' => $bulkRequestId,
+                'onboarding_status' => $onboarding,
+                'archived_by_role' => $user?->activeRole(),
+                'reason' => $rejectionReason,
+                'quiet' => ! empty($outcome['quietArchive']),
+            ],
+            $siteName
+        );
+
+        $this->syncLinkedBulkAfterSiteRemoved($bulkRequestId, (bool) ($outcome['wasStaffInvite'] ?? false));
+
+        return response()->json([
+            'success' => true,
+            'archived' => true,
+            'quiet' => ! empty($outcome['quietArchive']),
+            'message' => ! empty($outcome['quietArchive'])
+                ? 'Site archived and hidden from the catalog. The publisher was not notified.'
+                : 'Site archived and hidden from the catalog.',
+        ]);
+    }
+
+    // Admin archive — quiet for publisher-added / bulk drafts; reason + mail for staff-assigned.
+    public function archive(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (! $user?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can archive sites.',
+            ], 403);
+        }
+
+        $outcome = DB::transaction(function () use ($request, $id, $user) {
+            $site = Site::query()->lockForUpdate()->findOrFail($id);
+
+            return $this->staffArchiveLockedOutcome($request, $site, $user);
+        });
+
+        if (isset($outcome['http'])) {
+            return response()->json($outcome['payload'], $outcome['http']);
+        }
+
+        return $this->finishStaffArchive($outcome, $user);
+    }
+
+    public function unarchive(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (! $user?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can restore archived sites.',
+            ], 403);
+        }
+
+        if (! Site::hasSitesColumn('archived_at')) {
+            return response()->json(['success' => false, 'message' => 'Archive is not available yet.'], 503);
+        }
+
+        $site = Site::query()->findOrFail($id);
+
+        if (! $site->isArchived()) {
+            return response()->json(['success' => false, 'message' => 'Site is not archived.'], 422);
+        }
+
+        try {
+            if (! $site->unarchiveByStaff()) {
+                return response()->json(['success' => false, 'message' => 'Archive is not available yet.'], 503);
+            }
+            $site->refresh();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'We could not restore this site. Please try again.'),
+            ], 500);
+        }
+
+        ActivityLogger::tryLog(
+            'site.unarchived',
+            ($user->name ?? 'Staff').' restored "'.$site->site_name.'" from archive',
+            $site,
+            [
+                'site_id' => $site->id,
+                'site_name' => $site->site_name,
+                'domain' => $site->domain,
+                'by' => 'admin',
+            ],
+            $site->site_name
+        );
+
+        $message = 'Site restored. It remains inactive until it is activated again.';
+        if ($site->isCatalogVisible()) {
+            $message = 'Site restored to the catalog.';
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+        ]);
+    }
+
+    // DELETE — pending never-ordered: hard delete + reason + notify.
+    // Live listings (verified or active) still archive if DELETE is used.
     // Sites with order items cannot be removed (FK restrict + 422).
     public function destroy(Request $request, $id)
     {
@@ -6535,6 +6769,15 @@ class SiteController extends Controller
                 ];
             }
 
+            $shouldArchive = $isAdmin && ((bool) $site->verified || (bool) $site->active);
+
+            if ($shouldArchive) {
+                return $this->staffArchiveLockedOutcome($request, $site, $user) + [
+                    'isAdmin' => $isAdmin,
+                    'isMarketingPendingDelete' => $isMarketingPendingDelete,
+                ];
+            }
+
             $rejectionReason = $this->validatedStatusReason($request, true);
 
             Site::ensureStatusReasonColumns();
@@ -6552,24 +6795,6 @@ class SiteController extends Controller
                 'isAdmin' => $isAdmin,
                 'isMarketingPendingDelete' => $isMarketingPendingDelete,
             ];
-
-            $shouldArchive = (bool) $site->verified || (bool) $site->active;
-            if ($shouldArchive) {
-                if (! $site->archiveByStaff($rejectionReason)) {
-                    return [
-                        'http' => 503,
-                        'payload' => [
-                            'success' => false,
-                            'message' => 'Archive is not available yet.',
-                        ],
-                    ];
-                }
-
-                return $meta + [
-                    'action' => 'archived',
-                    'site' => $site->fresh() ?? $site,
-                ];
-            }
 
             $notifySnapshot = clone $site;
             if ($rejectionReason) {
@@ -6602,38 +6827,7 @@ class SiteController extends Controller
         $isMarketingPendingDelete = $outcome['isMarketingPendingDelete'];
 
         if (($outcome['action'] ?? '') === 'archived') {
-            $site = $outcome['site'];
-            try {
-                app(InAppNotificationService::class)->completeAdminSiteReviewNotifications($site);
-            } catch (\Throwable $e) {
-                Log::warning('Could not complete site review notifications before archive: '.$e->getMessage());
-            }
-
-            $this->notifyPublisherSiteRemoved($site, $publisher, $rejectionReason, 'archived');
-
-            ActivityLogger::tryLog(
-                'site.archived',
-                ($user->name ?? 'Staff').' archived site "'.$siteName.'"'.($domain ? ' ('.$domain.')' : ''),
-                $site,
-                [
-                    'site_id' => $siteId,
-                    'site_name' => $siteName,
-                    'domain' => $domain,
-                    'bulk_site_request_id' => $bulkRequestId,
-                    'onboarding_status' => $onboarding,
-                    'archived_by_role' => $user?->activeRole(),
-                    'reason' => $rejectionReason,
-                ],
-                $siteName
-            );
-
-            $this->syncLinkedBulkAfterSiteRemoved($bulkRequestId, (bool) ($outcome['wasStaffInvite'] ?? false));
-
-            return response()->json([
-                'success' => true,
-                'archived' => true,
-                'message' => 'Site archived and hidden from the catalog.',
-            ]);
+            return $this->finishStaffArchive($outcome, $user);
         }
 
         $notifySnapshot = $outcome['notifySnapshot'];
