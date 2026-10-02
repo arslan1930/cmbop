@@ -9,6 +9,24 @@
   if (!root) return;
 
   var STORAGE_KEY = root.getAttribute('data-storage-key') || 'slb-support-chat-v1';
+  var REACTIONS = [
+    { emoji: '👍', name: 'Like', tokens: [':)', ':-)', ':+1:'] },
+    { emoji: '❤️', name: 'Love', tokens: ['<3', ':heart:'] },
+    { emoji: '😂', name: 'Funny', tokens: [':D', ':-D', ':joy:'] },
+    { emoji: '😮', name: 'Wow', tokens: [':o', ':-o', ':O'] },
+    { emoji: '🙏', name: 'Thanks', tokens: [':pray:'] },
+  ];
+
+  function expandEmoticons(text) {
+    var next = String(text || '');
+    REACTIONS.forEach(function (item) {
+      item.tokens.forEach(function (token) {
+        var escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        next = next.replace(new RegExp(escaped, 'g'), item.emoji);
+      });
+    });
+    return next;
+  }
   var endpoint = root.getAttribute('data-endpoint') || '';
   var welcome = root.getAttribute('data-welcome') || 'Hi! How can we help with guest posts, wallet, or your sites?';
   var panel = document.getElementById('slbLiveChatPanel');
@@ -171,29 +189,47 @@
       bubble.className = 'slb-live-chat__bubble ' + (isUser ? 'slb-live-chat__bubble--user' : 'slb-live-chat__bubble--support');
       bubble.textContent = m.content || '';
 
-      var toolbar = document.createElement('div');
-      toolbar.className = 'slb-live-chat__toolbar';
-      toolbar.setAttribute('role', 'toolbar');
-      toolbar.setAttribute('aria-label', 'Message actions');
+      var trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'slb-live-chat__react-trigger';
+      trigger.setAttribute('aria-label', 'Add a reaction');
+      trigger.setAttribute('aria-haspopup', 'true');
+      trigger.textContent = ':)';
+      trigger.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        row.classList.toggle('is-reacting');
+      });
 
-      var reactions = document.createElement('div');
-      reactions.className = 'slb-live-chat__reactions';
-      ['👍', '❤️', '😂', '😮', '🙏'].forEach(function (emoji) {
+      var flyout = document.createElement('div');
+      flyout.className = 'slb-live-chat__react-flyout';
+      flyout.setAttribute('role', 'toolbar');
+      flyout.setAttribute('aria-label', 'Message reactions');
+      REACTIONS.forEach(function (item) {
         var button = document.createElement('button');
         button.type = 'button';
-        button.className = 'slb-live-chat__reaction' + (m.reaction === emoji ? ' is-on' : '');
-        button.textContent = emoji;
-        button.setAttribute('aria-label', 'React ' + emoji);
-        button.setAttribute('aria-pressed', m.reaction === emoji ? 'true' : 'false');
+        button.className = 'slb-live-chat__reaction' + (m.reaction === item.emoji ? ' is-on' : '');
+        button.setAttribute('data-name', item.name);
+        button.setAttribute('aria-label', item.name);
+        button.setAttribute('aria-pressed', m.reaction === item.emoji ? 'true' : 'false');
+        var face = document.createElement('span');
+        face.className = 'slb-live-chat__reaction-face';
+        face.setAttribute('aria-hidden', 'true');
+        face.textContent = item.emoji;
+        button.appendChild(face);
         button.addEventListener('click', function (event) {
           event.stopPropagation();
-          m.reaction = m.reaction === emoji ? '' : emoji;
+          m.reaction = m.reaction === item.emoji ? '' : item.emoji;
+          row.classList.remove('is-reacting');
           saveState();
           render();
         });
-        reactions.appendChild(button);
+        flyout.appendChild(button);
       });
-      toolbar.appendChild(reactions);
+
+      wrap.appendChild(bubble);
+      wrap.appendChild(trigger);
+      wrap.appendChild(flyout);
 
       if (canEdit(index)) {
         var edit = document.createElement('button');
@@ -204,17 +240,22 @@
           event.stopPropagation();
           startEdit(row, bubble, m);
         });
-        toolbar.appendChild(edit);
+        wrap.appendChild(edit);
       }
 
-      wrap.appendChild(bubble);
-      wrap.appendChild(toolbar);
-
       if (m.reaction) {
-        var picked = document.createElement('span');
+        var picked = document.createElement('button');
+        picked.type = 'button';
         picked.className = 'slb-live-chat__picked';
-        picked.textContent = m.reaction;
-        picked.setAttribute('aria-label', 'Reaction ' + m.reaction);
+        var pickedItem = REACTIONS.filter(function (item) { return item.emoji === m.reaction; })[0];
+        picked.textContent = m.reaction + (pickedItem ? ' ' + pickedItem.name : '');
+        picked.setAttribute('aria-label', 'Remove reaction ' + (pickedItem ? pickedItem.name : m.reaction));
+        picked.addEventListener('click', function (event) {
+          event.stopPropagation();
+          m.reaction = '';
+          saveState();
+          render();
+        });
         wrap.appendChild(picked);
       }
 
@@ -365,7 +406,7 @@
 
   function submitComposer() {
     if (sending || !input) return;
-    var text = String(input.value || '').trim();
+    var text = expandEmoticons(String(input.value || '')).trim();
     if (!text) return;
     if (text.length > 4000) {
       setError('Please keep messages under 4,000 characters.');
@@ -473,6 +514,17 @@
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         submitComposer();
+      }
+    });
+    input.addEventListener('input', function () {
+      var caret = input.selectionStart;
+      var before = input.value;
+      var next = expandEmoticons(before);
+      if (next === before) return;
+      input.value = next;
+      if (typeof caret === 'number') {
+        var shifted = caret + (next.length - before.length);
+        input.setSelectionRange(shifted, shifted);
       }
     });
   }

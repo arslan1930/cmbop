@@ -52,8 +52,17 @@ class VisitorSupportChatTest extends TestCase
         $this->assertStringContainsString('window.sendChatMessage', $js);
         $this->assertStringContainsString('localStorage', $js);
         $this->assertStringContainsString('slbLiveChatChips', $js);
-        $this->assertStringContainsString('slb-live-chat__toolbar', $js);
+        $this->assertStringContainsString('slb-live-chat__react-trigger', $js);
+        $this->assertStringContainsString('slb-live-chat__react-flyout', $js);
         $this->assertStringContainsString('slb-live-chat__reaction', $js);
+        $this->assertStringContainsString("emoji: '👍'", $js);
+        $this->assertStringContainsString("':)'", $js);
+        $this->assertStringContainsString('function expandEmoticons', $js);
+
+        $css = (string) file_get_contents(public_path('assets/css/visitor-support-chat.css'));
+        $this->assertStringContainsString('.slb-live-chat__reaction:hover', $css);
+        $this->assertStringContainsString('transform: scale(1.85) translateY(-6px)', $css);
+        $this->assertStringContainsString('.slb-live-chat__react-flyout', $css);
     }
 
     public function test_advertiser_dashboard_renders_first_party_widget(): void

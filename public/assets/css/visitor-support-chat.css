@@ -163,7 +163,7 @@
   min-height: 180px;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 14px;
+  padding: 36px 14px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -212,73 +212,108 @@
   border-bottom-left-radius: 4px;
 }
 
-.slb-live-chat__toolbar {
+.slb-live-chat__react-trigger {
   position: absolute;
-  bottom: -4px;
-  left: 0;
-  right: auto;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 4px;
-  width: max-content;
-  padding: 3px 4px;
+  right: -6px;
+  bottom: 10px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 1px solid var(--border-subtle, #e2e8f0);
   border-radius: 999px;
   background: #fff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  color: var(--brand-ink-muted, #697078);
+  font: 700 12px/1 var(--font-sans, system-ui, sans-serif);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  cursor: pointer;
   opacity: 0;
   pointer-events: none;
   transform: translateY(4px);
-  transition: opacity 0.14s ease, transform 0.14s ease;
-  z-index: 2;
+  transition: opacity 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+  z-index: 3;
+}
+
+.slb-live-chat__row--user .slb-live-chat__react-trigger {
+  right: auto;
+  left: -6px;
+}
+
+.slb-live-chat__react-flyout {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% - 6px);
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 2px;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 48px));
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px) scale(0.96);
+  transform-origin: 16px bottom;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  z-index: 4;
   box-sizing: border-box;
 }
 
-.slb-live-chat__row--user .slb-live-chat__toolbar {
+.slb-live-chat__row--user .slb-live-chat__react-flyout {
   left: auto;
   right: 0;
+  transform-origin: calc(100% - 16px) bottom;
 }
 
-.slb-live-chat__stack:has(.slb-live-chat__picked) .slb-live-chat__toolbar {
-  bottom: -26px;
+.slb-live-chat__react-flyout::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 100%;
+  height: 22px;
 }
 
-.slb-live-chat__row:hover .slb-live-chat__toolbar,
-.slb-live-chat__row:focus-within .slb-live-chat__toolbar,
-.slb-live-chat__row.is-reacting .slb-live-chat__toolbar {
+.slb-live-chat__row:hover .slb-live-chat__react-trigger,
+.slb-live-chat__row:focus-within .slb-live-chat__react-trigger,
+.slb-live-chat__row.is-reacting .slb-live-chat__react-trigger {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
 }
 
-.slb-live-chat__row.is-editing .slb-live-chat__toolbar {
-  display: none;
+.slb-live-chat__row:has(.slb-live-chat__react-trigger:hover) .slb-live-chat__react-flyout,
+.slb-live-chat__row:has(.slb-live-chat__react-flyout:hover) .slb-live-chat__react-flyout,
+.slb-live-chat__row:focus-within .slb-live-chat__react-flyout,
+.slb-live-chat__row.is-reacting .slb-live-chat__react-flyout {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
-.slb-live-chat__reactions {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 2px;
+.slb-live-chat__row.is-editing .slb-live-chat__react-trigger,
+.slb-live-chat__row.is-editing .slb-live-chat__react-flyout,
+.slb-live-chat__row.is-editing .slb-live-chat__edit {
+  display: none;
 }
 
 .slb-live-chat__picked {
   position: absolute;
   right: 6px;
   bottom: -2px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 5px;
+  min-height: 24px;
+  padding: 0 8px;
   border: 1px solid var(--brand-primary-border, #b8e4e4);
   border-radius: 999px;
   background: #fff;
-  font-size: 0.8rem;
-  line-height: 20px;
-  text-align: center;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  color: var(--brand-primary, #1a585e);
+  font: 600 12px/22px var(--font-sans, system-ui, sans-serif);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
 }
 
 .slb-live-chat__row--user .slb-live-chat__picked {
@@ -287,6 +322,7 @@
 }
 
 .slb-live-chat__edit {
+  align-self: flex-end;
   border: 0;
   background: transparent;
   color: var(--brand-ink-muted, #697078);
@@ -294,6 +330,12 @@
   padding: 0 4px;
   cursor: pointer;
   white-space: nowrap;
+  opacity: 0;
+}
+
+.slb-live-chat__row:hover .slb-live-chat__edit,
+.slb-live-chat__row:focus-within .slb-live-chat__edit {
+  opacity: 1;
 }
 
 .slb-live-chat__edit:hover {
@@ -310,22 +352,59 @@
 }
 
 .slb-live-chat__reaction {
+  position: relative;
   border: 0;
   background: transparent;
   border-radius: 999px;
-  padding: 2px 4px;
-  line-height: 1.2;
-  font-size: 0.85rem;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(1);
+  transform-origin: center bottom;
+  transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.slb-live-chat__reaction:hover {
-  background: var(--brand-primary-tint, #f4fbfb);
+.slb-live-chat__reaction-face {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.slb-live-chat__reaction::after {
+  content: attr(data-name);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%) translateY(4px);
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #1e293b;
+  color: #fff;
+  font: 600 10px/1 var(--font-sans, system-ui, sans-serif);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.slb-live-chat__reaction:hover,
+.slb-live-chat__reaction:focus-visible {
+  transform: scale(1.85) translateY(-6px);
+  z-index: 2;
+  background: transparent;
+}
+
+.slb-live-chat__reaction:hover::after,
+.slb-live-chat__reaction:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .slb-live-chat__reaction.is-on {
   background: var(--brand-primary-bg, #e6f5f5);
-  border-color: var(--brand-primary, #1a585e);
 }
 
 .slb-live-chat__row {
@@ -548,14 +627,15 @@
     color: #e2e8f0;
   }
 
-  [data-theme="dark"] .slb-live-chat__toolbar,
+  [data-theme="dark"] .slb-live-chat__react-flyout,
+  [data-theme="dark"] .slb-live-chat__react-trigger,
   [data-theme="dark"] .slb-live-chat__picked {
     background: #0f172a;
     border-color: #334155;
     color: #e2e8f0;
   }
 
-  [data-theme="dark"] .slb-live-chat__reaction:hover {
+  [data-theme="dark"] .slb-live-chat__reaction.is-on {
     background: #134347;
   }
 }

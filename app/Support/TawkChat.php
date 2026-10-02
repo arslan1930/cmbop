@@ -42,6 +42,19 @@ class TawkChat
         return 'https://embed.tawk.to/'.$property.'/'.$widget;
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function predefinedMessages(?string $role = null): array
+    {
+        if (class_exists(VisitorSupportChat::class)
+            && method_exists(VisitorSupportChat::class, 'questionsForRole')) {
+            return VisitorSupportChat::questionsForRole($role);
+        }
+
+        return [];
+    }
+
     private static function configOrEnv(string $configKey, string $envKey, string $default = ''): string
     {
         if (function_exists('config') && config()->has($configKey)) {

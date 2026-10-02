@@ -35,13 +35,22 @@ class TawkChatWidgetTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertSee('https://embed.tawk.to/6aa6a3693d02a53444168308/default', false)
+            ->assertSee('How do I create an account?', false)
+            ->assertSee('How does the marketplace work?', false)
+            ->assertSee('What does a placement cost?', false)
+            ->assertDontSee('slb-tawk-chips', false)
+            ->assertDontSee('askPredefined', false)
+            ->assertSee('slb-tawk-theme-header', false)
             ->assertSee('window.Tawk_API', false)
             ->assertSee('window.Tawk_LoadStart', false)
             ->assertSee('Tawk_API.onLoad', false)
             ->assertSee('Tawk_API.minimize', false)
             ->assertSee('Tawk_API.setAttributes', false)
             ->assertSee('slb-chat-mark__unread', false)
-            ->assertDontSee('widget-settings', false)
+            ->assertSee('widget-settings', false)
+            ->assertSee('brandTawkSettings', false)
+            ->assertSee('messageBackground', false)
+            ->assertSee('[option]', false)
             ->assertDontSee('id="slbLiveChat"', false)
             ->assertDontSee('slbPinTawk', false)
             ->assertDontSee('slb-tawk-launcher', false)
@@ -93,9 +102,19 @@ class TawkChatWidgetTest extends TestCase
         $this->assertStringContainsString('window.Tawk_LoadStart', $tawk);
         $this->assertStringContainsString('Tawk_API.setAttributes', $tawk);
         $this->assertStringContainsString('Tawk_API.addTags', $tawk);
+        $this->assertStringNotContainsString('slb-tawk-chips', $tawk);
+        $this->assertStringContainsString('slb-tawk-theme-header', $tawk);
+        $this->assertStringContainsString('#1a585e', $tawk);
+        $this->assertStringNotContainsString('askPredefined', $tawk);
         $this->assertStringContainsString('onChatMessageAgent', $tawk);
         $this->assertStringContainsString('slb-chat-mark__unread', $tawk);
-        $this->assertStringNotContainsString('widget-settings', $tawk);
+        $this->assertStringContainsString('widget-settings', $tawk);
+        $this->assertStringContainsString('brandTawkSettings', $tawk);
+        $this->assertStringContainsString('brandTawkColor', $tawk);
+        $this->assertStringContainsString('brandTawkSocketData', $tawk);
+        $this->assertStringContainsString('messageBackground', $tawk);
+        $this->assertStringContainsString('[option]', $tawk);
+        $this->assertStringContainsString('brandTawkLine', $tawk);
         $this->assertStringNotContainsString('function restorePageTitle', $tawk);
         $this->assertStringContainsString('$activeRole?->name', $tawk);
         $this->assertStringContainsString('function mountLauncher', $tawk);
@@ -122,6 +141,7 @@ class TawkChatWidgetTest extends TestCase
             ->assertSee('Tawk_API.setAttributes', false)
             ->assertSee('Tawk_API.addTags', false)
             ->assertSee('"role":"advertiser"', false)
+            ->assertSee('How do I place an order?', false)
             ->assertSee($advertiser->email, false)
             ->assertSee('slbOpenSupport', false)
             ->assertSee('Tawk_API.onLoad', false)
@@ -139,6 +159,7 @@ class TawkChatWidgetTest extends TestCase
             ->assertSee('https://embed.tawk.to/6aa6a3693d02a53444168308/default', false)
             ->assertSee('Tawk_API.visitor', false)
             ->assertSee('"role":"publisher"', false)
+            ->assertSee('How do I add a website?', false)
             ->assertSee($publisher->email, false)
             ->assertSee('Tawk_API.onLoad', false)
             ->assertSee('Tawk_API.minimize', false)
