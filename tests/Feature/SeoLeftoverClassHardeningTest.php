@@ -103,7 +103,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $sitemap);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $sitemap);
         $this->assertStringContainsString('class_exists(ThinBlogRedirects::class)', $sitemap);
-        $this->assertStringContainsString('method_exists(Blog::class, \'scopeWithoutLegacyRedirects\')', $sitemap);
+        $this->assertStringContainsString('Do not use withoutLegacyRedirects here', $sitemap);
+        $this->assertStringNotContainsString('->withoutLegacyRedirects()', $sitemap);
 
         $site = (string) file_get_contents(base_path('app/Models/Site.php'));
         $this->assertStringContainsString('class_exists(GuestPostPriceIndex::class)', $site);
@@ -143,6 +144,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(\\App\\Support\\MarketingCssBundle::class, 'urlIfReady')", $layout);
         $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'robotsContent')", $layout);
         $this->assertStringContainsString('skip_hreflang', $layout);
+        $this->assertStringContainsString('html_entity_decode', $layout);
+        $this->assertStringContainsString("preg_match('#^https?://#i', \$pageCanonical)", $layout);
         $this->assertStringContainsString('urlIfReady', $layout);
         $this->assertStringContainsString('pageGraphJson', $layout);
         $this->assertStringContainsString('jsonLd', (string) file_get_contents(base_path('app/Support/BrandOrganization.php')));

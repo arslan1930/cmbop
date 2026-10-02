@@ -21,7 +21,7 @@
     'name' => 'SEOLinkBuildings',
     'applicationCategory' => 'BusinessApplication',
     'operatingSystem' => 'Web',
-    'url' => url('/'),
+    'url' => localized_url('/'),
     'description' => __('messages.meta_home_description'),
     'image' => asset('assets/img/logo1.png'),
     'offers' => [

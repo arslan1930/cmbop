@@ -16,7 +16,17 @@
             ENT_QUOTES | ENT_HTML5,
             'UTF-8'
         );
-        $pageCanonical = trim($__env->yieldContent('canonical')) ?: url()->current();
+        $pageCanonical = html_entity_decode(
+            trim($__env->yieldContent('canonical')),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8'
+        );
+        if ($pageCanonical === '') {
+            $pageCanonical = url()->current();
+        }
+        if (! preg_match('#^https?://#i', $pageCanonical)) {
+            $pageCanonical = url('/'.ltrim($pageCanonical, '/'));
+        }
         $pageImage = trim($__env->yieldContent('og_image')) ?: asset('assets/brand/web/og-share-1200x630.png');
         $pageImagePath = strtolower((string) (parse_url($pageImage, PHP_URL_PATH) ?: $pageImage));
         $pageImageType = str_ends_with($pageImagePath, '.jpg') || str_ends_with($pageImagePath, '.jpeg')
