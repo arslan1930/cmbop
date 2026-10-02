@@ -1023,6 +1023,17 @@
             $categoryLabel = is_array($site->categories) && count($site->categories)
                 ? implode(', ', array_slice($site->categories, 0, 2))
                 : (string) $site->category;
+            $isArchived = $site->isArchived();
+            $isWithAdmin = $isArchived
+                || (
+                    ($status ?? 'active') === 'pending'
+                    && ! $site->isFromCancelledBulk()
+                    && ! $site->isPendingPublisherAcceptance()
+                    && ! (bool) $site->verified
+                    && ! (bool) $site->active
+                    && ! $site->awaitsPublisherDetails()
+                    && ! $site->hasDetailsComplete()
+                );
         @endphp
         <tr class="main-row" data-id="{{ $site->id }}">
             <td data-label="Preview" class="text-center">
@@ -1061,7 +1072,7 @@
                               data-glass-tip-body="{{ $site->site_name }}"
                               data-glass-tip-placement="top"
                               data-glass-tip-hover-only="1">{{ $site->site_name }}</span>
-                        @if($site->active || $site->verified)
+                        @if(! $isArchived && ($site->active || $site->verified))
                             <span class="sites-row-new-badge pulse-badge"
                                   data-site-new-badge
                                   hidden
@@ -1108,10 +1119,13 @@
             </td>
 
             <td data-label="Status" class="text-center">
-                @php $isArchived = $site->isArchived(); @endphp
                 @if($isArchived)
-                    <span class="badge bg-dark status-badge" title="Archived — hidden from catalog">
-                        <i class="fa fa-box-archive me-1"></i>Archived
+                    <span class="site-status site-status--with-admin"
+                          data-glass-tip
+                          data-glass-tip-body="Submitted — waiting for admin approval."
+                          data-glass-tip-placement="top"
+                          data-glass-tip-hover-only="1">
+                        <i class="fa-regular fa-clock" aria-hidden="true"></i>With admin
                     </span>
                 @elseif($site->isFromCancelledBulk())
                     <span class="badge bg-secondary status-badge" title="This site stayed on your account after its bulk request was cancelled.">
@@ -1290,28 +1304,6 @@
                 </div>
                 @else
                 <div class="site-row-actions__manage">
-                @if($isArchived)
-                    @if($site->verifiedOwnerListing())
-                <button type="button" class="btn-icon-quiet btn-restore-blocked"
-                        data-message="{{ \App\Models\Site::RESTORE_BLOCKED_VERIFIED }}"
-                        aria-label="{{ \App\Models\Site::RESTORE_BLOCKED_VERIFIED }}"
-                        data-glass-tip
-                        data-glass-tip-body="{{ \App\Models\Site::RESTORE_BLOCKED_VERIFIED }}"
-                        data-glass-tip-placement="top">
-                    <i class="fa fa-undo" aria-hidden="true"></i>
-                </button>
-                    @else
-                <button type="button" class="btn-icon-quiet btn-unarchive-site"
-                        data-id="{{ $site->id }}"
-                        data-name="{{ $site->site_name }}"
-                        aria-label="Restore"
-                        data-glass-tip
-                        data-glass-tip-body="Restore"
-                        data-glass-tip-placement="top">
-                    <i class="fa fa-undo" aria-hidden="true"></i>
-                </button>
-                    @endif
-                @endif
                 <button type="button" class="btn-icon-quiet action-view" data-id="{{ $site->id }}"
                         aria-label="View"
                         data-glass-tip
@@ -1320,6 +1312,7 @@
                     <i class="fa fa-eye" aria-hidden="true"></i>
                 </button>
 
+                @if(! $isWithAdmin)
                 @php
                     $editPayload = $site->only([
                         'id', 'site_name', 'site_url', 'example_url', 'da', 'dr', 'traffic', 'price',
@@ -1351,8 +1344,9 @@
                     <i class="fa fa-circle-check" aria-hidden="true"></i>
                 </button>
                 @endif
+                @endif
 
-                @if(!$site->verified && !$site->active)
+                @if($isWithAdmin || (!$site->verified && !$site->active))
                 <form action="{{ route('publisher.sites.destroy', $site->id) }}" method="POST" class="d-inline delete-form">
                     @csrf
                     @method('DELETE')
@@ -1367,7 +1361,7 @@
                 @endif
                 </div>
 
-                @if($site->active || $site->verified)
+                @if(! $isArchived && ($site->active || $site->verified))
                 <div class="site-row-actions__offers">
                     <span class="site-row-actions__offers-label">Offers</span>
                     <div class="site-offer-chips">
@@ -1584,16 +1578,11 @@
                 @endif
             </div>
         @elseif($emptyHiddenCount > 0)
-            <i class="fa fa-box-archive me-2 text-muted"></i>
+            <i class="fa fa-clock me-2 text-muted"></i>
             <strong>No live sites yet.</strong>
-            @if($emptyArchivedCount > 0)
-                <span>{{ $emptyArchivedCount }} {{ $emptyArchivedCount === 1 ? 'is' : 'are' }} archived.</span>
-            @endif
-            @if($emptyCancelledCount > 0)
-                <span>{{ $emptyCancelledCount }} {{ $emptyCancelledCount === 1 ? 'is' : 'are' }} from a cancelled bulk request.</span>
-            @endif
+            <span>{{ $emptyHiddenCount }} {{ $emptyHiddenCount === 1 ? 'is' : 'are' }} in Pending.</span>
             <div class="mt-3">
-                <button type="button" class="btn btn-sm btn-primary" data-switch-status="archived">Open Archived</button>
+                <button type="button" class="btn btn-sm btn-primary" data-switch-status="pending">Open Pending</button>
             </div>
         @else
             <div class="ui-empty-state text-center mx-auto py-2" style="max-width:420px">
@@ -1606,9 +1595,6 @@
     @elseif(($status ?? '') === 'invites')
         <i class="fa fa-inbox me-2 text-muted"></i>
         No site invites waiting. When our team adds a website for you, Accept / Decline appear here.
-    @elseif(($status ?? '') === 'archived')
-        <i class="fa fa-box-archive me-2 text-muted"></i>
-        No archived sites.
     @elseif($hasOpenBulkRequest)
         <div class="py-2 px-1" style="max-width:480px;margin:0 auto;">
             <i class="fa fa-layer-group me-2" style="color:var(--brand-primary,#1a585e)"></i>

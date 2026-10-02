@@ -284,15 +284,16 @@
                         ));
                         $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
                         $hasOrders = $site->orderItemsCount() > 0;
+                        $canArchiveFlat = (bool) auth()->user()?->isAdmin()
+                            && ! $site->isArchived()
+                            && ! $hasOrders
+                            && ($site->verified || $site->active || $site->wasAddedByPublisher() || $site->isBulkRequestDraft());
                         $canDeleteFlat = ! $site->isArchived()
                             && ! $hasOrders
                             && ! $site->verified
                             && ! $site->active
+                            && ! $canArchiveFlat
                             && (auth()->user()?->isAdmin() || $isMarketingEditor);
-                        $canArchiveFlat = (bool) auth()->user()?->isAdmin()
-                            && ! $site->isArchived()
-                            && ! $hasOrders
-                            && ($site->verified || $site->active);
                     @endphp
                     <tr data-flat-site-row="{{ $site->id }}"
                         data-review-name="{{ $site->site_name }}"
@@ -304,6 +305,8 @@
                             data-active="{{ $site->active ? '1' : '0' }}"
                             data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
                             data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
+                            @if($site->wasAddedByPublisher()) data-publisher-added="1" @endif
+                            @if($site->isBulkRequestDraft()) data-bulk-draft="1" @endif
                             aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                         <td class="d-none d-md-table-cell">{{ $flatQueueSites->firstItem() + $index }}</td>
                         <td class="staff-queue-site-col">
@@ -374,6 +377,8 @@
                                                 data-id="{{ $site->id }}"
                                                 data-name="{{ $site->site_name }}"
                                                 data-archive="1"
+                                                @if($site->wasAddedByPublisher()) data-publisher-added="1" @endif
+                                                @if($site->isBulkRequestDraft()) data-bulk-draft="1" @endif
                                                 title="Archive"
                                                 aria-label="Archive">
                                             <i class="fa fa-archive" aria-hidden="true"></i>
@@ -723,6 +728,7 @@ function siteHasOrders(site) {
 }
 
 function canDeleteSiteRow(site) {
+    if (canArchiveSiteRow(site)) return false;
     if (site?.archived) return false;
     if (siteHasOrders(site)) return false;
     if (siteIsVerified(site) || siteIsActive(site)) return false;
@@ -735,7 +741,33 @@ function canArchiveSiteRow(site) {
     if (!CAN_DELETE_ANY_SITE) return false;
     if (site?.archived) return false;
     if (siteHasOrders(site)) return false;
-    return siteIsVerified(site) || siteIsActive(site);
+    return siteIsVerified(site) || siteIsActive(site) || siteWasAddedByPublisher(site) || !!site?.bulk_request_draft;
+}
+
+function siteWasAddedByPublisher(site, el) {
+    if (site && site.publisher_added != null) {
+        return !!site.publisher_added;
+    }
+    return el?.dataset?.publisherAdded === '1';
+}
+
+function siteIsQuietArchive(site, el) {
+    if (siteWasAddedByPublisher(site, el)) {
+        return true;
+    }
+    if (site && site.bulk_request_draft != null) {
+        return !!site.bulk_request_draft;
+    }
+    return el?.dataset?.bulkDraft === '1';
+}
+
+function staffRowWasAddedByPublisher(id) {
+    const site = (typeof allSites !== 'undefined' ? allSites : []).find(function (row) {
+        return Number(row.id) === Number(id);
+    });
+    const el = document.querySelector('[data-staff-bulk-id="' + id + '"]')
+        || document.querySelector('.delete-site[data-id="' + id + '"][data-archive="1"]');
+    return siteIsQuietArchive(site, el);
 }
 
 /* ================= TOAST ================= */
@@ -1493,26 +1525,31 @@ document.addEventListener('click', function(e){
         let id = btn.dataset.id;
         let site = allSites.find(s => s.id == id);
         const isArchive = canArchiveSiteRow(site) || btn.dataset.archive === '1';
+        const quietArchive = isArchive && siteIsQuietArchive(site, btn);
         const name = site?.site_name || btn.dataset.name || 'this site';
         const title = isArchive
             ? 'Archive this site?'
             : 'Reject this site?';
-        const text = isArchive
-            ? `"${name}" will be hidden from the catalog. Explain why — the publisher will see this reason. The listing is kept so order history stays intact.`
-            : `Explain why "${name}" is being rejected. The publisher will see this reason.`;
+        const text = quietArchive
+            ? `"${name}" will be hidden from the catalog. The publisher is not notified.`
+            : (isArchive
+                ? `"${name}" will be hidden from the catalog. Explain why — the publisher will see this reason. The listing is kept so order history stays intact.`
+                : `Explain why "${name}" is being rejected. The publisher will see this reason.`);
 
-        Swal.fire({
+        const prompt = {
             title,
             text,
             icon:'warning',
-            input: 'textarea',
-            inputLabel: 'Reason for the publisher',
-            inputPlaceholder: 'Reason (min. 10 characters)',
-            inputAttributes: { 'aria-label': isArchive ? 'Archive reason' : 'Rejection reason', maxlength: '1000' },
             showCancelButton:true,
             confirmButtonText: isArchive ? 'Archive' : 'Reject',
             customClass: { confirmButton: 'slb-swal-danger' },
-            preConfirm: (value) => {
+        };
+        if (!quietArchive) {
+            prompt.input = 'textarea';
+            prompt.inputLabel = 'Reason for the publisher';
+            prompt.inputPlaceholder = 'Reason (min. 10 characters)';
+            prompt.inputAttributes = { 'aria-label': isArchive ? 'Archive reason' : 'Rejection reason', maxlength: '1000' };
+            prompt.preConfirm = (value) => {
                 const reason = String(value || '').trim();
                 if (reason.length < 10) {
                     Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
@@ -1523,11 +1560,13 @@ document.addEventListener('click', function(e){
                     return false;
                 }
                 return reason;
-            },
-        }).then(result => {
+            };
+        }
+
+        Swal.fire(prompt).then(result => {
             if(!result.isConfirmed) return;
 
-            const reason = String(result.value || '').trim();
+            const reason = quietArchive ? '' : String(result.value || '').trim();
             fetch(`${STAFF_BASE}/sites/${id}`, {
                 method:'DELETE',
                 headers: {
@@ -1537,7 +1576,7 @@ document.addEventListener('click', function(e){
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({ reason }),
+                body: JSON.stringify(quietArchive ? {} : { reason }),
             })
             .then(async (res) => {
                 let data = {};
@@ -2726,6 +2765,22 @@ document.addEventListener('click', function (e) {
         deactivate: [matchTitle || 'Deactivate selected sites?', 'Deactivate'],
         archive: [matchTitle || 'Archive selected sites?', 'Archive'],
     };
+    const quietArchiveSelection = action === 'archive'
+        && !matchAll
+        && ids.length > 0
+        && ids.every(function (id) { return staffRowWasAddedByPublisher(id); });
+    if (action === 'archive' && quietArchiveSelection) {
+        Swal.fire({
+            title: reasonPrompts.archive[0],
+            text: 'Selected publisher listings will be hidden from the catalog. The publisher is not notified.',
+            showCancelButton: true,
+            confirmButtonText: reasonPrompts.archive[1],
+            customClass: { confirmButton: 'slb-swal-danger' },
+        }).then(function (result) {
+            if (result.isConfirmed) run(null);
+        });
+        return;
+    }
     if (reasonPrompts[action]) {
         Swal.fire({
             title: reasonPrompts[action][0],

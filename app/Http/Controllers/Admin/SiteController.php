@@ -1508,6 +1508,8 @@ class SiteController extends Controller
                 : null,
             'csv_metrics_spot_check' => $site->isFromAgencyCsvImport() && (bool) $site->metrics_manual,
             'archived' => $site->isArchived(),
+            'publisher_added' => $site->wasAddedByPublisher(),
+            'bulk_request_draft' => $site->isBulkRequestDraft(),
             'can_activate' => $this->staffCanActivateSite($site),
             'activate_block_reason' => $this->staffActivateBlockReason($site),
             'orders_count' => $site->orderItemsCount(),
@@ -5940,7 +5942,10 @@ class SiteController extends Controller
             return false;
         }
 
-        return (bool) $site->verified || (bool) $site->active;
+        return (bool) $site->verified
+            || (bool) $site->active
+            || $site->wasAddedByPublisher()
+            || $site->isBulkRequestDraft();
     }
 
     // VERIFY / UNVERIFY (approve / reject) — admin only
@@ -6003,11 +6008,32 @@ class SiteController extends Controller
                 'message' => 'Only admins can archive sites.',
             ], 403);
         }
-        if (in_array($data['action'], ['reject', 'deactivate', 'archive'], true)) {
+        if (in_array($data['action'], ['reject', 'deactivate'], true)) {
             $request->validate([
                 'reason' => ['required', 'string', 'min:10', 'max:1000'],
             ]);
             $data['reason'] = trim((string) $request->input('reason'));
+        }
+        if ($data['action'] === 'archive') {
+            $needsReason = false;
+            foreach (array_values(array_unique(array_map('intval', $data['ids'] ?? []))) as $archiveId) {
+                if ($archiveId < 1) {
+                    continue;
+                }
+                $candidate = Site::query()->find($archiveId);
+                if ($candidate
+                    && $this->staffSiteQualifiesForBulkArchive($candidate)
+                    && ! $candidate->wasAddedByPublisher()) {
+                    $needsReason = true;
+                    break;
+                }
+            }
+            if ($needsReason) {
+                $request->validate([
+                    'reason' => ['required', 'string', 'min:10', 'max:1000'],
+                ]);
+            }
+            $data['reason'] = trim((string) $request->input('reason', ''));
         }
 
         $updated = [];
@@ -6034,7 +6060,7 @@ class SiteController extends Controller
             $payload = match ($data['action']) {
                 'verify' => ['verified' => 1],
                 'activate' => ['active' => 1],
-                'reject', 'archive' => ['reason' => $data['reason']],
+                'reject', 'archive' => ['reason' => $data['reason'] ?? ''],
                 'deactivate' => ['active' => 0, 'reason' => $data['reason']],
             };
             $sub = Request::create($request->url(), 'POST', $payload);
@@ -6535,7 +6561,14 @@ class SiteController extends Controller
                 ];
             }
 
-            $rejectionReason = $this->validatedStatusReason($request, true);
+            $shouldArchive = $isAdmin && (
+                (bool) $site->verified
+                || (bool) $site->active
+                || $site->wasAddedByPublisher()
+                || $site->isBulkRequestDraft()
+            );
+            $quietArchive = $shouldArchive && $site->canQuietStaffArchive();
+            $rejectionReason = $this->validatedStatusReason($request, ! $quietArchive);
 
             Site::ensureStatusReasonColumns();
             $this->applyStatusReason($site, $rejectionReason);
@@ -6548,12 +6581,12 @@ class SiteController extends Controller
                 'wasStaffInvite' => filled($site->assigned_by_user_id),
                 'onboarding' => $site->onboarding_status,
                 'rejectionReason' => $rejectionReason,
+                'quietArchive' => $quietArchive,
                 'publisher' => $site->publisher,
                 'isAdmin' => $isAdmin,
                 'isMarketingPendingDelete' => $isMarketingPendingDelete,
             ];
 
-            $shouldArchive = (bool) $site->verified || (bool) $site->active;
             if ($shouldArchive) {
                 if (! $site->archiveByStaff($rejectionReason)) {
                     return [
@@ -6609,7 +6642,9 @@ class SiteController extends Controller
                 Log::warning('Could not complete site review notifications before archive: '.$e->getMessage());
             }
 
-            $this->notifyPublisherSiteRemoved($site, $publisher, $rejectionReason, 'archived');
+            if (empty($outcome['quietArchive'])) {
+                $this->notifyPublisherSiteRemoved($site, $publisher, $rejectionReason, 'archived');
+            }
 
             ActivityLogger::tryLog(
                 'site.archived',
@@ -6623,6 +6658,7 @@ class SiteController extends Controller
                     'onboarding_status' => $onboarding,
                     'archived_by_role' => $user?->activeRole(),
                     'reason' => $rejectionReason,
+                    'quiet' => ! empty($outcome['quietArchive']),
                 ],
                 $siteName
             );
@@ -6632,7 +6668,10 @@ class SiteController extends Controller
             return response()->json([
                 'success' => true,
                 'archived' => true,
-                'message' => 'Site archived and hidden from the catalog.',
+                'quiet' => ! empty($outcome['quietArchive']),
+                'message' => ! empty($outcome['quietArchive'])
+                    ? 'Site archived and hidden from the catalog. The publisher was not notified.'
+                    : 'Site archived and hidden from the catalog.',
             ]);
         }
 

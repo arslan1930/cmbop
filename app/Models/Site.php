@@ -858,6 +858,46 @@ class Site extends Model
     }
 
     /**
+     * Publisher submitted this listing themselves (not staff assign / bulk seed).
+     */
+    public function wasAddedByPublisher(): bool
+    {
+        if (static::hasSitesColumn('assigned_by_user_id') && filled($this->assigned_by_user_id)) {
+            return false;
+        }
+
+        if ($this->wasAddedFromBulkRequest()) {
+            return false;
+        }
+
+        return ! (static::hasSitesColumn('bulk_site_request_id') && filled($this->bulk_site_request_id));
+    }
+
+    /**
+     * Inactive row still sitting on a bulk request (Draft sites table).
+     */
+    public function isBulkRequestDraft(): bool
+    {
+        if ($this->isArchived() || (bool) $this->verified || (bool) $this->active) {
+            return false;
+        }
+
+        if ($this->wasAddedFromBulkRequest()) {
+            return true;
+        }
+
+        return static::hasSitesColumn('bulk_site_request_id') && filled($this->bulk_site_request_id);
+    }
+
+    /**
+     * Admin archive with no publisher mail/bell: self-submitted or bulk draft.
+     */
+    public function canQuietStaffArchive(): bool
+    {
+        return $this->wasAddedByPublisher() || $this->isBulkRequestDraft();
+    }
+
+    /**
      * Send-for-review listing the publisher has not Accepted or Edited yet.
      */
     public function isBulkReviewUndoable(): bool

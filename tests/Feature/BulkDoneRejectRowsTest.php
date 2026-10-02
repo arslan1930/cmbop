@@ -191,18 +191,24 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->assertStringContainsString('rejected.length === 0 || noteOk', $blade);
         $this->assertStringNotContainsString('route(\'admin.bulk-site-requests.done\'', $blade);
         $this->assertStringContainsString("document.querySelectorAll('.bulk-draft-delete')", $blade);
+        $this->assertStringContainsString("document.querySelectorAll('.bulk-draft-archive')", $blade);
+        $this->assertStringContainsString('Archive this draft?', $blade);
+        $this->assertStringContainsString('The publisher is not notified.', $blade);
         $this->assertStringContainsString('data-bulk-draft-select-all', $blade);
         $this->assertStringContainsString('data-bulk-draft-row', $blade);
         $this->assertStringContainsString('bulk-draft-icon-btn', $blade);
         $this->assertStringContainsString('fa-folder-open', $blade);
         $this->assertStringContainsString('fa-pencil', $blade);
+        $this->assertStringContainsString('fa-archive', $blade);
         $this->assertStringContainsString('fa-trash', $blade);
         $this->assertStringContainsString('title="Open"', $blade);
+        $this->assertStringContainsString('title="Archive"', $blade);
         $this->assertStringNotContainsString('>Open</a>', $blade);
         $this->assertStringNotContainsString('>Delete</button>', $blade);
         $this->assertStringContainsString("input: 'textarea'", $blade);
         $this->assertStringContainsString('Reason for the publisher', $blade);
         $this->assertStringContainsString('JSON.stringify({ reason })', $blade);
+        $this->assertStringContainsString('JSON.stringify({})', $blade);
         $this->assertStringContainsString("'Content-Type': 'application/json'", $blade);
         $this->assertStringContainsString('form.bulk-request-cancel', $blade);
         $this->assertStringContainsString("staff_route('bulk-site-requests.cancel'", $blade);
@@ -210,6 +216,61 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->assertStringContainsString('canCancel()', $blade);
         $this->assertStringContainsString("title: 'Remove this site?'", $blade);
         $this->assertStringContainsString('Only pending URL + price domains from this request can be seeded here.', $blade);
+    }
+
+    public function test_admin_quietly_archives_draft_site_on_bulk_show(): void
+    {
+        Mail::fake();
+        [$bulk, $items] = $this->makeBulkWithItems(1, 'draft-arch');
+        $item = $items[0];
+        $site = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'bulk_site_request_id' => $bulk->id,
+            'added_from_bulk_request' => true,
+            'site_name' => 'Draft Archive Site',
+            'site_url' => 'https://'.$item->domain,
+            'domain' => $item->domain,
+            'da' => 12,
+            'dr' => 12,
+            'traffic' => 1000,
+            'country' => 'us',
+            'language' => 'en',
+            'category' => 'marketing',
+            'price' => 11,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Dummy bulk draft used to assert quiet archive.',
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_STAFF_HOLD,
+        ]);
+        $item->forceFill(['site_id' => $site->id])->save();
+
+        $this->assertTrue($site->isBulkRequestDraft());
+        $this->assertTrue($site->canQuietStaffArchive());
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertSee($item->domain, false)
+            ->assertSee('bulk-draft-archive', false)
+            ->assertDontSee('bulk-draft-delete', false);
+
+        $this->actingAs($this->admin)
+            ->deleteJson(route('admin.sites.destroy', $site->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('archived', true)
+            ->assertJsonPath('quiet', true);
+
+        $this->assertNotNull($site->fresh()->archived_at);
+        $this->assertDatabaseHas('sites', ['id' => $site->id]);
+        Mail::assertNotQueued(SiteStatusNotification::class);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.bulk-site-requests.show', $bulk))
+            ->assertOk()
+            ->assertDontSee('id="bulk-site-row-'.$site->id.'"', false);
     }
 
     public function test_done_two_complete_and_reject_one_notifies_once_for_both_roles(): void

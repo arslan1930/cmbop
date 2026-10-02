@@ -59,15 +59,16 @@
                     ));
                     $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
                     $hasOrders = $site->orderItemsCount() > 0;
+                    $canArchiveRow = (bool) auth()->user()?->isAdmin()
+                        && ! $site->isArchived()
+                        && ! $hasOrders
+                        && ($site->verified || $site->active || $site->wasAddedByPublisher() || $site->isBulkRequestDraft());
                     $canDeleteRow = ! $site->isArchived()
                         && ! $hasOrders
                         && ! $site->verified
                         && ! $site->active
+                        && ! $canArchiveRow
                         && (auth()->user()?->isAdmin() || $isMarketingEditor);
-                    $canArchiveRow = (bool) auth()->user()?->isAdmin()
-                        && ! $site->isArchived()
-                        && ! $hasOrders
-                        && ($site->verified || $site->active);
                 @endphp
                 <tr data-review-name="{{ $site->site_name }}"
                     data-review-url="{{ $site->site_url }}"
@@ -78,6 +79,8 @@
                         data-active="{{ $site->active ? '1' : '0' }}"
                         data-below-bar="{{ $site->hasGoodMetrics() ? '0' : '1' }}"
                         data-can-activate="{{ $site->staffGoLiveBlockReason((bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin())) === null ? '1' : '0' }}"
+                        @if($site->wasAddedByPublisher()) data-publisher-added="1" @endif
+                        @if($site->isBulkRequestDraft()) data-bulk-draft="1" @endif
                         aria-label="Select {{ $site->site_name ?: $site->domain }}"></td>
                     <td class="d-none d-md-table-cell">{{ $allSites->firstItem() + $index }}</td>
                     <td class="staff-queue-site-col">@include('admin.sites.partials.queue-site-cell', ['compactSiteCell' => true])</td>
@@ -142,6 +145,8 @@
                                         data-id="{{ $site->id }}"
                                         data-name="{{ $site->site_name }}"
                                         data-archive="1"
+                                        @if($site->wasAddedByPublisher()) data-publisher-added="1" @endif
+                                        @if($site->isBulkRequestDraft()) data-bulk-draft="1" @endif
                                         title="Archive"
                                         aria-label="Archive">
                                     <i class="fa fa-archive" aria-hidden="true"></i>

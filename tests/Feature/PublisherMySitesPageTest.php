@@ -58,6 +58,8 @@ class PublisherMySitesPageTest extends TestCase
         );
         $this->assertStringContainsString('window.loadSites = fetchSites', $html);
         $this->assertStringContainsString('id="sitesTableWrapper"', $html);
+        $this->assertStringNotContainsString('id="sitesFilterArchived"', $html);
+        $this->assertStringNotContainsString('data-status="archived"', $html);
         $this->assertStringContainsString(
             'window.publisherSitePreviewOnError',
             $html,
@@ -659,8 +661,18 @@ class PublisherMySitesPageTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Live Pending', $pendingHtml);
-        $this->assertStringNotContainsString('Archived Pending', $pendingHtml);
-        $this->assertStringContainsString('data-pending="1"', $pendingHtml);
+        $this->assertStringContainsString('Archived Pending', $pendingHtml);
+        $this->assertStringContainsString('Archived Active', $pendingHtml);
+        $this->assertStringContainsString('With admin', $pendingHtml);
+        $this->assertStringNotContainsString('>Archived<', $pendingHtml);
+        $this->assertStringContainsString('data-pending="3"', $pendingHtml);
+        $this->assertStringNotContainsString('btn-verify-site', $pendingHtml);
+        $this->assertSame(
+            substr_count($pendingHtml, 'btn-delete'),
+            3,
+            'With admin rows (including staff-archived) only offer View and Delete.'
+        );
+        $this->assertStringNotContainsString('btn-edit', $pendingHtml);
     }
 
     public function test_accept_decline_verify_handlers_bind_when_inline_owns_page(): void

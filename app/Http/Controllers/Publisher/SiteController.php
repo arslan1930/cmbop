@@ -389,7 +389,10 @@ class SiteController extends Controller
             $this->ensureListingSchema();
             $query = scalar_text($request->get('query'));
             $status = strtolower(scalar_text($request->get('status', 'active')));
-            if (! in_array($status, ['pending', 'active', 'invites', 'archived', 'all'], true)) {
+            if ($status === 'archived') {
+                $status = 'pending';
+            }
+            if (! in_array($status, ['pending', 'active', 'invites', 'all'], true)) {
                 $status = 'active';
             }
             $page = max(1, (int) scalar_text($request->get('page', 1)));
@@ -411,9 +414,8 @@ class SiteController extends Controller
                 });
 
             $waitingItemsCount = (clone $waitingItemsQuery)->count();
-            // Match list filters: Active/Pending badges exclude archived sites.
-            $sitePendingCount = (clone $acceptedBase)->notArchived()->notFromCancelledBulk()
-                ->where('active', 0)->where('verified', 0)->count();
+            // Pending includes staff-archived listings (shown as With admin).
+            $sitePendingCount = (int) $this->publisherPendingSitesQuery($acceptedBase)->count();
             $pendingCount = $sitePendingCount + $waitingItemsCount;
             $inviteCount = (clone $base)->pendingPublisherAcceptance()->count();
             $archivedCount = (clone $acceptedBase)->archived()->count();
@@ -440,26 +442,17 @@ class SiteController extends Controller
 
             if ($status === 'invites') {
                 $sitesQuery = (clone $base)->pendingPublisherAcceptance();
-            } elseif ($status === 'archived') {
-                $sitesQuery = $this->hiddenFromPublisherTabsQuery($acceptedBase);
             } elseif ($status === 'all') {
                 $sitesQuery = (clone $acceptedBase)->notArchived()->notFromCancelledBulk();
+            } elseif ($status === 'pending') {
+                $sitesQuery = $this->publisherPendingSitesQuery($acceptedBase)
+                    ->with('bulkSiteRequest');
             } else {
                 $sitesQuery = (clone $acceptedBase)->notArchived()
-                    ->when($status === 'pending', function ($q) {
-                        $q->notFromCancelledBulk()
-                            ->where('active', 0)->where('verified', 0);
-                    })
-                    ->when($status === 'active', function ($q) {
-                        $q->notFromCancelledBulk()
-                            ->where(function ($inner) {
-                                $inner->where('active', 1)->orWhere('verified', 1);
-                            });
+                    ->notFromCancelledBulk()
+                    ->where(function ($inner) {
+                        $inner->where('active', 1)->orWhere('verified', 1);
                     });
-            }
-
-            if ($status === 'archived') {
-                $sitesQuery->with('bulkSiteRequest');
             }
 
             $sites = $sitesQuery
@@ -523,26 +516,34 @@ class SiteController extends Controller
     }
 
     /**
-     * Sites the Active / Pending / Invites tabs leave out: archived rows, plus
-     * leftovers from a cancelled bulk request.
+     * Pending tab: live drafts waiting on details/admin, plus staff-archived
+     * rows (shown as With admin) and leftovers from a cancelled bulk request.
      *
      * @param  Builder<Site>  $acceptedBase
+     * @return Builder<Site>
      */
-    private function hiddenFromPublisherTabsQuery($acceptedBase)
+    private function publisherPendingSitesQuery($acceptedBase)
     {
         return (clone $acceptedBase)->where(function ($q) {
-            $q->where(function ($archived) {
-                $archived->archived();
-            });
-            if (! Site::hasSitesColumn('bulk_site_request_id')) {
-                return;
-            }
-            $q->orWhere(function ($cancelled) {
-                $cancelled->notArchived()
-                    ->whereNotNull('bulk_site_request_id')
-                    ->whereHas('bulkSiteRequest', function ($bulk) {
-                        $bulk->where('status', BulkSiteRequest::STATUS_CANCELLED);
-                    });
+            $q->where(function ($livePending) {
+                $livePending->notArchived()
+                    ->notFromCancelledBulk()
+                    ->where('active', 0)
+                    ->where('verified', 0);
+            })->orWhere(function ($hidden) {
+                $hidden->where(function ($archived) {
+                    $archived->archived();
+                });
+                if (! Site::hasSitesColumn('bulk_site_request_id')) {
+                    return;
+                }
+                $hidden->orWhere(function ($cancelled) {
+                    $cancelled->notArchived()
+                        ->whereNotNull('bulk_site_request_id')
+                        ->whereHas('bulkSiteRequest', function ($bulk) {
+                            $bulk->where('status', BulkSiteRequest::STATUS_CANCELLED);
+                        });
+                });
             });
         });
     }
@@ -851,10 +852,6 @@ class SiteController extends Controller
                 ->with('error', 'Accept this invitation before editing the listing.');
         }
 
-        if ($site->isArchived()) {
-            return redirect()->back()->with('error', 'Archived sites cannot be edited. Restore the site first.');
-        }
-
         if ($request->filled('exampleUrl')) {
             $request->merge([
                 'exampleUrl' => $this->normalizeHttpUrl($request->input('exampleUrl')),
@@ -1087,12 +1084,8 @@ class SiteController extends Controller
             $deleted = DB::transaction(function () use ($id) {
                 $site = Site::where('publisher_id', auth()->id())->lockForUpdate()->findOrFail($id);
 
-                if ($site->verified || $site->active) {
+                if (($site->verified || $site->active) && ! $site->isArchived()) {
                     return ['status' => 'live'];
-                }
-
-                if ($site->isArchived()) {
-                    return ['status' => 'archived'];
                 }
 
                 if ($site->orderItemsCount() > 0) {
@@ -1129,10 +1122,6 @@ class SiteController extends Controller
 
         if (($deleted['status'] ?? '') === 'live') {
             return redirect()->back()->with('error', 'You cannot delete an active or verified site. Archive it instead.');
-        }
-
-        if (($deleted['status'] ?? '') === 'archived') {
-            return redirect()->back()->with('error', 'Archived sites cannot be deleted from here.');
         }
 
         if (($deleted['status'] ?? '') === 'has_orders') {

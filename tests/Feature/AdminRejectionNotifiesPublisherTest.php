@@ -38,7 +38,7 @@ class AdminRejectionNotifiesPublisherTest extends TestCase
         return $u->fresh();
     }
 
-    private function site(User $publisher): Site
+    private function site(User $publisher, ?User $assignedBy = null): Site
     {
         return Site::create([
             'publisher_id' => $publisher->id,
@@ -51,6 +51,7 @@ class AdminRejectionNotifiesPublisherTest extends TestCase
             'category' => 'marketing', 'price' => 40,
             'publication_time' => '5 days', 'link_type' => 'dofollow',
             'description' => 'Test site', 'verified' => false, 'active' => false,
+            'assigned_by_user_id' => $assignedBy?->id,
         ]);
     }
 
@@ -58,7 +59,7 @@ class AdminRejectionNotifiesPublisherTest extends TestCase
     {
         $admin = $this->userWithRole('admin');
         $publisher = $this->userWithRole('publisher');
-        $site = $this->site($publisher);
+        $site = $this->site($publisher, $admin);
 
         $this->actingAs($admin)
             ->deleteJson(route('admin.sites.destroy', $site->id), [
@@ -84,7 +85,7 @@ class AdminRejectionNotifiesPublisherTest extends TestCase
     public function test_the_site_is_still_deleted(): void
     {
         $admin = $this->userWithRole('admin');
-        $site = $this->site($this->userWithRole('publisher'));
+        $site = $this->site($this->userWithRole('publisher'), $admin);
 
         $this->actingAs($admin)
             ->deleteJson(route('admin.sites.destroy', $site->id), [
@@ -98,7 +99,7 @@ class AdminRejectionNotifiesPublisherTest extends TestCase
     public function test_delete_without_a_reason_is_rejected(): void
     {
         $admin = $this->userWithRole('admin');
-        $site = $this->site($this->userWithRole('publisher'));
+        $site = $this->site($this->userWithRole('publisher'), $admin);
 
         $this->actingAs($admin)
             ->deleteJson(route('admin.sites.destroy', $site->id))
@@ -112,7 +113,7 @@ class AdminRejectionNotifiesPublisherTest extends TestCase
     public function test_delete_with_a_short_reason_is_rejected(): void
     {
         $admin = $this->userWithRole('admin');
-        $site = $this->site($this->userWithRole('publisher'));
+        $site = $this->site($this->userWithRole('publisher'), $admin);
 
         $this->actingAs($admin)
             ->deleteJson(route('admin.sites.destroy', $site->id), [
