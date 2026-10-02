@@ -157,7 +157,8 @@
         <div class="help-fab__body">
             <div class="help-fab__pane is-active" id="helpPaneProblem" role="tabpanel">
                 <p class="help-fab__hint">Tell us what went wrong — bugs, broken pages, or confusing flows.</p>
-                <form id="helpProblemForm" class="vstack gap-2">
+                <form id="helpProblemForm" class="vstack gap-2" method="post" action="{{ route('feedback.problem') }}">
+                    @csrf
                     @unless($isAuthed)
                         <input type="text" name="name" class="form-control form-control-sm" placeholder="Your name" aria-label="Your name" required>
                         <input type="email" name="email" class="form-control form-control-sm" placeholder="Email" aria-label="Email" required>
@@ -169,7 +170,8 @@
             </div>
             <div class="help-fab__pane" id="helpPaneSuggestion" role="tabpanel">
                 <p class="help-fab__hint">Share ideas to improve the marketplace, pricing, or publisher tools.</p>
-                <form id="helpSuggestionForm" class="vstack gap-2">
+                <form id="helpSuggestionForm" class="vstack gap-2" method="post" action="{{ route('feedback.suggestion') }}">
+                    @csrf
                     @unless($isAuthed)
                         <input type="text" name="name" class="form-control form-control-sm" placeholder="Your name" aria-label="Your name" required>
                         <input type="email" name="email" class="form-control form-control-sm" placeholder="Email" aria-label="Email" required>

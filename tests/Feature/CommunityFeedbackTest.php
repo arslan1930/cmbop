@@ -59,6 +59,16 @@ class CommunityFeedbackTest extends TestCase
         ]);
     }
 
+    public function test_get_feedback_endpoints_redirect_home_instead_of_405(): void
+    {
+        $this->get('/feedback/problem')
+            ->assertRedirect(route('home'));
+        $this->get('/feedback/suggestion')
+            ->assertRedirect(route('home'));
+        $this->get(route('feedback.problem.redirect'))
+            ->assertRedirect(route('home'));
+    }
+
     public function test_guest_can_report_a_problem(): void
     {
         $this->postJson(route('feedback.problem'), [

@@ -1559,7 +1559,13 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/order-disputes/{id}/dismiss', [AdminOrderDisputeController::class, 'dismiss'])->name('orders.disputes.dismiss');
     });
 
-// Public + authenticated feedback (report a problem / suggestion box)
+// Public + authenticated feedback (report a problem / suggestion box).
+// GET is listed in the page source (fetch URL); crawlers and refreshes must
+// not 405. The widget still POSTs JSON.
+Route::get('/feedback/problem', fn () => redirect()->route('home'))
+    ->name('feedback.problem.redirect');
+Route::get('/feedback/suggestion', fn () => redirect()->route('home'))
+    ->name('feedback.suggestion.redirect');
 Route::middleware('throttle:10,1')->group(function () {
     Route::post('/feedback/problem', [FeedbackController::class, 'storeProblem'])
         ->name('feedback.problem');
