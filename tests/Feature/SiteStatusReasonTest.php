@@ -108,7 +108,7 @@ class SiteStatusReasonTest extends TestCase
         $site = $this->makeSite($publisher);
 
         $this->actingAs($admin)
-            ->deleteJson(route('admin.sites.destroy', $site->id))
+            ->postJson(route('admin.sites.archive', $site->id))
             ->assertOk()
             ->assertJsonPath('archived', true)
             ->assertJsonPath('quiet', true);
@@ -127,14 +127,14 @@ class SiteStatusReasonTest extends TestCase
         $reason = 'Publisher asked to take this listing off the catalog.';
 
         $this->actingAs($admin)
-            ->deleteJson(route('admin.sites.destroy', $site->id))
+            ->postJson(route('admin.sites.archive', $site->id))
             ->assertStatus(422)
             ->assertJsonValidationErrors(['reason']);
 
         $this->assertNull($site->fresh()->archived_at);
 
         $this->actingAs($admin)
-            ->deleteJson(route('admin.sites.destroy', $site->id), [
+            ->postJson(route('admin.sites.archive', $site->id), [
                 'reason' => $reason,
             ])
             ->assertOk()

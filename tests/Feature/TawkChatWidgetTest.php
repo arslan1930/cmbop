@@ -104,6 +104,10 @@ class TawkChatWidgetTest extends TestCase
         $this->assertStringContainsString('Tawk_API.addTags', $tawk);
         $this->assertStringNotContainsString('slb-tawk-chips', $tawk);
         $this->assertStringContainsString('slb-tawk-theme-header', $tawk);
+        $this->assertStringContainsString('slb-tawk-theme-header__back', $tawk);
+        $this->assertStringContainsString('slb-tawk-theme-header__menu', $tawk);
+        $this->assertStringContainsString('stroke="#ffffff"', $tawk);
+        $this->assertStringContainsString("icon: '#ffffff'", $tawk);
         $this->assertStringContainsString('#1a585e', $tawk);
         $this->assertStringNotContainsString('askPredefined', $tawk);
         $this->assertStringContainsString('onChatMessageAgent', $tawk);

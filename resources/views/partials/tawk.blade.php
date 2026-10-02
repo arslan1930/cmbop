@@ -97,7 +97,8 @@
   position: fixed;
   z-index: 1000004;
   align-items: center;
-  padding: 0 56px 0 16px;
+  gap: 8px;
+  padding: 0 10px;
   border-radius: 16px 16px 0 0;
   background: #1a585e;
   color: #fff;
@@ -105,6 +106,28 @@
   letter-spacing: 0.01em;
   pointer-events: none;
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+.slb-tawk-theme-header__icon {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.slb-tawk-theme-header__icon svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+.slb-tawk-theme-header__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
 <script>
@@ -128,7 +151,15 @@ var tawkQuestions = {!! json_encode($tawkQuestions ?? [], JSON_UNESCAPED_SLASHES
 var tawkCompany = {!! json_encode($tawkCompany ?? config('app.name', 'SEOLinkBuildings'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
 var tawkWelcome = {!! json_encode($tawkWelcome ?? 'Hi! How can we help with guest posts, wallet, or your sites?', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
 var tawkTheme = {
-  header: { background: '#1a585e', text: '#ffffff' },
+  header: {
+    background: '#1a585e',
+    text: '#ffffff',
+    color: '#ffffff',
+    icon: '#ffffff',
+    icons: '#ffffff',
+    button: '#ffffff',
+    action: '#ffffff'
+  },
   agent: { messageBackground: '#e6f5f5', messageText: '#1a585e' },
   visitor: { messageBackground: '#1a585e', messageText: '#ffffff' }
 };
@@ -420,7 +451,18 @@ function hideBubble() {
 var themeBar = document.createElement('div');
 themeBar.className = 'slb-tawk-theme-header';
 themeBar.setAttribute('aria-hidden', 'true');
-themeBar.textContent = {!! json_encode(config('app.name', 'SEOLinkBuildings'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
+themeBar.innerHTML = '<span class="slb-tawk-theme-header__icon slb-tawk-theme-header__back" aria-hidden="true">'
+  + '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+  + '<path d="M15 5L8 12l7 7" stroke="#ffffff" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>'
+  + '</svg></span>'
+  + '<span class="slb-tawk-theme-header__title"></span>'
+  + '<span class="slb-tawk-theme-header__icon slb-tawk-theme-header__menu" aria-hidden="true">'
+  + '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+  + '<circle cx="12" cy="6" r="1.7" fill="#ffffff"/>'
+  + '<circle cx="12" cy="12" r="1.7" fill="#ffffff"/>'
+  + '<circle cx="12" cy="18" r="1.7" fill="#ffffff"/>'
+  + '</svg></span>';
+themeBar.querySelector('.slb-tawk-theme-header__title').textContent = {!! json_encode(config('app.name', 'SEOLinkBuildings'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!};
 
 function mountLauncher() {
   if (!document.body) {

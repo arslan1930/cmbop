@@ -266,9 +266,11 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString("method:'DELETE'", $html);
         $this->assertStringContainsString("'Accept': 'application/json'", $html);
         $this->assertStringContainsString('if (!res.ok || !data.success)', $html);
-        $this->assertStringContainsString("toast(error.message || (isArchive ? 'Could not archive site' : 'Failed to delete site'), 'error')", $html);
+        $this->assertStringContainsString("toast(error.message || 'Failed to delete site', 'error')", $html);
         $this->assertStringContainsString("'Reject this site?'", $html);
-        $this->assertStringContainsString('const isArchive = canArchiveSiteRow(site)', $html);
+        $this->assertStringContainsString("toast(error.message || 'Could not archive site', 'error')", $html);
+        $this->assertStringContainsString('/archive', $html);
+        $this->assertStringContainsString('/unarchive', $html);
         $this->assertStringContainsString('JSON.stringify({ reason })', $html);
         $this->assertStringContainsString('staffSitesEditUrl(site.id)', $html);
         $this->assertStringContainsString('IS_MARKETING_EDITOR && listingLocked', $html);

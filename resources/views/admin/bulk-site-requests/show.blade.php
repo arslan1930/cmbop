@@ -912,6 +912,14 @@
                                             @endif
                                             @if(auth()->user()?->isAdmin() && ! $site->isArchived() && $site->orderItemsCount() === 0)
                                                 <button type="button"
+                                                        class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn bulk-draft-reject"
+                                                        data-site-id="{{ $site->id }}"
+                                                        data-site-name="{{ $site->site_name }}"
+                                                        title="Reject"
+                                                        aria-label="Reject">
+                                                    <i class="fa fa-times" aria-hidden="true"></i>
+                                                </button>
+                                                <button type="button"
                                                         class="btn btn-sm btn-outline-secondary bulk-draft-icon-btn bulk-draft-archive"
                                                         data-site-id="{{ $site->id }}"
                                                         data-site-name="{{ $site->site_name }}"
@@ -2195,8 +2203,8 @@ document.querySelectorAll('.bulk-draft-archive').forEach(function (btn) {
 
         this.disabled = true;
         try {
-            const res = await fetch(@json(staff_base_path() . '/sites') + '/' + id, {
-                method: 'DELETE',
+            const res = await fetch(@json(staff_base_path() . '/sites') + '/' + id + '/archive', {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': @json(csrf_token()),
@@ -2220,16 +2228,19 @@ document.querySelectorAll('.bulk-draft-archive').forEach(function (btn) {
     });
 });
 
-document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
+document.querySelectorAll('.bulk-draft-delete, .bulk-draft-reject').forEach(function (btn) {
     btn.addEventListener('click', async function () {
         const id = this.getAttribute('data-site-id');
         const name = this.getAttribute('data-site-name') || 'this site';
-        const promptText = 'Delete draft "' + name + '"? This removes the wrong seed. Explain why — the publisher will see this reason.';
+        const isReject = this.classList.contains('bulk-draft-reject');
+        const promptText = isReject
+            ? 'Explain why "' + name + '" is being rejected. The publisher will see this reason.'
+            : 'Delete draft "' + name + '"? This removes the wrong seed. Explain why — the publisher will see this reason.';
 
         let reason = '';
         if (window.Swal && typeof window.Swal.fire === 'function') {
             const result = await window.Swal.fire({
-                title: 'Delete draft site?',
+                title: isReject ? 'Reject this draft?' : 'Delete draft site?',
                 text: promptText,
                 icon: 'warning',
                 input: 'textarea',
@@ -2237,7 +2248,7 @@ document.querySelectorAll('.bulk-draft-delete').forEach(function (btn) {
                 inputPlaceholder: 'Reason (min. 10 characters)',
                 inputAttributes: { 'aria-label': 'Rejection reason', maxlength: '1000' },
                 showCancelButton: true,
-                confirmButtonText: 'Delete draft',
+                confirmButtonText: isReject ? 'Reject' : 'Delete draft',
                 customClass: { confirmButton: 'slb-swal-danger' },
                 preConfirm: function (value) {
                     const next = String(value || '').trim();

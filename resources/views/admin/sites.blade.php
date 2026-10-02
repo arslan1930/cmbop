@@ -129,6 +129,21 @@
             @else
                 <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
             @endif
+            @php
+                $archivedFilterOn = ! empty($staffSiteFilters['archived']);
+                $archivedChipQuery = array_filter([
+                    'all' => 1,
+                    'archived' => 1,
+                    'q' => $publisherSearch !== '' ? $publisherSearch : null,
+                ]);
+            @endphp
+            <a href="{{ staff_route('sites.index', $archivedChipQuery) }}"
+               class="btn btn-sm {{ $archivedFilterOn ? 'btn-dark' : 'btn-outline-secondary' }}">
+                Archived
+                @if(($archivedListCount ?? 0) > 0)
+                    <span class="badge {{ $archivedFilterOn ? 'text-bg-light text-dark' : 'text-bg-secondary' }} ms-1">{{ $archivedListCount }}</span>
+                @endif
+            </a>
             @if(auth()->user()?->isAdmin())
                 <a href="{{ route('admin.sites.records', array_filter(['missing_market' => ($missingMarketCount ?? 0) > 0 ? 1 : null])) }}"
                    class="btn btn-sm {{ ($missingMarketCount ?? 0) > 0 ? 'btn-outline-danger' : 'btn-outline-secondary' }}">
@@ -283,17 +298,6 @@
                             static fn ($value) => $value !== null && $value !== ''
                         ));
                         $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
-                        $hasOrders = $site->orderItemsCount() > 0;
-                        $canArchiveFlat = (bool) auth()->user()?->isAdmin()
-                            && ! $site->isArchived()
-                            && ! $hasOrders
-                            && ($site->verified || $site->active || $site->wasAddedByPublisher() || $site->isBulkRequestDraft());
-                        $canDeleteFlat = ! $site->isArchived()
-                            && ! $hasOrders
-                            && ! $site->verified
-                            && ! $site->active
-                            && ! $canArchiveFlat
-                            && (auth()->user()?->isAdmin() || $isMarketingEditor);
                     @endphp
                     <tr data-flat-site-row="{{ $site->id }}"
                         data-review-name="{{ $site->site_name }}"
@@ -362,28 +366,7 @@
                                         </button>
                                     @endif
                                     @include('partials.staff-site-activate-button', ['site' => $site, 'iconOnly' => true])
-                                    @if($canDeleteFlat)
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-danger delete-site staff-action-icon-btn"
-                                                data-id="{{ $site->id }}"
-                                                data-name="{{ $site->site_name }}"
-                                                title="Reject"
-                                                aria-label="Reject">
-                                            <i class="fa fa-times" aria-hidden="true"></i>
-                                        </button>
-                                    @elseif($canArchiveFlat)
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-danger delete-site staff-action-icon-btn"
-                                                data-id="{{ $site->id }}"
-                                                data-name="{{ $site->site_name }}"
-                                                data-archive="1"
-                                                @if($site->wasAddedByPublisher()) data-publisher-added="1" @endif
-                                                @if($site->isBulkRequestDraft()) data-bulk-draft="1" @endif
-                                                title="Archive"
-                                                aria-label="Archive">
-                                            <i class="fa fa-archive" aria-hidden="true"></i>
-                                        </button>
-                                    @endif
+                                    @include('admin.sites.partials.row-reject-archive-actions', ['site' => $site])
                                 @endif
                             </div>
                         </td>
@@ -728,7 +711,6 @@ function siteHasOrders(site) {
 }
 
 function canDeleteSiteRow(site) {
-    if (canArchiveSiteRow(site)) return false;
     if (site?.archived) return false;
     if (siteHasOrders(site)) return false;
     if (siteIsVerified(site) || siteIsActive(site)) return false;
@@ -766,7 +748,7 @@ function staffRowWasAddedByPublisher(id) {
         return Number(row.id) === Number(id);
     });
     const el = document.querySelector('[data-staff-bulk-id="' + id + '"]')
-        || document.querySelector('.delete-site[data-id="' + id + '"][data-archive="1"]');
+        || document.querySelector('.archive-site[data-id="' + id + '"]');
     return siteIsQuietArchive(site, el);
 }
 
@@ -1519,36 +1501,73 @@ document.addEventListener('click', function(e){
         return;
     }
 
-    /* DELETE / ARCHIVE */
-    if(e.target.closest('.delete-site')){
-        const btn = e.target.closest('.delete-site');
-        let id = btn.dataset.id;
-        let site = allSites.find(s => s.id == id);
-        const isArchive = canArchiveSiteRow(site) || btn.dataset.archive === '1';
-        const quietArchive = isArchive && siteIsQuietArchive(site, btn);
+    /* RESTORE */
+    if (e.target.closest('.unarchive-site')) {
+        const btn = e.target.closest('.unarchive-site');
+        const id = btn.dataset.id;
+        const site = allSites.find(s => s.id == id);
         const name = site?.site_name || btn.dataset.name || 'this site';
-        const title = isArchive
-            ? 'Archive this site?'
-            : 'Reject this site?';
-        const text = quietArchive
-            ? `"${name}" will be hidden from the catalog. The publisher is not notified.`
-            : (isArchive
-                ? `"${name}" will be hidden from the catalog. Explain why — the publisher will see this reason. The listing is kept so order history stays intact.`
-                : `Explain why "${name}" is being rejected. The publisher will see this reason.`);
+        Swal.fire({
+            title: 'Restore this site?',
+            text: `"${name}" will leave the archive and stay inactive until it is activated again.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Restore',
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            fetch(`${STAFF_BASE}/sites/${id}/unarchive`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({}),
+            })
+            .then(async (res) => {
+                let data = {};
+                try {
+                    data = await res.json();
+                } catch (_) {
+                    throw new Error(`Could not restore site (${res.status})`);
+                }
+                if (!res.ok || !data.success) {
+                    throw new Error(data.message || 'Could not restore site');
+                }
+                toast(data.message || 'Site restored');
+                afterSiteDecision(id);
+            })
+            .catch((error) => {
+                toast(error.message || 'Could not restore site', 'error');
+            });
+        });
+        return;
+    }
 
+    /* ARCHIVE */
+    if (e.target.closest('.archive-site')) {
+        const btn = e.target.closest('.archive-site');
+        const id = btn.dataset.id;
+        const site = allSites.find(s => s.id == id);
+        const quietArchive = siteIsQuietArchive(site, btn);
+        const name = site?.site_name || btn.dataset.name || 'this site';
         const prompt = {
-            title,
-            text,
-            icon:'warning',
-            showCancelButton:true,
-            confirmButtonText: isArchive ? 'Archive' : 'Reject',
+            title: 'Archive this site?',
+            text: quietArchive
+                ? `"${name}" will be hidden from the catalog. The publisher is not notified.`
+                : `"${name}" will be hidden from the catalog. Explain why — the publisher will see this reason. The listing is kept so order history stays intact.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Archive',
             customClass: { confirmButton: 'slb-swal-danger' },
         };
         if (!quietArchive) {
             prompt.input = 'textarea';
             prompt.inputLabel = 'Reason for the publisher';
             prompt.inputPlaceholder = 'Reason (min. 10 characters)';
-            prompt.inputAttributes = { 'aria-label': isArchive ? 'Archive reason' : 'Rejection reason', maxlength: '1000' };
+            prompt.inputAttributes = { 'aria-label': 'Archive reason', maxlength: '1000' };
             prompt.preConfirm = (value) => {
                 const reason = String(value || '').trim();
                 if (reason.length < 10) {
@@ -1564,11 +1583,10 @@ document.addEventListener('click', function(e){
         }
 
         Swal.fire(prompt).then(result => {
-            if(!result.isConfirmed) return;
-
+            if (!result.isConfirmed) return;
             const reason = quietArchive ? '' : String(result.value || '').trim();
-            fetch(`${STAFF_BASE}/sites/${id}`, {
-                method:'DELETE',
+            fetch(`${STAFF_BASE}/sites/${id}/archive`, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': CSRF_TOKEN,
@@ -1583,6 +1601,74 @@ document.addEventListener('click', function(e){
                 try {
                     data = await res.json();
                 } catch (_) {
+                    throw new Error(`Could not archive site (${res.status})`);
+                }
+                if (!res.ok || !data.success) {
+                    const reasonErr = data.errors && data.errors.reason
+                        ? (Array.isArray(data.errors.reason) ? data.errors.reason[0] : data.errors.reason)
+                        : null;
+                    throw new Error(reasonErr || data.message || 'Could not archive site');
+                }
+                toast(data.message || 'Site archived');
+                afterSiteDecision(id);
+            })
+            .catch((error) => {
+                toast(error.message || 'Could not archive site', 'error');
+            });
+        });
+        return;
+    }
+
+    /* REJECT */
+    if(e.target.closest('.delete-site')){
+        const btn = e.target.closest('.delete-site');
+        let id = btn.dataset.id;
+        let site = allSites.find(s => s.id == id);
+        const name = site?.site_name || btn.dataset.name || 'this site';
+
+        Swal.fire({
+            title: 'Reject this site?',
+            text: `Explain why "${name}" is being rejected. The publisher will see this reason.`,
+            icon:'warning',
+            input: 'textarea',
+            inputLabel: 'Reason for the publisher',
+            inputPlaceholder: 'Reason (min. 10 characters)',
+            inputAttributes: { 'aria-label': 'Rejection reason', maxlength: '1000' },
+            showCancelButton:true,
+            confirmButtonText: 'Reject',
+            customClass: { confirmButton: 'slb-swal-danger' },
+            preConfirm: (value) => {
+                const reason = String(value || '').trim();
+                if (reason.length < 10) {
+                    Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
+                    return false;
+                }
+                if (reason.length > 1000) {
+                    Swal.showValidationMessage('Reason must be 1000 characters or fewer.');
+                    return false;
+                }
+                return reason;
+            },
+        }).then(result => {
+            if(!result.isConfirmed) return;
+
+            const reason = String(result.value || '').trim();
+            fetch(`${STAFF_BASE}/sites/${id}`, {
+                method:'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ reason }),
+            })
+            .then(async (res) => {
+                let data = {};
+                try {
+                    data = await res.json();
+                } catch (_) {
                     throw new Error(`Failed to delete site (${res.status})`);
                 }
 
@@ -1590,14 +1676,14 @@ document.addEventListener('click', function(e){
                     const reasonErr = data.errors && data.errors.reason
                         ? (Array.isArray(data.errors.reason) ? data.errors.reason[0] : data.errors.reason)
                         : null;
-                    throw new Error(reasonErr || data.message || (isArchive ? 'Could not archive site' : 'Failed to delete site'));
+                    throw new Error(reasonErr || data.message || 'Failed to delete site');
                 }
 
                 toast(data.message || (data.archived ? 'Site archived' : 'Deleted successfully'));
                 afterSiteDecision(id);
             })
             .catch((error) => {
-                toast(error.message || (isArchive ? 'Could not archive site' : 'Failed to delete site'), 'error');
+                toast(error.message || 'Failed to delete site', 'error');
             });
         });
     }
@@ -2218,6 +2304,9 @@ function renderSites(data){
             const copyStrikeBadge = site.publisher_copy_strike
                 ? `<span class="badge text-bg-dark badge-needs-review ms-1">Copy-strike hide</span>`
                 : '';
+            const archivedBadge = site.archived
+                ? `<span class="badge text-bg-secondary badge-needs-review ms-1">Archived</span>`
+                : '';
             const ordersCount = Number(site.orders_count) || 0;
             const ordersLabel = ordersCount + (ordersCount === 1 ? ' order' : ' orders');
             const ordersHtml = site.orders_url
@@ -2253,6 +2342,7 @@ function renderSites(data){
                             ${missingTagsBadge}
                             ${scanBadge}
                             ${copyStrikeBadge}
+                            ${archivedBadge}
                         </div>
                         <a href="${escapeHtml(site.site_url ?? '#')}" target="_blank" class="site-url" title="${escapeHtml(site.site_url ?? '')}">
                             ${escapeHtml(site.site_url ?? '-')}
@@ -2295,13 +2385,19 @@ function renderSites(data){
                         ? `<li><button type="button" class="dropdown-item allow-api-overwrite" data-id="${site.id}"><i class="fa fa-unlock me-2"></i>Allow API overwrite</button></li>`
                         : '');
 
-            const deleteItem = canDeleteSiteRow(site)
+            const restoreItem = CAN_DELETE_ANY_SITE && site.archived
+                ? `<li><button type="button" class="dropdown-item unarchive-site" data-id="${site.id}"><i class="fa fa-undo me-2"></i>Restore</button></li>`
+                : '';
+            const rejectItem = canDeleteSiteRow(site)
                 ? `<li><button type="button" class="dropdown-item text-danger delete-site" data-id="${site.id}"><i class="fa fa-trash me-2"></i>Reject</button></li>`
-                : (canArchiveSiteRow(site)
-                    ? `<li><button type="button" class="dropdown-item text-danger delete-site" data-id="${site.id}" data-archive="1"><i class="fa fa-archive me-2"></i>Archive</button></li>`
-                    : (CAN_DELETE_ANY_SITE && siteHasOrders(site) && !site.archived
-                        ? `<li><button type="button" class="dropdown-item disabled" disabled title="This listing has orders. Deactivate it to hide it from the catalog."><i class="fa fa-ban me-2"></i>Has orders — deactivate instead</button></li>`
-                        : ''));
+                : '';
+            const archiveItem = canArchiveSiteRow(site)
+                ? `<li><button type="button" class="dropdown-item archive-site" data-id="${site.id}" data-archive="1"><i class="fa fa-archive me-2"></i>Archive</button></li>`
+                : '';
+            const ordersBlockItem = CAN_DELETE_ANY_SITE && siteHasOrders(site) && !site.archived
+                ? `<li><button type="button" class="dropdown-item disabled" disabled title="This listing has orders. Deactivate it to hide it from the catalog."><i class="fa fa-ban me-2"></i>Has orders — deactivate instead</button></li>`
+                : '';
+            const deleteItem = restoreItem + rejectItem + archiveItem + ordersBlockItem;
 
             // Always offer Deactivate after Activate. Hide Activate when the
             // listing cannot go live (server also 422s the same rules).

@@ -1410,6 +1410,21 @@ class Site extends Model
     }
 
     /**
+     * Staff restore: keep the row inactive until someone activates it again.
+     */
+    public function unarchiveByStaff(): bool
+    {
+        if (! static::hasSitesColumn('archived_at')) {
+            return false;
+        }
+
+        $this->archived_at = null;
+        $this->save();
+
+        return true;
+    }
+
+    /**
      * Promote stale bulk drafts to ready_for_review when details are already filled.
      */
     public function promoteFromAwaitingDetailsIfComplete(): bool

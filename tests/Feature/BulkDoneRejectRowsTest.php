@@ -190,9 +190,10 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->assertStringContainsString("old_text('rejection_note')", $blade);
         $this->assertStringContainsString('rejected.length === 0 || noteOk', $blade);
         $this->assertStringNotContainsString('route(\'admin.bulk-site-requests.done\'', $blade);
-        $this->assertStringContainsString("document.querySelectorAll('.bulk-draft-delete')", $blade);
+        $this->assertStringContainsString("document.querySelectorAll('.bulk-draft-delete, .bulk-draft-reject')", $blade);
         $this->assertStringContainsString("document.querySelectorAll('.bulk-draft-archive')", $blade);
         $this->assertStringContainsString('Archive this draft?', $blade);
+        $this->assertStringContainsString('Reject this draft?', $blade);
         $this->assertStringContainsString('The publisher is not notified.', $blade);
         $this->assertStringContainsString('data-bulk-draft-select-all', $blade);
         $this->assertStringContainsString('data-bulk-draft-row', $blade);
@@ -203,6 +204,7 @@ class BulkDoneRejectRowsTest extends TestCase
         $this->assertStringContainsString('fa-trash', $blade);
         $this->assertStringContainsString('title="Open"', $blade);
         $this->assertStringContainsString('title="Archive"', $blade);
+        $this->assertStringContainsString('title="Reject"', $blade);
         $this->assertStringNotContainsString('>Open</a>', $blade);
         $this->assertStringNotContainsString('>Delete</button>', $blade);
         $this->assertStringContainsString("input: 'textarea'", $blade);
@@ -254,10 +256,11 @@ class BulkDoneRejectRowsTest extends TestCase
             ->assertOk()
             ->assertSee($item->domain, false)
             ->assertSee('bulk-draft-archive', false)
+            ->assertSee('bulk-draft-reject', false)
             ->assertDontSee('bulk-draft-delete', false);
 
         $this->actingAs($this->admin)
-            ->deleteJson(route('admin.sites.destroy', $site->id))
+            ->postJson(route('admin.sites.archive', $site->id))
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('archived', true)
