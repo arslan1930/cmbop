@@ -122,7 +122,25 @@ class TawkChatWidgetTest extends TestCase
         $this->assertStringNotContainsString('function restorePageTitle', $tawk);
         $this->assertStringContainsString('$activeRole?->name', $tawk);
         $this->assertStringContainsString('function mountLauncher', $tawk);
-        $this->assertStringContainsString('paintTries', $tawk);
+        $this->assertStringContainsString('paintMark();', $tawk);
+        $this->assertStringNotContainsString('slbPaintMarkOnce', $tawk);
+        $this->assertStringContainsString('chat-box.json', $tawk);
+        $this->assertStringContainsString('chatBoxData', $tawk);
+        $this->assertStringContainsString('animationData', $tawk);
+        $this->assertStringContainsString("addEventListener('mouseenter', playMark)", $tawk);
+        $this->assertStringContainsString("addEventListener('mouseleave', restMark)", $tawk);
+        $this->assertStringContainsString('goToAndPlay(1, true)', $tawk);
+        $this->assertStringContainsString('goToAndStop(40, true)', $tawk);
+        $this->assertStringNotContainsString('H9l-5 5v-5H4', $tawk);
+        $this->assertStringContainsString('function startTawkEmbed', $tawk);
+        $this->assertStringContainsString('window.slbStartTawkEmbed', $tawk);
+        $this->assertStringNotContainsString('requestIdleCallback(startTawkEmbed', $tawk);
+        $this->assertStringContainsString("asset('assets/vendor/lottie-web/lottie_light.min.js')", $tawk);
+        $this->assertStringContainsString('width:84px;height:84px', $tawk);
+        $this->assertStringContainsString("svg.style.width = '84px'", $tawk);
+        $this->assertStringContainsString("svg.style.height = '84px'", $tawk);
+        $this->assertStringNotContainsString('100vw', $tawk);
+        $this->assertStringNotContainsString('100vh', $tawk);
 
         $admin = (string) file_get_contents(resource_path('views/admin/layouts/app.blade.php'));
         $this->assertStringNotContainsString('partials.tawk', $admin);

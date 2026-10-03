@@ -66,4 +66,27 @@ class CatalogSearchQueryTest extends TestCase
 
         $this->assertSame(['search' => '', 'da_min' => '50'], $merge);
     }
+
+    public function test_parse_caps_character_length(): void
+    {
+        $raw = str_repeat('ab ', 80);
+        $parsed = $this->search->parse($raw);
+
+        $this->assertLessThanOrEqual(CatalogSearchQuery::MAX_SEARCH_CHARS, mb_strlen($parsed['text']));
+    }
+
+    public function test_tokens_cap_at_eight(): void
+    {
+        $tokens = $this->search->tokens('one two three four five six seven eight nine ten');
+
+        $this->assertCount(CatalogSearchQuery::MAX_TOKENS, $tokens);
+        $this->assertSame(['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'], $tokens);
+    }
+
+    public function test_tokens_dedupe_before_cap(): void
+    {
+        $tokens = $this->search->tokens('one one one one one one one one two three');
+
+        $this->assertSame(['one', 'two', 'three'], $tokens);
+    }
 }

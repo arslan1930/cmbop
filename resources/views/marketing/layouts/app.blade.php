@@ -7,10 +7,10 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('components.favicon')
+    @include('partials.shell-wordmark-preload')
 
     <link href="{{ asset('assets/vendor/bootstrap-5.3.0/bootstrap.min.css') }}?v={{ @filemtime(public_path('assets/vendor/bootstrap-5.3.0/bootstrap.min.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/slb-icons.css') }}?v={{ @filemtime(public_path('assets/css/slb-icons.css')) ?: '1' }}" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="{{ asset('assets/css/type-system.css') }}?v={{ @filemtime(public_path('assets/css/type-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/brand-colors.css') }}?v={{ @filemtime(public_path('assets/css/brand-colors.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/spacing-system.css') }}?v={{ @filemtime(public_path('assets/css/spacing-system.css')) ?: '1' }}" rel="stylesheet">
@@ -38,14 +38,14 @@
 
 <div id="sidebar">
     <div class="mobile-sidebar-logo">
-        <img id="mobileSidebarLogo" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="48" width="172" alt="SEOLinkBuildings">
+        <img id="mobileSidebarLogo" src="{{ brand_shell_wordmark_url() }}" height="48" width="172" fetchpriority="high" alt="SEOLinkBuildings">
     </div>
     <div class="menu">
         <div class="text-center my-2 d-md-none">
             @include('partials.role-switcher', ['variant' => 'outline-secondary'])
         </div>
         <div class="shell-sidebar-brand text-center my-3 d-none d-md-block">
-            <img id="logoSidebar" class="shell-logo-wordmark" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="48" width="172" style="width:auto;max-width:100%;object-fit:contain;background:transparent" alt="SEOLinkBuildings">
+            <img id="logoSidebar" class="shell-logo-wordmark" src="{{ brand_shell_wordmark_url() }}" height="48" width="172" style="width:auto;max-width:100%;object-fit:contain;background:transparent" fetchpriority="high" alt="SEOLinkBuildings">
             <img class="shell-logo-mark" src="{{ asset('assets/brand/web/favicon.svg') }}" height="36" width="36" alt="" aria-hidden="true">
         </div>
 
@@ -91,7 +91,7 @@
             <span class="arrow" aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
         </button>
         <a href="/" class="d-flex align-items-center">
-            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="44" width="158" style="width:auto;max-width:min(220px,42vw);object-fit:contain;background:transparent" alt="SEOLinkBuildings">
+            <img id="logoNavbar" src="{{ brand_shell_wordmark_url() }}" height="44" width="158" style="width:auto;max-width:min(220px,42vw);object-fit:contain;background:transparent" alt="SEOLinkBuildings">
         </a>
         <div class="d-none d-md-block">
             <span class="mkt-mode-badge">Marketing workspace</span>

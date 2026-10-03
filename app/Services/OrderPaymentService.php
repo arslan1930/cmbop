@@ -1845,7 +1845,7 @@ class OrderPaymentService
         $schema->ensureCheckoutTables();
 
         $refundedInFinalize = 0.0;
-        $created = DB::transaction(function () use ($package, $referenceCode, $session, $schema, &$refundedInFinalize) {
+        $created = DB::transaction(function () use ($package, $referenceCode, $session, $schema, $meta, &$refundedInFinalize) {
             $already = Order::query()
                 ->where('reference_code', $referenceCode)
                 ->where('payment_method', 'card')

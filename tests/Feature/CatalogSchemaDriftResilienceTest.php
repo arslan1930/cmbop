@@ -142,7 +142,7 @@ class CatalogSchemaDriftResilienceTest extends TestCase
             ->assertDontSee('Something went wrong');
     }
 
-    public function test_catalog_repairs_missing_homepage_placement_prices_column(): void
+    public function test_catalog_loads_when_homepage_placement_columns_are_missing(): void
     {
         $this->dropSitesColumnIfPresent('homepage_placement_prices');
         $this->dropSitesColumnIfPresent('social_promotion');
@@ -151,10 +151,12 @@ class CatalogSchemaDriftResilienceTest extends TestCase
         $this->actingAs($this->advertiser)
             ->get(route('advertiser.catalog'))
             ->assertOk()
-            ->assertDontSee('Something went wrong');
+            ->assertDontSee('Something went wrong')
+            ->assertDontSee('Unknown column')
+            ->assertDontSee('SQLSTATE');
 
-        $this->assertTrue(Schema::hasColumn('sites', 'homepage_placement_prices'));
-        $this->assertTrue(Schema::hasColumn('sites', 'social_promotion'));
+        $this->assertFalse(Schema::hasColumn('sites', 'homepage_placement_prices'));
+        $this->assertFalse(Schema::hasColumn('sites', 'social_promotion'));
         $this->assertSame(0, Site::countWithHomepagePlacement());
     }
 
@@ -196,5 +198,6 @@ class CatalogSchemaDriftResilienceTest extends TestCase
         Schema::table('sites', function (Blueprint $table) use ($column) {
             $table->dropColumn($column);
         });
+        Site::forgetColumnCache();
     }
 }

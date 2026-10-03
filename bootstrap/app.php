@@ -5,6 +5,7 @@
 use App\Http\Middleware\AlignGeneratedUrlsWithRequest;
 use App\Http\Middleware\BlockSuspendedUsers;
 use App\Http\Middleware\CanonicalHost;
+use App\Http\Middleware\CompressTextResponse;
 use App\Http\Middleware\DrainQueuedMail;
 use App\Http\Middleware\EnsureVisitorChat;
 use App\Http\Middleware\HealHostingerProduction;
@@ -105,6 +106,10 @@ return Application::configure(basePath: dirname(__DIR__))
         }
         if ($loadAppClass('app/Http/Middleware/EnsureVisitorChat.php')) {
             $middleware->appendToGroup('web', EnsureVisitorChat::class);
+        }
+        // First inbound / last outbound so the body is final before gzip.
+        if ($loadAppClass('app/Http/Middleware/CompressTextResponse.php')) {
+            $middleware->prepend(CompressTextResponse::class);
         }
     })
     ->withExceptions(function (Exceptions $exceptions) {

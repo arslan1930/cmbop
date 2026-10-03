@@ -84,6 +84,51 @@ class PerformanceUiWeightTest extends TestCase
             str_contains($html, 'defer') && str_contains($html, 'pulse-badge.js'),
             'pulse-badge.js should be deferred'
         );
+        $this->assertMatchesRegularExpression(
+            '/slb-icon-draw\.js[^>]*\sdefer/',
+            $html,
+            'icon inlining must not block HTML parse'
+        );
+        $this->assertStringNotContainsString('data-slb-defer-css', $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/notification-center\.css[^>]*media="print"/',
+            $html
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/catalog\.css[^>]*media="print"/',
+            $html,
+            'catalog.css must stay render-blocking so the table does not paint unstyled'
+        );
+        $this->assertStringContainsString('name="robots" content="noindex, nofollow"', $html);
+        $this->assertStringContainsString('<meta name="description"', $html);
+        $this->assertStringContainsString('<title>', $html);
+    }
+
+    public function test_catalog_html_gzips_when_the_client_asks(): void
+    {
+        $advertiser = $this->advertiser();
+
+        $plain = $this->actingAs($advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk();
+        $plainHtml = $plain->getContent();
+        $this->assertStringContainsString('catalog-page', $plainHtml);
+        $this->assertNull($plain->headers->get('Content-Encoding'));
+
+        $packed = $this->actingAs($advertiser)
+            ->withHeaders([
+                'Accept-Encoding' => 'gzip',
+                'X-Test-Compress' => '1',
+            ])
+            ->get(route('advertiser.catalog'))
+            ->assertOk();
+
+        $this->assertSame('gzip', $packed->headers->get('Content-Encoding'));
+        $this->assertStringContainsString('Accept-Encoding', (string) $packed->headers->get('Vary'));
+        $decoded = gzdecode($packed->getContent());
+        $this->assertIsString($decoded);
+        $this->assertStringContainsString('catalog-page', $decoded);
+        $this->assertLessThan(strlen($plainHtml), strlen($packed->getContent()));
     }
 
     public function test_orders_page_does_not_reload_bootstrap_51(): void

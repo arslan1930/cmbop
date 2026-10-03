@@ -452,10 +452,20 @@
 
   function initLauncherLottie() {
     var box = document.getElementById('slbLiveChatLottie');
-    if (!box || !window.lottie || typeof window.lottie.loadAnimation !== 'function') return;
+    if (!box || box._slbLottie) return;
+    if (!window.lottie || typeof window.lottie.loadAnimation !== 'function') {
+      if (typeof window.slbWhenLottie === 'function') {
+        window.slbWhenLottie(initLauncherLottie);
+        return;
+      }
+      var pending = document.querySelector('script[src*="lottie_light"]');
+      if (pending) pending.addEventListener('load', initLauncherLottie);
+      return;
+    }
     var src = box.getAttribute('data-lottie');
-    if (!src || box._slbLottie) return;
+    if (!src) return;
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var hovering = false;
     var anim = window.lottie.loadAnimation({
       container: box,
       renderer: 'svg',
@@ -465,16 +475,18 @@
     });
     box._slbLottie = anim;
     function restMark() {
+      hovering = false;
       anim.loop = false;
       anim.goToAndStop(40, true);
     }
     function playMark() {
       if (reduce || !anim.isLoaded) return;
+      hovering = true;
       anim.loop = false;
       anim.goToAndPlay(1, true);
     }
     anim.addEventListener('complete', function () {
-      restMark();
+      if (hovering) anim.goToAndPlay(1, true);
     });
     anim.addEventListener('DOMLoaded', function () {
       restMark();
@@ -487,6 +499,8 @@
     if (launcher && !reduce) {
       launcher.addEventListener('mouseenter', playMark);
       launcher.addEventListener('mouseleave', restMark);
+      launcher.addEventListener('pointerenter', playMark);
+      launcher.addEventListener('pointerleave', restMark);
     }
   }
 

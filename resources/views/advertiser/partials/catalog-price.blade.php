@@ -30,7 +30,7 @@
     <div class="catalog-price__row">
         <span class="catalog-price__pay base-price-display">{{ format_money($payPrice) }}</span>
         @if(! empty($featured))
-            <span class="catalog-site-featured-mark" aria-label="Featured">
+            <span class="catalog-site-featured-mark" role="img" aria-label="Featured">
                 <i class="fa-solid fa-bolt-fill catalog-site-featured-mark__icon" data-slb-inlined="1" aria-hidden="true"></i>
             </span>
         @endif
@@ -44,11 +44,14 @@
         </span>
     @endif
     @if($bulkOfferPct !== null)
+        @php
+            $bulkNoteLabel = '−'.rtrim(rtrim(number_format($bulkOfferPct, 1), '0'), '.').'% on '.$bulkOfferQty.'+';
+        @endphp
         <button type="button"
                 class="catalog-bulk-note catalog-price__bulk"
                 data-bulk-jump="{{ (int) ($siteId ?? 0) }}"
-                aria-label="Show this site in Bulk discount deals">
-            <span class="catalog-price__bulk-label">−{{ rtrim(rtrim(number_format($bulkOfferPct, 1), '0'), '.') }}% on {{ $bulkOfferQty }}+</span>
+                aria-label="{{ $bulkNoteLabel }} — show this site in Bulk discount deals">
+            <span class="catalog-price__bulk-label">{{ $bulkNoteLabel }}</span>
         </button>
     @endif
 </div>

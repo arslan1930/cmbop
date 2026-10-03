@@ -503,6 +503,8 @@
   }
 
   function init() {
+    if (init.done) return;
+    init.done = true;
     ensureTipEl();
     enhanceTriggers(document);
     watchForNewTips();
@@ -513,6 +515,18 @@
     window.addEventListener('resize', onScrollOrResize);
   }
 
+  function armIdleInit() {
+    function start() {
+      document.removeEventListener('pointerover', start, true);
+      document.removeEventListener('focusin', start, true);
+      document.removeEventListener('keydown', start, true);
+      init();
+    }
+    document.addEventListener('pointerover', start, true);
+    document.addEventListener('focusin', start, true);
+    document.addEventListener('keydown', start, true);
+  }
+
   window.GlassTip = {
     init: init,
     enhance: enhanceTriggers,
@@ -520,8 +534,8 @@
   };
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', armIdleInit);
   } else {
-    init();
+    armIdleInit();
   }
 })(window, document);

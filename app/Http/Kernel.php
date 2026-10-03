@@ -3,6 +3,7 @@
 namespace App\Http;
 
 use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\CompressTextResponse;
 use App\Http\Middleware\EncryptCookies;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\SecurityHeaders;
@@ -25,6 +26,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 class Kernel extends HttpKernel
 {
     protected $middleware = [
+        CompressTextResponse::class,
         HandlePrecognitiveRequests::class,
         HandleCors::class,
         TrustProxies::class,

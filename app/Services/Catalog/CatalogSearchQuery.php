@@ -2,9 +2,9 @@
 
 namespace App\Services\Catalog;
 
+use App\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Advertiser catalog free-text search: metric tokens → range filters,
@@ -14,6 +14,11 @@ class CatalogSearchQuery
 {
     /** Below this, only prefix-match site names (no category substring noise). */
     public const MIN_CONTAINS_LENGTH = 3;
+
+    /** Shared-hosting cap: one request cannot AND dozens of LIKE groups. */
+    public const MAX_SEARCH_CHARS = 120;
+
+    public const MAX_TOKENS = 8;
 
     /**
      * Split raw search into leftover text + DA/DR/traffic/price ranges.
@@ -29,7 +34,7 @@ class CatalogSearchQuery
      */
     public function parse(string $raw): array
     {
-        $text = trim(preg_replace('/\s+/u', ' ', $raw) ?? $raw);
+        $text = $this->limitSearchText($raw);
         $ranges = [];
 
         if ($text === '') {
@@ -132,7 +137,7 @@ class CatalogSearchQuery
      */
     public function tokens(string $text): array
     {
-        $text = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+        $text = $this->limitSearchText($text);
         if ($text === '') {
             return [];
         }
@@ -149,14 +154,14 @@ class CatalogSearchQuery
                 $part = trim($part, " \t\"'`()[]{}");
             }
 
-            if ($part === '') {
+            if ($part === '' || $this->likeLiteral($part) === '') {
                 continue;
             }
 
             $tokens[] = $part;
         }
 
-        return array_values(array_unique($tokens));
+        return array_slice(array_values(array_unique($tokens)), 0, self::MAX_TOKENS);
     }
 
     /**
@@ -181,7 +186,7 @@ class CatalogSearchQuery
         ?string $hostNeedle = null,
         bool $searchAllDomains = true,
     ): void {
-        $text = trim($text);
+        $text = $this->limitSearchText($text);
         if ($text === '') {
             return;
         }
@@ -194,9 +199,9 @@ class CatalogSearchQuery
         // Single short token: prefix on the listing name only (+ host-like domain).
         if (count($tokens) === 1 && mb_strlen($tokens[0]) < self::MIN_CONTAINS_LENGTH) {
             $token = $tokens[0];
-            $like = $this->likeNeedle($token);
+            $like = $this->likeLiteral($token);
             $query->where(function (Builder $q) use ($like, $token, $hostNeedle, $searchableUrlIds, $searchAllDomains) {
-                $q->where('site_name', 'like', $like.'%');
+                $this->addLike($q, 'site_name', $like.'%');
                 $this->constrainDomainNeedles(
                     $q,
                     array_values(array_unique(array_filter([$token, $hostNeedle]))),
@@ -238,20 +243,21 @@ class CatalogSearchQuery
      */
     public function applyRelevanceOrder(Builder $query, string $text): void
     {
-        $text = trim($text);
+        $text = $this->limitSearchText($text);
         if ($text === '') {
             return;
         }
 
-        $like = $this->likeNeedle($text);
+        $like = $this->likeLiteral($text);
         $lower = mb_strtolower($text);
         $tokens = $this->tokens($text);
+        $esc = '\\';
 
         $bindings = [
             $lower,
-            $like.'%',
-            '% '.$like.'%',
-            '%'.$like.'%',
+            $like.'%', $esc,
+            '% '.$like.'%', $esc,
+            '%'.$like.'%', $esc,
         ];
 
         // All tokens appear in the name (order-independent) — between phrase and domain.
@@ -259,29 +265,30 @@ class CatalogSearchQuery
         if (count($tokens) >= 2) {
             $parts = [];
             foreach ($tokens as $token) {
-                $parts[] = 'LOWER(site_name) LIKE ?';
-                $bindings[] = '%'.$this->likeNeedle(mb_strtolower($token)).'%';
+                $parts[] = 'LOWER(site_name) LIKE ? ESCAPE ?';
+                $bindings[] = '%'.$this->likeLiteral(mb_strtolower($token)).'%';
+                $bindings[] = $esc;
             }
             $tokenNameSql = '('.implode(' AND ', $parts).')';
         }
 
         $bindings = array_merge($bindings, [
-            '%'.$like.'%',
-            '%'.$like.'%',
+            '%'.$like.'%', $esc,
+            '%'.$like.'%', $esc,
             $lower,
-            $like.'%',
-            '%,'.$like.'%',
+            $like.'%', $esc,
+            '%,'.$like.'%', $esc,
         ]);
 
         $query->orderByRaw(
             "CASE
                 WHEN LOWER(site_name) = ? THEN 0
-                WHEN LOWER(site_name) LIKE ? THEN 1
-                WHEN LOWER(site_name) LIKE ? THEN 2
-                WHEN LOWER(site_name) LIKE ? THEN 3
+                WHEN LOWER(site_name) LIKE ? ESCAPE ? THEN 1
+                WHEN LOWER(site_name) LIKE ? ESCAPE ? THEN 2
+                WHEN LOWER(site_name) LIKE ? ESCAPE ? THEN 3
                 WHEN {$tokenNameSql} THEN 4
-                WHEN LOWER(domain) LIKE ? OR LOWER(site_url) LIKE ? THEN 5
-                WHEN LOWER(category) = ? OR LOWER(category) LIKE ? OR LOWER(category) LIKE ? THEN 6
+                WHEN LOWER(domain) LIKE ? ESCAPE ? OR LOWER(site_url) LIKE ? ESCAPE ? THEN 5
+                WHEN LOWER(category) = ? OR LOWER(category) LIKE ? ESCAPE ? OR LOWER(category) LIKE ? ESCAPE ? THEN 6
                 ELSE 7
             END ASC",
             $bindings
@@ -297,21 +304,21 @@ class CatalogSearchQuery
         Collection $searchableUrlIds,
         bool $searchAllDomains,
     ): void {
-        $like = $this->likeNeedle($token);
+        $like = $this->likeLiteral($token);
         $allowContains = mb_strlen($token) >= self::MIN_CONTAINS_LENGTH || str_contains($token, '.');
 
         $q->where(function (Builder $inner) use ($like, $token, $allowContains, $searchableUrlIds, $searchAllDomains) {
             if ($allowContains) {
                 $inner->where(function (Builder $nameQ) use ($like) {
-                    $nameQ->where('site_name', 'like', $like.'%')
-                        ->orWhere('site_name', 'like', '% '.$like.'%')
-                        ->orWhere('site_name', 'like', '%'.$like.'%');
+                    $this->addLike($nameQ, 'site_name', $like.'%');
+                    $this->addLike($nameQ, 'site_name', '% '.$like.'%', 'or');
+                    $this->addLike($nameQ, 'site_name', '%'.$like.'%', 'or');
                 });
                 $inner->orWhere(function (Builder $catQ) use ($like) {
                     $this->constrainCategoryNeedle($catQ, $like);
                 });
             } else {
-                $inner->where('site_name', 'like', $like.'%');
+                $this->addLike($inner, 'site_name', $like.'%');
             }
 
             $this->constrainDomainNeedles(
@@ -333,32 +340,32 @@ class CatalogSearchQuery
      */
     private function constrainCategoryNeedle(Builder $catQ, string $like): void
     {
-        $hasCategoriesJson = Schema::hasColumn('sites', 'categories');
+        $hasCategoriesJson = Site::hasSitesColumn('categories');
 
         $catQ->where(function (Builder $q) use ($like, $hasCategoriesJson) {
-            $q->where('category', 'like', $like)
-                ->orWhere('category', 'like', $like.'%')
-                ->orWhere('category', 'like', '%,'.$like.'%')
-                ->orWhere('category', 'like', '%, '.$like.'%')
-                ->orWhere('category', 'like', '% '.$like.'%')
-                ->orWhere('category', 'like', '%& '.$like.'%')
-                ->orWhere('category', 'like', $like.' %')
-                ->orWhere('category', 'like', $like.'&%');
+            $this->addLike($q, 'category', $like);
+            $this->addLike($q, 'category', $like.'%', 'or');
+            $this->addLike($q, 'category', '%,'.$like.'%', 'or');
+            $this->addLike($q, 'category', '%, '.$like.'%', 'or');
+            $this->addLike($q, 'category', '% '.$like.'%', 'or');
+            $this->addLike($q, 'category', '%& '.$like.'%', 'or');
+            $this->addLike($q, 'category', $like.' %', 'or');
+            $this->addLike($q, 'category', $like.'&%', 'or');
 
             if (! $hasCategoriesJson) {
                 return;
             }
 
             // JSON string values: "Niche Name" — require a boundary before/after.
-            $q->orWhere('categories', 'like', '%"'.$like.'"%')
-                ->orWhere('categories', 'like', '%"'.$like.' %')
-                ->orWhere('categories', 'like', '%"'.$like.'&%')
-                ->orWhere('categories', 'like', '% '.$like.'"%')
-                ->orWhere('categories', 'like', '%& '.$like.'"%')
-                ->orWhere('categories', 'like', '% '.$like.' %')
-                ->orWhere('categories', 'like', '% '.$like.'&%')
-                ->orWhere('categories', 'like', '%& '.$like.' %')
-                ->orWhere('categories', 'like', '%&'.$like.'"%');
+            $this->addLike($q, 'categories', '%"'.$like.'"%', 'or');
+            $this->addLike($q, 'categories', '%"'.$like.' %', 'or');
+            $this->addLike($q, 'categories', '%"'.$like.'&%', 'or');
+            $this->addLike($q, 'categories', '% '.$like.'"%', 'or');
+            $this->addLike($q, 'categories', '%& '.$like.'"%', 'or');
+            $this->addLike($q, 'categories', '% '.$like.' %', 'or');
+            $this->addLike($q, 'categories', '% '.$like.'&%', 'or');
+            $this->addLike($q, 'categories', '%& '.$like.' %', 'or');
+            $this->addLike($q, 'categories', '%&'.$like.'"%', 'or');
         });
     }
 
@@ -391,13 +398,16 @@ class CatalogSearchQuery
 
             $inner->where(function (Builder $urlQ) use ($needles, $allowContains) {
                 foreach ($needles as $needle) {
-                    $escaped = $this->likeNeedle($needle);
+                    $escaped = $this->likeLiteral($needle);
+                    if ($escaped === '') {
+                        continue;
+                    }
                     if ($allowContains || str_contains($needle, '.')) {
-                        $urlQ->orWhere('site_url', 'like', '%'.$escaped.'%')
-                            ->orWhere('domain', 'like', '%'.$escaped.'%');
+                        $this->addLike($urlQ, 'site_url', '%'.$escaped.'%', 'or');
+                        $this->addLike($urlQ, 'domain', '%'.$escaped.'%', 'or');
                     } else {
-                        $urlQ->orWhere('domain', 'like', $escaped.'%')
-                            ->orWhere('site_url', 'like', '%'.$escaped.'%');
+                        $this->addLike($urlQ, 'domain', $escaped.'%', 'or');
+                        $this->addLike($urlQ, 'site_url', '%'.$escaped.'%', 'or');
                     }
                 }
             });
@@ -426,9 +436,37 @@ class CatalogSearchQuery
         return (int) round($value);
     }
 
-    private function likeNeedle(string $value): string
+    /**
+     * LIKE literal: %, _, and \ match themselves (pair with ESCAPE '\\').
+     */
+    private function likeLiteral(string $value): string
     {
-        // Neutralize LIKE wildcards so user input cannot broaden the match.
-        return str_replace(['\\', '%', '_'], ['', '', ''], $value);
+        return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $value);
+    }
+
+    private function limitSearchText(string $raw): string
+    {
+        $text = trim(preg_replace('/\s+/u', ' ', $raw) ?? $raw);
+        if ($text === '') {
+            return '';
+        }
+
+        if (mb_strlen($text) > self::MAX_SEARCH_CHARS) {
+            $text = mb_substr($text, 0, self::MAX_SEARCH_CHARS);
+        }
+
+        return $text;
+    }
+
+    private function addLike(Builder $q, string $column, string $pattern, string $boolean = 'and'): void
+    {
+        $sql = $column.' LIKE ? ESCAPE ?';
+        if ($boolean === 'or') {
+            $q->orWhereRaw($sql, [$pattern, '\\']);
+
+            return;
+        }
+
+        $q->whereRaw($sql, [$pattern, '\\']);
     }
 }

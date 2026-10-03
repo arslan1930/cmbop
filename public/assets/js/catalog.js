@@ -215,7 +215,43 @@ function initCatalogExpandPreviewZoom(root) {
     });
 }
 
+function catalogBuyAriaLabel(btn, extra) {
+    const name = (btn && btn.dataset && btn.dataset.name) || 'this site';
+    const inCart = !!(btn && (btn.classList.contains('is-in-cart') || btn.dataset.inCart === '1'));
+    if (inCart) {
+        return 'In cart — open cart, ' + name + ' is already in your cart';
+    }
+    let label = 'Add to cart for ' + name;
+    if (extra) {
+        label += extra;
+    }
+    return label;
+}
+
 function initCatalogVerifiedLotties(root) {
+    const scope = root && root.querySelectorAll ? root : document;
+    const boxes = scope.querySelectorAll('.catalog-verified-lottie');
+    if (!boxes.length) return;
+
+    function run() {
+        if (!window.lottie || typeof window.lottie.loadAnimation !== 'function') return;
+        paintCatalogVerifiedLotties(scope);
+    }
+
+    function arm(box) {
+        if (box.getAttribute('data-lottie-armed') === '1') return;
+        box.setAttribute('data-lottie-armed', '1');
+        const chip = box.closest('.site-chip--verified') || box;
+        chip.addEventListener('pointerenter', function () {
+            if (typeof window.slbWhenLottie === 'function') window.slbWhenLottie(run);
+            else run();
+        }, { once: true });
+    }
+
+    boxes.forEach(arm);
+}
+
+function paintCatalogVerifiedLotties(root) {
     const scope = root && root.querySelectorAll ? root : document;
     if (!window.lottie || typeof window.lottie.loadAnimation !== 'function') return;
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1416,6 +1452,18 @@ document.addEventListener('keydown', function (e) {
         updateMultiFilter(optionInput);
         return;
     }
+});
+
+document.addEventListener('click', function (e) {
+    if (!e.target || !e.target.closest) return;
+    if (e.target.closest('input, button, a')) return;
+    var item = e.target.closest('.multi-select-wrapper[data-multi-select] .option-item');
+    if (!item) return;
+    var optionInput = item.querySelector('input[type="checkbox"]');
+    if (!optionInput) return;
+    e.preventDefault();
+    optionInput.checked = !optionInput.checked;
+    updateMultiFilter(optionInput);
 });
 
 function filterMultiOptions(optionsId, searchTerm) {
@@ -3445,6 +3493,14 @@ function refreshCatalogThemeSelects() {
         valueEl.textContent = selected
             ? String(selected.getAttribute('data-label') || selected.textContent || '').trim()
             : String((select.options[select.selectedIndex] && select.options[select.selectedIndex].text) || '').trim();
+        const trigger = wrap.querySelector('.single-select-input');
+        if (trigger) {
+            const base = trigger.getAttribute('data-select-label') || '';
+            const visible = valueEl.textContent;
+            if (base && visible) {
+                trigger.setAttribute('aria-label', base + ': ' + visible);
+            }
+        }
     });
 }
 
@@ -4193,7 +4249,7 @@ function markCatalogSiteInCart(siteId) {
         buy.dataset.inCart = '1';
         buy.innerHTML = '<i class="fa-solid fa-cart-shopping" aria-hidden="true"></i> <span>In cart</span>';
         const name = buy.dataset.name || 'this site';
-        buy.setAttribute('aria-label', 'Open cart — ' + name + ' is already in your cart');
+        buy.setAttribute('aria-label', catalogBuyAriaLabel(buy));
     });
 }
 
@@ -4414,12 +4470,11 @@ window.catalogSyncInCartButtons = function catalogSyncInCartButtons(cartItems) {
         btn.classList.toggle('is-in-cart', inCart);
         if (inCart) {
             btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> <span>In cart</span>';
-            btn.setAttribute('aria-label', 'Open cart');
+            btn.setAttribute('aria-label', catalogBuyAriaLabel(btn));
             btn.title = 'Already in cart — open to assign an article or change options';
         } else if (btn.dataset.busy !== '1') {
             btn.innerHTML = btn.dataset.defaultHtml;
-            const name = btn.dataset.name || 'this site';
-            btn.setAttribute('aria-label', 'Buy placement for ' + name);
+            btn.setAttribute('aria-label', catalogBuyAriaLabel(btn));
             btn.removeAttribute('title');
         }
     });
@@ -4552,13 +4607,10 @@ function updateBuyButtonPrice(siteId, basePrice, additionalPrice = 0, sensitiveT
         if (sensitiveType) {
             buyButton.dataset.sensitiveType = sensitiveType;
             buyButton.setAttribute('aria-label',
-                'Buy placement' + (buyButton.dataset.name ? ' for ' + buyButton.dataset.name : '')
-                + ' with ' + sensitiveType + ' add-on, ' + catalogMoneyLabel(totalPrice));
+                catalogBuyAriaLabel(buyButton, ' with ' + sensitiveType + ' add-on, ' + catalogMoneyLabel(totalPrice)));
         } else {
             delete buyButton.dataset.sensitiveType;
-            if (buyButton.dataset.name) {
-                buyButton.setAttribute('aria-label', 'Buy placement for ' + buyButton.dataset.name);
-            }
+            buyButton.setAttribute('aria-label', catalogBuyAriaLabel(buyButton));
         }
     });
 }

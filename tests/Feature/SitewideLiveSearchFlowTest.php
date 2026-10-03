@@ -220,6 +220,12 @@ class SitewideLiveSearchFlowTest extends TestCase
     {
         $this->assertFileExists(public_path('assets/css/slb-icons.css'));
         $this->assertFileExists(public_path('js/slb-icon-draw.js'));
+        $iconDraw = (string) file_get_contents(public_path('js/slb-icon-draw.js'));
+        $this->assertStringContainsString('requestIdleCallback', $iconDraw);
+        $this->assertStringContainsString('urlByClass', $iconDraw);
+        $this->assertStringContainsString('BUDGET_MS', $iconDraw);
+        $this->assertStringContainsString('hydrateMapFromSheets', $iconDraw);
+        $this->assertStringContainsString('slb-icons.css', $iconDraw);
         $this->assertFileExists(public_path('assets/icons/lucide/plus.svg'));
         $this->assertFileExists(public_path('assets/icons/brands/facebook.svg'));
         $css = (string) file_get_contents(public_path('assets/css/slb-icons.css'));

@@ -206,3 +206,21 @@ if (! function_exists('user_message')) {
         return $fallback ?? 'Something went wrong. Please try again.';
     }
 }
+
+if (! function_exists('brand_shell_wordmark_url')) {
+    /**
+     * Display-sized sidebar/navbar wordmark (2x of 172×48). Falls back to the
+     * full PNG if the optimized files are missing.
+     */
+    function brand_shell_wordmark_url(): string
+    {
+        foreach (['assets/img/logo-sidebar.webp', 'assets/img/logo-sidebar.png', 'assets/img/logo1.png'] as $rel) {
+            $path = public_path($rel);
+            if (is_file($path)) {
+                return asset($rel).'?v='.(@filemtime($path) ?: '1');
+            }
+        }
+
+        return asset('assets/img/logo1.png');
+    }
+}

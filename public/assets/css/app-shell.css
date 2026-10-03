@@ -666,7 +666,7 @@ body > footer {
 .balance-block .balance-label {
   font-size: 11px;
   font-weight: 500;
-  color: var(--brand-primary-soft, #3faeb2);
+  color: var(--brand-primary, #1a585e);
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }

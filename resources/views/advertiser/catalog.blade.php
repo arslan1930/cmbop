@@ -1,5 +1,8 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Catalog')
+@section('meta_description', 'Browse verified publisher sites for guest posts and backlinks. Filter by category, country, language, and price.')
+
 @push('page-styles')
     <link href="{{ asset('assets/css/single-select.css') }}?v={{ @filemtime(public_path('assets/css/single-select.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/catalog.css') }}?v={{ @filemtime(public_path('assets/css/catalog.css')) ?: '1' }}" rel="stylesheet">
@@ -307,9 +310,11 @@
                                        value="{{ $catalogSearchText }}"
                                        autocomplete="off"
                                        enterkeyhint="search"
+                                       role="combobox"
                                        aria-autocomplete="list"
                                        aria-haspopup="listbox"
                                        aria-expanded="false"
+                                       aria-controls="catalogSuggestList"
                                        aria-describedby="catalogSearchStatus">
                                 <button type="button"
                                         id="catalogSearchClear"
@@ -343,10 +348,10 @@
                                     </div>
                                     <div class="options-list" id="categoryMultiOptions">
                                         @foreach($siteCategories as $category)
-                                            <label class="option-item" role="option" aria-selected="false" tabindex="-1">
+                                            <div class="option-item" role="option" aria-selected="false" tabindex="-1">
                                                 <input type="checkbox" value="{{ $category }}" data-type="category" data-name="{{ $category }}" onchange="updateMultiFilter(this)" tabindex="-1">
                                                 <span>{{ $category }}</span>
-                                            </label>
+                                            </div>
                                         @endforeach
                                     </div>
                                     <div class="multi-select-empty d-none">No categories found</div>
@@ -389,21 +394,22 @@
                                                  @if(($section['key'] ?? '') === 'recent') hidden @endif>
                                                 <div class="multi-select-section__label" role="presentation">{{ $section['label'] }}</div>
                                                 @foreach(($section['options'] ?? []) as $option)
-                                                    <label class="option-item">
+                                                    <div class="option-item" role="option" aria-selected="false" tabindex="-1">
                                                         <input type="checkbox"
                                                                value="{{ $option['code'] }}"
                                                                data-type="country"
                                                                data-name="{{ $option['name'] }}"
                                                                data-count="{{ (int) $option['count'] }}"
-                                                               onchange="updateMultiFilter(this)">
+                                                               onchange="updateMultiFilter(this)"
+                                                               tabindex="-1">
                                                         <span>{{ $option['name'] }} ({{ number_format((int) $option['count']) }})</span>
-                                                    </label>
+                                                    </div>
                                                 @endforeach
                                             </div>
                                         @endforeach
                                         @if(empty($countryPickerSections) || collect($countryPickerSections)->every(fn ($s) => ($s['key'] ?? '') === 'recent' || empty($s['options'])))
                                             @forelse(($availableCountries ?? []) as $code => $name)
-                                                <label class="option-item" role="option" aria-selected="false" tabindex="-1">
+                                                <div class="option-item" role="option" aria-selected="false" tabindex="-1">
                                                     <input type="checkbox"
                                                            value="{{ $code }}"
                                                            data-type="country"
@@ -412,7 +418,7 @@
                                                            onchange="updateMultiFilter(this)"
                                                            tabindex="-1">
                                                     <span>{{ $name }}</span>
-                                                </label>
+                                                </div>
                                             @empty
                                                 <div class="multi-select-section" data-section="empty-inventory">
                                                     <div class="text-muted small px-2 py-1">No markets with listings yet</div>
@@ -443,10 +449,10 @@
                                     </div>
                                     <div class="options-list" id="languageMultiOptions">
                                         @foreach($availableLanguages as $code => $name)
-                                            <label class="option-item" role="option" aria-selected="false" tabindex="-1">
+                                            <div class="option-item" role="option" aria-selected="false" tabindex="-1">
                                                 <input type="checkbox" value="{{ $code }}" data-type="language" data-name="{{ $name }}" onchange="updateMultiFilter(this)" tabindex="-1">
                                                 <span>{{ $name }}</span>
-                                            </label>
+                                            </div>
                                         @endforeach
                                     </div>
                                     <div class="multi-select-empty d-none">No languages found</div>

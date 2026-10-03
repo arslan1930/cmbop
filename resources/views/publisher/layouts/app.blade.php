@@ -7,19 +7,15 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('components.favicon')
+    @include('partials.shell-wordmark-preload')
 
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 
     <link href="{{ asset('assets/vendor/bootstrap-5.3.0/bootstrap.min.css') }}?v={{ @filemtime(public_path('assets/vendor/bootstrap-5.3.0/bootstrap.min.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/slb-icons.css') }}?v={{ @filemtime(public_path('assets/css/slb-icons.css')) ?: '1' }}" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="{{ asset('assets/css/type-system.css') }}?v={{ @filemtime(public_path('assets/css/type-system.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/brand-colors.css') }}?v={{ @filemtime(public_path('assets/css/brand-colors.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/spacing-system.css') }}?v={{ @filemtime(public_path('assets/css/spacing-system.css')) ?: '1' }}" rel="stylesheet">
@@ -38,8 +34,7 @@
     <link href="{{ asset('assets/css/publisher-dashboard.css') }}?v={{ @filemtime(public_path('assets/css/publisher-dashboard.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/slb-loader.css') }}?v={{ @filemtime(public_path('assets/css/slb-loader.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/hover-system.css') }}?v={{ @filemtime(public_path('assets/css/hover-system.css')) ?: '1' }}" rel="stylesheet">
-    <script src="{{ asset('assets/vendor/lottie-web/lottie_light.min.js') }}?v={{ @filemtime(public_path('assets/vendor/lottie-web/lottie_light.min.js')) ?: '1' }}" defer></script>
-    <script src="{{ asset('assets/js/slb-loader.js') }}?v={{ @filemtime(public_path('assets/js/slb-loader.js')) ?: '1' }}" defer></script>
+    <script src="{{ asset('assets/js/slb-loader.js') }}?v={{ @filemtime(public_path('assets/js/slb-loader.js')) ?: '1' }}" defer data-lottie-src="{{ asset('assets/vendor/lottie-web/lottie_light.min.js') }}?v={{ @filemtime(public_path('assets/vendor/lottie-web/lottie_light.min.js')) ?: '1' }}"></script>
     <script src="{{ asset('assets/js/glass-tip.js') }}?v={{ @filemtime(public_path('assets/js/glass-tip.js')) ?: '1' }}" defer></script>
     <script src="{{ asset('assets/js/pulse-badge.js') }}?v={{ @filemtime(public_path('assets/js/pulse-badge.js')) ?: '1' }}" defer></script>
     <script src="{{ asset('assets/js/single-select.js') }}?v={{ @filemtime(public_path('assets/js/single-select.js')) ?: '1' }}" defer></script>
@@ -53,7 +48,7 @@
 <div id="sidebar">
     <!-- Mobile Sidebar Logo (visible only on mobile) -->
     <div class="mobile-sidebar-logo">
-        <img id="mobileSidebarLogo" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="48" width="172" style="width:auto;max-width:min(280px,90%);object-fit:contain;background:transparent" alt="SEOLinkBuildings">
+        <img id="mobileSidebarLogo" src="{{ brand_shell_wordmark_url() }}" height="48" width="172" style="width:auto;max-width:min(280px,90%);object-fit:contain;background:transparent" fetchpriority="high" alt="SEOLinkBuildings">
     </div>
     
     <div class="menu">
@@ -65,7 +60,7 @@
         
 
         <div class="shell-sidebar-brand text-center my-3 d-none d-md-block">
-            <img id="logoSidebar" class="shell-logo-wordmark" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="48" width="172" style="width:auto;max-width:100%;object-fit:contain;background:transparent" alt="SEOLinkBuildings">
+            <img id="logoSidebar" class="shell-logo-wordmark" src="{{ brand_shell_wordmark_url() }}" height="48" width="172" style="width:auto;max-width:100%;object-fit:contain;background:transparent" fetchpriority="high" alt="SEOLinkBuildings">
             <img class="shell-logo-mark" src="{{ asset('assets/brand/web/favicon.svg') }}" height="36" width="36" alt="" aria-hidden="true">
         </div>
 
@@ -134,7 +129,7 @@
 
         <!-- Navbar logo - will be hidden on mobile via CSS -->
         <a href="/" class="d-flex align-items-center">
-            <img id="logoNavbar" src="{{ asset('assets/img/logo1.png') }}?v={{ @filemtime(public_path('assets/img/logo1.png')) ?: '1' }}" height="44" width="158" style="width:auto;max-width:min(220px,42vw);object-fit:contain;background:transparent" alt="SEOLinkBuildings">
+            <img id="logoNavbar" src="{{ brand_shell_wordmark_url() }}" height="44" width="158" style="width:auto;max-width:min(220px,42vw);object-fit:contain;background:transparent" alt="SEOLinkBuildings">
         </a>
 
         <div class="d-none d-md-block">
@@ -176,7 +171,7 @@
                 report($e);
             }
         @endphp
-        <a href="{{ route('publisher.balance') }}" class="balance-block text-decoration-none" data-glass-tip data-glass-tip-body="{{ $headerBalanceTitle }}" data-glass-tip-placement="bottom" aria-label="Publisher earnings {{ number_format($headerEarnings, 2) }} euros, withdrawable {{ number_format($headerWithdrawable, 2) }}">
+        <a href="{{ route('publisher.balance') }}" class="balance-block text-decoration-none" data-glass-tip data-glass-tip-body="{{ $headerBalanceTitle }}" data-glass-tip-placement="bottom" aria-label="Earnings {{ format_money($headerEarnings) }}">
             <span class="balance-label">Earnings</span>
             <span class="balance-amount">{{ format_money($headerEarnings) }}</span>
         </a>

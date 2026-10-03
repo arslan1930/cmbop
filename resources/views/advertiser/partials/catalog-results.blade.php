@@ -565,7 +565,7 @@
                                 data-discount-percent="{{ $catalogSalePct ?? 0 }}"
                                 data-name="{{ $displayName }}"
                                 @if($inCart) data-in-cart="1" @endif
-                                aria-label="{{ $inCart ? 'Open cart — '.$identityLabel.' is already in your cart' : 'Buy placement for '.$identityLabel }}">
+                                aria-label="{{ $inCart ? 'In cart — open cart, '.$identityLabel.' is already in your cart' : 'Add to cart for '.$identityLabel }}">
                             @if($inCart)
                                 <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
                                 <span>In cart</span>
@@ -1409,7 +1409,7 @@
                         data-discount-percent="{{ $catalogSalePct ?? 0 }}"
                         data-name="{{ $displayName }}"
                         @if($inCart) data-in-cart="1" @endif
-                        aria-label="{{ $inCart ? 'Open cart — '.$identityLabel.' is already in your cart' : 'Buy placement for '.$identityLabel }}">
+                        aria-label="{{ $inCart ? 'In cart — open cart, '.$identityLabel.' is already in your cart' : 'Add to cart for '.$identityLabel }}">
                     @if($inCart)
                         <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
                         <span>In cart</span>

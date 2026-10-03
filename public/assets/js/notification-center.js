@@ -704,7 +704,14 @@
   };
 
   function bootNotificationCenter() {
-    window.initNotificationCenter();
+    var run = function () {
+      window.initNotificationCenter();
+    };
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(run, { timeout: 250 });
+      return;
+    }
+    window.setTimeout(run, 1);
   }
 
   if (document.readyState === 'loading') {

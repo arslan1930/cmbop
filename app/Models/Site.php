@@ -2991,16 +2991,38 @@ class Site extends Model
         }
     }
 
+    /** @var array<string, bool> */
+    private static array $columnPresenceCache = [];
+
+    /**
+     * Drop the per-process column map after a test or runtime ALTER.
+     */
+    public static function forgetColumnCache(): void
+    {
+        self::$columnPresenceCache = [];
+    }
+
     public static function hasSitesColumn(string $column): bool
     {
+        $testing = false;
+        try {
+            $testing = function_exists('app') && app()->runningUnitTests();
+        } catch (\Throwable) {
+            $testing = false;
+        }
+
+        if (! $testing && array_key_exists($column, self::$columnPresenceCache)) {
+            return self::$columnPresenceCache[$column];
+        }
+
         try {
             if (! function_exists('app') || ! app()->bound('db')) {
-                return false;
+                return self::$columnPresenceCache[$column] = false;
             }
 
-            return Schema::hasColumn((new static)->getTable(), $column);
+            return self::$columnPresenceCache[$column] = Schema::hasColumn((new static)->getTable(), $column);
         } catch (\Throwable) {
-            return false;
+            return self::$columnPresenceCache[$column] = false;
         }
     }
 

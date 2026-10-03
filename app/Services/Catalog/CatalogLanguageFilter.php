@@ -2,8 +2,8 @@
 
 namespace App\Services\Catalog;
 
+use App\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Advertiser catalog language filter (Option A).
@@ -42,7 +42,7 @@ class CatalogLanguageFilter
             return $query;
         }
 
-        $hasLanguagesJson = Schema::hasColumn('sites', 'languages');
+        $hasLanguagesJson = Site::hasSitesColumn('languages');
 
         return $query->where(function ($q) use ($normalized, $hasLanguagesJson) {
             foreach ($normalized as $code) {

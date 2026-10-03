@@ -98,6 +98,35 @@ class DesignConsistencyTest extends TestCase
         $this->assertStringNotContainsString('width: min(360px, 92vw)', $cart);
     }
 
+    public function test_shell_wordmark_is_display_sized_and_preloaded(): void
+    {
+        $webp = public_path('assets/img/logo-sidebar.webp');
+        $png = public_path('assets/img/logo-sidebar.png');
+        $full = public_path('assets/img/logo1.png');
+        $this->assertFileExists($webp);
+        $this->assertFileExists($png);
+        $this->assertLessThan(filesize($full), filesize($webp));
+        $this->assertLessThan(16 * 1024, filesize($webp));
+        $this->assertSame(6, ord(file_get_contents($png)[25]));
+
+        $url = brand_shell_wordmark_url();
+        $this->assertStringContainsString('assets/img/logo-sidebar.webp', $url);
+
+        foreach ([
+            'advertiser/layouts/app.blade.php',
+            'publisher/layouts/app.blade.php',
+            'admin/layouts/app.blade.php',
+            'marketing/layouts/app.blade.php',
+        ] as $layout) {
+            $blade = file_get_contents(resource_path('views/'.$layout));
+            $this->assertStringContainsString('partials.shell-wordmark-preload', $blade, $layout);
+            $this->assertStringContainsString('brand_shell_wordmark_url()', $blade, $layout);
+            $this->assertStringContainsString('id="logoSidebar"', $blade, $layout);
+            $this->assertStringContainsString('fetchpriority="high"', $blade, $layout);
+            $this->assertStringNotContainsString("asset('assets/img/logo1.png')", $blade, $layout);
+        }
+    }
+
     public function test_primary_wordmark_png_is_transparent(): void
     {
         $path = public_path('assets/img/logo1.png');

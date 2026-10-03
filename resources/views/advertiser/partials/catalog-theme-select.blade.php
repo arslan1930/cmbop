@@ -28,7 +28,7 @@
     }
 @endphp
 <div class="single-select-wrapper theme-select catalog-theme-select{{ $modifier !== '' ? ' '.$modifier : '' }}" data-theme-select="{{ $selectId }}">
-    <select name="{{ $name }}" id="{{ $selectId }}" class="visually-hidden" tabindex="-1" @if($form) form="{{ $form }}" @endif>
+    <select name="{{ $name }}" id="{{ $selectId }}" class="visually-hidden" tabindex="-1" aria-label="{{ $label }}" @if($form) form="{{ $form }}" @endif>
         @foreach($normalized as $option)
             <option value="{{ $option['value'] }}" @selected($option['value'] === $current)>{{ $option['label'] }}</option>
         @endforeach
@@ -38,7 +38,8 @@
             class="single-select-input single-select-input--sm"
             aria-haspopup="listbox"
             aria-expanded="false"
-            aria-label="{{ $label }}">
+            data-select-label="{{ $label }}"
+            aria-label="{{ $label }}: {{ $currentLabel }}">
         <span class="single-select-value">{{ $currentLabel }}</span>
         <i class="fa fa-chevron-down single-select-arrow" aria-hidden="true"></i>
     </button>

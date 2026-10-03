@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Site;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -238,6 +239,9 @@ class CheckoutSchemaService
             Schema::table($table, function (Blueprint $blueprint) use ($column) {
                 $blueprint->json($column)->nullable();
             });
+            if ($table === 'sites') {
+                Site::forgetColumnCache();
+            }
             Log::info("Added missing {$table}.{$column} for checkout");
 
             return;
@@ -341,6 +345,9 @@ class CheckoutSchemaService
 
         try {
             DB::statement("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
+            if ($table === 'sites') {
+                Site::forgetColumnCache();
+            }
             Log::info("Added missing {$table}.{$column} for checkout");
         } catch (\Throwable $e) {
             try {

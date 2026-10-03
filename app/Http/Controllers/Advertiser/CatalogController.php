@@ -76,6 +76,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -141,11 +142,13 @@ class CatalogController extends Controller
     private function getAvailableCountries()
     {
         try {
-            return Country::marketplace()
-                ->orderBy('name')
-                ->pluck('name', 'code')
-                ->mapWithKeys(fn ($name, $code) => [strtolower($code) => $name])
-                ->all();
+            return Cache::remember('catalog.available_countries', 300, function () {
+                return Country::marketplace()
+                    ->orderBy('name')
+                    ->pluck('name', 'code')
+                    ->mapWithKeys(fn ($name, $code) => [strtolower($code) => $name])
+                    ->all();
+            });
         } catch (\Throwable $e) {
             Log::warning('Catalog countries lookup failed', ['error' => $e->getMessage()]);
 
@@ -197,15 +200,32 @@ class CatalogController extends Controller
     private function getAvailableLanguages()
     {
         try {
-            return Language::marketplace()
-                ->orderBy('name')
-                ->pluck('name', 'code')
-                ->mapWithKeys(fn ($name, $code) => [strtolower($code) => $name])
-                ->all();
+            return Cache::remember('catalog.available_languages', 300, function () {
+                return Language::marketplace()
+                    ->orderBy('name')
+                    ->pluck('name', 'code')
+                    ->mapWithKeys(fn ($name, $code) => [strtolower($code) => $name])
+                    ->all();
+            });
         } catch (\Throwable $e) {
             Log::warning('Catalog languages lookup failed', ['error' => $e->getMessage()]);
 
             return [];
+        }
+    }
+
+    private static ?bool $orderItemsHasCompletedAt = null;
+
+    private function orderItemsHasCompletedAt(): bool
+    {
+        if (self::$orderItemsHasCompletedAt !== null) {
+            return self::$orderItemsHasCompletedAt;
+        }
+
+        try {
+            return self::$orderItemsHasCompletedAt = Schema::hasColumn('order_items', 'completed_at');
+        } catch (\Throwable $e) {
+            return self::$orderItemsHasCompletedAt = false;
         }
     }
 
@@ -507,7 +527,7 @@ class CatalogController extends Controller
      */
     private function loadBulkDeals(Request $request, array $blacklist, bool $showBlacklistedOnly)
     {
-        if (! Schema::hasColumn('sites', 'bulk_discount_enabled')) {
+        if (! Site::hasSitesColumn('bulk_discount_enabled')) {
             return collect();
         }
 
@@ -523,7 +543,7 @@ class CatalogController extends Controller
                 $q->whereNull('publisher_id')
                     ->orWhere('publisher_id', '!=', $uid);
             });
-            if (Schema::hasColumn('sites', 'owner_id')) {
+            if (Site::hasSitesColumn('owner_id')) {
                 $query->where(function ($q) use ($uid) {
                     $q->whereNull('owner_id')
                         ->orWhere('owner_id', '!=', $uid);
@@ -632,13 +652,8 @@ class CatalogController extends Controller
      */
     protected function buildCatalogListing(Request $request): array
     {
-        // Hostinger often deploys without migrate — ensure placement JSON columns exist
-        // so Site Details can show Homepage promotions + Social when publishers offer them.
-        try {
-            app(CheckoutSchemaService::class)->ensureCheckoutTables();
-        } catch (\Throwable $e) {
-            Log::warning('Catalog schema ensure failed', ['error' => $e->getMessage()]);
-        }
+        // Listing reads only. Checkout/order actions still call
+        // CheckoutSchemaService::ensureCheckoutTables() — do not ALTER on browse.
 
         $userId = auth()->id();
         $currentUser = auth()->user();
@@ -754,7 +769,7 @@ class CatalogController extends Controller
             // category= uses `|` (publisher-aligned). Legacy comma URLs are parsed
             // longest-first against known niches — never blindly explode(',').
             // Include unknown tokens so niches not yet in `categories` still filter.
-            $categories = Category::catalogFilterNicheNames($categoryRaw);
+            $categories = array_slice(Category::catalogFilterNicheNames($categoryRaw), 0, 15);
             if ($categories !== []) {
                 Category::constrainQueryToNicheNames($query, $categories);
             }
@@ -762,9 +777,9 @@ class CatalogController extends Controller
 
         $countryRaw = search_text($request->input('country'));
         if ($countryRaw !== '') {
-            $countries = array_values(array_filter(array_map(function ($c) {
+            $countries = array_slice(array_values(array_filter(array_map(function ($c) {
                 return strtolower(trim($c));
-            }, explode(',', $countryRaw))));
+            }, explode(',', $countryRaw)))), 0, 20);
             // Primary country only (scalar sites.country) — matches catalog flag /
             // inventory counts. Do not match JSON countries "contains".
             app(CatalogCountryInventory::class)
@@ -776,7 +791,7 @@ class CatalogController extends Controller
             // Option A: language-only → all sites offering these languages (any country).
             // With country= also set, constraints AND. Never auto-sets country.
             // When country is set, drop language codes that are not paired with those countries.
-            $languageCodes = explode(',', $languageRaw);
+            $languageCodes = array_slice(explode(',', $languageRaw), 0, 15);
             if ($countryRaw !== '') {
                 $countryCodes = array_values(array_filter(array_map(
                     static fn ($c) => strtolower(trim((string) $c)),
@@ -814,7 +829,7 @@ class CatalogController extends Controller
 
         // More → Bulk deals — pack program only (not custom Sale −%).
         if ($request->input('bulk_deals') == '1' || $request->input('bulk_deals') === 1) {
-            if (Schema::hasColumn('sites', 'bulk_discount_enabled')) {
+            if (Site::hasSitesColumn('bulk_discount_enabled')) {
                 $query->where('bulk_discount_enabled', 1)
                     ->whereNotNull('bulk_discount_percent')
                     ->where('bulk_discount_percent', '>', 0);
@@ -829,7 +844,7 @@ class CatalogController extends Controller
         }
 
         if (($request->input('featured') == '1' || $request->input('featured') === 1)
-            && Schema::hasColumn('sites', 'featured_until')) {
+            && Site::hasSitesColumn('featured_until')) {
             $query->whereNotNull('featured_until')
                 ->where('featured_until', '>', now())
                 ->where('featured_until', '<=', Site::PLAUSIBLE_SQL_DATETIME_CEIL);
@@ -851,7 +866,7 @@ class CatalogController extends Controller
             Log::warning('Catalog inventory min price failed', ['error' => $e->getMessage()]);
         }
 
-        if (Schema::hasColumn('sites', 'featured_until')) {
+        if (Site::hasSitesColumn('featured_until')) {
             $query->orderByRaw(
                 '(featured_until IS NOT NULL AND featured_until > ? AND featured_until <= ?) DESC',
                 [now(), Site::PLAUSIBLE_SQL_DATETIME_CEIL]
@@ -883,7 +898,7 @@ class CatalogController extends Controller
         // Pagination links always target the full catalog page (not /results),
         // and only carry the allowlisted listing query (URL source of truth).
         $perPage = CatalogUrlQuery::perPage($request);
-        if (Schema::hasColumn('order_items', 'completed_at')) {
+        if ($this->orderItemsHasCompletedAt()) {
             $query->withMax('orderItems as last_completed_at', 'completed_at');
         }
         $sites = $query->paginate($perPage);
