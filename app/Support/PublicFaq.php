@@ -48,7 +48,7 @@ class PublicFaq
             ],
             [
                 'q' => 'What happens if a publisher doesn\'t deliver or the link is wrong?',
-                'a' => 'Because your funds are held until you approve the live URL, you don\'t pay for an order that wasn\'t delivered as agreed. Don\'t approve an order until the live URL matches what you ordered. You can raise any problem with the publisher in the order chat first, and contact support@seolinkbuildings.com if it isn\'t resolved.',
+                'a' => 'Because your funds are held until you approve the live URL, you don\'t pay for an order that wasn\'t delivered as agreed. Don\'t approve an order until the live URL matches what you ordered. Raise the problem with the publisher from the order, and contact support@seolinkbuildings.com if it isn\'t resolved.',
             ],
             [
                 'q' => 'How long does it take for a guest post to go live?',
@@ -95,8 +95,8 @@ class PublicFaq
     public static function schema(): array
     {
         $pageUrl = function_exists('localized_url') ? localized_url('faq') : url('/faq');
-        $orgId = rtrim((string) url('/'), '/').'/#organization';
-        $siteId = rtrim((string) url('/'), '/').'/#website';
+        $orgId = BrandOrganization::organizationId();
+        $siteId = BrandOrganization::websiteId();
 
         return [
             '@context' => 'https://schema.org',

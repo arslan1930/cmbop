@@ -61,6 +61,16 @@ class BrandOrganization
         ], $extra);
     }
 
+    public static function organizationId(): string
+    {
+        return rtrim((string) url('/'), '/').'/#organization';
+    }
+
+    public static function websiteId(): string
+    {
+        return rtrim((string) url('/'), '/').'/#website';
+    }
+
     /**
      * Page-level JSON-LD graph (Organization + WebPage) so crawlers detect
      * schema.org types on every public layout, including auth.
@@ -69,7 +79,7 @@ class BrandOrganization
      */
     public static function pageGraph(string $name, string $description, string $url): array
     {
-        $orgId = rtrim((string) url('/'), '/').'/#organization';
+        $orgId = self::organizationId();
         $org = self::schema(['@id' => $orgId]);
 
         $page = [

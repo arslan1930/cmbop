@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Blog;
 use App\Models\BlogTranslation;
 use App\Models\User;
+use App\Support\BrandOrganization;
 use App\Support\PublicFaq;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -23,6 +24,16 @@ class CrawlAccessDay1Test extends TestCase
 
         $this->get('/about')->assertOk();
         $this->get('/us/about')->assertOk();
+    }
+
+    public function test_localized_home_schema_uses_one_organization_id(): void
+    {
+        $html = $this->get('/de')->assertOk()->getContent();
+        $orgId = BrandOrganization::organizationId();
+
+        $this->assertGreaterThanOrEqual(2, substr_count($html, $orgId));
+        $this->assertStringNotContainsString(rtrim(url('/de'), '/').'/#organization', $html);
+        $this->assertStringNotContainsString('Partners with', $html);
     }
 
     public function test_us_blog_lists_english_posts_at_their_canonical_urls(): void

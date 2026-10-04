@@ -30,7 +30,7 @@
         'priceCurrency' => 'EUR',
     ],
     'provider' => [
-        '@id' => rtrim((string) localized_url('/'), '/').'/#organization',
+        '@id' => \App\Support\BrandOrganization::organizationId(),
     ],
 ], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}' !!}
 </script>
@@ -38,14 +38,14 @@
 {!! json_encode([
     '@@context' => 'https://schema.org',
     '@type' => 'WebSite',
-    '@id' => rtrim((string) localized_url('/'), '/').'/#website',
+    '@id' => \App\Support\BrandOrganization::websiteId(),
     'name' => 'SEOLinkBuildings',
     'url' => localized_url('/'),
     'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
         ? \App\Support\PublicI18n::htmlLang()
         : 'en-GB',
     'publisher' => [
-        '@id' => rtrim((string) localized_url('/'), '/').'/#organization',
+        '@id' => \App\Support\BrandOrganization::organizationId(),
     ],
     'hasPart' => [
         [
