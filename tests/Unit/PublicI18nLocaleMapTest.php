@@ -129,12 +129,11 @@ class PublicI18nLocaleMapTest extends TestCase
         $request = Request::create('http://localhost/', 'GET');
         $response = (new SetLocale)->handle($request, fn () => response('ok'));
 
-        $this->assertSame(302, $response->getStatusCode());
-        $homeLocation = (string) $response->headers->get('Location');
-        $this->assertSame('/', rtrim((string) parse_url($homeLocation, PHP_URL_PATH), '/') ?: '/');
-        $this->assertNull(parse_url($homeLocation, PHP_URL_QUERY));
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('ok', $response->getContent());
+        $this->assertFalse($response->isRedirect());
         $this->assertTrue($response->headers->has('Set-Cookie'));
-        $this->assertStringContainsString('public_locale', (string) $response->headers->get('Set-Cookie'));
+        $this->assertStringContainsString('public_locale=en', (string) $response->headers->get('Set-Cookie'));
 
         $market = Request::create('http://localhost/marketplace?locale=en', 'GET');
         $market->cookies->set(config('i18n.cookie', 'public_locale'), 'us');

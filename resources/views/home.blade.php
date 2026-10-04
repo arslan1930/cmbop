@@ -30,10 +30,7 @@
         'priceCurrency' => 'EUR',
     ],
     'provider' => [
-        '@type' => 'Organization',
-        'name' => 'SEOLinkBuildings',
-        'legalName' => config('billing.company.legal_name'),
-        'identifier' => config('billing.company.registration_no', '16607074'),
+        '@id' => rtrim((string) localized_url('/'), '/').'/#organization',
     ],
 ], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}' !!}
 </script>
@@ -41,16 +38,14 @@
 {!! json_encode([
     '@@context' => 'https://schema.org',
     '@type' => 'WebSite',
+    '@id' => rtrim((string) localized_url('/'), '/').'/#website',
     'name' => 'SEOLinkBuildings',
-    'alternateName' => ['SEO Link Buildings', 'Seolink Buildings'],
     'url' => localized_url('/'),
     'inLanguage' => (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'htmlLang'))
         ? \App\Support\PublicI18n::htmlLang()
         : 'en-GB',
     'publisher' => [
-        '@type' => 'Organization',
-        'name' => 'SEOLinkBuildings',
-        'url' => localized_url('/'),
+        '@id' => rtrim((string) localized_url('/'), '/').'/#organization',
     ],
     'hasPart' => [
         [
@@ -165,7 +160,6 @@
     @include('components.features')
     @include('components.how-it-works')
     @include('components.pricing')
-    @include('components.testimonials')
     @include('components.newsletter')
     @include('components.cta')
 @endsection

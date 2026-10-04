@@ -22,6 +22,7 @@ class BlogController extends Controller
         try {
             CuratedBlogSync::ensurePresent();
             $requestedLocale = public_locale();
+            $catalogLocale = Blog::catalogLocale($requestedLocale);
 
             $listing = Blog::published();
             if (method_exists(Blog::class, 'scopeWithoutLegacyRedirects')) {
@@ -29,12 +30,12 @@ class BlogController extends Controller
             }
 
             $blog = $listing
-                ->withPublishedLocale($requestedLocale)
+                ->withPublishedLocale($catalogLocale)
                 ->orderByDesc('published_at')
                 ->paginate(12);
 
             $blog->getCollection()->transform(
-                fn (Blog $post) => $post->applyPublishedLocale($requestedLocale)
+                fn (Blog $post) => $post->applyPublishedLocale($catalogLocale)
             );
 
             return view('pages.blog', compact('blog'));
@@ -207,15 +208,16 @@ class BlogController extends Controller
         if (method_exists(Blog::class, 'scopeWithoutLegacyRedirects')) {
             $related = $related->withoutLegacyRedirects();
         }
+        $relatedLocale = Blog::catalogLocale($requestedLocale);
         $related = $related
-            ->withPublishedLocale($requestedLocale)
+            ->withPublishedLocale($relatedLocale)
             ->where('id', '!=', $blog->id)
             ->orderByDesc('published_at')
             ->limit(3)
             ->get();
 
         $related->transform(
-            fn (Blog $post) => $post->applyPublishedLocale($requestedLocale)
+            fn (Blog $post) => $post->applyPublishedLocale($relatedLocale)
         );
 
         return view('pages.blog-single', compact(

@@ -22,7 +22,9 @@
         $supportEmail = 'support@seolinkbuildings.com';
     }
     $registrationNo = $company['registration_no'] ?? '16607074';
-    $legalName = $company['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)';
+    $legalName = class_exists(\App\Support\BrandOrganization::class)
+        ? \App\Support\BrandOrganization::confirmedLegalName()
+        : null;
     $address = implode(', ', $company['address_lines'] ?? ['20 Wenlock Road, London, England, N1 7GU']);
 
     $faqEntities = [];
@@ -299,7 +301,9 @@
         <h2 class="h4 mb-3" style="color:#1a585e;">{{ __('messages.about_page_company_title') }}</h2>
         <p class="text-muted mb-3">{{ __('messages.about_page_company_body') }}</p>
         <ul class="list-unstyled text-muted mb-0 small">
+            @if(is_string($legalName) && $legalName !== '')
             <li class="mb-2"><strong>{{ __('messages.about_page_legal_label') }}:</strong> {{ $legalName }}</li>
+            @endif
             <li class="mb-2">
                 <strong>{{ __('messages.about_page_reg_label') }}:</strong>
                 {{ $registrationNo }}

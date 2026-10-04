@@ -265,14 +265,14 @@
                             @endif
                             <div class="card-body p-4">
                                 <h5 class="card-title" style="font-weight: 700;">
-                                    <a href="{{ localized_url('blog/'.$recommended->slug) }}" class="text-decoration-none text-dark">
+                                    <a href="{{ $recommended->listingUrl() }}" class="text-decoration-none text-dark">
                                         {{ Str::limit($recommended->title, 60) }}
                                     </a>
                                 </h5>
                                 <p class="card-text text-muted" style="font-size: 0.9rem;">
                                     {{ Str::limit(strip_tags($recommended->content), 100) }}
                                 </p>
-                                <a href="{{ localized_url('blog/'.$recommended->slug) }}" class="btn btn-link text-decoration-none p-0" style="color: #5bc4c7; font-weight: 600;">
+                                <a href="{{ $recommended->listingUrl() }}" class="btn btn-link text-decoration-none p-0" style="color: #5bc4c7; font-weight: 600;">
                                     Read More <i class="fa fa-arrow-right ms-1"></i>
                                 </a>
                             </div>
