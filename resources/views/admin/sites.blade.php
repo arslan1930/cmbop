@@ -6,6 +6,7 @@
     $publisherSearchQuery = array_filter(['q' => $publisherSearch !== '' ? $publisherSearch : null]);
     $flatQueue = $flatQueue ?? false;
     $allSitesMode = $allSitesMode ?? false;
+    $publishersDirectory = $publishersDirectory ?? false;
     $staffSiteFilters = $staffSiteFilters ?? [];
     $listQuery = array_filter([
         'q' => $publisherSearch !== '' ? $publisherSearch : null,
@@ -35,6 +36,16 @@
         'archived' => !empty($staffSiteFilters['archived']) ? 1 : null,
         'sort' => ($staffSiteFilters['sort'] ?? '') !== '' ? $staffSiteFilters['sort'] : null,
     ], static fn ($value) => $value !== null && $value !== '');
+    $pagerModeQuery = array_filter([
+        'needs_review' => !empty($needsReviewFilterActive) ? 1 : null,
+        'waiting_on_publisher' => !empty($waitingOnPublisherFilterActive) ? 1 : null,
+        'flat' => !empty($flatQueue) ? 1 : null,
+        'all' => !empty($allSitesMode) && request()->query('all') !== null ? 1 : null,
+        'publishers' => !empty($publishersDirectory) ? 1 : null,
+        'waiting_stage' => ($waitingStage ?? '') !== '' ? $waitingStage : null,
+    ]);
+    $readyToActivateUrl = staff_route('sites.index', array_filter(['needs_review' => 1, 'flat' => 1] + $listQuery));
+    $readyToActivateOn = ! empty($needsReviewFilterActive);
 @endphp
 <div class="container-fluid py-3 {{ request()->filled('publisher') ? 'staff-publisher-open' : '' }}" id="staffSitesPage">
 
@@ -124,11 +135,17 @@
                     </a>
                 @endif
             @endif
-            @if(!empty($allSitesMode))
-                <a href="{{ staff_route('sites.index', $listQuery) }}" class="btn btn-sm btn-outline-dark">Publishers</a>
-            @else
-                <a href="{{ staff_route('sites.index', array_filter(['all' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-dark">All sites</a>
-            @endif
+            <a href="{{ staff_route('sites.index') }}"
+               class="btn btn-sm {{ empty($allSitesMode) && empty($needsReviewFilterActive) && empty($waitingOnPublisherFilterActive) && empty($flatQueue) ? 'btn-dark' : 'btn-outline-dark' }}">All sites</a>
+            <a href="{{ staff_route('sites.index', ['publishers' => 1]) }}"
+               class="btn btn-sm {{ !empty($publishersDirectory) ? 'btn-dark' : 'btn-outline-dark' }}">Publishers</a>
+            <a href="{{ $readyToActivateUrl }}"
+               class="btn btn-sm {{ $readyToActivateOn ? 'btn-warning' : 'btn-outline-warning' }}">
+                Ready to activate
+                @if(($openReviewCount ?? 0) > 0)
+                    <span class="badge {{ $readyToActivateOn ? 'text-bg-light text-dark' : 'text-bg-warning' }} ms-1">{{ $openReviewCount }}</span>
+                @endif
+            </a>
             @php
                 $archivedFilterOn = ! empty($staffSiteFilters['archived']);
                 $archivedChipQuery = array_filter([
@@ -209,7 +226,7 @@
                     @endforeach
                 </span>
             </div>
-            <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">Show all publishers</a>
+            <a href="{{ staff_route('sites.index', ['publishers' => 1]) }}" class="btn btn-sm btn-outline-dark">Show all publishers</a>
         </div>
     @endif
 
@@ -231,7 +248,7 @@
                     @endif
                 </span>
             </div>
-            <a href="{{ staff_route('sites.index', $publisherSearchQuery) }}" class="btn btn-sm btn-outline-dark">Show all publishers</a>
+            <a href="{{ staff_route('sites.index', ['publishers' => 1]) }}" class="btn btn-sm btn-outline-dark">Show all publishers</a>
         </div>
     @endif
 
@@ -388,7 +405,7 @@
                 </tbody>
             </table>
         </div>
-        @include('admin.sites.partials.pager', ['paginator' => $flatQueueSites, 'selectId' => 'flatSitesPerPage'])
+        @include('admin.sites.partials.pager', ['paginator' => $flatQueueSites, 'selectId' => 'flatSitesPerPage', 'modeQuery' => $pagerModeQuery])
     </div>
     @endif
 
@@ -527,7 +544,7 @@
                 </table>
             </div>
 
-            @include('admin.sites.partials.pager', ['paginator' => $users, 'selectId' => 'publishersPerPage'])
+            @include('admin.sites.partials.pager', ['paginator' => $users, 'selectId' => 'publishersPerPage', 'modeQuery' => $pagerModeQuery])
 
         </div>
     </div>
@@ -603,6 +620,7 @@
                             <th class="admin-narrow-col">Traffic</th>
                             <th class="admin-narrow-col">Buyer price</th>
                             <th class="admin-status-col">Status</th>
+                            <th class="admin-narrow-col">Listed</th>
                             <th class="admin-actions-col">Actions</th>
                         </tr>
                     </thead>
@@ -613,6 +631,7 @@
             </div>
             <div class="admin-sites-pager d-none" id="sitesPagerBar">
                 <div class="admin-sites-pager__size admin-deposits-filters" data-admin-filter-live="1">
+                    <span class="small text-muted mb-0" id="sitesPagerRange"></span>
                     <label class="small text-muted mb-0" for="sitesPerPage">Rows</label>
                     <select id="sitesPerPage" class="form-select form-select-sm" aria-label="Rows per page">
                         <option value="20">20</option>
@@ -828,7 +847,7 @@ function fetchUserSites(id, page){
     }
 
     document.getElementById('sitesTable').innerHTML =
-        `<tr><td colspan="7">Loading...</td></tr>`;
+        `<tr><td colspan="8">Loading...</td></tr>`;
 
     const pageNum = Number(page) > 1 ? Number(page) : 1;
     lastSitesPage = pageNum;
@@ -982,8 +1001,15 @@ function renderSitesPager(publisherId, meta) {
     const current = meta ? (Number(meta.current_page) || 1) : 1;
     const last = meta ? (Number(meta.last_page) || 1) : 1;
     syncSitesPerPage(meta ? Number(meta.per_page) : 0);
-    if (bar) bar.classList.toggle('d-none', total <= 20);
-    if (!meta || total <= 20 || last <= 1) {
+    if (bar) bar.classList.toggle('d-none', total <= 0);
+    const range = document.getElementById('sitesPagerRange');
+    if (range && meta) {
+        const perPage = Number(meta.per_page) || 50;
+        const from = total === 0 ? 0 : ((current - 1) * perPage) + 1;
+        const to = Math.min(total, current * perPage);
+        range.textContent = total ? ('Showing ' + from + '–' + to + ' of ' + total) : '';
+    }
+    if (!meta || total <= 0 || last <= 1) {
         pager.innerHTML = '';
         return;
     }
@@ -2250,7 +2276,7 @@ function renderSites(data){
     let html = '';
 
     if(!data.length){
-        html = `<tr><td colspan="7" class="text-center text-muted">No sites found</td></tr>`;
+        html = `<tr><td colspan="8" class="text-center text-muted">No sites found</td></tr>`;
     } else {
 
         data.forEach((site,i) => {
@@ -2356,6 +2382,9 @@ function renderSites(data){
             const isActive = Number(site.active) === 1 || site.active === true;
             const isVerified = Number(site.verified) === 1 || site.verified === true;
 
+            const listedHtml = site.listed_label
+                ? `<div class="staff-listed-date"><span class="${Number(site.listed_days) >= 21 ? 'text-danger fw-semibold' : (Number(site.listed_days) >= 7 ? 'text-warning fw-semibold' : 'text-muted')}" title="${escapeHtml(site.listed_date || '')}">${escapeHtml(site.listed_label)}</span>${site.listed_date ? `<div class="small text-muted">${escapeHtml(site.listed_date)}</div>` : ''}</div>`
+                : '<span class="text-muted">—</span>';
             const statusHtml = `
                 <div class="admin-status-stack">
                     <span title="${isActive ? 'Active' : 'Inactive'}">${isActive
@@ -2476,11 +2505,12 @@ function renderSites(data){
                     <td>${site.traffic ?? '-'}</td>
                     <td><div>€${site.price ?? '-'}</div>${saleHtml}${offerBadges}</td>
                     <td>${statusHtml}</td>
+                    <td class="small">${listedHtml}</td>
                     <td><div class="d-flex flex-wrap gap-1 align-items-center">${primaryAction}${manageHtml}</div></td>
                 </tr>
 
                 <tr id="details-${site.id}" class="admin-expand-row">
-                    <td colspan="7">
+                    <td colspan="8">
                         <div class="admin-expand-box">
                             <div class="border rounded bg-white shadow-sm p-3">
                                 <div class="row g-3">

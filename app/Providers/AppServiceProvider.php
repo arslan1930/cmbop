@@ -307,20 +307,19 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer('*', function ($view) {
-            try {
-                if (auth()->check()) {
-                    $projects = Project::where('user_id', auth()->id())
-                        ->latest()
-                        ->get();
-                } else {
+            if (! app()->bound('sidebar.projects')) {
+                try {
+                    $projects = auth()->check()
+                        ? Project::where('user_id', auth()->id())->latest()->get()
+                        : collect();
+                } catch (\Throwable $e) {
+                    Log::warning('sidebarProjects composer failed', ['error' => $e->getMessage()]);
                     $projects = collect();
                 }
-            } catch (\Throwable $e) {
-                Log::warning('sidebarProjects composer failed', ['error' => $e->getMessage()]);
-                $projects = collect();
+                app()->instance('sidebar.projects', $projects);
             }
 
-            $view->with('sidebarProjects', $projects);
+            $view->with('sidebarProjects', app('sidebar.projects'));
         });
 
         // Recent published posts for the public footer "Latest Updates" section

@@ -128,7 +128,7 @@
                     <td colspan="11" class="text-center text-muted py-4">
                         @if(($publisherSearch ?? '') !== '' || count($listQuery ?? []) > 0)
                             Nothing matches these filters.
-                            <a href="{{ staff_route('sites.index', ['all' => 1]) }}">Clear filters</a>
+                            <a href="{{ staff_route('sites.index') }}">Clear filters</a>
                         @else
                             No sites yet.
                         @endif
@@ -138,6 +138,6 @@
             </tbody>
         </table>
     </div>
-    @include('admin.sites.partials.pager', ['paginator' => $allSites, 'selectId' => 'allSitesPerPage'])
+    @include('admin.sites.partials.pager', ['paginator' => $allSites, 'selectId' => 'allSitesPerPage', 'modeQuery' => $pagerModeQuery ?? []])
 </div>
 @endif

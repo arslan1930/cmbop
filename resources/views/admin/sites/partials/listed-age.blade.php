@@ -16,5 +16,8 @@
 @if($listedDays === null)
     <span class="text-muted">—</span>
 @else
-    <span class="{{ $listedClass }}" title="{{ $listedTitle }}">{{ $listedDays === 0 ? 'Today' : $listedDays.'d' }}</span>
+    <div class="staff-listed-date">
+        <span class="{{ $listedClass }}" title="{{ $listedTitle }}">{{ $listedDays === 0 ? 'Today' : $listedDays.'d' }}</span>
+        <div class="small text-muted">{{ \Illuminate\Support\Carbon::parse($listedAt)->timezone(config('app.timezone'))->format('M j, Y') }}</div>
+    </div>
 @endif

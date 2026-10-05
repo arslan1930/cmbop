@@ -26,6 +26,7 @@
     @elseif($mode === 'all')
         <input type="hidden" name="all" value="1">
     @elseif($mode === 'publishers')
+        <input type="hidden" name="publishers" value="1">
         @if(!empty($needsReviewFilterActive))
             <input type="hidden" name="needs_review" value="1">
         @endif
@@ -39,23 +40,37 @@
     @if($getForm)
         <label class="small mb-0">
             Search
-            <input class="form-control" type="search" name="q" value="{{ $publisherSearch ?? '' }}" placeholder="Publishers or sites" aria-label="Search publishers or sites">
+            <input class="form-control" type="search" name="q" value="{{ $publisherSearch ?? '' }}" placeholder="{{ $mode === 'all' ? 'Site, domain, or publisher' : 'Publishers or sites' }}" aria-label="{{ $mode === 'all' ? 'Search sites or publishers' : 'Search publishers or sites' }}" data-slb-live-search="form">
         </label>
     @endif
-    <label class="small mb-0">
-        Tag
-        <select class="form-select" name="tag" data-staff-filter="tag">
-            @foreach($tagOptions as $value => $label)
-                <option value="{{ $value }}" @selected(($filters['tag'] ?? '') === $value)>{{ $label }}</option>
-            @endforeach
-        </select>
-    </label>
     <label class="small mb-0">
         Country
         <select class="form-select" name="country" data-staff-filter="country">
             <option value="">All</option>
             @foreach($countries as $country)
                 <option value="{{ strtolower((string) $country->code) }}" @selected(strtolower((string) ($filters['country'] ?? '')) === strtolower((string) $country->code))>{{ $country->name }}</option>
+            @endforeach
+        </select>
+    </label>
+    <label class="small mb-0">
+        Sort
+        <select class="form-select" name="sort" data-staff-filter="sort">
+            <option value="" @selected(($filters['sort'] ?? '') === '')>{{ $mode === 'flat' ? 'Oldest waiting' : 'Newest' }}</option>
+            <option value="newest" @selected(($filters['sort'] ?? '') === 'newest')>Newest</option>
+            <option value="oldest" @selected(($filters['sort'] ?? '') === 'oldest')>Oldest</option>
+            <option value="price" @selected(($filters['sort'] ?? '') === 'price')>Price</option>
+            <option value="traffic" @selected(($filters['sort'] ?? '') === 'traffic')>Traffic</option>
+            <option value="da" @selected(($filters['sort'] ?? '') === 'da')>DA</option>
+        </select>
+    </label>
+    <details class="staff-site-filters-more">
+        <summary class="small text-muted">More filters</summary>
+        <div class="d-flex flex-wrap align-items-end gap-2 mt-2">
+    <label class="small mb-0">
+        Tag
+        <select class="form-select" name="tag" data-staff-filter="tag">
+            @foreach($tagOptions as $value => $label)
+                <option value="{{ $value }}" @selected(($filters['tag'] ?? '') === $value)>{{ $label }}</option>
             @endforeach
         </select>
     </label>
@@ -118,17 +133,6 @@
         DA from
         <input class="form-control" type="number" min="0" max="100" step="1" name="da_min" data-staff-filter="da_min" value="{{ $filters['da_min'] ?? '' }}" aria-label="Minimum DA">
     </label>
-    <label class="small mb-0">
-        Sort
-        <select class="form-select" name="sort" data-staff-filter="sort">
-            <option value="" @selected(($filters['sort'] ?? '') === '')>{{ $mode === 'flat' ? 'Oldest waiting' : 'Newest' }}</option>
-            <option value="newest" @selected(($filters['sort'] ?? '') === 'newest')>Newest</option>
-            <option value="oldest" @selected(($filters['sort'] ?? '') === 'oldest')>Oldest</option>
-            <option value="price" @selected(($filters['sort'] ?? '') === 'price')>Price</option>
-            <option value="traffic" @selected(($filters['sort'] ?? '') === 'traffic')>Traffic</option>
-            <option value="da" @selected(($filters['sort'] ?? '') === 'da')>DA</option>
-        </select>
-    </label>
     <label class="form-check small mb-1">
         <input class="form-check-input" type="checkbox" name="below_quality" value="1" data-staff-filter="below_quality" @checked(!empty($filters['below_quality']))>
         Below quality bar
@@ -183,8 +187,16 @@
             Archived only
         </label>
     @endif
+        </div>
+    </details>
     @if($getForm)
-        <button type="submit" class="btn btn-primary">Apply</button>
+        <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ staff_route('sites.index', array_filter([
+            'needs_review' => !empty($needsReviewFilterActive) ? 1 : null,
+            'waiting_on_publisher' => !empty($waitingOnPublisherFilterActive) ? 1 : null,
+            'flat' => $mode === 'flat' ? 1 : null,
+            'publishers' => $mode === 'publishers' ? 1 : null,
+        ])) }}">Clear</a>
     @endif
 @if($getForm)
 </form>

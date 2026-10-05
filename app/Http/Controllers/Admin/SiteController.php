@@ -123,9 +123,11 @@ class SiteController extends Controller
         $publisherSearch = trim(scalar_text($request->query('q', '')));
         $flatQueue = $this->requestFlag($request, 'flat');
         $staffSiteFilters = $this->staffSitesListFilterState($request);
+        $publishersDirectory = $this->requestFlag($request, 'publishers');
         $allSitesMode = $this->requestFlag($request, 'all')
             && ! $needsReviewFilter
             && ! $waitingOnPublisherFilter
+            && ! $publishersDirectory
             && ! $request->filled('publisher')
             && ! $request->filled('site');
         $listingTagOptions = SiteTag::catalogFilterOptions();
@@ -136,6 +138,8 @@ class SiteController extends Controller
         if ($publisherSearch !== ''
             && ! $request->filled('publisher')
             && ! $request->filled('site')
+            && $this->staffListPage($request) === 1
+            && ! $this->staffSitesListNarrows($staffSiteFilters)
         ) {
             $exactSite = $this->uniqueStaffSiteForExactSearch($publisherSearch, $staffSiteFilters);
             if ($exactSite) {
@@ -160,23 +164,28 @@ class SiteController extends Controller
         $openReviewCount = MarketingOpsQueues::sitesReadyForStaffCount();
         $waitingListNarrows = $waitingOnPublisherFilter
             && ($publisherSearch !== '' || $this->staffSitesListNarrows($staffSiteFilters));
-        if ($waitingListNarrows) {
-            $countWaitingStage = function (?string $stage) use ($publisherSearch, $staffSiteFilters): int {
-                $stageQuery = MarketingOpsQueues::sitesWaitingOnPublisher($stage);
-                $this->applyStaffIndexSiteOrPublisherSearch($stageQuery, $publisherSearch);
-                $this->applyStaffSitesListFilters($stageQuery, $staffSiteFilters);
+        if ($waitingOnPublisherFilter) {
+            if ($waitingListNarrows) {
+                $countWaitingStage = function (?string $stage) use ($publisherSearch, $staffSiteFilters): int {
+                    $stageQuery = MarketingOpsQueues::sitesWaitingOnPublisher($stage);
+                    $this->applyStaffIndexSiteOrPublisherSearch($stageQuery, $publisherSearch);
+                    $this->applyStaffSitesListFilters($stageQuery, $staffSiteFilters);
 
-                return (int) $stageQuery->count();
-            };
-            $waitingOnPublisherCount = $countWaitingStage(null);
-            $waitingStageCounts = [
-                'filling' => $countWaitingStage('filling'),
-                'reviewing' => $countWaitingStage('reviewing'),
-                'accept' => $countWaitingStage('accept'),
-            ];
+                    return (int) $stageQuery->count();
+                };
+                $waitingOnPublisherCount = $countWaitingStage(null);
+                $waitingStageCounts = [
+                    'filling' => $countWaitingStage('filling'),
+                    'reviewing' => $countWaitingStage('reviewing'),
+                    'accept' => $countWaitingStage('accept'),
+                ];
+            } else {
+                $waitingOnPublisherCount = MarketingOpsQueues::sitesWaitingOnPublisherCount();
+                $waitingStageCounts = MarketingOpsQueues::sitesWaitingStageCounts();
+            }
         } else {
             $waitingOnPublisherCount = MarketingOpsQueues::sitesWaitingOnPublisherCount();
-            $waitingStageCounts = MarketingOpsQueues::sitesWaitingStageCounts();
+            $waitingStageCounts = ['filling' => 0, 'reviewing' => 0, 'accept' => 0];
         }
         $waitingStage = $waitingOnPublisherFilter
             ? (string) ($staffSiteFilters['waiting_stage'] ?? '')
@@ -186,7 +195,7 @@ class SiteController extends Controller
             'listing_verified' => '0',
         ]);
         $belowQualityListCount = $this->staffSitesFilterTotal(['below_quality' => true]);
-        $readyToActivateCount = $this->staffSitesFilterTotal(['ready_to_activate' => true]);
+        $readyToActivateCount = 0;
         $placeholderListCount = $this->staffSitesFilterTotal(['placeholder' => true]);
         $missingCoverListCount = $this->staffSitesFilterTotal(['missing_cover' => true]);
         $missingMarketListCount = $this->staffSitesFilterTotal([
@@ -195,15 +204,26 @@ class SiteController extends Controller
         ]);
         $scanFailedListCount = $this->staffSitesFilterTotal(['scan_failed' => true]);
         $archivedListCount = $this->staffSitesFilterTotal(['archived' => true]);
-        $healthCounts = CatalogHealthQueue::counts();
-        $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
+        $healthCounts = CatalogHealthQueue::emptyCounts();
+        $missingMarketCount = 0;
+        if ($request->user()?->isAdmin()) {
+            $healthCounts = CatalogHealthQueue::counts();
+            $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
+        }
         $flatQueueSites = null;
         $allSites = null;
         $sitesExportLimited = false;
 
         if ($flatQueue && $waitingOnPublisherFilter) {
             $listPerPage = $this->staffListPerPage($request, 20);
-            $listQuery = $request->except(['page', 'publisher']);
+            $listQuery = $this->staffSitesPagerAppendQuery(
+                $request,
+                $needsReviewFilter,
+                $waitingOnPublisherFilter,
+                $flatQueue,
+                $allSitesMode,
+                $publishersDirectory
+            );
             $users = new LengthAwarePaginator([], 0, $listPerPage, 1, [
                 'path' => $request->url(),
                 'query' => $listQuery,
@@ -219,7 +239,14 @@ class SiteController extends Controller
                 ->appends($listQuery);
         } elseif ($flatQueue && $needsReviewFilter) {
             $listPerPage = $this->staffListPerPage($request, 20);
-            $listQuery = $request->except(['page', 'publisher']);
+            $listQuery = $this->staffSitesPagerAppendQuery(
+                $request,
+                $needsReviewFilter,
+                $waitingOnPublisherFilter,
+                $flatQueue,
+                $allSitesMode,
+                $publishersDirectory
+            );
             $users = new LengthAwarePaginator([], 0, $listPerPage, 1, [
                 'path' => $request->url(),
                 'query' => $listQuery,
@@ -235,7 +262,14 @@ class SiteController extends Controller
                 ->appends($listQuery);
         } elseif ($allSitesMode) {
             $listPerPage = $this->staffListPerPage($request, 20);
-            $listQuery = $request->except(['page', 'publisher']);
+            $listQuery = $this->staffSitesPagerAppendQuery(
+                $request,
+                $needsReviewFilter,
+                $waitingOnPublisherFilter,
+                $flatQueue,
+                $allSitesMode,
+                $publishersDirectory
+            );
             $users = new LengthAwarePaginator([], 0, $listPerPage, 1, [
                 'path' => $request->url(),
                 'query' => $listQuery,
@@ -267,12 +301,6 @@ class SiteController extends Controller
                         $narrowQueueSites($q);
                     }
                 }])
-                ->withCount(['sites as waiting_on_publisher_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
-                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q);
-                    if ($waitingListNarrows) {
-                        $narrowQueueSites($q);
-                    }
-                }])
                 ->withCount(['sites as waiting_filling_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
                     MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'filling');
                     if ($waitingListNarrows) {
@@ -291,6 +319,15 @@ class SiteController extends Controller
                         $narrowQueueSites($q);
                     }
                 }]);
+
+            if ($waitingOnPublisherFilter) {
+                $query->withCount(['sites as waiting_on_publisher_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
+                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q);
+                    if ($waitingListNarrows) {
+                        $narrowQueueSites($q);
+                    }
+                }]);
+            }
 
             if ($publisherSearch !== '' || $this->staffSitesListNarrows($staffSiteFilters)) {
                 $query->withCount(['sites as matched_sites_count' => function ($q) use ($publisherSearch, $staffSiteFilters, $needsReviewFilter, $waitingOnPublisherFilter, $waitingStageForList, $reviewQueue, $narrowQueueSites) {
@@ -351,19 +388,39 @@ class SiteController extends Controller
                 default => 'waiting_on_publisher_sites_count',
             };
 
-            $users = $query
-                ->orderByDesc($waitingOnPublisherFilter ? $waitingSort : 'needs_review_sites_count')
-                ->orderByDesc('sites_count')
-                ->orderBy('name')
+            $users = $query;
+            if ($needsReviewFilter || $waitingOnPublisherFilter) {
+                $users = $users
+                    ->orderByDesc($waitingOnPublisherFilter ? $waitingSort : 'needs_review_sites_count')
+                    ->orderByDesc('sites_count')
+                    ->orderBy('name');
+            } else {
+                $users = $users->orderByDesc('id');
+            }
+            $users = $users
                 ->paginate($this->staffListPerPage($request, 20), ['*'], 'page', $this->staffListPage($request))
-                ->appends($request->except(['page', 'publisher']));
+                ->appends($this->staffSitesPagerAppendQuery(
+                    $request,
+                    $needsReviewFilter,
+                    $waitingOnPublisherFilter,
+                    $flatQueue,
+                    $allSitesMode,
+                    $publishersDirectory
+                ));
         }
 
         if ($flatQueueSites && $flatQueueSites->total() > self::EXPORT_LIMIT) {
             $sitesExportLimited = true;
         }
 
-        $sitesExportUrl = staff_route('sites.export', $this->staffSitesExportQuery($request));
+        $sitesExportUrl = staff_route('sites.export', $this->staffSitesPagerAppendQuery(
+            $request,
+            $needsReviewFilter,
+            $waitingOnPublisherFilter,
+            $flatQueue,
+            $allSitesMode,
+            $publishersDirectory
+        ));
         $sitesReturnQuery = AdminSites::rememberReturnQuery($request);
 
         return view('admin.sites', compact(
@@ -388,6 +445,7 @@ class SiteController extends Controller
             'flatQueue',
             'flatQueueSites',
             'allSitesMode',
+            'publishersDirectory',
             'allSites',
             'sitesExportLimited',
             'sitesExportUrl',
@@ -447,22 +505,6 @@ class SiteController extends Controller
             'waiting_stage' => $waiting && ($filters['waiting_stage'] ?? '') !== '' ? $filters['waiting_stage'] : null,
             'sort' => ($filters['sort'] ?? '') !== '' ? $filters['sort'] : null,
         ], static fn ($value) => $value !== null && $value !== '');
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function staffSitesExportQuery(Request $request): array
-    {
-        $query = [];
-        foreach ($request->query() as $key => $value) {
-            if ($key === 'page' || is_array($value)) {
-                continue;
-            }
-            $query[$key] = $value;
-        }
-
-        return $query;
     }
 
     /**
@@ -1525,6 +1567,7 @@ class SiteController extends Controller
             'screenshot_thumb_url' => $preview['thumb'],
             'image_url' => $imageUrl,
             ...$this->staffListingFacts($site),
+            ...$this->staffListedDatePayload($site->created_at, $site->updated_at),
         ];
     }
 
@@ -2021,6 +2064,62 @@ class SiteController extends Controller
                 $q->orWhereIn('domain', $candidates);
             }
         });
+    }
+
+    /**
+     * Keep the current Sites mode on page and CSV links.
+     *
+     * @return array<string, mixed>
+     */
+    private function staffSitesPagerAppendQuery(
+        Request $request,
+        bool $needsReview,
+        bool $waiting,
+        bool $flatQueue,
+        bool $allSitesMode,
+        bool $publishersDirectory = false
+    ): array {
+        $query = $request->except(['page', 'publisher', 'site', 'sites_page']);
+        foreach (['needs_review', 'waiting_on_publisher', 'flat', 'all', 'publishers'] as $key) {
+            unset($query[$key]);
+        }
+
+        return array_filter(array_merge($query, [
+            'needs_review' => $needsReview ? 1 : null,
+            'waiting_on_publisher' => $waiting ? 1 : null,
+            'flat' => $flatQueue ? 1 : null,
+            'publishers' => $publishersDirectory ? 1 : null,
+            'all' => $allSitesMode && $request->query('all') !== null ? 1 : null,
+        ]), static fn ($value) => $value !== null && $value !== '');
+    }
+
+    /**
+     * @return array{
+     *     created_at: ?string,
+     *     updated_at: ?string,
+     *     listed_days: ?int,
+     *     listed_label: ?string,
+     *     listed_date: ?string
+     * }
+     */
+    private function staffListedDatePayload(mixed $createdAt, mixed $updatedAt = null): array
+    {
+        $timezone = (string) config('app.timezone');
+        $listed = $createdAt instanceof \DateTimeInterface
+            ? Carbon::parse($createdAt)->timezone($timezone)
+            : null;
+        $updated = $updatedAt instanceof \DateTimeInterface
+            ? Carbon::parse($updatedAt)->timezone($timezone)
+            : null;
+        $days = $listed !== null ? (int) $listed->diffInDays(now()) : null;
+
+        return [
+            'created_at' => $listed?->toIso8601String(),
+            'updated_at' => $updated?->toIso8601String(),
+            'listed_days' => $days,
+            'listed_label' => $days === null ? null : ($days === 0 ? 'Today' : $days.'d'),
+            'listed_date' => $listed?->format('M j, Y'),
+        ];
     }
 
     /**

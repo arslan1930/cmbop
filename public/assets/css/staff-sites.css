@@ -855,6 +855,19 @@
   justify-content: flex-end;
 }
 
+.staff-listed-date {
+  line-height: 1.25;
+}
+
+.staff-site-filters-more {
+  flex: 1 0 100%;
+}
+
+.staff-site-filters-more summary {
+  cursor: pointer;
+  user-select: none;
+}
+
 .staff-sites-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));

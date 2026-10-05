@@ -62,7 +62,8 @@
         'waiting_on_publisher' => ! empty($waitingOnPublisherFilterActive) ? 1 : null,
         'waiting_stage' => ($waitingStage ?? '') !== '' ? $waitingStage : null,
         'flat' => ! empty($flatQueue) ? 1 : null,
-        'all' => ! empty($allSitesMode) ? 1 : null,
+        'all' => ! empty($allSitesMode) && request()->query('all') !== null ? 1 : null,
+        'publishers' => ! empty($publishersDirectory) ? 1 : null,
     ], static fn ($value) => $value !== null && $value !== '');
 @endphp
 @if($chipLabels !== [])

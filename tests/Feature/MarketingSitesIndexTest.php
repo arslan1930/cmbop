@@ -96,9 +96,22 @@ class MarketingSitesIndexTest extends TestCase
                 ->assertSee('Listed Publisher', false)
                 ->assertDontSee('hidden-advertiser@example.test', false)
                 ->assertDontSee('Hidden Advertiser', false)
-                ->assertSee('Search publishers', false)
+                ->assertSee('All sites', false)
+                ->assertSee('Publishers or sites', false)
                 ->assertDontSee('Search users', false)
                 ->assertDontSee('No users found', false);
+        }
+
+        foreach ([
+            route('marketing.sites.index', ['publishers' => 1]) => $this->marketer,
+            route('admin.sites.index', ['publishers' => 1]) => $this->admin,
+        ] as $url => $actor) {
+            $this->actingAs($actor)
+                ->get($url)
+                ->assertOk()
+                ->assertSee('listed-publisher@example.test', false)
+                ->assertSee('Publishers or sites', false)
+                ->assertDontSee('hidden-advertiser@example.test', false);
         }
     }
 
@@ -573,5 +586,99 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString('js-mkt-activate', $html);
         $this->assertStringContainsString('queryLooksLikeSiteSearch', $html);
         $this->assertStringContainsString('refetchOpenPublisherSites', $html);
+    }
+
+    public function test_marketing_sites_index_offers_ready_to_activate_queue(): void
+    {
+        $publisher = $this->userWithRole('publisher', [
+            'email' => 'ready-chip-pub@example.test',
+        ]);
+        $this->makeSite($publisher, [
+            'site_name' => 'Ready Chip Site',
+            'domain' => 'ready-chip.example',
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+            'da' => 30,
+            'dr' => 30,
+            'traffic' => 10000,
+        ]);
+
+        $html = $this->actingAs($this->marketer)
+            ->get(route('marketing.sites.index'))
+            ->assertOk()
+            ->assertSee('Sites Management', false)
+            ->assertSee('Ready to activate', false)
+            ->assertSee('ready-chip-pub@example.test', false)
+            ->assertDontSee('Ready Chip Site', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('staff-sites-crumb', $html);
+        $this->assertStringContainsString(
+            e(route('marketing.sites.index', ['needs_review' => 1, 'flat' => 1], false)),
+            $html
+        );
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.sites.index', ['needs_review' => 1, 'flat' => 1]))
+            ->assertOk()
+            ->assertSee('Ready Chip Site', false)
+            ->assertSee('onchange="this.form.submit()"', false);
+    }
+
+    public function test_marketing_ready_queue_paginates_server_side(): void
+    {
+        $publisher = $this->userWithRole('publisher', [
+            'email' => 'ready-page-pub@example.test',
+        ]);
+        foreach (range(1, 21) as $i) {
+            $this->makeSite($publisher, [
+                'site_name' => sprintf('Ready Page Site %02d', $i),
+                'domain' => sprintf('ready-page-%02d.example', $i),
+                'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+                'da' => 30,
+                'dr' => 30,
+                'traffic' => 10000,
+            ]);
+        }
+
+        $page1 = $this->actingAs($this->marketer)
+            ->get(route('marketing.sites.index', ['needs_review' => 1, 'flat' => 1]))
+            ->assertOk()
+            ->assertSee('Showing 1–20 of 21', false)
+            ->assertSee('page=2', false)
+            ->getContent();
+
+        $this->assertStringContainsString('name="per_page"', $page1);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.sites.index', ['needs_review' => 1, 'flat' => 1, 'page' => 2, 'per_page' => 20]))
+            ->assertOk()
+            ->assertSee('Showing 21–21 of 21', false)
+            ->assertSee('Ready Page Site', false);
+    }
+
+    public function test_user_sites_json_includes_listed_dates(): void
+    {
+        $publisher = $this->userWithRole('publisher', [
+            'email' => 'listed-json-pub@example.test',
+        ]);
+        $site = $this->makeSite($publisher, [
+            'domain' => 'listed-json.example',
+            'created_at' => now()->subDays(2),
+        ]);
+
+        $payload = $this->actingAs($this->marketer)
+            ->getJson(route('marketing.users.sites', $publisher->id))
+            ->assertOk()
+            ->json();
+
+        $row = collect($payload['sites'] ?? [])->firstWhere('id', $site->id);
+        $this->assertNotNull($row);
+        $this->assertNotNull($row['listed_days'] ?? null);
+        $this->assertNotEmpty($row['listed_label'] ?? null);
+        $this->assertSame(
+            $site->created_at->timezone(config('app.timezone'))->format('M j, Y'),
+            $row['listed_date'] ?? null
+        );
+        $this->assertNotEmpty($row['created_at'] ?? null);
     }
 }

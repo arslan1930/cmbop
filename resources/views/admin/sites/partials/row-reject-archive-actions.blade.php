@@ -1,4 +1,5 @@
 @php
+    $labeledActions = ! empty($labeledActions);
     $isMarketingEditor = (bool) (auth()->user()?->isMarketing() && ! auth()->user()?->isAdmin());
     $hasOrders = $site->orderItemsCount() > 0;
     $canRestore = (bool) auth()->user()?->isAdmin() && $site->isArchived();
@@ -24,12 +25,16 @@
 @else
     @if($canReject)
         <button type="button"
-                class="btn btn-sm btn-outline-danger delete-site staff-action-icon-btn"
+                class="btn btn-sm btn-outline-danger delete-site{{ $labeledActions ? '' : ' staff-action-icon-btn' }}"
                 data-id="{{ $site->id }}"
                 data-name="{{ $site->site_name }}"
                 title="Reject"
                 aria-label="Reject">
-            <i class="fa fa-times" aria-hidden="true"></i>
+            @if($labeledActions)
+                Reject
+            @else
+                <i class="fa fa-times" aria-hidden="true"></i>
+            @endif
         </button>
     @endif
     @if($canArchive)

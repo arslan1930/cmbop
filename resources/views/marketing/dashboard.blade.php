@@ -27,6 +27,7 @@
         </div>
         <div class="d-flex gap-2 flex-wrap mkt-dashboard-toolbar">
             <form method="GET" action="{{ route('marketing.sites.index') }}" class="mkt-dashboard-jump" role="search">
+                <input type="hidden" name="publishers" value="1">
                 <x-slb-search-field
                     name="q"
                     id="mkt-dashboard-q"
