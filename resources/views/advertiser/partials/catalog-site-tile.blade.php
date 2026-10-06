@@ -73,6 +73,7 @@
                  alt=""
                  width="32"
                  height="32"
+                 loading="lazy"
                  decoding="async"
                  referrerpolicy="no-referrer"
                  class="catalog-tile__img catalog-tile__favicon"
@@ -88,6 +89,7 @@
                  alt=""
                  width="32"
                  height="32"
+                 loading="lazy"
                  decoding="async"
                  class="catalog-tile__fallback-img">
         </span>
@@ -102,6 +104,7 @@
              alt=""
              width="32"
              height="32"
+             loading="lazy"
              decoding="async"
              referrerpolicy="no-referrer"
              class="catalog-tile__img catalog-tile__favicon"
@@ -116,6 +119,7 @@
                  alt=""
                  width="32"
                  height="32"
+                 loading="lazy"
                  decoding="async"
                  class="catalog-tile__fallback-img">
         </span>

@@ -15,11 +15,12 @@ class CatalogFooterCascadeTest extends TestCase
         $js = (string) file_get_contents(public_path('assets/js/catalog.js'));
 
         $this->assertStringContainsString('.catalog-page .catalog-pagination', $css);
-        $this->assertStringContainsString('flex-direction: row', $css);
+        $this->assertStringContainsString('grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)', $css);
+        $this->assertStringContainsString('padding: 0.85rem 1.25rem 1rem', $css);
         $this->assertStringContainsString('.catalog-page .catalog-pagination__perpage', $css);
-        $this->assertStringContainsString('margin-right: auto', $css);
+        $this->assertStringContainsString('padding-left: 0.35rem', $css);
         $this->assertStringContainsString('.catalog-page .catalog-pagination__links', $css);
-        $this->assertStringContainsString('width: auto', $css);
+        $this->assertStringContainsString('justify-self: center', $css);
 
         $this->assertStringContainsString('flex-direction: column', $shared);
         $this->assertStringContainsString('.catalog-pagination__links', $shared);

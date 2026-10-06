@@ -309,12 +309,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Queued mail sits on the "emails" queue until a worker consumes it. Hosts
         // that only offer cron have no resident worker, so drain the backlog here.
-        // Catalog tile GETs are disk/SVG only. Warm a few icons per minute
-        // so shared PHP workers never wait on Google / publisher hosts.
-        $schedule->command('catalog:warm-favicons --limit=5')
-            ->everyMinute()
-            ->withoutOverlapping(2);
-
         $schedule->command('mail:drain-queue')
             ->everyMinute()
             ->withoutOverlapping(5)
