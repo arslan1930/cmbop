@@ -2822,12 +2822,6 @@ const CatalogLive = (function () {
         }
     }
 
-    function catalogMoneyLabel(amount) {
-        const n = Number(amount);
-        if (!Number.isFinite(n)) return '';
-        return (window.slbFormatMoney || function (value) { return '€' + Number(value).toFixed(2); })(n);
-    }
-
     function inventoryFromHtml(card) {
         const raw = card && card.getAttribute('data-inventory-from');
         if (raw === null || raw === '') return '';
@@ -4220,6 +4214,16 @@ function catalogFlyToCart(originEl, meta) {
 
 window.catalogFlyToCart = catalogFlyToCart;
 window.catalogAnnounceCart = catalogAnnounceCart;
+
+/**
+ * Format a catalog amount. File-scope so expand/Buy sync and live results
+ * both see it (it used to live inside the live-search IIFE).
+ */
+function catalogMoneyLabel(amount) {
+    const n = Number(amount);
+    if (!Number.isFinite(n)) return '';
+    return (window.slbFormatMoney || function (value) { return '€' + Number(value).toFixed(2); })(n);
+}
 
 /**
  * Round money the same way PHP round(..., 2) does for catalog prices.
