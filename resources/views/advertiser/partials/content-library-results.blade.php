@@ -246,7 +246,10 @@
                                 <img src="{{ $featureThumb }}"
                                      alt=""
                                      class="library-feature-thumb"
+                                     width="40"
+                                     height="40"
                                      loading="lazy"
+                                     decoding="async"
                                      onerror="this.style.display='none'; this.insertAdjacentHTML('afterend','<span class=\'text-muted small\'>Image unavailable</span>');">
                             @endif
                             <div class="library-title text-truncate" data-title-display="{{ $submission->id }}" title="{{ $submission->title ?: $submission->original_filename }}">

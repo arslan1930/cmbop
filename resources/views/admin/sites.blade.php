@@ -630,7 +630,7 @@
                  </table>
             </div>
             <div class="admin-sites-pager d-none" id="sitesPagerBar">
-                <div class="admin-sites-pager__size">
+                <div class="admin-sites-pager__size admin-deposits-filters" data-admin-filter-live="1">
                     <span class="small text-muted mb-0" id="sitesPagerRange"></span>
                     <label class="small text-muted mb-0" for="sitesPerPage">Rows</label>
                     <select id="sitesPerPage" class="form-select form-select-sm" aria-label="Rows per page">

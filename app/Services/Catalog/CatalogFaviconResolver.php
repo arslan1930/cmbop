@@ -10,8 +10,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Same-origin catalog tile icon. Listing GETs serve a stored file or the
- * SVG fallback — never an outbound fetch (Hostinger workers stall on that).
+ * Same-origin catalog tile icon. The browser never hits publisher hosts
+ * (demo DNS / TLS noise). Real listings are fetched once and cached.
  */
 class CatalogFaviconResolver
 {
@@ -29,6 +29,19 @@ class CatalogFaviconResolver
         if ($cached !== null) {
             return $this->fileResponse($cached);
         }
+
+        if ($this->isMissCached($site)) {
+            return $this->fallbackResponse();
+        }
+
+        if ($this->capture($site)) {
+            $cached = $this->cachedPath($site);
+            if ($cached !== null) {
+                return $this->fileResponse($cached);
+            }
+        }
+
+        $this->rememberMiss($site);
 
         return $this->fallbackResponse();
     }

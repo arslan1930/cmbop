@@ -333,9 +333,9 @@
 
                         <!-- Primary: Category (searchable dropdown) -->
                         <div class="col-6 col-sm-6 col-lg-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">Category</label>
+                            <label class="form-label fw-semibold small text-muted mb-1" for="categoryMultiTrigger">Category</label>
                             <div class="multi-select-wrapper" data-multi-select="category">
-                                <div class="multi-select-input form-control form-control-sm" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" onclick="toggleMultiDropdown('categoryMultiDropdown', this)">
+                                <div class="multi-select-input form-control form-control-sm" id="categoryMultiTrigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" onclick="toggleMultiDropdown('categoryMultiDropdown', this)">
                                     <div class="selected-items" id="selectedCategoriesDisplay" data-placeholder="All categories" data-singular="category" data-plural="categories">
                                         <span class="placeholder-text">All categories</span>
                                     </div>
@@ -349,7 +349,7 @@
                                     <div class="options-list" id="categoryMultiOptions">
                                         @foreach($siteCategories as $category)
                                             <div class="option-item" role="option" aria-selected="false" tabindex="-1">
-                                                <input type="checkbox" value="{{ $category }}" data-type="category" data-name="{{ $category }}" onchange="updateMultiFilter(this)" tabindex="-1">
+                                                <input type="checkbox" value="{{ $category }}" data-type="category" data-name="{{ $category }}" aria-label="{{ $category }}" onchange="updateMultiFilter(this)" tabindex="-1">
                                                 <span>{{ $category }}</span>
                                             </div>
                                         @endforeach
@@ -362,9 +362,9 @@
 
                         <!-- Primary: Country (searchable dropdown) -->
                         <div class="col-6 col-sm-6 col-lg-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">Country</label>
+                            <label class="form-label fw-semibold small text-muted mb-1" for="countryMultiTrigger">Country</label>
                             <div class="multi-select-wrapper" data-multi-select="country">
-                                <div class="multi-select-input form-control form-control-sm" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" onclick="toggleMultiDropdown('countryMultiDropdown', this)">
+                                <div class="multi-select-input form-control form-control-sm" id="countryMultiTrigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" onclick="toggleMultiDropdown('countryMultiDropdown', this)">
                                     <div class="selected-items" id="selectedCountriesDisplay" data-placeholder="All countries" data-singular="country" data-plural="countries">
                                         <span class="placeholder-text">All countries</span>
                                     </div>
@@ -400,6 +400,7 @@
                                                                data-type="country"
                                                                data-name="{{ $option['name'] }}"
                                                                data-count="{{ (int) $option['count'] }}"
+                                                               aria-label="{{ $option['name'] }}"
                                                                onchange="updateMultiFilter(this)"
                                                                tabindex="-1">
                                                         <span>{{ $option['name'] }} ({{ number_format((int) $option['count']) }})</span>
@@ -415,6 +416,7 @@
                                                            data-type="country"
                                                            data-name="{{ $name }}"
                                                            data-count="0"
+                                                           aria-label="{{ $name }}"
                                                            onchange="updateMultiFilter(this)"
                                                            tabindex="-1">
                                                     <span>{{ $name }}</span>
@@ -434,9 +436,9 @@
 
                         <!-- Primary: Language (searchable dropdown) -->
                         <div class="col-6 col-sm-6 col-lg-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">Language</label>
+                            <label class="form-label fw-semibold small text-muted mb-1" for="languageMultiTrigger">Language</label>
                             <div class="multi-select-wrapper" data-multi-select="language">
-                                <div class="multi-select-input form-control form-control-sm" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" onclick="toggleMultiDropdown('languageMultiDropdown', this)">
+                                <div class="multi-select-input form-control form-control-sm" id="languageMultiTrigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" onclick="toggleMultiDropdown('languageMultiDropdown', this)">
                                     <div class="selected-items" id="selectedLanguagesDisplay" data-placeholder="All languages" data-singular="language" data-plural="languages">
                                         <span class="placeholder-text">All languages</span>
                                     </div>
@@ -450,7 +452,7 @@
                                     <div class="options-list" id="languageMultiOptions">
                                         @foreach($availableLanguages as $code => $name)
                                             <div class="option-item" role="option" aria-selected="false" tabindex="-1">
-                                                <input type="checkbox" value="{{ $code }}" data-type="language" data-name="{{ $name }}" onchange="updateMultiFilter(this)" tabindex="-1">
+                                                <input type="checkbox" value="{{ $code }}" data-type="language" data-name="{{ $name }}" aria-label="{{ $name }}" onchange="updateMultiFilter(this)" tabindex="-1">
                                                 <span>{{ $name }}</span>
                                             </div>
                                         @endforeach
@@ -463,7 +465,7 @@
 
                         <!-- Primary: Price -->
                         <div class="col-6 col-sm-6 col-lg-2">
-                            <label class="form-label fw-semibold small text-muted mb-1">Price (€)</label>
+                            <label class="form-label fw-semibold small text-muted mb-1" id="catalogPriceFilter" for="priceMinInput">Price (€)</label>
                             <div class="d-flex gap-2">
                                 <input type="number"
                                        name="price_min"
@@ -489,7 +491,7 @@
 
                         <!-- Actions -->
                         <div class="col-12 col-lg-2">
-                            <label class="form-label fw-semibold small text-muted mb-1 d-none d-md-block">&nbsp;</label>
+                            <span class="form-label fw-semibold small text-muted mb-1 d-none d-md-block" aria-hidden="true">&nbsp;</span>
                             <div class="d-flex flex-wrap gap-2 align-items-center">
                                 <button type="submit" class="btn btn-sm {{ $catalogLiveSearch ? 'btn-cta-secondary' : 'btn-primary' }} px-3" id="applyFiltersBtn">
                                     <i class="fa-solid fa-filter me-1" aria-hidden="true"></i> {{ $catalogLiveSearch ? 'Apply' : 'Filter' }}
@@ -497,7 +499,7 @@
                                 @if($catalogLiveSearch)
                                     <span class="small text-muted catalog-live-apply-hint">Applies as you type</span>
                                 @endif
-                                <button type="button" class="btn btn-sm btn-cta-secondary px-2" id="toggleMoreFiltersBtn" aria-controls="moreFiltersDrawer" aria-expanded="{{ $moreFiltersOpen ? 'true' : 'false' }}">
+                                <button type="button" class="btn btn-sm btn-cta-secondary px-2" id="toggleMoreFiltersBtn" aria-label="More filters" aria-controls="moreFiltersDrawer" aria-expanded="{{ $moreFiltersOpen ? 'true' : 'false' }}">
                                     More
                                     @if($moreFiltersOpen)
                                         <span class="badge rounded-pill ms-1" data-more-filters-count
@@ -570,7 +572,7 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">
+                                <label class="form-label fw-semibold small text-muted mb-1" id="catalogDaFilter" for="daMinInput">
                                     <abbr class="metric-abbr text-decoration-none" title="Moz Domain Authority — site strength score from 0–100">DA</abbr>
                                 </label>
                                 <div class="d-flex gap-2">
@@ -584,7 +586,7 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">
+                                <label class="form-label fw-semibold small text-muted mb-1" id="catalogDrFilter" for="drMinInput">
                                     <abbr class="metric-abbr text-decoration-none" title="Ahrefs Domain Rating — backlink strength score from 0–100">DR</abbr>
                                 </label>
                                 <div class="d-flex gap-2">
@@ -598,7 +600,7 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">Monthly Traffic</label>
+                                <label class="form-label fw-semibold small text-muted mb-1" id="catalogTrafficFilter" for="trafficMinInput">Monthly Traffic</label>
                                 <div class="d-flex gap-2">
                                     <input type="number" name="traffic_min" id="trafficMinInput" aria-label="Minimum monthly traffic" class="form-control form-control-sm no-spinner" placeholder="Min" min="0" max="4294967295" step="1" inputmode="numeric" value="{{ trim(scalar_text(request('traffic_min'))) }}">
                                     <input type="number" name="traffic_max" id="trafficMaxInput" aria-label="Maximum monthly traffic" class="form-control form-control-sm no-spinner" placeholder="Max" min="0" max="4294967295" step="1" inputmode="numeric" value="{{ trim(scalar_text(request('traffic_max'))) }}">
@@ -610,7 +612,7 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">Bulk deals</label>
+                                <label class="form-label fw-semibold small text-muted mb-1" for="bulk_deals">Bulk deals</label>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="bulk_deals" id="bulk_deals" value="1" {{ request('bulk_deals') == 1 ? 'checked' : '' }}>
                                     <label class="form-check-label" for="bulk_deals">Show Bulk Deals</label>
@@ -618,7 +620,7 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">
+                                <label class="form-label fw-semibold small text-muted mb-1" for="featured">
                                     <i class="fa-solid fa-bolt-fill me-1" aria-hidden="true"></i>Featured
                                 </label>
                                 <div class="form-check">
@@ -628,7 +630,7 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">On sale</label>
+                                <label class="form-label fw-semibold small text-muted mb-1" for="on_sale">On sale</label>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="on_sale" id="on_sale" value="1" {{ request('on_sale') == 1 ? 'checked' : '' }}>
                                     <label class="form-check-label" for="on_sale">Show On Sale</label>
@@ -636,7 +638,7 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">New Sites</label>
+                                <label class="form-label fw-semibold small text-muted mb-1" for="new_badge">New Sites</label>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="new_badge" id="new_badge" value="1" {{ request('new_badge') == 1 ? 'checked' : '' }}>
                                     <label class="form-check-label" for="new_badge">Show New Sites</label>
@@ -644,7 +646,7 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">Quality</label>
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogQualityGate">Quality</label>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="quality" id="catalogQualityGate" value="1" {{ request('quality') == 1 ? 'checked' : '' }}
                                            title="DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}">
@@ -667,7 +669,7 @@
                             </div>
 
                             <div class="col-6 col-md-4 col-lg-3">
-                                <label class="form-label fw-semibold small text-muted mb-1">Completions</label>
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogHasCompletions">Completions</label>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="has_completions" id="catalogHasCompletions" value="1" {{ request('has_completions') == 1 ? 'checked' : '' }}>
                                     <label class="form-check-label" for="catalogHasCompletions">Has completed placements</label>

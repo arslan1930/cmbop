@@ -2225,8 +2225,9 @@ class Site extends Model
     }
 
     /**
-     * Closed-row tile URL: stored public file or the static SVG.
-     * Never the PHP favicon route (that would boot Laravel 20 times per page).
+    /**
+     * Same-origin tile URL. The resolver fetches a real icon when the host
+     * is reachable and otherwise returns catalog-site-fallback.svg.
      */
     public function catalogTileFaviconUrl(): ?string
     {
@@ -2235,23 +2236,10 @@ class Site extends Model
             return null;
         }
 
-        $stored = $this->leftoverStringAttribute('favicon_path');
-        if (is_string($stored) && $stored !== '') {
-            $url = static::publicDiskUrl($stored);
-            if (is_string($url) && $url !== '') {
-                return $url;
-            }
-        }
-
-        return static::catalogTileFallbackUrl();
-    }
-
-    public static function catalogTileFallbackUrl(): string
-    {
         try {
-            return asset('assets/img/catalog-site-fallback.svg');
+            return route('advertiser.catalog.favicon', ['site' => $id], false);
         } catch (\Throwable) {
-            return '/assets/img/catalog-site-fallback.svg';
+            return null;
         }
     }
 

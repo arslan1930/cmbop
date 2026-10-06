@@ -19,12 +19,14 @@
     @foreach($banners as $banner)
         @php
             $src = $banner->imageSrc();
+            $adW = max(1, (int) ($banner->width ?: 300));
+            $adH = max(1, (int) ($banner->height ?: 250));
             $href = $banner->clickHref()
                 ? ($trackPromos ? route('banners.click', $banner) : $banner->clickHref())
                 : null;
         @endphp
         @if($src)
-            <div class="ad-banner" style="--ad-w: {{ $banner->width }}px; --ad-h: {{ $banner->height }}px;"
+            <div class="ad-banner" style="--ad-w: {{ $adW }}px; --ad-h: {{ $adH }}px;"
                  @if($trackPromos) data-track-banner="{{ $banner->id }}" @endif>
                 @if($href)
                     <a href="{{ $href }}"
@@ -33,17 +35,19 @@
                        aria-label="{{ scalar_text($banner->alt_text ?: ($banner->title ?: $banner->name)) }}">
                         <img src="{{ $src }}"
                              alt="{{ scalar_text($banner->alt_text ?: ($banner->title ?: $banner->name)) }}"
-                             width="{{ $banner->width }}"
-                             height="{{ $banner->height }}"
+                             width="{{ $adW }}"
+                             height="{{ $adH }}"
                              loading="lazy"
+                             decoding="async"
                              class="ad-banner__img">
                     </a>
                 @else
                     <img src="{{ $src }}"
                          alt="{{ scalar_text($banner->alt_text ?: ($banner->title ?: $banner->name)) }}"
-                         width="{{ $banner->width }}"
-                         height="{{ $banner->height }}"
+                         width="{{ $adW }}"
+                         height="{{ $adH }}"
                          loading="lazy"
+                         decoding="async"
                          class="ad-banner__img">
                 @endif
                 @if($banner->title)

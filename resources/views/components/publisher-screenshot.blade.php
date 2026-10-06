@@ -14,6 +14,8 @@
 @if($url)
     <img src="{{ $url }}"
          alt="{{ $alt }}"
+         width="{{ $size === 'full' ? 640 : 300 }}"
+         height="{{ $size === 'full' ? 360 : 188 }}"
          loading="lazy"
          decoding="async"
          data-preview-chain="{{ json_encode($chain, JSON_UNESCAPED_SLASHES) }}"

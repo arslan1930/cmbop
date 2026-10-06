@@ -65,38 +65,26 @@ class CatalogFaviconEndpointTest extends TestCase
         ], $overrides));
     }
 
-    public function test_missing_icon_returns_fallback_without_a_remote_fetch(): void
+    public function test_reachable_site_favicon_is_cached_and_served(): void
     {
-        Http::fake();
-
-        $site = $this->makeSite();
-
-        $this->actingAs($this->advertiser)
-            ->get(route('advertiser.catalog.favicon', $site))
-            ->assertOk()
-            ->assertHeader('content-type', 'image/svg+xml');
-
-        Http::assertNothingSent();
-        $this->assertFalse(Storage::disk('public')->exists(CatalogFaviconResolver::STORAGE_DIR.'/'.$site->id.'.png'));
-        $this->assertStringContainsString('<svg', (string) file_get_contents(public_path('assets/img/catalog-site-fallback.svg')));
-    }
-
-    public function test_stored_icon_is_served_from_disk(): void
-    {
-        Http::fake();
-
         $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', true);
         $this->assertNotFalse($png);
 
+        Http::fake([
+            'https://www.google.com/s2/favicons*' => Http::response($png, 200, ['Content-Type' => 'image/png']),
+            'https://good-site.de/favicon.ico' => Http::response('no', 404),
+            'https://icons.duckduckgo.com/*' => Http::response('no', 404),
+        ]);
+
         $site = $this->makeSite();
-        Storage::disk('public')->put(CatalogFaviconResolver::STORAGE_DIR.'/'.$site->id.'.png', $png);
 
         $this->actingAs($this->advertiser)
             ->get(route('advertiser.catalog.favicon', $site))
             ->assertOk()
             ->assertHeader('content-type', 'image/png');
 
-        Http::assertNothingSent();
+        $this->assertTrue(Storage::disk('public')->exists(CatalogFaviconResolver::STORAGE_DIR.'/'.$site->id.'.png'));
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'google.com/s2/favicons'));
     }
 
     public function test_demo_hosts_return_the_theme_fallback_without_a_remote_fetch(): void

@@ -20,37 +20,6 @@ class CatalogFaviconUrlChainTest extends TestCase
         $this->assertSame([], $site->catalogFaviconUrlChain('News-Desk.Example'));
     }
 
-    public function test_saved_site_uses_static_file_not_php_route(): void
-    {
-        $site = new Site([
-            'domain' => 'good-site.de',
-            'site_url' => 'https://good-site.de',
-        ]);
-        $site->id = 42;
-
-        $url = $site->catalogTileFaviconUrl();
-        $this->assertIsString($url);
-        $this->assertStringContainsString('catalog-site-fallback.svg', $url);
-        $this->assertStringNotContainsString('catalog/favicon', $url);
-
-        $stored = new Site([
-            'domain' => 'good-site.de',
-            'favicon_path' => 'site-favicons/42.png',
-        ]);
-        $stored->id = 42;
-        $this->assertSame('/media/site-favicons/42.png', $stored->catalogTileFaviconUrl());
-    }
-
-    public function test_listing_response_does_not_live_fetch(): void
-    {
-        $source = (string) file_get_contents((new \ReflectionClass(CatalogFaviconResolver::class))->getFileName());
-        $this->assertStringContainsString('return $this->fallbackResponse();', $source);
-        $this->assertDoesNotMatchRegularExpression(
-            '/function response\([^)]*\)[^{]*\{[^}]*capture\(/s',
-            $source
-        );
-    }
-
     public function test_placeholder_hosts_are_not_fetched(): void
     {
         $resolver = new CatalogFaviconResolver;

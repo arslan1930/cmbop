@@ -30,10 +30,10 @@
     </div>
     @if($showMethods)
         <div class="payment-trust__methods" aria-label="Accepted payment methods">
-            <img class="payment-trust__logo payment-trust__logo--card" src="{{ $asset('visa.svg') }}" alt="Visa" title="Visa" width="48" height="30" loading="lazy" decoding="async">
-            <img class="payment-trust__logo payment-trust__logo--card" src="{{ $asset('mastercard.svg') }}" alt="Mastercard" title="Mastercard" width="40" height="30" loading="lazy" decoding="async">
+            <img class="payment-trust__logo payment-trust__logo--card payment-trust__logo--visa" src="{{ $asset('visa.svg') }}" alt="Visa" title="Visa" width="48" height="30" loading="lazy" decoding="async">
+            <img class="payment-trust__logo payment-trust__logo--card payment-trust__logo--mastercard" src="{{ $asset('mastercard.svg') }}" alt="Mastercard" title="Mastercard" width="40" height="30" loading="lazy" decoding="async">
             @if(config('billing.show_apple_pay'))
-                <img class="payment-trust__logo payment-trust__logo--card" src="{{ $asset('apple-pay.svg') }}" alt="Apple Pay" title="Apple Pay" width="56" height="30" loading="lazy" decoding="async">
+                <img class="payment-trust__logo payment-trust__logo--card payment-trust__logo--apple" src="{{ $asset('apple-pay.svg') }}" alt="Apple Pay" title="Apple Pay" width="56" height="30" loading="lazy" decoding="async">
             @endif
             <img class="payment-trust__logo payment-trust__logo--bank" src="{{ $asset('bank.svg') }}" alt="Bank transfer" title="Bank transfer" width="72" height="36" loading="lazy" decoding="async">
             <img class="payment-trust__logo payment-trust__logo--paypal{{ $paypalConfigured ? '' : ' is-offline' }}" src="{{ $asset('paypal.png') }}" alt="PayPal" title="{{ $paypalConfigured ? 'PayPal' : 'PayPal (temporarily unavailable)' }}" width="48" height="47" loading="lazy" decoding="async">
@@ -94,48 +94,74 @@
         }
         .payment-trust__logo {
             display: block;
-            width: auto;
-            height: 22px;
             object-fit: contain;
             flex-shrink: 0;
         }
-        .payment-trust__logo--card {
+        .payment-trust__logo--visa {
+            width: 42px;
             height: 26px;
+            aspect-ratio: 48 / 30;
+        }
+        .payment-trust__logo--mastercard {
+            width: 35px;
+            height: 26px;
+            aspect-ratio: 40 / 30;
+        }
+        .payment-trust__logo--apple {
+            width: 49px;
+            height: 26px;
+            aspect-ratio: 56 / 30;
         }
         .payment-trust__logo--bank {
-            width: auto;
+            width: 64px;
             height: 32px;
-            max-height: 32px;
+            aspect-ratio: 72 / 36;
         }
         .payment-trust__logo--wise {
+            width: 72px;
             height: 16px;
+            aspect-ratio: 72 / 16;
         }
         .payment-trust__logo--paypal {
+            width: 41px;
             height: 40px;
+            aspect-ratio: 48 / 47;
         }
         .payment-trust__logo.is-offline {
             opacity: 0.45;
         }
         .payment-trust__logo--crypto {
-            height: 22px;
             width: 22px;
+            height: 22px;
+            aspect-ratio: 1 / 1;
         }
-        .payment-trust--compact .payment-trust__logo {
-            height: 18px;
+        .payment-trust--compact .payment-trust__logo--visa {
+            width: 35px;
+            height: 22px;
         }
-        .payment-trust--compact .payment-trust__logo--card {
+        .payment-trust--compact .payment-trust__logo--mastercard {
+            width: 29px;
+            height: 22px;
+        }
+        .payment-trust--compact .payment-trust__logo--apple {
+            width: 41px;
             height: 22px;
         }
         .payment-trust--compact .payment-trust__logo--bank {
+            width: 56px;
             height: 28px;
-            max-height: 28px;
         }
         .payment-trust--compact .payment-trust__logo--crypto {
-            height: 20px;
             width: 20px;
+            height: 20px;
         }
         .payment-trust--compact .payment-trust__logo--paypal {
+            width: 33px;
             height: 32px;
+        }
+        .payment-trust--compact .payment-trust__logo--wise {
+            width: 72px;
+            height: 16px;
         }
         .payment-trust--compact {
             font-size: 11px;

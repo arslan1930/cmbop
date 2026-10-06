@@ -167,6 +167,7 @@
   max-width: 100%;
   width: min(100%, var(--ad-w, 300px));
   height: auto;
+  aspect-ratio: var(--ad-w, 300) / var(--ad-h, 250);
   border-radius: 0.4rem;
 }
 
@@ -180,6 +181,8 @@
   max-height: 120px;
   width: auto;
   max-width: min(100%, 320px);
+  height: auto;
+  aspect-ratio: var(--ad-w, 300) / var(--ad-h, 250);
   object-fit: contain;
   margin: 0 auto;
 }
@@ -202,6 +205,8 @@
   max-width: 100%;
   width: auto;
   max-height: 250px;
+  height: auto;
+  aspect-ratio: var(--ad-w, 300) / var(--ad-h, 250);
   object-fit: contain;
 }
 
