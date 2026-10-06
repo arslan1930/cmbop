@@ -20,7 +20,7 @@
 @endphp
 @if($showPager)
 <div class="admin-sites-pager">
-    <form method="get" action="{{ url()->current() }}" class="admin-sites-pager__size admin-deposits-filters">
+    <form method="get" action="{{ url()->current() }}" class="admin-sites-pager__size">
         @foreach($keptQuery as $key => $value)
             @if(is_array($value))
                 @foreach($value as $item)

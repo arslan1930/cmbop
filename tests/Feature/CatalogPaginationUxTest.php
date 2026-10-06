@@ -88,8 +88,9 @@ class CatalogPaginationUxTest extends TestCase
             ->get(route('advertiser.catalog', ['per_page' => 50]))
             ->assertOk()
             ->getContent();
-        // 30 sites fit on one page at 50 — pager must hide.
+        // 30 sites fit on one page at 50 — numbered pager hides; per-page stays bottom-left.
         $this->assertStringNotContainsString('catalog-pagination__links', $fifty);
+        $this->assertStringContainsString('catalog-pagination__perpage', $fifty);
         $this->assertStringContainsString('50 per page', $fifty);
 
         $invalid = $this->actingAs($this->advertiser)
@@ -113,6 +114,8 @@ class CatalogPaginationUxTest extends TestCase
 
         $this->assertStringContainsString('11–20', $html);
         $this->assertStringContainsString('Page 2 of 3', $html);
+        $this->assertStringContainsString('catalog-pagination__perpage', $html);
+        $this->assertStringContainsString('id="catalogPerPage"', $html);
         $this->assertStringContainsString('catalog-pagination__pill', $html);
         $this->assertStringContainsString('data-current-page="2"', $html);
         $this->assertStringContainsString('tabindex="-1"', $html);

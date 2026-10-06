@@ -140,9 +140,10 @@
 }
 
 .admin-sites-pager {
-  display: grid;
-  grid-template-columns: minmax(9rem, 1fr) auto minmax(9rem, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
 }
@@ -151,8 +152,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  justify-self: start;
   width: auto;
+  flex: 0 0 auto;
 }
 
 .admin-sites-pager__size .admin-deposits-theme-select,
@@ -161,14 +162,18 @@
   min-width: 5.75rem;
 }
 
+.admin-sites-pager__end {
+  display: none;
+}
+
 .admin-sites-pager__links {
-  justify-self: center;
+  justify-self: start;
 }
 
 .admin-sites-pager__links nav,
 .admin-sites-pager__links .d-sm-flex,
 .admin-sites-pager__links .flex-sm-fill {
-  justify-content: center !important;
+  justify-content: flex-start !important;
 }
 
 .admin-sites-pager__links p,

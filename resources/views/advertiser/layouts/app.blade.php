@@ -745,9 +745,11 @@
             },
             error: function(xhr) {
                 console.error('Failed to load cart');
-                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message;
-                if (msg) {
-                    showToast(msg, 'error');
+                const raw = String(xhr.responseJSON?.error || xhr.responseJSON?.message || '');
+                if (raw && !/SQLSTATE|SQL:|stack trace|\.php|Connection refused/i.test(raw)) {
+                    showToast(raw, 'error');
+                } else {
+                    showToast('Could not refresh cart.', 'error');
                 }
             }
         });
@@ -1431,11 +1433,8 @@
                 window.catalogAnnounceCart(label);
             }
             updateCartDisplay();
-            let firstAdd = false;
-            try { firstAdd = sessionStorage.getItem('slb_cart_drawer_seen') !== '1'; } catch (_) { firstAdd = true; }
-            if (opts.openCart || opts.bulk || (Number.isFinite(qty) && qty > 1) || firstAdd) {
+            if (opts.openCart) {
                 try { openCart(); } catch (_) { /* cart chrome may not be ready */ }
-                try { sessionStorage.setItem('slb_cart_drawer_seen', '1'); } catch (_) {}
             }
             return { ok: true, data: data };
         }).catch(function () {

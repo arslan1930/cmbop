@@ -191,5 +191,6 @@ class CatalogRowDetailsTest extends TestCase
 
         $this->assertStringContainsString('not a country code', $tile);
         $this->assertStringContainsString('aria-hidden="true"', $tile);
+        $this->assertStringContainsString('loading="lazy"', $tile);
     }
 }

@@ -3107,6 +3107,9 @@ const CatalogLive = (function () {
         if (window.GlassTip && typeof window.GlassTip.enhance === 'function') {
             window.GlassTip.enhance(card || document.getElementById('catalogResults'));
         }
+        if (typeof bindCatalogThemeSelects === 'function') {
+            bindCatalogThemeSelects();
+        }
         // Re-hide blacklisted rows on the main catalog after a fresh paint.
         if (!CatalogConfig.blacklistFilter && typeof hideCatalogSite === 'function') {
             document.querySelectorAll('.site-row[data-id], .catalog-mobile-card[data-id]').forEach(function (el) {
@@ -3378,13 +3381,11 @@ window.scheduleCatalogFilterLive = scheduleCatalogFilterLive;
         });
     }
 
-    const perPage = document.getElementById('catalogPerPage');
-    if (perPage) {
-        perPage.addEventListener('change', function () {
-            // Page size change always restarts at page 1 (fromForm drops page).
-            submitCatalogFilters({ replace: true, intent: 'filter' });
-        });
-    }
+    document.addEventListener('change', function (e) {
+        if (!e.target || e.target.id !== 'catalogPerPage') return;
+        // Page size change always restarts at page 1 (fromForm drops page).
+        submitCatalogFilters({ replace: true, intent: 'filter' });
+    });
 
     bindCatalogThemeSelects();
 
@@ -5506,7 +5507,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const packQty = parseInt(button.dataset.bulkQty, 10);
             cartOptions.bulk = true;
             cartOptions.quantity = Number.isFinite(packQty) && packQty > 0 ? packQty : 3;
-            cartOptions.openCart = true;
         }
         // When homepage radios exist, always send the selection (incl. none).
         // When absent, omit so the server auto-picks the longest free duration.

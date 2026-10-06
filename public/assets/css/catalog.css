@@ -2222,11 +2222,32 @@ body:has(.catalog-page) {
     padding: 0.15rem 0.1rem;
 }
 
-.catalog-results-bar .btn-suggest-website,
-.btn-suggest-website.btn-outline-success {
+.catalog-page .btn-suggest-website.btn-outline-success {
     white-space: nowrap;
+    --bs-btn-color: #146c43;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #146c43;
+    --bs-btn-hover-border-color: #146c43;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #146c43;
+    --bs-btn-active-border-color: #146c43;
     color: #146c43;
+    background-color: #fff;
     border-color: #146c43;
+}
+
+.catalog-page .btn-suggest-website.btn-outline-success:hover,
+.catalog-page .btn-suggest-website.btn-outline-success:focus,
+.catalog-page .btn-suggest-website.btn-outline-success:focus-visible,
+.catalog-page .btn-suggest-website.btn-outline-success:active,
+.catalog-page .btn-suggest-website.btn-outline-success.show {
+    color: #fff;
+    background-color: #146c43;
+    border-color: #146c43;
+}
+
+.catalog-page .btn-suggest-website i {
+    color: inherit;
 }
 
 .catalog-article-banner {
@@ -3420,23 +3441,61 @@ button.site-chip.site-chip--verified {
     box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--brand-primary, #1a585e);
 }
 
-.catalog-pagination {
+.catalog-page .catalog-pagination {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 0.65rem;
+    justify-content: flex-start;
+    gap: 1rem;
+    width: 100%;
     margin: 1.5rem 0 2.75rem;
-    padding: 0.85rem 1rem 1rem;
+    padding: 0.85rem 0 1rem;
     border-top: 1px solid var(--border-subtle, #e2e8f0);
     clear: both;
 }
 
-.catalog-pagination__meta {
+.catalog-page .catalog-pagination__perpage {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+    margin-right: auto;
+    min-height: 2.25rem;
+}
+
+.catalog-page .catalog-pagination__perpage-label {
     margin: 0;
     font-size: 0.8125rem;
-    line-height: 1.4;
+    line-height: 2.25rem;
     color: var(--brand-ink-muted, #697078);
-    text-align: center;
+    white-space: nowrap;
+}
+
+.catalog-page .catalog-pagination__perpage .catalog-theme-select {
+    width: auto;
+    display: flex;
+    align-items: center;
+    height: 2.25rem;
+}
+
+.catalog-page .catalog-pagination__perpage .catalog-theme-select--compact .single-select-input {
+    height: 2.25rem;
+    min-height: 2.25rem;
+    padding-top: 0;
+    padding-bottom: 0;
+    box-sizing: border-box;
+}
+
+.catalog-page .catalog-pagination__meta {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 2.25rem;
+    min-height: 2.25rem;
+    color: var(--brand-ink-muted, #697078);
+    text-align: right;
+    white-space: nowrap;
+    flex: 0 0 auto;
 }
 
 .catalog-pagination__meta strong {
@@ -3448,10 +3507,13 @@ button.site-chip.site-chip--verified {
     white-space: nowrap;
 }
 
-.catalog-pagination__links {
-    width: 100%;
+.catalog-page .catalog-pagination__links {
+    width: auto;
     display: flex;
-    justify-content: center;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    min-height: 2.25rem;
 }
 
 .catalog-pagination__links .pagination {
@@ -3464,6 +3526,7 @@ button.site-chip.site-chip--verified {
 
 .catalog-pagination__links .page-link {
     min-width: 2.25rem;
+    min-height: 2.25rem;
     height: 2.25rem;
     padding: 0 0.65rem;
     display: inline-flex;
@@ -3523,8 +3586,27 @@ button.site-chip.site-chip--verified {
     white-space: nowrap;
 }
 
+@media (max-width: 767.98px) {
+    .catalog-page .catalog-pagination {
+        flex-wrap: wrap;
+    }
+
+    .catalog-page .catalog-pagination__perpage {
+        margin-right: auto;
+    }
+
+    .catalog-page .catalog-pagination__meta {
+        flex: 1 1 100%;
+        order: -1;
+        text-align: center;
+        white-space: normal;
+        line-height: 1.4;
+        min-height: 0;
+    }
+}
+
 @media (max-width: 575.98px) {
-    .catalog-pagination {
+    .catalog-page .catalog-pagination {
         margin-bottom: 3.5rem; /* room above the Help & feedback FAB */
         padding-inline: 0.25rem;
     }

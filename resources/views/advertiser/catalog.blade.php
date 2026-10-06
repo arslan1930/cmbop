@@ -736,16 +736,6 @@
                             data-search="{{ $catalogSearchText }}">
                         <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
                     </button>
-                    <label for="catalogPerPage-trigger" class="small text-muted mb-0">Per page</label>
-                    @include('advertiser.partials.catalog-theme-select', [
-                        'selectId' => 'catalogPerPage',
-                        'name' => 'per_page',
-                        'form' => 'filterForm',
-                        'label' => 'Sites per page',
-                        'modifier' => 'catalog-theme-select--compact',
-                        'current' => (string) $catalogPerPage,
-                        'options' => collect(\App\Services\Catalog\CatalogUrlQuery::ALLOWED_PER_PAGE)->mapWithKeys(fn ($size) => [(string) $size => (string) $size])->all(),
-                    ])
                     <label for="catalogSort-trigger" class="small text-muted mb-0">Sort</label>
                     @include('advertiser.partials.catalog-theme-select', [
                         'selectId' => 'catalogSort',

@@ -91,10 +91,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'suspended_at' => 'datetime',
     ];
 
-    private bool $activeRoleResolved = false;
-
-    private ?Role $resolvedActiveRole = null;
-
     public const ONLINE_WINDOW_SECONDS = 120;
 
     public const LAST_SEEN_THROTTLE_SECONDS = 60;
@@ -418,43 +414,28 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function activeRoleModel(): ?Role
     {
-        if ($this->activeRoleResolved) {
-            return $this->resolvedActiveRole;
-        }
-
-        $this->activeRoleResolved = true;
         $active = null;
         try {
             if (! Schema::hasTable('roles')) {
-                return $this->resolvedActiveRole = null;
+                return null;
             }
 
-            $active = $this->relationLoaded('activeRoleRelation')
-                ? $this->getRelation('activeRoleRelation')
-                : $this->activeRoleRelation()->first();
+            $active = $this->activeRoleRelation()->first();
 
             // belongsTo does not check the role pivot — ignore stale active_role_id
             // values that point at a role the user no longer has.
-            if ($active && Schema::hasTable('role_user')) {
-                $onPivot = $this->relationLoaded('roles')
-                    ? $this->roles->contains('id', $active->id)
-                    : $this->roles()->where('roles.id', $active->id)->exists();
-                if ($onPivot) {
-                    return $this->resolvedActiveRole = $active;
-                }
+            if ($active && Schema::hasTable('role_user')
+                && $this->roles()->where('roles.id', $active->id)->exists()) {
+                return $active;
             }
 
             if (! Schema::hasTable('role_user')) {
-                return $this->resolvedActiveRole = $active;
+                return $active;
             }
 
-            $fallback = $this->relationLoaded('roles')
-                ? $this->roles->first()
-                : $this->roles()->first();
-
-            return $this->resolvedActiveRole = $fallback ?: $active;
+            return $this->roles()->first() ?: $active;
         } catch (\Throwable) {
-            return $this->resolvedActiveRole = $active;
+            return $active;
         }
     }
 

@@ -22,4 +22,16 @@ class SiteEnrichmentScheduleTest extends TestCase
         $this->assertStringContainsString("command('sites:enrich --stale')", $bootstrap);
         $this->assertStringNotContainsString('sites:enrich --stale --sync', $bootstrap);
     }
+
+    public function test_catalog_favicon_warm_is_scheduled_every_minute(): void
+    {
+        $this->artisan('schedule:list')->assertSuccessful();
+
+        $scheduled = collect(app(Schedule::class)->events())
+            ->first(fn ($event) => str_contains((string) $event->command, 'catalog:warm-favicons'));
+
+        $this->assertNotNull($scheduled, 'catalog:warm-favicons must be scheduled.');
+        $this->assertStringContainsString('catalog:warm-favicons --limit=5', (string) $scheduled->command);
+        $this->assertSame('* * * * *', $scheduled->expression);
+    }
 }

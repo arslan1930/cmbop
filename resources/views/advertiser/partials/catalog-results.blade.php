@@ -1710,21 +1710,40 @@
     @endforelse
 </div>
 
-                    <!-- Pagination — sized so Prev/Next never swallow the results text -->
-                    @if($resultTotal > 0 && $sites->lastPage() > 1)
+                    <!-- Pagination — per page left; numbered pages when there is more than one -->
+                    @if($resultTotal > 0)
+                    @php
+                        $catalogPerPage = $catalogPerPage ?? \App\Services\Catalog\CatalogUrlQuery::perPage(request());
+                    @endphp
                     <div class="catalog-pagination">
+                        <div class="catalog-pagination__perpage">
+                            <label for="catalogPerPage-trigger" class="catalog-pagination__perpage-label">Per page</label>
+                            @include('advertiser.partials.catalog-theme-select', [
+                                'selectId' => 'catalogPerPage',
+                                'name' => 'per_page',
+                                'form' => 'filterForm',
+                                'label' => 'Sites per page',
+                                'modifier' => 'catalog-theme-select--compact',
+                                'current' => (string) $catalogPerPage,
+                                'options' => collect(\App\Services\Catalog\CatalogUrlQuery::ALLOWED_PER_PAGE)->mapWithKeys(fn ($size) => [(string) $size => (string) $size])->all(),
+                            ])
+                        </div>
                         <p class="catalog-pagination__meta">
                             Showing
                             <strong>{{ $sites->firstItem() }}–{{ $sites->lastItem() }}</strong>
                             of <strong>{{ number_format($resultTotal) }}</strong>
                             {{ Str::plural('site', $resultTotal) }}
+                            @if($sites->lastPage() > 1)
                             <span class="catalog-pagination__page-label" aria-hidden="true">
                                 · Page {{ $sites->currentPage() }} of {{ $sites->lastPage() }}
                             </span>
+                            @endif
                         </p>
+                        @if($sites->lastPage() > 1)
                         <div class="catalog-pagination__links">
                             {{ $sites->onEachSide(1)->links('advertiser.partials.catalog-pagination-links') }}
                         </div>
+                        @endif
                     </div>
                     @endif
 

@@ -360,8 +360,37 @@ class CatalogCountryInventory
     {
         $counts = [];
 
+        try {
+            $grouped = Site::query()
+                ->catalogVisible()
+                ->whereNotNull('country')
+                ->where('country', '!=', '')
+                ->selectRaw('LOWER(TRIM(country)) as country_code, COUNT(*) as site_count')
+                ->groupByRaw('LOWER(TRIM(country))')
+                ->pluck('site_count', 'country_code');
+
+            foreach ($grouped as $code => $count) {
+                $code = strtolower(trim((string) $code));
+                if ($code === '' || ! isset($allow[$code])) {
+                    continue;
+                }
+                $counts[$code] = (int) $count;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Catalog country inventory group count failed', ['error' => $e->getMessage()]);
+        }
+
+        $includeJson = in_array('countries', $columns, true);
+        if (! $includeJson) {
+            return $counts;
+        }
+
+        // Scalar country is empty: fall back to first JSON country (rare leftovers).
         Site::query()
             ->catalogVisible()
+            ->where(function ($q) {
+                $q->whereNull('country')->orWhere('country', '');
+            })
             ->select($columns)
             ->orderBy('id')
             ->chunkById(500, function ($sites) use (&$counts, $allow) {

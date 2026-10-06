@@ -253,6 +253,7 @@ class CatalogUiRegressionTest extends TestCase
         $this->assertStringContainsString('tabindex="-1"', $html);
 
         $css = (string) file_get_contents(public_path('assets/css/catalog.css'));
+        $this->assertStringContainsString('.catalog-page .catalog-pagination', $css);
         $this->assertStringContainsString('.catalog-pagination__links .page-link', $css);
         $this->assertStringContainsString('min-width: 2.25rem', $css);
     }
@@ -265,7 +266,8 @@ class CatalogUiRegressionTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringNotContainsString('catalog-pagination__meta', $html);
+        $this->assertStringContainsString('catalog-pagination__perpage', $html);
+        $this->assertStringContainsString('catalog-pagination__meta', $html);
         $this->assertStringNotContainsString('catalog-pagination__links', $html);
     }
 }

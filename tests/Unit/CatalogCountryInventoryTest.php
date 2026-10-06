@@ -111,6 +111,20 @@ class CatalogCountryInventoryTest extends TestCase
         $this->assertContains('de', $codes);
     }
 
+    public function test_counts_json_country_when_scalar_country_is_empty(): void
+    {
+        Cache::flush();
+        $publisher = $this->publisher();
+        $this->site($publisher, [
+            'country' => '',
+            'countries' => ['it'],
+            'domain' => 'it-json-only.test',
+        ]);
+
+        $counts = app(CatalogCountryInventory::class)->counts();
+        $this->assertSame(1, $counts['it'] ?? 0);
+    }
+
     public function test_counts_ignore_countries_outside_allowlist(): void
     {
         Cache::flush();

@@ -32,6 +32,7 @@ use App\Support\CatalogProblemReport;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
 use App\Support\PublicStorageLink;
+use App\Support\StaffSitesIndexCounts;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
@@ -164,52 +165,43 @@ class SiteController extends Controller
         $openReviewCount = MarketingOpsQueues::sitesReadyForStaffCount();
         $waitingListNarrows = $waitingOnPublisherFilter
             && ($publisherSearch !== '' || $this->staffSitesListNarrows($staffSiteFilters));
-        if ($waitingOnPublisherFilter) {
-            if ($waitingListNarrows) {
-                $countWaitingStage = function (?string $stage) use ($publisherSearch, $staffSiteFilters): int {
-                    $stageQuery = MarketingOpsQueues::sitesWaitingOnPublisher($stage);
-                    $this->applyStaffIndexSiteOrPublisherSearch($stageQuery, $publisherSearch);
-                    $this->applyStaffSitesListFilters($stageQuery, $staffSiteFilters);
+        $waitingStage = $waitingOnPublisherFilter
+            ? (string) ($staffSiteFilters['waiting_stage'] ?? '')
+            : '';
+        if ($waitingOnPublisherFilter && $waitingListNarrows) {
+            $countWaitingStage = function (?string $stage) use ($publisherSearch, $staffSiteFilters): int {
+                $stageQuery = MarketingOpsQueues::sitesWaitingOnPublisher($stage);
+                $this->applyStaffIndexSiteOrPublisherSearch($stageQuery, $publisherSearch);
+                $this->applyStaffSitesListFilters($stageQuery, $staffSiteFilters);
 
-                    return (int) $stageQuery->count();
-                };
-                $waitingOnPublisherCount = $countWaitingStage(null);
-                $waitingStageCounts = [
-                    'filling' => $countWaitingStage('filling'),
-                    'reviewing' => $countWaitingStage('reviewing'),
-                    'accept' => $countWaitingStage('accept'),
-                ];
-            } else {
-                $waitingOnPublisherCount = MarketingOpsQueues::sitesWaitingOnPublisherCount();
-                $waitingStageCounts = MarketingOpsQueues::sitesWaitingStageCounts();
-            }
+                return (int) $stageQuery->count();
+            };
+            $waitingOnPublisherCount = $countWaitingStage(null);
+            $waitingStageCounts = [
+                'filling' => $countWaitingStage('filling'),
+                'reviewing' => $countWaitingStage('reviewing'),
+                'accept' => $countWaitingStage('accept'),
+            ];
+        } elseif ($waitingOnPublisherFilter) {
+            $waitingOnPublisherCount = MarketingOpsQueues::sitesWaitingOnPublisherCount();
+            $waitingStageCounts = MarketingOpsQueues::sitesWaitingStageCounts();
         } else {
             $waitingOnPublisherCount = MarketingOpsQueues::sitesWaitingOnPublisherCount();
             $waitingStageCounts = ['filling' => 0, 'reviewing' => 0, 'accept' => 0];
         }
-        $waitingStage = $waitingOnPublisherFilter
-            ? (string) ($staffSiteFilters['waiting_stage'] ?? '')
-            : '';
-        $liveUnverifiedCount = $this->staffSitesFilterTotal([
-            'listing_active' => '1',
-            'listing_verified' => '0',
-        ]);
-        $belowQualityListCount = $this->staffSitesFilterTotal(['below_quality' => true]);
-        $readyToActivateCount = 0;
-        $placeholderListCount = $this->staffSitesFilterTotal(['placeholder' => true]);
-        $missingCoverListCount = $this->staffSitesFilterTotal(['missing_cover' => true]);
-        $missingMarketListCount = $this->staffSitesFilterTotal([
-            'listing_active' => '1',
-            'missing_market' => true,
-        ]);
-        $scanFailedListCount = $this->staffSitesFilterTotal(['scan_failed' => true]);
-        $archivedListCount = $this->staffSitesFilterTotal(['archived' => true]);
-        $healthCounts = CatalogHealthQueue::emptyCounts();
-        $missingMarketCount = 0;
-        if ($request->user()?->isAdmin()) {
-            $healthCounts = CatalogHealthQueue::counts();
-            $missingMarketCount = (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0);
-        }
+        $catalogCounts = $this->staffSitesCatalogBadgeCounts();
+        $liveUnverifiedCount = (int) $catalogCounts['liveUnverifiedCount'];
+        $belowQualityListCount = (int) $catalogCounts['belowQualityListCount'];
+        $readyToActivateCount = (int) $catalogCounts['readyToActivateCount'];
+        $placeholderListCount = (int) $catalogCounts['placeholderListCount'];
+        $missingCoverListCount = (int) $catalogCounts['missingCoverListCount'];
+        $missingMarketListCount = (int) $catalogCounts['missingMarketListCount'];
+        $scanFailedListCount = (int) $catalogCounts['scanFailedListCount'];
+        $archivedListCount = (int) $catalogCounts['archivedListCount'];
+        $healthCounts = is_array($catalogCounts['healthCounts'] ?? null)
+            ? $catalogCounts['healthCounts']
+            : CatalogHealthQueue::emptyCounts();
+        $missingMarketCount = (int) ($catalogCounts['missingMarketCount'] ?? 0);
         $flatQueueSites = null;
         $allSites = null;
         $sitesExportLimited = false;
@@ -300,33 +292,34 @@ class SiteController extends Controller
                     if ($reviewListNarrows) {
                         $narrowQueueSites($q);
                     }
-                }])
-                ->withCount(['sites as waiting_filling_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
-                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'filling');
-                    if ($waitingListNarrows) {
-                        $narrowQueueSites($q);
-                    }
-                }])
-                ->withCount(['sites as waiting_reviewing_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
-                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'reviewing');
-                    if ($waitingListNarrows) {
-                        $narrowQueueSites($q);
-                    }
-                }])
-                ->withCount(['sites as waiting_accept_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
-                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'accept');
-                    if ($waitingListNarrows) {
-                        $narrowQueueSites($q);
-                    }
                 }]);
 
             if ($waitingOnPublisherFilter) {
-                $query->withCount(['sites as waiting_on_publisher_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
-                    MarketingOpsQueues::constrainSitesWaitingOnPublisher($q);
-                    if ($waitingListNarrows) {
-                        $narrowQueueSites($q);
-                    }
-                }]);
+                $query
+                    ->withCount(['sites as waiting_on_publisher_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
+                        MarketingOpsQueues::constrainSitesWaitingOnPublisher($q);
+                        if ($waitingListNarrows) {
+                            $narrowQueueSites($q);
+                        }
+                    }])
+                    ->withCount(['sites as waiting_filling_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
+                        MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'filling');
+                        if ($waitingListNarrows) {
+                            $narrowQueueSites($q);
+                        }
+                    }])
+                    ->withCount(['sites as waiting_reviewing_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
+                        MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'reviewing');
+                        if ($waitingListNarrows) {
+                            $narrowQueueSites($q);
+                        }
+                    }])
+                    ->withCount(['sites as waiting_accept_sites_count' => function ($q) use ($waitingListNarrows, $narrowQueueSites) {
+                        MarketingOpsQueues::constrainSitesWaitingOnPublisher($q, 'accept');
+                        if ($waitingListNarrows) {
+                            $narrowQueueSites($q);
+                        }
+                    }]);
             }
 
             if ($publisherSearch !== '' || $this->staffSitesListNarrows($staffSiteFilters)) {
@@ -2041,19 +2034,21 @@ class SiteController extends Controller
         $host = $this->staffSearchHost($search);
         $candidates = $host !== null ? Site::domainLookupCandidates($host) : [];
 
-        $sites->where(function ($q) use ($search, $like, $candidates) {
+        $sites->where(function ($q) use ($search, $like, $candidates, $host) {
             $q->whereRaw('site_name LIKE ? ESCAPE ?', [$like, '\\'])
                 ->orWhereRaw('domain LIKE ? ESCAPE ?', [$like, '\\'])
                 ->orWhereRaw('site_url LIKE ? ESCAPE ?', [$like, '\\']);
-            foreach (['category', 'language', 'description', 'example_url'] as $column) {
-                if (Site::hasSitesColumn($column)) {
-                    $q->orWhereRaw($column.' LIKE ? ESCAPE ?', [$like, '\\']);
+            if ($host === null) {
+                foreach (['category', 'language', 'description', 'example_url'] as $column) {
+                    if (Site::hasSitesColumn($column)) {
+                        $q->orWhereRaw($column.' LIKE ? ESCAPE ?', [$like, '\\']);
+                    }
                 }
-            }
-            // CAST AS CHAR is CHAR(1) on MariaDB. SUBSTRING keeps the stored text.
-            foreach (['categories', 'languages'] as $column) {
-                if (Site::hasSitesColumn($column)) {
-                    $q->orWhereRaw('SUBSTRING('.$column.', 1, 8000) LIKE ? ESCAPE ?', [$like, '\\']);
+                // CAST AS CHAR is CHAR(1) on MariaDB. SUBSTRING keeps the stored text.
+                foreach (['categories', 'languages'] as $column) {
+                    if (Site::hasSitesColumn($column)) {
+                        $q->orWhereRaw('SUBSTRING('.$column.', 1, 8000) LIKE ? ESCAPE ?', [$like, '\\']);
+                    }
                 }
             }
             $siteId = $this->canonicalStaffId($search);
@@ -2606,6 +2601,38 @@ class SiteController extends Controller
 
             return 0;
         }
+    }
+
+    /**
+     * Header / strip catalog counts. Request-wide health COUNTs stay in cache
+     * for a short TTL so paging and filter clicks do not repeat them.
+     *
+     * @return array<string, mixed>
+     */
+    private function staffSitesCatalogBadgeCounts(): array
+    {
+        return StaffSitesIndexCounts::remember(function (): array {
+            $healthCounts = CatalogHealthQueue::counts();
+
+            return [
+                'liveUnverifiedCount' => $this->staffSitesFilterTotal([
+                    'listing_active' => '1',
+                    'listing_verified' => '0',
+                ]),
+                'belowQualityListCount' => $this->staffSitesFilterTotal(['below_quality' => true]),
+                'readyToActivateCount' => $this->staffSitesFilterTotal(['ready_to_activate' => true]),
+                'placeholderListCount' => $this->staffSitesFilterTotal(['placeholder' => true]),
+                'missingCoverListCount' => $this->staffSitesFilterTotal(['missing_cover' => true]),
+                'missingMarketListCount' => $this->staffSitesFilterTotal([
+                    'listing_active' => '1',
+                    'missing_market' => true,
+                ]),
+                'scanFailedListCount' => $this->staffSitesFilterTotal(['scan_failed' => true]),
+                'archivedListCount' => $this->staffSitesFilterTotal(['archived' => true]),
+                'healthCounts' => $healthCounts,
+                'missingMarketCount' => (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0),
+            ];
+        });
     }
 
     /**
@@ -6372,6 +6399,7 @@ class SiteController extends Controller
                 );
             }
 
+            StaffSitesIndexCounts::forget();
             $this->syncLinkedBulkAfterSiteRemoved($site->bulk_site_request_id);
 
             $action = $site->verified ? 'site.approved' : 'site.rejected';
@@ -6519,6 +6547,7 @@ class SiteController extends Controller
                 $this->restoreBulkOnboardingAfterStaffUndo($site);
             }
             $site->save();
+            StaffSitesIndexCounts::forget();
             $this->syncLinkedBulkAfterSiteRemoved($site->bulk_site_request_id);
 
             $activeChanged = $oldStatus !== (int) $site->active;
@@ -6698,6 +6727,8 @@ class SiteController extends Controller
         $rejectionReason = $outcome['rejectionReason'];
         $publisher = $outcome['publisher'];
 
+        StaffSitesIndexCounts::forget();
+
         try {
             app(InAppNotificationService::class)->completeAdminSiteReviewNotifications($site);
         } catch (\Throwable $e) {
@@ -6794,6 +6825,8 @@ class SiteController extends Controller
                 'message' => UserFacingError::message($e, 'We could not restore this site. Please try again.'),
             ], 500);
         }
+
+        StaffSitesIndexCounts::forget();
 
         ActivityLogger::tryLog(
             'site.unarchived',
@@ -6914,6 +6947,8 @@ class SiteController extends Controller
         if (isset($outcome['http'])) {
             return response()->json($outcome['payload'], $outcome['http']);
         }
+
+        StaffSitesIndexCounts::forget();
 
         $siteName = $outcome['siteName'];
         $siteId = $outcome['siteId'];
