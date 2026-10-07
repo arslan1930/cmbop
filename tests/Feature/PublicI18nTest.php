@@ -237,6 +237,12 @@ class PublicI18nTest extends TestCase
             ->assertRedirect('/es/precios');
         $this->get('/it/contact')
             ->assertRedirect('/it/contatto');
+        $this->get('/it/become-a-publisher')
+            ->assertRedirect('/it/diventa-publisher');
+        $this->get('/it/diventare-publisher')
+            ->assertRedirect('/it/diventa-publisher');
+        $this->get('/diventare-publisher')
+            ->assertRedirect('/it/diventa-publisher');
 
         $this->get('/us/about')->assertOk();
         $this->get('/de/blog')->assertOk();
@@ -275,11 +281,35 @@ class PublicI18nTest extends TestCase
             ->assertSee('/fr/a-propos', false)
             ->assertSee('hreflang="fr"', false)
             ->assertSee('hreflang="en-GB"', false)
-            ->assertSee('hreflang="en-US"', false);
+            ->assertSee('hreflang="en-US"', false)
+            ->assertDontSee('/de/marketplace', false)
+            ->assertDontSee('/de/become-a-publisher', false)
+            ->assertDontSee('/blog/tag', false)
+            ->assertDontSee('/login', false);
+
+        $this->get('/sitemap-it.xml')
+            ->assertOk()
+            ->assertSee('/it/diventa-publisher', false)
+            ->assertDontSee('/it/become-a-publisher', false)
+            ->assertDontSee('/it/diventare-publisher', false);
 
         $this->get('/sitemap-us.xml')
             ->assertOk()
-            ->assertSee('/us/marketplace', false);
+            ->assertSee('/us</loc>', false)
+            ->assertDontSee('/us/marketplace', false)
+            ->assertDontSee('/us/become-a-publisher', false)
+            ->assertDontSee('/us/faq', false);
+    }
+
+    public function test_blog_tag_archives_redirect_to_the_blog_index(): void
+    {
+        $this->get('/blog/tag/guest-posts')
+            ->assertRedirect('/blog');
+        $this->get('/blog/tag')
+            ->assertRedirect('/blog');
+        $this->get('/de/blog/tag/gastbeitrag')
+            ->assertRedirect('/de/blog');
+        $this->assertSame(301, $this->get('/blog/tag/guest-posts')->status());
     }
 
     public function test_browser_language_suggestion_banner_appears_on_english_home(): void

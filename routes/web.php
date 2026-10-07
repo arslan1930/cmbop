@@ -251,6 +251,21 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
     Route::get($p('cookie-policy'), [MarketingPageController::class, 'cookiePolicy'])->name('cookie-policy');
     Route::get($p('refund-policy'), [MarketingPageController::class, 'refundPolicy'])->name('refund-policy');
     Route::get($p('blog'), [BlogController::class, 'index'])->name('blog.index');
+    Route::get($p('blog').'/tag/{tag}', function () use ($locale) {
+        $target = class_exists(LocalizedPublicPath::class)
+            ? LocalizedPublicPath::publicPath('blog', $locale)
+            : '/blog';
+        $query = request()->getQueryString();
+
+        return Redirect::to($query ? $target.'?'.$query : $target, 301);
+    })->where('tag', '[^/]+')->name('blog.tag.redirect');
+    Route::get($p('blog').'/tag', function () use ($locale) {
+        $target = class_exists(LocalizedPublicPath::class)
+            ? LocalizedPublicPath::publicPath('blog', $locale)
+            : '/blog';
+
+        return Redirect::to($target, 301);
+    });
     Route::get($p('blog').'/{slug}', [BlogController::class, 'show'])->name('blog.show');
     Route::post($p('newsletter').'/subscribe', [NewsletterController::class, 'subscribe'])
         ->middleware('throttle:10,1')
@@ -301,6 +316,17 @@ Route::group([], function () use ($registerPublicMarketingRoutes, $registerEngli
 // Short legal aliases used in citations / the SEO workbook Pages tab.
 Route::get('/privacy', fn () => Redirect::to('/privacy-policy', 301));
 Route::get('/terms', fn () => Redirect::to('/terms-of-services', 301));
+
+$unprefixedLegacy = class_exists(LocalizedPublicPath::class)
+    ? LocalizedPublicPath::unprefixedLegacyRedirects()
+    : [];
+foreach ($unprefixedLegacy as $from => $to) {
+    Route::get('/'.$from, function () use ($to) {
+        $query = request()->getQueryString();
+
+        return Redirect::to($query ? $to.'?'.$query : $to, 301);
+    });
+}
 
 // Prefixed locales use translated slugs; English leftovers 301 below.
 foreach ($prefixedLocales as $locale) {

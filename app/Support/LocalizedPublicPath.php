@@ -296,6 +296,12 @@ class LocalizedPublicPath
             }
         }
 
+        foreach (self::historicalAliases() as $aliases) {
+            if (isset($aliases[$segment])) {
+                return $aliases[$segment];
+            }
+        }
+
         return $segment;
     }
 
@@ -370,7 +376,23 @@ class LocalizedPublicPath
     }
 
     /**
+     * Retired first segments Google still has (old Italian slug, etc.).
+     * Values are English path keys.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public static function historicalAliases(): array
+    {
+        return [
+            'it' => [
+                'diventare-publisher' => 'become-a-publisher',
+            ],
+        ];
+    }
+
+    /**
      * English path → localized slug, only when they differ.
+     * Includes retired aliases for the same locale.
      *
      * @return array<string, string>
      */
@@ -380,6 +402,30 @@ class LocalizedPublicPath
         foreach (self::map()[$locale] ?? [] as $english => $localized) {
             if ($english !== $localized) {
                 $out[$english] = $localized;
+            }
+        }
+
+        foreach (self::historicalAliases()[$locale] ?? [] as $old => $english) {
+            $localized = self::map()[$locale][$english] ?? $english;
+            if ($old !== $localized) {
+                $out[$old] = $localized;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Retired slugs indexed at the site root (no locale prefix).
+     *
+     * @return array<string, string>
+     */
+    public static function unprefixedLegacyRedirects(): array
+    {
+        $out = [];
+        foreach (self::historicalAliases() as $locale => $aliases) {
+            foreach ($aliases as $old => $english) {
+                $out[$old] = self::publicPath($english, $locale);
             }
         }
 

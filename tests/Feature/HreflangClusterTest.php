@@ -175,8 +175,16 @@ class HreflangClusterTest extends TestCase
             $xml = $this->get('/sitemap-'.$locale.'.xml')->assertOk()->getContent();
             $tag = PublicI18n::hreflang($locale);
             $this->assertSitemapUrlHasCluster($xml, $home[$tag], $home, $locale.' home');
+        }
+
+        foreach (['en', 'de'] as $locale) {
+            $xml = $this->get('/sitemap-'.$locale.'.xml')->assertOk()->getContent();
+            $tag = PublicI18n::hreflang($locale);
             $this->assertSitemapUrlHasCluster($xml, $market[$tag], $market, $locale.' marketplace');
         }
+
+        $us = $this->get('/sitemap-us.xml')->assertOk()->getContent();
+        $this->assertStringNotContainsString('/us/marketplace', $us);
     }
 
     /**

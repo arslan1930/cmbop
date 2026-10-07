@@ -59,18 +59,30 @@ class SeoAndSecurityHeadersTest extends TestCase
             'is_published' => true,
         ]);
 
-        $this->get('/sitemap.xml')
+        $index = $this->get('/sitemap.xml')
             ->assertOk()
             ->assertHeader('Content-Type', 'application/xml')
             ->assertSee('sitemap-en.xml', false)
             ->assertSee('sitemap-de.xml', false);
+        $this->assertStringContainsString('max-age=3600', (string) $index->headers->get('Cache-Control'));
 
-        $this->get('/sitemap-en.xml')
-            ->assertOk()
+        $enResponse = $this->get('/sitemap-en.xml')
+            ->assertOk();
+        $this->assertStringContainsString('max-age=3600', (string) $enResponse->headers->get('Cache-Control'));
+        $en = $enResponse
             ->assertSee('/blog/sitemap-post', false)
             ->assertSee('/contact', false)
             ->assertDontSee('/login', false)
-            ->assertDontSee('/register', false);
+            ->assertDontSee('/register', false)
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '#<loc>[^<]*/blog/sitemap-post</loc>\s*<lastmod>#',
+            $en
+        );
+        preg_match('#<url>\s*<loc>[^<]*/marketplace</loc>(.*?)</url>#s', $en, $market);
+        $this->assertNotEmpty($market[1] ?? null);
+        $this->assertStringNotContainsString('<lastmod>', $market[1]);
 
         $this->get('/robots.txt')
             ->assertOk()
@@ -82,6 +94,7 @@ class SeoAndSecurityHeadersTest extends TestCase
             ->assertSee('Disallow: /marketing/', false)
             ->assertSee('Disallow: /login', false)
             ->assertSee('Disallow: /register', false)
+            ->assertSee('Disallow: /blog/tag', false)
             ->assertSee('Googlebot', false)
             ->assertSee('bingbot', false)
             ->assertSee('Slurp', false)

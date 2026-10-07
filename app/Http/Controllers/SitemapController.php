@@ -23,7 +23,6 @@ use App\Support\ThinBlogRedirects;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 class SitemapController extends Controller
 {
@@ -72,6 +71,24 @@ class SitemapController extends Controller
         return $pages;
     }
 
+    /**
+     * US English marketing slugs match unprefixed EN. Only the /us home is a loc.
+     *
+     * @return list<array{path: string, changefreq: string, priority: string}>
+     */
+    private function staticPagesForLocale(string $locale): array
+    {
+        $pages = $this->staticPages();
+        if ($locale !== 'us') {
+            return $pages;
+        }
+
+        return array_values(array_filter(
+            $pages,
+            static fn (array $page): bool => ($page['path'] ?? '') === ''
+        ));
+    }
+
     public function index(): Response
     {
         // Production APP_URL is sometimes still loopback. Child locs must
@@ -92,20 +109,25 @@ class SitemapController extends Controller
 
         $xml = view('sitemap-index', compact('sitemaps'))->render();
 
-        return response($xml, 200)->header('Content-Type', 'application/xml');
+        return $this->xmlResponse($xml);
     }
 
     public function locale(string $locale): Response
     {
         abort_unless(in_array($locale, $this->supportedLocales(), true), 404);
 
-        // Locale sitemaps join blog_translations — heal skipped migrations.
-        CuratedBlogSync::ensurePresent();
+        // Schema only — do not sync curated posts on every GSC fetch.
+        if (class_exists(CuratedBlogSync::class) && method_exists(CuratedBlogSync::class, 'ensureSchema')) {
+            try {
+                CuratedBlogSync::ensureSchema();
+            } catch (\Throwable) {
+                // Static pages still ship if translations are mid-heal.
+            }
+        }
 
-        $base = rtrim(app_public_url(), '/');
         $urls = [];
 
-        foreach ($this->staticPages() as $page) {
+        foreach ($this->staticPagesForLocale($locale) as $page) {
             $urls[] = $this->urlEntry($page['path'], $locale, $page['changefreq'], $page['priority']);
         }
 
@@ -122,7 +144,6 @@ class SitemapController extends Controller
                 }
                 [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, [$locale]);
                 $entry = $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths);
-                $entry = $this->withLastmod($entry, $this->moneyPageLastmod($moneyClass));
                 $urls[] = $this->withMoneyLanderXDefault($entry, $slug, $paths);
             }
         }
@@ -166,16 +187,13 @@ class SitemapController extends Controller
             // Static money pages still ship if translations are mid-heal.
         }
 
+        $altsByBlog = $this->publishedBlogAlternates($translations);
+
         foreach ($translations as $translation) {
             $path = 'blog/'.$translation->slug;
-            $alternateQuery = BlogTranslation::query()
-                ->where('blog_id', $translation->blog_id)
-                ->where('is_published', true);
-            $legacy = $this->legacyBlogSlugs();
-            if ($legacy !== []) {
-                $alternateQuery->whereNotIn('slug', $legacy);
-            }
-            $slugsByLocale = $alternateQuery->pluck('slug', 'locale')->all();
+            $slugsByLocale = $altsByBlog[(int) $translation->blog_id] ?? [
+                $translation->locale => $translation->slug,
+            ];
             $availableLocales = array_keys($slugsByLocale);
             $pathByLocale = [];
             foreach ($slugsByLocale as $altLocale => $slug) {
@@ -197,7 +215,7 @@ class SitemapController extends Controller
 
         $xml = view('sitemap', compact('urls'))->render();
 
-        return response($xml, 200)->header('Content-Type', 'application/xml');
+        return $this->xmlResponse($xml);
     }
 
     /**
@@ -232,28 +250,6 @@ class SitemapController extends Controller
             }
         }
 
-        foreach ($this->supportedLocales() as $locale) {
-            $stamps = [];
-            if (! empty($lastmods[$locale])) {
-                $stamps[] = $lastmods[$locale];
-            }
-            foreach ($this->staticPages() as $page) {
-                $stamps[] = $this->pathViewLastmod($page['path']);
-            }
-            if ($locale === $this->defaultLocale()) {
-                $stamps[] = $this->pathViewLastmod('guest-posts-germany');
-                if (class_exists(GuestPostPriceIndex::class)) {
-                    $stamps[] = $this->pathViewLastmod(GuestPostPriceIndex::SLUG);
-                }
-            }
-            $moneyClass = $this->moneyLanderClasses()[$locale] ?? null;
-            $stamps[] = $this->moneyPageLastmod(is_string($moneyClass) ? $moneyClass : null);
-            $latest = $this->latestStamp($stamps);
-            if ($latest !== null) {
-                $lastmods[$locale] = $latest;
-            }
-        }
-
         return $lastmods;
     }
 
@@ -266,7 +262,7 @@ class SitemapController extends Controller
      */
     private function stampBlogIndex(array $urls, string $locale, $translations): array
     {
-        $stamps = [$this->pathViewLastmod('blog')];
+        $stamps = [];
         foreach ($translations as $translation) {
             $stamps[] = optional($translation->updated_at)?->toAtomString();
         }
@@ -327,7 +323,7 @@ class SitemapController extends Controller
             $urls[] = $entry;
         };
 
-        foreach ($this->staticPages() as $page) {
+        foreach ($this->staticPagesForLocale($locale) as $page) {
             $push($this->urlEntry($page['path'], $locale, $page['changefreq'], $page['priority']));
         }
 
@@ -344,10 +340,7 @@ class SitemapController extends Controller
                 }
                 [$locales, $paths] = $this->moneyLanderSitemapCluster($slug, [$locale]);
                 $push($this->withMoneyLanderXDefault(
-                    $this->withLastmod(
-                        $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths),
-                        $this->moneyPageLastmod($moneyClass)
-                    ),
+                    $this->urlEntry($slug, $locale, 'weekly', '0.85', $locales, $paths),
                     $slug,
                     $paths
                 ));
@@ -508,18 +501,12 @@ class SitemapController extends Controller
             || ! method_exists(PublicI18n::class, 'hreflang')) {
             $path = ltrim($path, '/');
 
-            $entry = [
+            return [
                 'loc' => $path === '' ? url('/') : url($path),
                 'changefreq' => $changefreq,
                 'priority' => $priority,
                 'alternates' => [],
             ];
-            $lastmod = $this->pathViewLastmod($path);
-            if ($lastmod !== null) {
-                $entry['lastmod'] = $lastmod;
-            }
-
-            return $entry;
         }
 
         $alternates = [];
@@ -545,61 +532,12 @@ class SitemapController extends Controller
             'href' => PublicI18n::urlForLocale($xDefaultPath, $xDefault),
         ];
 
-        $entry = [
+        return [
             'loc' => PublicI18n::urlForLocale($path, $locale),
             'changefreq' => $changefreq,
             'priority' => $priority,
             'alternates' => $alternates,
         ];
-        $lastmod = $this->pathViewLastmod($path);
-        if ($lastmod !== null) {
-            $entry['lastmod'] = $lastmod;
-        }
-
-        return $entry;
-    }
-
-    /**
-     * When the page template or money-page class was last changed.
-     * Blog posts replace this with the translation's updated_at.
-     */
-    private function pathViewLastmod(string $path): ?string
-    {
-        $path = trim($path, '/');
-        $relative = match (true) {
-            $path === '' => 'home.blade.php',
-            $path === 'blog' => 'pages/blog.blade.php',
-            str_starts_with($path, 'blog/') => 'pages/blog-single.blade.php',
-            str_starts_with($path, 'guest-posts-') => 'pages/guest-posts-country.blade.php',
-            $path === (class_exists(GuestPostPriceIndex::class) ? GuestPostPriceIndex::SLUG : 'guest-post-prices-europe') => 'pages/guest-post-prices-europe.blade.php',
-            default => 'pages/'.$path.'.blade.php',
-        };
-
-        return $this->fileLastmod(resource_path('views/'.$relative));
-    }
-
-    private function moneyPageLastmod(?string $class): ?string
-    {
-        $stamps = array_filter([
-            $this->fileLastmod(resource_path('views/pages/money-lander.blade.php')),
-        ]);
-        if (! is_string($class) || ! class_exists($class)) {
-            return $this->latestStamp($stamps);
-        }
-
-        try {
-            $ref = new \ReflectionClass($class);
-            $file = $ref->getFileName();
-            if (is_string($file) && $file !== '') {
-                $stamps[] = $this->fileLastmod($file);
-            }
-            $blade = 'pages/'.Str::kebab(rtrim($ref->getShortName(), 's')).'.blade.php';
-            $stamps[] = $this->fileLastmod(resource_path('views/'.$blade));
-        } catch (\Throwable) {
-            // The shared money template stamp still applies.
-        }
-
-        return $this->latestStamp($stamps);
     }
 
     /**
@@ -633,17 +571,46 @@ class SitemapController extends Controller
         return $stamps[0];
     }
 
-    private function fileLastmod(string $path): ?string
+    /**
+     * Published translation slugs keyed by blog id, then locale.
+     *
+     * @param  Collection<int, BlogTranslation>  $translations
+     * @return array<int, array<string, string>>
+     */
+    private function publishedBlogAlternates($translations): array
     {
-        if (! is_file($path)) {
-            return null;
-        }
-        $mtime = filemtime($path);
-        if ($mtime === false) {
-            return null;
+        $blogIds = $translations->pluck('blog_id')->filter()->unique()->values()->all();
+        if ($blogIds === []) {
+            return [];
         }
 
-        return Carbon::createFromTimestamp($mtime)->utc()->toAtomString();
+        $query = BlogTranslation::query()
+            ->whereIn('blog_id', $blogIds)
+            ->where('is_published', true);
+        $legacy = $this->legacyBlogSlugs();
+        if ($legacy !== []) {
+            $query->whereNotIn('slug', $legacy);
+        }
+
+        $out = [];
+        foreach ($query->get(['blog_id', 'locale', 'slug']) as $row) {
+            $blogId = (int) $row->blog_id;
+            $locale = (string) $row->locale;
+            $slug = (string) $row->slug;
+            if ($locale === '' || $slug === '') {
+                continue;
+            }
+            $out[$blogId][$locale] = $slug;
+        }
+
+        return $out;
+    }
+
+    private function xmlResponse(string $xml): Response
+    {
+        return response($xml, 200)
+            ->header('Content-Type', 'application/xml')
+            ->header('Cache-Control', 'public, max-age=3600');
     }
 
     /**

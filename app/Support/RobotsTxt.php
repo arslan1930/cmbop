@@ -73,6 +73,7 @@ class RobotsTxt
             '/email/',
             '/auth/',
             '/cron/',
+            '/blog/tag',
         ];
     }
 

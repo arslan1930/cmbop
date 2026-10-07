@@ -50,4 +50,12 @@ class LocalizedPublicPathTest extends TestCase
         $this->assertSame(url('/fr/a-propos'), PublicI18n::urlForLocale('ueber-uns', 'fr'));
         $this->assertSame(url('/about'), PublicI18n::urlForLocale('about', 'en'));
     }
+
+    public function test_historical_italian_publisher_slug_redirects_to_current(): void
+    {
+        $this->assertSame('become-a-publisher', LocalizedPublicPath::toEnglish('diventare-publisher'));
+        $this->assertSame('diventa-publisher', LocalizedPublicPath::legacyRedirects('it')['diventare-publisher'] ?? null);
+        $this->assertSame('diventa-publisher', LocalizedPublicPath::legacyRedirects('it')['become-a-publisher'] ?? null);
+        $this->assertSame('/it/diventa-publisher', LocalizedPublicPath::unprefixedLegacyRedirects()['diventare-publisher'] ?? null);
+    }
 }

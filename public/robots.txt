@@ -38,6 +38,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: Googlebot
 Allow: /
@@ -79,6 +80,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: bingbot
 Allow: /
@@ -120,6 +122,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: Slurp
 Allow: /
@@ -161,6 +164,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: DuckDuckBot
 Allow: /
@@ -202,6 +206,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: GPTBot
 Allow: /
@@ -243,6 +248,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: ChatGPT-User
 Allow: /
@@ -284,6 +290,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: OAI-SearchBot
 Allow: /
@@ -325,6 +332,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: Google-Extended
 Allow: /
@@ -366,6 +374,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: ClaudeBot
 Allow: /
@@ -407,6 +416,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: Anthropic-AI
 Allow: /
@@ -448,6 +458,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: PerplexityBot
 Allow: /
@@ -489,6 +500,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: Bytespider
 Allow: /
@@ -530,6 +542,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: CCBot
 Allow: /
@@ -571,6 +584,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: Applebot-Extended
 Allow: /
@@ -612,6 +626,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: meta-externalagent
 Allow: /
@@ -653,6 +668,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: LinkedInBot
 Allow: /
@@ -694,6 +710,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: facebookexternalhit
 Allow: /
@@ -735,6 +752,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 User-agent: FacebookBot
 Allow: /
@@ -776,6 +794,7 @@ Disallow: /reset-password
 Disallow: /email/
 Disallow: /auth/
 Disallow: /cron/
+Disallow: /blog/tag
 
 Sitemap: https://seolinkbuildings.com/sitemap.xml
 # AI / LLM product digest for assistants and answer engines
