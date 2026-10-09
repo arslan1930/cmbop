@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use App\Support\ViewerCountry;
 use Closure;
@@ -46,10 +45,9 @@ class SetLocale
             if ($explicit !== null) {
                 return $explicit;
             }
-            $located = $this->redirectForLocation($request, $urlLocale);
-            if ($located !== null) {
-                return $located;
-            }
+            // Geo-IP redirects of unprefixed URLs are intentionally skipped.
+            // They 302'd US visitors from /blog/{slug} onto /us/blog (or looped
+            // with BlogController's fallback 301), which GSC reports as Redirect error.
         }
 
         if (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale)) {
@@ -138,6 +136,10 @@ class SetLocale
             return null;
         }
 
+        if ($this->isSearchEngineBot($request)) {
+            return null;
+        }
+
         $cookieName = (string) config('i18n.cookie', 'public_locale');
         if (trim((string) $request->cookie($cookieName)) !== '') {
             return null;
@@ -157,45 +159,31 @@ class SetLocale
     }
 
     /**
-     * Unprefixed public pages follow the visitor country, then a saved locale cookie.
-     * An explicit /de or /us URL is left alone. Login and the signed-in app stay English.
+     * Leftover Hostinger copies may still call this. Do not geo-redirect
+     * unprefixed URLs — that 302'd /blog/{slug} onto /us/blog for US IPs
+     * and looped with the fallback 301 from /us/blog/{en-slug}.
      */
     private function redirectForLocation(Request $request, ?string $urlLocale): ?Response
     {
-        if (! method_exists(PublicI18n::class, 'isPublicMarketingPath')
-            || ! PublicI18n::isPublicMarketingPath($request)
-            || (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale))
-            || (method_exists(PublicI18n::class, 'isEnglishOnlyMarketingPath') && PublicI18n::isEnglishOnlyMarketingPath($request))
-            || ! method_exists(PublicI18n::class, 'localeForCountry')
-            || ! method_exists(PublicI18n::class, 'switchUrl')) {
-            return null;
+        unset($request, $urlLocale);
+
+        return null;
+    }
+
+    private function isSearchEngineBot(Request $request): bool
+    {
+        $ua = strtolower((string) $request->userAgent());
+        if ($ua === '') {
+            return false;
         }
 
-        $path = method_exists(PublicI18n::class, 'pathWithoutLocale')
-            ? PublicI18n::pathWithoutLocale($request)
-            : ltrim($request->path(), '/');
-        if ($path === '') {
-            return null;
+        foreach (['googlebot', 'bingbot', 'slurp', 'duckduckbot', 'yandex', 'baiduspider', 'applebot'] as $bot) {
+            if (str_contains($ua, $bot)) {
+                return true;
+            }
         }
 
-        $fromCountry = PublicI18n::localeForCountry(app(ViewerCountry::class)->code($request));
-        if ($fromCountry === null || ! PublicI18n::isPrefixed($fromCountry)) {
-            return null;
-        }
-
-        $locale = $fromCountry;
-
-        $target = PublicI18n::switchUrl($request, $locale);
-        $query = $request->getQueryString();
-        if (is_string($query) && $query !== '') {
-            $target .= (str_contains($target, '?') ? '&' : '?').$query;
-        }
-
-        if ($target === $request->fullUrl() || $target === $request->url()) {
-            return null;
-        }
-
-        return redirect()->to($target, 302);
+        return false;
     }
 
     private function isAuthenticatedAppPath(Request $request): bool

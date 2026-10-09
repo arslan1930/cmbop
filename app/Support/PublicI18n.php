@@ -602,10 +602,14 @@ class PublicI18n
         }
 
         if (! self::isSupported($locale) || $locale === self::default()) {
-            return $path === '' ? url('/') : url($path);
+            $absolute = $path === '' ? url('/') : url($path);
+        } else {
+            $absolute = $path === '' ? url($locale) : url($locale.'/'.$path);
         }
 
-        return $path === '' ? url($locale) : url($locale.'/'.$path);
+        return function_exists('canonical_public_url')
+            ? canonical_public_url($absolute)
+            : $absolute;
     }
 
     public static function switchUrl(Request $request, string $targetLocale): string
@@ -811,6 +815,9 @@ class PublicI18n
 
             $authPath = ltrim(self::pathWithoutLocale($request), '/');
             $href = url('/'.$authPath);
+            if (function_exists('canonical_public_url')) {
+                $href = canonical_public_url($href);
+            }
 
             return [
                 ['hreflang' => self::hreflang(self::default()), 'href' => $href],
@@ -890,11 +897,25 @@ class PublicI18n
             ? LocalizedPublicPath::localize($path, $xDefault)
             : $path;
         $xDefaultPath = ltrim((string) ($pathByLocale[$xDefault] ?? $xDefaultFallback), '/');
+        $xDefaultHref = self::urlForLocale($xDefaultPath, $xDefault);
 
-        $tags[] = [
-            'hreflang' => 'x-default',
-            'href' => self::urlForLocale($xDefaultPath, $xDefault),
-        ];
+        $hasXDefault = false;
+        foreach ($tags as $index => $tag) {
+            if (function_exists('canonical_public_url')) {
+                $tags[$index]['href'] = canonical_public_url((string) ($tag['href'] ?? ''));
+            }
+            if (($tag['hreflang'] ?? '') === 'x-default') {
+                $hasXDefault = true;
+            }
+        }
+        if (! $hasXDefault) {
+            $tags[] = [
+                'hreflang' => 'x-default',
+                'href' => function_exists('canonical_public_url')
+                    ? canonical_public_url($xDefaultHref)
+                    : $xDefaultHref,
+            ];
+        }
 
         return $tags;
     }

@@ -27,6 +27,9 @@
         if (! preg_match('#^https?://#i', $pageCanonical)) {
             $pageCanonical = url('/'.ltrim($pageCanonical, '/'));
         }
+        if (function_exists('canonical_public_url')) {
+            $pageCanonical = canonical_public_url($pageCanonical);
+        }
         $pageImage = trim($__env->yieldContent('og_image')) ?: asset('assets/brand/web/og-share-1200x630.png');
         $pageImagePath = strtolower((string) (parse_url($pageImage, PHP_URL_PATH) ?: $pageImage));
         $pageImageType = str_ends_with($pageImagePath, '.jpg') || str_ends_with($pageImagePath, '.jpeg')
@@ -68,6 +71,27 @@
                 $hreflangPathByLocale !== [] ? $hreflangPathByLocale : null
             )
             : [];
+        if ($hreflangTags !== []) {
+            $hasXDefault = false;
+            foreach ($hreflangTags as $index => $tag) {
+                if (function_exists('canonical_public_url')) {
+                    $hreflangTags[$index]['href'] = canonical_public_url((string) ($tag['href'] ?? ''));
+                }
+                if (($tag['hreflang'] ?? '') === 'x-default') {
+                    $hasXDefault = true;
+                }
+            }
+            if (! $hasXDefault) {
+                $defaultHref = $hreflangTags[0]['href'] ?? $pageCanonical;
+                foreach ($hreflangTags as $tag) {
+                    if (($tag['hreflang'] ?? '') === 'en-GB') {
+                        $defaultHref = $tag['href'];
+                        break;
+                    }
+                }
+                $hreflangTags[] = ['hreflang' => 'x-default', 'href' => $defaultHref];
+            }
+        }
         $pageRobots = trim($__env->yieldContent('robots'))
             ?: ((class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'robotsContent'))
                 ? \App\Support\PublicI18n::robotsContent(request())

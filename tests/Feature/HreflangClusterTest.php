@@ -115,7 +115,7 @@ class HreflangClusterTest extends TestCase
 
     public function test_marketplace_and_about_clusters_use_localized_slugs(): void
     {
-        foreach (['marketplace', 'about'] as $englishPath) {
+        foreach (['marketplace', 'about', 'contact'] as $englishPath) {
             $expected = $this->expectedPageCluster($englishPath);
             $this->assertSame($this->clusterKeys(), array_keys($expected));
             $this->assertSame(url('/'.$englishPath), $expected['x-default']);
@@ -177,14 +177,11 @@ class HreflangClusterTest extends TestCase
             $this->assertSitemapUrlHasCluster($xml, $home[$tag], $home, $locale.' home');
         }
 
-        foreach (['en', 'de'] as $locale) {
+        foreach (['en', 'de', 'us'] as $locale) {
             $xml = $this->get('/sitemap-'.$locale.'.xml')->assertOk()->getContent();
             $tag = PublicI18n::hreflang($locale);
             $this->assertSitemapUrlHasCluster($xml, $market[$tag], $market, $locale.' marketplace');
         }
-
-        $us = $this->get('/sitemap-us.xml')->assertOk()->getContent();
-        $this->assertStringNotContainsString('/us/marketplace', $us);
     }
 
     /**
