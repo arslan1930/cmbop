@@ -453,6 +453,53 @@ if (! function_exists('url_is_loopback')) {
     }
 }
 
+if (! function_exists('canonical_public_origin')) {
+    /**
+     * Public origin for canonical / hreflang / sitemap URLs.
+     * Live host is always https://seolinkbuildings.com (no www, no http).
+     * Local / test hosts are left alone.
+     */
+    function canonical_public_origin(?string $origin = null): string
+    {
+        $origin = rtrim((string) ($origin ?: (function_exists('app_public_url') ? app_public_url() : '')), '/');
+        $host = strtolower((string) (parse_url($origin, PHP_URL_HOST) ?: ''));
+        if ($host === 'www.seolinkbuildings.com' || $host === 'seolinkbuildings.com') {
+            return 'https://seolinkbuildings.com';
+        }
+
+        return $origin !== '' ? $origin : 'https://seolinkbuildings.com';
+    }
+}
+
+if (! function_exists('canonical_public_url')) {
+    /**
+     * Rewrite www / http seolinkbuildings.com URLs onto the HTTPS apex.
+     * Path and query are preserved. Other hosts (localhost, tests) pass through.
+     */
+    function canonical_public_url(?string $url): string
+    {
+        $url = trim((string) $url);
+        if ($url === '' || $url === '/') {
+            return canonical_public_origin();
+        }
+
+        if (! preg_match('#^https?://#i', $url)) {
+            return rtrim(canonical_public_origin(), '/').'/'.ltrim($url, '/');
+        }
+
+        $parts = parse_url($url);
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if ($host !== 'www.seolinkbuildings.com' && $host !== 'seolinkbuildings.com') {
+            return $url;
+        }
+
+        $path = (string) ($parts['path'] ?? '');
+        $query = isset($parts['query']) && $parts['query'] !== '' ? '?'.$parts['query'] : '';
+
+        return 'https://seolinkbuildings.com'.($path === '' || $path === '/' ? '' : $path).$query;
+    }
+}
+
 if (! function_exists('brand_public_origin')) {
     /**
      * Public site origin for customer documents and invoice emails.

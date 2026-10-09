@@ -42,8 +42,11 @@ LimitRequestBody 67108864
 
     RewriteEngine On
 
-    # One host: www → apex (HTTPS). Do not 301 POST — browsers drop the body.
-    RewriteCond %{REQUEST_METHOD} GET
+    # One host: www → apex HTTPS. Hostinger already 301s HTTP and www in one hop
+    # at the edge — this is only a safety net if a www request reaches Apache.
+    # Do not 301 POST — browsers drop the body. REQUEST_URI keeps the query.
+    RewriteCond %{REQUEST_METHOD} GET [OR]
+    RewriteCond %{REQUEST_METHOD} HEAD
     RewriteCond %{HTTP_HOST} ^www\.seolinkbuildings\.com$ [NC]
     RewriteRule ^ https://seolinkbuildings.com%{REQUEST_URI} [L,R=301]
 

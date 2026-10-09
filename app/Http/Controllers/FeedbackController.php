@@ -13,6 +13,31 @@ use Illuminate\Support\Facades\Log;
 
 class FeedbackController extends Controller
 {
+    /**
+     * GET /feedback/* is listed in page source. Crawlers must get a 200
+     * with noindex — not a 4xx and not a homepage redirect (soft-404).
+     */
+    public function showEndpoint()
+    {
+        $html = <<<'HTML'
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Feedback</title>
+</head>
+<body>
+    <p>This form is submitted from SEOLinkBuildings pages. There is nothing to index here.</p>
+</body>
+</html>
+HTML;
+
+        return response($html, 200)
+            ->header('X-Robots-Tag', 'noindex, nofollow');
+    }
+
     public function storeProblem(Request $request)
     {
         $user = $request->user();

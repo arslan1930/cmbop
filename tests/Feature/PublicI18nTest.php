@@ -296,9 +296,9 @@ class PublicI18nTest extends TestCase
         $this->get('/sitemap-us.xml')
             ->assertOk()
             ->assertSee('/us</loc>', false)
-            ->assertDontSee('/us/marketplace', false)
-            ->assertDontSee('/us/become-a-publisher', false)
-            ->assertDontSee('/us/faq', false);
+            ->assertSee('/us/marketplace', false)
+            ->assertSee('/us/become-a-publisher', false)
+            ->assertSee('/us/faq', false);
     }
 
     public function test_blog_tag_archives_redirect_to_the_blog_index(): void

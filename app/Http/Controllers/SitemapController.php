@@ -72,28 +72,21 @@ class SitemapController extends Controller
     }
 
     /**
-     * US English marketing slugs match unprefixed EN. Only the /us home is a loc.
+     * Every locale — including /us — lists its own 200 self-canonical pages.
+     * /us/about vs /about are regional variants (en-US / en-GB), not redirects.
      *
      * @return list<array{path: string, changefreq: string, priority: string}>
      */
     private function staticPagesForLocale(string $locale): array
     {
-        $pages = $this->staticPages();
-        if ($locale !== 'us') {
-            return $pages;
-        }
-
-        return array_values(array_filter(
-            $pages,
-            static fn (array $page): bool => ($page['path'] ?? '') === ''
-        ));
+        return $this->staticPages();
     }
 
     public function index(): Response
     {
         // Production APP_URL is sometimes still loopback. Child locs must
         // use the public origin or GSC cannot fetch locale sitemaps.
-        $base = rtrim(app_public_url(), '/');
+        $base = rtrim(function_exists('canonical_public_origin') ? canonical_public_origin() : app_public_url(), '/');
         $sitemaps = [];
         $lastmods = $this->sitemapIndexLastmods();
 
@@ -247,6 +240,18 @@ class SitemapController extends Controller
                 $lastmods[$locale] = Carbon::parse($lastmod)->toAtomString();
             } catch (\Throwable) {
                 continue;
+            }
+        }
+
+        $fallback = null;
+        if ($lastmods !== []) {
+            $stamps = array_values($lastmods);
+            rsort($stamps);
+            $fallback = $stamps[0];
+        }
+        foreach ($this->supportedLocales() as $locale) {
+            if (empty($lastmods[$locale]) && $fallback !== null) {
+                $lastmods[$locale] = $fallback;
             }
         }
 
@@ -450,7 +455,22 @@ class SitemapController extends Controller
         $unique = [];
         foreach ($urls as $entry) {
             $loc = (string) ($entry['loc'] ?? '');
+            if (function_exists('canonical_public_url')) {
+                $loc = canonical_public_url($loc);
+                $entry['loc'] = $loc;
+                if (isset($entry['alternates']) && is_array($entry['alternates'])) {
+                    foreach ($entry['alternates'] as $index => $alternate) {
+                        $href = (string) ($alternate['href'] ?? '');
+                        if ($href !== '') {
+                            $entry['alternates'][$index]['href'] = canonical_public_url($href);
+                        }
+                    }
+                }
+            }
             if ($loc === '' || isset($seen[$loc])) {
+                continue;
+            }
+            if (str_contains($loc, '?page=') || preg_match('#/(login|register)(/|\?|$)#', $loc) === 1) {
                 continue;
             }
             $seen[$loc] = true;

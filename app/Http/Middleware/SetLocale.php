@@ -44,6 +44,9 @@ class SetLocale
             if ($explicit !== null) {
                 return $explicit;
             }
+            // Geo-IP / cookieless homepage redirects stay off. Master already
+            // dropped them; a leftover Hostinger copy must not 302 /blog/{slug}
+            // onto /us/blog (GSC Redirect error).
         }
 
         if (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale)) {

@@ -46,6 +46,11 @@ class SecurityHeaders
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
 
+        $first = $request->segment(1);
+        if (in_array($first, ['login', 'register', 'forgot-password', 'reset-password', 'feedback'], true)) {
+            $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
+        }
+
         // Long-cache fingerprinted/static CSS & JS served from /css and /js
         $path = $request->path();
         if (preg_match('#^(css|js|assets)/#', $path) && $response->getStatusCode() === 200) {

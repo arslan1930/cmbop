@@ -1591,10 +1591,10 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
 
 // Public + authenticated feedback (report a problem / suggestion box).
 // GET is listed in the page source (fetch URL); crawlers and refreshes must
-// not 405. The widget still POSTs JSON.
-Route::get('/feedback/problem', fn () => redirect()->route('home'))
+// not 405 or bounce to home (that was a 2-hop soft-404). The widget still POSTs JSON.
+Route::get('/feedback/problem', [FeedbackController::class, 'showEndpoint'])
     ->name('feedback.problem.redirect');
-Route::get('/feedback/suggestion', fn () => redirect()->route('home'))
+Route::get('/feedback/suggestion', [FeedbackController::class, 'showEndpoint'])
     ->name('feedback.suggestion.redirect');
 Route::middleware('throttle:10,1')->group(function () {
     Route::post('/feedback/problem', [FeedbackController::class, 'storeProblem'])
