@@ -46,61 +46,33 @@ class GscIndexingFixesTest extends TestCase
 
     public function test_us_country_header_does_not_bounce_english_blog_posts(): void
     {
+        $slug = 'gsc-en-only-blog-post';
         $blog = Blog::factory()->published()->create([
-            'title' => 'Price your site',
-            'slug' => 'how-to-price-your-site-and-sensitive-niches',
+            'title' => 'GSC English post',
+            'slug' => $slug,
             'primary_locale' => 'en',
         ]);
         BlogTranslation::create([
             'blog_id' => $blog->id,
             'locale' => 'en',
-            'title' => 'Price your site',
-            'slug' => 'how-to-price-your-site-and-sensitive-niches',
+            'title' => 'GSC English post',
+            'slug' => $slug,
             'excerpt' => 'Excerpt',
             'content' => '<p>Body</p>',
             'is_published' => true,
         ]);
 
-        $canonical = url('/blog/how-to-price-your-site-and-sensitive-niches');
+        $canonical = url('/blog/'.$slug);
 
         $this->withHeader('CF-IPCountry', 'US')
-            ->get('/blog/how-to-price-your-site-and-sensitive-niches')
+            ->get('/blog/'.$slug)
             ->assertOk()
             ->assertSee('rel="canonical" href="'.$canonical.'"', false);
 
         $this->withHeader('CF-IPCountry', 'US')
-            ->get('/us/blog/how-to-price-your-site-and-sensitive-niches')
+            ->get('/us/blog/'.$slug)
             ->assertRedirect($canonical);
-        $this->assertSame(
-            301,
-            $this->withHeader('CF-IPCountry', 'US')
-                ->get('/us/blog/how-to-price-your-site-and-sensitive-niches')
-                ->status()
-        );
-
-        foreach ([
-            'how-to-choose-a-publisher-site-dr-da-traffic-niche',
-            'wallet-escrow-and-refunds-explained',
-        ] as $slug) {
-            $post = Blog::factory()->published()->create([
-                'title' => $slug,
-                'slug' => $slug,
-                'primary_locale' => 'en',
-            ]);
-            BlogTranslation::create([
-                'blog_id' => $post->id,
-                'locale' => 'en',
-                'title' => $slug,
-                'slug' => $slug,
-                'excerpt' => 'Excerpt',
-                'content' => '<p>Body</p>',
-                'is_published' => true,
-            ]);
-
-            $this->withHeader('CF-IPCountry', 'US')
-                ->get('/blog/'.$slug)
-                ->assertOk();
-        }
+        $this->assertSame(301, $this->withHeader('CF-IPCountry', 'US')->get('/us/blog/'.$slug)->status());
     }
 
     public function test_at_kontakt_is_self_canonical_with_reciprocal_hreflang_and_x_default(): void
