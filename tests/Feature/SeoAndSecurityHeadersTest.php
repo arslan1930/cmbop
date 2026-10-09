@@ -117,7 +117,7 @@ class SeoAndSecurityHeadersTest extends TestCase
             ->assertOk()
             ->assertSee('SEOLinkBuildings', false)
             ->assertSee('seolinkbuildings.com', false)
-            ->assertSee('Topurlz', false)
+            ->assertSee('Companies House', false)
             ->assertSee('/pricing', false)
             ->assertSee('16607074', false)
             ->assertSee('/es/', false)
