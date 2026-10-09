@@ -21,16 +21,26 @@ class BrandOrganization
         }
 
         $companiesHouse = 'https://find-and-update.company-information.service.gov.uk/company/'.$registrationNo;
+        $legalName = self::confirmedLegalName();
 
-        return array_merge([
+        $node = [
             '@type' => 'Organization',
             'name' => 'SEOLinkBuildings',
-            'legalName' => $company['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)',
             'alternateName' => [
-                'SEO Link Buildings',
                 'Seolink Buildings',
                 'Topurlz Ltd',
             ],
+        ];
+        if ($legalName !== null) {
+            $node['legalName'] = $legalName;
+        }
+        $description = trim((string) config('company.description', ''));
+        if ($description !== '') {
+            $node['description'] = $description;
+            $node['slogan'] = $description;
+        }
+
+        return array_merge($node, [
             'identifier' => $registrationNo,
             'url' => url('/'),
             'logo' => asset('assets/img/logo1.png'),
@@ -51,6 +61,16 @@ class BrandOrganization
         ], $extra);
     }
 
+    public static function organizationId(): string
+    {
+        return rtrim((string) url('/'), '/').'/#organization';
+    }
+
+    public static function websiteId(): string
+    {
+        return rtrim((string) url('/'), '/').'/#website';
+    }
+
     /**
      * Page-level JSON-LD graph (Organization + WebPage) so crawlers detect
      * schema.org types on every public layout, including auth.
@@ -59,7 +79,7 @@ class BrandOrganization
      */
     public static function pageGraph(string $name, string $description, string $url): array
     {
-        $orgId = rtrim((string) url('/'), '/').'/#organization';
+        $orgId = self::organizationId();
         $org = self::schema(['@id' => $orgId]);
 
         $page = [
@@ -110,6 +130,20 @@ class BrandOrganization
         } catch (\Throwable) {
             return '';
         }
+    }
+
+    /**
+     * Companies House spelling only. The billing fallback "Partners with (Teqno LTD)"
+     * is not a legal name and must not be published next to company number 16607074.
+     */
+    public static function confirmedLegalName(): ?string
+    {
+        $fromCompany = trim((string) config('company.legal_name', ''));
+        if ($fromCompany !== '' && ! str_contains($fromCompany, 'Partners with')) {
+            return $fromCompany;
+        }
+
+        return null;
     }
 
     /**

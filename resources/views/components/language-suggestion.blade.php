@@ -8,8 +8,10 @@
 
   if (show_public_language_switcher()
       && class_exists(PublicI18n::class)
-      && method_exists(PublicI18n::class, 'preferredFromBrowser')) {
-      $suggested = PublicI18n::preferredFromBrowser(request());
+      && (method_exists(PublicI18n::class, 'suggestedLocale') || method_exists(PublicI18n::class, 'preferredFromBrowser'))) {
+      $suggested = method_exists(PublicI18n::class, 'suggestedLocale')
+          ? PublicI18n::suggestedLocale(request())
+          : PublicI18n::preferredFromBrowser(request());
       $current = public_locale();
       $dismissed = request()->cookie(config('i18n.suggestion_dismiss_cookie', 'locale_suggest_dismissed'));
 

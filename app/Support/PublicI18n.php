@@ -947,6 +947,28 @@ class PublicI18n
         return self::isSupported($locale) ? $locale : null;
     }
 
+    /**
+     * Banner suggestion only. Never used to redirect. Browser language wins;
+     * a country with its own prefix is the fallback.
+     */
+    public static function suggestedLocale(Request $request): ?string
+    {
+        $current = App::getLocale();
+        $browser = self::preferredFromBrowser($request);
+        if ($browser !== null && $browser !== $current) {
+            return $browser;
+        }
+
+        if (class_exists(ViewerCountry::class)) {
+            $fromCountry = self::localeForCountry(app(ViewerCountry::class)->code($request));
+            if ($fromCountry !== null && $fromCountry !== $current && self::isPrefixed($fromCountry)) {
+                return $fromCountry;
+            }
+        }
+
+        return null;
+    }
+
     public static function preferredFromBrowser(Request $request): ?string
     {
         foreach ($request->getLanguages() as $tag) {

@@ -544,7 +544,7 @@ Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/pt/`, `/it/`, `/us/`, `/pl/
 
 ## Company
 - Brand: SEOLinkBuildings
-- Legal partner: Topurlz Ltd (also styled TopURLz LTD / SEOLinkBuildings Partners with Topurlz LTD)
+- Company number on the site: 16607074. The public schema does not publish a legalName until it is the exact Companies House spelling for that number.
 - Company number: 16607074
 - Address: 20 Wenlock Road, London, England, N1 7GU
 - Support: support@seolinkbuildings.com
