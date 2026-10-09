@@ -216,9 +216,32 @@ class Blog extends Model
     }
 
     /**
+     * The US section shares the English catalog. Posts are stored as locale en.
+     */
+    public static function catalogLocale(string $locale): string
+    {
+        return $locale === 'us' ? 'en' : $locale;
+    }
+
+    /**
+     * Absolute public URL for a listing card. US cards point at the English
+     * canonical (/blog/{slug}), which is the URL that actually has the post.
+     */
+    public function listingUrl(): string
+    {
+        $locale = $this->getAttribute('resolved_locale');
+        if (! is_string($locale) || $locale === '') {
+            $locale = function_exists('public_locale') ? public_locale() : 'en';
+        }
+
+        return $this->canonicalUrl(self::catalogLocale($locale), 'en');
+    }
+
+    /**
      * Public listings (index, footer, related, marketing cards): only posts
      * with a published translation for this locale. Does not fall back to
      * English or primary_locale — that belongs on show() / canonical only.
+     * Callers that list the US section pass catalogLocale() so English posts show.
      */
     public function scopeWithPublishedLocale($query, string $locale)
     {

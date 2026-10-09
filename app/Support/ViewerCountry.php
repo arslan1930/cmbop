@@ -95,20 +95,13 @@ class ViewerCountry
             }
         }
 
-        $map = config('fx.country_currency', []);
-        $country = $this->code($request);
-        if ($country === null || ! is_array($map)) {
-            return 'EUR';
-        }
-
-        $currency = strtoupper((string) ($map[$country] ?? ''));
-
-        return $currency !== '' ? $currency : 'EUR';
+        // Public prices and card charges stay in EUR on every locale, including /us.
+        return 'EUR';
     }
 
     public function isUs(?Request $request = null): bool
     {
-        return $this->displayCurrency($request) === 'USD';
+        return $this->code($request) === 'US';
     }
 
     private function normalizeForcedCurrency(string $raw): ?string

@@ -137,7 +137,7 @@
                 <ul class="list-unstyled small mb-2">
                     @forelse(($footerRecentBlogs ?? collect()) as $post)
                         <li class="mb-3">
-                            <a href="{{ localized_url('blog/'.$post->slug) }}" class="text-dark text-decoration-none d-block fw-semibold">
+                            <a href="{{ $post->listingUrl() }}" class="text-dark text-decoration-none d-block fw-semibold">
                                 {{ \Illuminate\Support\Str::limit($post->title, 64) }}
                             </a>
                             <span class="text-muted" style="font-size: 0.78rem;">

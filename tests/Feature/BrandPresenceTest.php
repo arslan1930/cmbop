@@ -33,7 +33,8 @@ class BrandPresenceTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Guest Post Marketplace for SEO Backlinks', $html);
-        $this->assertStringContainsString('"SEO Link Buildings"', $html);
+        $this->assertStringNotContainsString('SEO Link Buildings', $html);
+        $this->assertStringNotContainsString('Partners with', $html);
         $this->assertStringContainsString('"Seolink Buildings"', $html);
         $this->assertStringContainsString('"Topurlz Ltd"', $html);
         $this->assertStringContainsString('20 Wenlock Road', $html);

@@ -11,7 +11,7 @@ return [
     'hero_title' => 'SEOLinkBuildings',
     'hero_support' => 'The guest post marketplace for verified publisher sites.',
     'get_started' => 'Get Started',
-    'hero_tagline' => 'The global link building marketplace for SEO, digital PR, and content distribution.',
+    'hero_tagline' => 'SEOLinkBuildings is a European guest post and link building marketplace with verified publishers.',
     'hero_product_alt' => 'Marketplace catalog preview with publisher metrics and placement prices',
 
     // Footer

@@ -2,9 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
-use App\Support\ViewerCountry;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
@@ -45,10 +43,6 @@ class SetLocale
             $explicit = $this->redirectForExplicitLocale($request);
             if ($explicit !== null) {
                 return $explicit;
-            }
-            $located = $this->redirectForLocation($request, $urlLocale);
-            if ($located !== null) {
-                return $located;
             }
         }
 
@@ -99,7 +93,7 @@ class SetLocale
     /**
      * Language switcher (?locale= / ?hl=) wins. The clean URL is kept and the
      * public_locale cookie is set so a leftover /us cookie cannot steal English.
-     * Unprefixed home also stores the visitor-country locale once when no cookie exists.
+     * The URL itself chooses the locale. A missing cookie never redirects.
      */
     private function redirectForExplicitLocale(Request $request): ?Response
     {
@@ -123,6 +117,10 @@ class SetLocale
                 $target .= (str_contains($target, '?') ? '&' : '?').http_build_query($query);
             }
 
+            if ($this->redirectTargetIsCurrentUrl($request, $target)) {
+                return null;
+            }
+
             $redirect = redirect()->to($target, 302);
             if (method_exists(PublicI18n::class, 'localeCookie')) {
                 $redirect->headers->setCookie(PublicI18n::localeCookie($requested, $request));
@@ -131,71 +129,27 @@ class SetLocale
             return $redirect;
         }
 
-        if ($path !== ''
-            || (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed(
-                method_exists(PublicI18n::class, 'splitPath') ? PublicI18n::splitPath($request)[0] : null
-            ))) {
-            return null;
-        }
-
-        $cookieName = (string) config('i18n.cookie', 'public_locale');
-        if (trim((string) $request->cookie($cookieName)) !== '') {
-            return null;
-        }
-
-        $fromCountry = method_exists(PublicI18n::class, 'localeForCountry')
-            ? PublicI18n::localeForCountry(app(ViewerCountry::class)->code($request))
-            : null;
-        if ($fromCountry === null
-            || (method_exists(PublicI18n::class, 'isPrefixed') && ! PublicI18n::isPrefixed($fromCountry))
-            || ! method_exists(PublicI18n::class, 'localeCookie')) {
-            return null;
-        }
-
-        return redirect()->to($request->url(), 302)
-            ->withCookie(PublicI18n::localeCookie($fromCountry, $request));
+        return null;
     }
 
     /**
-     * Unprefixed public pages follow the visitor country, then a saved locale cookie.
-     * An explicit /de or /us URL is left alone. Login and the signed-in app stay English.
+     * A redirect whose path and query match this request (trailing slash ignored)
+     * would loop for clients that do not store cookies. Render the page instead.
      */
-    private function redirectForLocation(Request $request, ?string $urlLocale): ?Response
+    private function redirectTargetIsCurrentUrl(Request $request, string $target): bool
     {
-        if (! method_exists(PublicI18n::class, 'isPublicMarketingPath')
-            || ! PublicI18n::isPublicMarketingPath($request)
-            || (method_exists(PublicI18n::class, 'isPrefixed') && PublicI18n::isPrefixed($urlLocale))
-            || (method_exists(PublicI18n::class, 'isEnglishOnlyMarketingPath') && PublicI18n::isEnglishOnlyMarketingPath($request))
-            || ! method_exists(PublicI18n::class, 'localeForCountry')
-            || ! method_exists(PublicI18n::class, 'switchUrl')) {
-            return null;
-        }
+        $normalize = static function (string $url): string {
+            $parts = parse_url($url) ?: [];
+            $path = rtrim((string) ($parts['path'] ?? ''), '/');
+            if ($path === '') {
+                $path = '/';
+            }
+            $query = (string) ($parts['query'] ?? '');
 
-        $path = method_exists(PublicI18n::class, 'pathWithoutLocale')
-            ? PublicI18n::pathWithoutLocale($request)
-            : ltrim($request->path(), '/');
-        if ($path === '') {
-            return null;
-        }
+            return $path.($query !== '' ? '?'.$query : '');
+        };
 
-        $fromCountry = PublicI18n::localeForCountry(app(ViewerCountry::class)->code($request));
-        if ($fromCountry === null || ! PublicI18n::isPrefixed($fromCountry)) {
-            return null;
-        }
-
-        $locale = $fromCountry;
-
-        $target = PublicI18n::switchUrl($request, $locale);
-        $query = $request->getQueryString();
-        if (is_string($query) && $query !== '') {
-            $target .= (str_contains($target, '?') ? '&' : '?').$query;
-        }
-
-        if ($target === $request->fullUrl() || $target === $request->url()) {
-            return null;
-        }
-
-        return redirect()->to($target, 302);
+        return $normalize($target) === $normalize($request->fullUrl());
     }
 
     private function isAuthenticatedAppPath(Request $request): bool
