@@ -951,6 +951,17 @@ class CatalogController extends Controller
     }
 
     /**
+     * Same listing as Advertiser → Catalog, for the token catalog API.
+     * Does not change HTML catalog behavior.
+     *
+     * @return array<string, mixed>
+     */
+    public function listingForExternalRequest(Request $request): array
+    {
+        return $this->buildCatalogListing($request);
+    }
+
+    /**
      * Batch-load cancelled order counts so expand trust can show completion %
      * without an N+1 per row on the catalog page.
      *

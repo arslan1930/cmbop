@@ -32,6 +32,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WelcomeBonusSettingController as AdminWelcomeBonusSettingController;
 use App\Http\Controllers\Admin\WithdrawalMarkPaidConfirmController;
 use App\Http\Controllers\Advertiser\AddFundsController;
+use App\Http\Controllers\Advertiser\ApiSettingsController;
 use App\Http\Controllers\Advertiser\AnalyticsController;
 use App\Http\Controllers\Advertiser\BillingController as AdvertiserBillingController;
 use App\Http\Controllers\Advertiser\CatalogController;
@@ -1668,6 +1669,14 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
     ->group(function () {
 
         Route::get('/dashboard', [AdvertiserDashboardController::class, 'index'])->name('dashboard');
+
+        Route::get('/api', [ApiSettingsController::class, 'index'])->name('api.index');
+        Route::post('/api/tokens', [ApiSettingsController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('api.store');
+        Route::delete('/api/tokens/{token}', [ApiSettingsController::class, 'destroy'])
+            ->middleware('throttle:20,1')
+            ->name('api.destroy');
 
         // Spending history chart
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');

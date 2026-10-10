@@ -247,6 +247,11 @@
                     </a>
                 </li>
                 <li>
+                    <a class="dropdown-item" href="{{ route('advertiser.api.index') }}">
+                        <i class="fa fa-key" aria-hidden="true"></i> API
+                    </a>
+                </li>
+                <li>
                     <a class="dropdown-item" href="{{ route('profile.notifications') }}">
                         <i class="fa fa-bell" aria-hidden="true"></i> Email preferences
                     </a>

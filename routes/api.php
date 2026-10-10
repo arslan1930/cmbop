@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\PaypalWebhookController;
 use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\V1\CatalogSearchController;
+use App\Http\Middleware\AuthenticateAdvertiserCatalogApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +19,13 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::middleware([AuthenticateAdvertiserCatalogApi::class, 'throttle:60,1'])
+    ->prefix('v1')
+    ->group(function () {
+        Route::get('/catalog', [CatalogSearchController::class, 'index'])
+            ->name('api.v1.catalog');
+    });
 
 /*
 |--------------------------------------------------------------------------

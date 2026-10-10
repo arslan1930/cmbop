@@ -1,0 +1,162 @@
+openapi: 3.0.3
+info:
+  title: Seolinkbuildings Advertiser Catalog API
+  version: "1.0.0"
+  description: |
+    Same live advertiser catalog as the website (filters, prices, hide-mode).
+    Create keys under Advertiser → API. Account name and password stay on /profile
+    (shared for every role; that page is not under /advertiser or /publisher).
+    Orders are not created through this API.
+servers:
+  - url: /api/v1
+paths:
+  /catalog:
+    get:
+      operationId: searchCatalog
+      summary: Search catalog listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/search"
+        - $ref: "#/components/parameters/category"
+        - $ref: "#/components/parameters/country"
+        - $ref: "#/components/parameters/language"
+        - $ref: "#/components/parameters/priceMin"
+        - $ref: "#/components/parameters/priceMax"
+        - $ref: "#/components/parameters/daMin"
+        - $ref: "#/components/parameters/daMax"
+        - $ref: "#/components/parameters/drMin"
+        - $ref: "#/components/parameters/drMax"
+        - $ref: "#/components/parameters/trafficMin"
+        - $ref: "#/components/parameters/trafficMax"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/perPage"
+        - $ref: "#/components/parameters/website"
+      responses:
+        "200":
+          description: Matching sites
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogResponse"
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: Not an advertiser, unverified, or suspended
+        "429":
+          description: Rate limited
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    search:
+      name: search
+      in: query
+      schema: { type: string }
+    category:
+      name: category
+      in: query
+      schema: { type: string }
+    country:
+      name: country
+      in: query
+      schema: { type: string, example: "no" }
+    language:
+      name: language
+      in: query
+      schema: { type: string, example: "no" }
+    priceMin:
+      name: price_min
+      in: query
+      schema: { type: number }
+    priceMax:
+      name: price_max
+      in: query
+      schema: { type: number }
+    daMin:
+      name: da_min
+      in: query
+      schema: { type: integer }
+    daMax:
+      name: da_max
+      in: query
+      schema: { type: integer }
+    drMin:
+      name: dr_min
+      in: query
+      schema: { type: integer }
+    drMax:
+      name: dr_max
+      in: query
+      schema: { type: integer }
+    trafficMin:
+      name: traffic_min
+      in: query
+      schema: { type: integer }
+    trafficMax:
+      name: traffic_max
+      in: query
+      schema: { type: integer }
+    sort:
+      name: sort
+      in: query
+      schema: { type: string, default: dr_desc }
+    page:
+      name: page
+      in: query
+      schema: { type: integer, default: 1 }
+    perPage:
+      name: per_page
+      in: query
+      schema: { type: integer, enum: [10, 20, 25, 50], default: 20 }
+    website:
+      name: website
+      in: query
+      description: Optional advertiser site URL. Fills empty country/language/category only.
+      schema: { type: string, example: "https://my-rentacar.no" }
+  schemas:
+    CatalogResponse:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        filters: { type: object }
+        website: { type: string }
+        hide_mode: { type: boolean }
+        inventory_from: { type: number, nullable: true }
+        meta:
+          type: object
+          properties:
+            total: { type: integer }
+            page: { type: integer }
+            per_page: { type: integer }
+            last_page: { type: integer }
+        sites:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogSite"
+    CatalogSite:
+      type: object
+      properties:
+        id: { type: integer }
+        orderable: { type: boolean }
+        name: { type: string }
+        host: { type: string }
+        identity_hidden: { type: boolean }
+        price:
+          type: object
+          properties:
+            currency: { type: string, example: EUR }
+            list: { type: number }
+            sale: { type: number, nullable: true }
+            sale_percent: { type: number, nullable: true }
+        da: { type: integer }
+        dr: { type: integer }
+        traffic: { type: integer }
+        country: { type: string }
+        language: { type: string }
+        categories:
+          type: array
+          items: { type: string }
