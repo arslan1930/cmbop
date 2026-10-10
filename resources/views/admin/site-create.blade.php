@@ -60,12 +60,13 @@
         @endforeach
     </div>
     <p class="small text-muted mb-3 staff-sites-strip-hint">
-        Saving starts <strong>Invite</strong> only. The publisher must Accept, then
+        <strong>Invite to Accept</strong> starts Invite only. The publisher must Accept, then
         @if($isMarketingEditor)
             admin verifies first (TXT badge). You Activate only after that — and only if DA ≥ {{ \App\Models\Site::GOOD_MIN_DA }}, DR ≥ {{ \App\Models\Site::GOOD_MIN_DR }}, traffic ≥ {{ number_format(\App\Models\Site::GOOD_MIN_TRAFFIC) }}, and a marketplace country is set.
         @else
             verify (TXT badge) before Activate. Accept ≠ Verified, and catalog Activate is not automatic.
         @endif
+        <strong>Publish this site now</strong> puts it live immediately (not verified) — same as bulk Done → Publish now. No Accept wait.
         See the <a href="{{ staff_route('staff-handbook', [], false) }}">{{ __('messages.staff_handbook_title') }}</a>.
         Many sites for one publisher? Use <a href="{{ $bulkCreateUrl }}">CSV bulk create</a>
         — that also opens one new batch.
@@ -368,10 +369,16 @@
         </div>
 
         <div class="staff-assign-site-save">
+            <p class="small text-muted mb-2">Choose how this listing goes out — same two options as a bulk request Done.</p>
+            @error('publish_mode')<div class="invalid-feedback d-block mb-2">{{ $message }}</div>@enderror
             <div class="d-flex flex-wrap gap-2">
-                <button type="submit" class="btn btn-primary" id="assignSubmitBtn"
+                <button type="submit" class="btn btn-primary" name="publish_mode" value="invite" id="assignSubmitBtn"
                         @disabled($selectedPublisherUnverified)>
-                    <i class="fa fa-plus me-1"></i> Add site &amp; notify publisher
+                    <i class="fa fa-plus me-1"></i> Invite to Accept
+                </button>
+                <button type="submit" class="btn btn-outline-primary" name="publish_mode" value="publish" id="assignPublishBtn"
+                        @disabled($selectedPublisherUnverified)>
+                    <i class="fa fa-bolt me-1"></i> Publish this site now
                 </button>
                 <a href="{{ $sitesBackUrl }}" class="btn btn-outline-secondary">Cancel</a>
             </div>
@@ -836,15 +843,31 @@
             }
             if (!assignConfirmed && typeof window.slbConfirm === 'function') {
                 e.preventDefault();
+                const submitter = e.submitter;
+                const mode = (submitter && submitter.getAttribute('name') === 'publish_mode')
+                    ? String(submitter.value || 'invite')
+                    : 'invite';
+                const publishNow = mode === 'publish';
                 window.slbConfirm({
-                    title: 'Add site & notify publisher?',
-                    text: 'This emails and bells the publisher. They must Accept the invite in My Sites.',
-                    confirmText: 'Add site & notify',
+                    title: publishNow ? 'Publish this site now?' : 'Add site & notify publisher?',
+                    text: publishNow
+                        ? 'This goes live immediately (not verified). The publisher is notified and does not need to Accept.'
+                        : 'This emails and bells the publisher. They must Accept the invite in My Sites.',
+                    confirmText: publishNow ? 'Publish now' : 'Invite to Accept',
                 }).then(function (ok) {
                     if (!ok) return;
                     assignConfirmed = true;
+                    let hidden = form.querySelector('input[name="publish_mode"][data-staff-mode="1"]');
+                    if (!hidden) {
+                        hidden = document.createElement('input');
+                        hidden.type = 'hidden';
+                        hidden.name = 'publish_mode';
+                        hidden.setAttribute('data-staff-mode', '1');
+                        form.appendChild(hidden);
+                    }
+                    hidden.value = mode;
                     if (typeof form.requestSubmit === 'function') {
-                        form.requestSubmit();
+                        form.requestSubmit(submitter || undefined);
                     } else {
                         HTMLFormElement.prototype.submit.call(form);
                     }

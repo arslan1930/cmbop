@@ -2425,6 +2425,40 @@ class InAppNotificationService
         );
     }
 
+    /**
+     * Staff published listing(s) live — not an Accept invite.
+     */
+    public function notifyPublisherStaffPublishedListings(int $publisherId, int $count, mixed $related = null): ?InAppNotification
+    {
+        if ($publisherId <= 0 || $count <= 0) {
+            return null;
+        }
+
+        return $this->notify(
+            $publisherId,
+            self::TYPE_SITE_STATUS,
+            $count === 1
+                ? 'Your site is live on the platform'
+                : $count.' sites are live on the platform',
+            $count === 1
+                ? 'Our team published a website on your account. It is live for advertisers and not verified yet. You do not need to Accept an invite.'
+                : 'Our team published '.$count.' websites on your account. They are live for advertisers and not verified yet. You do not need to Accept invites.',
+            [
+                'category' => self::CATEGORY_ACCOUNT,
+                'icon' => 'check-circle',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $related,
+                'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                'action_label' => 'Open My Sites',
+                'action_url' => route('publisher.websites', ['status' => 'active'], false),
+                'meta' => [
+                    'created_count' => $count,
+                    'publish_mode' => 'publish',
+                ],
+            ]
+        );
+    }
+
     public function notifyPublisherSiteAssignedForAcceptance(Site $site): ?InAppNotification
     {
         $publisherId = (int) ($site->publisher_id ?? 0);

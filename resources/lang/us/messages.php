@@ -813,6 +813,7 @@ return [
     'staff_handbook_section2_list3' => 'Accept moves it into My Sites. Decline deletes the draft.',
     'staff_handbook_section2_list4' => 'After Accept, the listing goes to staff review. Admin verifies first (TXT badge). Activate/Deactivate stay catalog controls — do not activate while Accept is still outstanding. Marketing: see section 6.',
     'staff_handbook_section2_list5' => 'TXT Verified is a separate admin step after Accept; Accept ≠ Verified. Catalog Activate is not automatic.',
+    'staff_handbook_section2_list6' => 'Publish now (one site or CSV / bulk Done) puts listings live immediately, still unverified. The publisher is notified and does not Accept. Use Invite when they should review first.',
     'staff_handbook_section3_title' => 'Legal meaning (publisher Terms)',
     'staff_handbook_section3_list1' => 'Accept = authorization to manage the listing on Seolinkbuildings, not legal ownership proof.',
     'staff_handbook_section3_list2' => 'Publisher owns accuracy of metrics/price/content after accept; staff help is not a warranty.',

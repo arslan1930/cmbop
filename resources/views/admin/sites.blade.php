@@ -369,6 +369,7 @@
                                 <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary staff-action-icon-btn" title="{{ $editOrView }}" aria-label="{{ $editOrView }}">
                                     <i class="fa {{ $editOrView === 'View' ? 'fa-eye' : 'fa-edit' }}" aria-hidden="true"></i>
                                 </a>
+                                @include('partials.staff-site-activate-button', ['site' => $site, 'iconOnly' => true])
                                 @if(empty($waitingOnPublisherFilterActive))
                                     @if(auth()->user()?->isAdmin() && ! $site->verified)
                                         <button type="button"
@@ -382,7 +383,6 @@
                                             <i class="fa fa-check" aria-hidden="true"></i>
                                         </button>
                                     @endif
-                                    @include('partials.staff-site-activate-button', ['site' => $site, 'iconOnly' => true])
                                     @include('admin.sites.partials.row-reject-archive-actions', ['site' => $site])
                                 @endif
                             </div>
@@ -2428,7 +2428,8 @@ function renderSites(data){
                 : '';
             const deleteItem = restoreItem + rejectItem + archiveItem + ordersBlockItem;
 
-            // Always offer Deactivate after Activate. Hide Activate when the
+            // Active now = direct live (skip Accept / publisher review).
+            // After review = not direct. Hide Activate when the
             // listing cannot go live (server also 422s the same rules).
             const marketingActivateBlocked = IS_MARKETING_EDITOR && (
                 !!site.details_complete
@@ -2436,24 +2437,25 @@ function renderSites(data){
             );
             const activateBlocked = site.can_activate === false || marketingActivateBlocked;
             const activateBlockReason = site.activate_block_reason || 'Cannot activate this listing yet.';
+            const canPublishNow = !!site.can_publish_now && CAN_TOGGLE_ACTIVE && !isActive;
             let primaryAction = '';
-            if (!isActive && site.below_quality_bar) {
+            if (!isActive && site.missing_market) {
+                primaryAction = `<a class="btn btn-sm btn-outline-danger staff-action-icon-btn" href="${staffSitesEditUrl(site.id, '#country')}" title="Set country" aria-label="Set country"><i class="fa fa-globe" aria-hidden="true"></i></a>`;
+            } else if (!isActive && site.below_quality_bar) {
                 const fixTitle = site.activate_block_reason
                     ? escapeHtml(site.activate_block_reason)
                     : 'Update DA, DR, or traffic.';
                 primaryAction = `<a class="btn btn-sm btn-outline-warning staff-action-icon-btn" href="${staffSitesEditUrl(site.id, '#da')}" title="${fixTitle}" aria-label="Fix metrics"><i class="fa fa-chart-line" aria-hidden="true"></i></a>`;
-            } else if (!isActive && site.missing_market) {
-                primaryAction = `<a class="btn btn-sm btn-outline-danger staff-action-icon-btn" href="${staffSitesEditUrl(site.id, '#country')}" title="Set country" aria-label="Set country"><i class="fa fa-globe" aria-hidden="true"></i></a>`;
-            } else if (!isActive && !activateBlocked && CAN_TOGGLE_ACTIVE) {
-                const thinListing = !!site.missing_cover || !!site.missing_tags;
-                primaryAction = `<button type="button" class="btn btn-sm ${thinListing ? 'btn-outline-success' : 'btn-outline-primary'} toggle-active staff-action-icon-btn" data-id="${site.id}" data-status="1" title="${thinListing ? 'Can go live. Cover or tags are still missing.' : 'Activate'}" aria-label="Activate"><i class="fa fa-play" aria-hidden="true"></i></button>`;
             }
+            const publishNowItem = canPublishNow
+                ? `<li><button type="button" class="dropdown-item js-staff-publish-now" data-id="${site.id}" data-name="${escapeHtml(site.site_name || '')}" data-description-english="${site.description_looks_english ? '1' : '0'}" data-description-excerpt="${escapeHtml(site.description_excerpt || '')}" title="Active now (direct) — live now, no Accept wait"><i class="fa fa-bolt me-2"></i>Active now</button></li>`
+                : '';
             const activeItem = CAN_TOGGLE_ACTIVE
                 ? (isActive
                     ? `<li><button type="button" class="dropdown-item toggle-active" data-id="${site.id}" data-status="0"><i class="fa fa-pause me-2"></i>Deactivate</button></li>`
                     : (activateBlocked
-                        ? `<li><button type="button" class="dropdown-item disabled" disabled title="${escapeHtml(activateBlockReason)}"><i class="fa fa-ban me-2"></i>Cannot activate</button></li>`
-                        : `<li><button type="button" class="dropdown-item toggle-active" data-id="${site.id}" data-status="1"><i class="fa fa-play me-2"></i>Activate</button></li>`))
+                        ? `<li><button type="button" class="dropdown-item disabled" disabled title="${escapeHtml(activateBlockReason)}"><i class="fa fa-ban me-2"></i>After review</button></li>`
+                        : `<li><button type="button" class="dropdown-item toggle-active" data-id="${site.id}" data-status="1" title="Activate after review — not direct"><i class="fa fa-play me-2"></i>After review</button></li>`))
                 : '';
 
             const verifyItem = CAN_VERIFY_SITES
@@ -2487,7 +2489,8 @@ function renderSites(data){
                         ${openBatchItem}
                         ${resendInviteItem}
                         ${deleteItem}
-                        ${(activeItem || verifyItem) ? '<li><hr class="dropdown-divider"></li>' : ''}
+                        ${(publishNowItem || activeItem || verifyItem) ? '<li><hr class="dropdown-divider"></li>' : ''}
+                        ${publishNowItem}
                         ${activeItem}
                         ${verifyItem}
                         ${enrichItems ? '<li><hr class="dropdown-divider"></li>' + enrichItems : ''}
@@ -3007,6 +3010,62 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 
 document.addEventListener('click', function (e) {
+    const publishBtn = e.target.closest('.js-staff-publish-now');
+    if (publishBtn) {
+        e.preventDefault();
+        const id = publishBtn.dataset.id;
+        if (!id) return;
+        const name = publishBtn.dataset.name || 'this site';
+        const go = (typeof window.slbConfirmActivate === 'function')
+            ? window.slbConfirmActivate({
+                looksEnglish: publishBtn.dataset.descriptionEnglish !== '0',
+                excerpt: publishBtn.dataset.descriptionExcerpt || '',
+                name: name,
+                confirmText: 'Active now',
+                editUrl: staffSitesEditUrl(id, '#description'),
+            })
+            : (typeof window.slbConfirm === 'function')
+                ? window.slbConfirm({
+                    title: 'Activate Site?',
+                    text: 'Make "' + name + '" live in the catalog?',
+                    icon: 'question',
+                    confirmText: 'Active now',
+                })
+                : (typeof Swal !== 'undefined' && Swal.fire)
+                    ? Swal.fire({
+                        title: 'Activate Site?',
+                        text: 'Make "' + name + '" live in the catalog?',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Active now',
+                    }).then((r) => !!(r && r.isConfirmed))
+                    : Promise.resolve(false);
+        go.then((ok) => {
+            if (!ok) return;
+            fetch(`${STAFF_BASE}/sites/${encodeURIComponent(id)}/publish-now`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                },
+                credentials: 'same-origin',
+            })
+            .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data && data.success) {
+                    toast((data && data.message) || 'Site activated');
+                    afterSiteDecision(id);
+                    return;
+                }
+                toast((data && data.message) || 'Could not activate site', 'error');
+            })
+            .catch(() => toast('Could not activate site', 'error'));
+        });
+        return;
+    }
+
     const btn = e.target.closest('.js-mkt-activate');
     if (!btn) return;
     e.preventDefault();

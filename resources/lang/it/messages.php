@@ -813,6 +813,7 @@ return [
     'staff_handbook_section2_list3' => 'Accetta lo sposta in I miei siti. Rifiuta elimina la bozza.',
     'staff_handbook_section2_list4' => 'Dopo Accetta, l\'elenco va in revisione del personale. L\'admin verifica per primo (badge TXT). Attiva/Disattiva restano controlli del catalogo: non attivare mentre Accetta è ancora in sospeso. Marketing: vedi la sezione 6.',
     'staff_handbook_section2_list5' => 'TXT Verificato è un passaggio admin distinto dopo Accetta; Accetta ≠ Verificato. L\'attivazione nel catalogo non è automatica.',
+    'staff_handbook_section2_list6' => 'Publish now (one site or CSV / bulk Done) puts listings live immediately, still unverified. The publisher is notified and does not Accept. Use Invite when they should review first.',
     'staff_handbook_section3_title' => 'Significato legale (Termini publisher)',
     'staff_handbook_section3_list1' => 'Accetta = autorizzazione a gestire l\'elenco su Seolinkbuildings, non prova di titolarità legale.',
     'staff_handbook_section3_list2' => 'Il publisher è responsabile dell\'accuratezza di metriche/prezzo/contenuti dopo l\'accettazione; l\'aiuto del personale non è una garanzia.',

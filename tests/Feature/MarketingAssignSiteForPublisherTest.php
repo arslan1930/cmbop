@@ -111,6 +111,8 @@ class MarketingAssignSiteForPublisherTest extends TestCase
             ->assertSee('written_request', false)
             ->assertSee('I have a written request', false)
             ->assertSee('This emails and bells the publisher', false)
+            ->assertSee('Invite to Accept', false)
+            ->assertSee('Publish this site now', false)
             ->assertSee('Click to toggle; type to search; Enter adds the highlighted match. Max 7.', false)
             ->assertDontSee('Click niches one by one', false)
             ->assertSee('data-site-description-editor', false)
@@ -1941,5 +1943,31 @@ class MarketingAssignSiteForPublisherTest extends TestCase
         $pending->refresh();
         $this->assertSame('Pending Name', $pending->site_name);
         $this->assertSame(41, (int) $pending->da);
+    }
+
+    public function test_marketing_can_publish_existing_invite_from_sites_table(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->marketer)
+            ->post(route('marketing.sites.store'), $this->validPayload([
+                'site_url' => 'https://mkt-table-publish.example',
+                'example_url' => 'https://mkt-table-publish.example/sample',
+            ]))
+            ->assertRedirect();
+
+        $site = Site::where('domain', 'mkt-table-publish.example')->first();
+        $this->assertNotNull($site);
+        $this->assertTrue($site->isPendingPublisherAcceptance());
+
+        $this->actingAs($this->marketer)
+            ->postJson(route('marketing.sites.publish-now', $site->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('active', true)
+            ->assertJsonPath('verified', false);
+
+        $this->assertTrue((bool) $site->fresh()->active);
+        $this->assertFalse($site->fresh()->isPendingPublisherAcceptance());
     }
 }

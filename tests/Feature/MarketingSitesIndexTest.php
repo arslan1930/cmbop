@@ -408,6 +408,8 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertNotFalse($usersStart);
         $flatSlice = substr($html, $flatStart, $usersStart - $flatStart);
         $this->assertStringContainsString('Waiting Details Draft', $flatSlice);
+        $this->assertStringContainsString('js-staff-publish-now', $flatSlice);
+        $this->assertStringContainsString('Active now (direct)', $flatSlice);
         $this->assertStringNotContainsString('js-mkt-activate', $flatSlice);
 
         $this->assertStringContainsString(

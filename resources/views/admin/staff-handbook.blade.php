@@ -31,7 +31,7 @@
 
     @foreach([
         ['title' => 'staff_handbook_section1_title', 'lists' => ['staff_handbook_section1_list1', 'staff_handbook_section1_list2', 'staff_handbook_section1_list3']],
-        ['title' => 'staff_handbook_section2_title', 'lists' => ['staff_handbook_section2_list1', 'staff_handbook_section2_list2', 'staff_handbook_section2_list3', 'staff_handbook_section2_list4', 'staff_handbook_section2_list5']],
+        ['title' => 'staff_handbook_section2_title', 'lists' => ['staff_handbook_section2_list1', 'staff_handbook_section2_list2', 'staff_handbook_section2_list3', 'staff_handbook_section2_list4', 'staff_handbook_section2_list5', 'staff_handbook_section2_list6']],
         ['title' => 'staff_handbook_section3_title', 'lists' => ['staff_handbook_section3_list1', 'staff_handbook_section3_list2', 'staff_handbook_section3_list3', 'staff_handbook_section3_list4']],
         ['title' => 'staff_handbook_section4_title', 'lists' => ['staff_handbook_section4_list1', 'staff_handbook_section4_list2', 'staff_handbook_section4_list3']],
         ['title' => 'staff_handbook_section5_title', 'lists' => ['staff_handbook_section5_list1', 'staff_handbook_section5_list2', 'staff_handbook_section5_list3']],

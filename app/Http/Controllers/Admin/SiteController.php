@@ -7,6 +7,8 @@ use App\Jobs\CaptureSiteScreenshotJob;
 use App\Jobs\EnrichSiteJob;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminAssignedSitesBatchNotification;
+use App\Mail\AdminPublishedSiteNotification;
+use App\Mail\AdminPublishedSitesBatchNotification;
 use App\Mail\SiteStatusNotification;
 use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
@@ -32,10 +34,11 @@ use App\Support\CatalogProblemReport;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
 use App\Support\PublicStorageLink;
-use App\Support\StaffSitesIndexCounts;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
+use App\Support\StaffListingPublishMode;
+use App\Support\StaffSitesIndexCounts;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -1552,6 +1555,8 @@ class SiteController extends Controller
             'bulk_request_draft' => $site->isBulkRequestDraft(),
             'can_activate' => $this->staffCanActivateSite($site),
             'activate_block_reason' => $this->staffActivateBlockReason($site),
+            'can_publish_now' => $this->staffCanPublishNowSite($site),
+            'publish_now_block_reason' => $this->staffPublishNowBlockReasonFor($site),
             'orders_count' => $site->orderItemsCount(),
             'preview_thumb_url' => $preview['thumb'],
             'preview_full_url' => $preview['full'],
@@ -2952,10 +2957,12 @@ class SiteController extends Controller
             'site_image' => SiteImageUpload::uploadedFileRules(false),
             'site_tag' => 'nullable|in:sponsored,partner_material,as_you_prefer,none',
             'written_request' => 'accepted',
+            'publish_mode' => StaffListingPublishMode::validationRule(),
             'suggestion_id' => 'nullable|integer',
             'request_source' => 'nullable|string|max:120',
         ] + $this->placementOfferValidationRules(), array_merge($this->siteImageValidationMessages(), [
             'written_request.accepted' => 'Confirm you have a written request from this publisher’s account email.',
+            'publish_mode.in' => 'Choose Invite to Accept or Publish this site now.',
             'price.max' => 'Price must be at most €999,999.99.',
         ]), $this->placementOfferValidationAttributes());
 
@@ -3013,13 +3020,20 @@ class SiteController extends Controller
         $cleanDescription = app(SiteDescriptionSanitizer::class)
             ->sanitize(scalar_text($request->input('description')));
 
+        $publishMode = StaffListingPublishMode::parse($request->input('publish_mode'));
+        if ($publishMode === null) {
+            return redirect()->back()
+                ->withErrors(['publish_mode' => 'Choose Invite to Accept or Publish this site now.'])
+                ->withInput();
+        }
+
         $site = null;
         $bulk = null;
         $storedImagePath = null;
         $publisherId = (int) $request->input('publisher_id');
 
         try {
-            DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, $publisherId, &$storedImagePath, &$site, &$bulk) {
+            DB::transaction(function () use ($request, $domain, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, $publisherId, $publishMode, &$storedImagePath, &$site, &$bulk) {
                 Site::releaseCancelledBulkDomain($domain, $publisherId);
                 $existing = $this->findSiteByDomain($domain, lock: true);
                 if ($existing) {
@@ -3056,10 +3070,9 @@ class SiteController extends Controller
                 $homepagePrices = $this->collectHomepagePlacementPrices($request);
                 $socialPromotion = $this->collectSocialPromotion($request);
 
-                $site->applyMarketplaceListing([
+                $site->applyMarketplaceListing(array_merge([
                     'publisher_id' => $publisherId,
                     'assigned_by_user_id' => auth()->id(),
-                    'publisher_accepted_at' => null,
                     'site_name' => $request->input('site_name'),
                     'site_url' => $request->input('site_url'),
                     'domain' => $domain,
@@ -3081,22 +3094,16 @@ class SiteController extends Controller
                     'publication_time' => $request->input('publication_time'),
                     'link_type' => $request->input('link_type'),
                     'description' => $cleanDescription,
-                    'verified' => false,
-                    'active' => false,
                     'enrichment_status' => 'pending',
-                    'onboarding_status' => null,
                     'sensitive_prices' => ! empty($sensitivePrices) ? $sensitivePrices : null,
                     'homepage_placement_prices' => ! empty($homepagePrices) ? $homepagePrices : null,
                     'social_promotion' => $socialPromotion,
-                ]);
+                ], StaffListingPublishMode::staffAssignAttributes($publishMode)));
 
-                // Hard-set invite + metrics so a missing column skip cannot silently drop them.
+                // Hard-set mode + metrics so a missing column skip cannot silently drop them.
                 $price = $request->input('price');
-                $site->forceFill([
+                $site->forceFill(array_merge([
                     'assigned_by_user_id' => auth()->id(),
-                    'publisher_accepted_at' => null,
-                    'verified' => false,
-                    'active' => false,
                     'da' => $da,
                     'dr' => $dr,
                     'traffic' => $traffic,
@@ -3104,7 +3111,7 @@ class SiteController extends Controller
                     'metrics_manual' => true,
                     'metrics_provider' => 'manual',
                     'metrics_fetched_at' => now(),
-                ]);
+                ], StaffListingPublishMode::staffAssignAttributes($publishMode)));
 
                 if (class_exists(SiteTag::class)) {
                     SiteTag::applyStaffDefault($site, $request->input('site_tag'));
@@ -3122,10 +3129,15 @@ class SiteController extends Controller
                 if (is_numeric($price) && round((float) $site->price, 2) !== round((float) $price, 2)) {
                     throw new \RuntimeException('Staff site price did not persist after save.');
                 }
-                if (filled($site->publisher_accepted_at) || blank($site->assigned_by_user_id)) {
+                if (blank($site->assigned_by_user_id)) {
                     throw new \RuntimeException('Publisher invite state did not persist after save.');
                 }
-                if ((bool) $site->verified || (bool) $site->active) {
+                if (StaffListingPublishMode::isPublish($publishMode)) {
+                    if (! (bool) $site->active || (bool) $site->verified
+                        || ! ($site->publisher_accepted_at instanceof \DateTimeInterface)) {
+                        throw new \RuntimeException('Staff site publish-now flags did not persist after save.');
+                    }
+                } elseif (filled($site->publisher_accepted_at) || (bool) $site->verified || (bool) $site->active) {
                     throw new \RuntimeException('Staff site invite flags did not persist after save.');
                 }
 
@@ -3190,16 +3202,21 @@ class SiteController extends Controller
             ]);
         }
 
+        $wentLive = StaffListingPublishMode::isPublish($publishMode);
+
         try {
             ActivityLogger::log(
-                'site.assigned_for_acceptance',
-                (auth()->user()->name ?? 'Staff').' added site "'.$site->site_name.'" for publisher acceptance',
+                $wentLive ? 'site.staff_published' : 'site.assigned_for_acceptance',
+                $wentLive
+                    ? (auth()->user()->name ?? 'Staff').' published site "'.$site->site_name.'" for the publisher (live, not verified)'
+                    : (auth()->user()->name ?? 'Staff').' added site "'.$site->site_name.'" for publisher acceptance',
                 $site,
                 [
                     'publisher_id' => $publisherId,
                     'assigned_by_user_id' => auth()->id(),
                     'domain' => $site->domain,
                     'written_request' => true,
+                    'publish_mode' => $publishMode,
                     'bulk_site_request_id' => $bulk?->id,
                     ...array_filter([
                         'request_source' => CommunityInbox::plainLine($request->input('request_source')),
@@ -3209,14 +3226,17 @@ class SiteController extends Controller
             );
             if ($bulk) {
                 ActivityLogger::log(
-                    'bulk_request.staff_assigned',
-                    (auth()->user()->name ?? 'Staff').' opened staff batch #'.$bulk->id.' for publisher acceptance',
+                    $wentLive ? 'bulk_request.staff_published' : 'bulk_request.staff_assigned',
+                    $wentLive
+                        ? (auth()->user()->name ?? 'Staff').' opened staff batch #'.$bulk->id.' and published 1 live site'
+                        : (auth()->user()->name ?? 'Staff').' opened staff batch #'.$bulk->id.' for publisher acceptance',
                     $bulk,
                     [
                         'bulk_site_request_id' => $bulk->id,
                         'publisher_id' => $publisherId,
                         'site_ids' => [$site->id],
                         'site_count' => 1,
+                        'publish_mode' => $publishMode,
                     ],
                     'Bulk request #'.$bulk->id
                 );
@@ -3230,7 +3250,11 @@ class SiteController extends Controller
         $publisher = $site->publisher;
         try {
             if ($publisher?->email) {
-                Mail::to($publisher->email)->send(new AdminAssignedSiteNotification($site, $publisher));
+                Mail::to($publisher->email)->send(
+                    $wentLive
+                        ? new AdminPublishedSiteNotification($site, $publisher)
+                        : new AdminAssignedSiteNotification($site, $publisher)
+                );
                 $emailed = true;
             }
         } catch (\Throwable $e) {
@@ -3239,18 +3263,29 @@ class SiteController extends Controller
 
         try {
             if ((int) ($site->publisher_id ?? 0) > 0) {
-                $belled = app(InAppNotificationService::class)->notifyPublisherSiteAssignedForAcceptance($site) !== null;
+                $notifier = app(InAppNotificationService::class);
+                $belled = ($wentLive
+                    ? $notifier->notifyPublisherStaffPublishedListings((int) $site->publisher_id, 1, $site)
+                    : $notifier->notifyPublisherSiteAssignedForAcceptance($site)) !== null;
             }
         } catch (\Throwable $e) {
             Log::warning('Failed to bell-notify publisher about staff-assigned site: '.$e->getMessage());
         }
 
         $success = 'Site added (DA '.$site->da.' / DR '.$site->dr.').';
-        $success .= ($emailed || $belled)
-            ? ' Publisher was notified — they must open My Sites → Invites and Accept before it appears under Pending.'
-            : ' The listing was saved, but we could not notify the publisher. Ask them to open My Sites → Invites and Accept.';
+        if ($wentLive) {
+            $success .= ($emailed || $belled)
+                ? ' It is live on the catalog (not verified). Publisher was notified — they do not need to Accept.'
+                : ' It is live on the catalog (not verified). We could not notify the publisher.';
+        } else {
+            $success .= ($emailed || $belled)
+                ? ' Publisher was notified — they must open My Sites → Invites and Accept before it appears under Pending.'
+                : ' The listing was saved, but we could not notify the publisher. Ask them to open My Sites → Invites and Accept.';
+        }
         if (! $site->hasGoodMetrics()) {
-            $success .= ' This listing is below the marketing Activate bar (DA ≥ '.Site::GOOD_MIN_DA.', DR ≥ '.Site::GOOD_MIN_DR.', traffic ≥ '.number_format(Site::GOOD_MIN_TRAFFIC).').';
+            $success .= $wentLive
+                ? ' This listing is below the marketing quality bar (DA ≥ '.Site::GOOD_MIN_DA.', DR ≥ '.Site::GOOD_MIN_DR.', traffic ≥ '.number_format(Site::GOOD_MIN_TRAFFIC).').'
+                : ' This listing is below the marketing Activate bar (DA ≥ '.Site::GOOD_MIN_DA.', DR ≥ '.Site::GOOD_MIN_DR.', traffic ≥ '.number_format(Site::GOOD_MIN_TRAFFIC).').';
         }
 
         $redirectParams = ['publisher' => $publisherId];
@@ -3485,8 +3520,10 @@ class SiteController extends Controller
             'rows' => 'nullable|string|max:500000',
             'csv_file' => 'nullable|file|max:5120',
             'written_request' => 'accepted',
+            'publish_mode' => StaffListingPublishMode::validationRule(),
         ], [
             'written_request.accepted' => 'Confirm you have a written request from this publisher’s account email.',
+            'publish_mode.in' => 'Choose Invite to Accept or Publish filled sites now.',
         ]);
 
         $publisherId = (int) $request->input('publisher_id');
@@ -3518,6 +3555,13 @@ class SiteController extends Controller
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
+        }
+
+        $publishMode = StaffListingPublishMode::parse($request->input('publish_mode'));
+        if ($publishMode === null) {
+            return back()->withErrors([
+                'publish_mode' => 'Choose Invite to Accept or Publish filled sites now.',
+            ])->withInput();
         }
 
         $upload = $request->file('csv_file');
@@ -3560,9 +3604,9 @@ class SiteController extends Controller
         $sites = [];
         $bulk = null;
         try {
-            DB::transaction(function () use ($ready, $publisherId, &$sites, &$bulk) {
+            DB::transaction(function () use ($ready, $publisherId, $publishMode, &$sites, &$bulk) {
                 foreach ($ready as $row) {
-                    $sites[] = $this->persistStaffInvite($row, $publisherId);
+                    $sites[] = $this->persistStaffInvite($row, $publisherId, $publishMode);
                 }
                 $bulk = BulkSiteRequest::openForStaffInvites($publisherId, (int) auth()->id(), $sites);
             });
@@ -3589,6 +3633,7 @@ class SiteController extends Controller
             }
         }
 
+        $wentLive = StaffListingPublishMode::isPublish($publishMode);
         $below = 0;
         foreach ($sites as $site) {
             if (! $site->hasGoodMetrics()) {
@@ -3596,8 +3641,10 @@ class SiteController extends Controller
             }
             try {
                 ActivityLogger::log(
-                    'site.assigned_for_acceptance',
-                    (auth()->user()->name ?? 'Staff').' added site "'.$site->site_name.'" for publisher acceptance',
+                    $wentLive ? 'site.staff_published' : 'site.assigned_for_acceptance',
+                    $wentLive
+                        ? (auth()->user()->name ?? 'Staff').' published site "'.$site->site_name.'" for the publisher (live, not verified)'
+                        : (auth()->user()->name ?? 'Staff').' added site "'.$site->site_name.'" for publisher acceptance',
                     $site,
                     [
                         'publisher_id' => $publisherId,
@@ -3605,6 +3652,7 @@ class SiteController extends Controller
                         'domain' => $site->domain,
                         'written_request' => true,
                         'bulk' => true,
+                        'publish_mode' => $publishMode,
                         'bulk_site_request_id' => $bulk?->id,
                     ],
                     $site->site_name
@@ -3617,14 +3665,17 @@ class SiteController extends Controller
         if ($bulk) {
             try {
                 ActivityLogger::log(
-                    'bulk_request.staff_assigned',
-                    (auth()->user()->name ?? 'Staff').' opened staff batch #'.$bulk->id.' for publisher acceptance',
+                    $wentLive ? 'bulk_request.staff_published' : 'bulk_request.staff_assigned',
+                    $wentLive
+                        ? (auth()->user()->name ?? 'Staff').' opened staff batch #'.$bulk->id.' and published '.count($sites).' live site(s)'
+                        : (auth()->user()->name ?? 'Staff').' opened staff batch #'.$bulk->id.' for publisher acceptance',
                     $bulk,
                     [
                         'bulk_site_request_id' => $bulk->id,
                         'publisher_id' => $publisherId,
                         'site_ids' => collect($sites)->pluck('id')->all(),
                         'site_count' => count($sites),
+                        'publish_mode' => $publishMode,
                     ],
                     'Bulk request #'.$bulk->id
                 );
@@ -3637,7 +3688,11 @@ class SiteController extends Controller
         $belled = false;
         try {
             if ($publisher?->email) {
-                Mail::to($publisher->email)->send(new AdminAssignedSitesBatchNotification($publisher, $sites));
+                Mail::to($publisher->email)->send(
+                    $wentLive
+                        ? new AdminPublishedSitesBatchNotification($publisher, $sites)
+                        : new AdminAssignedSitesBatchNotification($publisher, $sites)
+                );
                 $emailed = true;
             }
         } catch (\Throwable $e) {
@@ -3645,39 +3700,55 @@ class SiteController extends Controller
         }
 
         try {
-            $names = collect($sites)->pluck('domain')->filter()->take(12)->implode(', ');
-            $extra = count($sites) > 12 ? ' and '.(count($sites) - 12).' more' : '';
-            $count = count($sites);
-            $belled = app(InAppNotificationService::class)->notify(
-                $publisherId,
-                InAppNotificationService::TYPE_SITE_STATUS,
-                $count === 1
-                    ? 'Please accept a website we added for you'
-                    : 'Please accept websites we added for you',
-                $count === 1
-                    ? 'Our team added 1 website. Accept it in My Sites → Invites. '.$names
-                    : 'Our team added '.$count.' websites. Accept them in My Sites → Invites. '.$names.$extra,
-                [
-                    'category' => InAppNotificationService::CATEGORY_ACCOUNT,
-                    'icon' => 'check-circle',
-                    'priority' => InAppNotification::PRIORITY_HIGH,
-                    'related' => $sites[0] ?? null,
-                    'audience' => InAppNotification::AUDIENCE_PUBLISHER,
-                    'action_label' => 'Review & accept',
-                    'action_url' => route('publisher.websites', ['status' => 'invites'], false),
-                ]
-            ) !== null;
+            $notifier = app(InAppNotificationService::class);
+            if ($wentLive) {
+                $belled = $notifier->notifyPublisherStaffPublishedListings(
+                    $publisherId,
+                    count($sites),
+                    $sites[0] ?? $bulk
+                ) !== null;
+            } else {
+                $names = collect($sites)->pluck('domain')->filter()->take(12)->implode(', ');
+                $extra = count($sites) > 12 ? ' and '.(count($sites) - 12).' more' : '';
+                $count = count($sites);
+                $belled = $notifier->notify(
+                    $publisherId,
+                    InAppNotificationService::TYPE_SITE_STATUS,
+                    $count === 1
+                        ? 'Please accept a website we added for you'
+                        : 'Please accept websites we added for you',
+                    $count === 1
+                        ? 'Our team added 1 website. Accept it in My Sites → Invites. '.$names
+                        : 'Our team added '.$count.' websites. Accept them in My Sites → Invites. '.$names.$extra,
+                    [
+                        'category' => InAppNotificationService::CATEGORY_ACCOUNT,
+                        'icon' => 'check-circle',
+                        'priority' => InAppNotification::PRIORITY_HIGH,
+                        'related' => $sites[0] ?? null,
+                        'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                        'action_label' => 'Review & accept',
+                        'action_url' => route('publisher.websites', ['status' => 'invites'], false),
+                    ]
+                ) !== null;
+            }
         } catch (\Throwable $e) {
             Log::warning('Failed to bell-notify publisher about staff bulk sites: '.$e->getMessage());
         }
 
         $count = count($sites);
-        $success = $count.' '.($count === 1 ? 'site' : 'sites').' added as batch'.($bulk?->id ? ' #'.$bulk->id : '').' for acceptance.';
-        $success .= ($emailed || $belled)
-            ? ($count === 1
-                ? ' Publisher was notified — they must open My Sites → Invites and Accept.'
-                : ' Publisher was notified once — they must open My Sites → Invites and Accept each one.')
-            : ' The listings were saved, but we could not notify the publisher. Ask them to open My Sites → Invites and Accept.';
+        if ($wentLive) {
+            $success = $count.' '.($count === 1 ? 'site' : 'sites').' published live as batch'.($bulk?->id ? ' #'.$bulk->id : '').' (not verified).';
+            $success .= ($emailed || $belled)
+                ? ' Publisher was notified — they do not need to Accept.'
+                : ' We could not notify the publisher.';
+        } else {
+            $success = $count.' '.($count === 1 ? 'site' : 'sites').' added as batch'.($bulk?->id ? ' #'.$bulk->id : '').' for acceptance.';
+            $success .= ($emailed || $belled)
+                ? ($count === 1
+                    ? ' Publisher was notified — they must open My Sites → Invites and Accept.'
+                    : ' Publisher was notified once — they must open My Sites → Invites and Accept each one.')
+                : ' The listings were saved, but we could not notify the publisher. Ask them to open My Sites → Invites and Accept.';
+        }
         if ($below > 0) {
             $success .= ' '.$below.' listing(s) are below the marketing Activate bar (DA ≥ '.Site::GOOD_MIN_DA.', DR ≥ '.Site::GOOD_MIN_DR.', traffic ≥ '.number_format(Site::GOOD_MIN_TRAFFIC).').';
         }
@@ -3748,6 +3819,103 @@ class SiteController extends Controller
             'success' => true,
             'message' => 'Invite resent. The publisher still has to accept it.',
         ]);
+    }
+
+    public function publishNow(Request $request, int $id): JsonResponse
+    {
+        $actor = auth()->user();
+        if (! $actor?->canActivateSites()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not allowed to activate or deactivate sites.',
+            ], 403);
+        }
+
+        try {
+            $site = Site::with('publisher:id,name,email')->findOrFail($id);
+            $block = $site->staffPublishNowBlockReason();
+            if ($block !== null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $block,
+                    'missing_market' => ! $site->hasMarketplaceCountry(),
+                ], 422);
+            }
+
+            $oldStatus = (int) $site->active;
+            $site->active = true;
+            $site->onboarding_status = null;
+            if (Site::hasSitesColumn('publisher_accepted_at') && ! $site->isAcceptedByPublisher()) {
+                $site->publisher_accepted_at = now();
+            }
+            $site->save();
+            StaffSitesIndexCounts::forget();
+            $this->syncLinkedBulkAfterSiteRemoved($site->bulk_site_request_id);
+            $site->refresh()->loadMissing('publisher:id,name,email');
+
+            if (! (bool) $site->active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Could not activate this listing.',
+                ], 500);
+            }
+
+            if ($oldStatus !== (int) $site->active) {
+                ActivityLogger::tryLog(
+                    'site.activated',
+                    ($actor->name ?? 'Staff').' activated site "'.$site->site_name.'"',
+                    $site,
+                    [
+                        'from' => $oldStatus,
+                        'to' => (int) $site->active,
+                        'bulk_site_request_id' => $site->bulk_site_request_id,
+                        'by_role' => $actor->activeRole(),
+                        'direct' => true,
+                    ],
+                    $site->site_name
+                );
+            }
+
+            $emailSent = false;
+            try {
+                app(InAppNotificationService::class)->completeAdminSiteReviewNotifications($site);
+            } catch (\Throwable $e) {
+                Log::warning('Could not complete site review notifications after active now: '.$e->getMessage());
+            }
+
+            try {
+                $publisher = $site->publisher;
+                if ($publisher?->email) {
+                    Mail::to($publisher->email)->send(new SiteStatusNotification($site, 'activated'));
+                    $emailSent = true;
+                }
+                if ($publisher) {
+                    app(InAppNotificationService::class)->notifySiteStatusChanged($site->fresh(), 'activated');
+                }
+            } catch (\Throwable $e) {
+                Log::error('Failed to send status notification: '.$e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Site activated',
+                'email_sent' => $emailSent,
+                'active' => true,
+                'verified' => (bool) $site->verified,
+                'pending_publisher_acceptance' => false,
+                'can_publish_now' => false,
+                'can_activate' => false,
+            ]);
+        } catch (ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->staffSiteMutationFailure(
+                'Failed to activate site now',
+                (int) $id,
+                $e,
+                'Could not update active status.'
+            );
+        }
     }
 
     // Edit page (optional)
@@ -5314,7 +5482,7 @@ class SiteController extends Controller
     /**
      * @param  array<string, mixed>  $row
      */
-    private function persistStaffInvite(array $row, int $publisherId): Site
+    private function persistStaffInvite(array $row, int $publisherId, string $publishMode = StaffListingPublishMode::INVITE): Site
     {
         $domain = (string) $row['domain'];
         Site::releaseCancelledBulkDomain($domain, $publisherId);
@@ -5327,11 +5495,11 @@ class SiteController extends Controller
 
         $categories = $row['categories'];
         $cleanDescription = app(SiteDescriptionSanitizer::class)->sanitize((string) $row['description']);
+        $modeAttrs = StaffListingPublishMode::staffAssignAttributes($publishMode);
         $site = new Site;
-        $site->applyMarketplaceListing([
+        $site->applyMarketplaceListing(array_merge([
             'publisher_id' => $publisherId,
             'assigned_by_user_id' => auth()->id(),
-            'publisher_accepted_at' => null,
             'site_name' => $row['site_name'],
             'site_url' => $row['site_url'],
             'domain' => $domain,
@@ -5353,16 +5521,10 @@ class SiteController extends Controller
             'publication_time' => $row['publication_time'],
             'link_type' => $row['link_type'],
             'description' => $cleanDescription,
-            'verified' => false,
-            'active' => false,
             'enrichment_status' => 'pending',
-            'onboarding_status' => null,
-        ]);
-        $site->forceFill([
+        ], $modeAttrs));
+        $site->forceFill(array_merge([
             'assigned_by_user_id' => auth()->id(),
-            'publisher_accepted_at' => null,
-            'verified' => false,
-            'active' => false,
             'da' => $row['da'],
             'dr' => $row['dr'],
             'traffic' => $row['traffic'],
@@ -5370,7 +5532,7 @@ class SiteController extends Controller
             'metrics_manual' => true,
             'metrics_provider' => 'manual',
             'metrics_fetched_at' => now(),
-        ]);
+        ], $modeAttrs));
         SiteTag::applyStaffDefault($site, $row['site_tag']);
         $site->save();
 
@@ -5380,7 +5542,15 @@ class SiteController extends Controller
         if (is_numeric($row['price']) && round((float) $site->price, 2) !== round((float) $row['price'], 2)) {
             throw new \RuntimeException('Staff site price did not persist after save.');
         }
-        if (filled($site->publisher_accepted_at) || blank($site->assigned_by_user_id) || (bool) $site->verified || (bool) $site->active) {
+        if (blank($site->assigned_by_user_id)) {
+            throw new \RuntimeException('Publisher invite state did not persist after save.');
+        }
+        if (StaffListingPublishMode::isPublish($publishMode)) {
+            if (! (bool) $site->active || (bool) $site->verified
+                || ! ($site->publisher_accepted_at instanceof \DateTimeInterface)) {
+                throw new \RuntimeException('Staff site publish-now flags did not persist after save.');
+            }
+        } elseif (filled($site->publisher_accepted_at) || (bool) $site->verified || (bool) $site->active) {
             throw new \RuntimeException('Publisher invite state did not persist after save.');
         }
 
@@ -6502,6 +6672,16 @@ class SiteController extends Controller
     private function staffActivateBlockReason(Site $site): ?string
     {
         return $site->staffGoLiveBlockReason($this->isMarketingActor());
+    }
+
+    private function staffCanPublishNowSite(Site $site): bool
+    {
+        return $site->staffCanPublishNow();
+    }
+
+    private function staffPublishNowBlockReasonFor(Site $site): ?string
+    {
+        return $site->staffPublishNowBlockReason();
     }
 
     // TOGGLE ACTIVE STATUS — admin and marketing (shared Sites Management)

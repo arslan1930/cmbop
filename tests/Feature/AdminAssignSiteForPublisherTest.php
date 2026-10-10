@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminAssignedSitesBatchNotification;
+use App\Mail\AdminPublishedSiteNotification;
+use App\Mail\AdminPublishedSitesBatchNotification;
 use App\Mail\BulkSiteRequestSubmitted;
+use App\Mail\SiteStatusNotification;
 use App\Mail\WebsiteSuggestionReviewed;
 use App\Models\ActivityLog;
 use App\Models\BulkSiteRequest;
@@ -201,7 +204,10 @@ class AdminAssignSiteForPublisherTest extends TestCase
         $this->actingAs($this->admin)
             ->get(route('admin.sites.bulk-create'))
             ->assertOk()
-            ->assertSee('one new bulk-request batch', false);
+            ->assertSee('one new bulk-request batch', false)
+            ->assertSee('Publish filled sites now', false)
+            ->assertSee('Invite to Accept', false)
+            ->assertSee('data-admin-select-no-submit="1"', false);
 
         $this->actingAs($this->publisher)
             ->get(route('publisher.sites.ajax', ['status' => 'pending']))
@@ -963,6 +969,9 @@ class AdminAssignSiteForPublisherTest extends TestCase
             ->assertSee('aria-label="Listing pipeline"', false)
             ->assertSee('written_request', false)
             ->assertSee('This emails and bells the publisher', false)
+            ->assertSee('name="publish_mode"', false)
+            ->assertSee('Invite to Accept', false)
+            ->assertSee('Publish this site now', false)
             ->assertSee('Click to toggle; type to search; Enter adds the highlighted match. Max 7.', false)
             ->assertSee('data-site-description-editor', false)
             ->assertSee('name="description"', false)
@@ -1366,6 +1375,255 @@ class AdminAssignSiteForPublisherTest extends TestCase
         ])->assertRedirect()->assertSessionHasErrors('rows');
 
         $this->assertSame(0, Site::where('domain', 'cap.example')->count());
+    }
+
+    public function test_admin_can_publish_one_site_now_without_publisher_accept(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->staffAssignMarket();
+
+        $this->actingAs($this->admin)->post(
+            route('admin.sites.store'),
+            $this->staffAssignPayload($country, $language, $niche, 'https://staff-live-now.example') + [
+                'publish_mode' => 'publish',
+                'site_tag' => 'as_you_prefer',
+            ]
+        )->assertRedirect()->assertSessionHas('success');
+
+        $this->assertStringContainsString('live on the catalog', (string) session('success'));
+        $this->assertStringContainsString('do not need to Accept', (string) session('success'));
+
+        $site = Site::where('domain', 'staff-live-now.example')->first();
+        $this->assertNotNull($site);
+        $this->assertTrue((bool) $site->active);
+        $this->assertFalse((bool) $site->verified);
+        $this->assertNotNull($site->publisher_accepted_at);
+        $this->assertFalse($site->isPendingPublisherAcceptance());
+        $this->assertSame((int) $this->admin->id, (int) $site->assigned_by_user_id);
+
+        $bulk = BulkSiteRequest::query()->find($site->bulk_site_request_id);
+        $this->assertNotNull($bulk);
+        $this->assertSame(0, $bulk->pendingPublisherCount());
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->status);
+
+        Mail::assertQueued(AdminPublishedSiteNotification::class, function ($mail) {
+            return $mail->hasTo($this->publisher->email);
+        });
+        Mail::assertNotQueued(AdminAssignedSiteNotification::class);
+
+        $bell = InAppNotification::query()
+            ->where('user_id', $this->publisher->id)
+            ->where('title', 'Your site is live on the platform')
+            ->first();
+        $this->assertNotNull($bell);
+        $this->assertStringContainsString('status=active', (string) $bell->action_url);
+
+        $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'invites']))
+            ->assertOk()
+            ->assertDontSee('staff-live-now.example', false);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.verify', $site->id), ['verified' => 1])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+        $this->assertTrue((bool) $site->fresh()->verified);
+    }
+
+    public function test_bulk_csv_can_publish_rows_now(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->staffAssignMarket();
+        $code = strtolower($country->code);
+        $lang = strtolower($language->code);
+        $description = str_repeat('Quality editorial site for guest posts. ', 4);
+        $rows = implode("\n", [
+            "https://bulk-live-one.example,80,40,35,12000,{$code},{$lang},Bulk Live One,https://bulk-live-one.example/post,3days,permanent,dofollow,,{$niche},{$description}",
+            "https://bulk-live-two.example,90,20,20,1000,{$code},{$lang},Bulk Live Two,https://bulk-live-two.example/post,3days,permanent,dofollow,,{$niche},{$description}",
+        ]);
+
+        $this->actingAs($this->admin)->post(route('admin.sites.bulk-store'), [
+            'publisher_id' => $this->publisher->id,
+            'rows' => $rows,
+            'written_request' => 1,
+            'publish_mode' => 'publish',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertStringContainsString('published live', (string) session('success'));
+
+        $one = Site::where('domain', 'bulk-live-one.example')->first();
+        $two = Site::where('domain', 'bulk-live-two.example')->first();
+        $this->assertNotNull($one);
+        $this->assertNotNull($two);
+        $this->assertTrue((bool) $one->active);
+        $this->assertTrue((bool) $two->active);
+        $this->assertFalse((bool) $one->verified);
+        $this->assertFalse($one->isPendingPublisherAcceptance());
+        $this->assertFalse($two->isPendingPublisherAcceptance());
+
+        $bulk = BulkSiteRequest::query()->find($one->bulk_site_request_id);
+        $this->assertNotNull($bulk);
+        $this->assertSame(BulkSiteRequest::STATUS_COMPLETED, $bulk->status);
+
+        Mail::assertQueued(AdminPublishedSitesBatchNotification::class, 1);
+        Mail::assertNotQueued(AdminAssignedSitesBatchNotification::class);
+
+        $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.ajax', ['status' => 'invites']))
+            ->assertOk()
+            ->assertDontSee('bulk-live-one.example', false);
+    }
+
+    public function test_invalid_publish_mode_saves_nothing(): void
+    {
+        [$country, $language, $niche] = $this->staffAssignMarket();
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.sites.create'))
+            ->post(
+                route('admin.sites.store'),
+                $this->staffAssignPayload($country, $language, $niche, 'https://bad-mode.example') + [
+                    'publish_mode' => 'live',
+                ]
+            )
+            ->assertRedirect(route('admin.sites.create'))
+            ->assertSessionHasErrors('publish_mode');
+
+        $this->assertNull(Site::where('domain', 'bad-mode.example')->first());
+    }
+
+    public function test_sites_table_marks_invite_as_publish_now_not_activate(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->staffAssignMarket();
+
+        $this->actingAs($this->admin)->post(
+            route('admin.sites.store'),
+            $this->staffAssignPayload($country, $language, $niche, 'https://table-invite.example') + [
+                'site_tag' => 'as_you_prefer',
+            ]
+        )->assertRedirect();
+
+        $site = Site::where('domain', 'table-invite.example')->first();
+        $this->assertNotNull($site);
+        $this->assertTrue($site->staffCanPublishNow());
+        $this->assertFalse($site->staffCanGoLive());
+
+        $this->actingAs($this->admin)
+            ->getJson(route('admin.users.sites', $this->publisher))
+            ->assertOk()
+            ->assertJsonPath('sites.0.id', $site->id)
+            ->assertJsonPath('sites.0.pending_publisher_acceptance', true)
+            ->assertJsonPath('sites.0.can_publish_now', true)
+            ->assertJsonPath('sites.0.can_activate', false);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.sites.index', ['waiting_on_publisher' => 1, 'flat' => 1]))
+            ->assertOk()
+            ->assertSee('table-invite.example', false)
+            ->getContent();
+        $flatStart = strpos($html, 'data-flat-queue="1"');
+        $usersStart = strpos($html, 'id="usersSection"');
+        $this->assertNotFalse($flatStart);
+        $this->assertNotFalse($usersStart);
+        $flatSlice = substr($html, $flatStart, $usersStart - $flatStart);
+        $this->assertStringContainsString('js-staff-publish-now', $flatSlice);
+        $this->assertStringContainsString('Active now (direct)', $flatSlice);
+        $this->assertStringNotContainsString('js-mkt-activate', $flatSlice);
+    }
+
+    public function test_publisher_sites_table_offers_publish_now_and_after_review(): void
+    {
+        [$country, $language, $niche] = $this->staffAssignMarket();
+
+        $site = Site::create([
+            'publisher_id' => $this->publisher->id,
+            'publisher_accepted_at' => now(),
+            'site_name' => 'Publisher Review Ready',
+            'site_url' => 'https://publisher-review-ready.example',
+            'domain' => 'publisher-review-ready.example',
+            'example_url' => 'https://publisher-review-ready.example/sample',
+            'da' => 40,
+            'dr' => 40,
+            'traffic' => 12000,
+            'country' => strtolower((string) $country->code),
+            'language' => strtolower((string) $language->code),
+            'category' => $niche,
+            'categories' => [$niche],
+            'price' => 80,
+            'turnaround_time' => '3days',
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => str_repeat('Review ready listing for publisher table. ', 3),
+            'verified' => false,
+            'active' => false,
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+        ]);
+
+        $this->assertTrue($site->staffCanPublishNow());
+        $this->assertTrue($site->staffCanGoLive());
+
+        $this->actingAs($this->admin)
+            ->getJson(route('admin.users.sites', $this->publisher))
+            ->assertOk()
+            ->assertJsonPath('sites.0.id', $site->id)
+            ->assertJsonPath('sites.0.can_publish_now', true)
+            ->assertJsonPath('sites.0.can_activate', true);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.sites.index', ['publisher' => $this->publisher->id]))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('Active now (direct)', $html);
+        $this->assertStringContainsString('Activate after review', $html);
+        $this->assertStringContainsString('js-staff-publish-now', $html);
+    }
+
+    public function test_admin_can_publish_existing_invite_from_sites_table(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->staffAssignMarket();
+
+        $this->actingAs($this->admin)->post(
+            route('admin.sites.store'),
+            $this->staffAssignPayload($country, $language, $niche, 'https://table-publish-now.example') + [
+                'site_tag' => 'as_you_prefer',
+            ]
+        )->assertRedirect();
+
+        $site = Site::where('domain', 'table-publish-now.example')->first();
+        $this->assertNotNull($site);
+        $this->assertTrue($site->isPendingPublisherAcceptance());
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.publish-now', $site->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('active', true)
+            ->assertJsonPath('verified', false)
+            ->assertJsonPath('pending_publisher_acceptance', false);
+
+        $site->refresh();
+        $this->assertTrue((bool) $site->active);
+        $this->assertFalse((bool) $site->verified);
+        $this->assertFalse($site->isPendingPublisherAcceptance());
+        $this->assertNotNull($site->publisher_accepted_at);
+
+        Mail::assertQueued(SiteStatusNotification::class, function ($mail) {
+            return $mail->hasTo($this->publisher->email);
+        });
+        Mail::assertNotQueued(AdminPublishedSiteNotification::class);
+
+        $bell = InAppNotification::query()
+            ->where('user_id', $this->publisher->id)
+            ->where('title', 'like', 'Site activated%')
+            ->first();
+        $this->assertNotNull($bell);
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.publish-now', $site->id))
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
     }
 
     /**

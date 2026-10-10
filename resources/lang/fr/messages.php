@@ -479,6 +479,7 @@ return [
     'staff_handbook_section2_list3' => 'Accepter le déplace vers Mes sites. Refuser supprime le brouillon.',
     'staff_handbook_section2_list4' => 'Après acceptation, l’annonce passe en revue équipe. L’admin vérifie d’abord (badge TXT). Activer/Désactiver restent des contrôles catalogue — n’activez pas tant que l’acceptation est en attente. Marketing : voir la section 6.',
     'staff_handbook_section2_list5' => 'Le badge Verified via TXT est une étape admin distincte après acceptation ; Accepter ≠ Verified. L’activation catalogue n’est pas automatique.',
+    'staff_handbook_section2_list6' => 'Publish now (one site or CSV / bulk Done) puts listings live immediately, still unverified. The publisher is notified and does not Accept. Use Invite when they should review first.',
     'staff_handbook_section3_title' => 'Sens juridique (Conditions éditeur)',
     'staff_handbook_section3_list1' => 'Accepter = autorisation de gérer l’annonce sur Seolinkbuildings, pas une preuve de propriété juridique.',
     'staff_handbook_section3_list2' => 'L’éditeur est responsable de l’exactitude des indicateurs/prix/contenu après acceptation ; l’aide de l’équipe n’est pas une garantie.',

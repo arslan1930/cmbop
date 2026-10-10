@@ -813,6 +813,7 @@ return [
     'staff_handbook_section2_list3' => 'Aceptar lo mueve a Mis sitios. Rechazar elimina el borrador.',
     'staff_handbook_section2_list4' => 'Tras Aceptar, el listado pasa a revisión del personal. El admin verifica primero (insignia TXT). Activar/Desactivar siguen siendo controles del catálogo: no active mientras Aceptar siga pendiente. Marketing: véase la sección 6.',
     'staff_handbook_section2_list5' => 'TXT Verificado es un paso de admin independiente tras Aceptar; Aceptar ≠ Verificado. Activar en el catálogo no es automático.',
+    'staff_handbook_section2_list6' => 'Publish now (one site or CSV / bulk Done) puts listings live immediately, still unverified. The publisher is notified and does not Accept. Use Invite when they should review first.',
     'staff_handbook_section3_title' => 'Significado legal (Términos del editor)',
     'staff_handbook_section3_list1' => 'Aceptar = autorización para gestionar el listado en Seolinkbuildings, no prueba de titularidad legal.',
     'staff_handbook_section3_list2' => 'El editor es responsable de la exactitud de métricas, precio y contenido tras aceptar; la ayuda del personal no es una garantía.',

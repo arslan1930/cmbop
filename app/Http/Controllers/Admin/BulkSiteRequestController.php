@@ -23,6 +23,7 @@ use App\Support\MarketingOpsQueues;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
+use App\Support\StaffListingPublishMode;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -1423,14 +1424,11 @@ class BulkSiteRequestController extends Controller
                     continue;
                 }
 
-                $publishNow = $doneMode !== 'review';
                 $site = new Site;
                 $site->applyMarketplaceListing(array_merge([
                     'publisher_id' => $bulkRequest->publisher_id,
                     'bulk_site_request_id' => $bulkRequest->id,
                     'added_from_bulk_request' => true,
-                    'publisher_accepted_at' => $publishNow ? now() : null,
-                    'assigned_by_user_id' => null,
                     'site_name' => $row['site_name'],
                     'site_url' => $row['site_url'],
                     'domain' => $domain,
@@ -1456,11 +1454,8 @@ class BulkSiteRequestController extends Controller
                     'homepage_placement_prices' => $row['homepage_placement_prices'] ?? null,
                     'social_promotion' => $row['social_promotion'] ?? null,
                     'site_image' => $imagePath,
-                    'verified' => false,
-                    'active' => $publishNow,
                     'enrichment_status' => 'pending',
-                    'onboarding_status' => $publishNow ? null : Site::ONBOARDING_DETAILS_COMPLETE,
-                ], SiteTag::flags(SiteTag::normalize($row['site_tag'] ?? null))));
+                ], StaffListingPublishMode::bulkDoneAttributes($doneMode), SiteTag::flags(SiteTag::normalize($row['site_tag'] ?? null))));
                 $site->save();
 
                 $candidates = Site::domainLookupCandidates($domain);

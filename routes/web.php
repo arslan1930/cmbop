@@ -1198,6 +1198,9 @@ $registerStaffOpsRoutes = function () {
     Route::post('/sites/{id}/resend-invite', [AdminSiteController::class, 'resendInvite'])
         ->whereNumber('id')
         ->name('sites.resend-invite');
+    Route::post('/sites/{id}/publish-now', [AdminSiteController::class, 'publishNow'])
+        ->whereNumber('id')
+        ->name('sites.publish-now');
     Route::get('/staff-handbook', fn () => view('admin.staff-handbook'))
         ->name('staff-handbook');
     Route::get('/users/{id}/sites', [AdminSiteController::class, 'userSites'])

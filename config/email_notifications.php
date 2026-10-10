@@ -3,6 +3,7 @@
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\AdminNewUserRegistered;
+use App\Mail\AdminPublishedSiteNotification;
 use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
@@ -416,6 +417,13 @@ return [
             'audience' => 'publisher',
             'preference' => null,
             'mailable' => AdminAssignedSiteNotification::class,
+            'default_enabled' => true,
+        ],
+        'admin_published_site' => [
+            'name' => 'Admin Published Site — Live',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => AdminPublishedSiteNotification::class,
             'default_enabled' => true,
         ],
         'admin_new_user' => [

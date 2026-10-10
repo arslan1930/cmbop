@@ -2588,6 +2588,42 @@ class Site extends Model
     }
 
     /**
+     * Waiting-on-publisher rows can skip Accept / review and go live now.
+     */
+    public function isWaitingOnPublisherForStaff(): bool
+    {
+        return $this->isPendingPublisherAcceptance()
+            || $this->hasDetailsComplete()
+            || $this->awaitsPublisherDetails();
+    }
+
+    public function staffPublishNowBlockReason(): ?string
+    {
+        if ((bool) $this->active) {
+            return 'This listing is already live.';
+        }
+
+        if ($this->isArchived()) {
+            return 'This site is archived and cannot be published.';
+        }
+
+        if ($this->isFromCancelledBulk()) {
+            return 'This listing is from a cancelled bulk request and cannot be published.';
+        }
+
+        if (! $this->hasMarketplaceCountry()) {
+            return 'Set a marketplace country before publishing this site.';
+        }
+
+        return null;
+    }
+
+    public function staffCanPublishNow(): bool
+    {
+        return $this->staffPublishNowBlockReason() === null;
+    }
+
+    /**
      * Marketing may change the advertiser-facing brief unless the site is archived.
      */
     public function marketingCanEditDescription(): bool

@@ -9,8 +9,9 @@
             <h4 class="mb-1 fw-bold">Add sites in bulk</h4>
             <p class="text-muted mb-0 small">
                 Up to {{ \App\Models\BulkSiteRequest::MAX_SITES_PER_REQUEST }} sites for one publisher.
-                This opens <strong>one new bulk-request batch</strong>. Each row is an invite: Awaiting accept, not verified, and not activated.
-                The publisher gets one email and one bell, then must Accept each listing.
+                This opens <strong>one new bulk-request batch</strong>.
+                <strong>Invite to Accept</strong> leaves every row waiting: Awaiting accept, not verified, not activated — one email and one bell, then they Accept each listing.
+                <strong>Publish filled sites now</strong> puts every row live immediately (not verified), same as a publisher bulk request Done.
             </p>
         </div>
         <a href="{{ $sitesBackUrl }}" class="btn btn-sm btn-outline-secondary">← Back to Sites</a>
@@ -18,7 +19,7 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <form method="POST" action="{{ staff_route('sites.bulk-store', [], false) }}" enctype="multipart/form-data" class="admin-deposits-filters" data-admin-filter-live="1">
+            <form method="POST" action="{{ staff_route('sites.bulk-store', [], false) }}" enctype="multipart/form-data" class="admin-deposits-filters" data-admin-filter-live="1" data-admin-select-no-submit="1" id="staffBulkAssignForm">
                 @csrf
                 <div class="row g-3">
                     <div class="col-12">
@@ -82,13 +83,58 @@
                         <div class="col-12"><div class="alert alert-danger mb-0">{{ $message }}</div></div>
                     @enderror
 
-                    <div class="col-12 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">Add sites &amp; notify</button>
-                        <a href="{{ $sitesBackUrl }}" class="btn btn-outline-secondary">Cancel</a>
+                    <div class="col-12">
+                        <p class="small text-muted mb-2">Choose one action for every row in this paste.</p>
+                        @error('publish_mode')<div class="invalid-feedback d-block mb-2">{{ $message }}</div>@enderror
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-primary" name="publish_mode" value="invite">Invite to Accept</button>
+                            <button type="submit" class="btn btn-outline-primary" name="publish_mode" value="publish">Publish filled sites now</button>
+                            <a href="{{ $sitesBackUrl }}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 </div>
+<script>
+(function () {
+    const form = document.getElementById('staffBulkAssignForm');
+    if (!form) return;
+    let confirmed = false;
+    form.addEventListener('submit', function (e) {
+        if (confirmed) return;
+        const submitter = e.submitter;
+        const mode = (submitter && submitter.getAttribute('name') === 'publish_mode')
+            ? String(submitter.value || 'invite')
+            : 'invite';
+        if (mode !== 'publish' || typeof window.slbConfirm !== 'function') {
+            return;
+        }
+        e.preventDefault();
+        window.slbConfirm({
+            title: 'Publish these sites now?',
+            text: 'Every filled row goes live immediately (not verified). The publisher is notified and does not need to Accept.',
+            confirmText: 'Publish now',
+        }).then(function (ok) {
+            if (!ok) return;
+            confirmed = true;
+            let hidden = form.querySelector('input[name="publish_mode"][data-staff-mode="1"]');
+            if (!hidden) {
+                hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'publish_mode';
+                hidden.setAttribute('data-staff-mode', '1');
+                form.appendChild(hidden);
+            }
+            hidden.value = 'publish';
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit(submitter || undefined);
+            } else {
+                HTMLFormElement.prototype.submit.call(form);
+            }
+        });
+    });
+})();
+</script>
 @endsection

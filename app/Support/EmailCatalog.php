@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\AdminNewUserRegistered;
+use App\Mail\AdminPublishedSiteNotification;
 use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
@@ -411,6 +412,13 @@ class EmailCatalog
                 'mailable' => AdminAssignedSiteNotification::class,
                 'status' => 'active',
             ],
+            'admin_published_site' => [
+                'name' => 'Admin Published Site — Live',
+                'description' => 'Publisher notified that staff published a website live (not verified, no Accept).',
+                'category' => 'Publishers',
+                'mailable' => AdminPublishedSiteNotification::class,
+                'status' => 'active',
+            ],
             'audience_campaign' => [
                 'name' => 'Updates & Campaigns',
                 'description' => 'Admin-composed marketing / update email to a selected audience, with a signed marketing unsubscribe footer.',
@@ -690,6 +698,8 @@ class EmailCatalog
             'please review websites from your bulk request' => 'bulk_sites_publisher_review',
             'your sites were added to pending sites' => 'bulk_sites_seeded',
             'please accept a website we added' => 'admin_assigned_site',
+            'a website is live on your account' => 'admin_published_site',
+            'websites are live on your account' => 'admin_published_site',
             'your bulk website request was cancelled' => 'bulk_request_cancelled',
             'we did not add' => 'bulk_request_items_rejected',
             'spend budget' => 'spend_budget_alert',
@@ -911,6 +921,7 @@ class EmailCatalog
             'bulk_sites_seeded' => new BulkSitesSeededNotification(self::sampleBulkSiteRequest(), 3, $user, ['example.com', 'sample-two.example']),
             'bulk_sites_publisher_review' => new BulkSitesReadyForPublisherReview(self::sampleBulkSiteRequest(), 2, $user, ['example.com', 'sample-two.example']),
             'admin_assigned_site' => new AdminAssignedSiteNotification($site, $user),
+            'admin_published_site' => new AdminPublishedSiteNotification($site, $user),
             'audience_campaign' => new AudienceCampaignMail(self::sampleCampaign(), $user),
             'bulk_request_cancelled' => new BulkSiteRequestCancelled(self::sampleBulkSiteRequest(), $user, 'Sample cancellation reason for preview.'),
             'bulk_request_items_rejected' => new BulkSiteItemsRejected(
