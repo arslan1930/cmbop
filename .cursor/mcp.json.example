@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "seolinkbuildings-catalog": {
+      "url": "http://127.0.0.1:8000/api/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:SLB_CATALOG_API_TOKEN}"
+      }
+    }
+  }
+}

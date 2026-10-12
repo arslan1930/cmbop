@@ -41,8 +41,16 @@ CREATE TABLE IF NOT EXISTS advertiser_api_tokens (
 );
 ```
 
+## MCP (search only, Hostinger-safe)
+
+`POST /api/v1/mcp` — JSON-RPC 2.0, same Bearer key and throttles as catalog.
+One PHP request per call (no Node, no always-on process). Tool: `catalog_search` only.
+Orders stay on Advertiser → Catalog.
+
+How to attach Cursor / Claude: [`docs/mcp-catalog.md`](mcp-catalog.md).
+Do not open the MCP URL in the browser.
+
 ## Later (do not start)
 
 - **B** — create / list orders + wallet via API
 - **C** — approve / track via API
-- **E** — MCP / Claude connector

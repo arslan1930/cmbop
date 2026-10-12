@@ -95,6 +95,15 @@
             </p>
             <pre class="small bg-light border rounded p-3 mb-0">curl -sS -H "Authorization: Bearer YOUR_KEY" \
   "{{ $catalogUrl }}?country=no&amp;price_max=150&amp;website=https://my-rentacar.no"</pre>
+            <h3 class="h6 mt-4">MCP (search only)</h3>
+            <p class="small text-muted mb-2">
+                Remote JSON-RPC (one PHP request). Same key. No orders.
+                Do not open this URL in the browser — use Cursor Settings → MCP with this URL and a Bearer header.
+                <code>POST {{ $mcpUrl }}</code>
+            </p>
+            <pre class="small bg-light border rounded p-3 mb-0">curl -sS -H "Authorization: Bearer YOUR_KEY" -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"catalog_search","arguments":{"country":"no","page":1}}}' \
+  "{{ $mcpUrl }}"</pre>
         </div>
     </div>
 </div>

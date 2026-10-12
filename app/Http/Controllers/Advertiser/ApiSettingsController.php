@@ -21,6 +21,7 @@ class ApiSettingsController extends Controller
                 ->get(),
             'plainToken' => $request->session()->pull('advertiser_api_plain_token'),
             'catalogUrl' => url('/api/v1/catalog'),
+            'mcpUrl' => url('/api/v1/mcp'),
         ]);
     }
 

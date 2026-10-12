@@ -27,6 +27,8 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
         $this->assertStringContainsString("->name('api.index')", $web);
         $this->assertStringContainsString('ApiSettingsController', $web);
         $this->assertStringContainsString("Route::get('/catalog'", $api);
+        $this->assertStringContainsString("Route::post('/mcp'", $api);
+        $this->assertStringContainsString("Route::get('/mcp'", $api);
         $this->assertStringContainsString('AuthenticateAdvertiserCatalogApi', $api);
         $this->assertStringContainsString("->name('catalog')", $web);
     }
@@ -46,6 +48,7 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
         $spec = file_get_contents(base_path('docs/openapi/advertiser-catalog-v1.yaml'));
 
         $this->assertStringContainsString('/catalog:', $spec);
+        $this->assertStringContainsString('/mcp:', $spec);
         $this->assertStringContainsString('bearerAuth', $spec);
         $this->assertStringNotContainsString('/orders', $spec);
         $this->assertStringContainsString('/profile', $spec);
@@ -82,5 +85,16 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
         $this->assertStringContainsString('Copied', $view);
         $this->assertStringContainsString('The key is hidden', $view);
         $this->assertStringContainsString('hideKey', $view);
+    }
+
+    public function test_mcp_is_search_only_and_reuses_catalog(): void
+    {
+        $mcp = file_get_contents(base_path('app/Http/Controllers/Api/V1/CatalogMcpController.php'));
+
+        $this->assertStringContainsString('catalog_search', $mcp);
+        $this->assertStringContainsString('notifications/', $mcp);
+        $this->assertStringContainsString('CatalogSearchController', $mcp);
+        $this->assertStringContainsString('Only catalog_search is available', $mcp);
+        $this->assertStringNotContainsString('place_order', $mcp);
     }
 }
