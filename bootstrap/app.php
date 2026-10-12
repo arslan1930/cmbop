@@ -66,6 +66,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Gmail List-Unsubscribe=One-Click POSTs have no CSRF token.
         $middleware->validateCsrfTokens(except: [
             'email/unsubscribe/*',
+            'oauth/token',
+            'oauth/register',
+            'oauth/revoke',
+            'api/mcp/*',
         ]);
 
         // Public-site locale detection (SaaS dashboards stay English via SetLocale rules)

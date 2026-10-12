@@ -1,17 +1,17 @@
 @extends('advertiser.layouts.app')
 
-@section('title', 'Catalog API')
+@section('title', 'API & MCP')
 
 @section('content')
 <div class="container-fluid py-4">
-    <h2 class="h4 mb-2">Catalog API</h2>
+    <h2 class="h4 mb-2">API &amp; MCP</h2>
     <p class="text-muted small mb-4">
-        Search the same live catalog (prices and hide-mode) from your own tools.
-        Orders still go through
+        Connect Claude, Cursor, or Claude Code to the live SEOLinkBuildings catalog.
+        Assistants can search publishers, save favorites or cart items, and read your orders and wallet.
+        Checkout still happens on
         <a href="{{ route('advertiser.catalog') }}">Advertiser → Catalog</a>.
         Account name and password stay on
-        <a href="{{ route('profile') }}">Profile</a>
-        (shared for every role — that page is not under /advertiser).
+        <a href="{{ route('profile') }}">Profile</a>.
     </p>
 
     @if(session('success'))
@@ -23,7 +23,7 @@
             <strong>Copy this key now.</strong> It will not be shown again.
             <div class="input-group mt-2">
                 <input type="text" class="form-control font-monospace" id="advertiserApiPlainToken" readonly value="{{ $plainToken }}">
-                <button type="button" class="btn btn-outline-secondary" id="advertiserApiCopyBtn">Copy</button>
+                <button type="button" class="btn btn-outline-secondary slb-copy-btn" data-copy-target="advertiserApiPlainToken">Copy</button>
             </div>
             <p class="small text-danger mb-0 mt-2 d-none" id="advertiserApiCopyError" role="status">Copy failed. Select the key and copy it manually.</p>
         </div>
@@ -34,12 +34,72 @@
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
-            <h3 class="h6">Create a key</h3>
+            <h3 class="h6">Your MCP URL</h3>
+            <p class="small text-muted mb-2">
+                Paste this into Claude → Customize → Connectors → Add custom connector.
+                Claude signs in with OAuth. Cursor / Claude Code can use the same URL with a personal Bearer token.
+            </p>
+            <div class="input-group">
+                <input type="text" class="form-control font-monospace" id="advertiserMcpUrl" readonly value="{{ $mcpUrl }}">
+                <button type="button" class="btn btn-outline-secondary slb-copy-btn" data-copy-target="advertiserMcpUrl">Copy</button>
+            </div>
+            <p class="small text-muted mt-2 mb-0">
+                SSE clients (<code>--type sse</code>):
+                <code>{{ $sseUrl }}</code>
+            </p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h3 class="h6">Connect to Claude</h3>
+            <ol class="small mb-0 ps-3">
+                <li>Open Claude (claude.ai or the desktop app) → <strong>Customize → Connectors</strong>.</li>
+                <li>Choose <strong>Add custom connector</strong>.</li>
+                <li>Name it <strong>SEOLinkBuildings</strong> and paste the MCP URL above.</li>
+                <li>Click <strong>Connect</strong>. Sign in to SEOLinkBuildings and click <strong>Allow</strong>.</li>
+                <li>Ask something like: “Find me 10 publishers, DR over 40, price under €750, Ahrefs traffic over 1000, topic marketing.”</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h3 class="h6">Setup snippets</h3>
+            <p class="small text-muted mb-2">Claude Code (Streamable HTTP)</p>
+            <div class="input-group mb-3">
+                <input type="text" class="form-control font-monospace small" id="advertiserClaudeHttp" readonly value="{{ $claudeHttpSnippet }}">
+                <button type="button" class="btn btn-outline-secondary slb-copy-btn" data-copy-target="advertiserClaudeHttp">Copy</button>
+            </div>
+            <p class="small text-muted mb-2">Claude Code (SSE)</p>
+            <div class="input-group mb-3">
+                <input type="text" class="form-control font-monospace small" id="advertiserClaudeSse" readonly value="{{ $claudeSseSnippet }}">
+                <button type="button" class="btn btn-outline-secondary slb-copy-btn" data-copy-target="advertiserClaudeSse">Copy</button>
+            </div>
+            <p class="small text-muted mb-2">Cursor CLI</p>
+            <div class="input-group mb-3">
+                <input type="text" class="form-control font-monospace small" id="advertiserCursorCli" readonly value="{{ $cursorSnippet }}">
+                <button type="button" class="btn btn-outline-secondary slb-copy-btn" data-copy-target="advertiserCursorCli">Copy</button>
+            </div>
+            <p class="small text-muted mb-2"><code>.cursor/mcp.json</code> with a personal token</p>
+            <pre class="small bg-light border rounded p-3 mb-0" id="advertiserCursorJson">{{ $cursorJson }}</pre>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-2 slb-copy-btn" data-copy-target="advertiserCursorJson">Copy JSON</button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h3 class="h6">Create a personal token</h3>
+            <p class="small text-muted">
+                For Cursor, Claude Code, and scripts. Send
+                <code>Authorization: Bearer YOUR_KEY</code>.
+                Claude.ai Connect does not need a key — it uses OAuth.
+            </p>
             <form method="POST" action="{{ route('advertiser.api.store') }}" class="row g-2 align-items-end">
                 @csrf
                 <div class="col-sm-6 col-md-4">
                     <label class="form-label small" for="advertiserApiTokenName">Name</label>
-                    <input type="text" name="name" id="advertiserApiTokenName" class="form-control form-control-sm" required maxlength="80" placeholder="Claude, agency tool…">
+                    <input type="text" name="name" id="advertiserApiTokenName" class="form-control form-control-sm" required maxlength="80" placeholder="Claude, Cursor, agency tool…">
                 </div>
                 <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-primary">Create key</button>
@@ -88,7 +148,7 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <h3 class="h6">Search example</h3>
+            <h3 class="h6">Catalog REST example</h3>
             <p class="small text-muted mb-2">
                 <code>GET {{ $catalogUrl }}</code>
                 with header <code>Authorization: Bearer YOUR_KEY</code>
@@ -103,38 +163,20 @@
 @push('scripts')
 <script>
 (function () {
-    var btn = document.getElementById('advertiserApiCopyBtn');
-    var input = document.getElementById('advertiserApiPlainToken');
-    var box = document.getElementById('advertiserApiPlainTokenAlert');
-    var done = document.getElementById('advertiserApiCopiedAlert');
-    var err = document.getElementById('advertiserApiCopyError');
-    if (!btn || !input || !box) {
-        return;
-    }
-
-    function hideKey() {
-        input.value = '';
-        box.classList.add('d-none');
-        if (done) {
-            done.classList.remove('d-none');
-        }
-    }
-
-    function copiedLook() {
-        btn.textContent = 'Copied';
-        btn.classList.remove('btn-outline-secondary');
-        btn.classList.add('btn-success');
-        btn.disabled = true;
-    }
+    var tokenBox = document.getElementById('advertiserApiPlainTokenAlert');
+    var tokenInput = document.getElementById('advertiserApiPlainToken');
+    var tokenDone = document.getElementById('advertiserApiCopiedAlert');
+    var tokenErr = document.getElementById('advertiserApiCopyError');
 
     function writeClipboard(text) {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             return navigator.clipboard.writeText(text);
         }
-
         return new Promise(function (resolve, reject) {
-            input.focus();
-            input.select();
+            var probe = document.createElement('textarea');
+            probe.value = text;
+            document.body.appendChild(probe);
+            probe.select();
             try {
                 if (document.execCommand('copy')) {
                     resolve();
@@ -143,25 +185,51 @@
                 }
             } catch (e) {
                 reject(e);
+            } finally {
+                probe.remove();
             }
         });
     }
 
-    btn.addEventListener('click', function () {
-        var value = input.value;
-        if (!value) {
-            return;
-        }
-        writeClipboard(value).then(function () {
-            if (err) {
-                err.classList.add('d-none');
+    document.querySelectorAll('.slb-copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var target = document.getElementById(btn.getAttribute('data-copy-target') || '');
+            if (!target) {
+                return;
             }
-            copiedLook();
-            window.setTimeout(hideKey, 700);
-        }).catch(function () {
-            if (err) {
-                err.classList.remove('d-none');
+            var value = ('value' in target) ? target.value : target.textContent;
+            if (!value) {
+                return;
             }
+            writeClipboard(value).then(function () {
+                if (tokenErr) {
+                    tokenErr.classList.add('d-none');
+                }
+                var previous = btn.textContent;
+                btn.textContent = 'Copied';
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-success');
+                if (target.id === 'advertiserApiPlainToken' && tokenBox) {
+                    window.setTimeout(function () {
+                        tokenInput.value = '';
+                        tokenBox.classList.add('d-none');
+                        if (tokenDone) {
+                            tokenDone.classList.remove('d-none');
+                        }
+                    }, 700);
+                    btn.disabled = true;
+                } else {
+                    window.setTimeout(function () {
+                        btn.textContent = previous;
+                        btn.classList.add('btn-outline-secondary');
+                        btn.classList.remove('btn-success');
+                    }, 1400);
+                }
+            }).catch(function () {
+                if (tokenErr && target.id === 'advertiserApiPlainToken') {
+                    tokenErr.classList.remove('d-none');
+                }
+            });
         });
     });
 })();

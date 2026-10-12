@@ -132,6 +132,12 @@ class AppServiceProvider extends ServiceProvider
         // Isolated from numeric throttle:N,M. Those share one per-user key, so
         // catalog favicons / copy-track / live search would burn a 10/min
         // report bucket after a few seconds of browsing.
+        RateLimiter::for('mcp', function (Request $request) {
+            $id = $request->user()?->getAuthIdentifier() ?: $request->ip();
+
+            return Limit::perMinute(60)->by('mcp:'.$id);
+        });
+
         RateLimiter::for('catalog-site-report', function (Request $request) {
             $id = $request->user()?->getAuthIdentifier() ?: $request->ip();
 

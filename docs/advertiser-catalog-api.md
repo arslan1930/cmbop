@@ -45,4 +45,4 @@ CREATE TABLE IF NOT EXISTS advertiser_api_tokens (
 
 - **B** — create / list orders + wallet via API
 - **C** — approve / track via API
-- **E** — MCP / Claude connector
+- **E** — MCP / Claude connector — see [`docs/advertiser-mcp.md`](advertiser-mcp.md)

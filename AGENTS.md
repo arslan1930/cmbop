@@ -122,6 +122,8 @@ Admin → Activity History (append-only ActivityLogger log):
 [`docs/admin-activity-logs.md`](docs/admin-activity-logs.md).
 Admin → Catalog Activity (hide-mode / copy-strike queue):
 [`docs/admin-catalog-activity.md`](docs/admin-catalog-activity.md).
+Advertiser → API & MCP (remote Claude/Cursor connector):
+[`docs/advertiser-mcp.md`](docs/advertiser-mcp.md).
 
 ### Durable media (Hostinger)
 Public uploads use the `public` disk (`/storage/...`). Leave `MEDIA_PATH` empty
