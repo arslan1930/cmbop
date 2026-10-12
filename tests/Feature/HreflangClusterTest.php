@@ -131,7 +131,7 @@ class HreflangClusterTest extends TestCase
     public function test_english_only_assets_do_not_advertise_thin_locale_copies(): void
     {
         $paths = array_merge(
-            ['/guest-post-prices-europe'],
+            ['/guest-post-prices-europe', '/is-seolinkbuildings-safe'],
             array_map(static fn (string $slug) => '/'.$slug, CountryLander::slugs()),
         );
 

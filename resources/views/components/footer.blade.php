@@ -33,6 +33,7 @@
                     <li><a href="{{ localized_url('why-choose-us') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.why_choose_title') }}</a></li>
                     <li><a href="{{ localized_url('become-a-publisher') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.nav_become_publisher') }}</a></li>
                     <li><a href="{{ localized_url('faq') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.nav_faq') }}</a></li>
+                    <li><a href="{{ url('/is-seolinkbuildings-safe') }}" class="text-dark text-decoration-none d-block mb-2">Is SEOLinkBuildings safe?</a></li>
                     <li><a href="{{ localized_url('contact') }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.contact') }}</a></li>
                     <li><a href="{{ $blogIndexUrl }}" class="text-dark text-decoration-none d-block mb-2">{{ __('messages.blog') }}</a></li>
                     @if(function_exists('public_locale') && public_locale() === 'it')

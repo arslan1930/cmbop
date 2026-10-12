@@ -88,6 +88,7 @@ class PublicI18nLocaleMapTest extends TestCase
     {
         $slugs = PublicI18n::englishOnlyMarketingSlugs();
         $this->assertContains('guest-post-prices-europe', $slugs);
+        $this->assertContains('is-seolinkbuildings-safe', $slugs);
         $this->assertContains('guest-posts-germany', $slugs);
         $this->assertContains('guest-posts-uk', $slugs);
         $this->assertSame(

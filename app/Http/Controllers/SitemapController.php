@@ -153,6 +153,9 @@ class SitemapController extends Controller
                 $priceIndex = GuestPostPriceIndex::SLUG;
                 $urls[] = $this->urlEntry($priceIndex, $locale, 'weekly', '0.8', ['en'], ['en' => $priceIndex]);
             }
+
+            $safePage = 'is-seolinkbuildings-safe';
+            $urls[] = $this->urlEntry($safePage, $locale, 'monthly', '0.6', ['en'], ['en' => $safePage]);
         }
 
         $translations = collect();

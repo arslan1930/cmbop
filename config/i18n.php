@@ -60,6 +60,7 @@ return [
         'guest-posts-estonia',
         'guest-posts-poland',
         'guest-post-prices-europe',
+        'is-seolinkbuildings-safe',
         'comprare-guest-post',
         'articoli-sponsorizzati',
         'link-building',

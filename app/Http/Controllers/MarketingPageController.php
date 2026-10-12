@@ -36,6 +36,11 @@ class MarketingPageController extends Controller
         ]);
     }
 
+    public function isItSafe()
+    {
+        return view('pages.is-it-safe');
+    }
+
     public function faq()
     {
         return view('pages.faq');

@@ -6,6 +6,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -44,6 +45,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -82,6 +84,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -120,6 +123,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -158,6 +162,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -196,6 +201,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -234,6 +240,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -272,6 +279,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -310,6 +318,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -348,6 +357,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -386,6 +396,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -424,6 +435,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -462,6 +474,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -500,6 +513,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -538,6 +552,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -576,6 +591,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -614,6 +630,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -652,6 +669,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
@@ -690,6 +708,7 @@ Allow: /become-a-publisher
 Allow: /pricing
 Allow: /how-it-works
 Allow: /guest-post-prices-europe
+Allow: /is-seolinkbuildings-safe
 Allow: /guest-posts-germany
 Allow: /guest-posts-uk
 Allow: /guest-posts-italy
