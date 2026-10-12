@@ -50,4 +50,23 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
         $this->assertStringNotContainsString('/orders', $spec);
         $this->assertStringContainsString('/profile', $spec);
     }
+
+    public function test_phase_zero_lock_is_written_and_matches_v1_surface(): void
+    {
+        $lock = file_get_contents(base_path('docs/advertiser-catalog-api.md'));
+        $middleware = file_get_contents(base_path('app/Http/Middleware/AuthenticateAdvertiserCatalogApi.php'));
+        $matcher = file_get_contents(base_path('app/Services/Catalog/CatalogPromotedSiteMatch.php'));
+        $catalogApi = file_get_contents(base_path('app/Http/Controllers/Api/V1/CatalogSearchController.php'));
+        $settings = file_get_contents(base_path('app/Http/Controllers/Advertiser/ApiSettingsController.php'));
+
+        $this->assertStringContainsString('Phase 0 — locked product (v1)', $lock);
+        $this->assertStringContainsString('Search only', $lock);
+        $this->assertStringContainsString('Advertiser → API', $lock);
+        $this->assertStringContainsString('hasRole(\'advertiser\')', $middleware);
+        $this->assertStringContainsString('email_verified_at', $middleware);
+        $this->assertStringContainsString('isSuspended', $middleware);
+        $this->assertStringContainsString('TLD + host keywords only — no crawl', $matcher);
+        $this->assertStringNotContainsString('Order', $catalogApi);
+        $this->assertStringContainsString('advertiser.api.index', $settings);
+    }
 }
