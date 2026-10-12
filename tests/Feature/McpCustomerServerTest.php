@@ -58,9 +58,18 @@ class McpCustomerServerTest extends TestCase
         ]);
         $this->publisher->roles()->attach($publisherRole->id);
 
-        Country::query()->create(['code' => 'no', 'name' => 'Norway', 'region' => 'Europe']);
-        Language::query()->create(['code' => 'no', 'name' => 'Norwegian', 'native_name' => 'Norsk']);
-        Category::query()->create(['name' => 'Marketing, PR & Advertising', 'group' => 'Business']);
+        Country::query()->firstOrCreate(
+            ['code' => 'no'],
+            ['name' => 'Norway', 'region' => 'Europe']
+        );
+        Language::query()->firstOrCreate(
+            ['code' => 'no'],
+            ['name' => 'Norwegian', 'native_name' => 'Norsk']
+        );
+        Category::query()->firstOrCreate(
+            ['name' => 'Marketing, PR & Advertising'],
+            ['group' => 'Business']
+        );
 
         $this->site = Site::create([
             'publisher_id' => $this->publisher->id,
@@ -99,14 +108,17 @@ class McpCustomerServerTest extends TestCase
 
     public function test_initialize_requires_a_token(): void
     {
-        $this->rpc(1, 'initialize', [
+        $response = $this->rpc(1, 'initialize', [
             'protocolVersion' => '2025-06-18',
             'capabilities' => (object) [],
             'clientInfo' => ['name' => 'phpunit', 'version' => '1'],
-        ], token: null)
-            ->assertUnauthorized()
-            ->assertHeader('WWW-Authenticate')
-            ->assertSee('oauth-protected-resource', false);
+        ], token: null);
+
+        $response->assertUnauthorized()->assertHeader('WWW-Authenticate');
+        $this->assertStringContainsString(
+            'oauth-protected-resource',
+            (string) $response->headers->get('WWW-Authenticate')
+        );
     }
 
     public function test_initialize_and_initialized_notification(): void
@@ -125,7 +137,7 @@ class McpCustomerServerTest extends TestCase
         $this->postJson('/api/mcp/customer', [
             'jsonrpc' => '2.0',
             'method' => 'notifications/initialized',
-        ], $this->headers())
+        ], $this->headers($this->token))
             ->assertStatus(202);
     }
 
@@ -213,6 +225,7 @@ class McpCustomerServerTest extends TestCase
             'site_id' => $this->site->id,
             'site_name' => 'Oslo Marketing',
             'site_url' => 'https://oslo-marketing.no',
+            'content_link' => 'https://example.com/article.docx',
             'price' => 90,
             'publisher_status' => 'completed',
         ]);
@@ -370,7 +383,7 @@ class McpCustomerServerTest extends TestCase
     /**
      * @return array<string, string>
      */
-    private function headers(?string $token): array
+    private function headers(?string $token = null): array
     {
         $headers = [
             'Accept' => 'application/json, text/event-stream',
