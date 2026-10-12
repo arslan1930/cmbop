@@ -1,3 +1,12 @@
+# SEOLinkBuildings
+
+Europe-focused guest-post / backlink marketplace (Laravel 13). Advertisers buy
+placements from a EUR wallet; publishers list sites.
+
+**Chat with AI assistants (MCP):** verified advertisers connect Claude, Cursor,
+or Claude Code to the live catalog. Page: Advertiser → **API & MCP**. Setup,
+OAuth, tools, and deploy notes: [`docs/advertiser-mcp.md`](docs/advertiser-mcp.md).
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">

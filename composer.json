@@ -10,6 +10,7 @@
         "barryvdh/laravel-dompdf": "^3.0",
         "endroid/qr-code": "^6.0",
         "laravel/framework": "^13.0",
+        "laravel/mcp": "^1.0",
         "laravel/socialite": "^5.27",
         "laravel/tinker": "^3.0",
         "smalot/pdfparser": "^2.12",

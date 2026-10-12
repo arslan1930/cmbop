@@ -62,6 +62,7 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
         $this->assertStringContainsString('Phase 0 — locked product (v1)', $lock);
         $this->assertStringContainsString('Search only', $lock);
         $this->assertStringContainsString('Advertiser → API', $lock);
+        $this->assertStringContainsString('Phase E', $lock);
         $this->assertStringContainsString('hasRole(\'advertiser\')', $middleware);
         $this->assertStringNotContainsString('api_token', $middleware);
         $this->assertStringContainsString('email_verified_at', $middleware);
@@ -78,9 +79,10 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
     {
         $view = file_get_contents(base_path('resources/views/advertiser/api/index.blade.php'));
 
-        $this->assertStringContainsString('advertiserApiCopyBtn', $view);
+        $this->assertStringContainsString('slb-copy-btn', $view);
         $this->assertStringContainsString('Copied', $view);
         $this->assertStringContainsString('The key is hidden', $view);
-        $this->assertStringContainsString('hideKey', $view);
+        $this->assertStringContainsString('API &amp; MCP', $view);
+        $this->assertStringContainsString('advertiserMcpUrl', $view);
     }
 }

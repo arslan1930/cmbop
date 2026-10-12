@@ -60,8 +60,9 @@ class AdvertiserApiSettingsTest extends TestCase
         $this->actingAs($this->advertiser)
             ->get(route('advertiser.api.index'))
             ->assertOk()
-            ->assertSee('Catalog API')
-            ->assertSee(route('profile'));
+            ->assertSee('API & MCP')
+            ->assertSee(route('profile'))
+            ->assertSee('/api/mcp/customer');
 
         $this->actingAs($this->advertiser)
             ->post(route('advertiser.api.store'), ['name' => 'Claude'])

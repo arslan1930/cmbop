@@ -47,6 +47,7 @@ use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\LiveUrlHealthChecker;
 use App\Services\Marketplace\CountryLanguagePairs;
+use App\Services\Mcp\SavedCartSync;
 use App\Services\OrderChatContactGuard;
 use App\Services\OrderPaymentService;
 use App\Services\Orders\ContentRevisionService;
@@ -827,6 +828,11 @@ class CatalogController extends Controller
             SiteTag::constrainQuery($query, $tagFilter);
         }
 
+        $linkType = strtolower(search_text($request->input('link_type')));
+        if (in_array($linkType, ['dofollow', 'nofollow'], true)) {
+            $query->where('link_type', $linkType);
+        }
+
         // More → Bulk deals — pack program only (not custom Sale −%).
         if ($request->input('bulk_deals') == '1' || $request->input('bulk_deals') === 1) {
             if (Site::hasSitesColumn('bulk_discount_enabled')) {
@@ -1481,6 +1487,7 @@ class CatalogController extends Controller
     private function leftoverSessionCart(): array
     {
         try {
+            app(SavedCartSync::class)->mergeIntoSession();
             $cart = session()->get('cart', []);
             if (! is_array($cart)) {
                 return [];

@@ -56,7 +56,10 @@ production page view. It does not migrate and it does not run the scheduler.
    (`SITE_CWEBP_PATH=/usr/bin/cwebp`). Without an encoder a validated original
    JPEG/PNG is stored (GIF still stays GIF). Enable one of those on Hostinger
    so new uploads become WebP.
-10. Confirm MySQL, `APP_URL`, `MEDIA_PATH`, uploads, mail drain, and the scheduler:
+10. Advertiser MCP (`/api/mcp/customer`) needs the MCP OAuth/cart migrations
+    (`php artisan migrate --force` or `--repair`) and a public **HTTPS**
+    `APP_URL`. No Passport keys. See [`advertiser-mcp.md`](advertiser-mcp.md).
+11. Confirm MySQL, `APP_URL`, `MEDIA_PATH`, uploads, mail drain, and the scheduler:
    `php artisan ops:production-ready --repair --strict`
    MySQL hostname must be `localhost` (unix socket), not `127.0.0.1`. Hostinger
    blocks TCP to 127.0.0.1:3306 with `SQLSTATE[HY000] [2002] Operation not permitted`.

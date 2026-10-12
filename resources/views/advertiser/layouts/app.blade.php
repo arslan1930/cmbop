@@ -248,7 +248,7 @@
                 </li>
                 <li>
                     <a class="dropdown-item" href="{{ route('advertiser.api.index') }}">
-                        <i class="fa fa-key" aria-hidden="true"></i> API
+                        <i class="fa fa-key" aria-hidden="true"></i> API &amp; MCP
                     </a>
                 </li>
                 <li>
