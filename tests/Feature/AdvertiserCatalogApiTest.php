@@ -67,6 +67,14 @@ class AdvertiserCatalogApiTest extends TestCase
             ->assertJsonPath('status', 'error');
     }
 
+    public function test_query_string_token_is_rejected(): void
+    {
+        $issued = AdvertiserApiToken::issue($this->advertiser, 'Query');
+
+        $this->getJson('/api/v1/catalog?api_token='.$issued['plain'])
+            ->assertUnauthorized();
+    }
+
     public function test_advertiser_token_returns_catalog_rows(): void
     {
         $issued = AdvertiserApiToken::issue($this->advertiser, 'Claude');

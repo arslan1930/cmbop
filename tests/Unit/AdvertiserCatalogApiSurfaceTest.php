@@ -63,6 +63,7 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
         $this->assertStringContainsString('Search only', $lock);
         $this->assertStringContainsString('Advertiser → API', $lock);
         $this->assertStringContainsString('hasRole(\'advertiser\')', $middleware);
+        $this->assertStringNotContainsString('api_token', $middleware);
         $this->assertStringContainsString('email_verified_at', $middleware);
         $this->assertStringContainsString('isSuspended', $middleware);
         $this->assertStringContainsString('TLD + host keywords only — no crawl', $matcher);

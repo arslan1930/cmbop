@@ -58,6 +58,6 @@ class AuthenticateAdvertiserCatalogApi
             return $m[1];
         }
 
-        return trim((string) $request->query('api_token', ''));
+        return '';
     }
 }

@@ -4,9 +4,12 @@ info:
   version: "1.0.0"
   description: |
     Same live advertiser catalog as the website (filters, prices, hide-mode).
-    Create keys under Advertiser → API. Account name and password stay on /profile
-    (shared for every role; that page is not under /advertiser or /publisher).
+    Create keys under Advertiser → API. Send Authorization: Bearer slb_… only
+    (do not put the key in the query string). Account name and password stay on
+    /profile (shared for every role; that page is not under /advertiser or /publisher).
     Orders are not created through this API.
+    Any CatalogUrlQuery key the HTML catalog accepts also works here
+    (featured, on_sale, bulk_deals, tag, verified, quality, and the rest).
 servers:
   - url: /api/v1
 paths:
@@ -33,6 +36,7 @@ paths:
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/perPage"
         - $ref: "#/components/parameters/website"
+        - $ref: "#/components/parameters/catalogQueryAlsoAccepted"
       responses:
         "200":
           description: Matching sites
@@ -117,6 +121,13 @@ components:
       in: query
       description: Optional advertiser site URL. Fills empty country/language/category only.
       schema: { type: string, example: "https://my-rentacar.no" }
+    catalogQueryAlsoAccepted:
+      name: featured
+      in: query
+      description: >
+        Example extra catalog key. The listing also accepts the other HTML catalog
+        keys (on_sale, bulk_deals, tag, verified, quality, favorites_filter, and so on).
+      schema: { type: string }
   schemas:
     CatalogResponse:
       type: object

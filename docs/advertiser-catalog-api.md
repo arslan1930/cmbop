@@ -23,6 +23,23 @@ These rules are the product. Do not change them in Phase A without a new lock.
 
 Ship checklist (Phase A + F): create the table once, click keys, curl vs the catalog, run the API tests, then merge this branch yourself.
 
+Hostinger (if you do not run `migrate --force`), create this table once:
+
+```sql
+CREATE TABLE IF NOT EXISTS advertiser_api_tokens (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(80) NOT NULL,
+  token_prefix VARCHAR(16) NOT NULL,
+  token_hash VARCHAR(64) NOT NULL,
+  last_used_at TIMESTAMP NULL,
+  created_at TIMESTAMP NULL,
+  updated_at TIMESTAMP NULL,
+  UNIQUE KEY advertiser_api_tokens_token_hash_unique (token_hash),
+  KEY advertiser_api_tokens_user_id_index (user_id)
+);
+```
+
 ## Later (do not start)
 
 - **B** — create / list orders + wallet via API
