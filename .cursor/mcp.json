@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "seolinkbuildings-catalog": {
+      "command": "php",
+      "args": ["/home/penguin/Documents/cmbop/mcp/catalog/server.php"],
+      "env": {
+        "CATALOG_API_URL": "http://127.0.0.1:8765/api/v1/mcp",
+        "CATALOG_API_TOKEN": "slb_mnhzrcf4ccpyjqhsclfnz2dxuqzxissomaarzpxzlofnt8yd"
+      }
+    }
+  }
+}
