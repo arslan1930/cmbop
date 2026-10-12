@@ -70,4 +70,14 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
         $this->assertStringNotContainsString('Order', $catalogApi);
         $this->assertStringContainsString('advertiser.api.index', $settings);
     }
+
+    public function test_api_settings_copy_hides_the_plain_key_without_refresh(): void
+    {
+        $view = file_get_contents(base_path('resources/views/advertiser/api/index.blade.php'));
+
+        $this->assertStringContainsString('advertiserApiCopyBtn', $view);
+        $this->assertStringContainsString('Copied', $view);
+        $this->assertStringContainsString('The key is hidden', $view);
+        $this->assertStringContainsString('hideKey', $view);
+    }
 }

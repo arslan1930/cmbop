@@ -19,12 +19,16 @@
     @endif
 
     @if(!empty($plainToken))
-        <div class="alert alert-warning">
+        <div class="alert alert-warning" id="advertiserApiPlainTokenAlert">
             <strong>Copy this key now.</strong> It will not be shown again.
             <div class="input-group mt-2">
                 <input type="text" class="form-control font-monospace" id="advertiserApiPlainToken" readonly value="{{ $plainToken }}">
-                <button type="button" class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(document.getElementById('advertiserApiPlainToken').value)">Copy</button>
+                <button type="button" class="btn btn-outline-secondary" id="advertiserApiCopyBtn">Copy</button>
             </div>
+            <p class="small text-danger mb-0 mt-2 d-none" id="advertiserApiCopyError" role="status">Copy failed. Select the key and copy it manually.</p>
+        </div>
+        <div class="alert alert-success d-none" id="advertiserApiCopiedAlert" role="status">
+            Copied. The key is hidden and will not be shown again.
         </div>
     @endif
 
@@ -95,3 +99,71 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    var btn = document.getElementById('advertiserApiCopyBtn');
+    var input = document.getElementById('advertiserApiPlainToken');
+    var box = document.getElementById('advertiserApiPlainTokenAlert');
+    var done = document.getElementById('advertiserApiCopiedAlert');
+    var err = document.getElementById('advertiserApiCopyError');
+    if (!btn || !input || !box) {
+        return;
+    }
+
+    function hideKey() {
+        input.value = '';
+        box.classList.add('d-none');
+        if (done) {
+            done.classList.remove('d-none');
+        }
+    }
+
+    function copiedLook() {
+        btn.textContent = 'Copied';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-success');
+        btn.disabled = true;
+    }
+
+    function writeClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+
+        return new Promise(function (resolve, reject) {
+            input.focus();
+            input.select();
+            try {
+                if (document.execCommand('copy')) {
+                    resolve();
+                } else {
+                    reject(new Error('copy'));
+                }
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    btn.addEventListener('click', function () {
+        var value = input.value;
+        if (!value) {
+            return;
+        }
+        writeClipboard(value).then(function () {
+            if (err) {
+                err.classList.add('d-none');
+            }
+            copiedLook();
+            window.setTimeout(hideKey, 700);
+        }).catch(function () {
+            if (err) {
+                err.classList.remove('d-none');
+            }
+        });
+    });
+})();
+</script>
+@endpush
