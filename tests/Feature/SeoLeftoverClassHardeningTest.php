@@ -213,7 +213,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
 
     public function test_public_money_pages_and_admin_login_stay_up(): void
     {
-        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-austria', '/guest-posts-switzerland', '/guest-posts-spain', '/guest-posts-poland', '/guest-post-prices-europe', '/how-it-works', '/refund-policy', '/login', '/at', '/at/gastbeitrag-kaufen', '/de/gastbeitrag-kaufen', '/ch', '/ch/gastbeitrag-kaufen', '/es', '/es/comprar-guest-post', '/ro', '/ro/cumpara-guest-post', '/guest-posts-romania', '/nl', '/nl/gastblog-kopen', '/guest-posts-netherlands'] as $path) {
+        foreach (['/', '/about', '/pl', '/marketplace', '/guest-posts-germany', '/guest-posts-austria', '/guest-posts-switzerland', '/guest-posts-spain', '/guest-posts-poland', '/guest-post-prices-europe', '/is-seolinkbuildings-safe', '/how-it-works', '/refund-policy', '/login', '/at', '/at/gastbeitrag-kaufen', '/de/gastbeitrag-kaufen', '/ch', '/ch/gastbeitrag-kaufen', '/es', '/es/comprar-guest-post', '/ro', '/ro/cumpara-guest-post', '/guest-posts-romania', '/nl', '/nl/gastblog-kopen', '/guest-posts-netherlands'] as $path) {
             $this->get($path)
                 ->assertOk()
                 ->assertDontSee('SQLSTATE')
@@ -223,6 +223,7 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->get('/robots.txt')->assertOk();
         $this->get('/de/guest-posts-germany')->assertRedirect('/guest-posts-germany');
         $this->get('/de/guest-post-prices-europe')->assertRedirect('/guest-post-prices-europe');
+        $this->get('/de/is-seolinkbuildings-safe')->assertRedirect('/is-seolinkbuildings-safe');
 
         $this->assertNull(Site::forgetMarketingCaches());
     }

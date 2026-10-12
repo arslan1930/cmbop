@@ -272,7 +272,7 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
         ->name('newsletter.subscribe');
 };
 
-$englishOnlyMarketingSlugs = ['guest-post-prices-europe'];
+$englishOnlyMarketingSlugs = ['guest-post-prices-europe', 'is-seolinkbuildings-safe'];
 if (class_exists(PublicI18n::class) && method_exists(PublicI18n::class, 'englishOnlyMarketingSlugs')) {
     try {
         $fromPublic = PublicI18n::englishOnlyMarketingSlugs();
@@ -303,6 +303,7 @@ $registerEnglishOnlyMarketingRoutes = function () {
             ->name('guest-posts.'.$landerKey);
     }
 
+    Route::get('/is-seolinkbuildings-safe', [MarketingPageController::class, 'isItSafe'])->name('is-it-safe');
     Route::get('/guest-post-prices-europe', [MarketingPageController::class, 'europePriceIndex'])
         ->name('guest-post-prices-europe');
 };

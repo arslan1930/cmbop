@@ -5,7 +5,7 @@ namespace App\Support;
 use App\Services\Marketing\GuestPostPriceIndex;
 
 /**
- * Country landers and the Europe price index stay on unprefixed English URLs.
+ * Country landers, the Europe price index, and the trust FAQ stay on unprefixed English URLs.
  * Kept in a small class so leftover Hostinger PublicI18n.php (missing the
  * method, or truncated in File Manager) does not 500 public pages.
  */
@@ -16,7 +16,7 @@ class EnglishOnlyMarketingSlugs
      */
     public static function all(): array
     {
-        $slugs = ['guest-post-prices-europe'];
+        $slugs = ['guest-post-prices-europe', 'is-seolinkbuildings-safe'];
 
         try {
             if (
@@ -25,7 +25,7 @@ class EnglishOnlyMarketingSlugs
             ) {
                 $indexSlug = trim((string) GuestPostPriceIndex::SLUG);
                 if ($indexSlug !== '') {
-                    $slugs = [$indexSlug];
+                    $slugs = array_values(array_unique(array_merge([$indexSlug], $slugs)));
                 }
             }
         } catch (\Throwable) {

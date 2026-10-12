@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Cookie as SymfonyCookie;
 class PublicI18n
 {
     /**
-     * Country landers and the Europe price index stay English-only.
+     * Country landers, the Europe price index, and the trust FAQ stay English-only.
      * Prefixed locales 301 these slugs onto the unprefixed English URL.
      * Kept near the class open so leftover File Manager truncations still keep it.
      *
@@ -35,7 +35,7 @@ class PublicI18n
             }
         }
 
-        $slugs = ['guest-post-prices-europe'];
+        $slugs = ['guest-post-prices-europe', 'is-seolinkbuildings-safe'];
 
         try {
             if (
@@ -44,7 +44,7 @@ class PublicI18n
             ) {
                 $indexSlug = trim((string) GuestPostPriceIndex::SLUG);
                 if ($indexSlug !== '') {
-                    $slugs = [$indexSlug];
+                    $slugs = array_values(array_unique(array_merge([$indexSlug], $slugs)));
                 }
             }
         } catch (\Throwable) {
@@ -459,10 +459,10 @@ class PublicI18n
                 return in_array($first, self::englishOnlyMarketingSlugs(), true);
             }
         } catch (\Throwable) {
-            return $first === 'guest-post-prices-europe';
+            return in_array($first, ['guest-post-prices-europe', 'is-seolinkbuildings-safe'], true);
         }
 
-        return $first === 'guest-post-prices-europe';
+        return in_array($first, ['guest-post-prices-europe', 'is-seolinkbuildings-safe'], true);
     }
 
     /**
