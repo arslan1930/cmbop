@@ -19,6 +19,10 @@ class AdvertiserApiSettingsTest extends TestCase
 
     protected function setUp(): void
     {
+        if (! extension_loaded('pdo_sqlite')) {
+            $this->markTestSkipped('pdo_sqlite is required for this suite.');
+        }
+
         parent::setUp();
         $this->seed(RolesTableSeeder::class);
 
