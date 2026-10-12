@@ -6,7 +6,6 @@ use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Services\Catalog\CatalogPromotedSiteMatch;
-use App\Services\Catalog\CatalogUrlQuery;
 use App\Services\Catalog\SiteUrlVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,20 +36,14 @@ class CatalogSearchController extends Controller
         $rows = [];
         foreach ($sites as $site) {
             $prices = $site->catalogPricesForViewer($user);
-            $hidden = $this->visibility->inHideMode($user)
-                && ! $this->visibility->showsFullIdentity($user, $site);
 
             $rows[] = [
-                'id' => (int) $site->id,
-                'orderable' => ! ($prices['owned'] ?? false),
                 'name' => $this->visibility->nameFor($user, $site),
                 'host' => $this->visibility->hostFor($user, $site),
-                'identity_hidden' => $hidden,
                 'price' => [
                     'currency' => 'EUR',
                     'list' => round((float) $prices['list'], 2),
                     'sale' => $prices['sale'] !== null ? round((float) $prices['sale'], 2) : null,
-                    'sale_percent' => $prices['sale_percent'] !== null ? round((float) $prices['sale_percent'], 2) : null,
                 ],
                 'da' => (int) ($site->da ?? 0),
                 'dr' => (int) ($site->dr ?? 0),
@@ -65,10 +58,6 @@ class CatalogSearchController extends Controller
 
         return response()->json([
             'status' => 'ok',
-            'filters' => CatalogUrlQuery::fromRequest($request),
-            'website' => $this->siteMatch->host((string) $request->input('website', '')),
-            'hide_mode' => $this->visibility->inHideMode($user),
-            'inventory_from' => $listing['inventoryFrom'],
             'meta' => [
                 'total' => $sites->total(),
                 'page' => $sites->currentPage(),

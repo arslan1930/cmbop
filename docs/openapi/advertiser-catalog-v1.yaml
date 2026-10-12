@@ -133,10 +133,6 @@ components:
       type: object
       properties:
         status: { type: string, example: ok }
-        filters: { type: object }
-        website: { type: string }
-        hide_mode: { type: boolean }
-        inventory_from: { type: number, nullable: true }
         meta:
           type: object
           properties:
@@ -151,18 +147,14 @@ components:
     CatalogSite:
       type: object
       properties:
-        id: { type: integer }
-        orderable: { type: boolean }
         name: { type: string }
         host: { type: string }
-        identity_hidden: { type: boolean }
         price:
           type: object
           properties:
             currency: { type: string, example: EUR }
             list: { type: number }
             sale: { type: number, nullable: true }
-            sale_percent: { type: number, nullable: true }
         da: { type: integer }
         dr: { type: integer }
         traffic: { type: integer }

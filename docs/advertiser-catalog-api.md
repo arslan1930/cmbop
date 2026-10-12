@@ -19,6 +19,7 @@ These rules are the product. Do not change them in Phase A without a new lock.
 
 - Bearer token (`slb_…`), hashed in `advertiser_api_tokens`
 - `GET /api/v1/catalog`
+- Response is listing facts only (name/host, price, metrics, niches, pagination). No site/user ids.
 - OpenAPI: `docs/openapi/advertiser-catalog-v1.yaml`
 
 Ship checklist (Phase A + F): create the table once, click keys, curl vs the catalog, run the API tests, then merge this branch yourself.

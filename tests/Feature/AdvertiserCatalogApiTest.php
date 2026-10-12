@@ -89,9 +89,11 @@ class AdvertiserCatalogApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', 'ok')
             ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('sites.0.id', $this->site->id)
             ->assertJsonPath('sites.0.host', 'oslo-rentals.no')
-            ->assertJsonPath('sites.0.price.currency', 'EUR');
+            ->assertJsonPath('sites.0.price.currency', 'EUR')
+            ->assertJsonMissingPath('sites.0.id')
+            ->assertJsonMissingPath('hide_mode')
+            ->assertJsonMissingPath('filters');
     }
 
     public function test_website_hint_fills_empty_country(): void
@@ -102,8 +104,8 @@ class AdvertiserCatalogApiTest extends TestCase
             'Authorization' => 'Bearer '.$issued['plain'],
         ])
             ->assertOk()
-            ->assertJsonPath('website', 'my-rentacar.no')
-            ->assertJsonPath('filters.country', 'no');
+            ->assertJsonPath('sites.0.host', 'oslo-rentals.no')
+            ->assertJsonMissingPath('website');
     }
 
     public function test_publisher_cannot_use_catalog_api_even_with_a_token_row(): void

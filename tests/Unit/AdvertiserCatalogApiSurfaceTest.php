@@ -68,6 +68,9 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
         $this->assertStringContainsString('isSuspended', $middleware);
         $this->assertStringContainsString('TLD + host keywords only — no crawl', $matcher);
         $this->assertStringNotContainsString('Order', $catalogApi);
+        $this->assertStringNotContainsString('identity_hidden', $catalogApi);
+        $this->assertStringNotContainsString('publisher', strtolower($catalogApi));
+        $this->assertStringNotContainsString("'id'", $catalogApi);
         $this->assertStringContainsString('advertiser.api.index', $settings);
     }
 

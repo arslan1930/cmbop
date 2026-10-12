@@ -20,7 +20,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::middleware([AuthenticateAdvertiserCatalogApi::class, 'throttle:60,1'])
+Route::middleware(['throttle:30,1', AuthenticateAdvertiserCatalogApi::class, 'throttle:60,1'])
     ->prefix('v1')
     ->group(function () {
         Route::get('/catalog', [CatalogSearchController::class, 'index'])
