@@ -39,7 +39,7 @@ class GuestPostPriceIndex
      * @return array{
      *     generated_at: ?string,
      *     europe: array{median: ?float, listings: int},
-     *     countries: list<array{code: string, name: string, median: float, listings: int, lander_url: ?string}>,
+     *     countries: list<array{code: string, name: string, median: float, from: float, listings: int, lander_url: ?string}>,
      *     has_index: bool
      * }
      */
@@ -52,7 +52,7 @@ class GuestPostPriceIndex
      * @return array{
      *     generated_at: ?string,
      *     europe: array{median: ?float, listings: int},
-     *     countries: list<array{code: string, name: string, median: float, listings: int, lander_url: ?string}>,
+     *     countries: list<array{code: string, name: string, median: float, from: float, listings: int, lander_url: ?string}>,
      *     has_index: bool
      * }
      */
@@ -81,6 +81,7 @@ class GuestPostPriceIndex
                 'code' => $code,
                 'name' => $names[$code] ?? $this->displayName($code),
                 'median' => $this->median($prices),
+                'from' => round((float) min($prices), 2),
                 'listings' => count($prices),
                 'lander_url' => $landers[$code] ?? null,
             ];
@@ -114,7 +115,7 @@ class GuestPostPriceIndex
      * @return array{
      *     generated_at: ?string,
      *     europe: array{median: ?float, listings: int},
-     *     countries: list<array{code: string, name: string, median: float, listings: int, lander_url: ?string}>,
+     *     countries: list<array{code: string, name: string, median: float, from: float, listings: int, lander_url: ?string}>,
      *     has_index: bool
      * }
      */

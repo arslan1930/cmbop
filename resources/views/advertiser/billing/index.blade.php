@@ -11,7 +11,7 @@
 <div class="container-fluid billing-page">
     <div class="billing-page-header">
         <div>
-            <h2 class="billing-page-title">Billing &amp; Invoices</h2>
+            <h1 class="billing-page-title">Billing &amp; Invoices</h1>
             <p class="billing-page-sub">
                 Download tax invoices, payment receipts, refunds, and wallet deposit receipts.
                 Documents use your company name, address, and optional VAT / tax ID from checkout billing or

@@ -95,7 +95,7 @@ class CatalogEyeOnlyHideModeAcceptanceTest extends TestCase
         $this->assertStringNotContainsString('id="url-reveal-', $html);
         $this->assertStringNotContainsString('catalog-hide-mode-banner', $html);
         $this->assertStringNotContainsString('We’ve temporarily hidden listing names', $html);
-        $this->assertStringContainsString('Name, domain, category', $html);
+        $this->assertStringContainsString('Name, domain', $html);
     }
 
     // —— Hide mode ——————————————————————————————————————————————

@@ -138,6 +138,16 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by('mcp:'.$id);
         });
 
+        RateLimiter::for('contact-form', function (Request $request) {
+            return Limit::perHour(5)
+                ->by('contact-form:'.$request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return back()
+                        ->withInput()
+                        ->with('error', __('messages.contact_form_throttled'));
+                });
+        });
+
         RateLimiter::for('catalog-site-report', function (Request $request) {
             $id = $request->user()?->getAuthIdentifier() ?: $request->ip();
 

@@ -90,6 +90,39 @@
     ])
 </div>
 @include('components.pricing', ['showIntro' => false])
+@php
+    $priceIndex = $priceIndex ?? ['countries' => [], 'has_index' => false];
+    $fromRows = collect($priceIndex['countries'] ?? [])->filter(fn ($row) => isset($row['from']) && $row['from'] > 0);
+@endphp
+<div class="container pb-5" style="max-width: 1100px;">
+    <h2 class="h4 mb-3" style="color:#1a585e;">{{ __('messages.pricing_from_table_title') }}</h2>
+    @if($fromRows->isNotEmpty())
+        <div class="table-responsive">
+            <table class="table table-sm align-middle pricing-from-table">
+                <thead>
+                    <tr>
+                        <th>{{ __('messages.pricing_from_table_country') }}</th>
+                        <th>{{ __('messages.pricing_from_table_from') }}</th>
+                        <th>{{ __('messages.pricing_from_table_median') }}</th>
+                        <th>{{ __('messages.pricing_from_table_listings') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($fromRows as $row)
+                        <tr>
+                            <td>{{ $row['name'] ?? strtoupper((string) ($row['code'] ?? '')) }}</td>
+                            <td>{{ format_money((float) $row['from']) }}</td>
+                            <td>{{ isset($row['median']) ? format_money((float) $row['median']) : '—' }}</td>
+                            <td>{{ (int) ($row['listings'] ?? 0) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @else
+        <p class="text-muted">{{ __('messages.pricing_from_table_empty') }}</p>
+    @endif
+</div>
 @if(function_exists('public_locale') && public_locale() === 'it' && view()->exists('components.italian-seo-cluster-nav') && class_exists(\App\Support\ItalianMoneyLanders::class) && method_exists(\App\Support\ItalianMoneyLanders::class, 'clusterLinks'))
 <div class="container pb-5" style="max-width: 1100px;">
     <h2 class="h4 mb-3" style="color:#1a585e;">Quanto costa un guest post</h2>

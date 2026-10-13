@@ -13,7 +13,7 @@
             <a href="{{ route('advertiser.billing.index') }}" class="small text-muted text-decoration-none">
                 <i class="fa fa-arrow-left me-1"></i> Billing &amp; Invoices
             </a>
-            <h2 class="mb-1 fw-semibold mt-1">{{ $invoice->invoice_number }}</h2>
+            <h1 class="mb-1 fw-semibold mt-1">{{ $invoice->invoice_number }}</h1>
             <p class="text-muted mb-0">{{ $invoice->typeLabel() }} · {{ ucfirst($invoice->status) }}</p>
         </div>
         <div class="col-md-4 text-md-end d-flex flex-wrap gap-2 justify-content-md-end">

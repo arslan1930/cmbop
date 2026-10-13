@@ -48,13 +48,22 @@ class MarketingPageController extends Controller
 
     public function pricing()
     {
-        return view('pages.pricing');
+        return view('pages.pricing', [
+            'priceIndex' => $this->guestPostPriceIndex(),
+        ]);
     }
 
     public function marketplace()
     {
+        $search = trim((string) request('search', ''));
+        $user = auth()->user();
+        if ($search !== '' && $user && method_exists($user, 'hasRole') && $user->hasRole('advertiser')) {
+            return redirect()->route('advertiser.catalog', ['search' => $search]);
+        }
+
         return view('pages.marketplace', [
             'countryLanders' => $this->countryLanderSiblings(),
+            'catalogSearch' => $search,
         ]);
     }
 
@@ -411,6 +420,30 @@ class MarketingPageController extends Controller
             'index' => $snapshot,
             'countryLanders' => $this->countryLanderSiblings(),
         ]);
+    }
+
+    /**
+     * @return array{generated_at: ?string, europe: array{median: ?float, listings: int}, countries: list<array<string, mixed>>, has_index: bool}
+     */
+    private function guestPostPriceIndex(): array
+    {
+        $empty = [
+            'generated_at' => null,
+            'europe' => ['median' => null, 'listings' => 0],
+            'countries' => [],
+            'has_index' => false,
+        ];
+        if (! class_exists(GuestPostPriceIndex::class)) {
+            return $empty;
+        }
+
+        try {
+            $snapshot = app(GuestPostPriceIndex::class)->snapshot();
+
+            return is_array($snapshot) ? $snapshot : $empty;
+        } catch (Throwable) {
+            return $empty;
+        }
     }
 
     private function catalogTeaserService(): ?CatalogTeaserService

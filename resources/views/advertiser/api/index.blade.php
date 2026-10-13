@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="container-fluid py-4">
-    <h2 class="h4 mb-2">API &amp; MCP</h2>
+    <h1 class="h4 mb-2">API &amp; MCP</h1>
     <p class="text-muted small mb-4">
         Connect Claude, Cursor, or Claude Code to the live SEOLinkBuildings catalog.
         Assistants can search publishers, save favorites or cart items, and read your orders and wallet.
@@ -13,10 +13,6 @@
         Account name and password stay on
         <a href="{{ route('profile') }}">Profile</a>.
     </p>
-
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
 
     @if(!empty($plainToken))
         <div class="alert alert-warning" id="advertiserApiPlainTokenAlert">
@@ -56,8 +52,9 @@
             <ol class="small mb-0 ps-3">
                 <li>Open Claude (claude.ai or the desktop app) → <strong>Customize → Connectors</strong>.</li>
                 <li>Choose <strong>Add custom connector</strong>.</li>
-                <li>Name it <strong>SEOLinkBuildings</strong> and paste the MCP URL above.</li>
+                <li>Name it <strong>SEOLinkBuildings</strong> (letters only — no spaces, dots, or accents) and paste the MCP URL above.</li>
                 <li>Click <strong>Connect</strong>. Sign in to SEOLinkBuildings and click <strong>Allow</strong>.</li>
+                <li>After a server update, disconnect the connector, connect again, and start a <strong>new chat</strong>. Claude’s chat tool list does not refresh from Settings alone.</li>
                 <li>Ask something like: “Find me 10 publishers, DR over 40, price under €750, Ahrefs traffic over 1000, topic marketing.”</li>
             </ol>
         </div>

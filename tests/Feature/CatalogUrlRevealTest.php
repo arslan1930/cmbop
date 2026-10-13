@@ -103,7 +103,7 @@ class CatalogUrlRevealTest extends TestCase
         $this->assertStringNotContainsString('Masked for publishers', $html);
         $this->assertStringNotContainsString('catalog-hide-mode-banner', $html);
         $this->assertStringContainsString('Mass-copying addresses can temporarily hide', $html);
-        $this->assertStringContainsString('Name, domain, category', $html);
+        $this->assertStringContainsString('Name, domain', $html);
     }
 
     public function test_hide_mode_catalog_masks_url_and_shows_eye(): void

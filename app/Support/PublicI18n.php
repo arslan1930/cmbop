@@ -207,6 +207,8 @@ class PublicI18n
             'it' => ['it'],
             'pt' => ['pt'],
             'nl' => ['nl'],
+            'fr' => ['fr'],
+            'us' => ['us'],
             default => ['de'],
         };
     }

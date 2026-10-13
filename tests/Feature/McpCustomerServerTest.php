@@ -123,16 +123,18 @@ class McpCustomerServerTest extends TestCase
 
     public function test_initialize_and_initialized_notification(): void
     {
-        $this->rpc(1, 'initialize', [
+        $initialized = $this->rpc(1, 'initialize', [
             'protocolVersion' => '2025-06-18',
             'capabilities' => (object) [],
             'clientInfo' => ['name' => 'phpunit', 'version' => '1'],
         ])
             ->assertOk()
-            ->assertHeader('Mcp-Session-Id')
             ->assertJsonPath('jsonrpc', '2.0')
             ->assertJsonPath('result.protocolVersion', '2025-06-18')
-            ->assertJsonPath('result.serverInfo.name', 'SEOLinkBuildings Marketplace');
+            ->assertJsonPath('result.serverInfo.name', 'SEOLinkBuildings')
+            ->assertJsonPath('result.capabilities.tools.listChanged', false);
+
+        $this->assertFalse($initialized->headers->has('Mcp-Session-Id'));
 
         $this->postJson('/api/mcp/customer', [
             'jsonrpc' => '2.0',
@@ -141,13 +143,65 @@ class McpCustomerServerTest extends TestCase
             ->assertStatus(202);
     }
 
+    public function test_initialize_echoes_claude_protocol_versions(): void
+    {
+        foreach (['2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'] as $version) {
+            $this->rpc('init-'.$version, 'initialize', [
+                'protocolVersion' => $version,
+                'capabilities' => (object) [],
+                'clientInfo' => ['name' => 'claude-ai', 'version' => '1'],
+            ])
+                ->assertOk()
+                ->assertJsonPath('result.protocolVersion', $version)
+                ->assertJsonPath('result.capabilities.tools.listChanged', false);
+        }
+    }
+
+    public function test_session_id_is_echoed_never_minted(): void
+    {
+        $fresh = $this->rpc(1, 'initialize', [
+            'protocolVersion' => '2025-03-26',
+            'capabilities' => (object) [],
+            'clientInfo' => ['name' => 'claude-ai', 'version' => '1'],
+        ])->assertOk();
+        $this->assertFalse($fresh->headers->has('Mcp-Session-Id'));
+
+        $echoed = $this->postJson('/api/mcp/customer', [
+            'jsonrpc' => '2.0',
+            'id' => 2,
+            'method' => 'tools/list',
+            'params' => (object) [],
+        ], [
+            ...$this->headers($this->token),
+            'Mcp-Session-Id' => 'claude-session-1',
+        ])->assertOk();
+
+        $this->assertSame('claude-session-1', $echoed->headers->get('Mcp-Session-Id'));
+        $this->assertCount(7, $echoed->json('result.tools'));
+    }
+
     public function test_ping_and_tools_list(): void
     {
         $this->rpc(2, 'ping')->assertOk()->assertJsonPath('jsonrpc', '2.0');
 
-        $names = collect($this->rpc(3, 'tools/list')->assertOk()->json('result.tools'))
-            ->pluck('name')
-            ->all();
+        $list = $this->rpc(3, 'tools/list')->assertOk();
+        $this->assertGreaterThan(0, (int) $list->json('result.ttlMs'));
+        $this->assertSame('private', $list->json('result.cacheScope'));
+        $this->assertSame('complete', $list->json('result.resultType'));
+
+        $decoded = json_decode((string) $list->getContent(), false);
+        $this->assertIsObject($decoded?->result ?? null);
+        $this->assertIsArray($decoded->result->tools ?? null);
+        $this->assertCount(7, $decoded->result->tools);
+
+        $names = [];
+        foreach ($decoded->result->tools as $tool) {
+            $this->assertMatchesRegularExpression('/^[a-zA-Z0-9_-]{1,64}$/', (string) $tool->name);
+            $this->assertSame('object', $tool->inputSchema->type ?? null);
+            $this->assertIsObject($tool->inputSchema->properties ?? null);
+            $this->assertTrue($tool->_meta->{'anthropic/alwaysLoad'} ?? false);
+            $names[] = $tool->name;
+        }
 
         $this->assertEqualsCanonicalizing([
             'search_marketplace',
@@ -158,6 +212,13 @@ class McpCustomerServerTest extends TestCase
             'list_my_orders',
             'get_wallet_balance',
         ], $names);
+    }
+
+    public function test_get_on_streamable_http_url_is_method_not_allowed(): void
+    {
+        $this->get('/api/mcp/customer', $this->headers($this->token))
+            ->assertStatus(405)
+            ->assertHeader('Allow', 'POST, OPTIONS');
     }
 
     public function test_search_marketplace_and_save_tools(): void
@@ -346,7 +407,7 @@ class McpCustomerServerTest extends TestCase
             'Accept' => 'application/json, text/event-stream',
         ])
             ->assertOk()
-            ->assertJsonPath('result.serverInfo.name', 'SEOLinkBuildings Marketplace');
+            ->assertJsonPath('result.serverInfo.name', 'SEOLinkBuildings');
 
         $this->assertDatabaseHas('mcp_oauth_access_tokens', [
             'user_id' => $this->advertiser->id,

@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Advertiser;
 
 use App\Http\Controllers\Controller;
 use App\Models\DepositRequest;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Services\Advertiser\AdvertiserSpendService;
 use App\Support\AdvertiserOrderDetails;
 use App\Support\AdvertiserOrderStatus;
 use App\Support\UserFacingError;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportsController extends Controller
 {
@@ -143,34 +147,77 @@ class ReportsController extends Controller
         }
     }
 
+    public function export(Request $request): StreamedResponse|RedirectResponse
+    {
+        $tab = search_text($request->input('tab')) === 'orders' ? 'orders' : 'funds';
+
+        try {
+            if ($tab === 'orders') {
+                $rows = $this->orderReportQuery($request)->limit(2000)->get();
+                $dates = $this->invoiceDatesForOrders($rows->pluck('id')->all(), (int) auth()->id());
+                $filename = 'reports-orders-'.now()->format('Y-m-d').'.csv';
+
+                return response()->streamDownload(function () use ($rows, $dates) {
+                    $out = fopen('php://output', 'w');
+                    fputcsv($out, ['order_number', 'date', 'reference', 'total', 'payment_method', 'status', 'payment_status', 'site']);
+                    foreach ($rows as $order) {
+                        $first = $order->items->first();
+                        fputcsv($out, [
+                            $order->order_number,
+                            $this->displayDate($dates[$order->id] ?? $order->created_at),
+                            $order->reference_code,
+                            number_format((float) $order->total_amount, 2, '.', ''),
+                            $order->payment_method,
+                            $order->status,
+                            $order->payment_status,
+                            $this->siteDomain($first?->site_url, $first?->site_name),
+                        ]);
+                    }
+                    fclose($out);
+                }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+            }
+
+            $rows = $this->fundsActivityQuery($request)->limit(2000)->get();
+            $dates = $this->invoiceDatesForDeposits($rows->pluck('reference_code')->all(), (int) auth()->id());
+            $filename = 'reports-funds-'.now()->format('Y-m-d').'.csv';
+
+            return response()->streamDownload(function () use ($rows, $dates) {
+                $out = fopen('php://output', 'w');
+                fputcsv($out, ['date', 'reference', 'amount', 'payment_method', 'status']);
+                foreach ($rows as $activity) {
+                    fputcsv($out, [
+                        $this->displayDate($dates[(string) $activity->reference_code] ?? $activity->created_at),
+                        $activity->reference_code,
+                        number_format((float) $activity->amount, 2, '.', ''),
+                        $activity->payment_method,
+                        $activity->status,
+                    ]);
+                }
+                fclose($out);
+            }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('advertiser.reports')
+                ->with('error', UserFacingError::message($e, 'Unable to export reports. Please try again.'));
+        }
+    }
+
     public function getOrderReport(Request $request)
     {
         try {
             $userId = auth()->id();
 
-            $query = Order::where('user_id', $userId)
-                ->with('items')
-                ->orderBy('created_at', 'desc');
-
-            $dateFrom = search_text($request->input('date_from'));
-            if ($dateFrom !== '') {
-                $query->whereDate('created_at', '>=', $dateFrom);
-            }
-            $dateTo = search_text($request->input('date_to'));
-            if ($dateTo !== '') {
-                $query->whereDate('created_at', '<=', $dateTo);
-            }
-            $status = search_text($request->input('status'));
-            if ($status !== '') {
-                $query->where('status', $status);
-            }
-            $paymentStatus = search_text($request->input('payment_status'));
-            if ($paymentStatus !== '') {
-                $query->where('payment_status', $paymentStatus);
-            }
+            $query = $this->orderReportQuery($request);
 
             $perPage = $request->get('per_page', 20);
             $orders = $query->paginate($perPage);
+
+            $invoiceDates = $this->invoiceDatesForOrders(
+                collect($orders->items())->pluck('id')->all(),
+                (int) $userId
+            );
 
             $transformedOrders = [];
             foreach ($orders as $order) {
@@ -180,6 +227,7 @@ class ReportsController extends Controller
                     'order_number' => $order->order_number,
                     'reference_code' => $order->reference_code,
                     'created_at' => $order->created_at,
+                    'display_date' => $this->displayDate($invoiceDates[$order->id] ?? $order->created_at),
                     'status' => $order->status,
                     'status_label' => $meta['label'],
                     'status_cls' => $meta['cls'],
@@ -299,32 +347,28 @@ class ReportsController extends Controller
         try {
             $userId = auth()->id();
 
-            $query = DepositRequest::where('user_id', $userId)
-                ->orderBy('created_at', 'desc');
-
-            $dateFrom = search_text($request->input('date_from'));
-            if ($dateFrom !== '') {
-                $query->whereDate('created_at', '>=', $dateFrom);
-            }
-            $dateTo = search_text($request->input('date_to'));
-            if ($dateTo !== '') {
-                $query->whereDate('created_at', '<=', $dateTo);
-            }
-            $status = search_text($request->input('status'));
-            if ($status !== '') {
-                $query->where('status', $status);
-            }
+            $query = $this->fundsActivityQuery($request);
 
             $perPage = $request->get('per_page', 20);
             $activities = $query->paginate($perPage);
+            $invoiceDates = $this->invoiceDatesForDeposits(
+                collect($activities->items())->pluck('reference_code')->all(),
+                (int) $userId
+            );
 
+            $rows = [];
             foreach ($activities as $activity) {
-                $activity->type = 'deposit';
+                $row = $activity->toArray();
+                $row['type'] = 'deposit';
+                $row['display_date'] = $this->displayDate(
+                    $invoiceDates[(string) $activity->reference_code] ?? $activity->created_at
+                );
+                $rows[] = $row;
             }
 
             return response()->json([
                 'success' => true,
-                'data' => $activities->items(),
+                'data' => $rows,
                 'pagination' => [
                     'current_page' => $activities->currentPage(),
                     'last_page' => $activities->lastPage(),
@@ -343,5 +387,172 @@ class ReportsController extends Controller
                 'message' => UserFacingError::message($e, 'Failed to fetch funds activity'),
             ], 500);
         }
+    }
+
+    private function fundsActivityQuery(Request $request)
+    {
+        $query = DepositRequest::where('user_id', auth()->id())
+            ->orderBy('created_at', 'desc');
+
+        $search = search_text($request->input('search'));
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($inner) use ($like) {
+                $inner->where('reference_code', 'like', $like)
+                    ->orWhere('payment_method', 'like', $like)
+                    ->orWhere('status', 'like', $like);
+            });
+        }
+
+        $dateFrom = search_text($request->input('date_from'));
+        if ($dateFrom !== '') {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+        $dateTo = search_text($request->input('date_to'));
+        if ($dateTo !== '') {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+        $status = search_text($request->input('status'));
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+
+        return $query;
+    }
+
+    private function orderReportQuery(Request $request)
+    {
+        $query = Order::where('user_id', auth()->id())
+            ->with('items')
+            ->orderBy('created_at', 'desc');
+
+        $search = search_text($request->input('search'));
+        if ($search !== '') {
+            $like = '%'.$search.'%';
+            $query->where(function ($inner) use ($like) {
+                $inner->where('order_number', 'like', $like)
+                    ->orWhere('reference_code', 'like', $like)
+                    ->orWhereHas('items', function ($items) use ($like) {
+                        $items->where('site_name', 'like', $like)
+                            ->orWhere('site_url', 'like', $like);
+                    });
+            });
+        }
+
+        $dateFrom = search_text($request->input('date_from'));
+        if ($dateFrom !== '') {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+        $dateTo = search_text($request->input('date_to'));
+        if ($dateTo !== '') {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+        $status = search_text($request->input('status'));
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+        $paymentStatus = search_text($request->input('payment_status'));
+        if ($paymentStatus !== '') {
+            $query->where('payment_status', $paymentStatus);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Same calendar date Billing shows: invoice_date in app timezone.
+     */
+    private function displayDate(mixed $date): string
+    {
+        if ($date instanceof Carbon) {
+            return $date->timezone((string) config('app.timezone'))->format('M j, Y');
+        }
+        if ($date) {
+            try {
+                return Carbon::parse($date)->timezone((string) config('app.timezone'))->format('M j, Y');
+            } catch (\Throwable) {
+                return '';
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  list<int|string>  $orderIds
+     * @return array<int, Carbon>
+     */
+    private function invoiceDatesForOrders(array $orderIds, int $userId): array
+    {
+        $orderIds = array_values(array_filter(array_map('intval', $orderIds)));
+        if ($orderIds === []) {
+            return [];
+        }
+
+        try {
+            if (! Invoice::tableAvailable() || ! Invoice::orderLinkReady()) {
+                return [];
+            }
+
+            return Invoice::query()
+                ->where('user_id', $userId)
+                ->whereIn('order_id', $orderIds)
+                ->orderByDesc('invoice_date')
+                ->orderByDesc('id')
+                ->get(['order_id', 'invoice_date'])
+                ->unique('order_id')
+                ->mapWithKeys(fn (Invoice $invoice) => [(int) $invoice->order_id => $invoice->invoice_date])
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  list<mixed>  $refs
+     * @return array<string, Carbon>
+     */
+    private function invoiceDatesForDeposits(array $refs, int $userId): array
+    {
+        $refs = array_values(array_filter(array_map(static fn ($ref) => trim((string) $ref), $refs)));
+        if ($refs === []) {
+            return [];
+        }
+
+        try {
+            if (! Invoice::tableAvailable()) {
+                return [];
+            }
+
+            return Invoice::query()
+                ->where('user_id', $userId)
+                ->whereIn('reference_code', $refs)
+                ->orderByDesc('invoice_date')
+                ->orderByDesc('id')
+                ->get(['reference_code', 'invoice_date'])
+                ->unique('reference_code')
+                ->mapWithKeys(fn (Invoice $invoice) => [(string) $invoice->reference_code => $invoice->invoice_date])
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function siteDomain(?string $url, ?string $name): string
+    {
+        $raw = trim((string) $url);
+        if ($raw !== '') {
+            try {
+                $host = parse_url(str_contains($raw, '://') ? $raw : 'https://'.$raw, PHP_URL_HOST);
+
+                return $host ? preg_replace('/^www\./i', '', (string) $host) : $raw;
+            } catch (\Throwable) {
+                return $raw;
+            }
+        }
+
+        $label = trim((string) $name);
+
+        return ($label !== '' && strcasecmp($label, 'Placement details') !== 0) ? $label : '';
     }
 }

@@ -21,6 +21,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -202,25 +203,27 @@ class ContentLibraryController extends Controller
 
         $baseScope = ContentSubmission::query()->where('user_id', auth()->id());
 
-        $groupedByLanguage = $this->safeLibraryQuery(
+        $groupedByLanguage = $this->normalizeLibraryFacetCounts($this->safeLibraryQuery(
             fn () => (clone $baseScope)
                 ->notArchived()
                 ->whereNotNull('language')
+                ->where('language', '!=', '')
                 ->selectRaw('language, COUNT(*) as total')
                 ->groupBy('language')
                 ->pluck('total', 'language'),
             collect(),
-        );
+        ));
 
-        $groupedByCountry = $this->safeLibraryQuery(
+        $groupedByCountry = $this->normalizeLibraryFacetCounts($this->safeLibraryQuery(
             fn () => (clone $baseScope)
                 ->notArchived()
                 ->whereNotNull('country')
+                ->where('country', '!=', '')
                 ->selectRaw('country, COUNT(*) as total')
                 ->groupBy('country')
                 ->pluck('total', 'country'),
             collect(),
-        );
+        ));
 
         // Counts for moderation boxes: respect search / country / language, ignore status.
         $countScope = ContentSubmission::query()
@@ -963,6 +966,27 @@ class ContentLibraryController extends Controller
         if (! $this->schemaTableAvailable('orders') && ! $submission->relationLoaded('order')) {
             $submission->setRelation('order', null);
         }
+    }
+
+    /**
+     * Collapse mixed-case country/language codes so filters show one DE (2), not DE (1) twice.
+     *
+     * @param  Collection<string, int|string>  $counts
+     * @return Collection<string, int>
+     */
+    protected function normalizeLibraryFacetCounts($counts)
+    {
+        $merged = [];
+        foreach ($counts as $code => $total) {
+            $key = strtoupper(trim((string) $code));
+            if ($key === '' || $key === 'ALL') {
+                continue;
+            }
+            $merged[$key] = ($merged[$key] ?? 0) + (int) $total;
+        }
+        ksort($merged);
+
+        return collect($merged);
     }
 
     protected function safeLibraryQuery(callable $fn, mixed $fallback): mixed

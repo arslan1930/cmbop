@@ -1,8 +1,12 @@
-@extends('layouts.app')
+@php
+    $user = auth()->user();
+    $useAdvertiserShell = $user && method_exists($user, 'hasRole') && $user->hasRole('advertiser');
+@endphp
+@extends($useAdvertiserShell ? 'advertiser.layouts.app' : 'layouts.app')
 
-@section('title', 'Profile - SEOLinkBuildings')
+@section('title', 'Profile')
 
-@push('styles')
+@push($useAdvertiserShell ? 'page-styles' : 'styles')
 <style>
     :root {
         --card-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
@@ -15,7 +19,8 @@
 @endpush
 
 @section('content')
-<div class="container py-5">
+<div class="{{ $useAdvertiserShell ? 'container-fluid' : 'container py-5' }}">
+    <h1 class="{{ $useAdvertiserShell ? 'h3 mb-4' : 'h3 mb-4' }}">Profile</h1>
 
     {{-- ─── FLASH MESSAGES (pill style) ─── --}}
 

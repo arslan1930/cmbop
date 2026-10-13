@@ -1,5 +1,7 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Content Library')
+
 @push('page-styles')
 <link href="{{ asset('assets/css/single-select.css') }}?v={{ @filemtime(public_path('assets/css/single-select.css')) ?: '1' }}" rel="stylesheet">
 @endpush
@@ -19,7 +21,7 @@
     ])
 
     <div class="library-page-header mb-3">
-        <h2 class="library-page-title">Content Library</h2>
+        <h1 class="library-page-title">Content Library</h1>
         <div class="library-page-actions">
             @include('advertiser.partials.upload-article-button', [
                 'uploadButtonId' => 'openUploadModalBtn',

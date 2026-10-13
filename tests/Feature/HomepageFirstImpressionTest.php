@@ -40,6 +40,9 @@ class HomepageFirstImpressionTest extends TestCase
         $this->assertStringContainsString('Add to cart', $html);
         $this->assertStringContainsString('Germany', $html);
         $this->assertStringContainsString('berlin**.de', $html);
+        $this->assertStringContainsString('slb-hero-search', $html);
+        $this->assertStringContainsString('name="search"', $html);
+        $this->assertStringNotContainsString('advertiser/catalog', $html);
         $this->assertStringContainsString('The guest post marketplace for verified publisher sites.', $html);
         $this->assertStringNotContainsString('Demo Site', $html);
         $this->assertStringNotContainsString('dashboard.png', $html);

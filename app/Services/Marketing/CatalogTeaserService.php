@@ -53,7 +53,12 @@ class CatalogTeaserService
                     'languages',
                     'da',
                     'dr',
+                    'traffic',
                     'price',
+                    'category',
+                    'link_type',
+                    'publication_time',
+                    'verified',
                     'site_image',
                     'screenshot_path',
                     'screenshot_thumb_path',
@@ -145,7 +150,12 @@ class CatalogTeaserService
                     'languages',
                     'da',
                     'dr',
+                    'traffic',
                     'price',
+                    'category',
+                    'link_type',
+                    'publication_time',
+                    'verified',
                     'site_image',
                     'screenshot_path',
                     'screenshot_thumb_path',
@@ -276,6 +286,10 @@ class CatalogTeaserService
         $country = $site->primaryCountryCode() ?: $site->country;
         $language = $site->primaryLanguageCode() ?: $site->language;
         $thumb = $site->screenshot_thumb_url ?: $site->logo_url;
+        $categories = array_values(array_filter(array_map(
+            static fn ($item) => trim((string) $item),
+            preg_split('/[,;|]+/', (string) ($site->category ?? '')) ?: []
+        )));
 
         return [
             'name' => $site->site_name ?: $host,
@@ -284,7 +298,13 @@ class CatalogTeaserService
             'language' => $language ? strtolower((string) $language) : null,
             'da' => $site->da,
             'dr' => $site->dr,
+            'traffic' => $site->traffic,
             'price' => $this->fees->advertiserBase((float) $site->price),
+            'categories' => array_slice($categories, 0, 2),
+            'more_cats' => max(0, count($categories) - 2),
+            'link_type' => $site->link_type ?: 'DoFollow',
+            'turnaround' => $site->publication_time ?: '7 days',
+            'verified' => (bool) $site->verified,
             'thumb_url' => $thumb,
         ];
     }

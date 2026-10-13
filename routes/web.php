@@ -32,8 +32,8 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WelcomeBonusSettingController as AdminWelcomeBonusSettingController;
 use App\Http\Controllers\Admin\WithdrawalMarkPaidConfirmController;
 use App\Http\Controllers\Advertiser\AddFundsController;
-use App\Http\Controllers\Advertiser\ApiSettingsController;
 use App\Http\Controllers\Advertiser\AnalyticsController;
+use App\Http\Controllers\Advertiser\ApiSettingsController;
 use App\Http\Controllers\Advertiser\BillingController as AdvertiserBillingController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\CatalogCopyTrackController;
@@ -63,6 +63,7 @@ use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\EmailUnsubscribeController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\InvoiceController;
@@ -240,6 +241,9 @@ $registerPublicMarketingRoutes = function (string $locale = 'en') {
         ]);
     })->name('home');
     Route::get($p('contact'), fn () => view('pages.contact'))->name('contact');
+    Route::post($p('contact'), [ContactController::class, 'store'])
+        ->middleware('throttle:contact-form')
+        ->name('contact.store');
     Route::get($p('about'), [MarketingPageController::class, 'about'])->name('about');
     Route::get($p('faq'), [MarketingPageController::class, 'faq'])->name('faq');
     Route::get($p('pricing'), [MarketingPageController::class, 'pricing'])->name('pricing');
@@ -1985,6 +1989,7 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::get('/reports/statistics', [ReportsController::class, 'getStatistics'])->name('reports.statistics');
         Route::get('/reports/funds', [ReportsController::class, 'getFundsActivity'])->name('reports.funds');
         Route::get('/reports/orders', [ReportsController::class, 'getOrderReport'])->name('reports.orders');
+        Route::get('/reports/export', [ReportsController::class, 'export'])->name('reports.export');
 
         // Route::get('/reports/funds-data', [ReportsController::class, 'getFundsActivity'])->name('reports.funds');
         // Route::get('/reports/orders-data', [ReportsController::class, 'getOrderReport'])->name('reports.orders');

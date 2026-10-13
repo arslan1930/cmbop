@@ -1,5 +1,7 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Dashboard')
+
 @section('content')
 
 @php
@@ -254,7 +256,7 @@
 
 <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-4">
     <div>
-        <h4 class="mb-1">Welcome back, {{ auth()->user()->name }}!</h4>
+        <h1 class="h4 mb-1">Welcome back, {{ auth()->user()->name }}!</h1>
         <small class="text-muted">
             @if($isNewAdvertiser)
                 Browse the catalog to buy placements — or use a guided flow if you prefer step-by-step help.

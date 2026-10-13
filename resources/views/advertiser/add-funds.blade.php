@@ -30,7 +30,7 @@
 
     <div class="af-page-header">
         <div>
-            <h2 class="af-page-title">Add funds</h2>
+            <h1 class="af-page-title">Add funds</h1>
             <p class="af-page-sub">Top up your wallet. Minimum €10.</p>
         </div>
         <div class="af-page-links">
@@ -171,7 +171,11 @@
                     <div class="alert alert-light border mb-3" id="depositWorkflowHint" style="background:var(--brand-primary-bg,#e6f5f5); border-color:var(--brand-primary-border,#b8e4e4) !important;">
                         <div class="fw-semibold mb-1" style="color:var(--brand-primary,var(--brand-primary, #1a585e));">How wallet top-ups work</div>
                         <p class="small text-muted mb-0">
-                            <strong>Card or PayPal:</strong> Pay instantly — credited immediately after the payment confirms.<br>
+                            @if($stripeReady)
+                                <strong>Card or PayPal:</strong> Pay instantly — credited immediately after the payment confirms.<br>
+                            @elseif($paypalReady)
+                                <strong>PayPal:</strong> Pay instantly — credited immediately after the payment confirms.<br>
+                            @endif
                             <strong>Bank, Wise, or Crypto:</strong> We create an invoice with a REF. Transfer the exact amount, include the REF, then mark as paid — wallet credits after confirmation.
                         </p>
                     </div>
@@ -274,6 +278,9 @@
                         <label class="form-label fw-semibold mb-3">Select Payment Method</label>
                         <div class="row g-3 payment-methods-row">
                             @foreach($depositMethodOrder as $methodKey)
+                                @if($methodKey === 'card' && ! $stripeReady)
+                                    @continue
+                                @endif
                                 @if($methodKey === 'crypto' && !($cryptoEnabled ?? false))
                                     @continue
                                 @endif
@@ -487,6 +494,7 @@
                             </div>
                         </div>
 
+                        @if($stripeReady)
                         <!-- Card Payment Details - Stripe Checkout / saved card -->
                         <div id="cardPaymentDetails" class="card border-0 shadow-sm mb-4" style="display: none;">
                             <div class="card-body">
@@ -520,6 +528,7 @@
 
                             </div>
                         </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -567,6 +576,7 @@
         </div>
     </div>
 
+    @if($stripeReady)
     <div class="card border-0 shadow-sm mb-4" id="savedCardsSection">
         <div class="card-header bg-white fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
             <button type="button" class="btn btn-link text-decoration-none text-dark p-0 fw-semibold"
@@ -613,6 +623,7 @@
         </div>
         </div>
     </div>
+    @endif
 
 
     <div class="d-flex flex-wrap gap-3 mb-3 small">

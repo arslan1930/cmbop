@@ -25,8 +25,18 @@ class AddFundsPaymentUxTest extends TestCase
         return $user->fresh();
     }
 
+    private function enableStripe(): void
+    {
+        config([
+            'services.stripe.secret' => 'sk_test_fake_key_for_unit_tests',
+            'services.stripe.key' => 'pk_test_fake_key_for_unit_tests',
+        ]);
+    }
+
     public function test_card_tile_uses_visa_mastercard_not_stripe_mark(): void
     {
+        $this->enableStripe();
+
         $html = $this->actingAs($this->advertiser())
             ->get(route('advertiser.add-funds'))
             ->assertOk()
@@ -42,6 +52,8 @@ class AddFundsPaymentUxTest extends TestCase
 
     public function test_last_completed_deposit_comes_first_with_recently_used_and_prefill(): void
     {
+        $this->enableStripe();
+
         $user = $this->advertiser();
 
         DepositRequest::create([

@@ -29,7 +29,7 @@
 <div class="wizard-chrome">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
         <div>
-            <h2 class="h5 mb-1">Place a guest post · Step 2</h2>
+            <h1 class="h5 mb-1">Place a guest post · Step 2</h1>
             <p class="muted mb-0">
                 Choose publishers
                 @if($lang)

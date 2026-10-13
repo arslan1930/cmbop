@@ -1,15 +1,54 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Reports')
+
 @section('content')
 <div class="container-fluid">
     
     <!-- HEADER -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <h2 class="mb-1 fw-semibold">Reports</h2>
+            <h1 class="mb-1 fw-semibold">Reports</h1>
             <p class="text-muted mb-0">
-                Wallet ledger and order history. Spend charts live under Spending.
+                Wallet ledger and order history. Spend charts live under Spending. Dates match Billing (invoice date).
             </p>
+        </div>
+        <div class="col-md-12 d-flex flex-wrap gap-2 justify-content-md-end">
+            <a href="{{ route('advertiser.reports.export', array_merge(request()->query(), ['tab' => 'funds'])) }}" class="btn btn-sm btn-primary" id="repExportFunds">Export funds CSV</a>
+            <a href="{{ route('advertiser.reports.export', array_merge(request()->query(), ['tab' => 'orders'])) }}" class="btn btn-sm btn-outline-secondary" id="repExportOrders">Export orders CSV</a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ route('advertiser.reports') }}" id="reportsFilterForm" class="billing-filter-bar">
+                <div class="d-flex flex-wrap gap-2 align-items-end">
+                    <div>
+                        <label class="form-label fw-semibold small text-muted mb-1" for="repSearch">Search</label>
+                        <input type="search" name="search" id="repSearch" class="form-control form-control-sm"
+                               placeholder="REF, order #, site…" value="{{ search_text(request('search')) }}">
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold small text-muted mb-1" for="repDateFrom">From</label>
+                        <input type="date" name="date_from" id="repDateFrom" class="form-control form-control-sm" value="{{ search_text(request('date_from')) }}">
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold small text-muted mb-1" for="repDateTo">To</label>
+                        <input type="date" name="date_to" id="repDateTo" class="form-control form-control-sm" value="{{ search_text(request('date_to')) }}">
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold small text-muted mb-1" for="repStatus">Status</label>
+                        <input type="text" name="status" id="repStatus" class="form-control form-control-sm"
+                               placeholder="paid, completed…" value="{{ search_text(request('status')) }}">
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-filter" aria-hidden="true"></i> Filter
+                        </button>
+                        <a href="{{ route('advertiser.reports') }}" class="btn btn-sm btn-cta-secondary">Reset</a>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -228,9 +267,33 @@
 var repFundsPage = 1;
 var repOrdersPage = 1;
 
+function repFilterParams() {
+    return {
+        search: $('#repSearch').val() || '',
+        date_from: $('#repDateFrom').val() || '',
+        date_to: $('#repDateTo').val() || '',
+        status: $('#repStatus').val() || ''
+    };
+}
+
+function syncRepExportLinks() {
+    var q = $.param($.extend(repFilterParams(), { tab: 'funds' }));
+    $('#repExportFunds').attr('href', '{{ route("advertiser.reports.export") }}?' + q);
+    q = $.param($.extend(repFilterParams(), { tab: 'orders' }));
+    $('#repExportOrders').attr('href', '{{ route("advertiser.reports.export") }}?' + q);
+}
+
 $(document).ready(function() {
     loadRepFundsData();
     loadRepOrdersData();
+    syncRepExportLinks();
+
+    $('#reportsFilterForm').on('submit', function(e) {
+        e.preventDefault();
+        syncRepExportLinks();
+        loadRepFundsData(1);
+        loadRepOrdersData(1);
+    });
     
     // Reload data when tabs are clicked
     $('#repFundsTab').on('click', function() {
@@ -264,7 +327,7 @@ function loadRepFundsData(page) {
     $.ajax({
         url: '{{ route("advertiser.reports.funds") }}',
         method: 'GET',
-        data: { page: page },
+        data: $.extend({ page: page }, repFilterParams()),
         dataType: 'json',
         success: function(response) {
             if (response.success) {
@@ -335,7 +398,7 @@ function renderRepFundsTable(activities) {
         var type = activity.type ? activity.type.charAt(0).toUpperCase() + activity.type.slice(1) : 'Deposit';
         
         html += '<tr class="rep-report-row">' +
-            '<td class="text-muted">' + formatRepDate(activity.created_at) + '</td>' +
+            '<td class="text-muted">' + escapeRepHtml(activity.display_date || formatRepDate(activity.created_at)) + '</td>' +
             '<td><code class="small bg-light px-2 py-1 rounded">' + escapeRepHtml(activity.reference_code) + '</code></td>' +
             '<td class="fw-semibold ' + amountClass + '">' + amountPrefix + ' ' + (window.slbFormatMoney || function (n) { return '€' + Number(n).toFixed(2); })(activity.amount) + '</td>' +
             '<td><span class="badge bg-secondary">' + escapeRepHtml(paymentMethod) + '</span></td>' +
@@ -369,7 +432,7 @@ function loadRepOrdersData(page) {
     $.ajax({
         url: '{{ route("advertiser.reports.orders") }}',
         method: 'GET',
-        data: { page: page },
+        data: $.extend({ page: page }, repFilterParams()),
         dataType: 'json',
         success: function(response) {
             if (response.success) {
@@ -429,7 +492,7 @@ function renderRepOrderRow(order, item) {
 
     return '<tr class="rep-report-row">' +
         '<td><code class="fw-semibold bg-light px-2 py-1 rounded">#' + escapeRepHtml(order.order_number) + '</code></td>' +
-        '<td class="text-muted">' + formatRepDate(order.created_at) + '</td>' +
+        '<td class="text-muted">' + escapeRepHtml(order.display_date || formatRepDate(order.created_at)) + '</td>' +
         '<td>' +
             '<div class="fw-semibold">' + escapeRepHtml(siteName) + '</div>' +
             (siteUrl ? '<small class="text-muted">' + truncateRep(siteUrl, 30) + '</small>' : '') +

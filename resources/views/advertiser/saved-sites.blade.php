@@ -1,5 +1,7 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Saved Sites')
+
 @push('page-styles')
 <link href="{{ asset('assets/css/saved-sites.css') }}?v={{ @filemtime(public_path('assets/css/saved-sites.css')) ?: '1' }}" rel="stylesheet">
 @endpush
@@ -16,7 +18,7 @@
 <div class="container-fluid saved-page">
     <div class="saved-page-header">
         <div>
-            <h2 class="saved-page-title">Saved Sites</h2>
+            <h1 class="saved-page-title">Saved Sites</h1>
             <p class="saved-page-sub">
                 Favorites you plan to order, and sites you’ve blocked from the catalog.
             </p>

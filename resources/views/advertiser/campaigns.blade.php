@@ -23,7 +23,7 @@
 
 <div class="project-page-head mb-4">
     <div class="project-page-head__copy">
-        <h2 class="project-page-title">Projects</h2>
+        <h1 class="project-page-title">Projects</h1>
         <p class="project-page-sub">
             One project per client site. Assign orders at checkout. Counts include assigned orders and unassigned placements whose destination host matches.
         </p>
@@ -177,14 +177,15 @@
 
     @empty
         <div class="ui-callout ui-callout--info project-empty">
-            <span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-folder-open"></i></span>
-            <div class="ui-callout__body">
-                <strong>No projects yet</strong>
-                <span class="d-block text-muted">Create a project for each client site so placement counts stay grouped.</span>
-            </div>
-            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
-                Create project
-            </button>
+            <x-ui.empty-state
+                icon="fa-folder-open"
+                title="No projects yet"
+                message="Create a project for each client site so placement counts stay grouped. Assign orders at checkout."
+            >
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
+                    Create project
+                </button>
+            </x-ui.empty-state>
         </div>
     @endforelse
 

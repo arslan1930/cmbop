@@ -5,6 +5,7 @@
 
 @section('content')
 <div class="container-fluid py-5 text-center">
+    <h1 class="h4 mb-3">Add Funds</h1>
     <p class="text-muted mb-3">The Balance page has moved.</p>
     <a href="{{ route('advertiser.add-funds') }}" class="btn btn-primary">Go to Add Funds</a>
 </div>

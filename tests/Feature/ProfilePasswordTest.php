@@ -41,7 +41,7 @@ class ProfilePasswordTest extends TestCase
             ->assertDontSee('validation-feedback', false)
             ->getContent();
 
-        $this->assertSame(3, substr_count($html, 'toggle-password'));
+        $this->assertSame(3, preg_match_all('/<button[^>]*\btoggle-password\b/', $html));
     }
 
     public function test_user_can_change_password_and_mail_is_queued(): void
