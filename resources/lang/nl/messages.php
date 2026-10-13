@@ -880,4 +880,10 @@ return [
     'blog_related_subtitle' => 'Lees verder met deze gerelateerde artikelen',
     'how_it_works_kicker' => 'Hoe het werkt',
 
+    // USD bank-transfer (EUR IBAN) copy
+    'usd_bank_send_label' => 'Send :eur (≈ :usd at today\'s rate)',
+    'usd_bank_wire_note' => 'This is an international wire to a EUR account. Your bank may charge a fee and convert the currency. Please choose OUR (sender pays all fees) so the full amount arrives.',
+    'usd_bank_avoid_fees' => 'Want to avoid wire fees? Pay instantly by Card or PayPal instead.',
+    'usd_bank_pay_card' => 'Card',
+    'usd_bank_pay_paypal' => 'PayPal',
 ];

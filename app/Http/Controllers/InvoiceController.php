@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Services\Billing\DepositReceiptService;
 use App\Services\Billing\InvoicePdfGenerator;
+use App\Support\UsdBankWireGuidance;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -184,11 +185,11 @@ class InvoiceController extends Controller
                 'unit_price' => $amount,
                 'line_total' => $amount,
             ]],
-            'notes' => $this->pendingDepositNote($deposit),
+            'notes' => $this->pendingDepositNote($deposit, $user),
         ]);
     }
 
-    private function pendingDepositNote($deposit): string
+    private function pendingDepositNote($deposit, $user = null): string
     {
         $pay = config('billing.deposit_payment', []);
         $lines = [
@@ -212,6 +213,17 @@ class InvoiceController extends Controller
             if (! empty($pay['bic'])) {
                 $lines[] = 'Swift/BIC (from outside the UK): '.$pay['bic'].'.';
             }
+
+            $user ??= $deposit->user;
+            $guidance = app(UsdBankWireGuidance::class);
+            $lines = array_merge(
+                $lines,
+                $guidance->instructionLines(
+                    (float) $deposit->amount,
+                    $guidance->walletCurrencyFor($user),
+                    $user
+                )
+            );
         }
 
         if ($method === 'crypto') {
@@ -282,6 +294,7 @@ class InvoiceController extends Controller
             'invoiceType' => 'deposit',
             'referenceCode' => $deposit->reference_code,
             'amount' => $deposit->amount,
+            'walletCurrency' => app(UsdBankWireGuidance::class)->walletCurrencyFor($user),
             'billingName' => $user->billing_name ?? $user->name,
             'companyName' => $user->company_name ?? '',
             'country' => $user->country ?? '',

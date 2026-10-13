@@ -278,11 +278,11 @@ class CatalogVisualLanguageTest extends TestCase
         $this->assertSame(4, substr_count($html, 'ahref.jpeg'));
         $this->assertSame(4, substr_count($html, 'moz_da.png'));
 
-        // Decorative: the heading and its tip already name the tool, so the logo
-        // would only repeat it to a screen reader.
         $this->assertStringContainsString('class="metric-source metric-source--md metric-source--fit-cover"', $html);
         $this->assertStringContainsString('metric-source--blend-multiply', $html);
-        $this->assertStringNotContainsString('alt="Ahrefs"', $html);
+        $this->assertStringContainsString('alt="Ahrefs DR"', $html);
+        $this->assertStringContainsString('alt="Moz DA"', $html);
+        $this->assertStringContainsString('alt="Organic traffic"', $html);
 
         // Intrinsic 400×400 Ahrefs / 225×225 Moz must not size the thead in Chrome.
         $this->assertMatchesRegularExpression(

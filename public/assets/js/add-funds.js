@@ -523,6 +523,33 @@ document.addEventListener('DOMContentLoaded', function() {
         const bankAmount = document.getElementById('bankAmount');
         if (cryptoAmount) cryptoAmount.innerHTML = `€<span class="amount-display">${amount.toFixed(2)}</span>`;
         if (bankAmount) bankAmount.innerHTML = `€<span class="amount-display">${amount.toFixed(2)}</span>`;
+        syncUsdBankSend(amount);
+    }
+
+    function usdBankSendLabel(amount) {
+        const wire = boot.usdBankWire || {};
+        const rate = Number(wire.rate) || 0;
+        const eur = Number(amount) || 0;
+        const usd = rate > 0 ? Math.round(eur * rate * 100) / 100 : 0;
+        const template = String(wire.sendTemplate || 'Send :eur (≈ :usd at today\'s rate)');
+        return template
+            .replace(/:eur/g, '€' + eur.toFixed(2))
+            .replace(/:usd/g, '$' + usd.toFixed(2));
+    }
+
+    function syncUsdBankSend(amount) {
+        const wire = boot.usdBankWire || {};
+        if (!wire.show) {
+            return;
+        }
+        const label = usdBankSendLabel(amount);
+        document.querySelectorAll('.js-usd-bank-send-label').forEach(el => {
+            el.textContent = label;
+        });
+        const bankAmount = document.getElementById('bankAmount');
+        if (bankAmount) {
+            bankAmount.textContent = label;
+        }
     }
     
     function updateSummary(amount) {
@@ -1050,6 +1077,25 @@ document.addEventListener('DOMContentLoaded', function() {
             amount: this.dataset.amount,
             reloadOnSuccess: true,
         });
+    });
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.js-switch-deposit-method');
+        if (!btn) {
+            return;
+        }
+        e.preventDefault();
+        const method = btn.getAttribute('data-method');
+        if (!method) {
+            return;
+        }
+        if (invoiceLocked) {
+            clearInvoiceLock();
+        }
+        const opt = document.querySelector('.payment-option[data-method="' + method + '"]');
+        if (opt && opt.getAttribute('aria-disabled') !== 'true') {
+            opt.click();
+        }
     });
 
     const invoiceChangeBtn = document.getElementById('invoiceChangeBtn');

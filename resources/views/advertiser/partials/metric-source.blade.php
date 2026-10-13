@@ -19,22 +19,22 @@
     $sourcePx = $sourceSize === 'sm' ? 16 : 20;
 
     $sources = [
-        'dr' => ['file' => 'assets/img/ahref.jpeg', 'name' => 'Ahrefs', 'fit' => 'cover', 'blend' => null],
-        'da' => ['file' => 'assets/img/moz_da.png', 'name' => 'Moz', 'fit' => 'contain', 'blend' => 'multiply'],
-        'traffic' => ['file' => 'assets/img/traffic.svg', 'name' => 'Analytics', 'fit' => 'contain', 'blend' => null],
+        'dr' => ['file' => 'assets/img/ahref.jpeg', 'name' => 'Ahrefs', 'alt' => 'Ahrefs DR', 'fit' => 'cover', 'blend' => null],
+        'da' => ['file' => 'assets/img/moz_da.png', 'name' => 'Moz', 'alt' => 'Moz DA', 'fit' => 'contain', 'blend' => 'multiply'],
+        'traffic' => ['file' => 'assets/img/traffic.svg', 'name' => 'Analytics', 'alt' => 'Organic traffic', 'fit' => 'contain', 'blend' => null],
     ];
 
     $source = $sources[$sourceType] ?? null;
 @endphp
 
 @if($source)
-    {{-- Decorative: the column heading and its tip already say which tool the
-         number comes from, so announcing the logo as well only repeats it. --}}
+    {{-- Named alt for crawlers (empty alt was flagged). aria-hidden keeps the
+         column heading from being announced twice to a screen reader. --}}
     <span class="metric-source metric-source--{{ $sourceSize }} metric-source--fit-{{ $source['fit'] }}{{ ! empty($source['blend']) ? ' metric-source--blend-'.$source['blend'] : '' }}"
           title="Source: {{ $source['name'] }}"
           aria-hidden="true">
         <img src="{{ asset($source['file']) }}"
-             alt=""
+             alt="{{ $source['alt'] }}"
              width="{{ $sourcePx }}"
              height="{{ $sourcePx }}"
              loading="{{ $sourceSize === 'md' ? 'eager' : 'lazy' }}"
