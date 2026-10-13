@@ -11,6 +11,7 @@ use App\Models\Site;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -339,10 +340,10 @@ class AdminSiteDestroyProtectsOrdersTest extends TestCase
 
     public function test_marketing_has_no_archive_routes(): void
     {
-        $this->assertTrue(\Illuminate\Support\Facades\Route::has('admin.sites.archive'));
-        $this->assertTrue(\Illuminate\Support\Facades\Route::has('admin.sites.unarchive'));
-        $this->assertFalse(\Illuminate\Support\Facades\Route::has('marketing.sites.archive'));
-        $this->assertFalse(\Illuminate\Support\Facades\Route::has('marketing.sites.unarchive'));
+        $this->assertTrue(Route::has('admin.sites.archive'));
+        $this->assertTrue(Route::has('admin.sites.unarchive'));
+        $this->assertFalse(Route::has('marketing.sites.archive'));
+        $this->assertFalse(Route::has('marketing.sites.unarchive'));
     }
 
     public function test_pending_site_without_orders_is_still_hard_deleted(): void
@@ -451,7 +452,10 @@ class AdminSiteDestroyProtectsOrdersTest extends TestCase
         $this->assertStringContainsString('The publisher is not notified.', $blade);
         $this->assertStringContainsString('/archive', $blade);
         $this->assertStringContainsString('/unarchive', $blade);
-        $this->assertStringContainsString('body: JSON.stringify(quietArchive ? {} : { reason })', $blade);
+        $this->assertStringContainsString('body: JSON.stringify(payload)', $blade);
+        $this->assertStringContainsString('staffArchiveReasonSelectHtml', $blade);
+        $this->assertStringContainsString('initSitePreviewZoom(document)', $blade);
+        $this->assertStringContainsString('initStaffSitesCompact', $blade);
         $this->assertStringContainsString('if (!res.ok || !data.success)', $blade);
         $this->assertStringContainsString('Please enter a reason (at least 10 characters).', $blade);
         $this->assertStringContainsString('data-publisher-added', $blade);
@@ -464,6 +468,7 @@ class AdminSiteDestroyProtectsOrdersTest extends TestCase
         $this->assertStringContainsString('unarchive-site', $actions);
         $this->assertStringContainsString('archive-site', $actions);
         $this->assertStringContainsString('title="Reject"', $actions);
+        $this->assertStringContainsString('Restore archived site', $actions);
     }
 
     public function test_order_items_site_id_foreign_key_restricts_delete(): void

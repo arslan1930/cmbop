@@ -41,7 +41,8 @@
   /* Prefer wrapping at natural breaks — avoid mid-letter “merged” text. */
   overflow-wrap: break-word;
   word-break: normal;
-  hyphens: auto;
+  hyphens: none;
+  -webkit-hyphens: none;
 }
 
 .admin-table-fit th {
@@ -191,6 +192,25 @@
 
 .admin-table-fit .staff-queue-table .queue-site-copy {
   min-width: 0;
+  hyphens: none;
+  -webkit-hyphens: none;
+}
+
+.staff-sites-table-scroll {
+  max-height: calc(100vh - 14rem);
+  overflow: auto;
+}
+
+.staff-queue-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f8f9fa;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.staff-queue-table .site-row-preview.is-empty {
+  display: none;
 }
 
 .admin-table-fit .staff-queue-table .queue-site-name,

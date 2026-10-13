@@ -11,6 +11,7 @@ use App\Services\Marketing\GuestPostPriceIndex;
 use App\Services\SiteDescriptionSanitizer;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteTag;
+use App\Support\StaffArchiveReason;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -94,6 +95,7 @@ class Site extends Model
         'status_reason',
         'status_reason_at',
         'status_reason_by',
+        'archive_reason',
     ];
 
     public const ONBOARDING_AWAITING_DETAILS = 'awaiting_details';
@@ -1388,7 +1390,7 @@ class Site extends Model
     /**
      * Staff hide of a live listing: keep the row (and order history), drop it from the catalog.
      */
-    public function archiveByStaff(?string $reason = null): bool
+    public function archiveByStaff(?string $reason = null, ?string $archiveReason = null): bool
     {
         if (! static::hasSitesColumn('archived_at')) {
             return false;
@@ -1403,6 +1405,8 @@ class Site extends Model
             $this->status_reason_at = now();
             $this->status_reason_by = auth()->id();
         }
+
+        $this->applyStaffArchiveReason($archiveReason);
 
         $this->save();
 
@@ -1419,9 +1423,21 @@ class Site extends Model
         }
 
         $this->archived_at = null;
+        if (static::hasSitesColumn('archive_reason')) {
+            $this->archive_reason = null;
+        }
         $this->save();
 
         return true;
+    }
+
+    public function applyStaffArchiveReason(?string $archiveReason): void
+    {
+        if (! static::hasSitesColumn('archive_reason')) {
+            return;
+        }
+
+        $this->archive_reason = StaffArchiveReason::normalize($archiveReason);
     }
 
     /**

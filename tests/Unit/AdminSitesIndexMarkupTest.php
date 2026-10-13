@@ -34,5 +34,7 @@ class AdminSitesIndexMarkupTest extends TestCase
         $this->assertStringContainsString('staffSitesEditUrl', $blade);
         $this->assertStringContainsString("params.has('page') && !params.get('publisher') && !siteId", $blade);
         $this->assertStringContainsString("params.get('sites_page')", $blade);
+        $this->assertStringContainsString('initSitePreviewZoom(document)', $blade);
+        $this->assertStringContainsString('data-staff-compact-toggle', file_get_contents(resource_path('views/admin/sites/partials/all-sites-table.blade.php')));
     }
 }

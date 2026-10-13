@@ -74,4 +74,21 @@ class AdminSitesReturnQueryTest extends TestCase
         $this->assertSame([], AdminSites::indexQuery($put));
         $this->assertSame([], AdminSites::storedReturnQuery($put));
     }
+
+    public function test_index_query_keeps_archive_reason_and_archived_date_sort(): void
+    {
+        $request = Request::create('/admin/sites', 'GET', [
+            'all' => 1,
+            'archived' => 1,
+            'archive_reason' => 'below_quality',
+            'sort' => 'archived_at',
+        ]);
+
+        $this->assertSame([
+            'all' => 1,
+            'archived' => 1,
+            'archive_reason' => 'below_quality',
+            'sort' => 'archived_at',
+        ], AdminSites::indexQuery($request));
+    }
 }

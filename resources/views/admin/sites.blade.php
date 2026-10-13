@@ -34,6 +34,7 @@
         'language' => ($staffSiteFilters['language'] ?? '') !== '' ? $staffSiteFilters['language'] : null,
         'niche' => ($staffSiteFilters['niche'] ?? '') !== '' ? $staffSiteFilters['niche'] : null,
         'archived' => !empty($staffSiteFilters['archived']) ? 1 : null,
+        'archive_reason' => ($staffSiteFilters['archive_reason'] ?? '') !== '' ? $staffSiteFilters['archive_reason'] : null,
         'sort' => ($staffSiteFilters['sort'] ?? '') !== '' ? $staffSiteFilters['sort'] : null,
         'empty_publishers' => ! empty($staffSiteFilters['empty_publishers']) ? 1 : null,
     ], static fn ($value) => $value !== null && $value !== '');
@@ -291,11 +292,12 @@
     <div id="staffIndexSearchWrap" class="d-none" hidden></div>
 
     @if(!empty($flatQueue) && $flatQueueSites)
-    <div class="card shadow-sm border-0 mb-3 admin-table-fit" data-flat-queue="1">
+    <div class="card shadow-sm border-0 mb-3 admin-table-fit staff-sites-sticky" data-flat-queue="1">
         <div class="card-header bg-white fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span>{{ !empty($waitingOnPublisherFilterActive) ? 'Waiting on publisher' : 'Sites needing review' }}</span>
             <span class="d-flex flex-wrap align-items-center gap-2">
                 <span class="small text-muted" data-flat-queue-count>{{ $flatQueueSites->total() }} in queue</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-staff-compact-toggle aria-pressed="false">Compact</button>
                 <a class="btn btn-sm btn-outline-dark" href="{{ $sitesExportUrl ?? staff_route('sites.export') }}">CSV</a>
             </span>
         </div>
@@ -323,7 +325,7 @@
                 Apply to all <span data-staff-bulk-match-total>{{ $flatQueueSites->total() }}</span> filtered sites
             </label>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive staff-sites-table-scroll">
             <table class="table table-hover align-middle mb-0 staff-queue-table">
                 <thead class="table-light">
                     <tr>
@@ -765,6 +767,7 @@ const ALL_SITES = @json(! empty($allSitesMode));
 const QUALITY_MIN_DA = {{ (int) \App\Models\Site::GOOD_MIN_DA }};
 const QUALITY_MIN_DR = {{ (int) \App\Models\Site::GOOD_MIN_DR }};
 const QUALITY_MIN_TRAFFIC = {{ (int) \App\Models\Site::GOOD_MIN_TRAFFIC }};
+const STAFF_ARCHIVE_REASONS = @json(\App\Support\StaffArchiveReason::options());
 let allSites = [];
 let pendingHighlightSiteId = null;
 let lastSitesPage = 1;
@@ -1674,21 +1677,22 @@ document.addEventListener('click', function(e){
         const name = site?.site_name || btn.dataset.name || 'this site';
         const prompt = {
             title: 'Archive this site?',
-            text: quietArchive
-                ? `"${name}" will be hidden from the catalog. The publisher is not notified.`
-                : `"${name}" will be hidden from the catalog. Explain why — the publisher will see this reason. The listing is kept so order history stays intact.`,
+            html: staffArchiveReasonSelectHtml()
+                + `<p class="text-start small mb-0">${quietArchive
+                    ? `"${escapeHtml(name)}" will be hidden from the catalog. The publisher is not notified.`
+                    : `"${escapeHtml(name)}" will be hidden from the catalog. Explain why — the publisher will see this reason. The listing is kept so order history stays intact.`}</p>`
+                + (quietArchive ? '' : `<label class="form-label small mb-1 mt-2" for="swal-archive-publisher-reason">Reason for the publisher</label><textarea id="swal-archive-publisher-reason" class="form-control" maxlength="1000" placeholder="Reason (min. 10 characters)" aria-label="Archive reason"></textarea>`),
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Archive',
             customClass: { confirmButton: 'slb-swal-danger' },
-        };
-        if (!quietArchive) {
-            prompt.input = 'textarea';
-            prompt.inputLabel = 'Reason for the publisher';
-            prompt.inputPlaceholder = 'Reason (min. 10 characters)';
-            prompt.inputAttributes = { 'aria-label': 'Archive reason', maxlength: '1000' };
-            prompt.preConfirm = (value) => {
-                const reason = String(value || '').trim();
+            preConfirm: () => {
+                const archiveReason = readSwalArchiveReason();
+                if (archiveReason === false) return false;
+                if (quietArchive) {
+                    return { archive_reason: archiveReason };
+                }
+                const reason = String(document.getElementById('swal-archive-publisher-reason')?.value || '').trim();
                 if (reason.length < 10) {
                     Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
                     return false;
@@ -1697,13 +1701,13 @@ document.addEventListener('click', function(e){
                     Swal.showValidationMessage('Reason must be 1000 characters or fewer.');
                     return false;
                 }
-                return reason;
-            };
-        }
+                return { archive_reason: archiveReason, reason };
+            },
+        };
 
         Swal.fire(prompt).then(result => {
             if (!result.isConfirmed) return;
-            const reason = quietArchive ? '' : String(result.value || '').trim();
+            const payload = result.value && typeof result.value === 'object' ? result.value : {};
             fetch(`${STAFF_BASE}/sites/${id}/archive`, {
                 method: 'POST',
                 headers: {
@@ -1713,7 +1717,7 @@ document.addEventListener('click', function(e){
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify(quietArchive ? {} : { reason }),
+                body: JSON.stringify(payload),
             })
             .then(async (res) => {
                 let data = {};
@@ -2188,11 +2192,7 @@ function sitePreviewImgOnError(img) {
 function sitePreviewHtml(site) {
     const paths = sitePreviewPaths(site);
     if (!paths.thumb) {
-        const empty = `<span class="site-row-preview is-empty" aria-label="No preview"><i class="fa fa-image" aria-hidden="true"></i></span>`;
-        if (site.missing_cover) {
-            return `<a href="${staffSitesEditUrl(site.id, '#site_image')}" class="text-decoration-none" title="Add a cover. This does not block going live.">${empty}</a>`;
-        }
-        return empty;
+        return '';
     }
 
     const name = escapeHtml(site.site_name || 'Site');
@@ -2284,6 +2284,37 @@ function hydrateSiteDetailImages(scope) {
     });
 }
 
+function initStaffSitesCompact() {
+    const key = 'staff-sites-compact';
+    const page = document.getElementById('staffSitesPage');
+    if (!page) return;
+
+    function apply(on) {
+        page.classList.toggle('is-compact', on);
+        document.querySelectorAll('[data-staff-compact-toggle]').forEach(function (btn) {
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            btn.textContent = on ? 'Comfortable' : 'Compact';
+        });
+        try {
+            localStorage.setItem(key, on ? '1' : '0');
+        } catch (e) {}
+    }
+
+    let stored = false;
+    try {
+        stored = localStorage.getItem(key) === '1';
+    } catch (e) {}
+    apply(stored);
+
+    document.querySelectorAll('[data-staff-compact-toggle]').forEach(function (btn) {
+        if (btn.getAttribute('data-compact-ready') === '1') return;
+        btn.setAttribute('data-compact-ready', '1');
+        btn.addEventListener('click', function () {
+            apply(!page.classList.contains('is-compact'));
+        });
+    });
+}
+
 function initSitePreviewZoom(root) {
     const scope = root || document;
     if (window.SiteImageUpload && !window.SiteImageUpload.canHoverZoom()) return;
@@ -2350,6 +2381,45 @@ function initSitePreviewZoom(root) {
     });
 }
 
+function staffDecisionNoteHtml(site) {
+    const summary = String(site.decision_summary || '').trim();
+    if (!summary) return '';
+    const whoWhen = [];
+    const author = String(site.status_reason_author || '').trim();
+    if (author) whoWhen.push(escapeHtml(author));
+    if (site.status_reason_at_label) whoWhen.push(escapeHtml(site.status_reason_at_label));
+    const meta = whoWhen.length ? ' · ' + whoWhen.join(' · ') : '';
+    const full = String(site.decision_full || '').trim();
+    const more = site.decision_expandable && full
+        ? `<details class="staff-decision-note__more"><summary>View message</summary><div class="staff-decision-note__full">${escapeHtml(full)}</div></details>`
+        : '';
+    return `<div class="staff-decision-note small text-muted mt-1"><div class="staff-decision-note__summary">Last decision: ${escapeHtml(summary)}${meta}</div>${more}</div>`;
+}
+
+function staffArchiveReasonSelectHtml() {
+    const options = Object.entries(STAFF_ARCHIVE_REASONS || {}).map(function (entry) {
+        return `<option value="${escapeHtml(entry[0])}">${escapeHtml(entry[1])}</option>`;
+    }).join('');
+    return `<div class="text-start mb-2">
+        <label class="form-label small mb-1" for="swal-archive-reason">Staff archive reason</label>
+        <select id="swal-archive-reason" class="form-select">
+            <option value="">Choose a reason</option>
+            ${options}
+        </select>
+        <div class="form-text">Staff only — the publisher is not told this category.</div>
+    </div>`;
+}
+
+function readSwalArchiveReason() {
+    const el = document.getElementById('swal-archive-reason');
+    const value = String(el?.value || '').trim();
+    if (!value || !STAFF_ARCHIVE_REASONS[value]) {
+        Swal.showValidationMessage('Choose a staff archive reason.');
+        return false;
+    }
+    return value;
+}
+
 function formatJoined(values, upper, limit) {
     const list = (Array.isArray(values) ? values : [])
         .map(function (value) { return String(value || '').trim(); })
@@ -2402,29 +2472,32 @@ function renderSites(data){
             const csvMetricsBadge = site.csv_metrics_spot_check
                 ? `<span class="badge text-bg-light border badge-needs-review ms-1" title="Publisher-supplied DA/DR/traffic from agency CSV — spot-check before activate">CSV metrics — spot-check</span>`
                 : '';
-            const missingMarketBadge = site.missing_market
+            const missingMarketBadge = (!site.archived && site.missing_market)
                 ? `<span class="badge text-bg-danger badge-needs-review ms-1" title="Set a marketplace country before marketing can activate">Missing market</span>`
                 : '';
             const qualityFailures = (Array.isArray(site.quality_failures) ? site.quality_failures : [])
                 .map(function (item) { return String(item || '').trim(); })
                 .filter(Boolean);
-            const belowQualityBadge = site.below_quality_bar
+            const belowQualityBadge = (!site.archived && site.below_quality_bar)
                 ? `<span class="badge text-bg-warning text-dark badge-needs-review ms-1" title="DA ≥ ${QUALITY_MIN_DA}, DR ≥ ${QUALITY_MIN_DR}, traffic ≥ ${QUALITY_MIN_TRAFFIC.toLocaleString('en-US')}">Below quality bar${qualityFailures.length ? ' — ' + escapeHtml(qualityFailures.join(', ')) : ''}</span>`
                 : '';
-            const missingCoverBadge = site.missing_cover
+            const missingCoverBadge = (!site.archived && site.missing_cover)
                 ? `<a href="${staffSitesEditUrl(site.id, '#site_image')}" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Add a cover. This does not block going live.">No cover</a>`
                 : '';
-            const missingTagsBadge = site.missing_tags
+            const missingTagsBadge = (!site.archived && site.missing_tags)
                 ? `<a href="${staffSitesEditUrl(site.id, '#site_tag')}" class="badge text-bg-warning text-dark badge-needs-review ms-1 text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>`
                 : '';
-            const scanBadge = site.enrichment_failed
+            const scanBadge = (!site.archived && site.enrichment_failed)
                 ? `<span class="badge text-bg-danger badge-needs-review ms-1">Scan failed</span>`
                 : '';
-            const copyStrikeBadge = site.publisher_copy_strike
+            const copyStrikeBadge = (!site.archived && site.publisher_copy_strike)
                 ? `<span class="badge text-bg-dark badge-needs-review ms-1">Copy-strike hide</span>`
                 : '';
             const archivedBadge = site.archived
                 ? `<span class="badge text-bg-secondary badge-needs-review ms-1">Archived</span>`
+                    + (site.archive_reason_label
+                        ? `<span class="badge text-bg-light border badge-needs-review ms-1">${escapeHtml(site.archive_reason_label)}</span>`
+                        : '')
                 : '';
             const ordersCount = Number(site.orders_count) || 0;
             const ordersLabel = ordersCount + (ordersCount === 1 ? ' order' : ' orders');
@@ -2449,23 +2522,25 @@ function renderSites(data){
                     <div class="site-details">
                         <div class="site-name">
                             ${escapeHtml(site.site_name ?? '-')}
-                            ${reviewBadge}
-                            ${awaitingBadge}
-                            ${reviewingBadge}
-                            ${inviteBadge}
-                            ${bulkOriginBadge}
-                            ${csvMetricsBadge}
-                            ${missingMarketBadge}
-                            ${belowQualityBadge}
-                            ${missingCoverBadge}
-                            ${missingTagsBadge}
-                            ${scanBadge}
-                            ${copyStrikeBadge}
-                            ${archivedBadge}
+                            ${site.archived ? archivedBadge : (
+                                reviewBadge
+                                + awaitingBadge
+                                + reviewingBadge
+                                + inviteBadge
+                                + bulkOriginBadge
+                                + csvMetricsBadge
+                                + missingMarketBadge
+                                + belowQualityBadge
+                                + missingCoverBadge
+                                + missingTagsBadge
+                                + scanBadge
+                                + copyStrikeBadge
+                            )}
                         </div>
                         <a href="${escapeHtml(site.site_url ?? '#')}" target="_blank" class="site-url" title="${escapeHtml(site.site_url ?? '')}">
                             ${escapeHtml(site.site_url ?? '-')}
                         </a>
+                        ${staffDecisionNoteHtml(site)}
                         <div class="small text-muted">DA ${site.da ?? '—'} · DR ${site.dr ?? '—'} · ${formatJoined((site.countries_list && site.countries_list.length) ? site.countries_list : [site.country], true)} · ${formatJoined((site.languages_list && site.languages_list.length) ? site.languages_list : [site.language], true)} · ${formatJoined((site.categories_list && site.categories_list.length) ? site.categories_list : [site.category], false)}${tagMeta}${site.link_type_label ? ' · ' + escapeHtml(site.link_type_label) : ''}${site.sponsored ? ' · Sponsored' : ''}${metricsHtml}</div>
                         <div class="small">${ordersHtml}</div>
                     </div>
@@ -2475,8 +2550,11 @@ function renderSites(data){
             const isActive = Number(site.active) === 1 || site.active === true;
             const isVerified = Number(site.verified) === 1 || site.verified === true;
 
+            const listedTone = site.archived
+                ? 'text-muted'
+                : (Number(site.listed_days) >= 21 ? 'text-danger fw-semibold' : (Number(site.listed_days) >= 7 ? 'text-warning fw-semibold' : 'text-muted'));
             const listedHtml = site.listed_label
-                ? `<div class="staff-listed-date"><span class="${Number(site.listed_days) >= 21 ? 'text-danger fw-semibold' : (Number(site.listed_days) >= 7 ? 'text-warning fw-semibold' : 'text-muted')}" title="${escapeHtml(site.listed_date || '')}">${escapeHtml(site.listed_label)}</span>${site.listed_date ? `<div class="small text-muted">${escapeHtml(site.listed_date)}</div>` : ''}</div>`
+                ? `<div class="staff-listed-date"><span class="${listedTone}" title="${escapeHtml(site.listed_date || '')}">${escapeHtml(site.listed_label)}</span>${site.listed_date ? `<div class="small text-muted">${escapeHtml(site.listed_date)}</div>` : ''}</div>`
                 : '<span class="text-muted">—</span>';
             const statusHtml = `
                 <div class="admin-status-stack">
@@ -2508,7 +2586,7 @@ function renderSites(data){
                         : '');
 
             const restoreItem = CAN_DELETE_ANY_SITE && site.archived
-                ? `<li><button type="button" class="dropdown-item unarchive-site" data-id="${site.id}"><i class="fa fa-undo me-2"></i>Restore</button></li>`
+                ? `<li><button type="button" class="dropdown-item unarchive-site" data-id="${site.id}" title="Restore archived site" aria-label="Restore archived site"><i class="fa fa-undo me-2"></i>Restore archived site</button></li>`
                 : '';
             const rejectItem = canDeleteSiteRow(site)
                 ? `<li><button type="button" class="dropdown-item text-danger delete-site" data-id="${site.id}"><i class="fa fa-trash me-2"></i>Reject</button></li>`
@@ -2902,7 +2980,7 @@ document.addEventListener('click', function (e) {
         toast('No matching sites to update.', 'warning');
         return;
     }
-    const run = function (reason) {
+    const run = function (reason, archiveReason) {
         const body = matchAll ? { action: action, match_all: true, scope: scope } : { action: action, ids: ids };
         if (matchAll) {
             const pageQuery = new URLSearchParams(window.location.search);
@@ -2936,6 +3014,7 @@ document.addEventListener('click', function (e) {
             }
         }
         if (reason) body.reason = reason;
+        if (archiveReason) body.archive_reason = archiveReason;
         fetch(`${STAFF_BASE}/sites/bulk-action`, {
             method: 'POST',
             credentials: 'same-origin',
@@ -2975,6 +3054,8 @@ document.addEventListener('click', function (e) {
         reject: 'Reject',
         deactivate: 'Deactivate',
         archive: 'Archive',
+        restore: 'Restore',
+        purge: 'Delete permanently',
     };
     const actionLabel = actionLabels[action] || 'Update';
     const matchTitle = matchAll
@@ -2986,29 +3067,72 @@ document.addEventListener('click', function (e) {
         reject: [matchTitle || 'Reject selected sites?', 'Reject'],
         deactivate: [matchTitle || 'Deactivate selected sites?', 'Deactivate'],
         archive: [matchTitle || 'Archive selected sites?', 'Archive'],
+        restore: [matchTitle || 'Restore selected sites?', 'Restore'],
+        purge: [matchTitle || 'Permanently delete selected archived sites?', 'Delete permanently'],
     };
     const quietArchiveSelection = action === 'archive'
         && !matchAll
         && ids.length > 0
         && ids.every(function (id) { return staffRowWasAddedByPublisher(id); });
-    if (action === 'archive' && quietArchiveSelection) {
+    if (action === 'restore') {
         Swal.fire({
-            title: reasonPrompts.archive[0],
-            text: 'Selected publisher listings will be hidden from the catalog. The publisher is not notified.',
+            title: reasonPrompts.restore[0],
+            text: 'Selected sites leave the archive and stay inactive until they are activated again.',
             showCancelButton: true,
-            confirmButtonText: reasonPrompts.archive[1],
+            confirmButtonText: reasonPrompts.restore[1],
+        }).then(function (result) {
+            if (result.isConfirmed) run(null);
+        });
+        return;
+    }
+    if (action === 'purge') {
+        Swal.fire({
+            title: reasonPrompts.purge[0],
+            text: 'This permanently deletes archived sites with no orders. Rows with orders are skipped.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: reasonPrompts.purge[1],
             customClass: { confirmButton: 'slb-swal-danger' },
         }).then(function (result) {
             if (result.isConfirmed) run(null);
         });
         return;
     }
+    if (action === 'archive') {
+        Swal.fire({
+            title: reasonPrompts.archive[0],
+            html: staffArchiveReasonSelectHtml()
+                + `<p class="text-start small mb-0">${quietArchiveSelection
+                    ? 'Selected publisher listings will be hidden from the catalog. The publisher is not notified.'
+                    : 'Only listings that can be archived one at a time are archived. The publisher will see the note below.'}</p>`
+                + (quietArchiveSelection ? '' : `<label class="form-label small mb-1 mt-2" for="swal-archive-publisher-reason">Reason for the publisher</label><textarea id="swal-archive-publisher-reason" class="form-control" maxlength="1000" placeholder="Reason (min. 10 characters)"></textarea>`),
+            showCancelButton: true,
+            confirmButtonText: reasonPrompts.archive[1],
+            customClass: { confirmButton: 'slb-swal-danger' },
+            preConfirm: function () {
+                const archiveReason = readSwalArchiveReason();
+                if (archiveReason === false) return false;
+                if (quietArchiveSelection) {
+                    return { archive_reason: archiveReason };
+                }
+                const reason = String(document.getElementById('swal-archive-publisher-reason')?.value || '').trim();
+                if (reason.length < 10) {
+                    Swal.showValidationMessage('Please enter a reason (at least 10 characters).');
+                    return false;
+                }
+                return { archive_reason: archiveReason, reason };
+            },
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            const value = result.value && typeof result.value === 'object' ? result.value : {};
+            run(value.reason || null, value.archive_reason || null);
+        });
+        return;
+    }
     if (reasonPrompts[action]) {
         Swal.fire({
             title: reasonPrompts[action][0],
-            text: action === 'archive'
-                ? 'Only listings that can be archived one at a time are archived. The publisher will see this reason.'
-                : 'The publisher will see this reason.',
+            text: 'The publisher will see this reason.',
             input: 'textarea',
             inputPlaceholder: 'Reason (min. 10 characters)',
             showCancelButton: true,
@@ -3052,6 +3176,8 @@ document.addEventListener('click', function (e) {
 
 /* ================= RESTORE / DEEP-LINK ================= */
 window.addEventListener('DOMContentLoaded',()=>{
+    initSitePreviewZoom(document);
+    initStaffSitesCompact();
     const params = new URLSearchParams(window.location.search);
     const editSiteId = params.get('edit_site');
     const siteId = params.get('site');

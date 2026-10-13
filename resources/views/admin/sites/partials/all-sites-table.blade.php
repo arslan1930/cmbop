@@ -1,9 +1,10 @@
 @if(!empty($allSitesMode) && $allSites)
-<div class="card shadow-sm border-0 mb-3 admin-table-fit" data-all-sites="1">
+<div class="card shadow-sm border-0 mb-3 admin-table-fit staff-sites-sticky" data-all-sites="1">
     <div class="card-header bg-white fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <span>All sites</span>
+        <span>{{ !empty($staffSiteFilters['archived']) ? 'Archived sites' : 'All sites' }}</span>
         <span class="d-flex flex-wrap align-items-center gap-2">
             <span class="small text-muted">{{ $allSites->total() }} matching</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-staff-compact-toggle aria-pressed="false">Compact</button>
             <a class="btn btn-sm btn-outline-dark" href="{{ $sitesExportUrl ?? staff_route('sites.export') }}">CSV</a>
         </span>
     </div>
@@ -20,8 +21,12 @@
             <button type="button" class="btn btn-sm btn-outline-secondary" data-staff-bulk="deactivate">Deactivate</button>
         @endif
         <button type="button" class="btn btn-sm btn-outline-danger" data-staff-bulk="reject">Reject</button>
-        @if(auth()->user()?->isAdmin())
+        @if(auth()->user()?->isAdmin() && empty($staffSiteFilters['archived']))
             <button type="button" class="btn btn-sm btn-outline-dark" data-staff-bulk="archive">Archive</button>
+        @endif
+        @if(auth()->user()?->isAdmin() && !empty($staffSiteFilters['archived']))
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-staff-bulk="restore">Restore</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-staff-bulk="purge">Delete permanently</button>
         @endif
         <span class="small text-muted" data-staff-bulk-count>0 selected</span>
         <label class="form-check small mb-0">
@@ -29,7 +34,7 @@
             Apply to all <span data-staff-bulk-match-total>{{ $allSites->total() }}</span> filtered sites
         </label>
     </div>
-    <div class="table-responsive">
+    <div class="table-responsive staff-sites-table-scroll">
         <table class="table table-hover align-middle mb-0 staff-queue-table">
             <thead class="table-light">
                 <tr>
