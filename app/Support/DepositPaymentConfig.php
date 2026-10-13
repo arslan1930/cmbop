@@ -27,6 +27,29 @@ class DepositPaymentConfig
         return self::wisePayUrl().'?amount='.$amount.'&currency=EUR';
     }
 
+    public static function depositMin(): float
+    {
+        $min = (float) config('billing.deposit_min', 10);
+
+        return $min > 0 ? $min : 10.0;
+    }
+
+    public static function depositMax(): float
+    {
+        $min = self::depositMin();
+        $max = (float) config('billing.deposit_max', 50000);
+        if ($max < $min) {
+            $max = 50000.0;
+        }
+
+        return $max;
+    }
+
+    public static function amountRule(): string
+    {
+        return 'required|numeric|min:'.self::depositMin().'|max:'.self::depositMax();
+    }
+
     public static function cryptoEnabled(): bool
     {
         $crypto = (array) (self::depositPayment()['crypto'] ?? []);

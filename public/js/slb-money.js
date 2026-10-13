@@ -46,25 +46,31 @@
         return signed && value > 0 ? '+' : '';
     }
 
+    function grouped(n) {
+        var parts = Math.abs(Number(n) || 0).toFixed(2).split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+    }
+
     function format(rawEuros, options) {
         options = options || {};
         var value = amount(rawEuros);
         var symbol = config().symbol || '€';
-        return signedPrefix(value, !!options.signed) + symbol + Math.abs(value).toFixed(2);
+        return signedPrefix(value, !!options.signed) + symbol + grouped(value);
     }
 
     function formatPay(rawEuros, options) {
         options = options || {};
         var eur = euros(rawEuros);
         var sign = signedPrefix(eur, !!options.signed);
-        var eurLabel = '€' + Math.abs(eur).toFixed(2);
+        var eurLabel = '€' + grouped(eur);
         var cfg = config();
         if (!cfg.guide || cfg.currency === 'EUR') {
             return sign + eurLabel;
         }
         var rate = finiteRate(cfg.cart_rate, cfg.rate);
         var local = Math.round(Math.abs(eur) * rate * 100) / 100;
-        return sign + eurLabel + ' · about ' + (cfg.symbol || '$') + local.toFixed(2);
+        return sign + eurLabel + ' · about ' + (cfg.symbol || '$') + grouped(local);
     }
 
     global.slbFormatMoney = format;

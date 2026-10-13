@@ -43,7 +43,7 @@ class AddFundsUiGuardTest extends TestCase
         $body = $inputHandler[1];
         $this->assertStringNotContainsString('Swal.fire', $body);
         $this->assertStringNotContainsString("this.value = ''", $body);
-        $this->assertStringContainsString('amount >= 10', $body);
+        $this->assertStringContainsString('amount >= depositMin', $body);
     }
 
     public function test_billing_modal_client_validation_requires_company_name(): void
@@ -101,7 +101,7 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringContainsString('function isRealReference', $js);
         $this->assertStringContainsString('function amountReady', $js);
         $this->assertStringContainsString('Select an amount', $js);
-        $this->assertStringContainsString('selectedAmount) >= 10', $js);
+        $this->assertStringContainsString('n >= depositMin && n <= depositMax', $js);
         $this->assertDoesNotMatchRegularExpression("/formatted = '€' \\+ \\(amt \\|\\| 0\\)\\.toFixed/", $js);
         $this->assertStringContainsString('applyPrefill();', $js);
         $this->assertStringContainsString('stampServerReference(referenceCode)', $js);

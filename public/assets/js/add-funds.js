@@ -16,6 +16,76 @@ document.addEventListener('DOMContentLoaded', function() {
     let invoiceViewUrl = null;
     const prefillAmount = boot.prefillAmount || null;
     const prefillMethod = boot.prefillMethod || null;
+    const depositMin = Number(boot.depositMin) > 0 ? Number(boot.depositMin) : 10;
+    const depositMax = Number(boot.depositMax) >= depositMin ? Number(boot.depositMax) : 50000;
+
+    function formatEuro(n) {
+        const value = Number(n);
+        const amount = Number.isFinite(value) ? value : 0;
+        if (typeof window.slbFormatMoney === 'function') {
+            return window.slbFormatMoney(amount);
+        }
+        const parts = Math.abs(amount).toFixed(2).split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return '€' + parts.join('.');
+    }
+
+    function showAmountError(message) {
+        const el = document.getElementById('amountError');
+        if (!el) return;
+        if (message) {
+            el.textContent = message;
+            el.classList.remove('d-none');
+            el.classList.add('d-block');
+        } else {
+            el.textContent = '';
+            el.classList.add('d-none');
+            el.classList.remove('d-block');
+        }
+        if (customAmountInput) {
+            customAmountInput.classList.toggle('is-invalid', !!message);
+        }
+    }
+
+    function sanitizeAmountInput(raw) {
+        let s = String(raw || '');
+        if (/[eE]/.test(s)) {
+            s = s.split(/[eE]/)[0];
+        }
+        if (s.includes('-')) {
+            return '';
+        }
+        s = s.replace(/[^\d.]/g, '');
+        const first = s.indexOf('.');
+        if (first !== -1) {
+            s = s.slice(0, first + 1) + s.slice(first + 1).replace(/\./g, '');
+            const parts = s.split('.');
+            if (parts[1] && parts[1].length > 2) {
+                s = parts[0] + '.' + parts[1].slice(0, 2);
+            }
+        }
+        return s;
+    }
+
+    function parseDepositAmount(raw) {
+        if (/[eE+\-]/.test(String(raw || '')) && /[eE]/.test(String(raw || ''))) {
+            const cleaned = sanitizeAmountInput(raw);
+            if (cleaned === '' || cleaned === '.') {
+                return NaN;
+            }
+            const n = Number(cleaned);
+            return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN;
+        }
+        if (String(raw || '').includes('-')) {
+            return NaN;
+        }
+        const cleaned = sanitizeAmountInput(raw);
+        if (cleaned === '' || cleaned === '.') {
+            return NaN;
+        }
+        const n = Number(cleaned);
+        return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN;
+    }
 
     function sameOriginRoute(raw, fallbackPath) {
         const fallback = String(fallbackPath || '').trim();
@@ -99,6 +169,8 @@ document.addEventListener('DOMContentLoaded', function() {
             el.innerText = label;
         });
         if (copyBtn) copyBtn.disabled = !referenceCode;
+        const referenceRow = document.getElementById('referenceRow');
+        if (referenceRow) referenceRow.classList.toggle('d-none', !referenceCode);
         if (hintPending) hintPending.classList.toggle('d-none', !!referenceCode);
         if (hintReady) hintReady.classList.toggle('d-none', !referenceCode);
         document.querySelectorAll('.js-manual-ref-alert').forEach(el => {
@@ -182,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
             hideManualPayDetails();
             if (selectedMethod === 'wise' && wiseDetails) {
                 wiseDetails.style.display = 'block';
-                if (selectedAmount >= 10) syncWiseQr(selectedAmount);
+                if (selectedAmount >= depositMin) syncWiseQr(selectedAmount);
             }
             if (selectedMethod === 'crypto' && cryptoDetails) cryptoDetails.style.display = 'block';
             if (selectedMethod === 'bank' && bankDetails) bankDetails.style.display = 'block';
@@ -210,7 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const customAmountInput = document.getElementById('customAmount');
 
     function applyPrefill() {
-        if (prefillAmount && Number(prefillAmount) >= 10) {
+        if (prefillAmount && Number(prefillAmount) >= depositMin && Number(prefillAmount) <= depositMax) {
             setSelectedAmount(Number(prefillAmount));
             const matchBtn = Array.from(document.querySelectorAll('.amount-btn')).find(
                 btn => Number(btn.dataset.amount) === Number(prefillAmount)
@@ -219,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
                 matchBtn.classList.add('active');
             } else if (customAmountInput) {
-                customAmountInput.value = String(prefillAmount);
+                customAmountInput.value = Number(prefillAmount).toFixed(2);
             }
         }
         if (prefillMethod) {
@@ -252,11 +324,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let proceedBusy = false;
     const depositFeeNote = document.getElementById('depositFeeNote');
     const depositFeeNotes = {
-        card: 'No extra deposit fee — we cover card processing.',
-        paypal: 'No extra deposit fee — we cover PayPal processing.',
-        bank: 'SEPA usually 0–2 business days after you send; wallet credits after we confirm.',
-        wise: 'SEPA usually 0–2 business days after you send; wallet credits after we confirm.',
-        crypto: 'Credits after network confirmation and our review.',
+        card: 'No extra deposit fee — we cover card processing. Instant — credited after the payment confirms.',
+        paypal: 'No extra deposit fee — we cover PayPal processing. Instant — credited after PayPal confirms.',
+        bank: 'Your bank may charge transfer fees. SEPA usually 0–2 business days after you send; wallet credits after we confirm.',
+        wise: 'Wise shows its own transfer fee in the Wise app. Wallet credits after we confirm the transfer.',
+        crypto: 'Network fees are yours. Credits after network confirmation and our review.',
     };
 
     function buildWisePayLink(amount) {
@@ -295,7 +367,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (wiseOpenLink) {
             wiseOpenLink.href = payLink;
-            wiseOpenLink.classList.toggle('d-none', !(amount >= 10));
+            wiseOpenLink.classList.toggle('d-none', !(amount >= depositMin));
         }
 
         if (!wiseQRCode) {
@@ -303,7 +375,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const qrBase = wiseQrEndpoint();
-        if (amount >= 10 && qrBase) {
+        if (amount >= depositMin && qrBase) {
             const nextSrc = `${qrBase}?amount=${encodeURIComponent(amount)}`;
             wiseQRCode.onerror = function () {
                 wiseQRCode.style.display = 'none';
@@ -341,7 +413,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function amountReady() {
-        return Number.isFinite(Number(selectedAmount)) && Number(selectedAmount) >= 10;
+        const n = Number(selectedAmount);
+        return Number.isFinite(n) && n >= depositMin && n <= depositMax;
     }
 
     function jsonHeaders() {
@@ -403,11 +476,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (busy) {
             proceedBtn.disabled = true;
             proceedBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+            syncMobilePay('<i class="fa fa-spinner fa-spin"></i> Processing...');
             return;
         }
         if (invoiceLocked) {
             proceedBtn.disabled = true;
             proceedBtn.innerHTML = '<i class="fa fa-check me-2"></i> Invoice created';
+            syncMobilePay('<i class="fa fa-check me-2"></i> Invoice created');
             return;
         }
         syncProceedLabel();
@@ -417,7 +492,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!amountReady()) {
             return '<i class="fa fa-arrow-right me-2"></i> Select an amount';
         }
-        const formatted = '€' + Number(selectedAmount).toFixed(2);
+        const formatted = formatEuro(selectedAmount);
         if (selectedMethod === 'card') {
             return '<i class="fa fa-credit-card me-2"></i> Pay ' + formatted + ' with card';
         }
@@ -431,11 +506,42 @@ document.addEventListener('DOMContentLoaded', function() {
         return '<i class="fa fa-arrow-right me-2"></i> Select a payment method';
     };
     function syncProceedLabel() {
-        if (!proceedBtn || invoiceLocked || proceedBusy) return;
-        proceedBtn.innerHTML = window.__afProceedLabel();
-        proceedBtn.disabled = !amountReady() || !selectedMethod;
+        if (invoiceLocked || proceedBusy) {
+            syncMobilePay();
+            return;
+        }
+        const label = window.__afProceedLabel();
+        if (proceedBtn) {
+            proceedBtn.innerHTML = label;
+            proceedBtn.disabled = !amountReady() || !selectedMethod;
+        }
         syncFeeNote();
+        syncMobilePay(label);
     };
+
+    function syncMobilePay(label) {
+        const html = label || (typeof window.__afProceedLabel === 'function' ? window.__afProceedLabel() : '');
+        const disabled = invoiceLocked || proceedBusy || !amountReady() || !selectedMethod;
+        const mobileBtn = document.getElementById('afMobileProceed');
+        const stickyBtn = document.getElementById('afStickyProceed');
+        const sticky = document.getElementById('afStickyPay');
+        const mobileTotal = document.getElementById('afMobileTotal');
+        const stickyAmount = document.getElementById('afStickyAmount');
+        if (mobileBtn) {
+            mobileBtn.innerHTML = html;
+            mobileBtn.disabled = disabled;
+        }
+        if (stickyBtn) {
+            stickyBtn.innerHTML = html;
+            stickyBtn.disabled = disabled;
+        }
+        if (sticky) {
+            sticky.hidden = !amountReady();
+        }
+        const shown = formatEuro(selectedAmount || 0);
+        if (mobileTotal) mobileTotal.textContent = shown;
+        if (stickyAmount) stickyAmount.textContent = shown;
+    }
 
     const paymentError = document.getElementById('paymentError');
     const summaryAmount = document.getElementById('summaryAmount');
@@ -445,6 +551,7 @@ document.addEventListener('DOMContentLoaded', function() {
     amountBtns.forEach(btn => {
         btn.addEventListener('click', function() {
             const amount = parseFloat(this.dataset.amount);
+            showAmountError('');
             setSelectedAmount(amount);
             amountBtns.forEach(b => b.classList.remove('active'));
             this.classList.add('active');
@@ -455,17 +562,37 @@ document.addEventListener('DOMContentLoaded', function() {
     // Custom amount: allow mid-typing (e.g. "1" while entering "100").
     // Enforce the €10 minimum on blur and when proceeding — not on every keystroke.
     if (customAmountInput) {
+    customAmountInput.addEventListener('keydown', function (e) {
+        if (['e', 'E', '+', '-', 'Subtract', 'Add'].includes(e.key)) {
+            e.preventDefault();
+        }
+    });
+
+    customAmountInput.addEventListener('paste', function (e) {
+        const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+        e.preventDefault();
+        const cleaned = sanitizeAmountInput(text);
+        this.value = cleaned;
+        this.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     customAmountInput.addEventListener('input', function() {
-        const raw = String(this.value || '').trim();
-        if (raw === '') {
+        const raw = String(this.value || '');
+        const cleaned = sanitizeAmountInput(raw);
+        if (cleaned !== raw) {
+            this.value = cleaned;
+        }
+        if (cleaned === '' || cleaned === '.') {
             selectedAmountDisplay.style.display = 'none';
             selectedAmount = 0;
+            showAmountError('');
             updateSummary(0);
             return;
         }
 
-        const amount = parseFloat(raw);
-        if (!isNaN(amount) && amount >= 10) {
+        const amount = parseDepositAmount(cleaned);
+        if (!isNaN(amount) && amount >= depositMin && amount <= depositMax) {
+            showAmountError('');
             setSelectedAmount(amount);
             amountBtns.forEach(b => b.classList.remove('active'));
             return;
@@ -474,40 +601,47 @@ document.addEventListener('DOMContentLoaded', function() {
         // Partial / below-minimum while typing — keep the field, clear the selection.
         selectedAmount = 0;
         selectedAmountDisplay.style.display = 'none';
+        if (!isNaN(amount) && amount > depositMax) {
+            showAmountError('Maximum amount is ' + formatEuro(depositMax) + '.');
+        } else {
+            showAmountError('');
+        }
         updateSummary(0);
     });
 
     customAmountInput.addEventListener('blur', function() {
         const raw = String(this.value || '').trim();
         if (raw === '') {
+            showAmountError('');
             return;
         }
 
-        const amount = parseFloat(raw);
-        if (isNaN(amount) || amount < 10) {
-            Swal.fire({
-                title: 'Invalid Amount',
-                text: 'Minimum amount is €10',
-                icon: 'warning',
-                confirmButtonText: 'OK'
-            });
-            this.value = '';
-            selectedAmount = 0;
-            selectedAmountDisplay.style.display = 'none';
-            updateSummary(0);
+        const amount = parseDepositAmount(raw);
+        if (isNaN(amount) || amount < depositMin) {
+            showAmountError('Minimum amount is ' + formatEuro(depositMin) + '.');
+            return;
         }
+        if (amount > depositMax) {
+            showAmountError('Maximum amount is ' + formatEuro(depositMax) + '.');
+            this.value = amount.toFixed(2);
+            return;
+        }
+        this.value = amount.toFixed(2);
+        showAmountError('');
+        setSelectedAmount(amount);
+        amountBtns.forEach(b => b.classList.remove('active'));
     });
     }
 
     function setSelectedAmount(amount) {
         selectedAmount = amount;
-        selectedAmountValue.innerText = `€${amount.toFixed(2)}`;
+        selectedAmountValue.innerText = formatEuro(amount);
         selectedAmountDisplay.style.display = 'block';
         updateSummary(amount);
         
         // Update amount displays
         document.querySelectorAll('.amount-display').forEach(el => {
-            el.innerText = amount.toFixed(2);
+            el.innerText = Number(amount).toFixed(2);
         });
         document.querySelectorAll('.amount-link').forEach(el => {
             el.innerText = amount;
@@ -521,8 +655,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update crypto and bank amounts
         const cryptoAmount = document.getElementById('cryptoAmount');
         const bankAmount = document.getElementById('bankAmount');
-        if (cryptoAmount) cryptoAmount.innerHTML = `€<span class="amount-display">${amount.toFixed(2)}</span>`;
-        if (bankAmount) bankAmount.innerHTML = `€<span class="amount-display">${amount.toFixed(2)}</span>`;
+        if (cryptoAmount) cryptoAmount.innerHTML = formatEuro(amount);
+        if (bankAmount) bankAmount.innerHTML = formatEuro(amount);
         syncUsdBankSend(amount);
     }
 
@@ -553,8 +687,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateSummary(amount) {
-        summaryAmount.innerText = `€${amount.toFixed(2)}`;
-        summaryTotal.innerText = `€${amount.toFixed(2)}`;
+        const label = formatEuro(amount);
+        if (summaryAmount) summaryAmount.innerText = label;
+        if (summaryTotal) summaryTotal.innerText = label;
         if (typeof syncProceedLabel === 'function') syncProceedLabel();
     }
 
@@ -657,7 +792,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 Swal.fire({
                     title: 'Invoice ready',
-                    html: `Transfer <strong>€${selectedAmount.toFixed(2)}</strong> and include<br>
+                    html: `Transfer <strong>${formatEuro(selectedAmount)}</strong> and include<br>
                            <strong class="font-monospace">REF${data.reference_code}</strong> in the payment note.<br><br>
                            Pay details are on this page. Status stays <strong>Pending</strong> until we confirm and credit your wallet.`,
                     icon: 'success',
@@ -745,13 +880,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (invoiceLocked) {
             return;
         }
-        if (selectedAmount < 10) {
-            Swal.fire({
-                title: 'Amount Required',
-                text: 'Please select or enter an amount of at least €10.',
-                icon: 'warning',
-                confirmButtonText: 'OK'
-            });
+        if (!amountReady()) {
+            if (selectedAmount > depositMax) {
+                showAmountError('Maximum amount is ' + formatEuro(depositMax) + '.');
+            } else {
+                showAmountError('Minimum amount is ' + formatEuro(depositMin) + '.');
+            }
+            if (customAmountInput) customAmountInput.focus();
             return;
         }
         
@@ -1027,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', function() {
             input: 'text',
             inputPlaceholder: 'Optional: Wise/bank transfer reference',
             showCancelButton: true,
-            confirmButtonText: 'OK, I have made the payment',
+            confirmButtonText: 'I paid',
             cancelButtonText: 'Not yet',
         }).then((result) => {
             if (!result.isConfirmed) {
@@ -1118,6 +1253,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    function triggerProceed() {
+        if (proceedBtn) proceedBtn.click();
+    }
+    const mobileProceed = document.getElementById('afMobileProceed');
+    if (mobileProceed) mobileProceed.addEventListener('click', triggerProceed);
+    const stickyProceed = document.getElementById('afStickyProceed');
+    if (stickyProceed) stickyProceed.addEventListener('click', triggerProceed);
 
     const invoiceReadyMarkPaid = document.getElementById('invoiceReadyMarkPaid');
     if (invoiceReadyMarkPaid) {

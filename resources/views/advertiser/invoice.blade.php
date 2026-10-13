@@ -266,7 +266,10 @@
                                     <p><strong>Website:</strong> {{ $company['website_url'] }}</p>
                                 @endif
                                 <p><strong>VAT:</strong> {{ $company['vat_note'] ?? 'Not VAT registered – no VAT charged' }}</p>
-                                <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>
+                                <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary'] ?? 'Teqno LTD' }}</p>
+                                @if(!empty($depositPayment['uk_sort_code']))
+                                    <p><strong>GBP sort code:</strong> {{ $depositPayment['uk_sort_code'] }}</p>
+                                @endif
                                 @if(!empty($depositPayment['uk_account_number']))
                                     <p><strong>GBP account number:</strong> {{ $depositPayment['uk_account_number'] }}
                                         @if(!empty($depositPayment['uk_transfer_note']))

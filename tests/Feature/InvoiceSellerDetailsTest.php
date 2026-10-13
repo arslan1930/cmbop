@@ -96,7 +96,7 @@ class InvoiceSellerDetailsTest extends TestCase
         $this->assertStringContainsString('20 Wenlock Road, London, England, N1 7GU', $html);
         $this->assertStringContainsString('Registration No:', $html);
         $this->assertStringContainsString('Beneficiary:', $html);
-        $this->assertStringContainsString('Teqno Ltd', $html);
+        $this->assertStringContainsString('Teqno LTD', $html);
         $this->assertStringContainsString('TRWIGB2LXXX', $html);
         $this->assertStringContainsString('GB30 TRWI 2308 0132 9321 94', $html);
         $this->assertStringContainsString('32932194', $html);
