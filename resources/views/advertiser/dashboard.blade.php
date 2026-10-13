@@ -705,7 +705,9 @@
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
                 <strong>Need assistance?</strong>
-                <span class="text-muted small ms-1">Client manager · Mon–Fri, 9AM–6PM UTC</span>
+                <span class="text-muted small ms-1">Client manager ·
+                    <span data-support-hours data-utc-start="09:00" data-utc-end="18:00" data-days="Mon–Fri">Mon–Fri, 9AM–6PM UTC</span>
+                </span>
             </div>
             <a href="{{ $supportTelegramUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary" data-slb-open-support>
                 <i class="fa fa-message me-1"></i> Start chat
@@ -718,6 +720,7 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('js/support-hours.js') }}?v={{ @filemtime(public_path('js/support-hours.js')) ?: '1' }}" defer></script>
 @if(!($isNewAdvertiser ?? false) && !empty($spendCandles['has_spend']))
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
