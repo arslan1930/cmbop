@@ -6,9 +6,29 @@
     $languages = $marketplaceLanguages ?? collect();
     $niches = $nicheOptions ?? [];
     $getForm = in_array($mode, ['flat', 'all', 'publishers'], true);
+    $moreFilterKeys = [
+        'tag', 'language', 'niche', 'listing_active', 'listing_verified', 'metrics_age',
+        'price_min', 'price_max', 'traffic_min', 'da_min',
+    ];
+    $moreFilterFlags = [
+        'below_quality', 'ready_to_activate', 'missing_market', 'placeholder', 'missing_cover',
+        'bulk_request', 'scan_failed', 'copy_strike', 'has_orders', 'featured', 'bulk_discount',
+        'csv_metrics', 'archived',
+    ];
+    $moreFilterCount = 0;
+    foreach ($moreFilterKeys as $moreKey) {
+        if (($filters[$moreKey] ?? null) !== null && ($filters[$moreKey] ?? '') !== '') {
+            $moreFilterCount++;
+        }
+    }
+    foreach ($moreFilterFlags as $moreFlag) {
+        if (! empty($filters[$moreFlag])) {
+            $moreFilterCount++;
+        }
+    }
 @endphp
 @if($getForm)
-<form method="GET" action="{{ staff_route('sites.index') }}" class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2 px-3 py-2 border-bottom bg-white" id="staff{{ ucfirst($mode) }}Filters">
+<form method="GET" action="{{ staff_route('sites.index') }}" class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2 px-3 py-2 border-bottom bg-white" id="staff{{ ucfirst($mode) }}Filters" data-staff-filter-autosubmit="1">
 @else
 <div class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2 mb-2" id="staffPublisherFilters" data-staff-publisher-filters="1" data-admin-filter-live="1">
 @endif
@@ -36,6 +56,10 @@
         @if(($waitingStage ?? '') !== '')
             <input type="hidden" name="waiting_stage" value="{{ $waitingStage }}">
         @endif
+        <label class="form-check small mb-1">
+            <input class="form-check-input" type="checkbox" name="empty_publishers" value="1" data-staff-filter="empty_publishers" @checked(!empty($filters['empty_publishers']))>
+            Show publishers with no sites
+        </label>
     @endif
     @if($getForm)
         <label class="small mb-0">
@@ -55,16 +79,32 @@
     <label class="small mb-0">
         Sort
         <select class="form-select" name="sort" data-staff-filter="sort">
+            @if($mode === 'publishers')
+                <option value="" @selected(($filters['sort'] ?? '') === '')>Newest</option>
+                <option value="name" @selected(($filters['sort'] ?? '') === 'name')>Name</option>
+                <option value="country" @selected(($filters['sort'] ?? '') === 'country')>Country</option>
+                <option value="sites" @selected(($filters['sort'] ?? '') === 'sites')>Sites</option>
+                <option value="live" @selected(($filters['sort'] ?? '') === 'live')>Live</option>
+                <option value="review" @selected(($filters['sort'] ?? '') === 'review')>In review</option>
+                <option value="joined" @selected(($filters['sort'] ?? '') === 'joined')>Joined</option>
+                <option value="last_active" @selected(($filters['sort'] ?? '') === 'last_active')>Last active</option>
+            @else
             <option value="" @selected(($filters['sort'] ?? '') === '')>{{ $mode === 'flat' ? 'Oldest waiting' : 'Newest' }}</option>
             <option value="newest" @selected(($filters['sort'] ?? '') === 'newest')>Newest</option>
             <option value="oldest" @selected(($filters['sort'] ?? '') === 'oldest')>Oldest</option>
             <option value="price" @selected(($filters['sort'] ?? '') === 'price')>Price</option>
             <option value="traffic" @selected(($filters['sort'] ?? '') === 'traffic')>Traffic</option>
             <option value="da" @selected(($filters['sort'] ?? '') === 'da')>DA</option>
+            @endif
         </select>
     </label>
     <details class="staff-site-filters-more">
-        <summary class="small text-muted">More filters</summary>
+        <summary class="small text-muted">
+            More filters
+            @if($moreFilterCount > 0)
+                <span class="badge text-bg-secondary ms-1" title="{{ $moreFilterCount }} extra {{ $moreFilterCount === 1 ? 'filter' : 'filters' }} on">{{ $moreFilterCount }}</span>
+            @endif
+        </summary>
         <div class="d-flex flex-wrap align-items-end gap-2 mt-2">
     <label class="small mb-0">
         Tag

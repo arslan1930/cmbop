@@ -315,6 +315,32 @@ class AdminSiteReviewQueueTest extends TestCase
             ]);
     }
 
+    public function test_queue_counts_exclude_archived_review_sites(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+
+        $this->makePendingSite($publisher, [
+            'site_name' => 'Open Review',
+            'site_url' => 'https://open-review.example',
+            'domain' => 'open-review.example',
+        ]);
+        $this->makePendingSite($publisher, [
+            'site_name' => 'Archived Review',
+            'site_url' => 'https://archived-review.example',
+            'domain' => 'archived-review.example',
+            'archived_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.queue-counts'))
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'unverified_sites' => 1,
+            ]);
+    }
+
     public function test_sites_index_needs_review_filter_and_user_sites_flags(): void
     {
         $admin = $this->userWithRole('admin');

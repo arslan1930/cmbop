@@ -849,7 +849,7 @@ class AudienceInventoryService
             $counts['orders as paid_orders_count'] = fn (Builder $q) => $q->whereIn('payment_status', self::customerPaymentStatuses());
         }
         if ($this->schemaTableAvailable('sites')) {
-            $counts[] = 'sites as sites_count';
+            $counts['sites as sites_count'] = fn (Builder $q) => $q->notArchived();
         }
         if ($this->schemaTableAvailable('deposit_requests')) {
             $counts['depositRequests as completed_deposits_count'] = fn (Builder $q) => $q->whereIn('status', self::creditedDepositStatuses());

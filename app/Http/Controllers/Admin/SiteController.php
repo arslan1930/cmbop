@@ -111,6 +111,7 @@ class SiteController extends Controller
                 'waitingStage' => '',
                 'sitesReturnQuery' => [],
                 'archivedListCount' => 0,
+                'nonArchivedListCount' => 0,
             ]);
         }
     }
@@ -201,6 +202,7 @@ class SiteController extends Controller
         $missingMarketListCount = (int) $catalogCounts['missingMarketListCount'];
         $scanFailedListCount = (int) $catalogCounts['scanFailedListCount'];
         $archivedListCount = (int) $catalogCounts['archivedListCount'];
+        $nonArchivedListCount = (int) $catalogCounts['nonArchivedListCount'];
         $healthCounts = is_array($catalogCounts['healthCounts'] ?? null)
             ? $catalogCounts['healthCounts']
             : CatalogHealthQueue::emptyCounts();
@@ -287,9 +289,19 @@ class SiteController extends Controller
 
             $query = User::query()
                 ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
-                ->withCount(['sites' => function ($q) use ($staffSiteFilters) {
-                    $this->applyStaffSitesArchiveScope($q, $staffSiteFilters);
+                ->withCount('notArchivedSites as sites_count')
+                ->withCount('archivedSites as archived_sites_count')
+                ->withCount(['sites as live_sites_count' => function ($q) {
+                    $q->notArchived()->where('active', 1);
                 }])
+                ->when(
+                    empty($staffSiteFilters['empty_publishers']) && ! $needsReviewFilter && ! $waitingOnPublisherFilter,
+                    function ($publishers) use ($staffSiteFilters) {
+                        $publishers->whereHas('sites', function ($sites) use ($staffSiteFilters) {
+                            $this->applyStaffSitesArchiveScope($sites, $staffSiteFilters);
+                        });
+                    }
+                )
                 ->withCount(['sites as needs_review_sites_count' => function ($q) use ($reviewQueue, $reviewListNarrows, $narrowQueueSites) {
                     $reviewQueue($q);
                     if ($reviewListNarrows) {
@@ -385,13 +397,16 @@ class SiteController extends Controller
             };
 
             $users = $query;
-            if ($needsReviewFilter || $waitingOnPublisherFilter) {
+            $publisherSort = (string) ($staffSiteFilters['sort'] ?? '');
+            if ($publisherSort !== '' && ! in_array($publisherSort, ['newest', 'oldest', 'price', 'traffic', 'da'], true)) {
+                $this->applyStaffPublishersListSort($users, $publisherSort);
+            } elseif ($needsReviewFilter || $waitingOnPublisherFilter) {
                 $users = $users
                     ->orderByDesc($waitingOnPublisherFilter ? $waitingSort : 'needs_review_sites_count')
                     ->orderByDesc('sites_count')
                     ->orderBy('name');
             } else {
-                $users = $users->orderByDesc('id');
+                $this->applyStaffPublishersListSort($users, $publisherSort);
             }
             $users = $users
                 ->paginate($this->staffListPerPage($request, 20), ['*'], 'page', $this->staffListPage($request))
@@ -446,6 +461,7 @@ class SiteController extends Controller
             'sitesExportLimited',
             'sitesExportUrl',
             'archivedListCount',
+            'nonArchivedListCount',
             'staffSiteFilters',
             'listingTagOptions',
             'marketplaceCountries',
@@ -2238,6 +2254,7 @@ class SiteController extends Controller
             'archived' => $this->requestFlag($request, 'archived'),
             'waiting_stage' => MarketingOpsQueues::normalizeWaitingStage($request->query('waiting_stage', $request->input('waiting_stage'))) ?? '',
             'sort' => $this->staffSitesListSortKey($request->query('sort', $request->input('sort'))),
+            'empty_publishers' => $this->requestFlag($request, 'empty_publishers'),
         ];
     }
 
@@ -2296,7 +2313,10 @@ class SiteController extends Controller
     {
         $value = is_string($sort) ? trim($sort) : '';
 
-        return in_array($value, ['newest', 'oldest', 'price', 'traffic', 'da'], true)
+        return in_array($value, [
+            'newest', 'oldest', 'price', 'traffic', 'da',
+            'name', 'email', 'country', 'sites', 'live', 'review', 'joined', 'last_active',
+        ], true)
             ? $value
             : '';
     }
@@ -2483,6 +2503,29 @@ class SiteController extends Controller
     }
 
     /**
+     * @param  Builder<User>  $query
+     */
+    private function applyStaffPublishersListSort($query, string $sort): void
+    {
+        $key = $this->staffSitesListSortKey($sort);
+        match ($key) {
+            'name' => $query->orderBy('name')->orderByDesc('id'),
+            'email' => $query->orderBy('email')->orderByDesc('id'),
+            'country' => $this->usersHaveColumn('country')
+                ? $query->orderByRaw('CASE WHEN country IS NULL OR country = \'\' THEN 1 ELSE 0 END')->orderBy('country')->orderByDesc('id')
+                : $query->orderByDesc('id'),
+            'sites' => $query->orderByDesc('sites_count')->orderBy('name'),
+            'live' => $query->orderByDesc('live_sites_count')->orderByDesc('sites_count')->orderBy('name'),
+            'review' => $query->orderByDesc('needs_review_sites_count')->orderByDesc('sites_count')->orderBy('name'),
+            'joined', 'oldest' => $query->orderBy('created_at')->orderBy('id'),
+            'last_active' => $this->usersHaveColumn('last_seen_at')
+                ? $query->orderByRaw('CASE WHEN last_seen_at IS NULL THEN 1 ELSE 0 END')->orderByDesc('last_seen_at')->orderByDesc('id')
+                : $query->orderByDesc('id'),
+            default => $query->orderByDesc('id'),
+        };
+    }
+
+    /**
      * @param  Builder<Site>  $query
      */
     private function applyStaffSitesListSort($query, string $sort, string $default, ?int $pinId = null): void
@@ -2634,6 +2677,7 @@ class SiteController extends Controller
                 ]),
                 'scanFailedListCount' => $this->staffSitesFilterTotal(['scan_failed' => true]),
                 'archivedListCount' => $this->staffSitesFilterTotal(['archived' => true]),
+                'nonArchivedListCount' => $this->staffSitesFilterTotal([]),
                 'healthCounts' => $healthCounts,
                 'missingMarketCount' => (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0),
             ];
@@ -3372,6 +3416,8 @@ class SiteController extends Controller
             $userUrl = null;
         }
 
+        $sitesCount = (int) $publisher->sites()->notArchived()->count();
+
         return response()->json([
             'domains' => $domains,
             'total' => $total,
@@ -3380,11 +3426,161 @@ class SiteController extends Controller
                 'name' => $publisher->name,
                 'email' => $publisher->email,
                 'verified' => $publisher->hasVerifiedEmail(),
-                'sites_count' => $total,
+                'sites_count' => $sitesCount,
             ],
             'sites_url' => staff_route('sites.index', ['publisher' => $publisher->id], false),
             'user_url' => $userUrl,
         ]);
+    }
+
+    public function exportPublishers(Request $request): StreamedResponse
+    {
+        $publishers = $this->selectedStaffPublishers($request);
+
+        ActivityLogger::tryLog(
+            'publishers.exported',
+            ($request->user()?->name ?? 'Staff').' exported publishers ('.$publishers->count().' row(s)).',
+            null,
+            ['rows_exported' => $publishers->count()]
+        );
+
+        $filename = 'publishers-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($publishers) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'id',
+                'name',
+                'email',
+                'country',
+                'sites',
+                'live',
+                'in_review',
+                'archived',
+                'joined',
+                'last_active',
+            ]);
+            foreach ($publishers as $publisher) {
+                fputcsv($out, [
+                    $this->csvCell($publisher->id),
+                    $this->csvCell($publisher->name),
+                    $this->csvCell($publisher->email),
+                    $this->csvCell($publisher->country),
+                    $this->csvCell((int) ($publisher->sites_count ?? 0)),
+                    $this->csvCell((int) ($publisher->live_sites_count ?? 0)),
+                    $this->csvCell((int) ($publisher->needs_review_sites_count ?? 0)),
+                    $this->csvCell((int) ($publisher->archived_sites_count ?? 0)),
+                    $this->csvCell(optional($publisher->created_at)?->toDateString()),
+                    $this->csvCell(optional($publisher->last_seen_at)?->toIso8601String()),
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function archiveInactivePublishers(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can archive inactive listings.',
+            ], 403);
+        }
+
+        $publishers = $this->selectedStaffPublishers($request);
+        if ($publishers->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Select at least one publisher.',
+            ], 422);
+        }
+
+        $archived = 0;
+        $skipped = 0;
+        foreach ($publishers as $publisher) {
+            $sites = Site::query()
+                ->where('publisher_id', $publisher->id)
+                ->notArchived()
+                ->where(function ($q) {
+                    $q->where('active', 0)->orWhereNull('active');
+                })
+                ->get();
+            foreach ($sites as $site) {
+                if ($site->orderItemsCount() > 0) {
+                    $skipped++;
+
+                    continue;
+                }
+                try {
+                    if (! $site->archiveByStaff('Inactive listing archived by staff.')) {
+                        $skipped++;
+
+                        continue;
+                    }
+                    $archived++;
+                    ActivityLogger::tryLog(
+                        'site.archived',
+                        ($user->name ?? 'Staff').' archived inactive "'.$site->site_name.'"',
+                        $site,
+                        [
+                            'site_id' => $site->id,
+                            'publisher_id' => $publisher->id,
+                            'quiet' => true,
+                            'bulk_inactive' => true,
+                        ],
+                        $site->site_name
+                    );
+                } catch (\Throwable $e) {
+                    report($e);
+                    $skipped++;
+                }
+            }
+        }
+
+        StaffSitesIndexCounts::forget();
+
+        return response()->json([
+            'success' => true,
+            'archived' => $archived,
+            'skipped' => $skipped,
+            'message' => $archived === 0
+                ? 'No inactive listings were archived.'.($skipped > 0 ? ' '.$skipped.' skipped (orders or already archived).' : '')
+                : $archived.' inactive listing'.($archived === 1 ? '' : 's').' archived. Publishers were not notified.'
+                    .($skipped > 0 ? ' '.$skipped.' skipped.' : ''),
+        ]);
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function selectedStaffPublishers(Request $request)
+    {
+        $ids = collect($request->input('ids', $request->query('ids', [])))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->take(200)
+            ->values()
+            ->all();
+
+        if ($ids === []) {
+            return collect();
+        }
+
+        return User::query()
+            ->whereIn('id', $ids)
+            ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
+            ->withCount('notArchivedSites as sites_count')
+            ->withCount('archivedSites as archived_sites_count')
+            ->withCount(['sites as live_sites_count' => function ($q) {
+                $q->notArchived()->where('active', 1);
+            }])
+            ->withCount(['sites as needs_review_sites_count' => function ($q) {
+                $q->needsAdminReview()->notArchived();
+            }])
+            ->orderBy('name')
+            ->get();
     }
 
     public function searchPublishers(Request $request): JsonResponse
@@ -3394,7 +3590,7 @@ class SiteController extends Controller
 
         $query = $this->staffAssignPublisherBaseQuery()
             ->whereEmailVerified()
-            ->withCount('sites');
+            ->withCount('notArchivedSites as sites_count');
 
         if ($q !== '') {
             $like = like_contains($q);
@@ -3414,7 +3610,7 @@ class SiteController extends Controller
         if ($selectedId > 0 && ! $rows->contains(fn (User $user) => (int) $user->id === $selectedId)) {
             $selected = $this->staffAssignPublisherBaseQuery()
                 ->whereKey($selectedId)
-                ->withCount('sites')
+                ->withCount('notArchivedSites as sites_count')
                 ->first();
             if ($selected) {
                 $rows = $rows->prepend($selected);
@@ -5106,7 +5302,7 @@ class SiteController extends Controller
                     $q->orWhere('id', $selectedPublisherId);
                 }
             })
-            ->withCount('sites')
+            ->withCount('notArchivedSites as sites_count')
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'email_verified_at']);
     }
@@ -5140,7 +5336,7 @@ class SiteController extends Controller
 
         return $this->staffAssignPublisherBaseQuery()
             ->whereKey($selectedPublisherId)
-            ->withCount('sites')
+            ->withCount('notArchivedSites as sites_count')
             ->get();
     }
 

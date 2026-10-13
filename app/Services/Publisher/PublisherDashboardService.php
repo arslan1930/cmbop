@@ -425,7 +425,7 @@ class PublisherDashboardService
                 return 0;
             }
 
-            return Site::where('publisher_id', $userId)->count();
+            return Site::where('publisher_id', $userId)->notArchived()->count();
         });
         $unverified = $this->safeInt(function () use ($userId) {
             if (! $this->schemaHasColumn('sites', 'publisher_id') || ! Site::hasSitesColumn('verified')) {
