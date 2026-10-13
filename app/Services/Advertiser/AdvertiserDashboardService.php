@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Services\Catalog\SiteUrlVisibility;
 use App\Services\ContentUpload\ScheduledOrderService;
-use App\Services\PlatformFeeService;
 use App\Services\Wallet\WalletOverviewService;
 use App\Support\AdvertiserOrderStatus;
 use Illuminate\Support\Collection;
@@ -26,7 +25,6 @@ class AdvertiserDashboardService
         private AdvertiserSpendService $spend,
         private SpendBudgetService $budgets,
         private WalletOverviewService $walletOverview,
-        private PlatformFeeService $fees,
         private ScheduledOrderService $scheduler,
     ) {}
 
@@ -343,8 +341,13 @@ class AdvertiserDashboardService
             ->orderByDesc('traffic')
             ->take(3)
             ->get()
-            ->map(function ($site) {
-                $site->display_price = $this->fees->advertiserBase((float) $site->price);
+            ->map(function ($site) use ($user) {
+                // Same pay figure the catalog paints (publisher base + hidden
+                // fee, then sale ?? list). Do not mark up $site->price again —
+                // that path skipped catalogPricesForViewer and could show the
+                // pre-sale list or a double fee if price was already marked up.
+                $viewPrices = $site->catalogPricesForViewer($user);
+                $site->display_price = $viewPrices['sale'] ?? $viewPrices['list'];
 
                 return $site;
             });

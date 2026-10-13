@@ -70,12 +70,23 @@ class VisitorSupportChatTest extends TestCase
         config(['services.support_chat.enabled' => true]);
 
         $advertiser = $this->userWithRole('advertiser');
-        $this->actingAs($advertiser)
+        $html = $this->actingAs($advertiser)
             ->get(route('advertiser.dashboard'))
             ->assertOk()
             ->assertSee('id="slbLiveChat"', false)
             ->assertSee('How do I place an order?', false)
-            ->assertDontSee('embed.tawk.to', false);
+            ->assertSee('data-slb-open-support', false)
+            ->assertDontSee('embed.tawk.to', false)
+            ->getContent();
+
+        $this->assertStringContainsString('data-slb-open-support', $html);
+
+        $js = (string) file_get_contents(public_path('js/visitor-support-chat.js'));
+        $this->assertStringContainsString('slb-live-chat--inpage', $js);
+        $this->assertStringContainsString('[data-slb-open-support]', $js);
+
+        $css = (string) file_get_contents(public_path('assets/css/visitor-support-chat.css'));
+        $this->assertStringContainsString('body:has([data-slb-open-support]) .slb-live-chat__launcher', $css);
     }
 
     public function test_publisher_dashboard_renders_first_party_widget(): void

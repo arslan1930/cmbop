@@ -218,6 +218,7 @@ class UiConsistencyGuardTest extends TestCase
     {
         $css = file_get_contents(public_path('assets/css/app-shell.css'));
         $this->assertStringContainsString('--shell-footer-clearance:', $css);
+        $this->assertStringContainsString('--shell-topbar-offset:', $css);
         $this->assertStringContainsString('padding: 28px 28px var(--shell-footer-clearance)', $css);
         $this->assertStringContainsString('.dash-recent-col', $css);
         $this->assertStringContainsString('.dash-page-end', $css);
@@ -230,6 +231,10 @@ class UiConsistencyGuardTest extends TestCase
         );
         $this->assertStringContainsString('col-lg-8 dash-recent-col', $advertiser);
         $this->assertStringContainsString('dash-page-end', $advertiser);
+        $this->assertStringContainsString('align-self: start', $advertiser);
+        $this->assertStringContainsString('flex: 0 0 auto', $advertiser);
+        $this->assertStringContainsString('View all orders', $advertiser);
+        $this->assertStringNotContainsString("site_name ?? '—'", $advertiser);
 
         $publisher = file_get_contents(resource_path('views/publisher/dashboard.blade.php'));
         $this->assertStringContainsString('container-fluid dash-page-end', $publisher);

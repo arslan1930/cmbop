@@ -505,6 +505,25 @@
   }
 
   initLauncherLottie();
+  var inpageTriggers = document.querySelectorAll('[data-slb-open-support]');
+  if (inpageTriggers.length) {
+    root.classList.add('slb-live-chat--inpage');
+    if (launcher) {
+      launcher.hidden = true;
+      launcher.setAttribute('aria-hidden', 'true');
+    }
+    inpageTriggers.forEach(function (el) {
+      el.addEventListener('click', function (event) {
+        event.preventDefault();
+        if (typeof window.slbOpenSupport === 'function') {
+          window.slbOpenSupport();
+          return;
+        }
+        if (openTawk()) return;
+        openChat();
+      });
+    });
+  }
   if (launcher) launcher.addEventListener('click', toggleChat);
   if (closer) closer.addEventListener('click', closeChat);
   if (chipsEl) {
