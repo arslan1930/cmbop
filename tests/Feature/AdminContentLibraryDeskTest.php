@@ -181,6 +181,7 @@ class AdminContentLibraryDeskTest extends TestCase
             'site_name' => $site->site_name,
             'site_url' => $site->site_url,
             'price' => 40,
+            'content_link' => 'https://example.com/article.docx',
             'content_submission_id' => $attached->id,
         ]);
         $attached->update([

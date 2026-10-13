@@ -81,8 +81,12 @@ class SwissMoneyLanderTest extends TestCase
         $this->assertStringContainsString('Marktplatz für Gastbeiträge in der Schweiz | SEOLinkBuildings', $home);
         $this->assertStringContainsString('Schweizer Marktplatz für Gastbeiträge, Backlinks und Linkbuilding.', $home);
         $this->assertStringContainsString('/ch/gastbeitrag-kaufen', $home);
-        $this->assertStringContainsString('weiss jeder', $home);
         $this->assertStringNotContainsString('weiß', $home);
+        // Homepage testimonials were removed (8250b5fd). Swiss ss still lives in the CH overlay
+        // and must not fall back to German ß if those strings are rendered again.
+        $chMessages = require resource_path('lang/ch/messages.php');
+        $this->assertStringContainsString('weiss jeder', (string) ($chMessages['testimonial_4_text'] ?? ''));
+        $this->assertStringNotContainsString('ß', implode("\n", $chMessages));
         $this->assertStringNotContainsString('Publisher-Marktplatz für Gastbeiträge | SEOLinkBuildings', $home);
         $this->assertStringNotContainsString('Gastbeitrag kaufen in Deutschland | SEOLinkBuildings', $home);
 

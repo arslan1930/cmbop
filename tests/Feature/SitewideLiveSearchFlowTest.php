@@ -187,6 +187,13 @@ class SitewideLiveSearchFlowTest extends TestCase
         ];
         foreach ($ajax as $path) {
             $body = (string) file_get_contents($path);
+            // Admin Orders uses the shared search field; chrome lives in that component.
+            if (str_contains($body, '<x-slb-search-field')) {
+                $this->assertStringContainsString('<x-slb-search-field', $body, basename($path));
+                $this->assertStringNotContainsString('visually-hidden" role="status"', $body, basename($path));
+
+                continue;
+            }
             $this->assertStringContainsString('slb-search-wrap', $body, basename($path));
             $this->assertStringContainsString('slb-search-clear', $body, basename($path));
             $this->assertStringContainsString('form-text slb-search-status', $body, basename($path));

@@ -70,6 +70,7 @@ class ActionConfirmDialogsTest extends TestCase
             resource_path('views/admin/content-library/results.blade.php') => 'data-slb-confirm="Restore the selected archived articles?',
             resource_path('views/admin/campaigns/index.blade.php') => 'data-slb-confirm="Send this campaign',
             resource_path('views/admin/bulk-site-requests/show.blade.php') => "title: 'Cancel bulk request?'",
+            resource_path('views/advertiser/api/index.blade.php') => 'data-slb-confirm="Revoke this key?',
         ];
 
         foreach ($cases as $path => $needle) {
@@ -105,5 +106,7 @@ class ActionConfirmDialogsTest extends TestCase
         $this->assertStringContainsString('slbBulkAllowSubmit', $html);
         $this->assertStringContainsString('bulkDoneForm', $html);
         $this->assertStringNotContainsString('form.dataset.slbAllowSubmit', $html);
+        $this->assertStringContainsString("title: 'Archive this draft?'", $html);
+        $this->assertStringContainsString('slbConfirm({', $html);
     }
 }

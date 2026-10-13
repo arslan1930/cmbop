@@ -2185,19 +2185,14 @@ document.querySelectorAll('.bulk-draft-archive').forEach(function (btn) {
     btn.addEventListener('click', async function () {
         const id = this.getAttribute('data-site-id');
         const name = this.getAttribute('data-site-name') || 'this site';
-        if (window.Swal && typeof window.Swal.fire === 'function') {
-            const result = await window.Swal.fire({
-                title: 'Archive this draft?',
-                text: '"' + name + '" will leave Draft sites and stay hidden from the catalog. The publisher is not notified.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Archive',
-                customClass: { confirmButton: 'slb-swal-danger' },
-            });
-            if (!result.isConfirmed) {
-                return;
-            }
-        } else if (!window.confirm('Archive draft "' + name + '"? The publisher is not notified.')) {
+        const ok = await slbConfirm({
+            title: 'Archive this draft?',
+            text: '"' + name + '" will leave Draft sites and stay hidden from the catalog. The publisher is not notified.',
+            icon: 'warning',
+            confirmText: 'Archive',
+            danger: true,
+        });
+        if (!ok) {
             return;
         }
 

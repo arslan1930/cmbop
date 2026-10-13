@@ -128,7 +128,12 @@
                                     <td class="font-monospace">{{ $token->token_prefix }}…</td>
                                     <td class="small text-muted">{{ $token->last_used_at?->diffForHumans() ?? 'Never' }}</td>
                                     <td class="text-end">
-                                        <form method="POST" action="{{ route('advertiser.api.destroy', $token) }}" onsubmit="return confirm('Revoke this key?');">
+                                        <form method="POST"
+                                              action="{{ route('advertiser.api.destroy', $token) }}"
+                                              data-slb-confirm="Revoke this key? It stops working immediately."
+                                              data-slb-confirm-title="Revoke API key?"
+                                              data-slb-confirm-text="Revoke key"
+                                              data-slb-confirm-danger="1">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>

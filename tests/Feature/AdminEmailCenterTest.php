@@ -25,6 +25,7 @@ use App\Models\SiteClaim;
 use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Models\Withdrawal;
+use App\Support\AdminEmails;
 use App\Support\EmailCatalog;
 use App\Support\MailJobPayload;
 use Illuminate\Contracts\Queue\Job;
@@ -362,7 +363,7 @@ class AdminEmailCenterTest extends TestCase
                 'template' => 'welcome',
                 'email' => $admin->email,
             ])
-            ->assertRedirect(route('admin.emails.index', [
+            ->assertRedirect(AdminEmails::listUrl([
                 'to_email' => $admin->email,
                 'template_key' => 'welcome',
             ]))
@@ -755,7 +756,7 @@ class AdminEmailCenterTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Delivered Today', $html);
+        $this->assertStringContainsString('Delivered today', $html);
         preg_match_all('/<div class="value[^"]*">\s*([0-9,]+)\s*<\/div>/', $html, $matches);
         $values = array_map(fn ($v) => (int) str_replace(',', '', $v), $matches[1] ?? []);
         $this->assertSame([3, 1, 1, 1], $values);
@@ -3478,11 +3479,11 @@ class AdminEmailCenterTest extends TestCase
             ->assertSee('Campaigns', false)
             ->assertSee('Audiences', false)
             ->assertSee('Queue health', false)
-            ->assertSee('Mail queue:', false)
+            ->assertSee('Mail queue name:', false)
             ->assertSee('Auto-drain:', false)
             ->assertSee('queue:work --queue=default,emails', false)
             ->assertSee('Encryption', false)
-            ->assertSee('SMTP delivered ≠ inbox', false)
+            ->assertSee('SMTP accepted ≠ inbox', false)
             ->assertSee('No failed sends in the log', false)
             ->assertSee('Send test to me', false)
             ->assertSee('data-ec-critical="welcome,order_status_changed,publisher_new_order,deposit_approved,admin_stalled_order"', false)

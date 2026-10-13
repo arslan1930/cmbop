@@ -17,6 +17,11 @@ use Illuminate\Support\Env;
  * every test. Recreate a minimal .env.testing when it is absent (Cloud
  * snapshots and fresh checkouts without .env).
  */
+// Dompdf invoice generation plus a long suite OOMs at the CLI default (512M).
+if (function_exists('ini_set')) {
+    ini_set('memory_limit', '1024M');
+}
+
 $base = dirname(__DIR__);
 foreach ([
     'APP_ENV' => 'testing',
