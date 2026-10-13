@@ -260,6 +260,7 @@ class MarketingSitesIndexTest extends TestCase
 
         $this->assertStringContainsString('Last active', $html);
         $this->assertStringContainsString('Joined', $html);
+        $this->assertStringContainsString('Showing', $html);
         $this->assertTrue(
             str_contains($html, 'France') || str_contains($html, 'FR') || str_contains($html, 'fr'),
             'Publisher country should render'
@@ -426,6 +427,8 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertStringContainsString('QUALITY_MIN_DA', $html);
         $this->assertStringContainsString('sitesPerPage', $html);
         $this->assertStringContainsString('staff-sites-strip', $html);
+        $this->assertStringContainsString('data-staff-filter-autosubmit="1"', $html);
+        $this->assertStringContainsString('More filters', $html);
         $this->assertStringNotContainsString("}).then(() => {\n                toast('Deleted successfully');", $html);
     }
 
@@ -816,5 +819,50 @@ class MarketingSitesIndexTest extends TestCase
             $row['listed_date'] ?? null
         );
         $this->assertNotEmpty($row['created_at'] ?? null);
+    }
+
+    public function test_publisher_bulk_export_csv_and_quiet_archive_inactive(): void
+    {
+        $publisher = $this->userWithRole('publisher', [
+            'name' => 'Bulk Export Publisher',
+            'email' => 'bulk-export-publisher@example.test',
+        ]);
+        $inactive = $this->makeSite($publisher, [
+            'domain' => 'bulk-inactive.example',
+            'verified' => true,
+            'active' => false,
+        ]);
+        $live = $this->makeSite($publisher, [
+            'domain' => 'bulk-live.example',
+            'verified' => true,
+            'active' => true,
+        ]);
+
+        $csv = $this->actingAs($this->admin)
+            ->get(route('admin.sites.publishers-export', ['ids' => [$publisher->id]]))
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8')
+            ->streamedContent();
+
+        $this->assertStringContainsString('bulk-export-publisher@example.test', $csv);
+        $this->assertStringContainsString('name,email', str_replace('"', '', $csv));
+
+        $this->actingAs($this->marketer)
+            ->postJson(route('marketing.sites.publishers-archive-inactive'), [
+                'ids' => [$publisher->id],
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($this->admin)
+            ->postJson(route('admin.sites.publishers-archive-inactive'), [
+                'ids' => [$publisher->id],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('archived', 1);
+
+        $this->assertNotNull($inactive->fresh()->archived_at);
+        $this->assertNull($live->fresh()->archived_at);
+        $this->assertSame(1, $publisher->sites()->notArchived()->count());
     }
 }

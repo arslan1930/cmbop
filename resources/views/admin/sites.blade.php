@@ -458,6 +458,14 @@
             </div>
             @include('admin.sites.partials.list-filters', ['mode' => 'publishers'])
 
+            <div class="px-3 py-2 border-bottom d-flex flex-wrap gap-2 align-items-center" id="publisherBulkBar">
+                <span class="small text-muted" id="publisherBulkCount">0 selected</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="publisherBulkExport" disabled>Export CSV</button>
+                @if(auth()->user()?->isAdmin())
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="publisherBulkArchiveInactive" disabled>Archive inactive</button>
+                @endif
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
 
@@ -472,6 +480,9 @@
                     @endphp
                     <thead class="table-light">
                         <tr>
+                            <th class="admin-check-col">
+                                <input type="checkbox" class="form-check-input" id="publisherSelectAll" aria-label="Select all publishers on this page">
+                            </th>
                             <th><a class="{{ $publisherSortClass('name') }}" href="{{ $publisherSortUrl('name') }}">Name</a></th>
                             <th><a class="{{ $publisherSortClass('email') }}" href="{{ $publisherSortUrl('email') }}">Email</a></th>
                             <th><a class="{{ $publisherSortClass('country') }}" href="{{ $publisherSortUrl('country') }}">Country</a></th>
@@ -520,6 +531,9 @@
                             $matchedCount = (int) ($user->matched_sites_count ?? 0);
                         @endphp
                         <tr class="user-row select-user" data-id="{{ $user->id }}" style="height:60px; cursor:pointer;">
+                            <td>
+                                <input type="checkbox" class="form-check-input publisher-row-check" value="{{ $user->id }}" aria-label="Select {{ $user->name }}">
+                            </td>
                             <td class="fw-semibold" data-publisher-name="{{ $user->name }}">
                                 <span class="staff-publisher-name">
                                     @if($needsReviewCount > 0)
@@ -600,7 +614,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">
+                            <td colspan="8" class="text-center text-muted py-4">
                                 @if($publisherSearch !== '' || count($listQuery) > 0)
                                     Nothing matches these filters.
                                     <a href="{{ staff_route('sites.index') }}">Clear filters</a>
@@ -1560,6 +1574,10 @@ async function submitSiteUpdate(siteId, updateData) {
 
 /* ================= EVENTS ================= */
 document.addEventListener('click', function(e){
+
+    if (e.target.closest('.publisher-row-check, #publisherSelectAll, #publisherBulkBar')) {
+        return;
+    }
 
     const btn = e.target.closest('.select-user');
     if(btn){
@@ -3195,6 +3213,120 @@ document.addEventListener('click', function (e) {
         .catch(() => toast('Could not activate site', 'error'));
     });
 });
+
+(function () {
+    var checks = function () {
+        return Array.prototype.slice.call(document.querySelectorAll('.publisher-row-check'));
+    };
+    var selectedIds = function () {
+        return checks().filter(function (box) { return box.checked; }).map(function (box) { return box.value; });
+    };
+    var countEl = document.getElementById('publisherBulkCount');
+    var exportBtn = document.getElementById('publisherBulkExport');
+    var archiveBtn = document.getElementById('publisherBulkArchiveInactive');
+    var selectAll = document.getElementById('publisherSelectAll');
+
+    function syncBulk() {
+        var ids = selectedIds();
+        if (countEl) {
+            countEl.textContent = ids.length + ' selected';
+        }
+        if (exportBtn) {
+            exportBtn.disabled = ids.length === 0;
+        }
+        if (archiveBtn) {
+            archiveBtn.disabled = ids.length === 0;
+        }
+        if (selectAll) {
+            var all = checks();
+            selectAll.checked = all.length > 0 && all.every(function (box) { return box.checked; });
+        }
+    }
+
+    document.addEventListener('change', function (event) {
+        if (event.target && event.target.classList.contains('publisher-row-check')) {
+            syncBulk();
+        }
+    });
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            checks().forEach(function (box) { box.checked = selectAll.checked; });
+            syncBulk();
+        });
+    }
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function () {
+            var ids = selectedIds();
+            if (!ids.length) return;
+            var url = new URL(STAFF_BASE + '/sites/publishers/export', window.location.origin);
+            ids.forEach(function (id) { url.searchParams.append('ids[]', id); });
+            window.location.assign(url.pathname + url.search);
+        });
+    }
+    if (archiveBtn) {
+        archiveBtn.addEventListener('click', function () {
+            var ids = selectedIds();
+            if (!ids.length) return;
+            if (!window.confirm('Archive inactive listings for ' + ids.length + ' selected publisher' + (ids.length === 1 ? '' : 's') + '? Live sites stay. Publishers will not be emailed.')) {
+                return;
+            }
+            fetch(STAFF_BASE + '/sites/publishers/archive-inactive', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ ids: ids.map(function (id) { return parseInt(id, 10); }) }),
+            })
+            .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+            .then(function (result) {
+                toast((result.data && result.data.message) || (result.ok ? 'Archived.' : 'Could not archive inactive listings'), result.ok ? 'success' : 'error');
+                if (result.ok) {
+                    window.location.reload();
+                }
+            })
+            .catch(function () { toast('Could not archive inactive listings', 'error'); });
+        });
+    }
+    syncBulk();
+})();
+
+(function () {
+    var debounceMs = 350;
+    document.querySelectorAll('form[data-staff-filter-autosubmit="1"]').forEach(function (form) {
+        var timer = null;
+        function submitForm() {
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+        }
+        form.addEventListener('change', function (event) {
+            var target = event.target;
+            if (!target || !target.name || target.name === 'per_page') {
+                return;
+            }
+            if (target.matches('input[data-slb-live-search]')) {
+                return;
+            }
+            submitForm();
+        });
+        form.addEventListener('input', function (event) {
+            var target = event.target;
+            if (!target || !target.matches('input[type="number"]')) {
+                return;
+            }
+            if (timer) {
+                clearTimeout(timer);
+            }
+            timer = setTimeout(submitForm, debounceMs);
+        });
+    });
+})();
 </script>
 
 @endsection

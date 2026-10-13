@@ -6,9 +6,29 @@
     $languages = $marketplaceLanguages ?? collect();
     $niches = $nicheOptions ?? [];
     $getForm = in_array($mode, ['flat', 'all', 'publishers'], true);
+    $moreFilterKeys = [
+        'tag', 'language', 'niche', 'listing_active', 'listing_verified', 'metrics_age',
+        'price_min', 'price_max', 'traffic_min', 'da_min',
+    ];
+    $moreFilterFlags = [
+        'below_quality', 'ready_to_activate', 'missing_market', 'placeholder', 'missing_cover',
+        'bulk_request', 'scan_failed', 'copy_strike', 'has_orders', 'featured', 'bulk_discount',
+        'csv_metrics', 'archived',
+    ];
+    $moreFilterCount = 0;
+    foreach ($moreFilterKeys as $moreKey) {
+        if (($filters[$moreKey] ?? null) !== null && ($filters[$moreKey] ?? '') !== '') {
+            $moreFilterCount++;
+        }
+    }
+    foreach ($moreFilterFlags as $moreFlag) {
+        if (! empty($filters[$moreFlag])) {
+            $moreFilterCount++;
+        }
+    }
 @endphp
 @if($getForm)
-<form method="GET" action="{{ staff_route('sites.index') }}" class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2 px-3 py-2 border-bottom bg-white" id="staff{{ ucfirst($mode) }}Filters">
+<form method="GET" action="{{ staff_route('sites.index') }}" class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2 px-3 py-2 border-bottom bg-white" id="staff{{ ucfirst($mode) }}Filters" data-staff-filter-autosubmit="1">
 @else
 <div class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2 mb-2" id="staffPublisherFilters" data-staff-publisher-filters="1" data-admin-filter-live="1">
 @endif
@@ -79,7 +99,12 @@
         </select>
     </label>
     <details class="staff-site-filters-more">
-        <summary class="small text-muted">More filters</summary>
+        <summary class="small text-muted">
+            More filters
+            @if($moreFilterCount > 0)
+                <span class="badge text-bg-secondary ms-1" title="{{ $moreFilterCount }} extra {{ $moreFilterCount === 1 ? 'filter' : 'filters' }} on">{{ $moreFilterCount }}</span>
+            @endif
+        </summary>
         <div class="d-flex flex-wrap align-items-end gap-2 mt-2">
     <label class="small mb-0">
         Tag
