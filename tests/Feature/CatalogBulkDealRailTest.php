@@ -144,9 +144,11 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertStringContainsString('Bulk Deal Site 1', $html);
         $this->assertStringContainsString('bulk-deal-card__url', $html);
         $this->assertStringContainsString('rel="noopener nofollow"', $html);
-        $this->assertStringNotContainsString('bulk-deal-card__tld', $html);
+        $this->assertStringNotContainsString('class="bulk-deal-card__tld"', $html);
         $this->assertStringContainsString('data-bulk-deal-card', $html);
         $this->assertStringContainsString('data-bulk-remember="catalog.bulkDeals.collapsed"', $html);
+        $this->assertStringContainsString('id="catalog-bulk-tip-guard"', $html);
+        $this->assertStringContainsString('.bulk-deal-card__tld{display:none!important}', $html);
         $this->assertMatchesRegularExpression(
             '/data-bulk-search-text="[^"]*bulk deal site 1[^"]*https:\/\/bulk-deal-1\.example[^"]*\.example/',
             $html

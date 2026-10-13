@@ -31,6 +31,18 @@
         .catalog-page .catalog-country__flag{font-size:22px;line-height:1}
         .catalog-page .catalog-table tbody td,
         .catalog-page .catalog-table tbody td.catalog-stat-cell{vertical-align:middle}
+        /* Deal cards: survive a stale CDN catalog.css / leftover compiled Blade. */
+        .catalog-page .bulk-deal-card__tld{display:none!important}
+        .catalog-page .catalog-bulk-section .bulk-deal-card:hover,
+        .catalog-page .catalog-bulk-section .bulk-deal-card:focus-within{
+            box-shadow:0 0 0 3px rgba(26,88,94,.14)!important;
+            transform:none!important
+        }
+    </style>
+    <style id="catalog-bulk-tip-guard">
+        /* Glass-tip sat on the host + discount when it adopted the URL title. */
+        body:has(.bulk-deal-card:hover) .glass-tip,
+        body:has(.bulk-deal-card:focus-within) .glass-tip{display:none!important}
     </style>
 @endpush
 
