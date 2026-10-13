@@ -117,7 +117,46 @@
             </div>
             </div>
         </div>
-        <div class="admin-sites-header__actions d-flex flex-wrap gap-2">
+        <div class="admin-sites-header__actions">
+            @php
+                $archivedFilterOn = ! empty($allSitesMode) && ! empty($staffSiteFilters['archived']);
+                $allSitesTabOn = ! empty($allSitesMode) && empty($staffSiteFilters['ready_to_activate']) && empty($staffSiteFilters['archived']);
+                $publishersTabOn = empty($allSitesMode)
+                    && empty($needsReviewFilterActive)
+                    && empty($waitingOnPublisherFilterActive)
+                    && empty($flatQueue);
+                $archivedChipQuery = array_filter([
+                    'all' => 1,
+                    'archived' => 1,
+                    'q' => $publisherSearch !== '' ? $publisherSearch : null,
+                ]);
+            @endphp
+            <nav class="admin-sites-tabs" aria-label="Sites views">
+                <a href="{{ staff_route('sites.index', ['all' => 1]) }}"
+                   class="admin-sites-tabs__tab {{ $allSitesTabOn ? 'is-active' : '' }}"
+                   @if($allSitesTabOn) aria-current="page" @endif>All sites</a>
+                <a href="{{ staff_route('sites.index', ['publishers' => 1]) }}"
+                   class="admin-sites-tabs__tab {{ $publishersTabOn || !empty($publishersDirectory) ? 'is-active' : '' }}"
+                   @if($publishersTabOn || !empty($publishersDirectory)) aria-current="page" @endif>Publishers</a>
+                <a href="{{ $readyToActivateUrl }}"
+                   class="admin-sites-tabs__tab {{ $readyToActivateOn ? 'is-active' : '' }}"
+                   title="Verified, not live, meets the quality bar, and has a market country. Different from Needs review (submitted, not yet verified)."
+                   @if($readyToActivateOn) aria-current="page" @endif>
+                    Ready to activate
+                    @if(($readyToActivateCount ?? 0) > 0)
+                        <span class="badge {{ $readyToActivateOn ? 'text-bg-light text-dark' : 'text-bg-warning' }} ms-1">{{ $readyToActivateCount }}</span>
+                    @endif
+                </a>
+                <a href="{{ staff_route('sites.index', $archivedChipQuery) }}"
+                   class="admin-sites-tabs__tab {{ $archivedFilterOn ? 'is-active' : '' }}"
+                   @if($archivedFilterOn) aria-current="page" @endif>
+                    Archived
+                    @if(($archivedListCount ?? 0) > 0)
+                        <span class="badge {{ $archivedFilterOn ? 'text-bg-light text-dark' : 'text-bg-secondary' }} ms-1">{{ $archivedListCount }}</span>
+                    @endif
+                </a>
+            </nav>
+            <div class="admin-sites-header__buttons d-flex flex-wrap gap-2">
             @if(!empty($needsReviewFilterActive))
                 @if(!empty($flatQueue))
                     <a href="{{ staff_route('sites.index', array_filter(['needs_review' => 1] + $listQuery)) }}" class="btn btn-sm btn-outline-secondary">
@@ -145,56 +184,42 @@
                     </a>
                 @endif
             @endif
-            <a href="{{ staff_route('sites.index') }}"
-               class="btn btn-sm {{ empty($allSitesMode) && empty($needsReviewFilterActive) && empty($waitingOnPublisherFilterActive) && empty($flatQueue) ? 'btn-dark' : 'btn-outline-dark' }}">All sites</a>
-            <a href="{{ staff_route('sites.index', ['publishers' => 1]) }}"
-               class="btn btn-sm {{ !empty($publishersDirectory) ? 'btn-dark' : 'btn-outline-dark' }}">Publishers</a>
-            <a href="{{ $readyToActivateUrl }}"
-               class="btn btn-sm {{ $readyToActivateOn ? 'btn-warning' : 'btn-outline-warning' }}"
-               title="Verified, not live, meets the quality bar, and has a market country. Different from Needs review (submitted, not yet verified).">
-                Ready to activate
-                @if(($readyToActivateCount ?? 0) > 0)
-                    <span class="badge {{ $readyToActivateOn ? 'text-bg-light text-dark' : 'text-bg-warning' }} ms-1">{{ $readyToActivateCount }}</span>
-                @endif
-            </a>
-            @php
-                $archivedFilterOn = ! empty($staffSiteFilters['archived']);
-                $archivedChipQuery = array_filter([
-                    'all' => 1,
-                    'archived' => 1,
-                    'q' => $publisherSearch !== '' ? $publisherSearch : null,
-                ]);
-            @endphp
-            <a href="{{ staff_route('sites.index', $archivedChipQuery) }}"
-               class="btn btn-sm {{ $archivedFilterOn ? 'btn-dark' : 'btn-outline-secondary' }}">
-                Archived
-                @if(($archivedListCount ?? 0) > 0)
-                    <span class="badge {{ $archivedFilterOn ? 'text-bg-light text-dark' : 'text-bg-secondary' }} ms-1">{{ $archivedListCount }}</span>
-                @endif
-            </a>
-            @if(auth()->user()?->isAdmin())
-                <a href="{{ route('admin.sites.records', array_filter(['missing_market' => ($missingMarketCount ?? 0) > 0 ? 1 : null])) }}"
-                   class="btn btn-sm {{ ($missingMarketCount ?? 0) > 0 ? 'btn-outline-danger' : 'btn-outline-secondary' }}">
-                    <i class="fa fa-table me-1"></i> Websites records sheet
-                    @if(($missingMarketCount ?? 0) > 0)
-                        <span class="badge text-bg-danger ms-1 staff-catalog-count">{{ $missingMarketCount }} missing</span>
-                    @endif
-                </a>
-                <a href="{{ staff_route('site-enrichment.index') }}" class="btn btn-sm btn-outline-primary">
-                    Enrichment &amp; scan failures
-                </a>
-            @endif
             <a href="{{ staff_route('sites.create') }}" class="btn btn-sm btn-primary">
                 <i class="fa fa-plus me-1"></i> Add site for publisher
             </a>
-            <a href="{{ staff_route('sites.bulk-create') }}" class="btn btn-sm btn-outline-primary">
-                <i class="fa fa-layer-group me-1"></i> Add sites in bulk
-            </a>
-            @if(auth()->user()?->isAdmin())
-                <a href="{{ route('admin.sites.on-demand.index') }}" class="btn btn-sm btn-outline-primary">
-                    On-demand
-                </a>
-            @endif
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Actions
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item" href="{{ staff_route('sites.bulk-create') }}">
+                            <i class="fa fa-layer-group me-1"></i> Add sites in bulk
+                        </a>
+                    </li>
+                    @if(auth()->user()?->isAdmin())
+                        <li>
+                            <a class="dropdown-item" href="{{ staff_route('site-enrichment.index') }}">
+                                Enrichment &amp; scan failures
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{{ route('admin.sites.on-demand.index') }}">
+                                On-demand
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {{ ($missingMarketCount ?? 0) > 0 ? 'text-danger' : '' }}" href="{{ route('admin.sites.records', array_filter(['missing_market' => ($missingMarketCount ?? 0) > 0 ? 1 : null])) }}">
+                                Websites records sheet
+                                @if(($missingMarketCount ?? 0) > 0)
+                                    <span class="badge text-bg-danger ms-1">{{ $missingMarketCount }} missing</span>
+                                @endif
+                            </a>
+                        </li>
+                    @endif
+                </ul>
+            </div>
+            </div>
         </div>
     </div>
 
