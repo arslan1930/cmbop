@@ -662,7 +662,14 @@
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
                                     @php $depositPayment = config('billing.deposit_payment', []); @endphp
                                     <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #9333ea;">Bank Account Information</h4>
-                                    @include('partials.deposit-bank-account', ['depositPayment' => $depositPayment, 'showExtended' => false, 'showCopy' => true])
+                                    @include('partials.deposit-bank-account', [
+                                        'depositPayment' => $depositPayment,
+                                        'showExtended' => false,
+                                        'showCopy' => true,
+                                        'walletCurrency' => $checkoutWallet?->currency ?? null,
+                                        'eurAmount' => $total ?? null,
+                                        'showMethodSwitch' => true,
+                                    ])
                                 </div>
                             </div>
                         </div>
@@ -1503,6 +1510,22 @@ document.addEventListener('DOMContentLoaded', function() {
             if (paymentError) paymentError.style.display = 'none';
             refreshBonusUi();
         });
+    });
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.js-switch-deposit-method');
+        if (!btn) {
+            return;
+        }
+        e.preventDefault();
+        const method = btn.getAttribute('data-method');
+        if (!method) {
+            return;
+        }
+        const opt = document.querySelector('.payment-option[data-method="' + method + '"]');
+        if (opt) {
+            opt.click();
+        }
     });
 
     document.querySelectorAll('.copy-btn').forEach(button => {

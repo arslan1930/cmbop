@@ -470,7 +470,14 @@
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Seller / Service Provider:</p>
                                         <p style="font-weight: 600; margin: 0;">{{ billing_company_for_documents()['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)' }}</p>
                                     </div>
-                                    @include('partials.deposit-bank-account', ['depositPayment' => $depositPayment, 'showExtended' => true, 'showCopy' => true])
+                                    @include('partials.deposit-bank-account', [
+                                        'depositPayment' => $depositPayment,
+                                        'showExtended' => true,
+                                        'showCopy' => true,
+                                        'walletCurrency' => $wallet?->currency ?? null,
+                                        'eurAmount' => $prefillAmount ?? null,
+                                        'showMethodSwitch' => true,
+                                    ])
                                     <div>
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">VAT:</p>
                                         <p style="font-weight: 600; margin: 0;">{{ $depositPayment['vat_note'] ?? 'Not VAT registered – no VAT charged' }}</p>
@@ -1566,6 +1573,7 @@ window.AddFundsBoot = {
     lastUsedMethod: @json($lastUsedMethod ?? null),
     paypalLogo: @json(asset('assets/img/payments/paypal.png')),
     openCardsTab: @json((bool) ($openCardsTab ?? false)),
+    usdBankWire: @json(app(\App\Support\UsdBankWireGuidance::class)->bootPayload($wallet?->currency ?? null, auth()->user())),
     routes: {
         store: @json(route('advertiser.add-funds.store', absolute: false)),
         addFunds: @json(route('advertiser.add-funds', absolute: false)),

@@ -6,6 +6,13 @@
     $ukAccount = $depositPayment['uk_account_number'] ?? '32932194';
     $ukSort = $depositPayment['uk_sort_code'] ?? '23-08-01';
 @endphp
+@include('partials.usd-bank-wire-note', [
+    'walletCurrency' => $walletCurrency ?? null,
+    'eurAmount' => $eurAmount ?? null,
+    'showMethodSwitch' => $showMethodSwitch ?? true,
+    'methodSwitchAsLinks' => $methodSwitchAsLinks ?? false,
+    'usdWireUser' => $usdWireUser ?? null,
+])
 <div style="margin-bottom: 12px;">
     <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Beneficiary:</p>
     <p style="font-weight: 600; margin: 0;">{{ $depositPayment['beneficiary'] ?? 'Teqno Ltd' }}</p>

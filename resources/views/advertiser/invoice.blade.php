@@ -288,6 +288,12 @@
                                         @endif
                                     </p>
                                 @endif
+                                @include('partials.usd-bank-wire-note', [
+                                    'walletCurrency' => $walletCurrency ?? null,
+                                    'eurAmount' => $amount ?? null,
+                                    'showMethodSwitch' => true,
+                                    'methodSwitchAsLinks' => true,
+                                ])
                                 @if(!empty($depositPayment['phone']))
                                     <p><strong>Phone no:</strong> {{ $depositPayment['phone'] }}</p>
                                 @endif

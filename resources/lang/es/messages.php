@@ -905,4 +905,11 @@ return [
     'contact_text' => 'Si tiene alguna pregunta sobre estos Términos del servicio, escríbanos a continuación.',
     'email_label' => 'Correo',
     'website_label' => 'Sitio web',
+
+    // USD bank-transfer (EUR IBAN) copy
+    'usd_bank_send_label' => 'Send :eur (≈ :usd at today\'s rate)',
+    'usd_bank_wire_note' => 'This is an international wire to a EUR account. Your bank may charge a fee and convert the currency. Please choose OUR (sender pays all fees) so the full amount arrives.',
+    'usd_bank_avoid_fees' => 'Want to avoid wire fees? Pay instantly by Card or PayPal instead.',
+    'usd_bank_pay_card' => 'Card',
+    'usd_bank_pay_paypal' => 'PayPal',
 ];

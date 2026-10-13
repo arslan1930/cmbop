@@ -35,4 +35,11 @@ return [
     'pricing_page_subtitle' => 'Zahlen Sie pro Veröffentlichung im Marktplatz oder wählen Sie ein gemanagtes Digital-PR-Paket — in Euro, ohne OTS-Preisliste.',
     'pricing_hero_title' => 'Gastbeitrag-Kosten nach Publisher, nicht nach Paket',
     'pricing_hero_lead' => 'Durchsuchen Sie österreichische Publisher-Sites, wählen Sie den passenden EUR-Preis und zahlen Sie per Wallet.',
+
+    // USD bank-transfer (EUR IBAN) copy
+    'usd_bank_send_label' => 'Send :eur (≈ :usd at today\'s rate)',
+    'usd_bank_wire_note' => 'This is an international wire to a EUR account. Your bank may charge a fee and convert the currency. Please choose OUR (sender pays all fees) so the full amount arrives.',
+    'usd_bank_avoid_fees' => 'Want to avoid wire fees? Pay instantly by Card or PayPal instead.',
+    'usd_bank_pay_card' => 'Card',
+    'usd_bank_pay_paypal' => 'PayPal',
 ];
