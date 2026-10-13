@@ -70,10 +70,11 @@ if you want to try the OAuth popup locally.
 **Claude (browser or desktop)**
 
 1. Customize → Connectors → Add custom connector
-2. Name: `SEOLinkBuildings`
+2. Name: `SEOLinkBuildings` (letters only — no spaces, dots, or accents; Claude’s chat tool index keys off this name)
 3. URL: `https://YOUR-DOMAIN/api/mcp/customer`
 4. Connect → sign in → Allow
-5. Ask: “Find me 10 publishers for my client, DR over 40, price under 750, Ahrefs traffic over 1000, topic marketing.”
+5. After any MCP deploy: disconnect, Connect again, then start a **new chat**. Settings can list tools while an old chat still has an empty tool set.
+6. Ask: “Find me 10 publishers for my client, DR over 40, price under 750, Ahrefs traffic over 1000, topic marketing.”
 
 **Claude Code**
 
@@ -109,10 +110,17 @@ the earlier `seolinkbuildings-catalog` connector that stayed on “Connecting…
 ## Deploy
 
 1. `composer install` (adds `laravel/mcp`).
-2. `php artisan migrate --force` — creates `mcp_oauth_clients`, `mcp_oauth_auth_codes`, `mcp_oauth_access_tokens`, `advertiser_saved_cart_items`.
+2. `php artisan migrate --force` — creates `mcp_oauth_clients`, `mcp_oauth_auth_codes`, `mcp_oauth_access_tokens`, `advertiser_saved_cart_items`. No extra SQL for the Claude chat-tool fix.
 3. HTTPS on the public host (`APP_URL` / `PUBLIC_APP_URL`). Claude will not complete OAuth on plain HTTP.
 4. No Passport keys. No new `.env` secrets. Optional: `MCP_ACCESS_TOKEN_TTL`, `MCP_REFRESH_TOKEN_TTL`.
 5. `php artisan ops:production-ready --repair` already runs `migrate --force`.
+6. After deploying the Claude chat-tool fix, also run:
+   ```
+   php artisan optimize:clear
+   ```
+   Then in claude.ai: disconnect the connector, Connect again, open a **new** chat.
+
+The Streamable HTTP endpoint is **stateless**. It does not mint `Mcp-Session-Id` (it only echoes one the client already sent). `GET /api/mcp/customer` is `405` — SSE lives at `/api/mcp/customer/sse`. `initialize` echoes the client’s `protocolVersion` (`2025-03-26`, `2025-06-18`, `2025-11-25`, `2026-07-28`). `tools/list` is valid on every POST (not tied to a PHP worker session) and includes `ttlMs` > 0 so Claude does not expire the catalog immediately.
 
 Stack: Laravel 13 `laravel/mcp` for JSON-RPC / tools. First-party OAuth 2.1 so
 DCR + PKCE work without installing Laravel Passport.

@@ -56,6 +56,19 @@ LimitRequestBody 67108864
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
+    # Hostinger LiteSpeed drops unknown hop-by-hop style headers unless
+    # they are copied onto the CGI environment for PHP.
+    RewriteCond %{HTTP:Mcp-Session-Id} .
+    RewriteRule .* - [E=HTTP_MCP_SESSION_ID:%{HTTP:Mcp-Session-Id}]
+    RewriteCond %{HTTP:MCP-Protocol-Version} .
+    RewriteRule .* - [E=HTTP_MCP_PROTOCOL_VERSION:%{HTTP:MCP-Protocol-Version}]
+    RewriteCond %{HTTP:Mcp-Protocol-Version} .
+    RewriteRule .* - [E=HTTP_MCP_PROTOCOL_VERSION:%{HTTP:Mcp-Protocol-Version}]
+    RewriteCond %{HTTP:Mcp-Method} .
+    RewriteRule .* - [E=HTTP_MCP_METHOD:%{HTTP:Mcp-Method}]
+    RewriteCond %{HTTP:Mcp-Name} .
+    RewriteRule .* - [E=HTTP_MCP_NAME:%{HTTP:Mcp-Name}]
+
     # Do not 301 POST/PUT/PATCH — browsers drop the body (a 5 MB .docx vanishes).
     RewriteCond %{REQUEST_METHOD} GET
     RewriteCond %{REQUEST_FILENAME} !-d

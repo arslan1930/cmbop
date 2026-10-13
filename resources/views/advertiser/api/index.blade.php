@@ -56,8 +56,9 @@
             <ol class="small mb-0 ps-3">
                 <li>Open Claude (claude.ai or the desktop app) → <strong>Customize → Connectors</strong>.</li>
                 <li>Choose <strong>Add custom connector</strong>.</li>
-                <li>Name it <strong>SEOLinkBuildings</strong> and paste the MCP URL above.</li>
+                <li>Name it <strong>SEOLinkBuildings</strong> (letters only — no spaces, dots, or accents) and paste the MCP URL above.</li>
                 <li>Click <strong>Connect</strong>. Sign in to SEOLinkBuildings and click <strong>Allow</strong>.</li>
+                <li>After a server update, disconnect the connector, connect again, and start a <strong>new chat</strong>. Claude’s chat tool list does not refresh from Settings alone.</li>
                 <li>Ask something like: “Find me 10 publishers, DR over 40, price under €750, Ahrefs traffic over 1000, topic marketing.”</li>
             </ol>
         </div>

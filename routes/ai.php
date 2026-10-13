@@ -5,6 +5,7 @@ use App\Http\Controllers\Mcp\OAuthController;
 use App\Http\Middleware\AuthenticateMcpCustomer;
 use App\Http\Middleware\McpCors;
 use Illuminate\Support\Facades\Route;
+use Laravel\Mcp\Server\Middleware\ReorderJsonAccept;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,8 +38,11 @@ Route::middleware([McpCors::class])->group(function () {
         ->middleware('throttle:30,1')
         ->name('mcp.oauth.revoke');
 
-    Route::match(['GET', 'POST', 'OPTIONS'], '/api/mcp/customer', [CustomerMcpController::class, 'handle'])
-        ->middleware(['throttle:mcp', AuthenticateMcpCustomer::class])
+    Route::get('/api/mcp/customer', [CustomerMcpController::class, 'rejectListen'])
+        ->middleware('throttle:mcp')
+        ->name('mcp.customer.listen');
+    Route::match(['POST', 'OPTIONS'], '/api/mcp/customer', [CustomerMcpController::class, 'handle'])
+        ->middleware(['throttle:mcp', ReorderJsonAccept::class, AuthenticateMcpCustomer::class])
         ->name('mcp.customer');
     Route::get('/api/mcp/customer/sse', [CustomerMcpController::class, 'sse'])
         ->middleware(['throttle:mcp', AuthenticateMcpCustomer::class])
