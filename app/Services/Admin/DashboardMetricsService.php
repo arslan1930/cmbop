@@ -1556,13 +1556,7 @@ class DashboardMetricsService
 
     private function unverifiedSitesCountExclusiveOfLiveAndArchived(): int
     {
-        return $this->safeInt(function () {
-            if (! Schema::hasTable('sites')) {
-                return 0;
-            }
-
-            return Site::query()->needsAdminReview()->notArchived()->count();
-        });
+        return $this->unverifiedSitesCount();
     }
 
     private function medianHoursToPublish(): ?float
@@ -1788,7 +1782,7 @@ class DashboardMetricsService
             }
             DB::table('sites')->limit(1)->exists();
 
-            return Site::query()->needsAdminReview()->count();
+            return MarketingOpsQueues::sitesReadyForStaffCount();
         } catch (\Throwable) {
             return 0;
         }

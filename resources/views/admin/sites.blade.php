@@ -44,8 +44,8 @@
         'publishers' => !empty($publishersDirectory) ? 1 : null,
         'waiting_stage' => ($waitingStage ?? '') !== '' ? $waitingStage : null,
     ]);
-    $readyToActivateUrl = staff_route('sites.index', array_filter(['needs_review' => 1, 'flat' => 1] + $listQuery));
-    $readyToActivateOn = ! empty($needsReviewFilterActive);
+    $readyToActivateUrl = staff_route('sites.index', ['all' => 1, 'ready_to_activate' => 1]);
+    $readyToActivateOn = ! empty($allSitesMode) && ! empty($staffSiteFilters['ready_to_activate']);
 @endphp
 <div class="container-fluid py-3 {{ request()->filled('publisher') ? 'staff-publisher-open' : '' }}" id="staffSitesPage">
 
@@ -56,8 +56,10 @@
             <div class="small text-muted mt-1">Catalog-wide</div>
             @if(($openReviewCount ?? 0) > 0)
                 <small class="text-muted">
-                    <span class="badge text-bg-warning">{{ $openReviewCount }}</span>
-                    site{{ $openReviewCount === 1 ? '' : 's' }} need{{ $openReviewCount === 1 ? 's' : '' }} review
+                    <a href="{{ staff_route('sites.index', ['needs_review' => 1, 'flat' => 1]) }}" class="link-secondary" title="Submitted and waiting for a staff decision. Archived leftovers are excluded. Not the same as Ready to activate (verified, not live, in-bar).">
+                        <span class="badge text-bg-warning">{{ $openReviewCount }}</span>
+                        site{{ $openReviewCount === 1 ? '' : 's' }} need{{ $openReviewCount === 1 ? 's' : '' }} review
+                    </a>
                 </small>
             @endif
             @if(($missingMarketListCount ?? 0) > 0)
@@ -140,10 +142,11 @@
             <a href="{{ staff_route('sites.index', ['publishers' => 1]) }}"
                class="btn btn-sm {{ !empty($publishersDirectory) ? 'btn-dark' : 'btn-outline-dark' }}">Publishers</a>
             <a href="{{ $readyToActivateUrl }}"
-               class="btn btn-sm {{ $readyToActivateOn ? 'btn-warning' : 'btn-outline-warning' }}">
+               class="btn btn-sm {{ $readyToActivateOn ? 'btn-warning' : 'btn-outline-warning' }}"
+               title="Verified, not live, meets the quality bar, and has a market country. Different from Needs review (submitted, not yet verified).">
                 Ready to activate
-                @if(($openReviewCount ?? 0) > 0)
-                    <span class="badge {{ $readyToActivateOn ? 'text-bg-light text-dark' : 'text-bg-warning' }} ms-1">{{ $openReviewCount }}</span>
+                @if(($readyToActivateCount ?? 0) > 0)
+                    <span class="badge {{ $readyToActivateOn ? 'text-bg-light text-dark' : 'text-bg-warning' }} ms-1">{{ $readyToActivateCount }}</span>
                 @endif
             </a>
             @php

@@ -160,6 +160,11 @@ class AdminSitesReadyToActivateTest extends TestCase
             ->assertSee('formatJoined(site.categories_list, false, 0)', false)
             ->getContent();
         $this->assertStringNotContainsString('btn btn-sm btn-warning', $index);
+        $this->assertStringContainsString('all=1', $index);
+        $this->assertStringContainsString('ready_to_activate=1', $index);
+        $this->assertStringContainsString('Verified, not live, meets the quality bar', $index);
+        $this->assertStringContainsString('needs_review=1', $index);
+        $this->assertStringContainsString('2</span>', $index);
 
         $this->actingAs($admin)
             ->get(route('admin.sites.index', ['all' => 1, 'ready_to_activate' => 1]))

@@ -6,7 +6,7 @@
             'label' => 'Needs review',
             'count' => (int) ($openReviewCount ?? 0),
             'url' => staff_route('sites.index', ['needs_review' => 1, 'flat' => 1]),
-            'hint' => 'Not live yet. The publisher has submitted the listing.',
+            'hint' => 'Submitted and waiting for a staff decision. Same count as the header “sites need review” and the dashboard Sites in review card. Not Ready to activate (those are already verified).',
             'active' => ! empty($needsReviewFilterActive),
         ],
         [
