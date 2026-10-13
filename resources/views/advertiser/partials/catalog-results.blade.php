@@ -362,21 +362,10 @@
                         </div>
 
                         <div class="catalog-site-identity">
-                            <a href="{{ route('advertiser.catalog.visit', $site->id) }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="site-open-link catalog-site-rooted-url catalog-site-url"
-                               id="url-host-{{ $site->id }}"
-                               data-url-open="{{ $site->id }}"
-                               data-site-host
-                               aria-label="Open {{ $displayRootedUrl }} in a new tab"
-                               @if($showsIdentity) data-host="{{ $displayHost }}" @endif
-                               @if($inCatalogHideMode && ! $showsIdentity)
-                                   data-glass-tip
-                                   data-glass-tip-title="Name and URL hidden"
-                                   data-glass-tip-body="Site name and URL are hidden for 24 hours after repeated domain copying. Open the eye to reveal both for this listing — metrics and price stay visible."
-                                   data-glass-tip-placement="top"
-                               @endif>{{ $displayRootedUrl }}</a>
+                            @include('advertiser.partials.catalog-site-url', [
+                                'site' => $site,
+                                'urlId' => 'url-host-'.$site->id,
+                            ])
                             <div class="catalog-site-tag-slot">
                                 @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
                                 @include('advertiser.partials.catalog-placement-chips', [
@@ -1127,20 +1116,11 @@
                     @endif
                     </div>
                     {{-- Visit sits on the rooted URL, not next to the name. --}}
-                    <a href="{{ route('advertiser.catalog.visit', $site->id) }}"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="site-open-link catalog-site-rooted-url catalog-site-url text-truncate"
-                       id="url-host-mobile-{{ $site->id }}"
-                       data-site-host
-                       aria-label="Open {{ $displayRootedUrl }} in a new tab"
-                       @if($showsIdentity) data-host="{{ $displayHost }}" @endif
-                       @if($inCatalogHideMode && ! $showsIdentity)
-                           data-glass-tip
-                           data-glass-tip-title="Name and URL hidden"
-                           data-glass-tip-body="Site name and URL are hidden for 24 hours after repeated domain copying. Open the eye to reveal both for this listing — metrics and price stay visible."
-                           data-glass-tip-placement="top"
-                       @endif>{{ $displayRootedUrl }}</a>
+                    @include('advertiser.partials.catalog-site-url', [
+                        'site' => $site,
+                        'urlId' => 'url-host-mobile-'.$site->id,
+                        'urlClass' => 'text-truncate',
+                    ])
                     <div class="catalog-site-tag-slot">
                         @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
                         @include('advertiser.partials.catalog-placement-chips', [

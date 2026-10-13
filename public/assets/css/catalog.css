@@ -2528,6 +2528,24 @@ a.catalog-site-rooted-url.site-open-link:hover {
     text-decoration: underline;
 }
 
+.catalog-site-url--hidden {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+    text-decoration: none;
+    color: var(--type-muted, var(--brand-ink-muted, #697078));
+    pointer-events: auto;
+}
+
+.catalog-site-url__reveal {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--brand-primary, #1a585e);
+}
+
 a.catalog-site-rooted-url.site-open-link::after {
     content: "↗";
     flex: 0 0 auto;
