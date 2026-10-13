@@ -64,6 +64,7 @@ use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\CurrencySwitchController;
 use App\Http\Controllers\EmailUnsubscribeController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\InvoiceController;
@@ -1615,6 +1616,10 @@ Route::middleware('throttle:10,1')->group(function () {
     Route::post('/feedback/suggestion', [FeedbackController::class, 'storeSuggestion'])
         ->name('feedback.suggestion');
 });
+
+Route::post('/display-currency', [CurrencySwitchController::class, 'store'])
+    ->middleware('throttle:30,1')
+    ->name('display-currency');
 
 // ✅ Common routes for all authenticated users
 Route::middleware(['auth', 'verified'])->group(function () {

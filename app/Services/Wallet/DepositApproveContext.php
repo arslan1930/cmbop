@@ -4,6 +4,7 @@ namespace App\Services\Wallet;
 
 use App\Models\DepositRequest;
 use App\Models\Wallet;
+use App\Support\DepositFx;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -63,6 +64,8 @@ class DepositApproveContext
      */
     public function modalPayload(DepositRequest $deposit, bool $canApprove): array
     {
+        $fx = app(DepositFx::class);
+        $deposit = $fx->refreshIfExpired($deposit);
         $context = $this->walletContext($deposit, $canApprove);
 
         $row = function (DepositRequest $row): array {
@@ -83,6 +86,12 @@ class DepositApproveContext
             'possible_duplicate' => $context['possibleDuplicate'],
             'duplicate_matches' => $context['duplicateMatches']->map($row)->values(),
             'prior_deposits' => $context['priorDeposits']->map($row)->values(),
+            'fx_expected_line' => $fx->adminExpectedLine($deposit),
+            'charge_currency' => strtoupper((string) ($deposit->charge_currency ?: 'EUR')),
+            'charge_amount' => $fx->expectedCharge($deposit),
+            'fx_rate' => (float) ($deposit->fx_rate ?? 1),
+            'rate_locked_until' => optional($deposit->rate_locked_until)?->toIso8601String(),
+            'tolerance_percent' => $fx->tolerancePercent(),
         ];
     }
 

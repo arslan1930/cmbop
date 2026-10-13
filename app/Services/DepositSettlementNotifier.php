@@ -19,18 +19,24 @@ class DepositSettlementNotifier
     /**
      * @return array{email_sent: bool}
      */
-    public function notifyApproved(DepositRequest $deposit): array
-    {
+    public function notifyApproved(
+        DepositRequest $deposit,
+        ?float $receivedCharge = null,
+        ?float $creditedEuros = null,
+    ): array {
         $deposit->loadMissing('user');
 
-        $emailSent = $this->sendApprovedEmail($deposit);
+        $emailSent = $this->sendApprovedEmail($deposit, $receivedCharge, $creditedEuros);
         $this->sendApprovedBell($deposit);
 
         return ['email_sent' => $emailSent];
     }
 
-    protected function sendApprovedEmail(DepositRequest $deposit): bool
-    {
+    protected function sendApprovedEmail(
+        DepositRequest $deposit,
+        ?float $receivedCharge = null,
+        ?float $creditedEuros = null,
+    ): bool {
         try {
             $user = $deposit->user;
             if (! $user?->email) {
@@ -42,7 +48,7 @@ class DepositSettlementNotifier
                 return false;
             }
 
-            Mail::to($user->email)->send(new DepositApproved($deposit));
+            Mail::to($user->email)->send(new DepositApproved($deposit, $receivedCharge, $creditedEuros));
 
             // Bump receipt email counters so admin resend / audit stay accurate.
             try {

@@ -662,6 +662,12 @@
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
                                     @php $depositPayment = config('billing.deposit_payment', []); @endphp
                                     <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #9333ea;">Bank Account Information</h4>
+                                    @php
+                                        $checkoutPayFrom = app(\App\Support\DisplayCurrencyPreference::class)->payFrom();
+                                        if (request()->filled('pay_from')) {
+                                            $checkoutPayFrom = app(\App\Support\DisplayCurrencyPreference::class)->rememberPayFrom((string) request('pay_from'));
+                                        }
+                                    @endphp
                                     @include('partials.deposit-bank-account', [
                                         'depositPayment' => $depositPayment,
                                         'showExtended' => false,
@@ -669,6 +675,9 @@
                                         'walletCurrency' => $checkoutWallet?->currency ?? null,
                                         'eurAmount' => $total ?? null,
                                         'showMethodSwitch' => true,
+                                        'bankRail' => $checkoutPayFrom,
+                                        'showPayFromSwitch' => true,
+                                        'sendLabel' => app(\App\Support\DepositFx::class)->quote((float) ($total ?? 0), $checkoutPayFrom === 'gbp' ? 'GBP' : 'EUR')['send_label'],
                                     ])
                                 </div>
                             </div>

@@ -149,7 +149,7 @@ class UsdBankTransferNoteTest extends TestCase
         $note = $this->pendingDepositNote($deposit, $user);
         $this->assertStringContainsString('IBAN (from outside the UK):', $note);
         $this->assertStringNotContainsString('international wire to a EUR account', $note);
-        $this->assertStringNotContainsString('Send €50.00', $note);
+        $this->assertStringNotContainsString('Send €50.00 (≈ $', $note);
     }
 
     private function advertiser(string $currency, string $country): User

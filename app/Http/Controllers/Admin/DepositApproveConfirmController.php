@@ -7,6 +7,7 @@ use App\Models\DepositRequest;
 use App\Services\Wallet\DepositApproveContext;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
 use App\Services\Wallet\ManualDepositApprovalService;
+use App\Support\DepositFx;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +29,7 @@ class DepositApproveConfirmController extends Controller
         } catch (\Throwable) {
             $deposit->setRelation('user', null);
         }
+        $deposit = app(DepositFx::class)->refreshIfExpired($deposit);
         $canApprove = $deposit->isPending();
         try {
             $context = app(DepositApproveContext::class)->walletContext($deposit, $canApprove);
@@ -46,10 +48,18 @@ class DepositApproveConfirmController extends Controller
             ];
         }
 
+        $fx = app(DepositFx::class);
+
         return view('admin.deposits.approve-confirm', array_merge($context, [
             'deposit' => $deposit,
             'canApprove' => $canApprove,
             'confirmAction' => $request->fullUrl(),
+            'expectedLine' => $fx->adminExpectedLine($deposit),
+            'expectedCharge' => $fx->expectedCharge($deposit),
+            'chargeCurrency' => strtoupper((string) ($deposit->charge_currency ?: 'EUR')),
+            'fxRate' => (float) ($deposit->fx_rate ?? 1),
+            'tolerancePercent' => $fx->tolerancePercent(),
+            'withinTolerance' => $fx->withinTolerance($deposit, $fx->expectedCharge($deposit)),
         ]));
     }
 
@@ -59,15 +69,20 @@ class DepositApproveConfirmController extends Controller
             return $this->invalidSignatureResponse();
         }
 
-        $request->validate([
+        $data = $request->validate([
             'admin_notes' => 'nullable|string|max:1000',
+            'received_amount' => 'nullable|numeric|min:0|max:99999999.99',
         ]);
 
         try {
+            $received = array_key_exists('received_amount', $data) && $data['received_amount'] !== null && $data['received_amount'] !== ''
+                ? round((float) $data['received_amount'], 2)
+                : null;
             $result = $approvals->approve(
                 $deposit,
                 $request->user(),
-                $request->input('admin_notes')
+                $request->input('admin_notes'),
+                $received
             );
 
             $message = $result['message'];

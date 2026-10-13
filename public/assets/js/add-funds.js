@@ -657,7 +657,29 @@ document.addEventListener('DOMContentLoaded', function() {
         const bankAmount = document.getElementById('bankAmount');
         if (cryptoAmount) cryptoAmount.innerHTML = formatEuro(amount);
         if (bankAmount) bankAmount.innerHTML = formatEuro(amount);
+        syncBankSendLabel(amount);
         syncUsdBankSend(amount);
+    }
+
+    function gbpBankSendLabel(amount) {
+        const rate = Number(boot.gbpPerEur) || 0;
+        const eur = Number(amount) || 0;
+        const gbp = rate > 0 ? Math.round(eur * rate * 100) / 100 : eur;
+        const days = Number(boot.depositLockDays) || 7;
+        return 'Amount to send: £' + gbp.toFixed(2) + ' (≈ €' + eur.toFixed(2) + ' at today\'s rate, locked for ' + days + ' days)';
+    }
+
+    function syncBankSendLabel(amount) {
+        const label = (boot.payFrom === 'gbp')
+            ? gbpBankSendLabel(amount)
+            : ('Amount to send: ' + formatEuro(amount));
+        document.querySelectorAll('[data-deposit-send-label]').forEach(el => {
+            el.textContent = label;
+        });
+        const bankAmount = document.getElementById('bankAmount');
+        if (bankAmount && boot.payFrom === 'gbp') {
+            bankAmount.textContent = label;
+        }
     }
 
     function usdBankSendLabel(amount) {
@@ -775,7 +797,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 payment_method: selectedMethod,
                 // Leftover Hostinger store() still requires a 6-digit REF.
                 // Current store() ignores this and issues its own code.
-                reference_code: instantRailReference()
+                reference_code: instantRailReference(),
+                pay_from: boot.payFrom || 'eur'
             })
         })
         .then(async response => {

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Services\ActivityLogger;
 use App\Services\DepositSettlementNotifier;
+use App\Support\DepositFx;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -36,6 +37,7 @@ class ManualDepositApprovalService
         DepositRequest|int $deposit,
         ?User $actor = null,
         ?string $adminNotes = null,
+        ?float $receivedCharge = null,
     ): array {
         $depositId = $deposit instanceof DepositRequest ? (int) $deposit->id : (int) $deposit;
 
@@ -43,7 +45,7 @@ class ManualDepositApprovalService
             throw new RuntimeException('Deposit request not found');
         }
 
-        $completed = DB::transaction(function () use ($depositId, $adminNotes) {
+        $completed = DB::transaction(function () use ($depositId, $adminNotes, $receivedCharge) {
             $locked = DepositRequest::query()
                 ->whereKey($depositId)
                 ->lockForUpdate()
@@ -62,6 +64,11 @@ class ManualDepositApprovalService
                 throw new RuntimeException('Only bank, Wise, and crypto transfers can be approved by hand.');
             }
 
+            $fx = app(DepositFx::class);
+            $locked = $fx->refreshIfExpired($locked);
+            $received = $receivedCharge ?? $fx->expectedCharge($locked);
+            $credited = $fx->eurosFromReceived($locked, $received);
+
             $locked->update(DepositRequest::attributesThatExist([
                 'status' => 'approved',
                 'admin_notes' => $adminNotes,
@@ -74,28 +81,34 @@ class ManualDepositApprovalService
             }
 
             $wallet = Wallet::lockOrCreateForRole($locked->user_id, $advertiserRoleId);
-            $amount = (float) $locked->amount;
-            $wallet->credit($amount);
+            $wallet->credit($credited);
             $this->ledger->recordDeposit(
                 $wallet,
-                $amount,
+                $credited,
                 $locked,
                 $locked->payment_method,
                 $locked->reference_code
             );
 
             $locked->update(['status' => 'completed']);
+            $fresh = $locked->fresh(['user']) ?? $locked;
+            $fresh->setAttribute('received_charge_display', $received);
+            $fresh->setAttribute('credited_euros_display', $credited);
 
-            return $locked->fresh(['user']);
+            return $fresh;
         });
 
-        $notified = $this->notifier->notifyApproved($completed);
+        $notified = $this->notifier->notifyApproved(
+            $completed,
+            (float) ($completed->received_charge_display ?? $receivedCharge ?? $completed->amount),
+            (float) ($completed->credited_euros_display ?? $completed->amount)
+        );
         $emailSent = (bool) ($notified['email_sent'] ?? false);
 
         $actorName = $actor?->name ?: 'System';
         ActivityLogger::tryLog(
             'deposit.approved',
-            $actorName.' approved deposit #'.$completed->id.' (€'.number_format((float) $completed->amount, 2).')',
+            $actorName.' approved deposit #'.$completed->id.' (€'.number_format((float) ($completed->credited_euros_display ?? $completed->amount), 2).')',
             $completed,
             [
                 'amount' => $completed->amount,

@@ -74,6 +74,7 @@
     <div class="menu">
         <div class="text-center my-2 d-md-none">
             @include('partials.role-switcher', ['variant' => 'outline-secondary'])
+            <div class="mt-2">@include('partials.currency-switcher')</div>
         </div>
         <div class="shell-sidebar-brand text-center my-3 d-none d-md-block">
             <img id="logoSidebar" class="shell-logo-wordmark" src="{{ brand_shell_wordmark_url() }}" height="48" width="172" style="width:auto;max-width:100%;object-fit:contain;background:transparent" fetchpriority="high" alt="SEOLinkBuildings">
@@ -227,8 +228,9 @@
             <span class="admin-mode-badge">
                 {{ auth()->user()->isMarketing() ? 'Marketing' : 'Admin' }}
             </span>
-            <span class="ms-2">
+            <span class="ms-2 d-inline-flex align-items-center gap-2">
                 @include('partials.role-switcher', ['variant' => 'outline-secondary'])
+                @include('partials.currency-switcher')
             </span>
         </div>
     </div>

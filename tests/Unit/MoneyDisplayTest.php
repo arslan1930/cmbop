@@ -38,31 +38,37 @@ class MoneyDisplayTest extends TestCase
         $js = file_get_contents(public_path('js/slb-money.js'));
         $this->assertIsString($js);
         $this->assertStringContainsString("var MINUS = '\\u2212'", $js);
-        $this->assertStringContainsString('signedPrefix(value, !!options.signed) + symbol + grouped(value)', $js);
+        $this->assertStringContainsString("prefix + local + ' (≈ €' + grouped(eur) + ')'", $js);
         $this->assertStringContainsString('function grouped(n)', $js);
         $this->assertStringContainsString('if (value < 0) return MINUS', $js);
     }
 
-    public function test_us_viewer_sees_euros(): void
+    public function test_us_viewer_sees_dollars_with_euro_guide(): void
     {
         $this->fakeFrankfurter(['USD' => 1.10, 'GBP' => 0.85]);
         $this->withLocalCountry('US');
 
         $this->assertTrue(app(ViewerCountry::class)->isUs());
-        $this->assertFalse(app(MoneyDisplay::class)->displaysUsd());
-        $this->assertSame('EUR', app(MoneyDisplay::class)->currency());
-        $this->assertSame('€12.00', format_money(12));
-        $this->assertSame('€12.00', format_money_pay(12));
+        $this->assertTrue(app(MoneyDisplay::class)->displaysUsd());
+        $this->assertSame('USD', app(MoneyDisplay::class)->currency());
+        $this->assertSame('$13.20 (≈ €12.00)', format_money(12));
+        $this->assertSame('€12.00 · about $13.20', format_money_pay(12));
     }
 
-    public function test_canada_australia_and_uk_viewers_see_euros(): void
+    public function test_canada_australia_see_dollars_and_uk_sees_pounds(): void
     {
         $this->fakeFrankfurter(['USD' => 1.10, 'GBP' => 0.85]);
 
-        foreach (['CA', 'AU', 'GB', 'UK'] as $country) {
-            $this->withLocalCountry($country === 'UK' ? 'UK' : $country);
-            $this->assertSame('EUR', app(MoneyDisplay::class)->currency(), $country);
-            $this->assertSame('€12.00', format_money(12), $country);
+        foreach (['CA', 'AU'] as $country) {
+            $this->withLocalCountry($country);
+            $this->assertSame('USD', app(MoneyDisplay::class)->currency(), $country);
+            $this->assertSame('$13.20 (≈ €12.00)', format_money(12), $country);
+        }
+
+        foreach (['GB', 'UK'] as $country) {
+            $this->withLocalCountry($country);
+            $this->assertSame('GBP', app(MoneyDisplay::class)->currency(), $country);
+            $this->assertSame('£10.20 (≈ €12.00)', format_money(12), $country);
         }
     }
 
@@ -78,7 +84,7 @@ class MoneyDisplayTest extends TestCase
         $this->app->instance('request', $request);
 
         $this->assertTrue(app(ViewerCountry::class)->isUs($request));
-        $this->assertSame('€12.00', app(MoneyDisplay::class)->format(12));
+        $this->assertSame('$24.00 (≈ €12.00)', app(MoneyDisplay::class)->format(12));
     }
 
     public function test_local_cf_header_canada_and_uk(): void
@@ -90,13 +96,13 @@ class MoneyDisplayTest extends TestCase
             'HTTP_CF_IPCOUNTRY' => 'CA',
             'REMOTE_ADDR' => '127.0.0.1',
         ]);
-        $this->assertSame('EUR', app(ViewerCountry::class)->displayCurrency($ca));
+        $this->assertSame('USD', app(ViewerCountry::class)->displayCurrency($ca));
 
         $uk = Request::create('/', 'GET', [], [], [], [
             'HTTP_CF_IPCOUNTRY' => 'UK',
             'REMOTE_ADDR' => '127.0.0.1',
         ]);
-        $this->assertSame('EUR', app(ViewerCountry::class)->displayCurrency($uk));
+        $this->assertSame('GBP', app(ViewerCountry::class)->displayCurrency($uk));
     }
 
     public function test_force_display_gbp_override(): void
@@ -104,7 +110,7 @@ class MoneyDisplayTest extends TestCase
         $this->fakeFrankfurter(['USD' => 1.10, 'GBP' => 0.85]);
         config(['fx.fake_country' => '', 'fx.force_display' => 'gbp']);
 
-        $this->assertSame('£10.20', format_money(12));
+        $this->assertSame('£10.20 (≈ €12.00)', format_money(12));
     }
 
     public function test_fx_falls_back_when_live_feed_fails(): void
@@ -119,7 +125,7 @@ class MoneyDisplayTest extends TestCase
         ]);
 
         $this->assertSame(1.25, app(FxRate::class)->usdPerEur());
-        $this->assertSame('$15.00', format_money(12));
+        $this->assertSame('$15.00 (≈ €12.00)', format_money(12));
     }
 
     public function test_js_payload_includes_currency_and_rate(): void
@@ -128,12 +134,12 @@ class MoneyDisplayTest extends TestCase
         $this->withLocalCountry('AU');
 
         $this->assertSame([
-            'currency' => 'EUR',
-            'usd' => false,
-            'rate' => 1.0,
-            'cart_rate' => 1.0,
-            'symbol' => '€',
-            'guide' => false,
+            'currency' => 'USD',
+            'usd' => true,
+            'rate' => 1.10,
+            'cart_rate' => 1.10,
+            'symbol' => '$',
+            'guide' => true,
         ], money_js());
     }
 
@@ -174,7 +180,7 @@ class MoneyDisplayTest extends TestCase
         $this->app->instance('request', $request);
 
         $this->assertSame('US', app(ViewerCountry::class)->code($request));
-        $this->assertSame('EUR', app(ViewerCountry::class)->displayCurrency($request));
+        $this->assertSame('USD', app(ViewerCountry::class)->displayCurrency($request));
     }
 
     private function fakeFrankfurter(array $rates): void
@@ -205,6 +211,7 @@ class MoneyDisplayTest extends TestCase
         config([
             'fx.fake_country' => $country ?? '',
             'fx.force_display' => '',
+            'fx.geo_display' => true,
             'fx.currencies.USD.fallback' => 1.08,
         ]);
     }

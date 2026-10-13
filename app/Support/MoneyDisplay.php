@@ -133,10 +133,16 @@ class MoneyDisplay
      */
     public function format(mixed $euros, array $options = []): string
     {
+        $eur = round((float) $euros, 2);
         $value = $this->amount($euros);
         $decimals = array_key_exists('decimals', $options) ? max(0, (int) $options['decimals']) : 2;
+        $prefix = $this->signedPrefix($value, ! empty($options['signed']));
+        $local = $this->symbol().number_format(abs($value), $decimals);
+        if ($this->currency() === 'EUR') {
+            return $prefix.$local;
+        }
 
-        return $this->signedPrefix($value, ! empty($options['signed'])).$this->symbol().number_format(abs($value), $decimals);
+        return $prefix.$local.' (≈ €'.number_format(abs($eur), $decimals).')';
     }
 
     /**

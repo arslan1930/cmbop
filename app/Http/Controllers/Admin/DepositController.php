@@ -154,6 +154,7 @@ class DepositController extends Controller
     public function approve(Request $request, $id, ManualDepositApprovalService $approvals)
     {
         $notes = $this->validatedAdminNotes($request);
+        $receivedCharge = $this->validatedReceivedAmount($request);
 
         if (! DepositRequest::tableAvailable()) {
             return response()->json([
@@ -175,7 +176,8 @@ class DepositController extends Controller
             $result = $approvals->approve(
                 $deposit,
                 $request->user(),
-                $notes
+                $notes,
+                $receivedCharge
             );
 
             return response()->json([
@@ -421,6 +423,18 @@ class DepositController extends Controller
             'message' => $message,
             'email_sent' => $emailSent,
         ]);
+    }
+
+    private function validatedReceivedAmount(Request $request): ?float
+    {
+        $data = $request->validate([
+            'received_amount' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+        ]);
+        if (! array_key_exists('received_amount', $data) || $data['received_amount'] === null || $data['received_amount'] === '') {
+            return null;
+        }
+
+        return round((float) $data['received_amount'], 2);
     }
 
     private function validatedAdminNotes(Request $request): ?string

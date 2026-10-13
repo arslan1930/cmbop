@@ -21,7 +21,9 @@ use App\Services\Wallet\PayoutProfileService;
 use App\Services\Wallet\WalletOverviewService;
 use App\Services\WalletPaypalDepositService;
 use App\Services\WalletStripeDepositService;
+use App\Support\DepositFx;
 use App\Support\DepositPaymentConfig;
+use App\Support\DisplayCurrencyPreference;
 use App\Support\PaypalPaymentError;
 use App\Support\PlatformCharge;
 use App\Support\UserFacingError;
@@ -219,7 +221,18 @@ class AddFundsController extends Controller
             'cryptoEnabled' => $cryptoEnabled,
             'cryptoNetworks' => DepositPaymentConfig::cryptoNetworks(),
             'cryptoNote' => DepositPaymentConfig::cryptoNote(),
+            'payFrom' => $this->resolvedPayFrom($request),
         ]);
+    }
+
+    private function resolvedPayFrom(Request $request): string
+    {
+        $preference = app(DisplayCurrencyPreference::class);
+        if ($request->filled('pay_from')) {
+            return $preference->rememberPayFrom((string) $request->input('pay_from'), $request);
+        }
+
+        return $preference->payFrom($request);
     }
 
     private function depositRailReady(
@@ -727,6 +740,7 @@ class AddFundsController extends Controller
                 'amount' => DepositPaymentConfig::amountRule(),
                 'payment_method' => 'required|in:wise,crypto,bank',
                 'reference_code' => 'nullable|string',
+                'pay_from' => 'nullable|in:gbp,eur,uk,other',
             ]);
 
             $user = auth()->user();
@@ -765,13 +779,17 @@ class AddFundsController extends Controller
             // never persist XXXXXXXX placeholders.
             $referenceCode = $this->newDepositReferenceCode($request);
 
-            $payload = [
+            $payFrom = $this->resolvedPayFrom($request);
+            $chargeCurrency = app(DepositFx::class)->chargeCurrencyForPayFrom($payFrom);
+            $lock = app(DepositFx::class)->lockPayload((float) $request->amount, $chargeCurrency);
+
+            $payload = array_merge([
                 'user_id' => auth()->id(),
                 'reference_code' => $referenceCode,
                 'amount' => $request->amount,
                 'payment_method' => $request->payment_method,
                 'status' => 'pending',
-            ];
+            ], $lock);
             if (method_exists(DepositRequest::class, 'attributesThatExist')) {
                 $payload = DepositRequest::attributesThatExist($payload);
             }

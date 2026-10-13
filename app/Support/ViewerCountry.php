@@ -95,7 +95,25 @@ class ViewerCountry
             }
         }
 
-        // Public prices and card charges stay in EUR on every locale, including /us.
+        $preferred = app(DisplayCurrencyPreference::class)->preferred($request);
+        if ($preferred !== null) {
+            return $preferred;
+        }
+
+        if (filter_var(config('fx.geo_display', true), FILTER_VALIDATE_BOOLEAN)) {
+            $country = $this->code($request);
+            if ($country === 'UK') {
+                $country = 'GB';
+            }
+            $map = config('fx.country_currency', []);
+            if (is_array($map) && is_string($country) && $country !== '') {
+                $mapped = strtoupper((string) ($map[$country] ?? ''));
+                if (in_array($mapped, ['EUR', 'GBP', 'USD'], true)) {
+                    return $mapped;
+                }
+            }
+        }
+
         return 'EUR';
     }
 

@@ -31,9 +31,10 @@ class FxRate
     public function ratesPerEur(): array
     {
         $ttl = max(60, (int) config('fx.cache_seconds', 3600));
+        $key = 'fx.rates_per_eur.'.now()->toDateString();
 
         try {
-            $rates = Cache::remember('fx.rates_per_eur', $ttl, function () {
+            $rates = Cache::remember($key, $ttl, function () {
                 return $this->fetchLiveRates();
             });
         } catch (\Throwable $e) {

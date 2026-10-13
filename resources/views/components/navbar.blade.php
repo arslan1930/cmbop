@@ -81,6 +81,9 @@
         @endauth
       </ul>
 
+      <div class="ms-lg-2 d-inline-block mt-2 mt-lg-0">
+        @include('partials.currency-switcher')
+      </div>
       @if($showSwitcher)
         <div class="dropdown ms-lg-2 d-inline-block mt-2 mt-lg-0">
           <button class="btn btn-light dropdown-toggle d-flex align-items-center gap-2 navbar-lang-btn"

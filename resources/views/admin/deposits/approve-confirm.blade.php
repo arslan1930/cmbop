@@ -18,6 +18,9 @@
                         </div>
 
                         <dl class="row mb-3">
+                            <dt class="col-sm-4 text-muted">Expected</dt>
+                            <dd class="col-sm-8 fw-semibold" data-fx-expected-line>{{ $expectedLine ?? ('€'.number_format((float) $incomingAmount, 2)) }}</dd>
+
                             <dt class="col-sm-4 text-muted">Credit now</dt>
                             <dd class="col-sm-8 fw-semibold fs-5">€{{ number_format((float) $incomingAmount, 2) }}</dd>
 
@@ -119,6 +122,17 @@
                         <form method="POST" action="{{ $confirmAction }}">
                             @csrf
                             <div class="mb-3">
+                                <label for="received_amount" class="form-label">Amount received ({{ $chargeCurrency ?? 'EUR' }})</label>
+                                <input type="number" name="received_amount" id="received_amount" class="form-control" min="0" step="0.01" value="{{ old('received_amount', number_format((float) ($expectedCharge ?? $incomingAmount), 2, '.', '')) }}" data-expected-charge="{{ number_format((float) ($expectedCharge ?? $incomingAmount), 2, '.', '') }}" data-fx-rate="{{ number_format((float) ($fxRate ?? 1), 8, '.', '') }}" data-tolerance="{{ number_format((float) ($tolerancePercent ?? 2), 2, '.', '') }}">
+                                <p class="small mb-0 mt-1" id="receivedToleranceFlag" data-tolerance-ok="{{ !empty($withinTolerance) ? '1' : '0' }}">
+                                    @if(!empty($withinTolerance))
+                                        <span class="text-success">Within ±{{ number_format((float) ($tolerancePercent ?? 2), 0) }}% — OK</span>
+                                    @else
+                                        <span class="text-danger">Outside ±{{ number_format((float) ($tolerancePercent ?? 2), 0) }}% — flagged</span>
+                                    @endif
+                                </p>
+                            </div>
+                            <div class="mb-3">
                                 <label for="admin_notes" class="form-label">Admin notes (optional)</label>
                                 <textarea name="admin_notes" id="admin_notes" rows="2" class="form-control" maxlength="1000" placeholder="e.g. Wire matched on statement">{{ old('admin_notes') }}</textarea>
                                 <script>
@@ -142,6 +156,26 @@
                                 Confirm and credit €{{ number_format((float) $incomingAmount, 2) }}
                             </button>
                         </form>
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function () {
+                                var input = document.getElementById('received_amount');
+                                var flag = document.getElementById('receivedToleranceFlag');
+                                if (!input || !flag) return;
+                                function refresh() {
+                                    var received = parseFloat(input.value);
+                                    var expected = parseFloat(input.getAttribute('data-expected-charge') || '0');
+                                    var pct = parseFloat(input.getAttribute('data-tolerance') || '2');
+                                    if (!isFinite(received) || expected <= 0) return;
+                                    var ok = Math.abs(received - expected) <= (expected * (pct / 100) + 0.00001);
+                                    flag.setAttribute('data-tolerance-ok', ok ? '1' : '0');
+                                    flag.innerHTML = ok
+                                        ? '<span class="text-success">Within ±' + pct + '% — OK</span>'
+                                        : '<span class="text-danger">Outside ±' + pct + '% — flagged</span>';
+                                }
+                                input.addEventListener('input', refresh);
+                                refresh();
+                            });
+                        </script>
 
                         <a href="{{ route('admin.deposits') }}" class="btn btn-link w-100 text-muted">
                             Cancel — back to deposits

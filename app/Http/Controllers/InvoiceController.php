@@ -7,6 +7,8 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Services\Billing\DepositReceiptService;
 use App\Services\Billing\InvoicePdfGenerator;
+use App\Support\DepositFx;
+use App\Support\DisplayCurrencyPreference;
 use App\Support\UsdBankWireGuidance;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
@@ -192,6 +194,9 @@ class InvoiceController extends Controller
     private function pendingDepositNote($deposit, $user = null): string
     {
         $pay = config('billing.deposit_payment', []);
+        $fx = app(DepositFx::class);
+        $deposit = $fx->refreshIfExpired($deposit);
+        $rail = $this->bankRailForDeposit($deposit);
         $lines = [
             'Waiting for payment. The wallet is credited after this transfer is confirmed. Put REF'.$deposit->reference_code.' in the payment note.',
         ];
@@ -201,18 +206,26 @@ class InvoiceController extends Controller
             if (! empty($pay['beneficiary'])) {
                 $lines[] = 'Beneficiary: '.$pay['beneficiary'].'.';
             }
-            if (! empty($pay['uk_sort_code'])) {
-                $lines[] = 'Sort code (from the UK): '.$pay['uk_sort_code'].'.';
+            if ($rail === 'gbp') {
+                if (! empty($pay['uk_sort_code'])) {
+                    $lines[] = 'Sort code (from the UK): '.$pay['uk_sort_code'].'.';
+                }
+                if (! empty($pay['uk_account_number'])) {
+                    $lines[] = 'GBP account (from the UK): '.$pay['uk_account_number'].'.';
+                }
+            } else {
+                if (! empty($pay['iban'])) {
+                    $lines[] = 'IBAN (from outside the UK): '.$pay['iban'].'.';
+                }
+                if (! empty($pay['bic'])) {
+                    $lines[] = 'Swift/BIC (from outside the UK): '.$pay['bic'].'.';
+                }
             }
-            if (! empty($pay['uk_account_number'])) {
-                $lines[] = 'GBP account (from the UK): '.$pay['uk_account_number'].'.';
-            }
-            if (! empty($pay['iban'])) {
-                $lines[] = 'IBAN (from outside the UK): '.$pay['iban'].'.';
-            }
-            if (! empty($pay['bic'])) {
-                $lines[] = 'Swift/BIC (from outside the UK): '.$pay['bic'].'.';
-            }
+
+            $chargeCurrency = strtoupper((string) ($deposit->charge_currency ?: ($rail === 'gbp' ? 'GBP' : 'EUR')));
+            $chargeAmount = $fx->expectedCharge($deposit);
+            $lines[] = $fx->sendLabel($chargeCurrency, $chargeAmount, (float) $deposit->amount).'.';
+            $lines[] = $fx->toleranceNote();
 
             $user ??= $deposit->user;
             $guidance = app(UsdBankWireGuidance::class);
@@ -238,6 +251,22 @@ class InvoiceController extends Controller
         }
 
         return implode(' ', $lines);
+    }
+
+    /**
+     * @return 'gbp'|'eur'
+     */
+    private function bankRailForDeposit($deposit): string
+    {
+        $stored = strtoupper((string) ($deposit->charge_currency ?? ''));
+        if ($stored === 'GBP') {
+            return 'gbp';
+        }
+        if ($stored === 'EUR') {
+            return 'eur';
+        }
+
+        return app(DisplayCurrencyPreference::class)->payFrom() === 'gbp' ? 'gbp' : 'eur';
     }
 
     private function pendingOrderDocument($order, $user): Invoice
@@ -295,6 +324,13 @@ class InvoiceController extends Controller
             'referenceCode' => $deposit->reference_code,
             'amount' => $deposit->amount,
             'walletCurrency' => app(UsdBankWireGuidance::class)->walletCurrencyFor($user),
+            'bankRail' => $this->bankRailForDeposit($deposit),
+            'sendLabel' => app(DepositFx::class)->sendLabel(
+                strtoupper((string) ($deposit->charge_currency ?: 'EUR')),
+                app(DepositFx::class)->expectedCharge($deposit),
+                (float) $deposit->amount
+            ),
+            'toleranceNote' => app(DepositFx::class)->toleranceNote(),
             'billingName' => $user->billing_name ?? $user->name,
             'companyName' => $user->company_name ?? '',
             'country' => $user->country ?? '',

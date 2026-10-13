@@ -469,11 +469,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const projected = context.projected_balance === null || context.projected_balance === undefined
             ? ''
             : `<div>After approve: <strong>€${parseFloat(context.projected_balance).toFixed(2)}</strong></div>`;
+        const expected = context.fx_expected_line
+            ? `<div data-fx-expected-line>${escapeHtml(context.fx_expected_line)}</div>`
+            : '';
         return `
             <section class="deposit-sheet__block">
                 <h6 class="deposit-sheet__label">Wallet</h6>
                 <div class="deposit-sheet__panel">
                     ${warning}
+                    ${expected}
                     <div>Current balance: <strong>€${parseFloat(context.current_balance || 0).toFixed(2)}</strong></div>
                     ${projected}
                     ${priorHtml}
