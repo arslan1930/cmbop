@@ -178,7 +178,7 @@
 .recent-orders-link {
     color: #1a585e; font-weight: 600; text-decoration: none;
 }
-.recent-orders-link:hover { color: #123f42; }
+.recent-orders-link:hover { color: #123f42; text-decoration: underline; }
 .dash-icon-link {
     display: inline-flex; align-items: center; justify-content: center;
     width: 36px; height: 36px; border: none; background: transparent;
@@ -202,11 +202,14 @@
     font-weight: 400;
     font-size: 14px;
     color: #1a585e;
-    text-decoration: underline;
+    text-decoration: none;
     text-underline-offset: 2px;
     word-break: break-all;
 }
-.recommended-site .rs-name:hover { color: #123f42; }
+.recommended-site .rs-name:hover {
+    color: #123f42;
+    text-decoration: underline;
+}
 .recommended-site .rs-meta { font-size: 12px; color: var(--brand-ink-muted, #75787B); margin: 0; }
 .recommended-site .rs-price {
     font-weight: 600;
