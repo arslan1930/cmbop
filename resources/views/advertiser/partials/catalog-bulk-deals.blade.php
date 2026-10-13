@@ -111,9 +111,17 @@
                                     'faviconChain' => $dealFaviconChain,
                                 ])
                                 <div class="bulk-deal-card__identity min-w-0 flex-grow-1">
-                                    <span class="bulk-deal-card__name" title="{{ $dealName }}">{{ $dealName }}</span>
-                                    @if($dealUrl !== '')
-                                        <span class="bulk-deal-card__url" title="{{ $dealUrl }}">{{ $dealUrl }}</span>
+                                    @php
+                                        $dealLabel = $dealHost !== '' ? $dealHost : $dealName;
+                                        $dealTitle = trim(implode(' · ', array_filter([$dealName !== $dealLabel ? $dealName : null, $dealUrl !== '' ? $dealUrl : $dealLabel])));
+                                    @endphp
+                                    <span class="bulk-deal-card__name" title="{{ $dealTitle }}">{{ $dealLabel }}</span>
+                                    @if($dealHost !== '')
+                                        <a href="{{ route('advertiser.catalog.visit', $deal->id) }}"
+                                           target="_blank"
+                                           rel="noopener nofollow"
+                                           class="bulk-deal-card__url"
+                                           title="{{ $dealTitle }}">{{ $dealHost }}</a>
                                     @endif
                                     @if($dealTld !== '')
                                         <span class="bulk-deal-card__tld">{{ $dealTld }}</span>

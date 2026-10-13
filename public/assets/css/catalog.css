@@ -1924,6 +1924,11 @@ body:has(.catalog-page) {
     white-space: nowrap;
     font-size: 0.75rem;
     color: var(--brand-primary, #1a585e);
+    text-decoration: none;
+}
+a.bulk-deal-card__url:hover {
+    text-decoration: underline;
+    color: var(--brand-primary-deep, #123f42);
 }
 
 .bulk-deal-card__tld {
