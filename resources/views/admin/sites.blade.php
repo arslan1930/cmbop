@@ -35,6 +35,7 @@
         'niche' => ($staffSiteFilters['niche'] ?? '') !== '' ? $staffSiteFilters['niche'] : null,
         'archived' => !empty($staffSiteFilters['archived']) ? 1 : null,
         'sort' => ($staffSiteFilters['sort'] ?? '') !== '' ? $staffSiteFilters['sort'] : null,
+        'empty_publishers' => ! empty($staffSiteFilters['empty_publishers']) ? 1 : null,
     ], static fn ($value) => $value !== null && $value !== '');
     $pagerModeQuery = array_filter([
         'needs_review' => !empty($needsReviewFilterActive) ? 1 : null,

@@ -36,6 +36,10 @@
         @if(($waitingStage ?? '') !== '')
             <input type="hidden" name="waiting_stage" value="{{ $waitingStage }}">
         @endif
+        <label class="form-check small mb-1">
+            <input class="form-check-input" type="checkbox" name="empty_publishers" value="1" data-staff-filter="empty_publishers" @checked(!empty($filters['empty_publishers']))>
+            Show publishers with no sites
+        </label>
     @endif
     @if($getForm)
         <label class="small mb-0">

@@ -174,16 +174,20 @@ class MarketingSitesIndexTest extends TestCase
     public function test_sites_index_search_survives_pagination_and_needs_review_toggle(): void
     {
         foreach (range(1, 21) as $i) {
-            $this->userWithRole('publisher', [
+            $publisher = $this->userWithRole('publisher', [
                 'name' => sprintf('PubCo Search %02d', $i),
                 'email' => sprintf('pubco-search-%02d@example.test', $i),
+            ]);
+            $this->makeSite($publisher, [
+                'domain' => sprintf('pubco-search-%02d.example', $i),
+                'site_url' => sprintf('https://pubco-search-%02d.example', $i),
             ]);
         }
 
         $html = $this->actingAs($this->marketer)
             ->get(route('marketing.sites.index', ['q' => 'PubCo Search']))
             ->assertOk()
-            ->assertSee('pubco-search-01@example.test', false)
+            ->assertSee('pubco-search-21@example.test', false)
             ->getContent();
 
         $this->assertTrue(
@@ -214,7 +218,7 @@ class MarketingSitesIndexTest extends TestCase
         ]);
 
         $html = $this->actingAs($this->marketer)
-            ->get(route('marketing.sites.index'))
+            ->get(route('marketing.sites.index', ['empty_publishers' => 1]))
             ->assertOk()
             ->assertSee($empty->email, false)
             ->assertSee($queued->email, false)
@@ -225,6 +229,32 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertNotFalse($queuedPos);
         $this->assertNotFalse($emptyPos);
         $this->assertLessThan($emptyPos, $queuedPos);
+    }
+
+    public function test_sites_index_hides_publishers_with_no_sites_by_default(): void
+    {
+        $empty = $this->userWithRole('publisher', [
+            'name' => 'No Sites Publisher',
+            'email' => 'no-sites-publisher@example.test',
+        ]);
+        $listed = $this->userWithRole('publisher', [
+            'name' => 'Has Sites Publisher',
+            'email' => 'has-sites-publisher@example.test',
+        ]);
+        $this->makeSite($listed);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.sites.index'))
+            ->assertOk()
+            ->assertSee($listed->email, false)
+            ->assertDontSee($empty->email, false)
+            ->assertSee('Show publishers with no sites', false);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.sites.index', ['empty_publishers' => 1]))
+            ->assertOk()
+            ->assertSee($listed->email, false)
+            ->assertSee($empty->email, false);
     }
 
     public function test_sites_index_excludes_archived_from_review_count_and_user_sites(): void

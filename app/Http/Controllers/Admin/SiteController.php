@@ -289,6 +289,14 @@ class SiteController extends Controller
                 ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
                 ->withCount('notArchivedSites as sites_count')
                 ->withCount('archivedSites as archived_sites_count')
+                ->when(
+                    empty($staffSiteFilters['empty_publishers']) && ! $needsReviewFilter && ! $waitingOnPublisherFilter,
+                    function ($publishers) use ($staffSiteFilters) {
+                        $publishers->whereHas('sites', function ($sites) use ($staffSiteFilters) {
+                            $this->applyStaffSitesArchiveScope($sites, $staffSiteFilters);
+                        });
+                    }
+                )
                 ->withCount(['sites as needs_review_sites_count' => function ($q) use ($reviewQueue, $reviewListNarrows, $narrowQueueSites) {
                     $reviewQueue($q);
                     if ($reviewListNarrows) {
@@ -2237,6 +2245,7 @@ class SiteController extends Controller
             'archived' => $this->requestFlag($request, 'archived'),
             'waiting_stage' => MarketingOpsQueues::normalizeWaitingStage($request->query('waiting_stage', $request->input('waiting_stage'))) ?? '',
             'sort' => $this->staffSitesListSortKey($request->query('sort', $request->input('sort'))),
+            'empty_publishers' => $this->requestFlag($request, 'empty_publishers'),
         ];
     }
 
