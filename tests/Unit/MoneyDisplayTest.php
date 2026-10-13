@@ -26,7 +26,20 @@ class MoneyDisplayTest extends TestCase
         $this->assertSame('EUR', app(MoneyDisplay::class)->currency());
         $this->assertSame('€12.00', format_money(12));
         $this->assertSame('€12.00', format_money_pay(12));
+        $this->assertSame('−€40.00', format_money(-40));
+        $this->assertSame('−€40.00', format_money_pay(-40));
+        $this->assertSame('+€12.00', format_money(12, ['signed' => true]));
+        $this->assertSame('−€40.00', format_money(-40, ['signed' => true]));
         $this->assertFalse(app(MoneyDisplay::class)->displaysUsd());
+    }
+
+    public function test_javascript_money_helper_puts_minus_before_the_symbol(): void
+    {
+        $js = file_get_contents(public_path('js/slb-money.js'));
+        $this->assertIsString($js);
+        $this->assertStringContainsString("var MINUS = '\\u2212'", $js);
+        $this->assertStringContainsString('signedPrefix(value, !!options.signed) + symbol', $js);
+        $this->assertStringContainsString('if (value < 0) return MINUS', $js);
     }
 
     public function test_us_viewer_sees_euros(): void

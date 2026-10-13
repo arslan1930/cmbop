@@ -78,7 +78,12 @@
 
         const toast = new bootstrap.Toast(toastElement, { delay: delay, autohide: true });
         toast.show();
-        toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+            if (toastContainer && !toastContainer.querySelector('.toast')) {
+                toastContainer.remove();
+            }
+        });
     };
 
     // Backward-compatible alias used across advertiser pages

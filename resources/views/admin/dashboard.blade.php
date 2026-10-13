@@ -8,7 +8,12 @@
         'title' => 'Admin Dashboard',
         'subtitle' => 'Platform overview, money flow, and items that need your attention.',
     ])
-    <div class="small text-muted mb-3" id="dashboardUpdated" hidden></div>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="dashboardUpdatedRow">
+        <div class="small text-muted" id="dashboardUpdated" hidden></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="dashboardRefresh" title="Refresh dashboard figures">
+            <i class="fa fa-rotate me-1" aria-hidden="true"></i>Refresh
+        </button>
+    </div>
 
     {{-- Moderation being off changes nothing visible anywhere else: articles are
          approved, orders go through, and the scan log fills with passes. Nobody
@@ -58,7 +63,7 @@
                         <h3 class="mb-0" id="kpiUsers">—</h3>
                         <span class="badge bg-primary-subtle text-primary" id="kpiUsers7d">+0 / 7d</span>
                     </div>
-                    <div class="small text-muted mt-1 js-kpi-users-caption">All accounts. Role counts can overlap.</div>
+                    <div class="small text-muted mt-1 js-kpi-users-caption">Usage counts: chosen active role, or a site / order. Assigned roles still overlap at signup.</div>
                     <div class="small text-muted mt-1">
                         <span id="kpiAdvertisers">0</span> advertisers ·
                         <span id="kpiPublishers">0</span> publishers ·
@@ -94,6 +99,7 @@
                     <div class="small text-muted mt-2">
                         <span id="kpiVerified">0</span> live in catalog
                     </div>
+                    <div class="small text-muted" id="kpiSiteBreakdown"></div>
                 </div>
             </div>
         </div>
@@ -105,9 +111,9 @@
                         <h3 class="mb-0" id="kpiAttention">—</h3>
                         <span class="badge bg-danger-subtle text-danger">Action queue</span>
                     </div>
-                    <ul class="list-unstyled mb-0 mt-2 small" id="kpiAttentionList">
-                        <li class="text-muted">Loading…</li>
-                    </ul>
+                    <div class="small mt-2" id="kpiAttentionList">
+                        <div class="text-muted">Loading…</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -168,6 +174,7 @@
                     <div class="text-muted small">Advertiser wallets</div>
                     <div class="fs-4 fw-semibold" id="financeAdvertiser">—</div>
                     <div class="small text-muted" id="financeAdvertiserSplit">Cash, bonus, and reserved</div>
+                    <div class="small text-warning mt-1 d-none" id="financeAdvertiserBonusFlag">Includes promotional bonus credit. Welcome bonus is closed — no new grants.</div>
                 </div>
             </div>
         </div>
@@ -185,7 +192,7 @@
     <div class="row g-3 mb-4" id="marketplaceHealth">
         <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <strong class="admin-dash-section">Marketplace</strong>
-            <span class="small text-muted">People with both roles count in both signup figures.</span>
+            <span class="small text-muted">New-role cards count the role chosen at signup, not both assigned roles.</span>
         </div>
         <div class="col-12 d-none" id="healthRetry"></div>
         <div class="col-6 col-xl">
@@ -292,11 +299,26 @@
                     <strong><i class="fa fa-globe me-2 text-primary"></i>Sites Awaiting Verify <span class="text-muted fw-normal small" data-queue-meta="sites"></span></strong>
                     <a href="{{ route('admin.sites.index', ['needs_review' => 1]) }}" class="small">View all</a>
                 </div>
+                <div class="d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom">
+                    <label class="small text-muted mb-0" for="sitesAgeFilter">Age</label>
+                    <select id="sitesAgeFilter" class="form-select form-select-sm" style="width:auto;">
+                        <option value="0">Any age</option>
+                        <option value="3">3+ days</option>
+                        <option value="7">7+ days</option>
+                        <option value="14">14+ days</option>
+                        <option value="30">30+ days</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="sitesBulkApprove">Approve selected</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="sitesBulkReject">Reject selected</button>
+                </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 align-middle">
                             <thead class="table-light">
-                                <tr><th>Site</th><th>Publisher</th><th>Waiting</th></tr>
+                                <tr>
+                                    <th class="text-center" style="width:2rem;"><input type="checkbox" id="sitesSelectAll" aria-label="Select all sites"></th>
+                                    <th>Site</th><th>Publisher</th><th>Waiting</th>
+                                </tr>
                             </thead>
                             <tbody id="queueSites">
                                 <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
@@ -750,7 +772,17 @@
 
 <script src="{{ asset('js/chart.umd.min.js') }}?v={{ @filemtime(public_path('js/chart.umd.min.js')) ?: '1' }}"></script>
 <script>
-const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (n) => {
+    if (typeof window.slbFormatMoney === 'function') {
+        return window.slbFormatMoney(n);
+    }
+    const value = Number(n || 0);
+    const abs = Math.abs(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (value < 0 ? '\u2212' : '') + '€' + abs;
+};
+const sitesBulkActionUrl = @json(route('admin.sites.bulk-action'));
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+let sitesAgeDays = 0;
 const num = (n) => Number(n || 0).toLocaleString();
 const financeDayUrl = @json(route('admin.finance'));
 const ordersIndexUrl = @json(route('admin.orders.index'));
@@ -991,17 +1023,27 @@ function renderAttention(items) {
     const list = document.getElementById('kpiAttentionList');
     if (!list) return;
     if (!items.length) {
-        list.innerHTML = '<li class="text-muted">Nothing waiting.</li>';
+        list.innerHTML = '<div class="text-muted">Nothing waiting.</div>';
         return;
     }
-    list.innerHTML = items.map((item) => {
+    const rowHtml = (item) => {
         const severity = item.severity === 'danger'
             ? 'link-danger'
             : (item.severity === 'warning' ? 'link-warning' : 'link-secondary');
         const amount = item.amount == null ? '' : ' · ' + money(item.amount);
         const href = item.url || '#dashboardActionQueues';
         return `<li class="mb-1"><a href="${escapeHtml(href)}" class="${severity}">${escapeHtml(item.label || '')} · ${num(item.count)}${amount}</a></li>`;
-    }).join('');
+    };
+    const urgent = items.filter((item) => item.bucket === 'urgent');
+    const backlog = items.filter((item) => item.bucket !== 'urgent');
+    let html = '';
+    if (urgent.length) {
+        html += '<div class="fw-semibold text-danger mb-1">Urgent</div><ul class="list-unstyled mb-2">' + urgent.map(rowHtml).join('') + '</ul>';
+    }
+    if (backlog.length) {
+        html += '<div class="fw-semibold text-muted mb-1">Backlog</div><ul class="list-unstyled mb-0">' + backlog.map(rowHtml).join('') + '</ul>';
+    }
+    list.innerHTML = html;
 }
 
 function applyPromotions(p) {
@@ -1016,7 +1058,11 @@ function applyPromotions(p) {
 function markDashboardUpdated() {
     const el = document.getElementById('dashboardUpdated');
     if (!el) return;
-    const clock = new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const clock = new Date().toLocaleTimeString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
+    });
     el.textContent = 'Updated ' + clock;
     el.hidden = false;
 }
@@ -1139,8 +1185,20 @@ async function loadStatistics(options = {}) {
         setText('kpiMarketers', num(d.marketers));
         setText('kpiRevenueAllTime', 'All time: ' + money(d.revenue));
         setText('kpiSites', num(d.total_sites));
-        setText('kpiVerified', num(d.live_sites ?? d.verified_sites));
-        setText('kpiUnverified', num(d.unverified_sites) + ' in review');
+        setText('kpiVerified', num((d.site_status && d.site_status.live) ?? d.live_sites ?? d.verified_sites));
+        const inReview = (d.site_status && d.site_status.in_review) ?? d.unverified_sites;
+        setText('kpiUnverified', num(inReview) + ' in review');
+        const breakdown = document.getElementById('kpiSiteBreakdown');
+        if (breakdown) {
+            const status = d.site_status || {};
+            const parts = [];
+            if (Number(status.archived) > 0) parts.push(num(status.archived) + ' archived');
+            if (Number(status.paused) > 0) parts.push(num(status.paused) + ' paused');
+            if (Number(status.draft) > 0) parts.push(num(status.draft) + ' draft');
+            if (Number(status.held) > 0) parts.push(num(status.held) + ' held / rejected');
+            if (Number(status.other) > 0) parts.push(num(status.other) + ' other');
+            breakdown.textContent = parts.length ? parts.join(' · ') : '';
+        }
         applyAttentionCounts(d);
         applyPromotions(d.promotions);
         hideRetry(retryEl);
@@ -1172,7 +1230,12 @@ async function loadFinanceStrip(options = {}) {
         setText('financeCollected', collectedLine(d));
         const advertiserTotal = Number(d.advertiser_cash || 0) + Number(d.advertiser_bonus || 0) + Number(d.advertiser_reserved || 0);
         setText('financeAdvertiser', money(advertiserTotal));
+        const bonus = Number(d.advertiser_bonus || 0);
         setText('financeAdvertiserSplit', 'Cash ' + money(d.advertiser_cash) + ' · bonus ' + money(d.advertiser_bonus) + ' · reserved ' + money(d.advertiser_reserved));
+        const bonusFlag = document.getElementById('financeAdvertiserBonusFlag');
+        if (bonusFlag) {
+            bonusFlag.classList.toggle('d-none', !(bonus > 0));
+        }
         setText('financeUnpaid', money(d.unpaid_orders_amount));
         setText('financeUnpaidCount', num(d.unpaid_orders_count));
         setText('kpiRevenue', money(d.gmv));
@@ -1189,9 +1252,9 @@ async function loadFinanceStrip(options = {}) {
 }
 
 function formatHours(value) {
-    if (value == null || value === '') return '—';
+    if (value == null || value === '') return 'No orders yet';
     const hours = Number(value);
-    if (!Number.isFinite(hours)) return '—';
+    if (!Number.isFinite(hours)) return 'No orders yet';
     if (hours >= 48) {
         return (hours / 24).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' days';
     }
@@ -1534,7 +1597,8 @@ async function loadActionQueue(options = {}) {
     const campaignBody = document.getElementById('queueCampaigns');
 
     try {
-        const json = await dashboardFetch(`{{ route('admin.dashboard.action-queue') }}`, { silent: quiet });
+        const queueUrl = `{{ route('admin.dashboard.action-queue') }}` + (sitesAgeDays > 0 ? ('?min_age_days=' + encodeURIComponent(sitesAgeDays)) : '');
+        const json = await dashboardFetch(queueUrl, { silent: quiet });
         if (tick !== actionQueueTick) return;
         const deposits = json.deposits || [];
         const withdrawals = json.withdrawals || [];
@@ -1588,21 +1652,30 @@ async function loadActionQueue(options = {}) {
                 </tr>`).join('');
         }
 
-        setQueuePanel('sites', sites.length > 0);
+        setQueuePanel('sites', sites.length > 0 || sitesAgeDays > 0 || Number(totals.unverified_sites) > 0);
         meta('sites', sites.length);
         if (!sites.length) {
-            sBody.innerHTML = emptyRow(3, 'No sites awaiting verification');
+            sBody.innerHTML = emptyRow(4, 'No sites awaiting verification');
         } else {
-            sBody.innerHTML = sites.map(s => `
+            sBody.innerHTML = sites.map(s => {
+                const href = s.site_url || '';
+                const external = href
+                    ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="ms-1" title="Open ${escapeHtml(href)} in a new tab" aria-label="Open site in a new tab"><i class="fa fa-arrow-up-right-from-square" aria-hidden="true"></i></a>`
+                    : '';
+                return `
                 <tr>
+                    <td class="text-center"><input type="checkbox" class="js-site-select" value="${escapeHtml(String(s.id))}" aria-label="Select ${escapeHtml(s.site_name || 'site')}"></td>
                     <td>
                         <div class="fw-semibold">${cellLink(s.url, s.site_name || '—')}</div>
-                        <div class="small text-muted text-truncate" style="max-width:140px;">${escapeHtml(s.site_url || '')}</div>
+                        <div class="small text-muted text-truncate" style="max-width:180px;" title="${escapeHtml(s.site_url || '')}">${escapeHtml(s.site_url || '')}${external}</div>
                     </td>
                     <td>${escapeHtml(s.publisher)}</td>
                     ${waitingCell(s)}
-                </tr>`).join('');
+                </tr>`;
+            }).join('');
         }
+        const selectAll = document.getElementById('sitesSelectAll');
+        if (selectAll) selectAll.checked = false;
 
         setQueuePanel('unpaid', unpaid.length > 0);
         meta('unpaid', unpaid.length);
@@ -1776,7 +1849,7 @@ async function loadActionQueue(options = {}) {
             .forEach((name) => setQueuePanel(name, true));
         depBody.innerHTML = retryRow(4, 'loadActionQueue');
         wBody.innerHTML = retryRow(4, 'loadActionQueue');
-        sBody.innerHTML = retryRow(3, 'loadActionQueue');
+        sBody.innerHTML = retryRow(4, 'loadActionQueue');
         unpaidBody.innerHTML = retryRow(3, 'loadActionQueue');
         disputeBody.innerHTML = retryRow(3, 'loadActionQueue');
         communityBody.innerHTML = retryRow(3, 'loadActionQueue');
@@ -1980,6 +2053,107 @@ document.addEventListener('keydown', (e) => {
     followKpiLink(kpi);
 });
 
+function selectedSiteIds() {
+    return [...document.querySelectorAll('#queueSites .js-site-select:checked')]
+        .map((el) => Number(el.value))
+        .filter((id) => id > 0);
+}
+
+async function bulkSites(action) {
+    const ids = selectedSiteIds();
+    if (!ids.length) {
+        if (window.showAppToast) window.showAppToast('Select at least one site.', 'warning');
+        return;
+    }
+    const verb = action === 'verify' ? 'approve' : 'reject';
+    let reason = '';
+    if (action === 'reject') {
+        if (window.Swal && typeof window.Swal.fire === 'function') {
+            const result = await window.Swal.fire({
+                title: 'Reject ' + ids.length + ' site' + (ids.length === 1 ? '' : 's') + '?',
+                text: 'This un-verifies the listing. Give a reason the publisher will see.',
+                input: 'textarea',
+                inputPlaceholder: 'Reason (at least 10 characters)',
+                showCancelButton: true,
+                confirmButtonText: 'Reject',
+                customClass: { confirmButton: 'slb-swal-danger' },
+                reverseButtons: true,
+                focusCancel: true,
+                inputValidator: (value) => {
+                    if (!value || String(value).trim().length < 10) {
+                        return 'Reason must be at least 10 characters.';
+                    }
+                    return undefined;
+                },
+            });
+            if (!result.isConfirmed) return;
+            reason = String(result.value || '').trim();
+        } else {
+            const ok = window.confirm('Reject ' + ids.length + ' selected site(s)?');
+            if (!ok) return;
+            reason = window.prompt('Reason (at least 10 characters)') || '';
+            if (reason.trim().length < 10) {
+                if (window.showAppToast) window.showAppToast('Reason must be at least 10 characters.', 'error');
+                return;
+            }
+        }
+    } else {
+        const ok = window.slbConfirm
+            ? await window.slbConfirm({
+                title: 'Approve selected sites?',
+                text: 'Approve ' + ids.length + ' site' + (ids.length === 1 ? '' : 's') + ' waiting for verification.',
+                confirmText: 'Approve',
+            })
+            : window.confirm('Approve ' + ids.length + ' selected site(s)?');
+        if (!ok) return;
+    }
+
+    try {
+        const body = { action: action, ids: ids };
+        if (reason) body.reason = reason;
+        const res = await fetch(sitesBulkActionUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify(body),
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json || !json.success) {
+            throw new Error((json && json.message) || ('Could not ' + verb + ' the selected sites.'));
+        }
+        if (window.showAppToast) window.showAppToast(json.message || ('Sites ' + verb + 'd.'), 'success');
+        loadActionQueue().catch((err) => console.error('Dashboard queue reload failed', err));
+        loadStatistics({ quiet: true }).catch(() => {});
+    } catch (err) {
+        if (window.showAppToast) window.showAppToast(err.message || ('Could not ' + verb + ' the selected sites.'), 'error');
+    }
+}
+
+function hideEmptyAdminChrome() {
+    document.querySelectorAll('iframe[title*="chat" i], iframe[src*="tawk.to"], .slb-chat-mark').forEach((el) => {
+        el.style.display = 'none';
+        el.setAttribute('hidden', 'hidden');
+    });
+    const toast = document.getElementById('toastContainer');
+    if (toast && !toast.querySelector('.toast')) toast.remove();
+}
+
+function reloadDashboard() {
+    return Promise.all([
+        loadStatistics(),
+        loadFinanceStrip(),
+        loadMarketplaceHealth(),
+        loadTrends(),
+        loadDistributions(),
+        loadActionQueue(),
+        loadStalledOrders(),
+    ]);
+}
+
 window.refreshAdminDashboardQueues = function (counts) {
     if (counts && counts.success) {
         applyAttentionCounts(counts);
@@ -1990,7 +2164,22 @@ window.refreshAdminDashboardQueues = function (counts) {
     loadMarketplaceHealth({ quiet: true }).catch(err => console.error('Dashboard health refresh failed', err));
 };
 
-Promise.all([loadStatistics(), loadFinanceStrip(), loadMarketplaceHealth(), loadTrends(), loadDistributions(), loadActionQueue(), loadStalledOrders()])
-    .catch(err => console.error('Dashboard load failed', err));
+document.getElementById('dashboardRefresh')?.addEventListener('click', () => {
+    reloadDashboard().catch(err => console.error('Dashboard refresh failed', err));
+});
+document.getElementById('sitesAgeFilter')?.addEventListener('change', (e) => {
+    sitesAgeDays = Number(e.target.value) || 0;
+    loadActionQueue().catch(err => console.error('Dashboard sites age filter failed', err));
+});
+document.getElementById('sitesBulkApprove')?.addEventListener('click', () => bulkSites('verify'));
+document.getElementById('sitesBulkReject')?.addEventListener('click', () => bulkSites('reject'));
+document.getElementById('sitesSelectAll')?.addEventListener('change', (e) => {
+    document.querySelectorAll('#queueSites .js-site-select').forEach((box) => {
+        box.checked = e.target.checked;
+    });
+});
+
+hideEmptyAdminChrome();
+reloadDashboard().catch(err => console.error('Dashboard load failed', err));
 </script>
 @endsection

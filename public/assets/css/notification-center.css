@@ -162,6 +162,26 @@
   gap: 6px;
 }
 
+.nc-mark-all-bar {
+  border: 0;
+  background: transparent;
+  color: var(--nc-primary-strong, #1a585e);
+  font-size: 12px;
+  font-weight: 650;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nc-mark-all-bar:hover {
+  background: var(--hover-overlay, rgba(15, 23, 42, 0.06));
+}
+
+.nc-mark-all-bar[hidden] {
+  display: none !important;
+}
+
 .nc-link-btn {
   border: 0;
   background: transparent;

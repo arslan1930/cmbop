@@ -124,16 +124,19 @@ class MoneyDisplay
     }
 
     /**
+     * Unicode minus so negatives read −€40.00, never €-40.00.
+     */
+    public const MINUS = "\u{2212}";
+
+    /**
      * @param  array{signed?: bool, decimals?: int}  $options
      */
     public function format(mixed $euros, array $options = []): string
     {
         $value = $this->amount($euros);
-        $signed = ! empty($options['signed']);
-        $prefix = $signed && $value > 0 ? '+' : '';
         $decimals = array_key_exists('decimals', $options) ? max(0, (int) $options['decimals']) : 2;
 
-        return $prefix.$this->symbol().number_format(abs($value), $decimals);
+        return $this->signedPrefix($value, ! empty($options['signed'])).$this->symbol().number_format(abs($value), $decimals);
     }
 
     /**
@@ -144,8 +147,7 @@ class MoneyDisplay
     public function formatPay(mixed $euros, array $options = []): string
     {
         $eur = round((float) $euros, 2);
-        $signed = ! empty($options['signed']);
-        $prefix = $signed && $eur > 0 ? '+' : '';
+        $prefix = $this->signedPrefix($eur, ! empty($options['signed']));
         $eurLabel = '€'.number_format(abs($eur), 2);
         if ($this->currency() === 'EUR') {
             return $prefix.$eurLabel;
@@ -161,6 +163,15 @@ class MoneyDisplay
         $local = round(abs($eur) * $rate, 2);
 
         return $prefix.$eurLabel.' · about '.$this->symbol().number_format($local, 2);
+    }
+
+    private function signedPrefix(float $value, bool $signed): string
+    {
+        if ($value < 0) {
+            return self::MINUS;
+        }
+
+        return $signed && $value > 0 ? '+' : '';
     }
 
     /**

@@ -13,6 +13,12 @@
      data-all-url="{{ route('notifications.all', absolute: false) }}">
 
     <button type="button"
+            class="nc-mark-all-bar"
+            data-nc-mark-all
+            hidden>
+        Mark all read
+    </button>
+    <button type="button"
             class="nc-bell-btn"
             data-nc-bell
             title="Notifications"

@@ -194,6 +194,10 @@ body.role-shell-marketing {
   pointer-events: none;
 }
 
+.slb-toast-stack:empty {
+  display: none !important;
+}
+
 .slb-toast-stack > * {
   pointer-events: auto;
 }

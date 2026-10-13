@@ -39,18 +39,24 @@
         return Math.round(n * 100) / 100;
     }
 
+    var MINUS = '\u2212';
+
+    function signedPrefix(value, signed) {
+        if (value < 0) return MINUS;
+        return signed && value > 0 ? '+' : '';
+    }
+
     function format(rawEuros, options) {
         options = options || {};
         var value = amount(rawEuros);
         var symbol = config().symbol || '€';
-        var sign = options.signed && value > 0 ? '+' : '';
-        return sign + symbol + Math.abs(value).toFixed(2);
+        return signedPrefix(value, !!options.signed) + symbol + Math.abs(value).toFixed(2);
     }
 
     function formatPay(rawEuros, options) {
         options = options || {};
         var eur = euros(rawEuros);
-        var sign = options.signed && eur > 0 ? '+' : '';
+        var sign = signedPrefix(eur, !!options.signed);
         var eurLabel = '€' + Math.abs(eur).toFixed(2);
         var cfg = config();
         if (!cfg.guide || cfg.currency === 'EUR') {
