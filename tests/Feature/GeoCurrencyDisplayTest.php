@@ -102,7 +102,7 @@ class GeoCurrencyDisplayTest extends TestCase
             ->assertSee('data-bank-rail="gbp"', false)
             ->assertSee('data-pay-from="gbp"', false)
             ->assertSee('UK bank (GBP)', false)
-            ->assertSee('Amount to send: £42.50 (≈ €50.00 at today\'s rate, locked for 7 days)', false)
+            ->assertSee(e('Amount to send: £42.50 (≈ €50.00 at today\'s rate, locked for 7 days)'), false)
             ->assertSee('23-08-01', false)
             ->assertDontSee('data-bank-rail="eur"', false)
             ->assertDontSee('id="bankIban"', false);
@@ -175,20 +175,19 @@ class GeoCurrencyDisplayTest extends TestCase
             $note
         );
 
-        $html = view('emails.deposit-request-submitted', [
-            'deposit' => new DepositRequest([
-                'amount' => 50,
-                'charge_currency' => 'GBP',
-                'charge_amount' => 42.5,
-                'payment_method' => 'bank',
-                'reference_code' => '654321',
-                'created_at' => now(),
-            ]),
-            'user' => (object) ['name' => 'Ada', 'email' => 'ada@example.com'],
-            'approveUrl' => 'https://example.test/approve',
-            'adminUrl' => 'https://example.test/admin/deposits',
-        ])->render();
+        $user = $this->advertiser('GB');
+        $deposit = DepositRequest::create([
+            'user_id' => $user->id,
+            'amount' => 50,
+            'charge_currency' => 'GBP',
+            'charge_amount' => 42.5,
+            'payment_method' => 'bank',
+            'reference_code' => '654321',
+            'status' => 'pending',
+        ]);
+        $deposit->setRelation('user', $user);
 
+        $html = (new \App\Mail\DepositRequestSubmitted($deposit))->render();
         $this->assertStringContainsString($note, $html);
     }
 
