@@ -2697,6 +2697,25 @@ function bootLibraryLiveSearch() {
 
 bootLibraryLiveSearch();
 
+function syncLibraryBulkBar() {
+    const selected = document.querySelectorAll('.library-bulk-id:checked').length;
+    const form = document.getElementById('libraryBulkForm');
+    if (!form) {
+        return;
+    }
+    const show = selected > 0;
+    form.hidden = !show;
+    form.classList.toggle('d-none', !show);
+}
+
+document.addEventListener('change', function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains('library-bulk-id')) {
+        syncLibraryBulkBar();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', syncLibraryBulkBar);
+
 document.addEventListener('submit', function (e) {
     const form = e.target && e.target.id === 'libraryBulkForm' ? e.target : null;
     if (!form) {

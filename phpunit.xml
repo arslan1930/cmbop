@@ -18,6 +18,9 @@
         </include>
     </source>
     <php>
+        <!-- Laravel MCP InspectorCommand cannot autoload inside 128M.
+             A full suite also OOMs at 512M while generating invoice PDFs. -->
+        <ini name="memory_limit" value="1024M"/>
         <!-- force=true: Cloud/agent shells often export APP_ENV=local and a
              leftover DB_DATABASE file. Without force, PHPUnit keeps those,
              runningUnitTests() is false (CSRF 419 on postJson), and leftover

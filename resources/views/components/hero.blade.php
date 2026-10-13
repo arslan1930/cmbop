@@ -26,6 +26,18 @@
 
       <p class="slb-hero-tagline">{{ __('messages.hero_tagline') }}</p>
 
+      <form class="slb-hero-search" action="{{ $marketplaceHref }}" method="get" role="search">
+        <label class="visually-hidden" for="heroMarketplaceSearch">{{ __('messages.hero_search_label') }}</label>
+        <input type="search"
+               id="heroMarketplaceSearch"
+               name="search"
+               class="slb-hero-search__input"
+               placeholder="{{ __('messages.hero_search_placeholder') }}"
+               autocomplete="off"
+               enterkeyhint="search">
+        <button type="submit" class="slb-hero-search__submit">{{ __('messages.hero_search_submit') }}</button>
+      </form>
+
       <div class="slb-hero-cta-group">
         <a href="{{ url('/register') }}" class="slb-hero-cta">
           {{ __('messages.get_started') }}
@@ -207,6 +219,48 @@
     color: #4b5563;
     max-width: 36ch;
     animation: none;
+  }
+
+  .slb-hero-search {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 1.25rem;
+    max-width: min(420px, 100%);
+  }
+
+  .slb-hero-search__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 1px solid rgba(26, 88, 94, 0.22);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.92rem;
+    background: #fff;
+    color: #1e293b;
+  }
+
+  .slb-hero-search__input:focus {
+    outline: none;
+    border-color: var(--brand-primary, #1a585e);
+    box-shadow: 0 0 0 3px rgba(26, 88, 94, 0.16);
+  }
+
+  .slb-hero-search__submit {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--brand-primary, #1a585e);
+    cursor: pointer;
+  }
+
+  .slb-hero-search__submit:hover,
+  .slb-hero-search__submit:focus-visible {
+    background: var(--brand-primary-deep, #123f42);
   }
 
   .slb-hero-cta-group {
@@ -443,6 +497,10 @@
       margin-left: auto;
       margin-right: auto;
     }
+    .slb-hero-search {
+      margin-left: auto;
+      margin-right: auto;
+    }
     .slb-hero-title {
       font-size: clamp(1.45rem, 6.2vw, 2.1rem);
     }
@@ -473,7 +531,7 @@
       scrollbar-width: thin;
     }
     .slb-hero-catalog-clone {
-      width: min(920px, 235vw);
+      width: max(100%, 720px);
       min-width: 720px;
       max-width: none;
     }
@@ -498,7 +556,7 @@
       border-radius: 14px;
     }
     .slb-hero-catalog-clone {
-      width: min(860px, 230vw);
+      width: max(100%, 680px);
       min-width: 680px;
     }
   }

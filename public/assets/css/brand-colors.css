@@ -785,15 +785,15 @@ code.font-monospace {
 /* Upload article — filled blue (distinct from teal Order/Pay) */
 .btn-upload {
   --bs-btn-color: #fff;
-  --bs-btn-bg: #2563eb;
-  --bs-btn-border-color: #1d4ed8;
+  --bs-btn-bg: var(--brand-primary, #1a585e);
+  --bs-btn-border-color: var(--brand-primary, #1a585e);
   --bs-btn-hover-color: #fff;
-  --bs-btn-hover-bg: #1d4ed8;
-  --bs-btn-hover-border-color: #1e40af;
-  --bs-btn-focus-shadow-rgb: 37, 99, 235;
+  --bs-btn-hover-bg: var(--brand-primary-deep, #123f42);
+  --bs-btn-hover-border-color: var(--brand-primary-deep, #123f42);
+  --bs-btn-focus-shadow-rgb: 26, 88, 94;
   --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: #1e40af;
-  --bs-btn-active-border-color: #1e3a8a;
+  --bs-btn-active-bg: var(--brand-primary-deep, #123f42);
+  --bs-btn-active-border-color: var(--brand-primary-deep, #123f42);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -803,7 +803,7 @@ code.font-monospace {
   border-color: var(--bs-btn-border-color);
   font-weight: 600;
   border-radius: var(--btn-radius-pill, 999px);
-  box-shadow: 0 1px 2px rgba(37, 99, 235, .28);
+  box-shadow: 0 1px 2px rgba(26, 88, 94, .28);
   transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), box-shadow var(--motion-fast);
 }
 .btn-upload:hover,
@@ -811,7 +811,7 @@ code.font-monospace {
   color: var(--bs-btn-hover-color);
   background-color: var(--bs-btn-hover-bg);
   border-color: var(--bs-btn-hover-border-color);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, .35);
+  box-shadow: 0 2px 8px rgba(26, 88, 94, .35);
 }
 .btn-upload:active,
 .btn-upload.active {

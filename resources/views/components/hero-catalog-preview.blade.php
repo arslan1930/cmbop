@@ -1,5 +1,61 @@
 @php
     $marketplaceHref = $marketplaceHref ?? localized_url('marketplace');
+    $locale = function_exists('public_locale') ? (string) public_locale() : (string) app()->getLocale();
+    $teaserCodes = (class_exists(\App\Support\PublicI18n::class) && method_exists(\App\Support\PublicI18n::class, 'catalogTeaserCountries'))
+        ? \App\Support\PublicI18n::catalogTeaserCountries($locale)
+        : ['de'];
+    $previewCountry = strtolower((string) ($teaserCodes[0] ?? 'de'));
+
+    $countryNames = [
+        'de' => 'Germany', 'fr' => 'France', 'us' => 'United States', 'it' => 'Italy',
+        'es' => 'Spain', 'nl' => 'Netherlands', 'pt' => 'Portugal', 'at' => 'Austria',
+        'ch' => 'Switzerland', 'ro' => 'Romania', 'gr' => 'Greece', 'dk' => 'Denmark',
+        'se' => 'Sweden', 'no' => 'Norway', 'bg' => 'Bulgaria', 'hu' => 'Hungary',
+        'ee' => 'Estonia', 'pl' => 'Poland',
+    ];
+
+    $fallbackSets = [
+        'fr' => [
+            ['name' => 'paris**.fr', 'domain_masked' => 'paris**.fr', 'traffic' => 612000, 'dr' => 88, 'da' => 82, 'price' => 241.50],
+            ['name' => 'lyon**.fr', 'domain_masked' => 'lyon**.fr', 'traffic' => 498000, 'dr' => 86, 'da' => 80, 'price' => 176.20],
+            ['name' => 'marseille**.fr', 'domain_masked' => 'marseille**.fr', 'traffic' => 441000, 'dr' => 84, 'da' => 79, 'price' => 138.40],
+        ],
+        'us' => [
+            ['name' => 'austin**.com', 'domain_masked' => 'austin**.com', 'traffic' => 704000, 'dr' => 90, 'da' => 84, 'price' => 268.10],
+            ['name' => 'chicago**.com', 'domain_masked' => 'chicago**.com', 'traffic' => 559000, 'dr' => 87, 'da' => 81, 'price' => 194.75],
+            ['name' => 'denver**.com', 'domain_masked' => 'denver**.com', 'traffic' => 486000, 'dr' => 85, 'da' => 80, 'price' => 152.30],
+        ],
+        'it' => [
+            ['name' => 'roma**.it', 'domain_masked' => 'roma**.it', 'traffic' => 588000, 'dr' => 87, 'da' => 81, 'price' => 229.40],
+            ['name' => 'milano**.it', 'domain_masked' => 'milano**.it', 'traffic' => 512000, 'dr' => 85, 'da' => 80, 'price' => 171.80],
+            ['name' => 'napoli**.it', 'domain_masked' => 'napoli**.it', 'traffic' => 463000, 'dr' => 83, 'da' => 78, 'price' => 141.10],
+        ],
+        'es' => [
+            ['name' => 'madrid**.es', 'domain_masked' => 'madrid**.es', 'traffic' => 601000, 'dr' => 87, 'da' => 81, 'price' => 221.60],
+            ['name' => 'barcelona**.es', 'domain_masked' => 'barcelona**.es', 'traffic' => 534000, 'dr' => 85, 'da' => 80, 'price' => 168.90],
+            ['name' => 'valencia**.es', 'domain_masked' => 'valencia**.es', 'traffic' => 412000, 'dr' => 82, 'da' => 77, 'price' => 129.50],
+        ],
+        'nl' => [
+            ['name' => 'amsterdam**.nl', 'domain_masked' => 'amsterdam**.nl', 'traffic' => 544000, 'dr' => 86, 'da' => 80, 'price' => 198.40],
+            ['name' => 'rotterdam**.nl', 'domain_masked' => 'rotterdam**.nl', 'traffic' => 401000, 'dr' => 83, 'da' => 78, 'price' => 154.20],
+            ['name' => 'utrecht**.nl', 'domain_masked' => 'utrecht**.nl', 'traffic' => 318000, 'dr' => 81, 'da' => 76, 'price' => 121.70],
+        ],
+        'pt' => [
+            ['name' => 'lisboa**.pt', 'domain_masked' => 'lisboa**.pt', 'traffic' => 388000, 'dr' => 82, 'da' => 77, 'price' => 156.80],
+            ['name' => 'porto**.pt', 'domain_masked' => 'porto**.pt', 'traffic' => 276000, 'dr' => 79, 'da' => 74, 'price' => 118.40],
+            ['name' => 'braga**.pt', 'domain_masked' => 'braga**.pt', 'traffic' => 194000, 'dr' => 76, 'da' => 71, 'price' => 96.20],
+        ],
+        'at' => [
+            ['name' => 'vienna**.at', 'domain_masked' => 'vienna**.at', 'traffic' => 412000, 'dr' => 84, 'da' => 79, 'price' => 188.20],
+            ['name' => 'graz**.at', 'domain_masked' => 'graz**.at', 'traffic' => 276000, 'dr' => 80, 'da' => 75, 'price' => 132.40],
+            ['name' => 'linz**.at', 'domain_masked' => 'linz**.at', 'traffic' => 198000, 'dr' => 77, 'da' => 72, 'price' => 104.60],
+        ],
+        'ch' => [
+            ['name' => 'zurich**.ch', 'domain_masked' => 'zurich**.ch', 'traffic' => 468000, 'dr' => 86, 'da' => 81, 'price' => 214.80],
+            ['name' => 'geneva**.ch', 'domain_masked' => 'geneva**.ch', 'traffic' => 312000, 'dr' => 82, 'da' => 77, 'price' => 156.10],
+            ['name' => 'bern**.ch', 'domain_masked' => 'bern**.ch', 'traffic' => 241000, 'dr' => 79, 'da' => 74, 'price' => 121.90],
+        ],
+    ];
 
     $heroMetric = static function (string $type, $value): array {
         $raw = (float) ($value ?? 0);
@@ -69,7 +125,57 @@
         ],
     ];
 
-    $rows = $fallbackRows;
+    $defaults = [
+        'categories' => ['Technology', 'Business'],
+        'more_cats' => 1,
+        'tag' => 'sponsored',
+        'tag_label' => __('messages.catalog_preview_sponsored'),
+        'tag_icon' => 'fa-star',
+        'link_type' => 'DoFollow',
+        'turnaround' => '7 days',
+        'verified' => true,
+        'country' => $previewCountry,
+        'country_name' => $countryNames[$previewCountry] ?? strtoupper($previewCountry),
+    ];
+
+    $localizedFallbacks = $fallbackSets[$previewCountry] ?? null;
+    if (is_array($localizedFallbacks)) {
+        $fallbackRows = [];
+        foreach ($localizedFallbacks as $index => $row) {
+            $fallbackRows[] = array_merge($defaults, $row, [
+                'tag' => $index === 1 ? 'partner' : 'sponsored',
+                'tag_label' => $index === 1 ? __('messages.catalog_preview_partner') : __('messages.catalog_preview_sponsored'),
+                'tag_icon' => $index === 1 ? 'fa-handshake' : 'fa-star',
+            ]);
+        }
+    } else {
+        $fallbackRows = array_map(static function (array $row) use ($defaults, $countryNames) {
+            return array_merge($defaults, $row, [
+                'country' => 'de',
+                'country_name' => $countryNames['de'],
+                'tag_label' => $row['tag'] === 'partner'
+                    ? __('messages.catalog_preview_partner')
+                    : __('messages.catalog_preview_sponsored'),
+            ]);
+        }, $fallbackRows);
+    }
+
+    $live = collect($catalogPreview ?? []);
+    if ($live->isNotEmpty()) {
+        $rows = $live->take(3)->map(function ($site) use ($defaults, $countryNames, $previewCountry) {
+            $site = is_array($site) ? $site : [];
+            $code = strtolower((string) ($site['country'] ?? $previewCountry));
+
+            return array_merge($defaults, $site, [
+                'name' => $site['domain_masked'] ?? ($site['name'] ?? ''),
+                'country' => $code,
+                'country_name' => $countryNames[$code] ?? strtoupper($code),
+                'tag_label' => $defaults['tag_label'],
+            ]);
+        })->all();
+    } else {
+        $rows = $fallbackRows;
+    }
     $rowCount = count($rows);
 @endphp
 
@@ -79,93 +185,93 @@
 @endpush
 
 <div class="slb-hero-visual">
-  <div class="catalog-page slb-hero-catalog-clone" aria-label="Publisher catalog preview">
+  <div class="catalog-page slb-hero-catalog-clone" aria-label="{{ __('messages.catalog_preview_aria') }}">
     <div class="card border-0 shadow-sm catalog-filters-card slb-hero-catalog-clone__filters">
       <div class="card-body py-3">
         <div class="row g-2 g-md-3 align-items-start">
           <div class="col-12 col-sm-6 col-lg-2">
-            <label class="form-label fw-semibold small text-muted mb-1">Search</label>
+            <label class="form-label fw-semibold small text-muted mb-1">{{ __('messages.catalog_preview_search') }}</label>
             <div class="catalog-search-field slb-search-wrap">
-              <input type="search" class="form-control form-control-sm" placeholder="Name, domain, category…" disabled tabindex="-1" aria-hidden="true">
+              <input type="search" class="form-control form-control-sm" placeholder="{{ __('messages.catalog_preview_search_placeholder') }}" disabled tabindex="-1" aria-hidden="true">
             </div>
           </div>
           <div class="col-6 col-sm-6 col-lg-2">
-            <label class="form-label fw-semibold small text-muted mb-1">Category</label>
+            <label class="form-label fw-semibold small text-muted mb-1">{{ __('messages.catalog_preview_category') }}</label>
             <div class="multi-select-wrapper">
               <div class="multi-select-input form-control form-control-sm">
-                <div class="selected-items"><span class="placeholder-text">All categories</span></div>
+                <div class="selected-items"><span class="placeholder-text">{{ __('messages.catalog_preview_all_categories') }}</span></div>
                 <i class="fa fa-chevron-down" aria-hidden="true"></i>
               </div>
             </div>
           </div>
           <div class="col-6 col-sm-6 col-lg-2">
-            <label class="form-label fw-semibold small text-muted mb-1">Country</label>
+            <label class="form-label fw-semibold small text-muted mb-1">{{ __('messages.catalog_preview_country') }}</label>
             <div class="multi-select-wrapper">
               <div class="multi-select-input form-control form-control-sm">
-                <div class="selected-items"><span class="placeholder-text">All countries</span></div>
+                <div class="selected-items"><span class="placeholder-text">{{ __('messages.catalog_preview_all_countries') }}</span></div>
                 <i class="fa fa-chevron-down" aria-hidden="true"></i>
               </div>
             </div>
           </div>
           <div class="col-6 col-sm-6 col-lg-2">
-            <label class="form-label fw-semibold small text-muted mb-1">Language</label>
+            <label class="form-label fw-semibold small text-muted mb-1">{{ __('messages.catalog_preview_language') }}</label>
             <div class="multi-select-wrapper">
               <div class="multi-select-input form-control form-control-sm">
-                <div class="selected-items"><span class="placeholder-text">All languages</span></div>
+                <div class="selected-items"><span class="placeholder-text">{{ __('messages.catalog_preview_all_languages') }}</span></div>
                 <i class="fa fa-chevron-down" aria-hidden="true"></i>
               </div>
             </div>
           </div>
           <div class="col-6 col-sm-6 col-lg-2">
-            <label class="form-label fw-semibold small text-muted mb-1">Price (€)</label>
+            <label class="form-label fw-semibold small text-muted mb-1">{{ __('messages.catalog_preview_price') }}</label>
             <div class="d-flex gap-2">
-              <input type="text" class="form-control form-control-sm" placeholder="Min" disabled tabindex="-1" aria-hidden="true">
-              <input type="text" class="form-control form-control-sm" placeholder="Max" disabled tabindex="-1" aria-hidden="true">
+              <input type="text" class="form-control form-control-sm" placeholder="{{ __('messages.catalog_preview_min') }}" disabled tabindex="-1" aria-hidden="true">
+              <input type="text" class="form-control form-control-sm" placeholder="{{ __('messages.catalog_preview_max') }}" disabled tabindex="-1" aria-hidden="true">
             </div>
             <div class="filter-presets">
-              <span class="filter-preset">Under €50</span>
-              <span class="filter-preset">€50–150</span>
-              <span class="filter-preset">€150+</span>
+              <span class="filter-preset">{{ __('messages.catalog_preview_under_50') }}</span>
+              <span class="filter-preset">{{ __('messages.catalog_preview_50_150') }}</span>
+              <span class="filter-preset">{{ __('messages.catalog_preview_150_plus') }}</span>
             </div>
           </div>
           <div class="col-12 col-lg-2">
             <label class="form-label fw-semibold small text-muted mb-1 d-none d-md-block">&nbsp;</label>
             <div class="d-flex flex-wrap gap-2">
-              <span class="btn btn-sm btn-primary px-3"><i class="fa-solid fa-filter me-1" aria-hidden="true"></i> Filter</span>
-              <span class="btn btn-sm btn-cta-secondary px-2">More</span>
-              <span class="btn btn-sm btn-cta-tertiary px-1">Reset</span>
+              <span class="btn btn-sm btn-primary px-3"><i class="fa-solid fa-filter me-1" aria-hidden="true"></i> {{ __('messages.catalog_preview_filter') }}</span>
+              <span class="btn btn-sm btn-cta-secondary px-2">{{ __('messages.catalog_preview_more') }}</span>
+              <span class="btn btn-sm btn-cta-tertiary px-1">{{ __('messages.catalog_preview_reset') }}</span>
             </div>
           </div>
         </div>
 
-        <div class="catalog-tag-quick mt-2" role="group" aria-label="Listing tag">
-          <span class="small text-muted me-1">Tag</span>
-          <span class="catalog-tag-quick__btn is-active">All tags</span>
-          <span class="catalog-tag-quick__btn">Sponsored</span>
-          <span class="catalog-tag-quick__btn">Partner article</span>
-          <span class="catalog-tag-quick__btn">As you prefer</span>
-          <span class="catalog-tag-quick__btn">No tags</span>
+        <div class="catalog-tag-quick mt-2" role="group" aria-label="{{ __('messages.catalog_preview_tag') }}">
+          <span class="small text-muted me-1">{{ __('messages.catalog_preview_tag') }}</span>
+          <span class="catalog-tag-quick__btn is-active">{{ __('messages.catalog_preview_all_tags') }}</span>
+          <span class="catalog-tag-quick__btn">{{ __('messages.catalog_preview_sponsored') }}</span>
+          <span class="catalog-tag-quick__btn">{{ __('messages.catalog_preview_partner') }}</span>
+          <span class="catalog-tag-quick__btn">{{ __('messages.catalog_preview_as_you_prefer') }}</span>
+          <span class="catalog-tag-quick__btn">{{ __('messages.catalog_preview_no_tags') }}</span>
         </div>
       </div>
     </div>
 
     <div class="catalog-results-bar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 mt-3">
-      <div class="text-muted small">Showing 1–{{ $rowCount }} of {{ $rowCount }} sites</div>
+      <div class="text-muted small">{{ __('messages.catalog_preview_showing', ['from' => 1, 'to' => $rowCount, 'total' => $rowCount]) }}</div>
       <div class="d-flex flex-wrap align-items-center gap-2">
-        <span class="small text-muted mb-0">Per page</span>
+        <span class="small text-muted mb-0">{{ __('messages.catalog_preview_per_page') }}</span>
         <select class="form-select form-select-sm catalog-sort-select" disabled tabindex="-1" aria-hidden="true">
           <option selected>20</option>
         </select>
-        <span class="small text-muted mb-0">Sort</span>
+        <span class="small text-muted mb-0">{{ __('messages.catalog_preview_sort') }}</span>
         <select class="form-select form-select-sm catalog-sort-select" disabled tabindex="-1" aria-hidden="true">
-          <option selected>DR (high → low)</option>
+          <option selected>{{ __('messages.catalog_preview_sort_dr') }}</option>
         </select>
       </div>
     </div>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-      <p class="small text-muted mb-0">Searching for a site that isn’t listed yet?</p>
+      <p class="small text-muted mb-0">{{ __('messages.catalog_preview_missing') }}</p>
       <span class="btn btn-sm btn-outline-success btn-suggest-website">
-        <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
+        <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> {{ __('messages.catalog_preview_suggest') }}
       </span>
     </div>
 
@@ -173,17 +279,17 @@
       <div class="card-body p-0">
         <div class="table-responsive catalog-table-scroll">
           <table class="table table-borderless align-middle mb-0 data-table catalog-table">
-            <caption class="visually-hidden">Publisher catalog preview</caption>
+            <caption class="visually-hidden">{{ __('messages.catalog_preview_aria') }}</caption>
             <thead class="table-light">
               <tr>
-                <th scope="col" class="text-start catalog-th catalog-th-site"><span class="catalog-th-label">Site</span></th>
-                <th scope="col" class="text-center catalog-th"><span class="catalog-th-label">Category</span></th>
+                <th scope="col" class="text-start catalog-th catalog-th-site"><span class="catalog-th-label">{{ __('messages.catalog_preview_site') }}</span></th>
+                <th scope="col" class="text-center catalog-th"><span class="catalog-th-label">{{ __('messages.catalog_preview_category') }}</span></th>
                 <th scope="col" class="text-center catalog-th">
                   <span class="catalog-th-label">
                     @if (view()->exists('advertiser.partials.metric-source'))
                       @include('advertiser.partials.metric-source', ['type' => 'traffic'])
                     @endif
-                    <span class="catalog-th-text">Traffic</span>
+                    <span class="catalog-th-text">{{ __('messages.catalog_preview_traffic') }}</span>
                   </span>
                 </th>
                 <th scope="col" class="text-center catalog-th">
@@ -202,8 +308,8 @@
                     <span class="catalog-th-text">DA</span>
                   </span>
                 </th>
-                <th scope="col" class="text-center catalog-th"><span class="catalog-th-label">Country</span></th>
-                <th scope="col" class="text-center catalog-th catalog-th-action"><span class="catalog-th-label">Buy</span></th>
+                <th scope="col" class="text-center catalog-th"><span class="catalog-th-label">{{ __('messages.catalog_preview_country') }}</span></th>
+                <th scope="col" class="text-center catalog-th catalog-th-action"><span class="catalog-th-label">{{ __('messages.catalog_preview_buy') }}</span></th>
               </tr>
             </thead>
             <tbody>
@@ -216,7 +322,7 @@
                 <tr>
                   <td class="catalog-site-cell">
                     <div class="catalog-site-stack catalog-site-stack--tiled">
-                      <span class="catalog-tile catalog-tile--md slb-hero-catalog-clone__flag-tile" aria-hidden="true">{!! getCountryFlag('de') !!}</span>
+                      <span class="catalog-tile catalog-tile--md slb-hero-catalog-clone__flag-tile" aria-hidden="true">{!! getCountryFlag($site['country'] ?? $previewCountry) !!}</span>
                       <div class="catalog-site-stack__body">
                         <div class="catalog-site-title-row">
                           <span class="text-dark catalog-site-name">{{ $site['name'] }}</span>
@@ -225,13 +331,13 @@
                               @if(!empty($site['verified']))
                                 <span class="site-chip site-chip--verified site-chip--status">
                                   <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-                                  <span>Verified</span>
+                                  <span>{{ __('messages.catalog_preview_verified') }}</span>
                                 </span>
                               @endif
                             </span>
                             <span class="catalog-site-actions">
                               <span class="btn btn-sm btn-link text-secondary p-0 catalog-details-toggle">
-                                <span class="catalog-details-toggle__label">Details</span>
+                                <span class="catalog-details-toggle__label">{{ __('messages.catalog_preview_details') }}</span>
                                 <i class="fa-solid fa-chevron-down ms-1" aria-hidden="true"></i>
                               </span>
                             </span>
@@ -267,7 +373,7 @@
                         @endforeach
                       </div>
                       @if(($site['more_cats'] ?? 0) > 0)
-                        <span class="toggle-cats-btn">+{{ $site['more_cats'] }} more</span>
+                        <span class="toggle-cats-btn">{{ __('messages.catalog_preview_more_cats', ['count' => $site['more_cats']]) }}</span>
                       @endif
                     </div>
                   </td>
@@ -291,8 +397,8 @@
                   </td>
                   <td class="text-center catalog-stat-cell">
                     <div class="catalog-country">
-                      <span class="catalog-country__flag" aria-hidden="true">{!! getCountryFlag('de') !!}</span>
-                      <span class="catalog-country__name text-muted small">Germany</span>
+                      <span class="catalog-country__flag" aria-hidden="true">{!! getCountryFlag($site['country'] ?? $previewCountry) !!}</span>
+                      <span class="catalog-country__name text-muted small">{{ $site['country_name'] ?? ($countryNames[$previewCountry] ?? 'Germany') }}</span>
                     </div>
                   </td>
                   <td class="text-center catalog-stat-cell catalog-td-action">
@@ -304,13 +410,13 @@
                       </div>
                       <span class="btn btn-sm btn-primary buy-now d-inline-flex justify-content-center align-items-center gap-2">
                         <i class="fa-solid fa-cart-plus" aria-hidden="true"></i>
-                        <span>Add to cart</span>
+                        <span>{{ __('messages.catalog_preview_add_to_cart') }}</span>
                       </span>
                       <div class="catalog-row-actions__secondary">
                         <div class="catalog-row-actions-quiet">
                           <span class="btn-icon-quiet"><i class="fa-regular fa-heart" aria-hidden="true"></i></span>
                         </div>
-                        <span class="btn-claim-site">Is this your site?</span>
+                        <span class="btn-claim-site">{{ __('messages.catalog_preview_your_site') }}</span>
                       </div>
                     </div>
                   </td>

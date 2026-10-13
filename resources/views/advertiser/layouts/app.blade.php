@@ -35,6 +35,7 @@
          with the body made the page paint unstyled first, and put them after the
          hover system in the cascade. --}}
     @stack('page-styles')
+    @stack('styles')
     <link href="{{ asset('assets/css/slb-live-search.css') }}?v={{ @filemtime(public_path('assets/css/slb-live-search.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/slb-pagination.css') }}?v={{ @filemtime(public_path('assets/css/slb-pagination.css')) ?: '1' }}" rel="stylesheet">
     <link href="{{ asset('assets/css/slb-loader.css') }}?v={{ @filemtime(public_path('assets/css/slb-loader.css')) ?: '1' }}" rel="stylesheet">
@@ -149,16 +150,22 @@
         <a href="{{ route('advertiser.reports') }}" class="{{ request()->routeIs('advertiser.reports') ? 'active' : '' }}">
             <i class="fa fa-chart-line" aria-hidden="true"></i> <span class="nav-label">Reports</span>
         </a>
+
+        <a href="{{ route('advertiser.api.index') }}" class="{{ request()->routeIs('advertiser.api*') ? 'active' : '' }}">
+            <i class="fa fa-key" aria-hidden="true"></i> <span class="nav-label">API &amp; MCP</span>
+        </a>
         @include('components.ad-banners', ['placement' => 'sidebar', 'audience' => 'advertiser'])
     </div>
 </nav>
+<button type="button" id="sidebarOverlay" class="sidebar-overlay" hidden aria-label="Close menu"></button>
 
 <!-- Navbar -->
 <div class="top-navbar">
 
     <div class="mobile-left d-flex align-items-center gap-2">
-        <button id="toggleSidebar" class="topbar-icon-btn" type="button" aria-label="Toggle sidebar navigation" title="Toggle sidebar" aria-controls="sidebar" aria-expanded="true">
-            <span class="arrow" aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+        <button id="toggleSidebar" class="topbar-icon-btn" type="button" aria-label="Open menu" title="Open menu" aria-controls="sidebar" aria-expanded="false">
+            <span class="arrow sidebar-toggle-chevron" aria-hidden="true"><i class="fa fa-chevron-left"></i></span>
+            <span class="arrow sidebar-toggle-bars" aria-hidden="true"><i class="fa fa-bars"></i></span>
         </button>
 
         <!-- Navbar logo - will be hidden on mobile via CSS -->
@@ -378,14 +385,41 @@
     const topNavbar = document.querySelector('.top-navbar');
     const footerEl = document.querySelector('footer');
 
-    function syncSidebarExpanded() {
-        if (!toggleBtn || !sidebar) return;
-        const desktopCollapsed = window.innerWidth > 768 && sidebar.classList.contains('collapsed');
-        const mobileClosed = window.innerWidth <= 768 && !sidebar.classList.contains('show');
-        toggleBtn.setAttribute('aria-expanded', (desktopCollapsed || mobileClosed) ? 'false' : 'true');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const SHELL_DESKTOP = 992;
+
+    function isDesktopShell() {
+        return window.innerWidth >= SHELL_DESKTOP;
     }
 
-    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+    function setMobileMenu(open) {
+        if (!sidebar) return;
+        sidebar.classList.toggle('show', open);
+        document.body.classList.toggle('sidebar-open', open);
+        if (sidebarOverlay) {
+            sidebarOverlay.hidden = !open;
+        }
+    }
+
+    function syncSidebarExpanded() {
+        if (!toggleBtn || !sidebar) return;
+        if (isDesktopShell()) {
+            setMobileMenu(false);
+            const desktopCollapsed = sidebar.classList.contains('collapsed');
+            toggleBtn.setAttribute('aria-expanded', desktopCollapsed ? 'false' : 'true');
+            toggleBtn.setAttribute('aria-label', desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+            toggleBtn.setAttribute('title', desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+            return;
+        }
+        const open = sidebar.classList.contains('show');
+        document.body.classList.toggle('sidebar-open', open);
+        if (sidebarOverlay) sidebarOverlay.hidden = !open;
+        toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggleBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+        toggleBtn.setAttribute('title', open ? 'Close menu' : 'Open menu');
+    }
+
+    if (isDesktopShell() && localStorage.getItem('sidebarCollapsed') === 'true') {
         sidebar.classList.add('collapsed');
         content.classList.add('collapsed');
         topNavbar.classList.add('collapsed');
@@ -395,7 +429,7 @@
     syncSidebarExpanded();
 
     toggleBtn.addEventListener('click', function () {
-        if (window.innerWidth > 768) {
+        if (isDesktopShell()) {
             sidebar.classList.toggle('collapsed');
             content.classList.toggle('collapsed');
             topNavbar.classList.toggle('collapsed');
@@ -403,9 +437,19 @@
             toggleBtn.classList.toggle('collapsed');
             localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
         } else {
-            sidebar.classList.toggle('show');
+            setMobileMenu(!sidebar.classList.contains('show'));
         }
         syncSidebarExpanded();
+    });
+    sidebarOverlay?.addEventListener('click', function () {
+        setMobileMenu(false);
+        syncSidebarExpanded();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && sidebar?.classList.contains('show')) {
+            setMobileMenu(false);
+            syncSidebarExpanded();
+        }
     });
     window.addEventListener('resize', syncSidebarExpanded);
 

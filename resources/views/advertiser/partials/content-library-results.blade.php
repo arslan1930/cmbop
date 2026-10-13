@@ -159,7 +159,7 @@
         <p class="library-table-note" role="note">Unused originals are removed after expiry; preview stays.</p>
     @endif
 
-    <form method="POST" action="{{ route('advertiser.content-submissions.bulk-archive') }}" id="libraryBulkForm" class="library-bulk-bar">
+    <form method="POST" action="{{ route('advertiser.content-submissions.bulk-archive') }}" id="libraryBulkForm" class="library-bulk-bar d-none" hidden>
         @csrf
         <button type="submit" class="btn btn-sm btn-outline-secondary" id="libraryBulkArchiveBtn"
                 data-slb-confirm="Archive the selected unused articles?"

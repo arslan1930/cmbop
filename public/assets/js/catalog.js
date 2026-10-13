@@ -633,7 +633,8 @@ function initBulkDealRail() {
     const next = section.querySelector('[data-bulk-scroll="next"]');
     const toggle = section.querySelector('[data-bulk-toggle]');
     const toggleLabel = section.querySelector('[data-bulk-toggle-label]');
-    const searchInput = section.querySelector('[data-bulk-search]');
+    const searchInput = document.getElementById('catalogSearchInput')
+        || section.querySelector('[data-bulk-search]');
     if (!track) return;
 
     // Ensure viewport wrapper exists (live fragment or older markup without it).
@@ -1000,23 +1001,15 @@ function initBulkDealRail() {
     });
 
     if (searchInput) {
-        if (typeof window.SlbLiveSearch !== 'undefined') {
-            window.SlbLiveSearch.init(searchInput, {
-                mode: 'client',
-                statusEl: document.getElementById('bulkDealSearchStatus'),
-                clearBtn: document.getElementById('bulkDealSearchClear'),
-                onSearch: function (detail) {
-                    applySearch(detail.query);
-                },
-            });
-        } else {
-            searchInput.addEventListener('input', function () {
-                const value = searchInput.value;
-                if (searchTimer) clearTimeout(searchTimer);
-                searchTimer = setTimeout(function () {
-                    applySearch(value);
-                }, 350);
-            });
+        searchInput.addEventListener('input', function () {
+            const value = searchInput.value;
+            if (searchTimer) clearTimeout(searchTimer);
+            searchTimer = setTimeout(function () {
+                applySearch(value);
+            }, 350);
+        });
+        if (searchInput.value) {
+            applySearch(searchInput.value);
         }
         searchInput.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {

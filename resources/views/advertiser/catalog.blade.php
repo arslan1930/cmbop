@@ -302,8 +302,8 @@
                                        id="catalogSearchInput"
                                        class="form-control form-control-sm"
                                        placeholder="{{ $inCatalogHideMode
-                                           ? 'Name, domain, category… (rows stay masked)'
-                                           : 'Name, domain, category… or da>40 / price<100' }}"
+                                           ? 'Name, domain… (rows stay masked)'
+                                           : 'Name, domain…' }}"
                                        title="{{ $inCatalogHideMode
                                            ? 'Results update as you type. Matching rows stay masked until you use the eye.'
                                            : 'Results update as you type in the catalog table. Metric tokens (da>40, price<100) apply on search.' }}"

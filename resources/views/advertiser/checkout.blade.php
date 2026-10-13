@@ -1,5 +1,7 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Checkout')
+
 @section('content')
 <div class="container-fluid">
     @php
@@ -24,7 +26,7 @@
     <!-- HEADER -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <h2 class="mb-1 fw-semibold">Checkout</h2>
+            <h1 class="mb-1 fw-semibold">Checkout</h1>
             <p class="text-muted mb-0">
                 Pay only for websites that are ready (approved article assigned). Others stay in your cart.
             </p>

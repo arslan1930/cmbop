@@ -113,8 +113,9 @@ class CatalogBulkDealRailTest extends TestCase
         $html = $this->catalogHtml();
 
         $this->assertStringContainsString('catalog-bulk-count">7<', $html);
-        $this->assertStringContainsString('data-bulk-search', $html);
-        $this->assertStringContainsString('placeholder="Search deal by site"', $html);
+        $this->assertStringContainsString('Use the catalog search above to filter deals too.', $html);
+        $this->assertStringContainsString('id="catalogSearchInput"', $html);
+        $this->assertStringNotContainsString('id="bulkDealSearch"', $html);
         $this->assertStringContainsString('data-bulk-toggle', $html);
         $this->assertStringContainsString('No bulk deal for this site.', $html);
         $this->assertStringContainsString('aria-label="Previous bulk deals page"', $html);

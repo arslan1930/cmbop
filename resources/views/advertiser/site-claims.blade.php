@@ -14,7 +14,7 @@
 <div class="container-fluid claims-page">
     <div class="claims-page-header">
         <div>
-            <h2 class="claims-page-title">My Claims</h2>
+            <h1 class="claims-page-title">My Claims</h1>
             <p class="claims-page-sub">
                 Your ownership claims for catalog listings. We email you after each review.
             </p>

@@ -18,6 +18,18 @@
             ['name' => __('messages.nav_marketplace'), 'url' => localized_url('marketplace')],
         ],
     ])
+    @if(! empty($catalogSearch))
+        <div class="alert alert-light border mb-4" role="status">
+            <form method="GET" action="{{ localized_url('marketplace') }}" class="d-flex flex-wrap gap-2 align-items-end">
+                <div class="flex-grow-1">
+                    <label class="form-label small text-muted mb-1" for="marketplaceSearch">{{ __('messages.hero_search_label') }}</label>
+                    <input type="search" id="marketplaceSearch" name="search" class="form-control" value="{{ $catalogSearch }}">
+                </div>
+                <button type="submit" class="btn btn-primary">{{ __('messages.hero_search_submit') }}</button>
+            </form>
+            <p class="small text-muted mb-0 mt-2">{{ __('messages.marketplace_catalog_note') }}</p>
+        </div>
+    @endif
     <div class="row g-4 mb-5">
         @foreach(range(1, 3) as $i)
             <div class="col-md-4">

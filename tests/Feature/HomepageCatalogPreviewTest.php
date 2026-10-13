@@ -54,15 +54,16 @@ class HomepageCatalogPreviewTest extends TestCase
     {
         $publisher = $this->publisher();
         $this->makeSite($publisher, [
-            'site_name' => 'German News Hub',
-            'domain' => 'german-news-hub.de',
-            'site_url' => 'https://german-news-hub.de',
+            'site_name' => 'Low Metric News',
+            'domain' => 'low-metric-news.de',
+            'site_url' => 'https://low-metric-news.de',
             'country' => 'de',
             'language' => 'de',
             'countries' => ['de'],
             'languages' => ['de'],
-            'dr' => 70,
-            'da' => 60,
+            'dr' => 12,
+            'da' => 12,
+            'traffic' => 100,
         ]);
         $this->makeSite($publisher, [
             'site_name' => 'French Lifestyle',
@@ -85,11 +86,10 @@ class HomepageCatalogPreviewTest extends TestCase
             ->assertSee('hamburg**.de', false)
             ->assertSee('Germany', false)
             ->assertDontSee('Demo Site', false)
-            ->assertDontSee('German News Hub', false)
+            ->assertDontSee('Low Metric News', false)
             ->assertDontSee('dashboard.png', false)
             ->assertDontSee('French Lifestyle', false)
             ->assertDontSee('french-lifestyle.fr', false)
-            ->assertDontSee('german-news-hub.de', false)
             ->assertDontSee('advertiser/catalog', false)
             ->getContent();
 
@@ -115,33 +115,32 @@ class HomepageCatalogPreviewTest extends TestCase
         $this->assertHeroDemoScreenshotScores($html);
     }
 
-    public function test_hero_keeps_screenshot_demo_scores_when_live_teasers_exist(): void
+    public function test_hero_uses_live_teasers_when_quality_sites_exist(): void
     {
         $publisher = $this->publisher();
         $this->makeSite($publisher, [
-            'site_name' => 'Low DA News',
-            'domain' => 'low-da-news.de',
-            'site_url' => 'https://low-da-news.de',
+            'site_name' => 'German News Hub',
+            'domain' => 'german-news-hub.de',
+            'site_url' => 'https://german-news-hub.de',
             'country' => 'de',
             'language' => 'de',
             'countries' => ['de'],
             'languages' => ['de'],
-            'dr' => 12,
-            'da' => 32,
-            'traffic' => 500000,
+            'dr' => 70,
+            'da' => 60,
+            'traffic' => 80000,
         ]);
 
         $html = $this->get('/')->assertOk()->getContent();
 
+        $this->assertStringContainsString('german**.de', $html);
+        $this->assertStringNotContainsString('berlin**.de', $html);
+        $this->assertStringNotContainsString('German News Hub', $html);
+        $this->assertStringContainsString('Germany', $html);
         $this->assertDoesNotMatchRegularExpression(
-            '/catalog-metric--dr[^>]*>\s*<span class="catalog-metric__value">12</',
+            '/catalog-metric--dr[^>]*>\s*<span class="catalog-metric__value">89</',
             $html
         );
-        $this->assertDoesNotMatchRegularExpression(
-            '/catalog-metric--da">\s*<span class="catalog-metric__value">32</',
-            $html
-        );
-        $this->assertHeroDemoScreenshotScores($html);
     }
 
     public function test_hero_ctas_stay_on_one_line(): void
@@ -178,6 +177,8 @@ class HomepageCatalogPreviewTest extends TestCase
         $this->assertLessThan($heroAt, $catalogCssAt, 'catalog.css must load in head before the hero paints');
         $this->assertStringContainsString('min-width: 720px', $html);
         $this->assertStringContainsString('overscroll-behavior-x: contain', $html);
+        $this->assertStringNotContainsString('235vw', $html);
+        $this->assertStringNotContainsString('230vw', $html);
 
         $hero = (string) file_get_contents(resource_path('views/components/hero.blade.php'));
         $this->assertStringContainsString('#mainNavbar .navbar-logo', $hero);
@@ -209,8 +210,17 @@ class HomepageCatalogPreviewTest extends TestCase
             $this->assertStringContainsString('slb-hero-catalog-clone', $html, $path);
             $this->assertStringContainsString('catalog-filters-card', $html, $path);
             $this->assertStringContainsString('catalog-table', $html, $path);
-            $this->assertStringContainsString('berlin**.de', $html, $path);
+            $this->assertStringContainsString('slb-hero-search', $html, $path);
             $this->assertStringNotContainsString('dashboard.png', $html, $path);
+            if ($path === '/fr') {
+                $this->assertStringContainsString('paris**.fr', $html, $path);
+                $this->assertStringContainsString('France', $html, $path);
+                $this->assertStringContainsString('Ajouter au panier', $html, $path);
+            }
+            if ($path === '/us') {
+                $this->assertStringContainsString('austin**.com', $html, $path);
+                $this->assertStringContainsString('United States', $html, $path);
+            }
         }
     }
 

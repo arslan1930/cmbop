@@ -1,5 +1,7 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Scheduled Orders')
+
 @section('content')
 @php
     $tab = $tab ?? 'upcoming';
@@ -13,7 +15,7 @@
 <div class="container-fluid">
     <div class="row mb-3">
         <div class="col-12">
-            <h2 class="mb-1 fw-semibold">Scheduled Orders</h2>
+            <h1 class="mb-1 fw-semibold">Scheduled Orders</h1>
             <p class="text-muted mb-2">
                 Paid orders stay visible to the publisher. They should publish on this date.
                 You can move the date, release early, or cancel for a refund while the order is still

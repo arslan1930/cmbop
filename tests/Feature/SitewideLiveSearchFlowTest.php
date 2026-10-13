@@ -206,7 +206,6 @@ class SitewideLiveSearchFlowTest extends TestCase
 
         $offContractInline = [
             resource_path('views/pages/blog.blade.php'),
-            resource_path('views/advertiser/partials/catalog-bulk-deals.blade.php'),
         ];
         foreach ($offContractInline as $path) {
             $body = (string) file_get_contents($path);
@@ -214,6 +213,10 @@ class SitewideLiveSearchFlowTest extends TestCase
             $this->assertStringContainsString('slb-search-clear', $body, basename($path));
             $this->assertStringContainsString('slb-search-status', $body, basename($path));
         }
+
+        $bulkDeals = (string) file_get_contents(resource_path('views/advertiser/partials/catalog-bulk-deals.blade.php'));
+        $this->assertStringContainsString('Use the catalog search above to filter deals too.', $bulkDeals);
+        $this->assertStringNotContainsString('id="bulkDealSearch"', $bulkDeals);
     }
 
     public function test_icons_are_local_lucide_not_font_awesome_cdn(): void

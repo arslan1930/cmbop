@@ -4,9 +4,10 @@
  */
 .slb-live-chat {
   --slb-live-chat-keyboard: 0px;
+  --slb-live-chat-footer-offset: 0px;
   position: fixed;
-  right: 16px;
-  bottom: calc(20px + var(--slb-live-chat-keyboard));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px) + var(--slb-live-chat-footer-offset) + var(--slb-live-chat-keyboard));
   top: auto;
   left: auto;
   z-index: var(--shell-z-fab, 1080);
@@ -71,7 +72,7 @@
 
 .slb-live-chat__panel {
   width: min(380px, calc(100vw - 32px));
-  max-height: min(560px, calc(100dvh - 96px - var(--slb-live-chat-keyboard)));
+  max-height: min(560px, calc(100dvh - 96px - env(safe-area-inset-bottom, 0px) - var(--slb-live-chat-footer-offset) - var(--slb-live-chat-keyboard)));
   background: var(--surface-1, #fff);
   color: var(--brand-ink, #1e293b);
   border: 1px solid var(--border-subtle, #e2e8f0);

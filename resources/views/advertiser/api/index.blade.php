@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="container-fluid py-4">
-    <h2 class="h4 mb-2">API &amp; MCP</h2>
+    <h1 class="h4 mb-2">API &amp; MCP</h1>
     <p class="text-muted small mb-4">
         Connect Claude, Cursor, or Claude Code to the live SEOLinkBuildings catalog.
         Assistants can search publishers, save favorites or cart items, and read your orders and wallet.
@@ -13,10 +13,6 @@
         Account name and password stay on
         <a href="{{ route('profile') }}">Profile</a>.
     </p>
-
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
 
     @if(!empty($plainToken))
         <div class="alert alert-warning" id="advertiserApiPlainTokenAlert">

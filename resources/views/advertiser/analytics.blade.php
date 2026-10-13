@@ -38,7 +38,7 @@
 <div class="container-fluid an-page">
     <div class="an-page-header">
         <div>
-            <h2 class="an-page-title">Spending History</h2>
+            <h1 class="an-page-title">Spending History</h1>
             <p class="an-page-sub">
                 Solid bars are completed spend. Dim bars are paid orders still in progress — they become spent when the order completes.
             </p>
@@ -170,6 +170,7 @@
         <div class="col-lg-4">
             <div class="an-card mb-3">
                 <h5 class="mb-3">Monthly budget</h5>
+                <p class="small text-muted">Optional cap for this calendar month. We count paid marketplace spend (completed and still in progress). Alerts fire at your warn % and low-balance threshold — they do not block checkout.</p>
                 <form method="POST" action="{{ route('advertiser.analytics.budget') }}">
                     @csrf
                     <div class="mb-2">

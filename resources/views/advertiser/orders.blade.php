@@ -1,5 +1,7 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'My Orders')
+
 @push('page-styles')
 <link href="{{ asset('assets/css/single-select.css') }}?v={{ @filemtime(public_path('assets/css/single-select.css')) ?: '1' }}" rel="stylesheet">
 <link rel="stylesheet" href="{{ same_origin_asset('assets/css/advertiser-orders.css') }}?v={{ @filemtime(public_path('assets/css/advertiser-orders.css')) ?: '1' }}">
@@ -10,7 +12,7 @@
     
     <!-- HEADER -->
     <div class="orders-page-header">
-        <h2 class="orders-page-title">My Orders</h2>
+        <h1 class="orders-page-title">My Orders</h1>
         <p class="orders-page-sub">
             Track each order from payment to live publication.
         </p>
@@ -179,8 +181,8 @@
                     </div>
 
                     <div class="orders-filter-bar__actions">
-                        <button type="submit" class="btn btn-sm btn-primary px-3">
-                            <i class="fa-solid fa-filter" aria-hidden="true"></i> Filter
+                        <button type="submit" class="btn btn-sm btn-cta-secondary px-3" id="ordersApplyFiltersBtn">
+                            <i class="fa-solid fa-filter" aria-hidden="true"></i> Apply
                         </button>
                         <button type="button" id="resetFilters" class="btn btn-sm btn-cta-secondary px-3">
                             <i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Reset

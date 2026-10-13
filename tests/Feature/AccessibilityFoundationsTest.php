@@ -64,11 +64,13 @@ class AccessibilityFoundationsTest extends TestCase
             ->assertSee('role="radiogroup"', false);
     }
 
-    public function test_testimonial_carousel_indicators_are_labeled(): void
+    public function test_homepage_hero_search_is_labelled(): void
     {
         $this->get('/')
             ->assertOk()
-            ->assertSee('aria-label="Slide 1"', false)
-            ->assertSee('aria-label="Slide 2"', false);
+            ->assertSee('id="heroMarketplaceSearch"', false)
+            ->assertSee('for="heroMarketplaceSearch"', false)
+            ->assertSee('class="slb-hero-search"', false)
+            ->assertDontSee('slb-testimonials', false);
     }
 }

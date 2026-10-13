@@ -1402,7 +1402,7 @@ function bootAdvertiserOrdersPage() {
         if (!url) return '';
         try {
             const host = new URL(url, window.location.origin).hostname;
-            return host || String(url);
+            return (host || String(url)).replace(/^www\./i, '');
         } catch (err) {
             return String(url).replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
         }
@@ -1544,18 +1544,17 @@ function bootAdvertiserOrdersPage() {
             const statusMeta = getAdvertiserStatusMeta(order);
             const items = Array.isArray(order.items) ? order.items : [];
             const firstItem = items[0] || null;
-            const siteName = firstItem
-                ? (firstItem.site_name || firstItem.site_url || 'Placement details')
-                : 'Placement details';
             const siteUrl = firstItem ? firstItem.site_url : '';
             const siteHref = (firstItem && firstItem.visit_url) ? firstItem.visit_url : siteUrl;
+            const siteHost = ordersSiteHost(siteUrl);
+            const siteName = siteHost
+                || (firstItem ? (firstItem.site_name || firstItem.site_url || 'Placement details') : 'Placement details');
             const itemsCount = Number(order.items_count) || items.length || 0;
             const moreCount = Math.max(0, itemsCount - 1);
             const totalLabel = formatEuro(order.total_amount);
             
             const paymentMethodName = getPaymentMethodName(order.payment_method);
             const paymentStatusClass = getPaymentStatusClass(order.payment_status);
-            const siteHost = ordersSiteHost(siteUrl);
             const siteUrlHtml = siteUrl
                 ? `<a class="orders-site-url" href="${safeUrl(siteHref)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(siteUrl)}">${escapeHtml(siteHost || siteUrl)}</a>`
                 : '';
@@ -1583,6 +1582,9 @@ function bootAdvertiserOrdersPage() {
                     </td>
                     <td data-label="Site" class="orders-col-site">
                         <div class="fw-semibold orders-site-name" title="${escapeHtml(siteName)}">${escapeHtml(siteName)}</div>
+                        ${firstItem && firstItem.site_name && firstItem.site_name !== siteName
+                            ? `<div class="small text-muted">${escapeHtml(firstItem.site_name)}</div>`
+                            : ''}
                         ${siteUrlHtml}
                         ${moreHtml}
                     </td>
