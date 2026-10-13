@@ -16,10 +16,13 @@ use App\Services\CartPricingService;
 use App\Services\EmailNotificationService;
 use App\Services\Wallet\WelcomeBonusService;
 use App\Support\BillingCustomerMailSuppressor;
+use App\Support\DisplayCurrencyPreference;
 use App\Support\HostingerMysqlHost;
 use App\Support\MarketingOpsQueues;
 use App\Support\OrderLifecycleMailSuppressor;
 use App\Support\PublicStorageLink;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -28,6 +31,7 @@ use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
@@ -213,6 +217,23 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return '/';
+        });
+
+        // Saved display_currency wins; first login persists country / history / geo.
+        // Logout drops the year-long cookie so a shared browser cannot leak rails.
+        Event::listen(Login::class, function (Login $event): void {
+            try {
+                if ($event->user instanceof User) {
+                    app(DisplayCurrencyPreference::class)->persistAuthenticatedChoice($event->user);
+                }
+            } catch (\Throwable) {
+            }
+        });
+        Event::listen(Logout::class, function (): void {
+            try {
+                app(DisplayCurrencyPreference::class)->forgetBrowserChoice();
+            } catch (\Throwable) {
+            }
         });
 
         // Gap-fill: welcome + admin new-user (HTTP only — skips seeders/artisan)

@@ -374,6 +374,57 @@ class GeoCurrencyDisplayTest extends TestCase
         $this->assertSame('EUR', app(ViewerCountry::class)->displayCurrency());
     }
 
+    public function test_login_persists_account_country_currency_over_us_ip(): void
+    {
+        $user = $this->advertiser('DE');
+        $this->assertNull($user->display_currency);
+        $this->withCountry('US');
+
+        $this->postJson(route('login.post'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame('EUR', $user->fresh()->display_currency);
+        $this->assertSame('EUR', app(ViewerCountry::class)->displayCurrency());
+        $this->assertSame('EUR', session(DisplayCurrencyPreference::SESSION_KEY));
+    }
+
+    public function test_logout_clears_display_currency_so_next_user_does_not_inherit_it(): void
+    {
+        $gb = $this->advertiser('GB');
+        $de = $this->advertiser('DE');
+        $this->assertNull($de->display_currency);
+
+        $this->withCountry('GB');
+        $this->postJson(route('login.post'), [
+            'email' => $gb->email,
+            'password' => 'password',
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        $this->post(route('display-currency'), ['currency' => 'USD'])->assertRedirect();
+        $this->assertSame('USD', $gb->fresh()->display_currency);
+
+        $logout = $this->post(route('logout'));
+        $logout->assertRedirect('/');
+        $logout->assertCookieExpired(DisplayCurrencyPreference::COOKIE_KEY);
+        $this->assertGuest();
+        $this->assertNull(session(DisplayCurrencyPreference::SESSION_KEY));
+        $this->assertNull(session(DisplayCurrencyPreference::PAY_FROM_KEY));
+        $this->assertNull(session(CartDisplayFx::SESSION_KEY));
+
+        $this->withCountry('US');
+        $this->postJson(route('login.post'), [
+            'email' => $de->email,
+            'password' => 'password',
+        ])->assertOk()->assertJsonPath('status', 'success');
+
+        $this->assertSame('EUR', $de->fresh()->display_currency);
+        $this->assertSame('EUR', app(ViewerCountry::class)->displayCurrency());
+        $this->assertSame('USD', $gb->fresh()->display_currency);
+    }
+
     public function test_admin_can_set_user_display_currency_and_logs_it(): void
     {
         $admin = $this->admin();

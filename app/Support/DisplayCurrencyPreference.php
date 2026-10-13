@@ -88,6 +88,48 @@ class DisplayCurrencyPreference
         return $code;
     }
 
+    /**
+     * Save the first inferred (or already stored) currency as soon as they sign in.
+     */
+    public function persistAuthenticatedChoice(?User $user = null, ?Request $request = null): ?string
+    {
+        $user ??= Auth::user();
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        // SessionGuard fires Login before setUser(), and after logout
+        // $guard->loggedOut is still true — Auth::user() would be null.
+        if (Auth::id() !== $user->id) {
+            Auth::setUser($user);
+        }
+
+        $code = app(ViewerCountry::class)->displayCurrency($request);
+        $request ??= request();
+        if ($request instanceof Request && $request->hasSession()) {
+            $request->session()->put(self::SESSION_KEY, $code);
+        }
+
+        return $code;
+    }
+
+    /**
+     * Drop session rails + the year-long cookie so the next account on this
+     * browser cannot inherit GBP/USD from the previous user.
+     */
+    public function forgetBrowserChoice(?Request $request = null): void
+    {
+        $request ??= request();
+        if ($request instanceof Request && $request->hasSession()) {
+            $request->session()->forget([
+                self::SESSION_KEY,
+                self::PAY_FROM_KEY,
+                CartDisplayFx::SESSION_KEY,
+            ]);
+        }
+        cookie()->queue(cookie()->forget(self::COOKIE_KEY));
+    }
+
     public function remember(string $currency, ?Request $request = null): string
     {
         $code = $this->normalize($currency) ?? 'EUR';
