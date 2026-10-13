@@ -6,18 +6,28 @@ use App\Models\DepositRequest;
 use App\Models\Invoice;
 use App\Models\Wallet;
 use App\Services\Billing\DepositReceiptService;
+use App\Support\DepositFx;
 use App\Support\EmailCatalog;
 
 class DepositApproved extends PlatformMailable
 {
     public DepositRequest $deposit;
 
-    public function __construct(DepositRequest $deposit)
-    {
+    public ?float $receivedCharge;
+
+    public ?float $creditedEuros;
+
+    public function __construct(
+        DepositRequest $deposit,
+        ?float $receivedCharge = null,
+        ?float $creditedEuros = null,
+    ) {
         parent::__construct();
 
         $deposit->loadMissing('user');
         $this->deposit = $deposit;
+        $this->receivedCharge = $receivedCharge;
+        $this->creditedEuros = $creditedEuros;
         $this->notificationType = 'deposit_approved';
         $this->recipientUser = $deposit->user;
         $this->dedupeKey = 'deposit_approved:'.$deposit->id;
@@ -57,6 +67,7 @@ class DepositApproved extends PlatformMailable
                 'downloadReceiptUrl' => $receipt
                     ? $this->advertiserBillingDownloadUrl($receipt)
                     : null,
+                'approvalFxLine' => $this->approvalFxLine($deposit),
             ]);
 
         if ($receipt) {
@@ -64,6 +75,19 @@ class DepositApproved extends PlatformMailable
         }
 
         return $mail;
+    }
+
+    private function approvalFxLine(DepositRequest $deposit): ?string
+    {
+        $method = strtolower((string) ($deposit->payment_method ?? ''));
+        if (in_array($method, ['card', 'paypal'], true)) {
+            return null;
+        }
+
+        $received = $this->receivedCharge ?? app(DepositFx::class)->expectedCharge($deposit);
+        $credited = $this->creditedEuros ?? (float) $deposit->amount;
+
+        return app(DepositFx::class)->approvalEmailLine($deposit, $received, $credited);
     }
 
     protected function resolveReceipt(DepositRequest $deposit): ?Invoice

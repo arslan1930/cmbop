@@ -16,24 +16,12 @@ class PlatformCharge
     public function quote(float $euros): array
     {
         $euros = round($euros, 2);
-        $code = strtoupper(app(ViewerCountry::class)->displayCurrency());
-        if (! in_array($code, ['EUR', 'USD', 'GBP'], true)) {
-            $code = 'EUR';
-        }
 
-        $amount = $code === 'EUR'
-            ? $euros
-            : round(app(MoneyDisplay::class)->fromEuros($euros, $code), 2);
-
-        if ($amount <= 0 && $euros > 0) {
-            $code = 'EUR';
-            $amount = $euros;
-        }
-
+        // Ledger, Stripe, and PayPal stay EUR even when the viewer sees GBP/USD.
         return [
-            'code' => $code,
-            'stripe' => strtolower($code),
-            'amount' => $amount,
+            'code' => 'EUR',
+            'stripe' => 'eur',
+            'amount' => $euros,
             'euros' => $euros,
         ];
     }

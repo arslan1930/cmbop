@@ -86,6 +86,7 @@
         <!-- Mobile Role Switch -->
         <div class="text-center my-2 d-md-none">
             @include('partials.role-switcher')
+            <div class="mt-2">@include('partials.currency-switcher')</div>
         </div>
         
         <div class="shell-sidebar-brand text-center my-3 d-none d-md-block">
@@ -195,8 +196,9 @@
             <img id="logoNavbar" src="{{ brand_shell_wordmark_url() }}" height="44" width="158" style="width:auto;max-width:min(220px,42vw);object-fit:contain;background:transparent" alt="SEOLinkBuildings">
         </a>
 
-        <div class="d-none d-md-block">
+        <div class="d-none d-md-flex align-items-center gap-2">
             @include('partials.role-switcher')
+            @include('partials.currency-switcher')
         </div>
     </div>
 

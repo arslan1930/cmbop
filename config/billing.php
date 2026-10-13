@@ -159,6 +159,9 @@ return [
         'exclusion_note' => 'Site feature / promo purchases are excluded from tax invoicing.',
     ],
 
+    'fx_tolerance_note' => env('BILLING_FX_TOLERANCE_NOTE')
+        ?: 'Because of exchange rates and bank fees, the amount we receive may differ slightly (about ±2%). We\'ll credit your wallet with the euro value of what actually arrives.',
+
     'deposit_receipt_note' => env('BILLING_DEPOSIT_RECEIPT_NOTE')
         ?: 'Funds added to your prepaid wallet balance. A wallet top-up is not a supply of services, so no VAT is charged on this receipt. Tax invoices are issued when you spend the balance on an order.',
 

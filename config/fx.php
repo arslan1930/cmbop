@@ -45,4 +45,14 @@ return [
     | Local/testing only. usd / gbp.
     */
     'force_display' => strtolower(trim((string) env('DISPLAY_CURRENCY', ''))),
+
+    /*
+    | Map CF/IP country → display currency (GB→GBP, US/CA/AU→USD). Ledger stays EUR.
+    | Set FX_GEO_DISPLAY=false to show euros everywhere.
+    */
+    'geo_display' => filter_var(env('FX_GEO_DISPLAY', true), FILTER_VALIDATE_BOOLEAN),
+
+    'deposit_lock_days' => (int) env('FX_DEPOSIT_LOCK_DAYS', 7),
+
+    'deposit_tolerance_percent' => (float) env('FX_DEPOSIT_TOLERANCE_PERCENT', 2),
 ];

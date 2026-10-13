@@ -206,6 +206,7 @@ class SiteController extends Controller
             'language' => 'required|string|size:2|in:'.implode(',', $allowedLanguages),
             'categories' => 'required|array|min:1|max:7',
             'price' => 'required|numeric|min:0|max:99999999.99',
+            'price_input_currency' => 'nullable|in:EUR,GBP',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
             'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
             'link_type' => 'required|in:dofollow,nofollow',
@@ -317,7 +318,7 @@ class SiteController extends Controller
                     'languages' => $languageCodes,
                     'category' => $primaryCategory,
                     'categories' => $categoriesArray,
-                    'price' => $this->listingToEuros($request->price, $countryCodes[0] ?? null),
+                    'price' => $this->listingToEuros($request->price, $countryCodes[0] ?? null, $request->input('price_input_currency')),
                     'turnaround_time' => $request->turnaround_time,
                     'publication_time' => $request->publicationTime,
                     'link_type' => $request->link_type,
@@ -819,7 +820,8 @@ class SiteController extends Controller
                 'languages' => $site->languages,
                 'category' => $site->category,
                 'categories' => $categories,
-                'price' => $this->listingFromEuros((float) $site->price, $site->country),
+                'price' => $this->listingFromEuros((float) $site->price, $site->country, $this->listingInputCurrency(null, $site->country)),
+                'price_input_currency' => $this->listingInputCurrency(null, $site->country),
                 'turnaround_time' => $site->turnaround_time,
                 'publication_time' => $site->publication_time,
                 'link_type' => $site->link_type,
@@ -902,6 +904,7 @@ class SiteController extends Controller
             'language' => 'required|string|size:2|in:'.implode(',', $allowedLanguages),
             'categories' => 'required|array|min:1|max:7',
             'price' => 'required|numeric|min:0|max:99999999.99',
+            'price_input_currency' => 'nullable|in:EUR,GBP',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
             'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
             'link_type' => 'required|in:dofollow,nofollow',
@@ -981,7 +984,7 @@ class SiteController extends Controller
                     'languages' => $languageCodes,
                     'category' => $primaryCategory,
                     'categories' => $categoriesArray,
-                    'price' => $this->listingToEuros($request->price, $countryCodes[0] ?? null),
+                    'price' => $this->listingToEuros($request->price, $countryCodes[0] ?? null, $request->input('price_input_currency')),
                     'turnaround_time' => $request->turnaround_time,
                     'publication_time' => $request->publicationTime,
                     'link_type' => $request->link_type,
@@ -1318,7 +1321,7 @@ class SiteController extends Controller
                 continue;
             }
 
-            $sensitivePrices[$topic] = $this->listingToEuros($price, $country);
+            $sensitivePrices[$topic] = $this->listingToEuros($price, $country, $request->input('price_input_currency'));
         }
 
         return $sensitivePrices;
@@ -1343,7 +1346,7 @@ class SiteController extends Controller
                 continue;
             }
 
-            $out[(string) $days] = $this->listingToEuros($price, $country);
+            $out[(string) $days] = $this->listingToEuros($price, $country, $request->input('price_input_currency'));
         }
 
         return $out;
@@ -1352,7 +1355,7 @@ class SiteController extends Controller
     private function listingSavedNote(mixed $typedLocal, float $storedEuros, ?string $country): string
     {
         $money = app(MoneyDisplay::class);
-        $currency = $money->currencyForCountry($country);
+        $currency = $this->listingInputCurrency(request()->input('price_input_currency'), $country);
         if ($currency === 'EUR') {
             return '';
         }
@@ -1361,18 +1364,30 @@ class SiteController extends Controller
             .' (from '.$money->symbolFor($currency).number_format((float) $typedLocal, 2).').';
     }
 
-    private function listingToEuros(mixed $local, ?string $country): float
+    private function listingInputCurrency(mixed $explicit, ?string $country): string
     {
-        $money = app(MoneyDisplay::class);
+        $code = strtoupper(trim((string) $explicit));
+        if (in_array($code, ['EUR', 'GBP'], true)) {
+            return $code;
+        }
 
-        return $money->toEuros($local, $money->currencyForCountry($country));
+        $fromCountry = app(MoneyDisplay::class)->currencyForCountry($country);
+
+        return $fromCountry === 'GBP' ? 'GBP' : 'EUR';
     }
 
-    private function listingFromEuros(mixed $euros, ?string $country): float
+    private function listingToEuros(mixed $local, ?string $country, mixed $explicitCurrency = null): float
     {
         $money = app(MoneyDisplay::class);
 
-        return $money->fromEuros($euros, $money->currencyForCountry($country));
+        return $money->toEuros($local, $this->listingInputCurrency($explicitCurrency, $country));
+    }
+
+    private function listingFromEuros(mixed $euros, ?string $country, mixed $explicitCurrency = null): float
+    {
+        $money = app(MoneyDisplay::class);
+
+        return $money->fromEuros($euros, $this->listingInputCurrency($explicitCurrency, $country));
     }
 
     /**

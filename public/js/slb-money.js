@@ -54,9 +54,16 @@
 
     function format(rawEuros, options) {
         options = options || {};
+        var cfg = config();
+        var eur = euros(rawEuros);
         var value = amount(rawEuros);
-        var symbol = config().symbol || '€';
-        return signedPrefix(value, !!options.signed) + symbol + grouped(value);
+        var symbol = cfg.symbol || '€';
+        var prefix = signedPrefix(value, !!options.signed);
+        var local = symbol + grouped(value);
+        if (!cfg.guide || cfg.currency === 'EUR') {
+            return prefix + local;
+        }
+        return prefix + local + ' (≈ €' + grouped(eur) + ')';
     }
 
     function formatPay(rawEuros, options) {

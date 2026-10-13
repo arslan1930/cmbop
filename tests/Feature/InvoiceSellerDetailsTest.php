@@ -99,8 +99,9 @@ class InvoiceSellerDetailsTest extends TestCase
         $this->assertStringContainsString('Teqno LTD', $html);
         $this->assertStringContainsString('TRWIGB2LXXX', $html);
         $this->assertStringContainsString('GB30 TRWI 2308 0132 9321 94', $html);
-        $this->assertStringContainsString('32932194', $html);
-        $this->assertStringContainsString('23-08-01', $html);
+        $this->assertStringNotContainsString('32932194', $html);
+        $this->assertStringNotContainsString('23-08-01', $html);
+        $this->assertStringContainsString(e('Because of exchange rates and bank fees, the amount we receive may differ slightly (about ±2%). We\'ll credit your wallet with the euro value of what actually arrives.'), $html);
         $this->assertStringContainsString('+447445152374', $html);
         $this->assertStringContainsString('16607074', $html);
         $this->assertStringContainsString('support@seolinkbuildings.com', $html);

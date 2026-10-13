@@ -24,6 +24,8 @@ class DepositRequest extends Model
         'amount',
         'charge_currency',
         'charge_amount',
+        'fx_rate',
+        'rate_locked_until',
         'payment_method',
         'status',
         'admin_notes',
@@ -42,6 +44,9 @@ class DepositRequest extends Model
         'paid_at' => 'datetime',
         'user_marked_paid_at' => 'datetime',
         'amount' => 'decimal:2',
+        'charge_amount' => 'decimal:2',
+        'fx_rate' => 'decimal:8',
+        'rate_locked_until' => 'datetime',
     ];
 
     public function user()

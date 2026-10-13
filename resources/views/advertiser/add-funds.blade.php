@@ -492,6 +492,9 @@
                                         'walletCurrency' => $wallet?->currency ?? null,
                                         'eurAmount' => $prefillAmount ?? null,
                                         'showMethodSwitch' => true,
+                                        'bankRail' => $payFrom ?? 'eur',
+                                        'showPayFromSwitch' => true,
+                                        'sendLabel' => app(\App\Support\DepositFx::class)->quote((float) ($prefillAmount ?? 0), ($payFrom ?? 'eur') === 'gbp' ? 'GBP' : 'EUR')['send_label'],
                                     ])
                                     <div>
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">VAT:</p>
@@ -1600,6 +1603,9 @@ window.AddFundsBoot = {
     paypalLogo: @json(asset('assets/img/payments/paypal.png')),
     openCardsTab: @json((bool) ($openCardsTab ?? false)),
     usdBankWire: @json(app(\App\Support\UsdBankWireGuidance::class)->bootPayload($wallet?->currency ?? null, auth()->user())),
+    payFrom: @json($payFrom ?? 'eur'),
+    gbpPerEur: @json(app(\App\Support\FxRate::class)->perEur('GBP')),
+    depositLockDays: @json(app(\App\Support\DepositFx::class)->lockDays()),
     routes: {
         store: @json(route('advertiser.add-funds.store', absolute: false)),
         addFunds: @json(route('advertiser.add-funds', absolute: false)),

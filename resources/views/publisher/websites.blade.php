@@ -1273,8 +1273,15 @@
                         <span class="form-section-title">Pricing & link policy</span>
                         <div class="row bg-light p-3 rounded g-3 g-form">
                             <div class="col-md-4">
-                                <label class="form-label" data-listing-price-label>Price ({{ listing_price_symbol(old_text('country', old_text('countries')) ?: null) }}) <span class="req" aria-hidden="true">*</span></label>
-                                <input type="number" name="price" id="price" class="form-control" placeholder="Enter price" min="0" step="0.01" value="{{ old_text('price') }}" required>
+                                <label class="form-label" data-listing-price-label>Price <span class="req" aria-hidden="true">*</span></label>
+                                <div class="d-flex gap-2">
+                                    <select name="price_input_currency" id="price_input_currency" class="form-select" style="max-width:7rem;">
+                                        <option value="EUR" @selected(old('price_input_currency', 'EUR') === 'EUR')>EUR €</option>
+                                        <option value="GBP" @selected(old('price_input_currency') === 'GBP')>GBP £</option>
+                                    </select>
+                                    <input type="number" name="price" id="price" class="form-control" placeholder="Enter price" min="0" step="0.01" value="{{ old_text('price') }}" required>
+                                </div>
+                                <p class="small text-muted mb-0 mt-1" id="listingPricePreview" data-listing-price-preview></p>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Publication Duration <span class="req" aria-hidden="true">*</span></label>
@@ -2238,6 +2245,37 @@ function initMultiSelect(wrapperId, inputId, dropdownId, optionsId, hiddenInputI
 window.countryLanguageMap = @json($countryLanguageMap ?? new \stdClass());
 window.__slbListingPriceSymbol = @json(listing_price_symbol());
 window.__slbListingCountrySymbols = @json(app(\App\Support\MoneyDisplay::class)->countrySymbols());
+window.__slbGbpPerEur = @json(app(\App\Support\FxRate::class)->perEur('GBP'));
+
+function syncListingPricePreview() {
+    const currency = document.getElementById('price_input_currency');
+    const price = document.getElementById('price');
+    const preview = document.getElementById('listingPricePreview');
+    if (!currency || !price || !preview) return;
+    const amount = parseFloat(price.value);
+    if (!isFinite(amount) || amount <= 0) {
+        preview.textContent = '';
+        return;
+    }
+    if (currency.value === 'GBP') {
+        const rate = Number(window.__slbGbpPerEur) || 0;
+        const euros = rate > 0 ? Math.round((amount / rate) * 100) / 100 : amount;
+        preview.textContent = '£' + amount.toFixed(2) + ' → €' + euros.toFixed(2) + ' stored (payouts in EUR)';
+        return;
+    }
+    preview.textContent = '€' + amount.toFixed(2) + ' stored (payouts in EUR)';
+}
+document.addEventListener('input', function (event) {
+    if (event.target && (event.target.id === 'price' || event.target.id === 'price_input_currency')) {
+        syncListingPricePreview();
+    }
+});
+document.addEventListener('change', function (event) {
+    if (event.target && event.target.id === 'price_input_currency') {
+        syncListingPricePreview();
+    }
+});
+document.addEventListener('DOMContentLoaded', syncListingPricePreview);
 
 function listingSymbolForCountry(code) {
     const key = String(code || '').trim().toUpperCase();

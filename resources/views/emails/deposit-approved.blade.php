@@ -13,6 +13,9 @@ Your PayPal payment succeeded and €{{ number_format($deposit->amount, 2) }} ha
 Your card payment succeeded and €{{ number_format($deposit->amount, 2) }} has been added to your wallet.
 @else
 Your deposit request has been approved and the funds have been added to your wallet.
+@if(!empty($approvalFxLine))
+{{ $approvalFxLine }}
+@endif
 @endif
 
 @if($receipt)
