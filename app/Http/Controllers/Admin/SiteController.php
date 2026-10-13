@@ -3433,6 +3433,156 @@ class SiteController extends Controller
         ]);
     }
 
+    public function exportPublishers(Request $request): StreamedResponse
+    {
+        $publishers = $this->selectedStaffPublishers($request);
+
+        ActivityLogger::tryLog(
+            'publishers.exported',
+            ($request->user()?->name ?? 'Staff').' exported publishers ('.$publishers->count().' row(s)).',
+            null,
+            ['rows_exported' => $publishers->count()]
+        );
+
+        $filename = 'publishers-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($publishers) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'id',
+                'name',
+                'email',
+                'country',
+                'sites',
+                'live',
+                'in_review',
+                'archived',
+                'joined',
+                'last_active',
+            ]);
+            foreach ($publishers as $publisher) {
+                fputcsv($out, [
+                    $this->csvCell($publisher->id),
+                    $this->csvCell($publisher->name),
+                    $this->csvCell($publisher->email),
+                    $this->csvCell($publisher->country),
+                    $this->csvCell((int) ($publisher->sites_count ?? 0)),
+                    $this->csvCell((int) ($publisher->live_sites_count ?? 0)),
+                    $this->csvCell((int) ($publisher->needs_review_sites_count ?? 0)),
+                    $this->csvCell((int) ($publisher->archived_sites_count ?? 0)),
+                    $this->csvCell(optional($publisher->created_at)?->toDateString()),
+                    $this->csvCell(optional($publisher->last_seen_at)?->toIso8601String()),
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function archiveInactivePublishers(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can archive inactive listings.',
+            ], 403);
+        }
+
+        $publishers = $this->selectedStaffPublishers($request);
+        if ($publishers->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Select at least one publisher.',
+            ], 422);
+        }
+
+        $archived = 0;
+        $skipped = 0;
+        foreach ($publishers as $publisher) {
+            $sites = Site::query()
+                ->where('publisher_id', $publisher->id)
+                ->notArchived()
+                ->where(function ($q) {
+                    $q->where('active', 0)->orWhereNull('active');
+                })
+                ->get();
+            foreach ($sites as $site) {
+                if ($site->orderItemsCount() > 0) {
+                    $skipped++;
+
+                    continue;
+                }
+                try {
+                    if (! $site->archiveByStaff('Inactive listing archived by staff.')) {
+                        $skipped++;
+
+                        continue;
+                    }
+                    $archived++;
+                    ActivityLogger::tryLog(
+                        'site.archived',
+                        ($user->name ?? 'Staff').' archived inactive "'.$site->site_name.'"',
+                        $site,
+                        [
+                            'site_id' => $site->id,
+                            'publisher_id' => $publisher->id,
+                            'quiet' => true,
+                            'bulk_inactive' => true,
+                        ],
+                        $site->site_name
+                    );
+                } catch (\Throwable $e) {
+                    report($e);
+                    $skipped++;
+                }
+            }
+        }
+
+        StaffSitesIndexCounts::forget();
+
+        return response()->json([
+            'success' => true,
+            'archived' => $archived,
+            'skipped' => $skipped,
+            'message' => $archived === 0
+                ? 'No inactive listings were archived.'.($skipped > 0 ? ' '.$skipped.' skipped (orders or already archived).' : '')
+                : $archived.' inactive listing'.($archived === 1 ? '' : 's').' archived. Publishers were not notified.'
+                    .($skipped > 0 ? ' '.$skipped.' skipped.' : ''),
+        ]);
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function selectedStaffPublishers(Request $request)
+    {
+        $ids = collect($request->input('ids', $request->query('ids', [])))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->take(200)
+            ->values()
+            ->all();
+
+        if ($ids === []) {
+            return collect();
+        }
+
+        return User::query()
+            ->whereIn('id', $ids)
+            ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
+            ->withCount('notArchivedSites as sites_count')
+            ->withCount('archivedSites as archived_sites_count')
+            ->withCount(['sites as live_sites_count' => function ($q) {
+                $q->notArchived()->where('active', 1);
+            }])
+            ->withCount(['sites as needs_review_sites_count' => function ($q) {
+                $q->needsAdminReview()->notArchived();
+            }])
+            ->orderBy('name')
+            ->get();
+    }
+
     public function searchPublishers(Request $request): JsonResponse
     {
         $q = search_text($request->query('q'));

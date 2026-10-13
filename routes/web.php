@@ -1194,6 +1194,10 @@ $registerStaffOpsRoutes = function () {
     Route::get('/sites/publishers-search', [AdminSiteController::class, 'searchPublishers'])
         ->middleware('throttle:30,1')
         ->name('sites.publishers-search');
+    Route::get('/sites/publishers/export', [AdminSiteController::class, 'exportPublishers'])
+        ->name('sites.publishers-export');
+    Route::post('/sites/publishers/archive-inactive', [AdminSiteController::class, 'archiveInactivePublishers'])
+        ->name('sites.publishers-archive-inactive');
     Route::post('/sites/lookup-metrics', [AdminSiteController::class, 'lookupMetrics'])
         ->middleware('throttle:20,1')
         ->name('sites.lookup-metrics');
