@@ -6,6 +6,8 @@
     $canPdf = $invoice->advertiserCanDownloadPdf();
 @endphp
 
+@section('title', $invoice->invoice_number ?: 'Invoice')
+
 @section('content')
 <div class="container-fluid">
     <div class="row mb-4 align-items-end g-3">

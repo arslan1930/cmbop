@@ -33,7 +33,8 @@
   flex-shrink: 0;
 }
 
-.cart-header h5 {
+.cart-header h5,
+.cart-header .cart-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;

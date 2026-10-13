@@ -27,11 +27,11 @@
         <span class="nc-badge pulse-badge" data-nc-badge data-pulse-display="inline-flex">0</span>
     </button>
 
-    <div class="nc-panel nc-theme" data-nc-panel role="dialog" aria-label="Notification center">
+    <div class="nc-panel nc-theme" data-nc-panel role="dialog" aria-labelledby="ncTitle">
         <div class="nc-header">
             <div class="nc-header-row">
                 <div class="nc-header-copy">
-                    <h3 class="nc-title">Notifications</h3>
+                    <p class="nc-title" id="ncTitle">Notifications</p>
                     <p class="nc-subtitle" data-nc-unread-label>0 unread</p>
                 </div>
                 <div class="nc-actions">

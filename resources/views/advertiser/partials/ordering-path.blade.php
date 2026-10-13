@@ -8,7 +8,7 @@
 <div class="wizard-chrome">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
         <div>
-            <h1 class="h5 mb-1">{{ $title }}</h1>
+            <p class="wizard-chrome__title h5 mb-1">{{ $title }}</p>
             @if($subtitle)
                 <p class="muted mb-0">{{ $subtitle }}</p>
             @endif

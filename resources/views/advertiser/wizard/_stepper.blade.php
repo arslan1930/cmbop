@@ -41,7 +41,7 @@
     border:1px solid #b8e4e4; background:linear-gradient(135deg,#f0fbfb,#fff);
     border-radius:14px; padding:14px 16px; margin-bottom:1rem;
 }
-.wizard-chrome h1, .wizard-chrome h2 { font-size:1.25rem; margin:0 0 4px; color:#1a585e; }
+.wizard-chrome h1, .wizard-chrome h2, .wizard-chrome .wizard-chrome__title { font-size:1.25rem; margin:0 0 4px; color:#1a585e; }
 .wizard-chrome .muted { color: var(--brand-ink-muted, #75787B); font-size:.875rem; margin:0; }
 </style>
 <div class="wizard-stepper" role="navigation" aria-label="Place a guest post steps">

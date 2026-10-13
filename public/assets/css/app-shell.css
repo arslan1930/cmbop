@@ -865,6 +865,7 @@ body > footer {
     display: none !important;
   }
   #main-content .wizard-chrome h1,
+  #main-content .wizard-chrome .wizard-chrome__title,
   #main-content .page-title,
   #main-content h1 {
     max-width: 100%;

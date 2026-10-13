@@ -1,5 +1,7 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Assign articles')
+
 @section('content')
 @php
     $usedIds = [];
