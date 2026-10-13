@@ -125,7 +125,9 @@
 }
 .recent-orders-glass {
     position: relative;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+    align-self: start;
+    width: 100%;
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.55);
     background: linear-gradient(145deg, rgba(255,255,255,0.72), rgba(240,251,251,0.55));
@@ -614,9 +616,7 @@
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="mb-0 recent-orders-title">Recent orders</h5>
-                        <a href="{{ route('advertiser.orders') }}" class="dash-icon-link" aria-label="View all orders" title="View all orders">
-                            <i class="fa fa-arrow-right" aria-hidden="true"></i>
-                        </a>
+                        <a href="{{ route('advertiser.orders') }}" class="recent-orders-link">View all orders</a>
                     </div>
                     @if($recentOrders->isEmpty())
                         <x-ui.empty-state
@@ -660,7 +660,9 @@
                                         <tr class="recent-order-row" onclick="window.location='{{ $orderFocusUrl }}'">
                                             <td class="py-3">
                                                 <a href="{{ $orderFocusUrl }}" class="recent-order-num text-decoration-none">#{{ $numericOrder }}</a>
-                                                <div class="recent-order-site">{{ $firstItem->site_name ?? '—' }}</div>
+                                                @if(filled($firstItem->site_name ?? null))
+                                                    <div class="recent-order-site">{{ $firstItem->site_name }}</div>
+                                                @endif
                                                 @if($canSeeRecentUrl && $recentDisplayHost && $firstItem?->site_id)
                                                     <a href="{{ route('advertiser.catalog.visit', $firstItem->site_id) }}"
                                                        target="_blank" rel="noopener" class="recent-order-url"

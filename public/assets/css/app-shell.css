@@ -687,6 +687,7 @@ body > footer {
 .dash-recent-col {
   display: flex;
   flex-direction: column;
+  align-self: start;
   min-width: 0;
 }
 
