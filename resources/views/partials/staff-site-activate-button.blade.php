@@ -29,7 +29,7 @@
         : 'Activate after review — not direct';
 @endphp
 @if($offerCountry)
-    <a class="btn btn-sm btn-outline-danger{{ $iconClass }}" href="{{ staff_route('sites.edit', $site->id) }}#country" title="{{ $publishNowBlock ?: ($activateBlock ?: 'Set a marketplace country before activating this site.') }}" @if($iconOnly) aria-label="Set country" @endif>
+    <a class="btn btn-sm btn-outline-danger{{ $iconClass }}" href="{{ staff_route('sites.edit', $site->id) }}#country" title="Set a marketplace country before activating this site." @if($iconOnly) aria-label="Set country" @endif>
         @if($iconOnly)
             <i class="fa fa-globe" aria-hidden="true"></i>
         @else
