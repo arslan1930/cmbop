@@ -3483,7 +3483,7 @@ class AdminEmailCenterTest extends TestCase
             ->assertSee('Auto-drain:', false)
             ->assertSee('queue:work --queue=default,emails', false)
             ->assertSee('Encryption', false)
-            ->assertSee('SMTP delivered ≠ inbox', false)
+            ->assertSee('SMTP accepted ≠ inbox', false)
             ->assertSee('No failed sends in the log', false)
             ->assertSee('Send test to me', false)
             ->assertSee('data-ec-critical="welcome,order_status_changed,publisher_new_order,deposit_approved,admin_stalled_order"', false)
