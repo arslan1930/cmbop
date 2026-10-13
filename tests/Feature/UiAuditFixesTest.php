@@ -227,6 +227,8 @@ class UiAuditFixesTest extends TestCase
         $this->assertStringContainsString('safe-area-inset-bottom', $css);
         $this->assertStringContainsString('--slb-live-chat-footer-offset', $css);
         $this->assertStringContainsString('--slb-live-chat-footer-offset', $shell);
+        $this->assertStringContainsString('safe-area-inset-bottom', $shell);
+        $this->assertStringContainsString('--shell-footer-height', $shell);
     }
 
     public function test_upload_button_is_brand_teal(): void
