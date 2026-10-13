@@ -15,12 +15,14 @@
     $reasonText = '';
     $reasonWhen = '';
     $reasonWho = '';
+    $archiveReasonLabel = null;
     try {
         $reasonText = trim((string) ($site->status_reason ?? ''));
         if ($site->status_reason_at instanceof \DateTimeInterface) {
             $reasonWhen = \Illuminate\Support\Carbon::parse($site->status_reason_at)->timezone(config('app.timezone'))->format('M j, Y');
         }
         $reasonWho = trim((string) ($site->statusReasonAuthor->name ?? ''));
+        $archiveReasonLabel = \App\Support\StaffArchiveReason::label(is_string($site->archive_reason ?? null) ? $site->archive_reason : null);
     } catch (\Throwable $e) {
         $reasonText = '';
     }
@@ -36,21 +38,11 @@
                  data-preview-i="0"
                  onerror="sitePreviewImgOnError(this)">
         </span>
-    @else
-        <span class="site-row-preview is-empty" aria-label="No preview"><i class="fa fa-image" aria-hidden="true"></i></span>
     @endif
     <div class="min-w-0 queue-site-copy">
         <div class="fw-semibold queue-site-name" title="{{ $site->site_name ?: '' }}">{{ $site->site_name ?: '—' }}</div>
         <div class="small text-muted queue-site-url" title="{{ $site->site_url }}">{{ $site->site_url }}</div>
         <div class="d-flex flex-wrap gap-1 mt-1">
-            @if($site->verified)
-                <span class="badge rounded-pill bg-success">Verified</span>
-            @else
-                <span class="badge rounded-pill bg-secondary">Unverified</span>
-            @endif
-            @if($site->active)
-                <span class="badge rounded-pill bg-primary">Active</span>
-            @endif
             @php
                 $showFeatured = false;
                 $showBulk = false;
@@ -84,6 +76,20 @@
                     $showBulk = false;
                 }
             @endphp
+            @if($archived)
+                <span class="badge text-bg-secondary">Archived</span>
+                @if($archiveReasonLabel)
+                    <span class="badge text-bg-light border">{{ $archiveReasonLabel }}</span>
+                @endif
+            @else
+            @if($site->verified)
+                <span class="badge rounded-pill bg-success">Verified</span>
+            @else
+                <span class="badge rounded-pill bg-secondary">Unverified</span>
+            @endif
+            @if($site->active)
+                <span class="badge rounded-pill bg-primary">Active</span>
+            @endif
             @if($showFeatured)
                 <span class="badge text-bg-primary">Featured</span>
             @endif
@@ -102,9 +108,8 @@
             @if($missingTags && empty($compactSiteCell))
                 <a href="{{ staff_route('sites.edit', $site->id) }}#site_tag" class="badge text-bg-warning text-dark text-decoration-none" title="Choose a tag. This does not block going live.">No tags</a>
             @endif
-            @if($archived)
-                <span class="badge text-bg-secondary">Archived</span>
             @endif
+            @if(! $archived)
             @if($awaitingDetails)
                 <span class="badge text-bg-secondary">Awaiting publisher</span>
             @endif
@@ -134,18 +139,14 @@
             @if($scanFailed)
                 <span class="badge text-bg-danger">Scan failed</span>
             @endif
+            @endif
         </div>
-        @if($reasonText !== '')
-            <div class="small text-muted mt-1">
-                Last decision: {{ $reasonText }}
-                @if($reasonWho !== '')
-                    · {{ $reasonWho }}
-                @endif
-                @if($reasonWhen !== '')
-                    · {{ $reasonWhen }}
-                @endif
-            </div>
-        @endif
+        @include('admin.sites.partials.decision-note', [
+            'reasonText' => $reasonText,
+            'reasonWho' => $reasonWho,
+            'reasonWhen' => $reasonWhen,
+            'archived' => $archived,
+        ])
         @if($catalogUrl)
             <a href="{{ $catalogUrl }}" class="small" target="_blank" rel="noopener">View in catalog</a>
         @endif

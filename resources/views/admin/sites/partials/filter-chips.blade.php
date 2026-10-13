@@ -23,6 +23,7 @@
         'bulk_discount' => 'Bulk discount',
         'csv_metrics' => 'CSV metrics',
         'archived' => 'Archived',
+        'archive_reason' => 'Archive reason',
         'price_min' => 'Price from',
         'price_max' => 'Price to',
         'traffic_min' => 'Traffic from',
@@ -44,6 +45,10 @@
         }
         if ($key === 'listing_verified') {
             $chipLabels[$key] = ((string) $value) === '1' ? 'Verified' : 'Unverified';
+            continue;
+        }
+        if ($key === 'archive_reason') {
+            $chipLabels[$key] = (\App\Support\StaffArchiveReason::label((string) $value) ?? $label);
             continue;
         }
         if ($key === 'metrics_age') {

@@ -18,8 +18,8 @@
             class="btn btn-sm btn-outline-secondary unarchive-site staff-action-icon-btn"
             data-id="{{ $site->id }}"
             data-name="{{ $site->site_name }}"
-            title="Restore"
-            aria-label="Restore">
+            title="Restore archived site"
+            aria-label="Restore archived site">
         <i class="fa fa-undo" aria-hidden="true"></i>
     </button>
 @else

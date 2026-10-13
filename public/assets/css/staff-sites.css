@@ -143,6 +143,44 @@
   cursor: default;
 }
 
+.staff-decision-note {
+  hyphens: none;
+  -webkit-hyphens: none;
+}
+
+.staff-decision-note__more {
+  margin-top: 0.15rem;
+}
+
+.staff-decision-note__more > summary {
+  cursor: pointer;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.staff-decision-note__full {
+  margin-top: 0.25rem;
+  white-space: pre-wrap;
+}
+
+#staffSitesPage.is-compact .staff-queue-table .site-row-preview:not(.is-empty) {
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
+}
+
+#staffSitesPage.is-compact .queue-site-url,
+#staffSitesPage.is-compact .staff-listed-date .small {
+  display: none;
+}
+
+#staffSitesPage.is-compact .staff-queue-table td,
+#staffSitesPage.is-compact .staff-queue-table th {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
 .site-row-preview.is-empty > i {
   position: absolute;
   inset: 0;

@@ -55,6 +55,7 @@ class AdminSites
             'da_min' => self::uint($request->input('da_min')),
             'metrics_age' => self::metricsAge($request->input('metrics_age')),
             'archived' => self::flag($request, 'archived') ? 1 : null,
+            'archive_reason' => StaffArchiveReason::normalize($request->input('archive_reason')),
             'sort' => self::sort($request->input('sort')),
         ], static fn ($value) => $value !== null && $value !== '');
 
@@ -172,7 +173,7 @@ class AdminSites
     {
         $text = search_text($value);
 
-        return in_array($text, ['newest', 'oldest', 'price', 'traffic', 'da'], true) ? $text : null;
+        return in_array($text, ['newest', 'oldest', 'price', 'traffic', 'da', 'archived_at'], true) ? $text : null;
     }
 
     private static function decimal(mixed $value): ?float

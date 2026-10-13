@@ -8,7 +8,7 @@
     $getForm = in_array($mode, ['flat', 'all', 'publishers'], true);
     $moreFilterKeys = [
         'tag', 'language', 'niche', 'listing_active', 'listing_verified', 'metrics_age',
-        'price_min', 'price_max', 'traffic_min', 'da_min',
+        'price_min', 'price_max', 'traffic_min', 'da_min', 'archive_reason',
     ];
     $moreFilterFlags = [
         'below_quality', 'ready_to_activate', 'missing_market', 'placeholder', 'missing_cover',
@@ -89,12 +89,13 @@
                 <option value="joined" @selected(($filters['sort'] ?? '') === 'joined')>Joined</option>
                 <option value="last_active" @selected(($filters['sort'] ?? '') === 'last_active')>Last active</option>
             @else
-            <option value="" @selected(($filters['sort'] ?? '') === '')>{{ $mode === 'flat' ? 'Oldest waiting' : 'Newest' }}</option>
+            <option value="" @selected(($filters['sort'] ?? '') === '')>{{ $mode === 'flat' ? 'Oldest waiting' : (!empty($filters['archived']) ? 'Recently archived' : 'Newest') }}</option>
             <option value="newest" @selected(($filters['sort'] ?? '') === 'newest')>Newest</option>
             <option value="oldest" @selected(($filters['sort'] ?? '') === 'oldest')>Oldest</option>
             <option value="price" @selected(($filters['sort'] ?? '') === 'price')>Price</option>
             <option value="traffic" @selected(($filters['sort'] ?? '') === 'traffic')>Traffic</option>
             <option value="da" @selected(($filters['sort'] ?? '') === 'da')>DA</option>
+            <option value="archived_at" @selected(($filters['sort'] ?? '') === 'archived_at')>Archived date</option>
             @endif
         </select>
     </label>
@@ -225,6 +226,15 @@
         <label class="form-check small mb-1">
             <input class="form-check-input" type="checkbox" name="archived" value="1" data-staff-filter="archived" @checked(!empty($filters['archived']))>
             Archived only
+        </label>
+        <label class="small mb-0">
+            Archive reason
+            <select class="form-select" name="archive_reason" data-staff-filter="archive_reason">
+                <option value="">Any</option>
+                @foreach(\App\Support\StaffArchiveReason::options() as $code => $label)
+                    <option value="{{ $code }}" @selected(($filters['archive_reason'] ?? '') === $code)>{{ $label }}</option>
+                @endforeach
+            </select>
         </label>
     @endif
         </div>

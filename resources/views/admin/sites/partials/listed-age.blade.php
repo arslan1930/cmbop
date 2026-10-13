@@ -6,10 +6,16 @@
         $listedDays = (int) \Illuminate\Support\Carbon::parse($listedAt)->diffInDays(now());
         $listedTitle = 'Listed '.\Illuminate\Support\Carbon::parse($listedAt)->timezone(config('app.timezone'))->format('M j, Y');
     }
+    $listedArchived = false;
+    try {
+        $listedArchived = $site->isArchived();
+    } catch (\Throwable $e) {
+        $listedArchived = false;
+    }
     $listedClass = 'text-muted';
-    if ($listedDays !== null && $listedDays >= 21) {
+    if (! $listedArchived && $listedDays !== null && $listedDays >= 21) {
         $listedClass = 'text-danger fw-semibold';
-    } elseif ($listedDays !== null && $listedDays >= 7) {
+    } elseif (! $listedArchived && $listedDays !== null && $listedDays >= 7) {
         $listedClass = 'text-warning fw-semibold';
     }
 @endphp
