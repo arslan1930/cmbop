@@ -38,6 +38,12 @@
             box-shadow:0 0 0 3px rgba(26,88,94,.14)!important;
             transform:none!important
         }
+        /* Price chips: do not shrink into two clipped lines inside the pill. */
+        .catalog-page .filter-presets[data-preset-group="price"]{display:flex;flex-wrap:wrap;gap:6px;max-width:100%}
+        .catalog-page .filter-preset{flex:0 0 auto;width:auto;white-space:nowrap;padding:0 10px;height:24px;font-size:11px;font-weight:600}
+        .catalog-page .catalog-filter-actions #toggleMoreFiltersBtn,
+        .catalog-page .catalog-filter-actions #catalogResetFilters,
+        .catalog-page .catalog-live-apply-hint{font-family:inherit;font-size:11px;font-weight:600;height:24px;display:inline-flex;align-items:center;white-space:nowrap}
     </style>
     <style id="catalog-bulk-tip-guard">
         /* Glass-tip sat on the host + discount when it adopted the URL title. */

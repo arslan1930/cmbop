@@ -90,9 +90,47 @@
 }
 
 .catalog-page .filter-presets[data-preset-group="price"] {
-    flex-wrap: nowrap;
-    overflow-x: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
     max-width: 100%;
+}
+
+.catalog-page .filter-presets[data-preset-group="price"] .filter-preset {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+    padding: 0 10px;
+}
+
+.catalog-page .catalog-filter-actions {
+    align-items: center;
+}
+
+.catalog-page .catalog-filter-actions #toggleMoreFiltersBtn,
+.catalog-page .catalog-filter-actions #catalogResetFilters {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    height: 24px;
+    min-height: 24px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.catalog-page .catalog-live-apply-hint {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------- table shell */

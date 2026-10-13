@@ -149,11 +149,35 @@ class CatalogUxHoverTest extends TestCase
         $this->assertLessThan($resetPos, $morePos);
 
         $css = (string) file_get_contents(public_path('assets/css/catalog.css'));
+        $formCss = (string) file_get_contents(public_path('assets/css/form-system.css'));
         $this->assertStringContainsString('.catalog-page.is-live-search .catalog-js-fallback-submit', $css);
         $this->assertMatchesRegularExpression(
-            '/\.catalog-page \.filter-presets\[data-preset-group="price"\] \{[^}]*flex-wrap:\s*nowrap/s',
+            '/\.catalog-page \.filter-presets\[data-preset-group="price"\] \{[^}]*flex-wrap:\s*wrap/s',
             $css
         );
+        $this->assertMatchesRegularExpression(
+            '/\.catalog-page \.filter-presets\[data-preset-group="price"\] \.filter-preset \{[^}]*white-space:\s*nowrap/s',
+            $css
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.catalog-page \.filter-presets\[data-preset-group="price"\] \.filter-preset \{[^}]*width:\s*auto/s',
+            $css
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.filter-preset \{[^}]*white-space:\s*nowrap/s',
+            $formCss
+        );
+        $this->assertStringContainsString('.catalog-page .catalog-filter-actions #toggleMoreFiltersBtn', $css);
+        $this->assertMatchesRegularExpression(
+            '/#toggleMoreFiltersBtn,[\s\S]*?#catalogResetFilters \{[^}]*font-size:\s*11px/s',
+            $css
+        );
+        $this->assertMatchesRegularExpression(
+            '/#toggleMoreFiltersBtn,[\s\S]*?#catalogResetFilters \{[^}]*height:\s*24px/s',
+            $css
+        );
+        $this->assertStringContainsString('id="catalog-critical"', $html);
+        $this->assertStringContainsString('white-space:nowrap', $html);
     }
 
     public function test_cart_status_does_not_repeat_open_cart(): void
