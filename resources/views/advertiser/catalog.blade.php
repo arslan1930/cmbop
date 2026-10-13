@@ -31,6 +31,18 @@
         .catalog-page .catalog-country__flag{font-size:22px;line-height:1}
         .catalog-page .catalog-table tbody td,
         .catalog-page .catalog-table tbody td.catalog-stat-cell{vertical-align:middle}
+        /* Deal cards: survive a stale CDN catalog.css / leftover compiled Blade. */
+        .catalog-page .bulk-deal-card__tld{display:none!important}
+        .catalog-page .catalog-bulk-section .bulk-deal-card:hover,
+        .catalog-page .catalog-bulk-section .bulk-deal-card:focus-within{
+            box-shadow:0 0 0 3px rgba(26,88,94,.14)!important;
+            transform:none!important
+        }
+    </style>
+    <style id="catalog-bulk-tip-guard">
+        /* Glass-tip sat on the host + discount when it adopted the URL title. */
+        body:has(.bulk-deal-card:hover) .glass-tip,
+        body:has(.bulk-deal-card:focus-within) .glass-tip{display:none!important}
     </style>
 @endpush
 
@@ -103,10 +115,9 @@
     @endif
 
     @if(($approvedArticleCount ?? 0) === 0 && empty($orderingSubmission))
-        <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 catalog-article-banner py-2">
-            <div class="small mb-0">
-                Each website needs its own <strong>approved</strong> article. You can still add publishers —
-                the cart lists which sites still need an article, then you upload or assign before you pay.
+        <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 catalog-article-banner catalog-article-banner--one-line py-2">
+            <div class="small mb-0 text-nowrap text-truncate">
+                Each site needs its own approved article — upload or assign before you pay.
             </div>
             <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-upload">
                 <i class="fa fa-upload me-1" aria-hidden="true"></i> Upload article
@@ -492,8 +503,10 @@
                         <!-- Actions -->
                         <div class="col-12 col-lg-2">
                             <span class="form-label fw-semibold small text-muted mb-1 d-none d-md-block" aria-hidden="true">&nbsp;</span>
-                            <div class="d-flex flex-wrap gap-2 align-items-center">
-                                <button type="submit" class="btn btn-sm {{ $catalogLiveSearch ? 'btn-cta-secondary' : 'btn-primary' }} px-3" id="applyFiltersBtn">
+                            <div class="d-flex flex-wrap gap-2 align-items-center catalog-filter-actions">
+                                <button type="submit"
+                                        class="btn btn-sm {{ $catalogLiveSearch ? 'btn-cta-secondary catalog-js-fallback-submit' : 'btn-primary' }} px-3"
+                                        id="applyFiltersBtn">
                                     <i class="fa-solid fa-filter me-1" aria-hidden="true"></i> {{ $catalogLiveSearch ? 'Apply' : 'Filter' }}
                                 </button>
                                 @if($catalogLiveSearch)

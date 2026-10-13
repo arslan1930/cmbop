@@ -587,12 +587,27 @@ class CatalogController extends Controller
             SiteTag::constrainQuery($query, $tagFilter);
         }
 
+        $minRailDr = max(0, (int) config('site_promotions.bulk.min_rail_dr', 10));
+        if ($minRailDr > 0) {
+            $query->where('dr', '>=', $minRailDr);
+        }
+
+        $visibility = app(SiteUrlVisibility::class);
+
+        // One ordered collection feeds the default rail and every pager page
+        // (Blade chunks of 6; catalog.js rebuildPanels keeps this order).
         $bulkDeals = $query
-            ->orderByDesc('bulk_discount_percent')
             ->orderByDesc('dr')
+            ->orderByDesc('bulk_discount_percent')
             // Enough for several 6-deal batches without loading the whole catalog.
             ->limit(36)
             ->get()
+            ->unique('id')
+            ->unique(function (Site $site) use ($visibility) {
+                $host = strtolower($visibility->host($site->site_url));
+
+                return $host !== '' ? $host : 'id:'.$site->id;
+            })
             ->reject(fn (Site $site) => $site->isOwnedBy(auth()->user()))
             ->values();
 

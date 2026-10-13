@@ -208,8 +208,77 @@ class AdvertiserDashboardTest extends TestCase
             ->assertSee('dash-recent-col', false)
             ->assertSee('dash-page-end', false)
             ->assertSee('Recent orders', false)
+            ->assertSee('View all orders', false)
+            ->assertSee('align-self: start', false)
+            ->assertSee('flex: 0 0 auto', false)
+            ->assertSee('data-slb-open-support', false)
+            ->assertSee('data-support-hours', false)
+            ->assertSee('data-utc-start="09:00"', false)
+            ->assertSee('Mon–Fri, 9AM–6PM UTC', false)
+            ->assertSee('support-hours.js', false)
+            ->assertSee('text-decoration: none', false)
             ->assertSee('/advertiser/go/', false)
             ->assertDontSee('href="https://dash-site.example"', false);
+    }
+
+    public function test_recommended_price_matches_catalog_viewer_pay_price(): void
+    {
+        $user = $this->advertiser();
+        $publisher = User::factory()->create();
+        $listSite = $this->siteFor($publisher, [
+            'site_name' => 'List Price Site',
+            'site_url' => 'https://list-price.example',
+            'domain' => 'list-price.example',
+            'dr' => 81,
+            'traffic' => 50000,
+            'price' => 100,
+        ]);
+        $saleSite = $this->siteFor($publisher, [
+            'site_name' => 'Sale Price Site',
+            'site_url' => 'https://sale-price.example',
+            'domain' => 'sale-price.example',
+            'dr' => 80,
+            'traffic' => 40000,
+            'price' => 100,
+            'custom_discount_percent' => 10,
+            'custom_discount_starts_at' => now()->subDay(),
+            'custom_discount_ends_at' => now()->addDays(5),
+        ]);
+
+        $listPay = $listSite->catalogPricesForViewer($user)['sale']
+            ?? $listSite->catalogPricesForViewer($user)['list'];
+        $salePrices = $saleSite->catalogPricesForViewer($user);
+        $salePay = $salePrices['sale'] ?? $salePrices['list'];
+
+        $this->assertSame(113.0, (float) $listPay);
+        $this->assertSame(101.7, (float) $salePay);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.dashboard'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(format_money($listPay), $html);
+        $this->assertStringContainsString(format_money($salePay), $html);
+        $this->assertStringNotContainsString(format_money(127.69), $html);
+    }
+
+    public function test_recent_order_omits_dash_when_site_name_is_empty(): void
+    {
+        $user = $this->advertiser();
+        $order = $this->makeOrder($user, [
+            'status' => 'processing',
+            'payment_status' => 'paid',
+        ]);
+        $order->items()->update(['site_name' => '']);
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.dashboard'))
+            ->assertOk()
+            ->assertSee('View all orders', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('recent-order-site">—', $html);
     }
 
     public function test_low_balance_warning_and_telegram_config(): void

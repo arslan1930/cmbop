@@ -270,7 +270,10 @@ class InvoicePdfGenerator
             // Call output() once. Dompdf decodes the CIDToGID map in place;
             // a second output() on this instance stores a broken map and the
             // downloaded PDF draws the wrong glyphs.
-            return $pdf->output();
+            $binary = $pdf->output();
+            unset($pdf, $html);
+
+            return $binary;
         } finally {
             config(['dompdf.convert_entities' => $previousConvert]);
         }

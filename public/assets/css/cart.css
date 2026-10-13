@@ -124,6 +124,7 @@
   align-items: center;
   padding: 0;
   position: relative;
+  overflow: visible;
   gap: 0;
   background: transparent;
 }
@@ -139,19 +140,21 @@
 
 .cart-badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: 2px;
+  right: 2px;
+  z-index: 1;
   background-color: var(--brand-danger, #dc2626);
   color: white;
   border-radius: 999px;
-  min-width: 18px;
-  height: 18px;
+  min-width: 16px;
+  height: 16px;
   font-size: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   padding: 0 4px;
+  pointer-events: none;
 }
 
 /* Quantity / remove / article assignment (advertiser-only cart extras) */

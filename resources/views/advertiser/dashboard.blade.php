@@ -125,7 +125,9 @@
 }
 .recent-orders-glass {
     position: relative;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+    align-self: start;
+    width: 100%;
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.55);
     background: linear-gradient(145deg, rgba(255,255,255,0.72), rgba(240,251,251,0.55));
@@ -176,7 +178,7 @@
 .recent-orders-link {
     color: #1a585e; font-weight: 600; text-decoration: none;
 }
-.recent-orders-link:hover { color: #123f42; }
+.recent-orders-link:hover { color: #123f42; text-decoration: underline; }
 .dash-icon-link {
     display: inline-flex; align-items: center; justify-content: center;
     width: 36px; height: 36px; border: none; background: transparent;
@@ -200,11 +202,14 @@
     font-weight: 400;
     font-size: 14px;
     color: #1a585e;
-    text-decoration: underline;
+    text-decoration: none;
     text-underline-offset: 2px;
     word-break: break-all;
 }
-.recommended-site .rs-name:hover { color: #123f42; }
+.recommended-site .rs-name:hover {
+    color: #123f42;
+    text-decoration: underline;
+}
 .recommended-site .rs-meta { font-size: 12px; color: var(--brand-ink-muted, #75787B); margin: 0; }
 .recommended-site .rs-price {
     font-weight: 600;
@@ -333,7 +338,7 @@
             <div class="help-secondary">
                 <h6 class="mb-2">Need a hand?</h6>
                 <p class="small text-muted mb-3">Message your client manager if you get stuck on catalog or checkout.</p>
-                <a href="{{ $supportTelegramUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">
+                <a href="{{ $supportTelegramUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary" data-slb-open-support>
                     <i class="fa fa-message me-1" aria-hidden="true"></i> Start chat
                 </a>
             </div>
@@ -614,9 +619,7 @@
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="mb-0 recent-orders-title">Recent orders</h5>
-                        <a href="{{ route('advertiser.orders') }}" class="dash-icon-link" aria-label="View all orders" title="View all orders">
-                            <i class="fa fa-arrow-right" aria-hidden="true"></i>
-                        </a>
+                        <a href="{{ route('advertiser.orders') }}" class="recent-orders-link">View all orders</a>
                     </div>
                     @if($recentOrders->isEmpty())
                         <x-ui.empty-state
@@ -660,7 +663,9 @@
                                         <tr class="recent-order-row" onclick="window.location='{{ $orderFocusUrl }}'">
                                             <td class="py-3">
                                                 <a href="{{ $orderFocusUrl }}" class="recent-order-num text-decoration-none">#{{ $numericOrder }}</a>
-                                                <div class="recent-order-site">{{ $firstItem->site_name ?? '—' }}</div>
+                                                @if(filled($firstItem->site_name ?? null))
+                                                    <div class="recent-order-site">{{ $firstItem->site_name }}</div>
+                                                @endif
                                                 @if($canSeeRecentUrl && $recentDisplayHost && $firstItem?->site_id)
                                                     <a href="{{ route('advertiser.catalog.visit', $firstItem->site_id) }}"
                                                        target="_blank" rel="noopener" class="recent-order-url"
@@ -700,9 +705,11 @@
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
                 <strong>Need assistance?</strong>
-                <span class="text-muted small ms-1">Client manager · Mon–Fri, 9AM–6PM UTC</span>
+                <span class="text-muted small ms-1">Client manager ·
+                    <span data-support-hours data-utc-start="09:00" data-utc-end="18:00" data-days="Mon–Fri">Mon–Fri, 9AM–6PM UTC</span>
+                </span>
             </div>
-            <a href="{{ $supportTelegramUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">
+            <a href="{{ $supportTelegramUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary" data-slb-open-support>
                 <i class="fa fa-message me-1"></i> Start chat
             </a>
         </div>
@@ -713,6 +720,7 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('js/support-hours.js') }}?v={{ @filemtime(public_path('js/support-hours.js')) ?: '1' }}" defer></script>
 @if(!($isNewAdvertiser ?? false) && !empty($spendCandles['has_spend']))
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>

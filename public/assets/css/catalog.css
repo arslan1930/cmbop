@@ -76,6 +76,25 @@
     color: var(--brand-primary, #1a585e);
 }
 
+/* Live search already applies as you type — keep Apply as a no-JS submit. */
+.catalog-page.is-live-search .catalog-js-fallback-submit {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.catalog-page .filter-presets[data-preset-group="price"] {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
 /* ---------------------------------------------------------------- table shell */
 
 .catalog-page .table {
@@ -1840,10 +1859,8 @@ body:has(.catalog-page) {
 .catalog-bulk-section .bulk-deal-card:focus-within {
     border-color: rgba(26, 88, 94, 0.45);
     background: linear-gradient(165deg, #f7fcfd 0%, #eef8f9 45%, #ffffff 100%);
-    box-shadow:
-        0 0 0 3px rgba(26, 88, 94, 0.14),
-        0 10px 22px rgba(15, 23, 42, 0.08),
-        0 2px 6px rgba(26, 88, 94, 0.08);
+    /* Flat ring only — drop-shadow made the card look like it lifted off the row. */
+    box-shadow: 0 0 0 3px rgba(26, 88, 94, 0.14);
     opacity: 1;
 }
 
@@ -1874,18 +1891,14 @@ body:has(.catalog-page) {
 .catalog-bulk-section .bulk-deal-card.is-bulk-match {
     border-color: rgba(26, 88, 94, 0.55);
     background: linear-gradient(165deg, #eef8f9 0%, #e4f4f5 48%, #ffffff 100%);
-    box-shadow:
-        0 0 0 4px rgba(26, 88, 94, 0.18),
-        0 10px 22px rgba(15, 23, 42, 0.1);
+    box-shadow: 0 0 0 4px rgba(26, 88, 94, 0.18);
 }
 
 .catalog-bulk-section .bulk-deal-card.is-bulk-match:hover,
 .catalog-bulk-section .bulk-deal-card.is-bulk-match:focus-within {
     border-color: rgba(26, 88, 94, 0.55);
     background: linear-gradient(165deg, #eef8f9 0%, #e4f4f5 48%, #ffffff 100%);
-    box-shadow:
-        0 0 0 4px rgba(26, 88, 94, 0.18),
-        0 12px 24px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 0 0 4px rgba(26, 88, 94, 0.18);
     opacity: 1;
 }
 
@@ -1924,6 +1937,11 @@ body:has(.catalog-page) {
     white-space: nowrap;
     font-size: 0.75rem;
     color: var(--brand-primary, #1a585e);
+    text-decoration: none;
+}
+a.bulk-deal-card__url:hover {
+    text-decoration: underline;
+    color: var(--brand-primary-deep, #123f42);
 }
 
 .bulk-deal-card__tld {
@@ -2521,6 +2539,24 @@ a.catalog-site-rooted-url.site-open-link {
 a.catalog-site-rooted-url.site-open-link:hover {
     color: var(--brand-ink, #0f172a);
     text-decoration: underline;
+}
+
+.catalog-site-url--hidden {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+    text-decoration: none;
+    color: var(--type-muted, var(--brand-ink-muted, #697078));
+    pointer-events: auto;
+}
+
+.catalog-site-url__reveal {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--brand-primary, #1a585e);
 }
 
 a.catalog-site-rooted-url.site-open-link::after {
@@ -3363,6 +3399,10 @@ button.site-chip.site-chip--verified {
 .catalog-page .catalog-theme-select--sort {
     width: 13rem;
     min-width: 11.5rem;
+}
+
+.catalog-page .catalog-results-bar {
+    padding-right: max(8px, calc(84px + 16px + env(safe-area-inset-right, 0px)));
 }
 
 .catalog-page .catalog-theme-select .single-select-input {

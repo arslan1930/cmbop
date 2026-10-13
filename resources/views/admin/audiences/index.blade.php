@@ -121,9 +121,7 @@
                     <select name="country" id="audienceCountry" class="form-select">
                         <option value="">All countries</option>
                         @foreach($countries as $countryRow)
-                            <option value="{{ $countryRow['value'] }}" @selected(strcasecmp($currentCountry, $countryRow['value']) === 0)>
-                                {{ $countryRow['value'] }} ({{ number_format($countryRow['count']) }})
-                            </option>
+                            <option value="{{ $countryRow['value'] }}" @selected(strcasecmp($currentCountry, $countryRow['value']) === 0)>{{ $countryRow['value'] }} ({{ number_format($countryRow['count']) }})</option>
                         @endforeach
                         @if($currentCountry !== '' && ! $countryValues->contains(fn ($value) => strcasecmp((string) $value, $currentCountry) === 0))
                             <option value="{{ $currentCountry }}" selected>{{ $currentCountry }}</option>
