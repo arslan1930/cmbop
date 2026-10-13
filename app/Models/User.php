@@ -574,6 +574,17 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Site::class, 'publisher_id');
     }
 
+    /** Portfolio shown in site counts — archived listings stay out. */
+    public function notArchivedSites()
+    {
+        return $this->sites()->notArchived();
+    }
+
+    public function archivedSites()
+    {
+        return $this->sites()->archived();
+    }
+
     public function orders()
     {
         return $this->hasMany(Order::class);

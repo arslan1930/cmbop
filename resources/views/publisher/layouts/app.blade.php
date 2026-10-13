@@ -103,7 +103,7 @@
                 @auth
                     @php
                         try {
-                            $siteCount = auth()->user()->sites()->count();
+                            $siteCount = auth()->user()->sites()->notArchived()->count();
                         } catch (\Throwable $e) {
                             $siteCount = 0;
                         }

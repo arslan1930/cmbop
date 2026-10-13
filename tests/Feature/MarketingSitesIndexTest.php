@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\Publisher\PublisherDashboardService;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -267,6 +268,58 @@ class MarketingSitesIndexTest extends TestCase
             ->get(route('admin.sites.index', ['needs_review' => 1]))
             ->assertOk()
             ->assertSee('waiting for Verify, Activate, Reject, or Delete', false);
+    }
+
+    public function test_publisher_sites_count_excludes_archived_and_shows_muted_caption(): void
+    {
+        $publisher = $this->userWithRole('publisher', [
+            'name' => 'Archive Count Publisher',
+            'email' => 'archive-count-publisher@example.test',
+        ]);
+        $this->makeSite($publisher, [
+            'domain' => 'live-count.example',
+            'verified' => true,
+            'active' => true,
+        ]);
+        $this->makeSite($publisher, [
+            'domain' => 'archived-count.example',
+            'verified' => true,
+            'active' => true,
+            'archived_at' => now(),
+        ]);
+
+        $this->assertSame(2, $publisher->sites()->count());
+        $this->assertSame(1, $publisher->sites()->notArchived()->count());
+        $this->assertSame(1, $publisher->archivedSites()->count());
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.sites.index'))
+            ->assertOk()
+            ->assertSee('archive-count-publisher@example.test', false)
+            ->getContent();
+
+        $this->assertMatchesRegularExpression('/\b1 site\b/', $html);
+        $this->assertStringContainsString('1 archived', $html);
+        $this->assertDoesNotMatchRegularExpression('/\b2 sites\b/', $html);
+
+        $this->actingAs($this->marketer)
+            ->get(route('marketing.sites.index'))
+            ->assertOk()
+            ->assertSee('archive-count-publisher@example.test', false)
+            ->assertSee('1 site', false)
+            ->assertSee('1 archived', false);
+
+        $nav = $this->actingAs($publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->getContent();
+        $this->assertMatchesRegularExpression(
+            '/title="Total sites">\s*1\s*</',
+            $nav
+        );
+
+        $dashboard = app(PublisherDashboardService::class)->build($publisher);
+        $this->assertSame(1, (int) ($dashboard['siteCount'] ?? 0));
     }
 
     public function test_sites_delete_script_checks_failed_responses(): void

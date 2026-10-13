@@ -444,6 +444,7 @@
                             $waitingReviewing = (int) ($user->waiting_reviewing_sites_count ?? 0);
                             $waitingAccept = (int) ($user->waiting_accept_sites_count ?? 0);
                             $totalSitesCount = (int) ($user->sites_count ?? 0);
+                            $archivedSitesCount = (int) ($user->archived_sites_count ?? 0);
                             $filtersNarrow = ($staffSiteFilters['tag'] ?? '') !== ''
                                 || ($staffSiteFilters['country'] ?? '') !== ''
                                 || ($staffSiteFilters['language'] ?? '') !== ''
@@ -477,9 +478,14 @@
                             <td class="slb-text-break">{{ $user->email }}</td>
                             <td class="admin-sites-count-col">
                                 <div class="admin-sites-count-badges">
-                                    <span class="admin-sites-count-total" title="All sites for this publisher">
+                                    <span class="admin-sites-count-total" title="Non-archived sites for this publisher">
                                         {{ number_format($totalSitesCount) }} {{ $totalSitesCount === 1 ? 'site' : 'sites' }}
                                     </span>
+                                    @if($archivedSitesCount > 0)
+                                        <span class="small text-muted d-block admin-sites-count-archived" title="Archived listings are hidden from this count. The publisher was not notified.">
+                                            {{ number_format($archivedSitesCount) }} archived
+                                        </span>
+                                    @endif
                                     @if($needsReviewCount > 0)
                                         <button type="button"
                                                 class="badge rounded-pill admin-sites-count-review select-user"

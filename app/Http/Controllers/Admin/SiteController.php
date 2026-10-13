@@ -287,9 +287,8 @@ class SiteController extends Controller
 
             $query = User::query()
                 ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
-                ->withCount(['sites' => function ($q) use ($staffSiteFilters) {
-                    $this->applyStaffSitesArchiveScope($q, $staffSiteFilters);
-                }])
+                ->withCount('notArchivedSites as sites_count')
+                ->withCount('archivedSites as archived_sites_count')
                 ->withCount(['sites as needs_review_sites_count' => function ($q) use ($reviewQueue, $reviewListNarrows, $narrowQueueSites) {
                     $reviewQueue($q);
                     if ($reviewListNarrows) {
@@ -3372,6 +3371,8 @@ class SiteController extends Controller
             $userUrl = null;
         }
 
+        $sitesCount = (int) $publisher->sites()->notArchived()->count();
+
         return response()->json([
             'domains' => $domains,
             'total' => $total,
@@ -3380,7 +3381,7 @@ class SiteController extends Controller
                 'name' => $publisher->name,
                 'email' => $publisher->email,
                 'verified' => $publisher->hasVerifiedEmail(),
-                'sites_count' => $total,
+                'sites_count' => $sitesCount,
             ],
             'sites_url' => staff_route('sites.index', ['publisher' => $publisher->id], false),
             'user_url' => $userUrl,
@@ -3394,7 +3395,7 @@ class SiteController extends Controller
 
         $query = $this->staffAssignPublisherBaseQuery()
             ->whereEmailVerified()
-            ->withCount('sites');
+            ->withCount('notArchivedSites as sites_count');
 
         if ($q !== '') {
             $like = like_contains($q);
@@ -3414,7 +3415,7 @@ class SiteController extends Controller
         if ($selectedId > 0 && ! $rows->contains(fn (User $user) => (int) $user->id === $selectedId)) {
             $selected = $this->staffAssignPublisherBaseQuery()
                 ->whereKey($selectedId)
-                ->withCount('sites')
+                ->withCount('notArchivedSites as sites_count')
                 ->first();
             if ($selected) {
                 $rows = $rows->prepend($selected);
@@ -5106,7 +5107,7 @@ class SiteController extends Controller
                     $q->orWhere('id', $selectedPublisherId);
                 }
             })
-            ->withCount('sites')
+            ->withCount('notArchivedSites as sites_count')
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'email_verified_at']);
     }
@@ -5140,7 +5141,7 @@ class SiteController extends Controller
 
         return $this->staffAssignPublisherBaseQuery()
             ->whereKey($selectedPublisherId)
-            ->withCount('sites')
+            ->withCount('notArchivedSites as sites_count')
             ->get();
     }
 

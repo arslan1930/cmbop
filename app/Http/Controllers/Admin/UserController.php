@@ -796,7 +796,7 @@ class UserController extends Controller
 
         try {
             if ($this->tableExists('sites') && $this->hasColumn('sites', 'publisher_id')) {
-                $snapshot['sites_count'] = (int) $user->sites()->count();
+                $snapshot['sites_count'] = (int) $user->sites()->notArchived()->count();
             }
         } catch (\Throwable) {
         }
