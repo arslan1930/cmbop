@@ -461,11 +461,23 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
 
+                    @php
+                        $publisherSort = (string) ($staffSiteFilters['sort'] ?? '');
+                        $publisherSortUrl = function (string $key) use ($listQuery, $pagerModeQuery) {
+                            return staff_route('sites.index', array_filter(array_merge($pagerModeQuery, $listQuery, ['sort' => $key])));
+                        };
+                        $publisherSortClass = function (string $key) use ($publisherSort) {
+                            return 'admin-sites-sort'.($publisherSort === $key ? ' is-active' : '');
+                        };
+                    @endphp
                     <thead class="table-light">
                         <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th class="admin-sites-count-col">Sites</th>
+                            <th><a class="{{ $publisherSortClass('name') }}" href="{{ $publisherSortUrl('name') }}">Name</a></th>
+                            <th><a class="{{ $publisherSortClass('email') }}" href="{{ $publisherSortUrl('email') }}">Email</a></th>
+                            <th><a class="{{ $publisherSortClass('country') }}" href="{{ $publisherSortUrl('country') }}">Country</a></th>
+                            <th class="admin-sites-count-col"><a class="{{ $publisherSortClass('sites') }}" href="{{ $publisherSortUrl('sites') }}">Sites</a></th>
+                            <th><a class="{{ $publisherSortClass('joined') }}" href="{{ $publisherSortUrl('joined') }}">Joined</a></th>
+                            <th><a class="{{ $publisherSortClass('last_active') }}" href="{{ $publisherSortUrl('last_active') }}">Last active</a></th>
                             <th class="admin-actions-col">Action</th>
                         </tr>
                     </thead>
@@ -481,6 +493,19 @@
                             $waitingAccept = (int) ($user->waiting_accept_sites_count ?? 0);
                             $totalSitesCount = (int) ($user->sites_count ?? 0);
                             $archivedSitesCount = (int) ($user->archived_sites_count ?? 0);
+                            $liveSitesCount = (int) ($user->live_sites_count ?? 0);
+                            $userCountry = trim((string) ($user->country ?? ''));
+                            $countryLabel = $userCountry;
+                            if ($userCountry !== '') {
+                                $countryMatch = collect($marketplaceCountries ?? [])->first(
+                                    fn ($country) => strtolower((string) $country->code) === strtolower($userCountry)
+                                );
+                                $countryLabel = $countryMatch?->name ?? strtoupper($userCountry);
+                            }
+                            $joinedLabel = $user->created_at
+                                ? $user->created_at->timezone((string) config('app.timezone'))->format('M j, Y')
+                                : '—';
+                            $lastActiveLabel = $user->lastSeenLabel() ?? '—';
                             $filtersNarrow = ($staffSiteFilters['tag'] ?? '') !== ''
                                 || ($staffSiteFilters['country'] ?? '') !== ''
                                 || ($staffSiteFilters['language'] ?? '') !== ''
@@ -494,7 +519,7 @@
                                 || !empty($staffSiteFilters['bulk_request']);
                             $matchedCount = (int) ($user->matched_sites_count ?? 0);
                         @endphp
-                        <tr class="user-row" data-id="{{ $user->id }}" style="height:60px;">
+                        <tr class="user-row select-user" data-id="{{ $user->id }}" style="height:60px; cursor:pointer;">
                             <td class="fw-semibold" data-publisher-name="{{ $user->name }}">
                                 <span class="staff-publisher-name">
                                     @if($needsReviewCount > 0)
@@ -512,11 +537,17 @@
                                 @endif
                             </td>
                             <td class="slb-text-break">{{ $user->email }}</td>
-                            <td class="admin-sites-count-col">
+                            <td>{{ $countryLabel !== '' ? $countryLabel : '—' }}</td>
+                            <td class="admin-sites-count-col select-user" data-id="{{ $user->id }}">
                                 <div class="admin-sites-count-badges">
                                     <span class="admin-sites-count-total" title="Non-archived sites for this publisher">
                                         {{ number_format($totalSitesCount) }} {{ $totalSitesCount === 1 ? 'site' : 'sites' }}
                                     </span>
+                                    @if($liveSitesCount > 0)
+                                        <span class="badge rounded-pill text-bg-success" title="Live in the catalog">
+                                            {{ number_format($liveSitesCount) }} live
+                                        </span>
+                                    @endif
                                     @if($archivedSitesCount > 0)
                                         <span class="small text-muted d-block admin-sites-count-archived" title="Archived listings are hidden from this count. The publisher was not notified.">
                                             {{ number_format($archivedSitesCount) }} archived
@@ -558,6 +589,8 @@
                                     @endif
                                 </div>
                             </td>
+                            <td class="small text-muted">{{ $joinedLabel }}</td>
+                            <td class="small text-muted">{{ $lastActiveLabel }}</td>
                             <td>
                                 <button class="btn btn-sm btn-outline-primary select-user"
                                         data-id="{{ $user->id }}">
@@ -567,7 +600,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-4">
+                            <td colspan="7" class="text-center text-muted py-4">
                                 @if($publisherSearch !== '' || count($listQuery) > 0)
                                     Nothing matches these filters.
                                     <a href="{{ staff_route('sites.index') }}">Clear filters</a>

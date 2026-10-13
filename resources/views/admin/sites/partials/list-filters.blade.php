@@ -59,12 +59,23 @@
     <label class="small mb-0">
         Sort
         <select class="form-select" name="sort" data-staff-filter="sort">
+            @if($mode === 'publishers')
+                <option value="" @selected(($filters['sort'] ?? '') === '')>Newest</option>
+                <option value="name" @selected(($filters['sort'] ?? '') === 'name')>Name</option>
+                <option value="country" @selected(($filters['sort'] ?? '') === 'country')>Country</option>
+                <option value="sites" @selected(($filters['sort'] ?? '') === 'sites')>Sites</option>
+                <option value="live" @selected(($filters['sort'] ?? '') === 'live')>Live</option>
+                <option value="review" @selected(($filters['sort'] ?? '') === 'review')>In review</option>
+                <option value="joined" @selected(($filters['sort'] ?? '') === 'joined')>Joined</option>
+                <option value="last_active" @selected(($filters['sort'] ?? '') === 'last_active')>Last active</option>
+            @else
             <option value="" @selected(($filters['sort'] ?? '') === '')>{{ $mode === 'flat' ? 'Oldest waiting' : 'Newest' }}</option>
             <option value="newest" @selected(($filters['sort'] ?? '') === 'newest')>Newest</option>
             <option value="oldest" @selected(($filters['sort'] ?? '') === 'oldest')>Oldest</option>
             <option value="price" @selected(($filters['sort'] ?? '') === 'price')>Price</option>
             <option value="traffic" @selected(($filters['sort'] ?? '') === 'traffic')>Traffic</option>
             <option value="da" @selected(($filters['sort'] ?? '') === 'da')>DA</option>
+            @endif
         </select>
     </label>
     <details class="staff-site-filters-more">

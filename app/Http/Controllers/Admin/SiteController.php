@@ -291,6 +291,9 @@ class SiteController extends Controller
                 ->whereHas('roles', fn ($q) => $q->where('name', 'publisher'))
                 ->withCount('notArchivedSites as sites_count')
                 ->withCount('archivedSites as archived_sites_count')
+                ->withCount(['sites as live_sites_count' => function ($q) {
+                    $q->notArchived()->where('active', 1);
+                }])
                 ->when(
                     empty($staffSiteFilters['empty_publishers']) && ! $needsReviewFilter && ! $waitingOnPublisherFilter,
                     function ($publishers) use ($staffSiteFilters) {
@@ -394,13 +397,16 @@ class SiteController extends Controller
             };
 
             $users = $query;
-            if ($needsReviewFilter || $waitingOnPublisherFilter) {
+            $publisherSort = (string) ($staffSiteFilters['sort'] ?? '');
+            if ($publisherSort !== '' && ! in_array($publisherSort, ['newest', 'oldest', 'price', 'traffic', 'da'], true)) {
+                $this->applyStaffPublishersListSort($users, $publisherSort);
+            } elseif ($needsReviewFilter || $waitingOnPublisherFilter) {
                 $users = $users
                     ->orderByDesc($waitingOnPublisherFilter ? $waitingSort : 'needs_review_sites_count')
                     ->orderByDesc('sites_count')
                     ->orderBy('name');
             } else {
-                $users = $users->orderByDesc('id');
+                $this->applyStaffPublishersListSort($users, $publisherSort);
             }
             $users = $users
                 ->paginate($this->staffListPerPage($request, 20), ['*'], 'page', $this->staffListPage($request))
@@ -2307,7 +2313,10 @@ class SiteController extends Controller
     {
         $value = is_string($sort) ? trim($sort) : '';
 
-        return in_array($value, ['newest', 'oldest', 'price', 'traffic', 'da'], true)
+        return in_array($value, [
+            'newest', 'oldest', 'price', 'traffic', 'da',
+            'name', 'email', 'country', 'sites', 'live', 'review', 'joined', 'last_active',
+        ], true)
             ? $value
             : '';
     }
@@ -2491,6 +2500,29 @@ class SiteController extends Controller
                 $q->orWhere($column, '<', $mins[$column])->orWhereNull($column);
             }
         });
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     */
+    private function applyStaffPublishersListSort($query, string $sort): void
+    {
+        $key = $this->staffSitesListSortKey($sort);
+        match ($key) {
+            'name' => $query->orderBy('name')->orderByDesc('id'),
+            'email' => $query->orderBy('email')->orderByDesc('id'),
+            'country' => $this->usersHaveColumn('country')
+                ? $query->orderByRaw('CASE WHEN country IS NULL OR country = \'\' THEN 1 ELSE 0 END')->orderBy('country')->orderByDesc('id')
+                : $query->orderByDesc('id'),
+            'sites' => $query->orderByDesc('sites_count')->orderBy('name'),
+            'live' => $query->orderByDesc('live_sites_count')->orderByDesc('sites_count')->orderBy('name'),
+            'review' => $query->orderByDesc('needs_review_sites_count')->orderByDesc('sites_count')->orderBy('name'),
+            'joined', 'oldest' => $query->orderBy('created_at')->orderBy('id'),
+            'last_active' => $this->usersHaveColumn('last_seen_at')
+                ? $query->orderByRaw('CASE WHEN last_seen_at IS NULL THEN 1 ELSE 0 END')->orderByDesc('last_seen_at')->orderByDesc('id')
+                : $query->orderByDesc('id'),
+            default => $query->orderByDesc('id'),
+        };
     }
 
     /**

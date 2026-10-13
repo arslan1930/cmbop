@@ -231,6 +231,41 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertLessThan($emptyPos, $queuedPos);
     }
 
+    public function test_publishers_table_shows_country_live_dates_and_sorts(): void
+    {
+        $publisher = $this->userWithRole('publisher', [
+            'name' => 'Column Publisher',
+            'email' => 'column-publisher@example.test',
+            'country' => 'fr',
+            'last_seen_at' => now()->subMinutes(12),
+        ]);
+        $this->makeSite($publisher, [
+            'domain' => 'column-live.example',
+            'verified' => true,
+            'active' => true,
+        ]);
+        $this->makeSite($publisher, [
+            'domain' => 'column-review.example',
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+        ]);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.sites.index', ['sort' => 'sites']))
+            ->assertOk()
+            ->assertSee('column-publisher@example.test', false)
+            ->assertSee('sort=name', false)
+            ->assertSee('1 live', false)
+            ->assertSee('1 needs review', false)
+            ->getContent();
+
+        $this->assertStringContainsString('Last active', $html);
+        $this->assertStringContainsString('Joined', $html);
+        $this->assertTrue(
+            str_contains($html, 'France') || str_contains($html, 'FR') || str_contains($html, 'fr'),
+            'Publisher country should render'
+        );
+    }
+
     public function test_sites_index_hides_publishers_with_no_sites_by_default(): void
     {
         $empty = $this->userWithRole('publisher', [

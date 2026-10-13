@@ -884,6 +884,17 @@
   border-bottom-color: #1a585e;
 }
 
+.admin-sites-sort {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.admin-sites-sort:hover,
+.admin-sites-sort.is-active {
+  color: #1a585e;
+}
+
 .staff-listed-date {
   line-height: 1.25;
 }
