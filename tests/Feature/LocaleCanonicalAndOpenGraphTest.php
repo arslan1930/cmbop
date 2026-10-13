@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Blog;
 use App\Models\BlogTranslation;
+use App\Support\LocaleIndexability;
 use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,14 +39,16 @@ class LocaleCanonicalAndOpenGraphTest extends TestCase
         $us = $this->headTags($this->get('/us')->assertOk()->getContent());
 
         $this->assertSame(url('/'), $uk['canonical']);
-        $this->assertSame(url('/us'), $us['canonical']);
-        $this->assertNotSame($uk['canonical'], $us['canonical']);
+        $this->assertSame(url('/'), $us['canonical']);
 
         foreach (PublicI18n::supported() as $locale) {
             foreach (['', 'marketplace', 'blog'] as $english) {
                 $path = LocalizedPublicPath::publicPath($english, $locale);
                 $tags = $this->headTags($this->get($path)->assertOk()->getContent());
-                $this->assertSame(url($path), $tags['canonical'], $path);
+                $expected = LocaleIndexability::isIndexable($locale, $english)
+                    ? url($path)
+                    : url(LocalizedPublicPath::publicPath($english, LocaleIndexability::parentLocale($locale)));
+                $this->assertSame($expected, $tags['canonical'], $path);
                 $this->assertSame($tags['canonical'], $tags['og_url'], $path.' og:url');
                 $this->assertMatchesRegularExpression('#^https?://#i', (string) $tags['canonical'], $path);
             }

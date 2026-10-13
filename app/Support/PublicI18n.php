@@ -513,6 +513,15 @@ class PublicI18n
             return 'noindex, follow';
         }
 
+        if (class_exists(LocaleIndexability::class) && method_exists(LocaleIndexability::class, 'isThinDuplicate')) {
+            try {
+                if (LocaleIndexability::isThinDuplicate($request)) {
+                    return 'noindex, follow';
+                }
+            } catch (\Throwable) {
+            }
+        }
+
         return 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
     }
 
@@ -875,8 +884,30 @@ class PublicI18n
             $xDefaultLocale = 'de';
         }
 
+        if ($locales === null
+            && class_exists(LocaleIndexability::class)
+            && method_exists(LocaleIndexability::class, 'isThinDuplicate')) {
+            try {
+                if (LocaleIndexability::isThinDuplicate($request)) {
+                    return [];
+                }
+            } catch (\Throwable) {
+            }
+        }
+
         $tags = [];
         $targetLocales = $locales ?: self::supported();
+        if ($locales === null
+            && class_exists(LocaleIndexability::class)
+            && method_exists(LocaleIndexability::class, 'indexableLocales')) {
+            try {
+                $indexable = LocaleIndexability::indexableLocales($path);
+                if ($indexable !== []) {
+                    $targetLocales = $indexable;
+                }
+            } catch (\Throwable) {
+            }
+        }
         $targetLocales = array_values(array_filter($targetLocales, fn ($locale) => self::isSupported($locale)));
 
         if ($targetLocales === []) {

@@ -12,6 +12,7 @@ use App\Support\DutchMoneyLanders;
 use App\Support\FrenchMoneyLanders;
 use App\Support\GermanMoneyLanders;
 use App\Support\ItalianMoneyLanders;
+use App\Support\LocaleIndexability;
 use App\Support\LocalizedPublicPath;
 use App\Support\MoneyLanderCatalog;
 use App\Support\PortugueseMoneyLanders;
@@ -72,14 +73,22 @@ class SitemapController extends Controller
     }
 
     /**
-     * Every locale — including /us — lists its own 200 self-canonical pages.
-     * /us/about vs /about are regional variants (en-US / en-GB), not redirects.
+     * Only 200 pages with unique copy. Thin /us/* clones of UK English and
+     * /at|/ch legal pages that reuse DE stay out until they are localized.
      *
      * @return list<array{path: string, changefreq: string, priority: string}>
      */
     private function staticPagesForLocale(string $locale): array
     {
-        return $this->staticPages();
+        if (! class_exists(LocaleIndexability::class)
+            || ! method_exists(LocaleIndexability::class, 'isIndexable')) {
+            return $this->staticPages();
+        }
+
+        return array_values(array_filter(
+            $this->staticPages(),
+            static fn (array $page) => LocaleIndexability::isIndexable($locale, $page['path'])
+        ));
     }
 
     public function index(): Response
@@ -533,11 +542,21 @@ class SitemapController extends Controller
         }
 
         $alternates = [];
-        $altLocales = $availableLocales ?: (
-            method_exists(PublicI18n::class, 'supported')
+        $altLocales = $availableLocales;
+        if ($altLocales === null
+            && class_exists(LocaleIndexability::class)
+            && method_exists(LocaleIndexability::class, 'indexableLocales')) {
+            try {
+                $altLocales = LocaleIndexability::indexableLocales($path);
+            } catch (\Throwable) {
+                $altLocales = null;
+            }
+        }
+        if ($altLocales === null || $altLocales === []) {
+            $altLocales = method_exists(PublicI18n::class, 'supported')
                 ? PublicI18n::supported()
-                : $this->supportedLocales()
-        );
+                : $this->supportedLocales();
+        }
         foreach ($altLocales as $alt) {
             $altPath = ltrim((string) ($pathByLocale[$alt] ?? $path), '/');
             $alternates[] = [

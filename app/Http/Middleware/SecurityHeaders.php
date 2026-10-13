@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\LocaleIndexability;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -49,6 +50,14 @@ class SecurityHeaders
         $first = $request->segment(1);
         if (in_array($first, ['login', 'register', 'forgot-password', 'reset-password', 'feedback'], true)) {
             $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
+        } elseif (class_exists(LocaleIndexability::class)
+            && method_exists(LocaleIndexability::class, 'isThinDuplicate')) {
+            try {
+                if (LocaleIndexability::isThinDuplicate($request)) {
+                    $response->headers->set('X-Robots-Tag', 'noindex, follow');
+                }
+            } catch (\Throwable) {
+            }
         }
 
         // Long-cache fingerprinted/static CSS & JS served from /css and /js

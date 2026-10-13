@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Blog;
 use App\Models\BlogTranslation;
 use App\Support\CountryLander;
+use App\Support\LocaleIndexability;
 use App\Support\LocalizedPublicPath;
 use App\Support\PublicI18n;
 use App\Support\RobotsTxt;
@@ -78,12 +79,12 @@ class GscIndexingFixesTest extends TestCase
     public function test_at_kontakt_is_self_canonical_with_reciprocal_hreflang_and_x_default(): void
     {
         $expected = [];
-        foreach (PublicI18n::supported() as $locale) {
+        foreach (LocaleIndexability::indexableLocales('contact') as $locale) {
             $expected[PublicI18n::hreflang($locale)] = url(LocalizedPublicPath::publicPath('contact', $locale));
         }
         $expected['x-default'] = url('/contact');
 
-        foreach (['/contact', '/at/kontakt', '/ch/kontakt', '/de/kontakt', '/us/contact'] as $path) {
+        foreach (['/contact', '/de/kontakt'] as $path) {
             $html = $this->get($path)->assertOk()->getContent();
             $this->assertStringContainsString('rel="canonical" href="'.url($path).'"', $html, $path);
             $this->assertStringContainsString('hreflang="x-default"', $html, $path);
@@ -101,6 +102,17 @@ class GscIndexingFixesTest extends TestCase
             }
             $this->assertSame($expected, $cluster, $path);
         }
+
+        $this->get('/at/kontakt')
+            ->assertOk()
+            ->assertSee('rel="canonical" href="'.url('/de/kontakt').'"', false)
+            ->assertDontSee('rel="alternate" hreflang=', false);
+        $this->get('/ch/kontakt')
+            ->assertOk()
+            ->assertSee('rel="canonical" href="'.url('/de/kontakt').'"', false);
+        $this->get('/us/contact')
+            ->assertOk()
+            ->assertSee('rel="canonical" href="'.url('/contact').'"', false);
     }
 
     public function test_robots_allows_auth_pages_and_disk_copy_matches(): void

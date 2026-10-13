@@ -27,6 +27,16 @@
         if (! preg_match('#^https?://#i', $pageCanonical)) {
             $pageCanonical = url('/'.ltrim($pageCanonical, '/'));
         }
+        if (class_exists(\App\Support\LocaleIndexability::class)
+            && method_exists(\App\Support\LocaleIndexability::class, 'isThinDuplicate')
+            && method_exists(\App\Support\LocaleIndexability::class, 'canonicalUrl')) {
+            try {
+                if (\App\Support\LocaleIndexability::isThinDuplicate(request())) {
+                    $pageCanonical = \App\Support\LocaleIndexability::canonicalUrl(request());
+                }
+            } catch (\Throwable) {
+            }
+        }
         if (function_exists('canonical_public_url')) {
             $pageCanonical = canonical_public_url($pageCanonical);
         }
