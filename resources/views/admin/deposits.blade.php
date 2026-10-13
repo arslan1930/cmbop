@@ -584,7 +584,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </button>` : ''}
                     ${canRefundPaypal ? `
                     <button class="btn btn-outline-danger refund-paypal-deposit" data-id="${deposit.id}">
-                        <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="" width="20" height="20" style="width:20px;height:20px;vertical-align:-4px"> Refund PayPal capture
+                        <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="PayPal" width="20" height="20" style="width:20px;height:20px;vertical-align:-4px"> Refund PayPal capture
                     </button>` : ''}
                 </div>
             `;

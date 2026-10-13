@@ -33,6 +33,10 @@
     $hasFavicon = ! $masked && $faviconUrl !== '';
     $isButton = $openDetailsId !== '';
     $useFallback = $hasFavicon && $faviconUrl === $fallbackSrc;
+    $tileAlt = trim((string) ($alt ?? ''));
+    if ($tileAlt === '') {
+        $tileAlt = $tileLabel !== '' ? $tileLabel : 'Site';
+    }
 
     if ($hasFavicon && ($faviconChain === [] || ($faviconChain[0] ?? '') !== $faviconUrl)) {
         array_unshift($faviconChain, $faviconUrl);
@@ -70,7 +74,7 @@
             aria-label="Open Details">
         @if($hasFavicon)
             <img src="{{ $faviconUrl }}"
-                 alt=""
+                 alt="{{ $tileAlt }}"
                  width="32"
                  height="32"
                  loading="lazy"
@@ -101,7 +105,7 @@
 @elseif($hasFavicon)
     <span class="{{ $tileClass }}" aria-hidden="true">
         <img src="{{ $faviconUrl }}"
-             alt=""
+             alt="{{ $tileAlt }}"
              width="32"
              height="32"
              loading="lazy"

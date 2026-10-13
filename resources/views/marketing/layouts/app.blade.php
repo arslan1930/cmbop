@@ -2,9 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>@yield('title', 'Marketing') — SEOLinkBuildings</title>
+    @php
+        $marketingPageTitle = html_entity_decode(
+            trim((string) $__env->yieldContent('title', 'Marketing')),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8'
+        );
+        if ($marketingPageTitle === '') {
+            $marketingPageTitle = 'Marketing';
+        }
+        if (! str_contains($marketingPageTitle, 'SEOLinkBuildings')) {
+            $marketingPageTitle .= ' — SEOLinkBuildings';
+        }
+        $marketingPageDescription = html_entity_decode(
+            trim((string) $__env->yieldContent('meta_description')),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8'
+        );
+        if ($marketingPageDescription === '') {
+            $marketingPageDescription = 'Marketing dashboard for SEOLinkBuildings.';
+        }
+    @endphp
+    <title>{{ $marketingPageTitle }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="{{ $marketingPageDescription }}">
+    @include('partials.social-meta', [
+        'title' => $marketingPageTitle,
+        'description' => $marketingPageDescription,
+        'url' => url()->current(),
+    ])
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('components.favicon')
     @include('partials.shell-wordmark-preload')

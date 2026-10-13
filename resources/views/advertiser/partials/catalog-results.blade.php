@@ -299,6 +299,7 @@
                                 aria-controls="site-details-{{ $site->id }}"></button>
                         @include('advertiser.partials.catalog-site-tile', [
                             'label' => $displayHost,
+                            'alt' => $displayName !== '' ? $displayName : $displayHost,
                             'size' => 'md',
                             'faviconUrl' => $tileFaviconUrl,
                             'faviconChain' => $tileFaviconChain,
@@ -1097,6 +1098,7 @@
                 <div class="catalog-mobile-card__host d-flex align-items-start gap-2">
                     @include('advertiser.partials.catalog-site-tile', [
                         'label' => $displayHost,
+                        'alt' => $displayName !== '' ? $displayName : $displayHost,
                         'size' => 'lg',
                         'faviconUrl' => $tileFaviconUrl,
                         'faviconChain' => $tileFaviconChain,

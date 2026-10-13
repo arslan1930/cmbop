@@ -2,9 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>@yield('title', 'Admin Dashboard') — SEOLinkBuildings</title>
+    @php
+        $adminPageTitle = html_entity_decode(
+            trim((string) $__env->yieldContent('title', 'Admin Dashboard')),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8'
+        );
+        if ($adminPageTitle === '') {
+            $adminPageTitle = 'Admin Dashboard';
+        }
+        if (! str_contains($adminPageTitle, 'SEOLinkBuildings')) {
+            $adminPageTitle .= ' — SEOLinkBuildings';
+        }
+        $adminPageDescription = html_entity_decode(
+            trim((string) $__env->yieldContent('meta_description')),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8'
+        );
+        if ($adminPageDescription === '') {
+            $adminPageDescription = 'Admin dashboard for SEOLinkBuildings.';
+        }
+    @endphp
+    <title>{{ $adminPageTitle }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="{{ $adminPageDescription }}">
+    @include('partials.social-meta', [
+        'title' => $adminPageTitle,
+        'description' => $adminPageDescription,
+        'url' => url()->current(),
+    ])
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('components.favicon')
     @include('partials.shell-wordmark-preload')
