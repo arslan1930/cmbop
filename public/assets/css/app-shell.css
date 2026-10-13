@@ -75,6 +75,14 @@ body.role-shell-marketing {
   );
 }
 
+/* Catalog Sort sits at the results-bar trailing edge — keep the FAB
+   above that cluster the same way the dashboard Start-chat bar does. */
+body.role-shell-advertiser:has(.catalog-page) {
+  --slb-live-chat-footer-offset: calc(
+    var(--shell-footer-height, 72px) + 56px + env(safe-area-inset-bottom, 0px)
+  );
+}
+
 body.role-shell-advertiser { --role-accent: #1a585e; }
 body.role-shell-publisher { --role-accent: #c45c26; }
 body.role-shell-admin { --role-accent: #1a585e; }

@@ -592,7 +592,7 @@ class CatalogController extends Controller
             $query->where('dr', '>=', $minRailDr);
         }
 
-        $visibility = app(\App\Services\Catalog\SiteUrlVisibility::class);
+        $visibility = app(SiteUrlVisibility::class);
 
         $bulkDeals = $query
             ->orderByDesc('dr')

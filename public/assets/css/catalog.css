@@ -3407,6 +3407,10 @@ button.site-chip.site-chip--verified {
     min-width: 11.5rem;
 }
 
+.catalog-page .catalog-results-bar {
+    padding-right: max(8px, calc(84px + 16px + env(safe-area-inset-right, 0px)));
+}
+
 .catalog-page .catalog-theme-select .single-select-input {
     width: 100%;
     color: var(--brand-ink, #0f172a);
