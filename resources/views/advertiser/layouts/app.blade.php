@@ -577,11 +577,10 @@
             contentLibraryUploadUrl = data.content_library_url;
         }
         if (window.__slbMoney) {
-            if (data?.fx && data.fx.rate) {
+            const pageCurrency = String(window.__slbMoney.currency || 'EUR').toUpperCase();
+            const fxCurrency = String(data?.fx?.currency || '').toUpperCase();
+            if (data?.fx && data.fx.rate && fxCurrency === pageCurrency) {
                 window.__slbMoney.cart_rate = Number(data.fx.rate);
-                window.__slbMoney.currency = data.fx.currency || window.__slbMoney.currency;
-                window.__slbMoney.symbol = data.fx.symbol || window.__slbMoney.symbol;
-                window.__slbMoney.guide = (window.__slbMoney.currency || 'EUR') !== 'EUR';
             } else if (!Array.isArray(cart) || cart.length === 0) {
                 window.__slbMoney.cart_rate = window.__slbMoney.rate;
             }

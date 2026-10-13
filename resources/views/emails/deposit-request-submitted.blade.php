@@ -13,7 +13,13 @@ A new deposit request has been submitted by {{ $user->name }} ({{ $user->email }
 - Reference Code: REF{{ $deposit->reference_code }}
 - Submitted At: {{ $deposit->created_at->format('M d, Y H:i') }}
 
-{{ app(\App\Support\DepositFx::class)->toleranceNote() }}
+@if(app(\App\Support\DepositFx::class)->shouldShowTolerance($deposit))
+{{ app(\App\Support\DepositFx::class)->sendLabel(
+    strtoupper((string) ($deposit->charge_currency ?: 'EUR')),
+    (float) ($deposit->charge_amount ?? $deposit->amount),
+    (float) $deposit->amount
+) }}
+@endif
 
 @component('mail::button', ['url' => $approveUrl])
 Review & approve

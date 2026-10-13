@@ -413,6 +413,73 @@ class UserController extends Controller
     }
 
     /**
+     * Support-only: set a user's display currency (EUR/GBP/USD). Ledger stays EUR.
+     */
+    public function updateDisplayCurrency(Request $request, $id)
+    {
+        $actor = auth()->user();
+        if (! $actor || (! $actor->isAdmin() && ! $actor->hasRole('admin'))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only an admin can change display currency.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'display_currency' => 'required|in:EUR,GBP,USD',
+        ]);
+
+        $user = User::findOrFail($id);
+        if (! User::hasUsersColumn('display_currency')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Display currency cannot be saved on this database.',
+            ], 422);
+        }
+
+        $from = strtoupper(trim((string) ($user->display_currency ?? '')));
+        $from = in_array($from, ['EUR', 'GBP', 'USD'], true) ? $from : null;
+        $to = $validated['display_currency'];
+
+        if ($from === $to) {
+            return response()->json([
+                'success' => true,
+                'display_currency' => $to,
+                'message' => 'Display currency is already '.$to.'.',
+            ]);
+        }
+
+        try {
+            $user->display_currency = $to;
+            $user->save();
+
+            ActivityLogger::tryLog(
+                'user.display_currency_updated',
+                ($actor->name ?? 'Admin').' changed display currency for user #'.$user->id.' from '.($from ?: 'unset').' to '.$to,
+                $user,
+                [
+                    'from' => $from,
+                    'to' => $to,
+                    'actor_id' => $actor->id,
+                    'ledger_unchanged' => true,
+                ],
+                $user->name
+            );
+
+            return response()->json([
+                'success' => true,
+                'display_currency' => $to,
+                'message' => 'Display currency updated to '.$to.'. Wallet balance stays in EUR.',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Could not update display currency. Please try again.'),
+            ], 500);
+        }
+    }
+
+    /**
      * Support-only: update a user's locked payout destinations and email them.
      */
     public function updatePayoutProfile(Request $request, $id)

@@ -75,6 +75,19 @@
                             <div>{{ $user->country ?: '—' }}</div>
                         </div>
                         <div class="col-md-6">
+                            <div class="small text-muted">Display currency</div>
+                            <div>
+                                <span class="display-currency-text" data-id="{{ $user->id }}">{{ in_array(strtoupper((string) ($user->display_currency ?? '')), ['EUR', 'GBP', 'USD'], true) ? strtoupper((string) $user->display_currency) : '— (geo / default)' }}</span>
+                                <button type="button"
+                                        class="btn btn-sm btn-link text-primary p-0 ms-2 btn-edit-display-currency"
+                                        data-id="{{ $user->id }}"
+                                        data-currency="{{ in_array(strtoupper((string) ($user->display_currency ?? '')), ['EUR', 'GBP', 'USD'], true) ? strtoupper((string) $user->display_currency) : 'EUR' }}">
+                                    Edit
+                                </button>
+                                <div class="small text-muted">Labels only. Wallet and charges stay EUR.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
                             <div class="small text-muted">Company</div>
                             <div>
                                 <span class="company-text" data-id="{{ $user->id }}">{{ $user->company_name ?: '—' }}</span>
@@ -465,12 +478,16 @@
 <script>
 const ROLE_UPDATE_URL = @json(route('admin.users.updateRoles', ['id' => '__ID__']));
 const COMPANY_UPDATE_URL = @json(route('admin.users.updateCompany', ['id' => '__ID__']));
+const DISPLAY_CURRENCY_UPDATE_URL = @json(route('admin.users.updateDisplayCurrency', ['id' => '__ID__']));
 const PAYOUT_UPDATE_URL = @json(route('admin.users.updatePayoutProfile', ['id' => '__ID__']));
 function roleUpdateUrl(id) {
     return ROLE_UPDATE_URL.replace('__ID__', encodeURIComponent(String(id)));
 }
 function companyUpdateUrl(id) {
     return COMPANY_UPDATE_URL.replace('__ID__', encodeURIComponent(String(id)));
+}
+function displayCurrencyUpdateUrl(id) {
+    return DISPLAY_CURRENCY_UPDATE_URL.replace('__ID__', encodeURIComponent(String(id)));
 }
 function payoutUpdateUrl(id) {
     return PAYOUT_UPDATE_URL.replace('__ID__', encodeURIComponent(String(id)));
@@ -542,6 +559,49 @@ document.addEventListener('click', function (e) {
                 }
                 Swal.fire({ icon: 'error', title: 'Error!', text: (data && data.message) || 'Something went wrong.' });
             }).catch(() => Swal.fire({ icon: 'error', title: 'Error!', text: 'Request failed.' }));
+        });
+        return;
+    }
+
+    const currencyBtn = e.target.closest('.btn-edit-display-currency');
+    if (currencyBtn) {
+        const id = currencyBtn.dataset.id;
+        const current = currencyBtn.dataset.currency || 'EUR';
+        const span = document.querySelector('.display-currency-text[data-id="'+id+'"]');
+        Swal.fire({
+            title: 'Display currency',
+            html: `<p class="text-muted small mb-2">On the user's request. Labels only — wallet stays EUR.</p>
+                <select id="adminDisplayCurrency" class="form-select">
+                    <option value="EUR" ${current === 'EUR' ? 'selected' : ''}>€ EUR</option>
+                    <option value="GBP" ${current === 'GBP' ? 'selected' : ''}>£ GBP</option>
+                    <option value="USD" ${current === 'USD' ? 'selected' : ''}>$ USD</option>
+                </select>`,
+            showCancelButton: true,
+            confirmButtonText: 'Update',
+            preConfirm: () => document.getElementById('adminDisplayCurrency')?.value || 'EUR'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            fetch(displayCurrencyUpdateUrl(id), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ display_currency: result.value })
+            }).then(async (res) => {
+                let data = null;
+                try { data = await res.json(); } catch (err) { data = null; }
+                if (res.ok && data && data.success) {
+                    if (span) span.innerText = data.display_currency || result.value;
+                    if (currencyBtn) currencyBtn.dataset.currency = data.display_currency || result.value;
+                    Swal.fire('Updated!', data.message || '', 'success');
+                } else {
+                    Swal.fire('Error!', (data && data.message) || 'Update failed', 'error');
+                }
+            }).catch(() => Swal.fire('Error!', 'Request failed.', 'error'));
         });
         return;
     }

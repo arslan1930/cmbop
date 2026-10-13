@@ -224,8 +224,7 @@ class InvoiceController extends Controller
 
             $chargeCurrency = strtoupper((string) ($deposit->charge_currency ?: ($rail === 'gbp' ? 'GBP' : 'EUR')));
             $chargeAmount = $fx->expectedCharge($deposit);
-            $lines[] = $fx->sendLabel($chargeCurrency, $chargeAmount, (float) $deposit->amount).'.';
-            $lines[] = $fx->toleranceNote();
+            $lines[] = $fx->sendLabel($chargeCurrency, $chargeAmount, (float) $deposit->amount);
 
             $user ??= $deposit->user;
             $guidance = app(UsdBankWireGuidance::class);

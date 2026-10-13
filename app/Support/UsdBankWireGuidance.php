@@ -6,33 +6,27 @@ use App\Models\User;
 use App\Models\Wallet;
 
 /**
- * Bank details stay EUR (IBAN/SWIFT). USD wallets — and US-IP advertisers,
- * whose wallets are still created as EUR — get the EUR send amount plus the
- * international-wire note. Crediting is unchanged.
+ * Bank details stay EUR (IBAN/SWIFT). USD display (or a USD wallet) gets the
+ * international-wire note. Travel IP never overrides a saved EUR preference.
  */
 class UsdBankWireGuidance
 {
     public function __construct(
         private MoneyDisplay $money,
-        private ViewerCountry $viewerCountry,
     ) {}
 
     public function applies(?string $walletCurrency = null, ?User $user = null): bool
     {
+        if ($this->money->currency() === 'USD') {
+            return true;
+        }
+
         $currency = $this->normalizedCurrency($walletCurrency);
         if ($currency === '' && $user) {
             $currency = $this->walletCurrencyFor($user);
         }
 
-        if ($currency === 'USD') {
-            return true;
-        }
-
-        if ($currency !== '' && $currency !== 'EUR') {
-            return false;
-        }
-
-        return $this->userCountryIsUs($user) || $this->viewerCountry->isUs();
+        return $currency === 'USD';
     }
 
     public function walletCurrencyFor(?User $user): string
@@ -161,10 +155,7 @@ class UsdBankWireGuidance
             return [];
         }
 
-        $quote = $this->quoteFromEuros($eurAmount);
-
         return [
-            $quote['send_label'],
             (string) __('messages.usd_bank_wire_note'),
             (string) __('messages.usd_bank_avoid_fees'),
         ];
@@ -191,22 +182,8 @@ class UsdBankWireGuidance
             'rate' => $this->money->usdPerEur(),
             'eur_label' => $eurLabel,
             'usd_label' => $usdLabel,
-            'send_label' => (string) __('messages.usd_bank_send_label', [
-                'eur' => $eurLabel,
-                'usd' => $usdLabel,
-            ]),
+            'send_label' => app(DepositFx::class)->sendLabel('USD', $usd, $euros),
         ];
-    }
-
-    private function userCountryIsUs(?User $user): bool
-    {
-        if (! $user) {
-            return false;
-        }
-
-        $country = strtoupper(trim((string) ($user->country ?? '')));
-
-        return in_array($country, ['US', 'USA', 'UNITED STATES'], true);
     }
 
     private function normalizedCurrency(mixed $currency): string

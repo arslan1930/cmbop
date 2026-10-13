@@ -483,7 +483,8 @@
 
                         <!-- Primary: Price -->
                         <div class="col-6 col-sm-6 col-lg-2">
-                            <label class="form-label fw-semibold small text-muted mb-1" id="catalogPriceFilter" for="priceMinInput">Price (€)</label>
+                            @php $priceFilter = \App\Support\Money::priceFilterCopy(); @endphp
+                            <label class="form-label fw-semibold small text-muted mb-1" id="catalogPriceFilter" for="priceMinInput">{{ $priceFilter['label'] }}</label>
                             <div class="d-flex gap-2">
                                 <input type="number"
                                        name="price_min"
@@ -501,9 +502,9 @@
                                        value="{{ trim(scalar_text(request('price_max'))) }}">
                             </div>
                             <div class="filter-presets" data-preset-group="price">
-                                <button type="button" class="filter-preset" data-min="" data-max="50" data-target-min="priceMinInput" data-target-max="priceMaxInput">Under €50</button>
-                                <button type="button" class="filter-preset" data-min="50" data-max="150" data-target-min="priceMinInput" data-target-max="priceMaxInput">€50–150</button>
-                                <button type="button" class="filter-preset" data-min="150" data-max="" data-target-min="priceMinInput" data-target-max="priceMaxInput">€150+</button>
+                                <button type="button" class="filter-preset" data-min="" data-max="50" data-target-min="priceMinInput" data-target-max="priceMaxInput">{{ $priceFilter['under'] }}</button>
+                                <button type="button" class="filter-preset" data-min="50" data-max="150" data-target-min="priceMinInput" data-target-max="priceMaxInput">{{ $priceFilter['mid'] }}</button>
+                                <button type="button" class="filter-preset" data-min="150" data-max="" data-target-min="priceMinInput" data-target-max="priceMaxInput">{{ $priceFilter['plus'] }}</button>
                             </div>
                         </div>
 

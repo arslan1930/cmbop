@@ -14,7 +14,6 @@
 @endphp
 @if(!empty($usdWire['show']))
     <div class="js-usd-bank-wire usd-bank-wire-note alert alert-warning mb-3" data-usd-bank-wire="1" role="status">
-        <p class="js-usd-bank-send-label fw-semibold mb-2" data-usd-send-label="1">{{ $usdWire['send_label'] }}</p>
         <p class="mb-2" data-usd-wire-note="1">{{ $usdWire['wire_note'] }}</p>
         <p class="mb-0" data-usd-avoid-fees="1">
             {{ $usdWire['avoid_fees'] }}

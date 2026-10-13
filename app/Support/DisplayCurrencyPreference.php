@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\DepositRequest;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
@@ -10,6 +12,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Viewer-selected display currency (EUR / GBP / USD). Overrides geo.
  * Session + cookie for guests; users.display_currency when signed in.
+ * Saved user preference always wins over IP. Account country, EUR ledger
+ * history, then geo fill a null preference and we persist that first choice.
  */
 class DisplayCurrencyPreference
 {
@@ -25,8 +29,8 @@ class DisplayCurrencyPreference
     public function preferred(?Request $request = null): ?string
     {
         $request ??= request();
-
         $user = Auth::user();
+
         if ($user instanceof User && $this->usersHaveDisplayCurrencyColumn()) {
             $fromUser = $this->normalize((string) ($user->display_currency ?? ''));
             if ($fromUser !== null) {
@@ -34,21 +38,54 @@ class DisplayCurrencyPreference
             }
         }
 
-        if ($request instanceof Request) {
-            if ($request->hasSession()) {
-                $fromSession = $this->normalize((string) $request->session()->get(self::SESSION_KEY, ''));
-                if ($fromSession !== null) {
-                    return $fromSession;
-                }
+        $explicit = $this->explicitGuestChoice($request);
+        if ($user instanceof User && $this->usersHaveDisplayCurrencyColumn()) {
+            if ($explicit !== null) {
+                $this->persistResolved($user, $explicit, $request);
+
+                return $explicit;
+            }
+            $fromAccount = $this->accountCountryCurrency($user);
+            if ($fromAccount !== null) {
+                $this->persistResolved($user, $fromAccount, $request);
+
+                return $fromAccount;
+            }
+            if ($this->hasEuroLedgerHistory($user)) {
+                $this->persistResolved($user, 'EUR', $request);
+
+                return 'EUR';
             }
 
-            $fromCookie = $this->normalize((string) $request->cookie(self::COOKIE_KEY, ''));
-            if ($fromCookie !== null) {
-                return $fromCookie;
-            }
+            return null;
         }
 
-        return null;
+        return $explicit;
+    }
+
+    /**
+     * Persist a first-choice default (header switch, inferred history, country, or geo).
+     */
+    public function persistResolved(User $user, string $currency, ?Request $request = null): string
+    {
+        $code = $this->normalize($currency) ?? 'EUR';
+        if (! $this->usersHaveDisplayCurrencyColumn()) {
+            return $code;
+        }
+        $existing = $this->normalize((string) ($user->display_currency ?? ''));
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $user->display_currency = $code;
+        $user->saveQuietly();
+
+        $request ??= request();
+        if ($request instanceof Request && $request->hasSession()) {
+            $request->session()->put(self::SESSION_KEY, $code);
+        }
+
+        return $code;
     }
 
     public function remember(string $currency, ?Request $request = null): string
@@ -128,6 +165,76 @@ class DisplayCurrencyPreference
             'eur', 'other', 'sepa', 'iban' => 'eur',
             default => null,
         };
+    }
+
+    /**
+     * @return 'EUR'|'GBP'|'USD'|null
+     */
+    public function accountCountryCurrency(?User $user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+        $country = strtoupper(trim((string) ($user->country ?? '')));
+        if ($country === 'UK' || $country === 'UNITED KINGDOM') {
+            $country = 'GB';
+        }
+        if (in_array($country, ['USA', 'UNITED STATES'], true)) {
+            $country = 'US';
+        }
+        $map = config('fx.country_currency', []);
+        if ($country === '') {
+            return null;
+        }
+        $mapped = is_array($map) ? strtoupper((string) ($map[$country] ?? '')) : '';
+        if (in_array($mapped, ['EUR', 'GBP', 'USD'], true)) {
+            return $mapped;
+        }
+
+        return 'EUR';
+    }
+
+    public function hasEuroLedgerHistory(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+        try {
+            if (DepositRequest::query()->where('user_id', $user->id)->exists()) {
+                return true;
+            }
+        } catch (\Throwable) {
+        }
+        try {
+            if (WalletTransaction::query()->where('user_id', $user->id)->exists()) {
+                return true;
+            }
+        } catch (\Throwable) {
+        }
+
+        return false;
+    }
+
+    /**
+     * @return 'EUR'|'GBP'|'USD'|null
+     */
+    private function explicitGuestChoice(?Request $request): ?string
+    {
+        if (! $request instanceof Request) {
+            return null;
+        }
+        if ($request->hasSession()) {
+            $fromSession = $this->normalize((string) $request->session()->get(self::SESSION_KEY, ''));
+            if ($fromSession !== null) {
+                return $fromSession;
+            }
+        }
+        $fromCookie = $this->normalize((string) $request->cookie(self::COOKIE_KEY, ''));
+        if ($fromCookie !== null) {
+            return $fromCookie;
+        }
+
+        return null;
     }
 
     private function usersHaveDisplayCurrencyColumn(): bool

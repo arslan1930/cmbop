@@ -1423,6 +1423,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('users.send-password-reset');
         Route::post('/users/{id}/update-company', [UserController::class, 'updateCompany'])
             ->name('users.updateCompany');
+        Route::post('/users/{id}/display-currency', [UserController::class, 'updateDisplayCurrency'])
+            ->name('users.updateDisplayCurrency');
         Route::post('/users/{id}/payout-profile', [UserController::class, 'updatePayoutProfile'])
             ->name('users.updatePayoutProfile');
         Route::post('/users/{id}/roles', [UserController::class, 'updateRoles'])
