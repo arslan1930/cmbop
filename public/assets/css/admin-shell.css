@@ -70,3 +70,24 @@ body.role-shell-admin .top-navbar .dropdown-menu .dropdown-item {
 body.role-shell-admin .balance-block {
   display: none;
 }
+
+/*
+ * Admin has no support chat. Hide leftover Tawk / visitor-chat iframes and
+ * the empty toast stack so they cannot render as a blank floating card.
+ */
+body.role-shell-admin iframe[title*="chat" i],
+body.role-shell-admin iframe[src*="tawk.to"],
+body.role-shell-admin .slb-chat-mark,
+body.role-shell-admin #tawkchat-container,
+body.role-shell-admin .widget-visible,
+body.role-shell-admin .slb-toast-stack:empty,
+body.role-shell-admin #toastContainer:empty {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.role-shell-admin .slb-page-loader:not(.is-on),
+body.role-shell-admin .slb-page-loader:not(.is-on) .slb-page-loader__stage {
+  display: none !important;
+}

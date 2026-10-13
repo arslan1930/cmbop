@@ -170,13 +170,15 @@ class DashboardController extends Controller
     /**
      * Items that need admin attention (AJAX)
      */
-    public function getActionQueue()
+    public function getActionQueue(Request $request)
     {
         try {
+            $minAgeDays = max(0, min(365, (int) $request->integer('min_age_days', 0)));
+
             // Work list — same reason as queue-counts: do not freeze pending rows.
             return response()->json([
                 'success' => true,
-                ...$this->metrics->actionQueue(),
+                ...$this->metrics->actionQueue($minAgeDays),
             ]);
         } catch (\Throwable $e) {
             Log::error('Admin dashboard action queue error: '.$e->getMessage());

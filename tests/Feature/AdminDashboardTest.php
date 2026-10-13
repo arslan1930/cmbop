@@ -110,7 +110,17 @@ class AdminDashboardTest extends TestCase
             ->assertSee('loadFinanceStrip')
             ->assertSee('js-kpi-link')
             ->assertSee('js-kpi-users-caption')
-            ->assertSee('All accounts. Role counts can overlap.')
+            ->assertSee('Usage counts: chosen active role, or a site / order.')
+            ->assertSee('Assigned roles still overlap at signup.')
+            ->assertSee('Urgent')
+            ->assertSee('Backlog')
+            ->assertSee('Welcome bonus is closed')
+            ->assertSee('id="dashboardRefresh"', false)
+            ->assertSee('sitesAgeFilter')
+            ->assertSee('sitesBulkApprove')
+            ->assertSee('No orders yet')
+            ->assertSee('Mark all read')
+            ->assertDontSee('id="logoNavbar"', false)
             ->assertSee('kpiAdmins')
             ->assertSee('kpiMarketers')
             ->assertSee('id="healthStalled"', false)
@@ -125,7 +135,7 @@ class AdminDashboardTest extends TestCase
             ->assertSee('setText')
             ->assertSee('queuesAllClear')
             ->assertSee('All queues are clear.')
-            ->assertSee('Users with more than one role appear in more than one slice.')
+            ->assertSee('New-role cards count the role chosen at signup')
             ->assertSee('js-queue-panel')
             ->assertSee('Failed mail')
             ->assertSee('Moderation errors')
@@ -1125,6 +1135,191 @@ class AdminDashboardTest extends TestCase
             ->assertOk()
             ->json('data');
         $this->assertSame('withdrawals', $stats['attention'][0]['key']);
+        $this->assertSame('urgent', $stats['attention'][0]['bucket']);
         $this->assertArrayHasKey('banner_ctr_7d', $stats['promotions']);
+    }
+
+    public function test_role_cards_count_chosen_role_or_real_usage_not_assigned_overlap(): void
+    {
+        $admin = $this->makeAdmin();
+        $advertiserRole = Role::firstOrCreate(['name' => 'advertiser']);
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+
+        $choseAdvertiser = User::factory()->create([
+            'active_role_id' => $advertiserRole->id,
+            'email_verified_at' => now(),
+        ]);
+        $choseAdvertiser->roles()->sync([$advertiserRole->id, $publisherRole->id]);
+
+        $chosePublisher = User::factory()->create([
+            'active_role_id' => $publisherRole->id,
+            'email_verified_at' => now(),
+        ]);
+        $chosePublisher->roles()->sync([$advertiserRole->id, $publisherRole->id]);
+
+        $publisherWithSite = User::factory()->create([
+            'active_role_id' => $advertiserRole->id,
+            'email_verified_at' => now(),
+        ]);
+        $publisherWithSite->roles()->sync([$advertiserRole->id, $publisherRole->id]);
+        $this->makeDashboardSite($publisherWithSite, [
+            'site_name' => 'Usage publisher',
+            'site_url' => 'https://usage-publisher.example',
+            'domain' => 'usage-publisher.example',
+            'verified' => 0,
+            'active' => 0,
+        ]);
+
+        $stats = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.statistics'))
+            ->assertOk()
+            ->json('data');
+
+        $this->assertSame(2, $stats['advertisers']);
+        $this->assertSame(2, $stats['publishers']);
+        $this->assertSame(3, $stats['advertisers_assigned']);
+        $this->assertSame(3, $stats['publishers_assigned']);
+
+        $health = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.health'))
+            ->assertOk()
+            ->json('data');
+        $this->assertSame(2, $health['advertisers_7d']);
+        $this->assertSame(1, $health['publishers_7d']);
+    }
+
+    public function test_sites_card_status_breakdown_adds_up(): void
+    {
+        $admin = $this->makeAdmin();
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $publisher = User::factory()->create([
+            'active_role_id' => $publisherRole->id,
+            'email_verified_at' => now(),
+        ]);
+        $publisher->roles()->attach($publisherRole->id);
+
+        $this->makeDashboardSite($publisher, [
+            'site_name' => 'Live listing',
+            'site_url' => 'https://live-listing.example',
+            'domain' => 'live-listing.example',
+            'verified' => 1,
+            'active' => 1,
+        ]);
+        $this->makeDashboardSite($publisher, [
+            'site_name' => 'Review listing',
+            'site_url' => 'https://review-listing.example',
+            'domain' => 'review-listing.example',
+            'verified' => 0,
+            'active' => 0,
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+        ]);
+        $this->makeDashboardSite($publisher, [
+            'site_name' => 'Draft listing',
+            'site_url' => 'https://draft-listing.example',
+            'domain' => 'draft-listing.example',
+            'verified' => 0,
+            'active' => 0,
+            'onboarding_status' => Site::ONBOARDING_AWAITING_DETAILS,
+        ]);
+        $this->makeDashboardSite($publisher, [
+            'site_name' => 'Paused listing',
+            'site_url' => 'https://paused-listing.example',
+            'domain' => 'paused-listing.example',
+            'verified' => 1,
+            'active' => 0,
+        ]);
+        $archived = $this->makeDashboardSite($publisher, [
+            'site_name' => 'Archived listing',
+            'site_url' => 'https://archived-listing.example',
+            'domain' => 'archived-listing.example',
+            'verified' => 0,
+            'active' => 0,
+        ]);
+        $archived->archived_at = now()->subDay();
+        $archived->save();
+
+        $stats = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.statistics'))
+            ->assertOk()
+            ->json('data');
+
+        $status = $stats['site_status'];
+        $this->assertSame(5, $status['total']);
+        $this->assertSame(1, $status['live']);
+        $this->assertSame(1, $status['in_review']);
+        $this->assertSame(1, $status['draft']);
+        $this->assertSame(1, $status['paused']);
+        $this->assertSame(1, $status['archived']);
+        $this->assertSame(
+            $status['total'],
+            $status['live'] + $status['in_review'] + $status['archived'] + $status['paused'] + $status['draft'] + $status['held'] + $status['other']
+        );
+    }
+
+    public function test_sites_queue_is_oldest_first_and_honours_age_filter(): void
+    {
+        $admin = $this->makeAdmin();
+        $publisherRole = Role::firstOrCreate(['name' => 'publisher']);
+        $publisher = User::factory()->create([
+            'active_role_id' => $publisherRole->id,
+            'email_verified_at' => now(),
+        ]);
+        $publisher->roles()->attach($publisherRole->id);
+
+        $old = $this->makeDashboardSite($publisher, [
+            'site_name' => 'Oldest waiting',
+            'site_url' => 'https://oldest-waiting.example',
+            'domain' => 'oldest-waiting.example',
+            'verified' => 0,
+            'active' => 0,
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+        ]);
+        $old->created_at = now()->subDays(12);
+        $old->save();
+
+        $fresh = $this->makeDashboardSite($publisher, [
+            'site_name' => 'Fresh waiting',
+            'site_url' => 'https://fresh-waiting.example',
+            'domain' => 'fresh-waiting.example',
+            'verified' => 0,
+            'active' => 0,
+            'onboarding_status' => Site::ONBOARDING_READY_FOR_REVIEW,
+        ]);
+        $fresh->created_at = now()->subHours(2);
+        $fresh->save();
+
+        $all = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue'))
+            ->assertOk()
+            ->json('sites');
+        $this->assertSame('Oldest waiting', $all[0]['site_name']);
+        $this->assertSame('Fresh waiting', $all[1]['site_name']);
+
+        $filtered = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.action-queue', ['min_age_days' => 7]))
+            ->assertOk()
+            ->json('sites');
+        $this->assertCount(1, $filtered);
+        $this->assertSame('Oldest waiting', $filtered[0]['site_name']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function makeDashboardSite(User $publisher, array $overrides): Site
+    {
+        return Site::create(array_merge([
+            'publisher_id' => $publisher->id,
+            'da' => 10,
+            'dr' => 10,
+            'traffic' => 100,
+            'country' => 'us',
+            'language' => 'en',
+            'category' => 'marketing',
+            'price' => 40,
+            'publication_time' => 'permanent',
+            'link_type' => 'dofollow',
+            'description' => 'Dashboard fixture',
+        ], $overrides));
     }
 }

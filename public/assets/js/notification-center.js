@@ -190,12 +190,18 @@
       });
     });
 
-    const markAll = (this.panel || this.root).querySelector('[data-nc-mark-all]');
-    if (markAll) {
+    const markAllBtns = [];
+    [this.root, this.panel].forEach(function (scope) {
+      if (!scope) return;
+      scope.querySelectorAll('[data-nc-mark-all]').forEach(function (btn) {
+        if (markAllBtns.indexOf(btn) === -1) markAllBtns.push(btn);
+      });
+    });
+    markAllBtns.forEach(function (markAll) {
       markAll.addEventListener('click', function () {
         self.markAllRead();
       });
-    }
+    });
 
     if (this.showAllLink) {
       this.showAllLink.addEventListener('click', function (e) {
@@ -302,6 +308,21 @@
       this.badge.style.display = 'none';
     }
     this.syncUnreadLabel();
+    this.syncMarkAllBar();
+  };
+
+  NotificationCenter.prototype.syncMarkAllBar = function () {
+    const buttons = [];
+    [this.root, this.panel].forEach(function (scope) {
+      if (!scope) return;
+      scope.querySelectorAll('.nc-mark-all-bar[data-nc-mark-all]').forEach(function (btn) {
+        if (buttons.indexOf(btn) === -1) buttons.push(btn);
+      });
+    });
+    const show = this.unread > 0;
+    buttons.forEach(function (btn) {
+      btn.hidden = !show;
+    });
   };
 
   NotificationCenter.prototype.syncUnreadLabel = function () {

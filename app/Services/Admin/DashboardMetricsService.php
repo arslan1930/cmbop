@@ -62,16 +62,21 @@ class DashboardMetricsService
         $marketingRoleId = $this->roleId('marketing');
         $queues = $this->queueCounts();
 
+        $siteBreakdown = $this->siteStatusBreakdown();
+
         return [
             'total_users' => $this->safeInt(fn () => User::count()),
-            'advertisers' => $this->roleUserCount($advertiserRoleId),
-            'publishers' => $this->roleUserCount($publisherRoleId),
+            'advertisers' => $this->usageAdvertiserCount($advertiserRoleId),
+            'publishers' => $this->usagePublisherCount($publisherRoleId),
+            'advertisers_assigned' => $this->roleUserCount($advertiserRoleId),
+            'publishers_assigned' => $this->roleUserCount($publisherRoleId),
             'admins' => $this->roleUserCount($adminRoleId),
             'marketers' => $this->roleUserCount($marketingRoleId),
-            'total_sites' => $this->safeInt(fn () => Site::count()),
+            'total_sites' => $siteBreakdown['total'],
             'verified_sites' => $this->safeInt(fn () => Site::where('verified', 1)->count()),
-            'live_sites' => $this->liveSitesCount(),
+            'live_sites' => $siteBreakdown['live'],
             'unverified_sites' => $queues['unverified_sites'],
+            'site_status' => $siteBreakdown,
             'total_orders' => $this->safeInt(fn () => Order::count()),
             'paid_orders' => $this->safeInt(fn () => Order::where('payment_status', 'paid')->count()),
             'revenue' => $this->safeFloat(fn () => Order::where('payment_status', 'paid')->sum('total_amount')),
@@ -184,7 +189,7 @@ class DashboardMetricsService
                 'keys' => $roleCounts->keys()->map(fn ($s) => (string) $s)->values(),
                 'labels' => $roleCounts->keys()->map(fn ($s) => ucfirst((string) $s))->values(),
                 'values' => $roleCounts->values()->map(fn ($v) => (int) $v)->values(),
-                'note' => 'Users with more than one role appear in more than one slice.',
+                'note' => 'Assigned-role slices still overlap: signup grants both advertiser and publisher. KPI cards use chosen active role or real usage.',
             ],
             'countries' => $this->userCountriesByIp(),
         ];
@@ -634,10 +639,10 @@ class DashboardMetricsService
         $since30 = now()->subDays(30);
 
         return [
-            'advertisers_7d' => $this->roleSignupsSince($this->roleId('advertiser'), $since7),
-            'advertisers_30d' => $this->roleSignupsSince($this->roleId('advertiser'), $since30),
-            'publishers_7d' => $this->roleSignupsSince($this->roleId('publisher'), $since7),
-            'publishers_30d' => $this->roleSignupsSince($this->roleId('publisher'), $since30),
+            'advertisers_7d' => $this->chosenRoleSignupsSince($this->roleId('advertiser'), $since7),
+            'advertisers_30d' => $this->chosenRoleSignupsSince($this->roleId('advertiser'), $since30),
+            'publishers_7d' => $this->chosenRoleSignupsSince($this->roleId('publisher'), $since7),
+            'publishers_30d' => $this->chosenRoleSignupsSince($this->roleId('publisher'), $since30),
             'orders_pending' => $pipeline['pending'],
             'orders_processing' => $pipeline['processing'],
             'orders_completed_30d' => $pipeline['completed_30d'],
@@ -656,7 +661,7 @@ class DashboardMetricsService
      *
      * @return array{deposits: mixed, withdrawals: mixed, sites: mixed, unpaid: mixed, disputes: mixed, community: mixed, enrichment: mixed, bulk: mixed, mail: mixed, moderation: mixed, catalog_hide: mixed}
      */
-    public function actionQueue(): array
+    public function actionQueue(int $minAgeDays = 0): array
     {
         $deposits = $this->depositQueue();
         $withdrawals = $this->withdrawalQueue();
@@ -664,10 +669,12 @@ class DashboardMetricsService
         $sites = collect();
         try {
             if (Schema::hasTable('sites')) {
-                $sites = $this->oldestWaiting(
-                    Site::with('publisher:id,name,email')->needsAdminReview()
-                )
-                    ->take(5)
+                $query = Site::with('publisher:id,name,email')->needsAdminReview();
+                if ($minAgeDays > 0) {
+                    $query->where('created_at', '<=', now()->subDays($minAgeDays));
+                }
+                $sites = $this->oldestWaiting($query)
+                    ->take(20)
                     ->get()
                     ->map(fn ($s) => [
                         'id' => $s->id,
@@ -676,6 +683,7 @@ class DashboardMetricsService
                         'publisher' => $s->publisher?->name ?? 'Unknown',
                         'date' => $this->formatDate($s->created_at, 'd M Y'),
                         'age' => $this->ageLabel($s->created_at),
+                        'waiting_days' => $this->waitingDays($s->created_at),
                         'url' => route('admin.sites.edit', $s->id),
                     ]);
             }
@@ -1286,22 +1294,22 @@ class DashboardMetricsService
         }
 
         $rows = [
-            ['key' => 'withdrawals', 'label' => 'Withdrawals', 'count' => $counts['pending_withdrawals'] ?? 0, 'amount' => data_get($ops, 'open_withdrawals.amount'), 'severity' => 'danger', 'url' => $this->safeRoute('admin.withdrawals', ['queue' => 'open'])],
-            ['key' => 'deposits', 'label' => 'Deposits', 'count' => $counts['pending_deposits'] ?? 0, 'amount' => data_get($ops, 'pending_deposits.amount'), 'severity' => 'danger', 'url' => $this->safeRoute('admin.deposits', ['status' => 'pending'])],
-            ['key' => 'unpaid', 'label' => 'Unpaid orders', 'count' => $counts['pending_payments'] ?? 0, 'amount' => data_get($ops, 'unpaid_orders.amount'), 'severity' => 'warning', 'url' => $this->safeRoute('admin.payments', ['payment_status' => 'unpaid'])],
-            ['key' => 'stalled', 'label' => 'Stalled orders', 'count' => $counts['stalled_orders'] ?? 0, 'amount' => null, 'severity' => 'danger', 'url' => '#stalledOrdersRow'],
-            ['key' => 'disputes', 'label' => 'Disputes', 'count' => $counts['open_disputes'] ?? 0, 'amount' => null, 'severity' => 'warning', 'url' => $this->safeRoute('admin.orders.index', ['dispute' => 'open'])],
-            ['key' => 'sites', 'label' => 'Sites in review', 'count' => $counts['unverified_sites'] ?? 0, 'amount' => null, 'severity' => 'warning', 'url' => $this->safeRoute('admin.sites.index', ['needs_review' => 1])],
-            ['key' => 'community', 'label' => 'Community', 'count' => $counts['pending_community'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.community.index', ['status' => 'pending'])],
-            ['key' => 'bulk', 'label' => 'Bulk requests', 'count' => $counts['open_bulk_requests'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.bulk-site-requests.index', ['status' => 'needs_marketer'])],
-            ['key' => 'mail', 'label' => 'Failed mail', 'count' => $counts['failed_mail'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.emails.index')],
-            ['key' => 'moderation', 'label' => 'Moderation errors', 'count' => $counts['moderation_errors'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.moderation.index', ['status' => 'error'])],
-            ['key' => 'enrichment', 'label' => 'Enrichment', 'count' => $counts['enrichment_failed'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.site-enrichment.index')],
-            ['key' => 'catalog_hide', 'label' => 'Hide-mode', 'count' => $counts['catalog_hide'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.catalog-activity')],
-            ['key' => 'missing_tax', 'label' => 'Missing tax invoices', 'count' => $counts['missing_tax_invoices'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.invoices.index', ['queue' => 'missing'])],
-            ['key' => 'missing_pdf', 'label' => 'Missing PDFs', 'count' => $counts['missing_pdf_invoices'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.invoices.index', ['pdf' => 'missing'])],
-            ['key' => 'library', 'label' => 'Articles in review', 'count' => $counts['library_evaluating'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.content-library.index', ['availability' => 'evaluating'])],
-            ['key' => 'campaigns', 'label' => 'Campaigns', 'count' => $counts['campaigns_attention'] ?? 0, 'amount' => null, 'severity' => 'muted', 'url' => $this->safeRoute('admin.campaigns.index', ['status' => 'attention'])],
+            ['key' => 'withdrawals', 'label' => 'Withdrawals', 'count' => $counts['pending_withdrawals'] ?? 0, 'amount' => data_get($ops, 'open_withdrawals.amount'), 'severity' => 'danger', 'bucket' => 'urgent', 'url' => $this->safeRoute('admin.withdrawals', ['queue' => 'open'])],
+            ['key' => 'deposits', 'label' => 'Deposits', 'count' => $counts['pending_deposits'] ?? 0, 'amount' => data_get($ops, 'pending_deposits.amount'), 'severity' => 'danger', 'bucket' => 'urgent', 'url' => $this->safeRoute('admin.deposits', ['status' => 'pending'])],
+            ['key' => 'unpaid', 'label' => 'Unpaid orders', 'count' => $counts['pending_payments'] ?? 0, 'amount' => data_get($ops, 'unpaid_orders.amount'), 'severity' => 'warning', 'bucket' => 'urgent', 'url' => $this->safeRoute('admin.payments', ['payment_status' => 'unpaid'])],
+            ['key' => 'stalled', 'label' => 'Stalled orders', 'count' => $counts['stalled_orders'] ?? 0, 'amount' => null, 'severity' => 'danger', 'bucket' => 'urgent', 'url' => '#stalledOrdersRow'],
+            ['key' => 'disputes', 'label' => 'Disputes', 'count' => $counts['open_disputes'] ?? 0, 'amount' => null, 'severity' => 'warning', 'bucket' => 'urgent', 'url' => $this->safeRoute('admin.orders.index', ['dispute' => 'open'])],
+            ['key' => 'missing_tax', 'label' => 'Missing tax invoices', 'count' => $counts['missing_tax_invoices'] ?? 0, 'amount' => null, 'severity' => 'danger', 'bucket' => 'urgent', 'url' => $this->safeRoute('admin.invoices.index', ['queue' => 'missing'])],
+            ['key' => 'missing_pdf', 'label' => 'Missing PDFs', 'count' => $counts['missing_pdf_invoices'] ?? 0, 'amount' => null, 'severity' => 'warning', 'bucket' => 'urgent', 'url' => $this->safeRoute('admin.invoices.index', ['pdf' => 'missing'])],
+            ['key' => 'sites', 'label' => 'Sites in review', 'count' => $counts['unverified_sites'] ?? 0, 'amount' => null, 'severity' => 'warning', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.sites.index', ['needs_review' => 1])],
+            ['key' => 'community', 'label' => 'Community', 'count' => $counts['pending_community'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.community.index', ['status' => 'pending'])],
+            ['key' => 'bulk', 'label' => 'Bulk requests', 'count' => $counts['open_bulk_requests'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.bulk-site-requests.index', ['status' => 'needs_marketer'])],
+            ['key' => 'mail', 'label' => 'Failed mail', 'count' => $counts['failed_mail'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.emails.index')],
+            ['key' => 'moderation', 'label' => 'Moderation errors', 'count' => $counts['moderation_errors'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.moderation.index', ['status' => 'error'])],
+            ['key' => 'enrichment', 'label' => 'Enrichment', 'count' => $counts['enrichment_failed'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.site-enrichment.index')],
+            ['key' => 'catalog_hide', 'label' => 'Hide-mode', 'count' => $counts['catalog_hide'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.catalog-activity')],
+            ['key' => 'library', 'label' => 'Articles in review', 'count' => $counts['library_evaluating'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.content-library.index', ['availability' => 'evaluating'])],
+            ['key' => 'campaigns', 'label' => 'Campaigns', 'count' => $counts['campaigns_attention'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.campaigns.index', ['status' => 'attention'])],
         ];
 
         $items = [];
@@ -1315,6 +1323,7 @@ class DashboardMetricsService
                 'count' => (int) $row['count'],
                 'amount' => $row['amount'] === null ? null : round((float) $row['amount'], 2),
                 'severity' => $row['severity'],
+                'bucket' => $row['bucket'] === 'urgent' ? 'urgent' : 'backlog',
                 'url' => $row['url'] ?: '#dashboardActionQueues',
             ];
         }
@@ -1362,17 +1371,197 @@ class DashboardMetricsService
 
     private function roleSignupsSince(mixed $roleId, Carbon $since): int
     {
+        return $this->chosenRoleSignupsSince($roleId, $since);
+    }
+
+    /**
+     * Signups that chose this role as active_role_id. Registration still
+     * attaches both advertiser and publisher, so a role_user join would
+     * count every new account twice.
+     */
+    private function chosenRoleSignupsSince(mixed $roleId, Carbon $since): int
+    {
         if (! $roleId) {
             return 0;
         }
 
         return $this->safeInt(function () use ($roleId, $since) {
+            if (Schema::hasColumn('users', 'active_role_id')) {
+                return (int) User::query()
+                    ->where('active_role_id', $roleId)
+                    ->where('created_at', '>=', $since)
+                    ->count();
+            }
+
             return (int) DB::table('users')
                 ->join('role_user', 'role_user.user_id', '=', 'users.id')
                 ->where('role_user.role_id', $roleId)
                 ->where('users.created_at', '>=', $since)
                 ->distinct()
                 ->count('users.id');
+        });
+    }
+
+    /**
+     * Advertisers = chose advertiser as the active role, or placed an order.
+     */
+    private function usageAdvertiserCount(mixed $roleId): int
+    {
+        return $this->safeInt(function () use ($roleId) {
+            $query = User::query()->where(function ($outer) use ($roleId) {
+                if ($roleId && Schema::hasColumn('users', 'active_role_id')) {
+                    $outer->where('active_role_id', $roleId);
+                } elseif ($roleId) {
+                    $outer->whereExists(function ($inner) use ($roleId) {
+                        $inner->select(DB::raw(1))
+                            ->from('role_user')
+                            ->whereColumn('role_user.user_id', 'users.id')
+                            ->where('role_user.role_id', $roleId);
+                    });
+                }
+                if (Schema::hasTable('orders')) {
+                    $outer->orWhereExists(function ($orders) {
+                        $orders->select(DB::raw(1))
+                            ->from('orders')
+                            ->whereColumn('orders.user_id', 'users.id');
+                    });
+                }
+            });
+
+            return $query->count();
+        });
+    }
+
+    /**
+     * Publishers = chose publisher as the active role, or listed at least one site.
+     */
+    private function usagePublisherCount(mixed $roleId): int
+    {
+        return $this->safeInt(function () use ($roleId) {
+            $query = User::query()->where(function ($outer) use ($roleId) {
+                if ($roleId && Schema::hasColumn('users', 'active_role_id')) {
+                    $outer->where('active_role_id', $roleId);
+                } elseif ($roleId) {
+                    $outer->whereExists(function ($inner) use ($roleId) {
+                        $inner->select(DB::raw(1))
+                            ->from('role_user')
+                            ->whereColumn('role_user.user_id', 'users.id')
+                            ->where('role_user.role_id', $roleId);
+                    });
+                }
+                if (Schema::hasTable('sites')) {
+                    $outer->orWhereExists(function ($sites) {
+                        $sites->select(DB::raw(1))
+                            ->from('sites')
+                            ->whereColumn('sites.publisher_id', 'users.id');
+                    });
+                }
+            });
+
+            return $query->count();
+        });
+    }
+
+    /**
+     * Exclusive site-status buckets so live + review + remainder = total.
+     *
+     * @return array{total: int, live: int, in_review: int, archived: int, paused: int, draft: int, held: int, other: int}
+     */
+    private function siteStatusBreakdown(): array
+    {
+        $empty = [
+            'total' => 0,
+            'live' => 0,
+            'in_review' => 0,
+            'archived' => 0,
+            'paused' => 0,
+            'draft' => 0,
+            'held' => 0,
+            'other' => 0,
+        ];
+
+        try {
+            if (! Schema::hasTable('sites')) {
+                return $empty;
+            }
+        } catch (\Throwable) {
+            return $empty;
+        }
+
+        $live = $this->liveSitesCount();
+        $inReview = $this->unverifiedSitesCountExclusiveOfLiveAndArchived();
+        $archived = $this->safeInt(function () {
+            return Site::query()->archived()->count();
+        });
+        $paused = $this->safeInt(function () {
+            return Site::query()
+                ->where('verified', 1)
+                ->where(function ($q) {
+                    $q->where('active', 0)->orWhereNull('active');
+                })
+                ->notArchived()
+                ->count();
+        });
+        $draft = $this->safeInt(function () {
+            $query = Site::query()
+                ->where(function ($q) {
+                    $q->where('verified', 0)->orWhereNull('verified');
+                })
+                ->where(function ($q) {
+                    $q->where('active', 0)->orWhereNull('active');
+                })
+                ->notArchived();
+            if (Site::hasSitesColumn('onboarding_status')) {
+                $query->whereIn('onboarding_status', [
+                    Site::ONBOARDING_AWAITING_DETAILS,
+                    Site::ONBOARDING_DETAILS_COMPLETE,
+                ]);
+            } else {
+                return 0;
+            }
+
+            return $query->count();
+        });
+        $held = $this->safeInt(function () {
+            if (! Site::hasSitesColumn('onboarding_status')) {
+                return 0;
+            }
+
+            return Site::query()
+                ->where(function ($q) {
+                    $q->where('verified', 0)->orWhereNull('verified');
+                })
+                ->where(function ($q) {
+                    $q->where('active', 0)->orWhereNull('active');
+                })
+                ->notArchived()
+                ->where('onboarding_status', Site::ONBOARDING_STAFF_HOLD)
+                ->count();
+        });
+        $total = $this->safeInt(fn () => Site::count());
+        $accounted = $live + $inReview + $archived + $paused + $draft + $held;
+        $other = max(0, $total - $accounted);
+
+        return [
+            'total' => $total,
+            'live' => $live,
+            'in_review' => $inReview,
+            'archived' => $archived,
+            'paused' => $paused,
+            'draft' => $draft,
+            'held' => $held,
+            'other' => $other,
+        ];
+    }
+
+    private function unverifiedSitesCountExclusiveOfLiveAndArchived(): int
+    {
+        return $this->safeInt(function () {
+            if (! Schema::hasTable('sites')) {
+                return 0;
+            }
+
+            return Site::query()->needsAdminReview()->notArchived()->count();
         });
     }
 
@@ -1503,12 +1692,16 @@ class DashboardMetricsService
         return $this->safeKeyedRows(function () use ($from, $roleId) {
             $query = User::query()->where('created_at', '>=', $from);
             if ($roleId !== false) {
-                $query->whereExists(function ($inner) use ($roleId) {
-                    $inner->select(DB::raw(1))
-                        ->from('role_user')
-                        ->whereColumn('role_user.user_id', 'users.id')
-                        ->where('role_user.role_id', $roleId);
-                });
+                if (Schema::hasColumn('users', 'active_role_id')) {
+                    $query->where('active_role_id', $roleId);
+                } else {
+                    $query->whereExists(function ($inner) use ($roleId) {
+                        $inner->select(DB::raw(1))
+                            ->from('role_user')
+                            ->whereColumn('role_user.user_id', 'users.id')
+                            ->where('role_user.role_id', $roleId);
+                    });
+                }
             }
 
             return $query->selectRaw('DATE(created_at) as day, COUNT(*) as total')
@@ -1806,6 +1999,16 @@ class DashboardMetricsService
             '' => '',
             default => $method,
         };
+    }
+
+    private function waitingDays(mixed $value): ?int
+    {
+        $date = $this->parseDate($value);
+        if (! $date) {
+            return null;
+        }
+
+        return (int) $date->diffInDays(now());
     }
 
     private function ageLabel(mixed $value): ?string
