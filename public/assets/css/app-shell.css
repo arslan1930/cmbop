@@ -12,6 +12,7 @@
   --shell-sidebar-width: 220px;
   --shell-sidebar-collapsed: 70px;
   --shell-topbar-height: 84px;
+  --shell-topbar-offset: calc(var(--shell-topbar-height) + env(safe-area-inset-top, 0px));
   --shell-border: var(--border-subtle, #e2e8f0);
   --shell-bg: var(--surface-2, #f7fafb);
   --shell-ink: var(--brand-ink, #1e293b);
@@ -51,6 +52,7 @@
 
 html {
   height: 100%;
+  scroll-padding-top: var(--shell-topbar-offset);
 }
 body, html {
   min-height: 100%;
@@ -126,7 +128,7 @@ body.role-shell-marketing #sidebar {
 
 /* Brand wordmarks — keep on one line / one visual plane */
 .shell-sidebar-brand {
-  padding: 4px 10px;
+  padding: 12px 10px 8px;
 }
 .shell-logo-wordmark,
 #logoSidebar,
@@ -155,7 +157,7 @@ body.role-shell-marketing #sidebar {
 .top-navbar .mobile-left > a.d-flex {
   flex-shrink: 1;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .top-navbar .mobile-left > a.d-flex img {
   max-width: 100%;
@@ -184,6 +186,7 @@ body.role-shell-marketing #sidebar {
   position: fixed;
   top: 0;
   left: 0;
+  padding-top: env(safe-area-inset-top, 0px);
   /* Fixed chrome must not count as a flex row on body — that left a
      white gap under the footer when the sidebar was expanded. */
   flex: none;
@@ -418,7 +421,8 @@ body.role-shell-marketing #sidebar {
 
 /* ——— Topbar ——— */
 .top-navbar {
-  height: var(--shell-topbar-height);
+  min-height: var(--shell-topbar-offset);
+  height: auto;
   position: sticky;
   top: 0;
   left: var(--shell-rail);
@@ -429,7 +433,7 @@ body.role-shell-marketing #sidebar {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 0 24px;
+  padding: env(safe-area-inset-top, 0px) 24px 0;
   z-index: var(--shell-z-topbar, 1060);
   overflow: visible;
   min-width: 0;
@@ -439,7 +443,15 @@ body.role-shell-marketing #sidebar {
    they scroll underneath it. */
 .sticky-below-topbar {
   position: sticky;
-  top: calc(var(--shell-topbar-height) + 1rem);
+  top: calc(var(--shell-topbar-offset) + 1rem);
+}
+
+/* Desktop expanded rail already has the wordmark — don't stack a second
+   copy in the topbar now that the bar is inset to the content column. */
+@media (min-width: 992px) {
+  body:not(:has(#sidebar.collapsed)) .top-navbar .mobile-left > a.d-flex {
+    display: none;
+  }
 }
 .top-navbar .mobile-left {
   flex: 1 1 auto;
@@ -531,6 +543,10 @@ body.role-shell-advertiser .top-navbar .dropdown-toggle {
 }
 
 /* ——— Content + footer ——— */
+/* Topbar must share the content-column box. Sticky left/right do not
+   inset the used width, so a full-bleed bar painted over the sidebar
+   and sheared the wordmark / first dashboard card titles. */
+.top-navbar,
 #content,
 #main-content,
 footer.app-shell-footer,
@@ -539,9 +555,15 @@ body > footer {
   max-width: calc(100% - var(--shell-rail));
   box-sizing: border-box;
 }
+.top-navbar,
+#content,
+#main-content,
+footer.app-shell-footer,
+body > footer {
+  margin-left: var(--shell-rail);
+}
 #content,
 #main-content {
-  margin-left: var(--shell-rail);
   /* Extra top padding so Poppins 700 page titles are not sheared.
      A one-axis clip on this column turns it into a scrollport and crops
      the first heading. Keep horizontal wrapping on the document body. */
@@ -808,9 +830,9 @@ body > footer {
     transition: none;
   }
   #sidebar {
-    top: var(--shell-topbar-height);
-    height: calc(100vh - var(--shell-topbar-height));
-    height: calc(100dvh - var(--shell-topbar-height));
+    top: var(--shell-topbar-offset);
+    height: calc(100vh - var(--shell-topbar-offset));
+    height: calc(100dvh - var(--shell-topbar-offset));
     left: auto;
     right: auto;
     width: min(280px, 86vw);
