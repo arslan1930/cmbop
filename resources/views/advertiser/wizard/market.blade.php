@@ -1,5 +1,7 @@
 @extends('advertiser.layouts.app')
 
+@section('title', 'Place a guest post')
+
 @section('content')
 <div class="container-fluid">
     <div class="wizard-chrome">

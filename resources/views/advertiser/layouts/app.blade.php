@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>@yield('title', 'Advertiser Dashboard')</title>
+    @php
+        $advertiserPageTitle = trim((string) $__env->yieldContent('title', 'Advertiser Dashboard'));
+        if ($advertiserPageTitle === '') {
+            $advertiserPageTitle = 'Advertiser Dashboard';
+        }
+        if (! str_contains($advertiserPageTitle, 'SEOLinkBuildings')) {
+            $advertiserPageTitle .= ' · SEOLinkBuildings';
+        }
+    @endphp
+    <title>{{ $advertiserPageTitle }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="@yield('meta_description', 'Advertiser dashboard for browsing publisher sites, managing orders, and funding your SEOLinkBuildings wallet.')">
@@ -294,7 +303,7 @@
 <div id="cartSidebar" class="cart-sidebar" role="dialog" aria-modal="true" aria-labelledby="cartTitle" aria-hidden="true">
     <div class="cart-header">
         <div>
-            <h5 id="cartTitle" class="mb-0">Your Cart</h5>
+            <p id="cartTitle" class="mb-0 cart-title">Your Cart</p>
             <div id="cartHeaderMeta" class="small text-muted mt-1">Pay with wallet, card, or PayPal at checkout. Sites without an article stay in the cart.</div>
         </div>
         <button id="closeCart" class="topbar-icon-btn" type="button" aria-label="Close cart">
