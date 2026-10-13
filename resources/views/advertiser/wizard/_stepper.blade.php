@@ -32,10 +32,10 @@
     width:22px; height:22px; border-radius:50%; background:#94a3b8; color:#fff;
     display:inline-flex; align-items:center; justify-content:center; font-size:11px;
 }
-.wizard-step.is-active { border-color:#5bc4c7; background:#f0fbfb; color:#1a585e; }
-.wizard-step.is-active .num { background:#1a585e; }
+.wizard-step.is-active { border-color:#1a585e; background:#1a585e; color:#fff; }
+.wizard-step.is-active .num { background:#fff; color:#1a585e; }
 .wizard-step.is-done { border-color:#b8e4e4; background:#e6f5f5; color:#1a585e; }
-.wizard-step.is-done .num { background:#3faeb2; }
+.wizard-step.is-done .num { background:#0f766e; }
 .wizard-step.is-disabled { pointer-events:none; opacity:.55; }
 .wizard-chrome {
     border:1px solid #b8e4e4; background:linear-gradient(135deg,#f0fbfb,#fff);
@@ -53,13 +53,17 @@
             $canLink = $linkAll || $n <= $step;
         @endphp
         @if($canLink)
-            <a href="{{ $meta['route'] }}" class="wizard-step {{ $cls }}">
-                <span class="num">{{ $n }}</span>
+            <a href="{{ $meta['route'] }}"
+               class="wizard-step {{ $cls }}"
+               @if($isActive) aria-current="step" @endif
+               @if($isDone) aria-label="{{ $meta['label'] }} (completed)" @endif>
+                <span class="num" aria-hidden="true">{{ $isDone ? '✓' : $n }}</span>
                 <span>{{ $meta['label'] }}</span>
             </a>
         @else
-            <span class="wizard-step is-disabled {{ $cls }}">
-                <span class="num">{{ $n }}</span>
+            <span class="wizard-step is-disabled {{ $cls }}"
+                  @if($isActive) aria-current="step" @endif>
+                <span class="num" aria-hidden="true">{{ $isDone ? '✓' : $n }}</span>
                 <span>{{ $meta['label'] }}</span>
             </span>
         @endif
