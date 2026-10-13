@@ -352,6 +352,22 @@ class MarketingSitesIndexTest extends TestCase
         $this->assertSame(1, (int) ($dashboard['siteCount'] ?? 0));
     }
 
+    public function test_catalog_health_chips_link_and_explain_below_quality(): void
+    {
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.sites.index'))
+            ->assertOk()
+            ->assertSee('staff-catalog-health', false)
+            ->assertSee('below quality bar', false)
+            ->assertSee('unverified active', false)
+            ->assertSee('DA ≥ 30', false)
+            ->getContent();
+
+        $this->assertStringContainsString('below_quality=1', $html);
+        $this->assertStringContainsString('is-zero', $html);
+        $this->assertStringContainsString('of ', $html);
+    }
+
     public function test_sites_delete_script_checks_failed_responses(): void
     {
         $html = $this->actingAs($this->marketer)

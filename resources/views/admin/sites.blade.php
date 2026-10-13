@@ -73,41 +73,48 @@
             @endif
             @php
                 $liveUnverifiedUrl = staff_route('sites.index', ['all' => 1, 'listing_active' => 1, 'listing_verified' => 0]);
+                $nonArchivedListCount = (int) ($nonArchivedListCount ?? 0);
                 $healthLinks = [
                     'below_quality' => [
                         'label' => 'below quality bar',
                         'count' => (int) ($belowQualityListCount ?? 0),
                         'url' => staff_route('sites.index', ['all' => 1, 'below_quality' => 1]),
+                        'title' => 'DA, DR, or organic traffic is under the catalog bar (DA ≥ 30, DR ≥ 30, traffic ≥ 10,000), or that metric is missing. Counts every non-archived listing, not only live catalog rows.',
                     ],
                     'unverified' => [
                         'label' => 'unverified active',
                         'count' => (int) ($liveUnverifiedCount ?? 0),
                         'url' => $liveUnverifiedUrl,
+                        'title' => 'Already live in the advertiser catalog, but not verified by staff.',
                     ],
                     'placeholder' => [
                         'label' => 'placeholder',
                         'count' => (int) ($placeholderListCount ?? 0),
                         'url' => staff_route('sites.index', ['all' => 1, 'placeholder' => 1]),
+                        'title' => 'Live listing still using placeholder copy or a stock/empty description.',
                     ],
                     'missing_cover' => [
                         'label' => 'missing cover',
                         'count' => (int) ($missingCoverListCount ?? 0),
                         'url' => staff_route('sites.index', ['all' => 1, 'missing_cover' => 1]),
+                        'title' => 'Live listing with no cover image or screenshot.',
                     ],
                 ];
-                $healthPreview = collect($healthLinks)->filter(fn ($row) => $row['count'] > 0);
             @endphp
-            @if($healthPreview->isNotEmpty())
-                <small class="text-muted d-block mt-1">
-                    Catalog health:
-                    @foreach($healthPreview as $healthRow)
-                        <a href="{{ $healthRow['url'] }}" class="link-secondary">
-                            <span class="badge text-bg-warning">{{ $healthRow['count'] }}</span>
-                            {{ $healthRow['label'] }}
-                        </a>@if(! $loop->last), @endif
-                    @endforeach
-                </small>
-            @endif
+            <div class="staff-catalog-health mt-2" aria-label="Catalog health">
+                <span class="staff-catalog-health__label">Catalog health</span>
+                @foreach($healthLinks as $healthRow)
+                    <a href="{{ $healthRow['url'] }}"
+                       class="staff-catalog-health__chip {{ $healthRow['count'] === 0 ? 'is-zero' : '' }}"
+                       title="{{ $healthRow['title'] }}">
+                        <span class="staff-catalog-health__count">{{ number_format($healthRow['count']) }}</span>
+                        {{ $healthRow['label'] }}
+                        @if($healthRow['label'] === 'below quality bar' && $nonArchivedListCount > 0)
+                            <span class="staff-catalog-health__of">of {{ number_format($nonArchivedListCount) }}</span>
+                        @endif
+                    </a>
+                @endforeach
+            </div>
             </div>
         </div>
         <div class="admin-sites-header__actions d-flex flex-wrap gap-2">

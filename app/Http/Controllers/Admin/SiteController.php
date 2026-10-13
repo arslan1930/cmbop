@@ -111,6 +111,7 @@ class SiteController extends Controller
                 'waitingStage' => '',
                 'sitesReturnQuery' => [],
                 'archivedListCount' => 0,
+                'nonArchivedListCount' => 0,
             ]);
         }
     }
@@ -201,6 +202,7 @@ class SiteController extends Controller
         $missingMarketListCount = (int) $catalogCounts['missingMarketListCount'];
         $scanFailedListCount = (int) $catalogCounts['scanFailedListCount'];
         $archivedListCount = (int) $catalogCounts['archivedListCount'];
+        $nonArchivedListCount = (int) $catalogCounts['nonArchivedListCount'];
         $healthCounts = is_array($catalogCounts['healthCounts'] ?? null)
             ? $catalogCounts['healthCounts']
             : CatalogHealthQueue::emptyCounts();
@@ -453,6 +455,7 @@ class SiteController extends Controller
             'sitesExportLimited',
             'sitesExportUrl',
             'archivedListCount',
+            'nonArchivedListCount',
             'staffSiteFilters',
             'listingTagOptions',
             'marketplaceCountries',
@@ -2642,6 +2645,7 @@ class SiteController extends Controller
                 ]),
                 'scanFailedListCount' => $this->staffSitesFilterTotal(['scan_failed' => true]),
                 'archivedListCount' => $this->staffSitesFilterTotal(['archived' => true]),
+                'nonArchivedListCount' => $this->staffSitesFilterTotal([]),
                 'healthCounts' => $healthCounts,
                 'missingMarketCount' => (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0),
             ];

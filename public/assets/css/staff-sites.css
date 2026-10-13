@@ -908,6 +908,71 @@
   color: #64748b;
 }
 
+.staff-sites-strip__of {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.staff-sites-strip__cell.is-zero {
+  background: #f8fafc;
+  border-color: #eef2f6;
+  opacity: 0.62;
+}
+
+.staff-sites-strip__cell.is-zero .staff-sites-strip__count,
+.staff-sites-strip__cell.is-zero .staff-sites-strip__label {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.staff-catalog-health {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  font-size: 0.92rem;
+}
+
+.staff-catalog-health__label {
+  color: #64748b;
+  font-weight: 600;
+  margin-right: 0.15rem;
+}
+
+.staff-catalog-health__chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.staff-catalog-health__chip:hover,
+.staff-catalog-health__chip:focus-visible {
+  border-color: #1a585e;
+  color: inherit;
+}
+
+.staff-catalog-health__count {
+  font-weight: 700;
+}
+
+.staff-catalog-health__of {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.staff-catalog-health__chip.is-zero {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
 .staff-assign-site-section .card-body {
   padding: 1.15rem 1.25rem;
 }

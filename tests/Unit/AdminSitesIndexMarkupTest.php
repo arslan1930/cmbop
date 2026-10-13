@@ -18,7 +18,13 @@ class AdminSitesIndexMarkupTest extends TestCase
         $this->assertStringContainsString('Ready to activate', $blade);
         $this->assertStringContainsString("staff_route('sites.index')", $blade);
         $this->assertStringContainsString("['publishers' => 1]", $blade);
+        $this->assertStringContainsString('staff-catalog-health', $blade);
+        $this->assertStringContainsString('below quality bar', $blade);
+        $this->assertStringContainsString('unverified active', $blade);
+        $this->assertStringContainsString('placeholder', $blade);
+        $this->assertStringContainsString('missing cover', $blade);
         $this->assertStringContainsString('staff-sites-strip', $strip);
+        $this->assertStringContainsString('is-zero', $strip);
         $this->assertStringContainsString('Needs review', $strip);
         $this->assertStringContainsString('Waiting on publisher', $strip);
         $this->assertStringContainsString('Live unverified', $strip);

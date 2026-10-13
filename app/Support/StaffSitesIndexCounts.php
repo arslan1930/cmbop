@@ -24,6 +24,7 @@ class StaffSitesIndexCounts
      *     missingMarketListCount: int,
      *     scanFailedListCount: int,
      *     archivedListCount: int,
+     *     nonArchivedListCount: int,
      *     healthCounts: array<string, int>,
      *     missingMarketCount: int
      * }
@@ -41,6 +42,7 @@ class StaffSitesIndexCounts
             'missingMarketListCount' => 0,
             'scanFailedListCount' => 0,
             'archivedListCount' => 0,
+            'nonArchivedListCount' => 0,
             'healthCounts' => $healthCounts,
             'missingMarketCount' => (int) ($healthCounts[CatalogHealthQueue::MISSING_MARKET] ?? 0),
         ];

@@ -35,7 +35,7 @@
             'label' => 'Below quality',
             'count' => (int) ($belowQualityListCount ?? 0),
             'url' => staff_route('sites.index', ['all' => 1, 'below_quality' => 1]),
-            'hint' => 'DA, DR, or traffic is under the catalog bar.',
+            'hint' => 'DA < 30, DR < 30, or traffic < 10,000 (or missing) on any non-archived listing. Not limited to live catalog rows.',
             'active' => ! empty($allSitesMode) && ! empty($staffSiteFilters['below_quality']),
         ],
         [
@@ -60,10 +60,14 @@
 <div class="staff-sites-strip mb-3" aria-label="Site queues">
     @foreach($strip as $cell)
         <a href="{{ $cell['url'] }}"
-           class="staff-sites-strip__cell {{ $cell['active'] ? 'is-active' : '' }}"
+           class="staff-sites-strip__cell {{ $cell['active'] ? 'is-active' : '' }} {{ $cell['count'] === 0 ? 'is-zero' : '' }}"
+           title="{{ $cell['hint'] }}"
            @if($cell['active']) aria-current="page" @endif>
             <span class="staff-sites-strip__count">{{ number_format($cell['count']) }}</span>
             <span class="staff-sites-strip__label">{{ $cell['label'] }}</span>
+            @if($cell['key'] === 'quality' && (int) ($nonArchivedListCount ?? 0) > 0)
+                <span class="staff-sites-strip__of">of {{ number_format((int) $nonArchivedListCount) }}</span>
+            @endif
             @if($cell['key'] === 'market')
                 <span class="visually-hidden">active sites missing market country</span>
             @endif
