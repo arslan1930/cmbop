@@ -38,7 +38,8 @@ class MoneyDisplayTest extends TestCase
         $js = file_get_contents(public_path('js/slb-money.js'));
         $this->assertIsString($js);
         $this->assertStringContainsString("var MINUS = '\\u2212'", $js);
-        $this->assertStringContainsString('signedPrefix(value, !!options.signed) + symbol', $js);
+        $this->assertStringContainsString('signedPrefix(value, !!options.signed) + symbol + grouped(value)', $js);
+        $this->assertStringContainsString('function grouped(n)', $js);
         $this->assertStringContainsString('if (value < 0) return MINUS', $js);
     }
 

@@ -23,6 +23,8 @@
     $walletUnavailable = (bool) ($walletUnavailable ?? false);
     $pendingDeposits = (float) ($summary['pending_deposits'] ?? 0);
     $reservedHold = (float) ($summary['reserved_balance'] ?? 0);
+    $depositMin = \App\Support\DepositPaymentConfig::depositMin();
+    $depositMax = \App\Support\DepositPaymentConfig::depositMax();
 @endphp
 
 
@@ -31,13 +33,13 @@
     <div class="af-page-header">
         <div>
             <h1 class="af-page-title">Add funds</h1>
-            <p class="af-page-sub">Top up your wallet. Minimum €10.</p>
+            <p class="af-page-sub">Top up your wallet. Minimum {{ format_money($depositMin ?? 10) }}.</p>
         </div>
         <div class="af-page-links">
             <button type="button" class="af-text-link" id="withdrawOpenBtn"
                     data-bs-toggle="modal" data-bs-target="#withdrawModal"
                     @disabled(! $canWithdraw)>
-                Withdraw
+                Withdraw wallet
             </button>
             <a href="{{ route('advertiser.billing.index') }}" class="af-text-link">Billing &amp; invoices</a>
             <a href="{{ route('advertiser.analytics') }}" class="af-text-link">Spending</a>
@@ -94,7 +96,7 @@
             </div>
             <div class="af-role-strip__actions">
                 <a href="{{ route('publisher.balance') }}" class="af-text-link" id="publisherBalanceCta">Balance</a>
-                <a href="{{ route('publisher.withdraw') }}" class="af-text-link" id="publisherWithdrawCta">Withdraw</a>
+                <a href="{{ route('publisher.withdraw') }}" class="af-text-link" id="publisherWithdrawCta">Withdraw earnings</a>
             </div>
         </aside>
     @endif
@@ -132,14 +134,14 @@
                         </div>
                         <div class="d-flex flex-wrap gap-2">
                             <a href="{{ route('advertiser.invoice.pdf', $deposit->reference_code) }}" class="btn btn-sm btn-outline-secondary" download="invoice-REF{{ $deposit->reference_code }}.pdf">
-                                <i class="fa fa-file-invoice me-1"></i> Invoice
+                                <i class="fa fa-file-invoice me-1"></i> Download invoice
                             </a>
                             @if($deposit->canUserMarkPaid())
                                 <button type="button" class="btn btn-sm btn-outline-primary mark-deposit-paid-btn"
                                         data-mark-url="{{ route('advertiser.add-funds.mark-paid', $deposit) }}"
                                         data-ref="{{ $pendingRef }}"
                                         data-amount="{{ number_format((float) $deposit->amount, 2, '.', '') }}">
-                                    <i class="fa fa-check me-1"></i> Mark paid
+                                    <i class="fa fa-check me-1"></i> I paid
                                 </button>
                             @elseif($deposit->userHasMarkedPaid())
                                 <span class="small text-success align-self-center"><i class="fa fa-check-circle me-1"></i> Payment reported</span>
@@ -202,21 +204,33 @@
                     
                     <!-- Amount Selection -->
                     <div class="mb-4">
-                        <label class="form-label fw-semibold">Select Amount</label>
+                        <label class="form-label fw-semibold" for="customAmount">Select amount</label>
                         <div class="row g-2 mb-3">
                             @foreach([50, 100, 250, 500, 1000] as $amount)
                                 <div class="col-4 col-md-3 col-lg-2">
                                     <button type="button" class="amount-btn w-100 btn btn-outline-secondary py-2" data-amount="{{ $amount }}">
-                                        €{{ $amount }}
+                                        €{{ number_format($amount) }}
                                     </button>
                                 </div>
                             @endforeach
                         </div>
                         <div class="input-group" style="max-width: 250px;">
-                            <span class="input-group-text bg-white">€</span>
-                            <input type="number" id="customAmount" class="form-control" placeholder="Custom amount" min="10" step="1">
+                            <span class="input-group-text bg-white" id="customAmountPrefix">€</span>
+                            <input type="text" inputmode="decimal" id="customAmount" name="deposit_amount" class="form-control"
+                                   placeholder="Custom amount" autocomplete="transaction-amount"
+                                   aria-describedby="customAmountHelp amountError" min="{{ $depositMin }}" step="0.01">
                         </div>
-                        <small class="form-text text-muted mt-1">Minimum amount: €10</small>
+                        <small id="customAmountHelp" class="form-text text-muted mt-1">Minimum {{ format_money($depositMin) }} · Maximum {{ format_money($depositMax) }}</small>
+                        <div id="amountError" class="invalid-feedback d-none" role="alert"></div>
+                    </div>
+                    <div class="af-mobile-summary d-lg-none mb-4" id="afMobileSummary">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Total</span>
+                            <strong id="afMobileTotal">€0.00</strong>
+                        </div>
+                        <button type="button" id="afMobileProceed" class="btn btn-primary w-100 py-2" disabled>
+                            <i class="fa fa-arrow-right me-2"></i> Select an amount
+                        </button>
                     </div>
 
                     <!-- Selected Amount Display -->
@@ -292,7 +306,7 @@
                                     $methodReady = (bool) $meta['ready'];
                                     $isLastUsed = $lastUsedMethod === $methodKey;
                                 @endphp
-                                <div class="col-12 col-sm-6 col-xl-4">
+                                <div class="col-12 col-sm-6">
                                     <div class="payment-option"
                                          data-method="{{ $methodKey }}"
                                          @if($methodReady) style="cursor: pointer;" role="button" tabindex="0" @else aria-disabled="true" style="cursor: not-allowed; opacity: 0.6;" @endif
@@ -301,17 +315,17 @@
                                             @if($methodReady && ! empty($meta['new_key']))
                                                 <x-feature-new :badge-key="$meta['new_key']" class="payment-option-new" />
                                             @endif
-                                            <div class="payment-option-icon{{ $methodKey === 'paypal' ? ' payment-option-icon--paypal' : '' }}" style="background: {{ $meta['icon_bg'] }};">
+                                            <div class="payment-option-icon" style="background: {{ $meta['icon_bg'] }};">
                                                 @if($methodKey === 'card')
                                                     @include('partials.payment-card-brands')
                                                 @elseif($methodKey === 'bank')
-                                                    <i class="fas fa-university" style="font-size: 28px; color: var(--brand-primary, #1a585e);"></i>
+                                                    <i class="fas fa-university" aria-hidden="true"></i>
                                                 @elseif($methodKey === 'paypal')
-                                                    <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="PayPal" width="72" height="71" style="width:72px;height:auto;" decoding="async">
+                                                    <img src="{{ asset('assets/img/payments/paypal.png') }}" alt="PayPal" width="32" height="32" decoding="async">
                                                 @elseif($methodKey === 'wise')
-                                                    <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="Wise Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                                                    <img src="{{ asset('assets/img/wiseImg-logo.png') }}" alt="Wise" width="32" height="32">
                                                 @else
-                                                    <i class="fab fa-bitcoin" style="font-size: 28px; color: #eab308;"></i>
+                                                    <i class="fab fa-bitcoin" aria-hidden="true"></i>
                                                 @endif
                                             </div>
                                             <span class="payment-option-name">{{ $meta['label'] }}</span>
@@ -341,7 +355,7 @@
                         <div id="invoiceReadyBar" class="alert alert-success border mb-3" style="display: none;" role="status">
                             <div class="fw-semibold mb-1">Invoice ready — transfer this amount with the REF below.</div>
                             <p class="small mb-2">Status stays <strong>Pending</strong> until we confirm and credit your wallet.</p>
-                            <div class="d-flex flex-wrap gap-2">
+                            <div class="d-flex flex-wrap gap-2 af-actions-safe">
                                 <a id="invoiceReadyView" class="btn btn-sm btn-primary" href="#" download="invoice.pdf">
                                     <i class="fa fa-file-invoice me-1"></i> Download invoice
                                 </a>
@@ -392,7 +406,7 @@
                                              style="display: none; width: 150px; height: 150px; margin: 0 auto;"
                                              width="150"
                                              height="150">
-                                        <p id="wiseQrHint" class="small text-muted">Select an amount (≥ €10) to generate your Wise QR.</p>
+                                        <p id="wiseQrHint" class="small text-muted">Select an amount (≥ {{ format_money($depositMin) }}) to generate your Wise QR.</p>
                                         <p id="wiseQrFallback" class="small text-muted d-none">QR unavailable — use the payment link above.</p>
                                         <a id="wiseOpenLink" href="#" target="_blank" rel="noopener" class="small d-none">Open in Wise</a>
                                     </div>
@@ -467,13 +481,14 @@
                                     </div>
                                     <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--brand-primary, #1a585e);">Bank Account Information</h4>
                                     <div style="margin-bottom: 12px;">
-                                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Seller / Service Provider:</p>
-                                        <p style="font-weight: 600; margin: 0;">{{ billing_company_for_documents()['legal_name'] ?? 'SEOLinkBuildings Partners with (Teqno LTD)' }}</p>
+                                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Beneficiary:</p>
+                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['seller_name'] ?? $depositPayment['beneficiary'] ?? 'Teqno LTD' }} (operator of SEOLinkBuildings)</p>
                                     </div>
                                     @include('partials.deposit-bank-account', [
                                         'depositPayment' => $depositPayment,
                                         'showExtended' => true,
                                         'showCopy' => true,
+                                        'showBeneficiary' => false,
                                         'walletCurrency' => $wallet?->currency ?? null,
                                         'eurAmount' => $prefillAmount ?? null,
                                         'showMethodSwitch' => true,
@@ -542,7 +557,7 @@
         </div>
 
 
-        <div class="col-lg-4">
+        <div class="col-lg-4 d-none d-lg-block">
             <div class="card wallet-panel mb-3">
                 <div class="card-header fw-semibold py-3">
                     <i class="fa fa-calculator me-2 text-primary"></i> Payment Summary
@@ -557,13 +572,14 @@
                         <strong>Total:</strong>
                         <strong class="text-primary fs-5" id="summaryTotal">€0.00</strong>
                     </div>
-                    <div class="alert alert-secondary py-2 px-3 mb-3" style="background-color: #f8f9fa;">
+                    <div class="alert alert-secondary py-2 px-3 mb-3 d-none" id="referenceRow" style="background-color: #f8f9fa;">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="small">Reference Code:</span>
                             <div>
                                 <strong id="referenceCode" class="ref-code font-monospace" data-placeholder="true">—</strong>
                                 <button type="button" class="btn btn-sm btn-link p-0 ms-2 copy-ref-btn" data-target="referenceCode" id="copyRefBtn" disabled>
-                                    <i class="fas fa-copy"></i>
+                                    <i class="fas fa-copy" aria-hidden="true"></i>
+                                    <span class="visually-hidden">Copy reference</span>
                                 </button>
                             </div>
                         </div>
@@ -575,7 +591,7 @@
                     <button type="button" id="proceedBtn" class="btn btn-primary w-100 mt-2 py-2" disabled>
                         <i class="fa fa-arrow-right me-2"></i> Select an amount
                     </button>
-                    <div class="mt-3">
+                    <div class="mt-3 af-actions-safe">
                         @include('partials.payment-trust', ['compact' => true])
                     </div>
                 </div>
@@ -666,8 +682,8 @@
                     <x-slb-search-field name="search" id="addFundsSearchInput" placeholder="Reference, description…" mode="" />
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted mb-1">Type</label>
-                    <select class="form-select form-select-sm" name="type">
+                    <label class="form-label fw-semibold small text-muted mb-1" for="historyType">Type</label>
+                    <select class="form-select form-select-sm" name="type" id="historyType" autocomplete="off">
                         <option value="">All</option>
                         <option value="deposit">Deposit</option>
                         <option value="bonus_credit">Bonus Credit</option>
@@ -680,8 +696,8 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted mb-1">Status</label>
-                    <select class="form-select form-select-sm" name="status">
+                    <label class="form-label fw-semibold small text-muted mb-1" for="historyStatus">Status</label>
+                    <select class="form-select form-select-sm" name="status" id="historyStatus" autocomplete="off">
                         <option value="">All</option>
                         <option value="completed">Completed</option>
                         <option value="pending">Pending</option>
@@ -691,12 +707,12 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted mb-1">From</label>
-                    <input type="date" class="form-control form-control-sm" name="from">
+                    <label class="form-label fw-semibold small text-muted mb-1" for="historyFrom">From</label>
+                    <input type="date" class="form-control form-control-sm" name="from" id="historyFrom" autocomplete="off">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold small text-muted mb-1">To</label>
-                    <input type="date" class="form-control form-control-sm" name="to">
+                    <label class="form-label fw-semibold small text-muted mb-1" for="historyTo">To</label>
+                    <input type="date" class="form-control form-control-sm" name="to" id="historyTo" autocomplete="off">
                 </div>
                 <div class="col-md-1 d-flex gap-1">
                     <button type="submit" class="btn btn-sm btn-primary flex-fill">Go</button>
@@ -717,6 +733,13 @@
             <small class="text-muted" id="activityLiveHint">Updates every 30s · pending invoices appear here with download</small>
             <nav id="historyPagination" class="d-flex justify-content-center"></nav>
         </div>
+    </div>
+
+    <div class="af-sticky-pay d-lg-none" id="afStickyPay" hidden>
+        <div class="af-sticky-pay__amount" id="afStickyAmount">€0.00</div>
+        <button type="button" class="btn btn-primary" id="afStickyProceed" disabled>
+            Select an amount
+        </button>
     </div>
 
 </div>
@@ -777,12 +800,12 @@
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Amount (€)</label>
-                                <input type="number" name="amount" id="withdrawAmount" class="form-control" step="0.01" min="0.01" max="{{ $available }}" required>
+                                <label class="form-label fw-semibold" for="withdrawAmount">Amount (€)</label>
+                                <input type="number" name="amount" id="withdrawAmount" class="form-control" step="0.01" min="0.01" max="{{ $available }}" required autocomplete="transaction-amount" inputmode="decimal">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Send payout via</label>
-                                <select name="payment_method" id="withdrawMethod" class="form-select" required>
+                                <label class="form-label fw-semibold" for="withdrawMethod">Send payout via</label>
+                                <select name="payment_method" id="withdrawMethod" class="form-select" required autocomplete="off">
                                     @if($payoutLocked)
                                         @forelse($availableMethods as $value)
                                             <option value="{{ $value }}" @selected($selectedWithdrawMethod === $value)>
@@ -799,9 +822,10 @@
                                 </select>
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">Business / Billing Name</label>
+                                <label class="form-label fw-semibold" for="withdrawBusinessName">Business / Billing Name</label>
                                 <input type="text" name="business_name" id="withdrawBusinessName" class="form-control"
                                        value="{{ $payout['business_name'] ?? '' }}"
+                                       autocomplete="organization"
                                        @if($payoutLocked || !empty($payout['business_name'])) readonly @endif required>
                                 @if($payoutLocked || !empty($payout['business_name']))
                                     <small class="text-muted">Locked — contact support to change.</small>
@@ -890,31 +914,31 @@
         if (method === 'bank') {
             const locked = fieldLocked(p.bank_account || p.bank_holder_name);
             wrap.html(`
-                <div class="col-md-6"><label class="form-label small fw-semibold">Bank Name</label>
-                    <input class="form-control" name="bank_name" value="${escapeHtml(p.bank_name || '')}" ${locked ? 'readonly' : ''} required>
+                <div class="col-md-6"><label class="form-label small fw-semibold" for="withdrawBankName">Bank Name</label>
+                    <input class="form-control" id="withdrawBankName" name="bank_name" autocomplete="organization" value="${escapeHtml(p.bank_name || '')}" ${locked ? 'readonly' : ''} required>
                     ${locked ? lockedHint() : ''}</div>
-                <div class="col-md-6"><label class="form-label small fw-semibold">Account Holder Name</label>
-                    <input class="form-control" name="account_holder" value="${escapeHtml(p.bank_holder_name || '')}" ${locked ? 'readonly' : ''} required>
+                <div class="col-md-6"><label class="form-label small fw-semibold" for="withdrawAccountHolder">Account Holder Name</label>
+                    <input class="form-control" id="withdrawAccountHolder" name="account_holder" autocomplete="name" value="${escapeHtml(p.bank_holder_name || '')}" ${locked ? 'readonly' : ''} required>
                     ${locked ? lockedHint() : ''}</div>
-                <div class="col-md-6"><label class="form-label small fw-semibold">Account Number / IBAN</label>
-                    <input class="form-control" name="account_number" value="${escapeHtml(p.bank_account || '')}" ${locked ? 'readonly' : ''} required>
+                <div class="col-md-6"><label class="form-label small fw-semibold" for="withdrawAccountNumber">Account Number / IBAN</label>
+                    <input class="form-control" id="withdrawAccountNumber" name="account_number" autocomplete="off" value="${escapeHtml(p.bank_account || '')}" ${locked ? 'readonly' : ''} required>
                     ${locked ? lockedHint() : ''}</div>
-                <div class="col-md-6"><label class="form-label small fw-semibold">SWIFT / BIC</label>
-                    <input class="form-control" name="swift_code" value="${escapeHtml(p.bank_swift || '')}" ${locked ? 'readonly' : ''}></div>
+                <div class="col-md-6"><label class="form-label small fw-semibold" for="withdrawSwift">SWIFT / BIC</label>
+                    <input class="form-control" id="withdrawSwift" name="swift_code" autocomplete="off" value="${escapeHtml(p.bank_swift || '')}" ${locked ? 'readonly' : ''}></div>
             `);
         } else if (method === 'paypal') {
             const locked = fieldLocked(p.paypal_email);
             wrap.html(`
-                <div class="col-12"><label class="form-label small fw-semibold">PayPal Email</label>
-                    <input type="email" class="form-control" name="paypal_email" value="${escapeHtml(p.paypal_email || '')}" ${locked ? 'readonly' : ''} required>
+                <div class="col-12"><label class="form-label small fw-semibold" for="withdrawPaypalEmail">PayPal Email</label>
+                    <input type="email" class="form-control" id="withdrawPaypalEmail" name="paypal_email" autocomplete="email" value="${escapeHtml(p.paypal_email || '')}" ${locked ? 'readonly' : ''} required>
                     ${locked ? lockedHint() : '<small class="text-muted">This email cannot be changed later without contacting support.</small>'}
                 </div>
             `);
         } else if (method === 'wise') {
             const locked = fieldLocked(p.wise_email);
             wrap.html(`
-                <div class="col-12"><label class="form-label small fw-semibold">Wise Email</label>
-                    <input type="email" class="form-control" name="wise_email" value="${escapeHtml(p.wise_email || '')}" ${locked ? 'readonly' : ''} required>
+                <div class="col-12"><label class="form-label small fw-semibold" for="withdrawWiseEmail">Wise Email</label>
+                    <input type="email" class="form-control" id="withdrawWiseEmail" name="wise_email" autocomplete="email" value="${escapeHtml(p.wise_email || '')}" ${locked ? 'readonly' : ''} required>
                     ${locked ? lockedHint() : '<small class="text-muted">This email cannot be changed later without contacting support.</small>'}
                 </div>
             `);
@@ -922,19 +946,19 @@
             const locked = fieldLocked(p.crypto_trx_wallet);
             const cryptoType = p.crypto_type || 'USDT_TRC20';
             wrap.html(`
-                <div class="col-md-4"><label class="form-label small fw-semibold">Network</label>
-                    <select class="form-select" name="crypto_type" ${locked ? 'disabled' : ''} required>
+                <div class="col-md-4"><label class="form-label small fw-semibold" for="withdrawCryptoType">Network</label>
+                    <select class="form-select" id="withdrawCryptoType" name="crypto_type" autocomplete="off" ${locked ? 'disabled' : ''} required>
                         <option value="USDT_TRC20" ${cryptoType === 'USDT_TRC20' ? 'selected' : ''}>USDT (TRC20)</option>
                         <option value="TRX" ${cryptoType === 'TRX' ? 'selected' : ''}>TRX</option>
                     </select>
                     ${locked ? `<input type="hidden" name="crypto_type" value="${escapeHtml(cryptoType)}">` : ''}
                 </div>
-                <div class="col-md-8"><label class="form-label small fw-semibold">TRX / TRC20 Wallet</label>
+                <div class="col-md-8"><label class="form-label small fw-semibold" for="withdrawWallet">TRX / TRC20 Wallet</label>
                     <input class="form-control" name="wallet_address" id="withdrawWallet" value="${escapeHtml(p.crypto_trx_wallet || '')}" ${locked ? 'readonly' : ''} required autocomplete="off">
                     ${locked ? lockedHint() : '<small class="text-muted">Enter twice below to verify.</small>'}
                 </div>
                 ${locked ? '' : `
-                <div class="col-12"><label class="form-label small fw-semibold">Confirm TRX Wallet</label>
+                <div class="col-12"><label class="form-label small fw-semibold" for="withdrawWalletConfirm">Confirm TRX Wallet</label>
                     <input class="form-control" name="wallet_address_confirm" id="withdrawWalletConfirm" required autocomplete="off">
                     <small class="text-muted">Must match exactly — wallets are verified twice.</small>
                 </div>`}
@@ -1339,7 +1363,7 @@
                 const t = res.transaction;
                 let invoiceBtn = '';
                 if (t.invoice_download_url) {
-                    invoiceBtn = `<a class="btn btn-sm btn-primary w-100 mt-3" href="${escapeHtml(t.invoice_download_url)}"><i class="fa fa-download me-1"></i> Download Invoice</a>`;
+                    invoiceBtn = `<a class="btn btn-sm btn-primary w-100 mt-3" href="${escapeHtml(t.invoice_download_url)}"><i class="fa fa-download me-1"></i> Download invoice</a>`;
                 } else if (t.invoice_view_url) {
                     invoiceBtn = `<a class="btn btn-sm btn-outline-secondary w-100 mt-3" href="${escapeHtml(t.invoice_view_url)}">View Invoice</a>`;
                 }
@@ -1517,36 +1541,36 @@
                     @csrf
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Billing Name <span class="text-danger">*</span></label>
-                            <input type="text" name="billing_name" id="billing_name" class="form-control" required>
+                            <label class="form-label" for="billing_name">Billing Name <span class="text-danger">*</span></label>
+                            <input type="text" name="billing_name" id="billing_name" class="form-control" required autocomplete="name">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Company Name <span class="text-danger">*</span></label>
-                            <input type="text" name="company_name" id="company_name" class="form-control" required>
+                            <label class="form-label" for="company_name">Company Name <span class="text-danger">*</span></label>
+                            <input type="text" name="company_name" id="company_name" class="form-control" required autocomplete="organization">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Country <span class="text-danger">*</span></label>
-                            <input type="text" name="country" id="country" class="form-control" required>
+                            <label class="form-label" for="country">Country <span class="text-danger">*</span></label>
+                            <input type="text" name="country" id="country" class="form-control" required autocomplete="country-name">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">State/Province <span class="text-danger">*</span></label>
-                            <input type="text" name="state" id="state" class="form-control" required>
+                            <label class="form-label" for="state">State/Province <span class="text-danger">*</span></label>
+                            <input type="text" name="state" id="state" class="form-control" required autocomplete="address-level1">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">City <span class="text-danger">*</span></label>
-                            <input type="text" name="city" id="city" class="form-control" required>
+                            <label class="form-label" for="city">City <span class="text-danger">*</span></label>
+                            <input type="text" name="city" id="city" class="form-control" required autocomplete="address-level2">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Postal Code <span class="text-danger">*</span></label>
-                            <input type="text" name="postal_code" id="postal_code" class="form-control" required>
+                            <label class="form-label" for="postal_code">Postal Code <span class="text-danger">*</span></label>
+                            <input type="text" name="postal_code" id="postal_code" class="form-control" required autocomplete="postal-code">
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Address <span class="text-danger">*</span></label>
-                            <textarea name="address" id="address" class="form-control" rows="2" required></textarea>
+                            <label class="form-label" for="address">Address <span class="text-danger">*</span></label>
+                            <textarea name="address" id="address" class="form-control" rows="2" required autocomplete="street-address"></textarea>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">VAT Number</label>
-                            <input type="text" name="vat_number" id="vat_number" class="form-control">
+                            <label class="form-label" for="vat_number">VAT Number</label>
+                            <input type="text" name="vat_number" id="vat_number" class="form-control" autocomplete="off">
                         </div>
                     </div>
                 </form>
@@ -1571,6 +1595,8 @@ window.AddFundsBoot = {
     prefillAmount: @json($prefillAmount ?? null),
     prefillMethod: @json($prefillMethod ?? null),
     lastUsedMethod: @json($lastUsedMethod ?? null),
+    depositMin: @json($depositMin ?? \App\Support\DepositPaymentConfig::depositMin()),
+    depositMax: @json($depositMax ?? \App\Support\DepositPaymentConfig::depositMax()),
     paypalLogo: @json(asset('assets/img/payments/paypal.png')),
     openCardsTab: @json((bool) ($openCardsTab ?? false)),
     usdBankWire: @json(app(\App\Support\UsdBankWireGuidance::class)->bootPayload($wallet?->currency ?? null, auth()->user())),

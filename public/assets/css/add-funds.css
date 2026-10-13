@@ -368,10 +368,21 @@
     border-radius: 8px;
     margin: 0 auto 8px;
 }
+.payment-option-icon i {
+    font-size: 28px;
+    color: var(--brand-primary, #1a585e);
+}
+.payment-option-icon .fa-bitcoin {
+    color: #eab308;
+}
+.payment-option-icon img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
 
-.payment-option-icon--paypal {
-    width: 80px;
-    height: 80px;
+.payment-methods-row {
+    --bs-gutter-x: 1rem;
 }
 
 .payment-option-name {
@@ -479,4 +490,68 @@
 .payment-option.is-locked-out {
     opacity: 0.5;
     pointer-events: none;
+}
+
+.add-funds-page {
+    padding-bottom: 5.5rem;
+}
+#amountError.d-block {
+    display: block !important;
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin-top: 0.35rem;
+}
+#customAmount.is-invalid {
+    border-color: #dc2626;
+}
+.af-actions-safe {
+    padding-bottom: 1.25rem;
+    padding-right: 4.5rem;
+}
+.af-sticky-pay {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1040;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: #fff;
+    border-top: 1px solid #d9e7e8;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+}
+.af-sticky-pay[hidden] {
+    display: none !important;
+}
+.af-sticky-pay__amount {
+    font-weight: 700;
+    color: #1a585e;
+    font-size: 1.05rem;
+}
+.af-sticky-pay .btn {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.af-mobile-summary {
+    padding: 12px 14px;
+    border: 1px solid #d9e7e8;
+    border-radius: 12px;
+    background: #f8fbfb;
+}
+
+@media (max-width: 991.98px) {
+    .add-funds-page {
+        padding-bottom: 8.5rem;
+    }
+    body:has(.add-funds-page) footer,
+    body:has(.add-funds-page) .app-shell-footer {
+        padding-bottom: 6.5rem;
+    }
+    .af-actions-safe {
+        padding-right: 5.5rem;
+        padding-bottom: 4.5rem;
+    }
 }

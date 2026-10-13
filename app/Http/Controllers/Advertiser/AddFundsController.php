@@ -243,7 +243,7 @@ class AddFundsController extends Controller
     public function wiseQr(Request $request)
     {
         $data = $request->validate([
-            'amount' => 'required|numeric|min:10|max:100000',
+            'amount' => DepositPaymentConfig::amountRule(),
         ]);
 
         $amount = round((float) $data['amount'], 2);
@@ -302,7 +302,7 @@ class AddFundsController extends Controller
     {
         try {
             $request->validate([
-                'amount' => 'required|numeric|min:10|max:100000',
+                'amount' => DepositPaymentConfig::amountRule(),
                 'reference_code' => 'required|string',
             ]);
 
@@ -377,7 +377,7 @@ class AddFundsController extends Controller
     {
         try {
             $request->validate([
-                'amount' => 'required|numeric|min:10|max:100000',
+                'amount' => DepositPaymentConfig::amountRule(),
                 'reference_code' => 'required|string',
             ]);
 
@@ -637,7 +637,7 @@ class AddFundsController extends Controller
     public function payWithSavedCard(Request $request)
     {
         $request->validate([
-            'amount' => 'required|numeric|min:10|max:100000',
+            'amount' => DepositPaymentConfig::amountRule(),
             'payment_method_id' => 'required|string',
             'reference_code' => 'required|string',
         ]);
@@ -724,7 +724,7 @@ class AddFundsController extends Controller
     {
         try {
             $request->validate([
-                'amount' => 'required|numeric|min:10|max:100000',
+                'amount' => DepositPaymentConfig::amountRule(),
                 'payment_method' => 'required|in:wise,crypto,bank',
                 'reference_code' => 'nullable|string',
             ]);

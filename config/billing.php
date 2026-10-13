@@ -33,14 +33,14 @@ return [
     |--------------------------------------------------------------------------
     */
     'deposit_payment' => [
-        'seller_name' => env('BILLING_DEPOSIT_SELLER_NAME') ?: 'Teqno Ltd',
-        'beneficiary' => env('BILLING_DEPOSIT_BENEFICIARY') ?: 'Teqno Ltd',
+        'seller_name' => env('BILLING_DEPOSIT_SELLER_NAME') ?: 'Teqno LTD',
+        'beneficiary' => env('BILLING_DEPOSIT_BENEFICIARY') ?: 'Teqno LTD',
         'bic' => env('BILLING_DEPOSIT_BIC') ?: 'TRWIGB2LXXX',
         'iban' => env('BILLING_DEPOSIT_IBAN') ?: 'GB30 TRWI 2308 0132 9321 94',
         'uk_account_number' => env('BILLING_DEPOSIT_UK_ACCOUNT') ?: '32932194',
         'uk_sort_code' => env('BILLING_DEPOSIT_UK_SORT') ?: '23-08-01',
-        'uk_transfer_note' => env('BILLING_DEPOSIT_UK_NOTE') ?: 'Use when sending money from the UK',
-        'intl_transfer_note' => env('BILLING_DEPOSIT_INTL_NOTE') ?: 'Use when sending money from outside the UK',
+        'uk_transfer_note' => env('BILLING_DEPOSIT_UK_NOTE') ?: 'Use this GBP account when sending pounds from a UK bank',
+        'intl_transfer_note' => env('BILLING_DEPOSIT_INTL_NOTE') ?: 'Use this EUR account when sending euros, including from outside the UK',
         'phone' => env('BILLING_DEPOSIT_PHONE') ?: '+447445152374',
         'address_lines' => array_values(array_filter([
             env('BILLING_DEPOSIT_ADDRESS_LINE1') ?: '20 Wenlock Road, London, England, N1 7GU',
@@ -90,6 +90,12 @@ return [
 
     'currency' => env('BILLING_CURRENCY', 'EUR'),
     'currency_symbol' => env('BILLING_CURRENCY_SYMBOL', '€'),
+
+    /*
+    | Wallet top-up amount bounds (EUR). Used by Add Funds store / QR / checkout.
+    */
+    'deposit_min' => (float) env('BILLING_DEPOSIT_MIN', 10),
+    'deposit_max' => (float) env('BILLING_DEPOSIT_MAX', 50000),
 
     /*
     |--------------------------------------------------------------------------
