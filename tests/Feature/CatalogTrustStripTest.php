@@ -79,8 +79,9 @@ class CatalogTrustStripTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('site-trust-compact', $html);
-        $this->assertStringContainsString('Awaiting first ratings', $html);
-        $this->assertStringContainsString('No completed orders yet', $html);
+        $this->assertStringContainsString('New listing', $html);
+        $this->assertStringNotContainsString('Awaiting first ratings', $html);
+        $this->assertStringNotContainsString('No completed orders yet', $html);
         $this->assertStringContainsString('Ratings from advertisers after completed orders', $html);
         $this->assertStringNotContainsString('No completions yet', $html);
         $this->assertMatchesRegularExpression('/<dt>\s*Trust\b/s', $html);
@@ -102,8 +103,9 @@ class CatalogTrustStripTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Awaiting first ratings', $html);
-        $this->assertStringContainsString('No completed orders yet', $html);
+        $this->assertStringContainsString('New listing', $html);
+        $this->assertStringNotContainsString('Awaiting first ratings', $html);
+        $this->assertStringNotContainsString('No completed orders yet', $html);
         $this->assertStringNotContainsString('site-trust-compact__stars', $html);
         $this->assertStringNotContainsString('5.0', $html);
         $this->assertStringNotContainsString('1 rating', $html);
@@ -145,8 +147,9 @@ class CatalogTrustStripTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Awaiting first ratings', $html);
-        $this->assertStringContainsString('No completed orders yet', $html);
+        $this->assertStringContainsString('New listing', $html);
+        $this->assertStringNotContainsString('Awaiting first ratings', $html);
+        $this->assertStringNotContainsString('No completed orders yet', $html);
         $this->assertStringNotContainsString('% completed', $html);
         $this->assertStringNotContainsString('site-trust-compact__stars', $html);
         $this->assertStringNotContainsString('5.0', $html);
@@ -285,8 +288,9 @@ class CatalogTrustStripTest extends TestCase
         $this->assertStringContainsString('completionRatePercent()', $partial);
         $this->assertStringContainsString('fa-clock', $partial);
         $this->assertStringContainsString('site-trust-compact__published', $partial);
-        $this->assertStringContainsString('Awaiting first ratings', $partial);
-        $this->assertStringContainsString('No completed orders yet', $partial);
+        $this->assertStringContainsString('New listing', $partial);
+        $this->assertStringNotContainsString('Awaiting first ratings', $partial);
+        $this->assertStringNotContainsString('No completed orders yet', $partial);
         $this->assertStringContainsString("@include('advertiser.partials.catalog-site-trust'", $results);
         $this->assertStringNotContainsString('catalog-site-trust--row', $results);
         $this->assertStringContainsString('catalog-expand-trust', $results);

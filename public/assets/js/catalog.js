@@ -5441,11 +5441,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 const siteId = parseInt(button.getAttribute('data-site-id') || '', 10);
                 window.CatalogCopyTrack.report(url, Number.isFinite(siteId) && siteId > 0 ? siteId : null);
             }
-            catalogToast('URL copied to clipboard!', 'success');
+            catalogToast('Copied', 'success');
             const originalText = button.innerHTML;
+            const originalLabel = button.getAttribute('aria-label') || 'Copy sample article URL';
+            const originalTipTitle = button.getAttribute('data-glass-tip-title') || 'Copy sample article URL';
+            const originalTipBody = button.getAttribute('data-glass-tip-body') || '';
             button.innerHTML = '<i class="fa-regular fa-check" aria-hidden="true"></i>';
+            button.setAttribute('aria-label', 'Copied');
+            button.setAttribute('data-glass-tip-title', 'Copied');
+            button.setAttribute('data-glass-tip-body', 'Sample article URL copied.');
             setTimeout(function () {
                 button.innerHTML = originalText;
+                button.setAttribute('aria-label', originalLabel);
+                button.setAttribute('data-glass-tip-title', originalTipTitle);
+                button.setAttribute('data-glass-tip-body', originalTipBody);
             }, 1500);
         } catch (err) {
             console.error('Failed to copy:', err);
@@ -5735,9 +5744,12 @@ function applyCatalogReported(siteId, report) {
         el.setAttribute('data-report', saved);
         var label = el.dataset.name || 'this site';
         el.setAttribute('aria-label', hasReport ? ('You reported ' + label) : ('Report ' + label));
-        el.removeAttribute('data-glass-tip');
-        el.removeAttribute('data-glass-tip-title');
-        el.removeAttribute('data-glass-tip-body');
+        el.setAttribute('data-glass-tip', '');
+        el.setAttribute('data-glass-tip-title', hasReport ? 'You reported this listing' : 'Report listing');
+        el.setAttribute('data-glass-tip-body', hasReport
+            ? 'Open to update or clear your report.'
+            : 'Flag a problem with this listing for our team.');
+        el.setAttribute('data-glass-tip-placement', 'top');
     });
 }
 

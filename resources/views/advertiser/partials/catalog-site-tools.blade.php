@@ -17,7 +17,10 @@
             data-id="{{ $site->id }}"
             data-name="{{ $siteToolHost }}"
             data-report="{{ $siteToolReport }}"
-            data-no-tip
+            data-glass-tip
+            data-glass-tip-title="{{ $siteToolReported ? 'You reported this listing' : 'Report listing' }}"
+            data-glass-tip-body="{{ $siteToolReported ? 'Open to update or clear your report.' : 'Flag a problem with this listing for our team.' }}"
+            data-glass-tip-placement="top"
             aria-label="{{ $siteToolReported ? 'You reported '.$identityLabel : 'Report '.$identityLabel }}">
         <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
     </button>

@@ -170,8 +170,9 @@ class CatalogRowDetailsTest extends TestCase
         $this->assertStringContainsString('list-price-display', $html);
         $this->assertStringContainsString('btn-claim-site', $html);
         $this->assertStringContainsString('Is this your site?', $html);
-        $this->assertStringContainsString('Awaiting first ratings', $html);
-        $this->assertStringContainsString('No completed orders yet', $html);
+        $this->assertStringContainsString('New listing', $html);
+        $this->assertStringNotContainsString('Awaiting first ratings', $html);
+        $this->assertStringNotContainsString('No completed orders yet', $html);
 
         $cardBuy = strpos($html, 'catalog-card-buy');
         $this->assertNotFalse($cardBuy);
@@ -192,5 +193,49 @@ class CatalogRowDetailsTest extends TestCase
         $this->assertStringContainsString('not a country code', $tile);
         $this->assertStringContainsString('aria-hidden="true"', $tile);
         $this->assertStringContainsString('loading="lazy"', $tile);
+    }
+
+    public function test_sample_article_url_shows_the_full_path(): void
+    {
+        $this->makeSite([
+            'example_url' => 'https://www.digitalfernsehen.de/werbung/pretty-long-guest-post-sample',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(
+            'www.digitalfernsehen.de/werbung/pretty-long-guest-post-sample',
+            $html
+        );
+        $this->assertStringNotContainsString('p…', $html);
+        $this->assertStringContainsString('catalog-sample-url', $html);
+        $this->assertStringContainsString('copy-example-url', $html);
+        $this->assertStringContainsString('catalog-sample-open', $html);
+        $this->assertStringContainsString('Copy sample article URL', $html);
+    }
+
+    public function test_report_and_sample_copy_have_accessible_tips(): void
+    {
+        $this->makeSite([
+            'sponsored' => true,
+            'partner_material' => false,
+            'example_url' => 'https://demo3.com/blog/sample-guest-post',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('data-glass-tip-title="Report listing"', $html);
+        $this->assertStringContainsString('Flag a problem with this listing for our team.', $html);
+        $this->assertStringContainsString('Copy the sample article URL for', $html);
+
+        $js = (string) file_get_contents(public_path('assets/js/catalog.js'));
+        $this->assertStringContainsString("catalogToast('Copied', 'success')", $js);
+        $this->assertStringContainsString("button.setAttribute('aria-label', 'Copied')", $js);
     }
 }
