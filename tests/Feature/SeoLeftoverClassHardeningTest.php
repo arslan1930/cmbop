@@ -102,6 +102,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString('class_exists(DutchMoneyLanders::class)', $sitemap);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'supported')", $sitemap);
         $this->assertStringContainsString("method_exists(PublicI18n::class, 'urlForLocale')", $sitemap);
+        $this->assertStringContainsString('class_exists(LocaleIndexability::class)', $sitemap);
+        $this->assertStringContainsString("method_exists(LocaleIndexability::class, 'isIndexable')", $sitemap);
         $this->assertStringContainsString('class_exists(ThinBlogRedirects::class)', $sitemap);
         $this->assertStringContainsString('Do not use withoutLegacyRedirects here', $sitemap);
         $this->assertStringNotContainsString('->withoutLegacyRedirects()', $sitemap);
@@ -130,6 +132,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(self::class, 'moneyLanderLocales')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'isEnglishOnlyMarketingPath')", $i18n);
         $this->assertStringContainsString("method_exists(self::class, 'isPaginatedBlogIndex')", $i18n);
+        $this->assertStringContainsString('class_exists(LocaleIndexability::class)', $i18n);
+        $this->assertStringContainsString("method_exists(LocaleIndexability::class, 'isThinDuplicate')", $i18n);
 
         $about = (string) file_get_contents(base_path('resources/views/pages/about.blade.php'));
         $prices = (string) file_get_contents(base_path('resources/views/pages/guest-post-prices-europe.blade.php'));
@@ -143,6 +147,8 @@ class SeoLeftoverClassHardeningTest extends TestCase
         $this->assertStringContainsString("method_exists(\\App\\Support\\BrandOrganization::class, 'pageGraphJson')", $layout);
         $this->assertStringContainsString("method_exists(\\App\\Support\\MarketingCssBundle::class, 'urlIfReady')", $layout);
         $this->assertStringContainsString("method_exists(\\App\\Support\\PublicI18n::class, 'robotsContent')", $layout);
+        $this->assertStringContainsString('class_exists(\\App\\Support\\LocaleIndexability::class)', $layout);
+        $this->assertStringContainsString("method_exists(\\App\\Support\\LocaleIndexability::class, 'canonicalUrl')", $layout);
         $this->assertStringContainsString('skip_hreflang', $layout);
         $this->assertStringContainsString('html_entity_decode', $layout);
         $this->assertStringContainsString("preg_match('#^https?://#i', \$pageCanonical)", $layout);
