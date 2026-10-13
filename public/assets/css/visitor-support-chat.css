@@ -70,6 +70,13 @@
   display: none;
 }
 
+/* Dashboard (and any page) with an in-page Start chat control: hide the
+   floating bubble so it does not duplicate the bar or cover footer logos. */
+.slb-live-chat--inpage .slb-live-chat__launcher,
+body:has([data-slb-open-support]) .slb-live-chat__launcher {
+  display: none;
+}
+
 .slb-live-chat__panel {
   width: min(380px, calc(100vw - 32px));
   max-height: min(560px, calc(100dvh - 96px - env(safe-area-inset-bottom, 0px) - var(--slb-live-chat-footer-offset) - var(--slb-live-chat-keyboard)));

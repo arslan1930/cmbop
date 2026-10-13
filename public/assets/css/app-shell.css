@@ -66,7 +66,11 @@ body.role-shell-advertiser,
 body.role-shell-publisher,
 body.role-shell-admin,
 body.role-shell-marketing {
-  --slb-live-chat-footer-offset: calc(var(--shell-footer-clearance, 56px) * 0.55);
+  /* Lift the FAB above the in-flow payment-logo footer (full footer
+     height, not a fraction) plus the device home-indicator inset. */
+  --slb-live-chat-footer-offset: calc(
+    var(--shell-footer-height, 72px) + env(safe-area-inset-bottom, 0px)
+  );
 }
 
 body.role-shell-advertiser { --role-accent: #1a585e; }
@@ -582,7 +586,9 @@ body > footer {
   width: 100%;
   min-width: 0;
   text-align: left;
-  padding-right: 72px;
+  /* 84px FAB + 16px inset + safe-area so the last payment logo stays visible. */
+  padding-right: max(112px, calc(84px + 16px + env(safe-area-inset-right, 0px)));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   overflow: hidden;
 }
 .app-shell-footer__left {

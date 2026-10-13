@@ -333,7 +333,7 @@
             <div class="help-secondary">
                 <h6 class="mb-2">Need a hand?</h6>
                 <p class="small text-muted mb-3">Message your client manager if you get stuck on catalog or checkout.</p>
-                <a href="{{ $supportTelegramUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">
+                <a href="{{ $supportTelegramUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary" data-slb-open-support>
                     <i class="fa fa-message me-1" aria-hidden="true"></i> Start chat
                 </a>
             </div>
@@ -702,7 +702,7 @@
                 <strong>Need assistance?</strong>
                 <span class="text-muted small ms-1">Client manager · Mon–Fri, 9AM–6PM UTC</span>
             </div>
-            <a href="{{ $supportTelegramUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">
+            <a href="{{ $supportTelegramUrl }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary" data-slb-open-support>
                 <i class="fa fa-message me-1"></i> Start chat
             </a>
         </div>
