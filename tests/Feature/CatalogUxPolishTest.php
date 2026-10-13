@@ -134,12 +134,16 @@ class CatalogUxPolishTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('data-catalog-favorites="1"', $html);
+        $this->assertStringContainsString('id="catalogFavoritesFilter"', $html);
         $this->assertStringContainsString('id="catalogTagFilter"', $html);
         $this->assertStringContainsString('catalog-quick-filters', $html);
         $this->assertStringContainsString('catalog-tag-quick', $html);
         $this->assertStringContainsString('Browse publisher listings', $html);
         $this->assertStringContainsString('catalog-article-banner', $html);
+        $this->assertStringContainsString('Each site needs its own approved article — upload or assign before you pay.', $html);
+        $this->assertStringNotContainsString('the cart lists which sites still need an article', $html);
+        $this->assertStringContainsString('aria-current="step"', $html);
+        $this->assertStringContainsString('id="cartBadge"', $html);
         $this->assertStringContainsString('btn-suggest-website', $html);
 
         $barPos = strpos($html, 'catalog-results-bar');
@@ -246,5 +250,19 @@ class CatalogUxPolishTest extends TestCase
         $this->assertStringNotContainsString('catalog-site-trust--row', $results);
         $this->assertStringContainsString("variant' => 'chip'", $results);
         $this->assertStringContainsString('col-lg-4 col-md-5 catalog-expand-preview', $results);
+
+        $stepper = (string) file_get_contents(resource_path('views/advertiser/wizard/_stepper.blade.php'));
+        $this->assertStringContainsString('aria-current="step"', $stepper);
+        $this->assertStringContainsString('.wizard-step.is-done', $stepper);
+        $this->assertStringContainsString('.wizard-step.is-active', $stepper);
+
+        $cartCss = (string) file_get_contents(public_path('assets/css/cart.css'));
+        $this->assertStringContainsString('#toggleCart', $cartCss);
+        $this->assertMatchesRegularExpression('/#toggleCart \{[^}]*overflow:\s*visible/s', $cartCss);
+        $this->assertMatchesRegularExpression('/\.cart-badge \{[^}]*z-index:\s*1/s', $cartCss);
+
+        $shell = (string) file_get_contents(public_path('assets/css/app-shell.css'));
+        $this->assertStringContainsString('body.role-shell-advertiser:has(.catalog-page)', $shell);
+        $this->assertStringContainsString('--slb-live-chat-footer-offset', $shell);
     }
 }
