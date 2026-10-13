@@ -76,6 +76,25 @@
     color: var(--brand-primary, #1a585e);
 }
 
+/* Live search already applies as you type — keep Apply as a no-JS submit. */
+.catalog-page.is-live-search .catalog-js-fallback-submit {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.catalog-page .filter-presets[data-preset-group="price"] {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
 /* ---------------------------------------------------------------- table shell */
 
 .catalog-page .table {
