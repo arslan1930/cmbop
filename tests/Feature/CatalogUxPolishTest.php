@@ -212,7 +212,8 @@ class CatalogUxPolishTest extends TestCase
             ->getContent();
 
         $this->assertStringNotContainsString('site-trust-chip', $html);
-        $this->assertStringContainsString('Awaiting first ratings', $html);
+        $this->assertStringContainsString('New listing', $html);
+        $this->assertStringNotContainsString('Awaiting first ratings', $html);
         $this->assertStringNotContainsString('catalog-site-trust--row', $html);
     }
 

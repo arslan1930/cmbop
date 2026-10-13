@@ -276,7 +276,8 @@ class CatalogHarvestResistanceTest extends TestCase
         $this->assertStringContainsString('/advertiser/go/'.$site->id.'?sample=1', $html);
         $this->assertStringContainsString('catalog-site-details', $html);
         $this->assertStringContainsString('data-id="'.$site->id.'"', $html);
-        $this->assertStringContainsString('class="text-decoration-none catalog-site-url"', $html);
+        $this->assertStringContainsString('catalog-sample-url', $html);
+        $this->assertStringContainsString('catalog-site-url', $html);
     }
 
     public function test_description_listing_href_is_our_redirect_not_the_publisher_url(): void

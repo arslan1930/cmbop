@@ -8,7 +8,8 @@
     $completedCount = 0;
     $showStars = false;
     $showCompletionRate = false;
-    $ariaParts = ['Awaiting first ratings', 'No completed orders yet'];
+    $isNewListing = true;
+    $ariaParts = ['New listing'];
     try {
         $avg = (float) ($site->rating_avg ?? 0);
         $count = (int) ($site->rating_count ?? 0);
@@ -20,16 +21,17 @@
         // cancelled-only history, must not look like a proven 5.0.
         $showStars = $hasRatings && $completedCount > 0;
         $showCompletionRate = $completionRate !== null && $completedCount > 0;
+        $isNewListing = ! $showStars && ! $showCompletionRate;
         $ariaParts = [];
-        if ($showStars) {
-            $ariaParts[] = number_format($avg, 1).' out of 5 from '.$count.' '.($count === 1 ? 'rating' : 'ratings');
+        if ($isNewListing) {
+            $ariaParts[] = 'New listing';
         } else {
-            $ariaParts[] = 'Awaiting first ratings';
-        }
-        if ($showCompletionRate) {
-            $ariaParts[] = $completionRate.' percent completed';
-        } else {
-            $ariaParts[] = 'No completed orders yet';
+            if ($showStars) {
+                $ariaParts[] = number_format($avg, 1).' out of 5 from '.$count.' '.($count === 1 ? 'rating' : 'ratings');
+            }
+            if ($showCompletionRate) {
+                $ariaParts[] = $completionRate.' percent completed';
+            }
         }
         if ($lastPublished) {
             $ariaParts[] = $lastPublished;
@@ -53,38 +55,42 @@
      data-site-id="{{ $site->id }}"
      role="group"
      aria-label="{{ implode('. ', $ariaParts) }}">
-    <div class="site-trust-compact__row">
-        @if($showStars)
-            <span class="site-trust-compact__stars" aria-hidden="true">
-                @for($i = 1; $i <= 5; $i++)
-                    @php
-                        $threshold = (float) $i;
-                        $halfThreshold = $threshold - 0.5;
-                        if ($avg >= $threshold) {
-                            $starClass = 'fa-solid fa-star';
-                        } elseif ($avg >= $halfThreshold) {
-                            $starClass = 'fa-solid fa-star-half-stroke';
-                        } else {
-                            $starClass = 'fa-regular fa-star';
-                        }
-                    @endphp
-                    <i class="{{ $starClass }}" aria-hidden="true"></i>
-                @endfor
-                <span class="site-trust-compact__score">{{ number_format($avg, 1) }}</span>
-                <span class="site-trust-compact__count">· {{ $count }} {{ $count === 1 ? 'rating' : 'ratings' }}</span>
-            </span>
-        @else
-            <span class="site-trust-compact__empty">Awaiting first ratings</span>
-        @endif
+    @if($isNewListing)
+        <div class="site-trust-compact__row">
+            <span class="site-trust-compact__new">New listing</span>
+        </div>
+    @else
+        <div class="site-trust-compact__row">
+            @if($showStars)
+                <span class="site-trust-compact__stars" aria-hidden="true">
+                    @for($i = 1; $i <= 5; $i++)
+                        @php
+                            $threshold = (float) $i;
+                            $halfThreshold = $threshold - 0.5;
+                            if ($avg >= $threshold) {
+                                $starClass = 'fa-solid fa-star';
+                            } elseif ($avg >= $halfThreshold) {
+                                $starClass = 'fa-solid fa-star-half-stroke';
+                            } else {
+                                $starClass = 'fa-regular fa-star';
+                            }
+                        @endphp
+                        <i class="{{ $starClass }}" aria-hidden="true"></i>
+                    @endfor
+                    <span class="site-trust-compact__score">{{ number_format($avg, 1) }}</span>
+                    <span class="site-trust-compact__count">· {{ $count }} {{ $count === 1 ? 'rating' : 'ratings' }}</span>
+                </span>
+            @endif
 
-        <span class="site-trust-compact__sep" aria-hidden="true">·</span>
+            @if($showStars && $showCompletionRate)
+                <span class="site-trust-compact__sep" aria-hidden="true">·</span>
+            @endif
 
-        @if($showCompletionRate)
-            <span class="site-trust-compact__rate">{{ $completionRate }}% completed</span>
-        @else
-            <span class="site-trust-compact__rate site-trust-compact__rate--empty">No completed orders yet</span>
-        @endif
-    </div>
+            @if($showCompletionRate)
+                <span class="site-trust-compact__rate">{{ $completionRate }}% completed</span>
+            @endif
+        </div>
+    @endif
 
     @if($lastPublished)
         <div class="site-trust-compact__published">

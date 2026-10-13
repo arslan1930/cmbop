@@ -906,31 +906,11 @@
                                     Use the eye to show this listing’s name and URL, then the sample article link appears.
                                 </span>
                             @else
-                                    <div class="d-flex align-items-center gap-2">
-                                        <a href="{{ $sampleVisit }}"
-                                           target="_blank"
-                                           rel="noopener noreferrer"
-                                           class="text-decoration-none catalog-site-url"
-                                           style="word-break: break-all;">
-                                            {{ Str::limit($site->example_url, 50) }}
-                                        </a>
-                                        <button type="button"
-                                                class="btn btn-link p-0 copy-example-url catalog-sample-copy"
-                                                data-url="{{ $sampleVisit }}"
-                                                data-site-id="{{ $site->id }}"
-                                                aria-label="Copy the sample article URL for {{ $identityLabel }}">
-                                            <i class="fa-regular fa-copy" aria-hidden="true"></i>
-                                        </button>
-                                        <a href="{{ $sampleVisit }}"
-                                           target="_blank"
-                                           rel="noopener noreferrer"
-                                           class="text-muted d-inline-flex align-items-center"
-                                           title="Open sample article"
-                                           aria-label="Open the sample article for {{ $identityLabel }} in a new tab">
-                                            <i class="fa-solid fa-arrow-up-right-from-square"
-                                               style="font-size: 13px;" aria-hidden="true"></i>
-                                        </a>
-                                    </div>
+                                    @include('advertiser.partials.catalog-sample-url', [
+                                        'site' => $site,
+                                        'identityLabel' => $identityLabel,
+                                        'sampleVisit' => $sampleVisit,
+                                    ])
                             @endif
                         </div>
                         @endif
@@ -1646,12 +1626,11 @@
                         @if($inCatalogHideMode && ! $showsIdentity)
                             Use the eye to show this listing’s name and URL, then the sample article link appears.
                         @else
-                            <a href="{{ route('advertiser.catalog.visit', ['site' => $site->id, 'sample' => 1]) }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="catalog-site-url">
-                                {{ Str::limit($site->example_url, 46) }}
-                            </a>
+                            @include('advertiser.partials.catalog-sample-url', [
+                                'site' => $site,
+                                'identityLabel' => $identityLabel,
+                                'sampleVisit' => route('advertiser.catalog.visit', ['site' => $site->id, 'sample' => 1]),
+                            ])
                         @endif
                     </dd>
                 </div>
