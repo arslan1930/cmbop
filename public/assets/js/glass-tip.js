@@ -422,6 +422,11 @@
     if (el.closest('#catalogResults, .catalog-results-card') && !NATIVELY_INTERACTIVE[el.tagName]) {
       return false;
     }
+    // Bulk-deal rail: keep the native title on the domain only. A glass tip
+    // here sat on top of the host and the discount badge.
+    if (el.closest('.bulk-deal-card, [data-bulk-rail], .catalog-bulk-section')) {
+      return false;
+    }
 
     return (el.getAttribute('title') || '').trim() !== '';
   }

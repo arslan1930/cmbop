@@ -1859,10 +1859,8 @@ body:has(.catalog-page) {
 .catalog-bulk-section .bulk-deal-card:focus-within {
     border-color: rgba(26, 88, 94, 0.45);
     background: linear-gradient(165deg, #f7fcfd 0%, #eef8f9 45%, #ffffff 100%);
-    box-shadow:
-        0 0 0 3px rgba(26, 88, 94, 0.14),
-        0 10px 22px rgba(15, 23, 42, 0.08),
-        0 2px 6px rgba(26, 88, 94, 0.08);
+    /* Flat ring only — drop-shadow made the card look like it lifted off the row. */
+    box-shadow: 0 0 0 3px rgba(26, 88, 94, 0.14);
     opacity: 1;
 }
 
@@ -1893,18 +1891,14 @@ body:has(.catalog-page) {
 .catalog-bulk-section .bulk-deal-card.is-bulk-match {
     border-color: rgba(26, 88, 94, 0.55);
     background: linear-gradient(165deg, #eef8f9 0%, #e4f4f5 48%, #ffffff 100%);
-    box-shadow:
-        0 0 0 4px rgba(26, 88, 94, 0.18),
-        0 10px 22px rgba(15, 23, 42, 0.1);
+    box-shadow: 0 0 0 4px rgba(26, 88, 94, 0.18);
 }
 
 .catalog-bulk-section .bulk-deal-card.is-bulk-match:hover,
 .catalog-bulk-section .bulk-deal-card.is-bulk-match:focus-within {
     border-color: rgba(26, 88, 94, 0.55);
     background: linear-gradient(165deg, #eef8f9 0%, #e4f4f5 48%, #ffffff 100%);
-    box-shadow:
-        0 0 0 4px rgba(26, 88, 94, 0.18),
-        0 12px 24px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 0 0 4px rgba(26, 88, 94, 0.18);
     opacity: 1;
 }
 

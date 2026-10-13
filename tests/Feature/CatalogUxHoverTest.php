@@ -93,6 +93,7 @@ class CatalogUxHoverTest extends TestCase
         $js = (string) file_get_contents(public_path('assets/js/glass-tip.js'));
 
         $this->assertStringContainsString('#catalogResults, .catalog-results-card', $js);
+        $this->assertStringContainsString('.bulk-deal-card, [data-bulk-rail], .catalog-bulk-section', $js);
         $this->assertStringContainsString('!NATIVELY_INTERACTIVE[el.tagName]', $js);
         $this->assertStringContainsString("hasAttribute('data-no-tip')", $js);
     }

@@ -594,6 +594,8 @@ class CatalogController extends Controller
 
         $visibility = app(SiteUrlVisibility::class);
 
+        // One ordered collection feeds the default rail and every pager page
+        // (Blade chunks of 6; catalog.js rebuildPanels keeps this order).
         $bulkDeals = $query
             ->orderByDesc('dr')
             ->orderByDesc('bulk_discount_percent')

@@ -135,22 +135,21 @@
                                 <div class="bulk-deal-card__identity min-w-0 flex-grow-1">
                                     @php
                                         $dealLabel = $dealHost !== '' ? $dealHost : $dealName;
-                                        $dealTitle = trim(implode(' · ', array_filter([$dealName !== $dealLabel ? $dealName : null, $dealUrl !== '' ? $dealUrl : $dealLabel])));
+                                        $dealUrlTitle = $dealUrl !== '' ? $dealUrl : $dealLabel;
                                     @endphp
-                                    <span class="bulk-deal-card__name" title="{{ $dealTitle }}">{{ $dealLabel }}</span>
+                                    <span class="bulk-deal-card__name">{{ $dealLabel }}</span>
                                     @if($dealHost !== '')
                                         <a href="{{ route('advertiser.catalog.visit', $deal->id) }}"
                                            target="_blank"
                                            rel="noopener nofollow"
                                            class="bulk-deal-card__url"
-                                           title="{{ $dealTitle }}">{{ $dealHost }}</a>
-                                    @endif
-                                    @if($dealTld !== '')
-                                        <span class="bulk-deal-card__tld">{{ $dealTld }}</span>
+                                           data-no-tip
+                                           title="{{ $dealUrlTitle }}">{{ $dealHost }}</a>
                                     @endif
                                 </div>
                                 @if($pctLabel)
                                     <span class="bulk-deal-card__pct"
+                                          data-no-tip
                                           title="{{ $badgeKind === 'sale'
                                               ? 'Site sale applies on this pack (better than the bulk rate)'
                                               : 'Bulk discount on '.$qtyExample.'–'.(int) config('site_promotions.bulk.max_qty', 5).' articles' }}">
