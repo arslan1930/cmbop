@@ -105,8 +105,7 @@
     @if(($approvedArticleCount ?? 0) === 0 && empty($orderingSubmission))
         <div class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 catalog-article-banner py-2">
             <div class="small mb-0">
-                Each website needs its own <strong>approved</strong> article. You can still add publishers —
-                the cart lists which sites still need an article, then you upload or assign before you pay.
+                Each site needs its own approved article — upload or assign before you pay.
             </div>
             <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-upload">
                 <i class="fa fa-upload me-1" aria-hidden="true"></i> Upload article

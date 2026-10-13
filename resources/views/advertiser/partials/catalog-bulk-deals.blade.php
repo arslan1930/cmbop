@@ -102,6 +102,8 @@
                         <article class="bulk-deal-card"
                                  data-bulk-card
                                  data-bulk-deal-card
+                                 data-bulk-site-id="{{ $deal->id }}"
+                                 data-bulk-host="{{ $dealHost }}"
                                  data-bulk-search-text="{{ $dealSearch }}">
                             <div class="bulk-deal-card__head">
                                 @include('advertiser.partials.catalog-site-tile', [
