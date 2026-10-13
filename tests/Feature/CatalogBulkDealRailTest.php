@@ -128,14 +128,18 @@ class CatalogBulkDealRailTest extends TestCase
 
         $html = $this->catalogHtml();
 
-        // Unmasked rail: full name + https:// root URL + TLD chip; search covers all.
+        // Visible line is the clean host; full name + https URL live in the title.
         $this->assertStringContainsString('bulk-deal-card__name', $html);
-        $this->assertStringContainsString('>Bulk Deal Site 1<', $html);
+        $this->assertStringContainsString('>bulk-deal-1.example<', $html);
+        $this->assertStringContainsString('title="', $html);
+        $this->assertStringContainsString('https://bulk-deal-1.example', $html);
+        $this->assertStringContainsString('Bulk Deal Site 1', $html);
         $this->assertStringContainsString('bulk-deal-card__url', $html);
-        $this->assertStringContainsString('>https://bulk-deal-1.example<', $html);
+        $this->assertStringContainsString('rel="noopener nofollow"', $html);
         $this->assertStringContainsString('bulk-deal-card__tld', $html);
         $this->assertStringContainsString('>.example<', $html);
         $this->assertStringContainsString('data-bulk-deal-card', $html);
+        $this->assertStringContainsString('data-bulk-remember="catalog.bulkDeals.collapsed"', $html);
         $this->assertMatchesRegularExpression(
             '/data-bulk-search-text="[^"]*bulk deal site 1[^"]*https:\/\/bulk-deal-1\.example[^"]*\.example/',
             $html
@@ -347,17 +351,76 @@ class CatalogBulkDealRailTest extends TestCase
         $html = $this->catalogHtml();
 
         $this->assertMatchesRegularExpression(
-            '/bulk-deal-card__url[^>]*>https:\/\/www\.www-bulk\.example</',
+            '/bulk-deal-card__url[^>]*>www-bulk\.example</',
             $html
         );
+        $this->assertStringContainsString('https://www.www-bulk.example', $html);
         $this->assertDoesNotMatchRegularExpression(
-            '/bulk-deal-card__url[^>]*>https?:\/\/www-bulk\.example</',
+            '/bulk-deal-card__url[^>]*>https?:\/\//',
             $html
         );
-        $this->assertDoesNotMatchRegularExpression(
-            '/bulk-deal-card__url[^>]*>http:\/\//',
-            $html
-        );
+    }
+
+    public function test_bulk_deals_skip_low_dr_and_sort_high_dr_first(): void
+    {
+        $this->makeBulkSite(1, [
+            'site_name' => 'Low DR Deal',
+            'site_url' => 'https://low-dr-deal.example',
+            'domain' => 'low-dr-deal.example',
+            'dr' => 4,
+            'bulk_discount_percent' => 40,
+        ]);
+        $this->makeBulkSite(2, [
+            'site_name' => 'High DR Deal',
+            'site_url' => 'https://high-dr-deal.example',
+            'domain' => 'high-dr-deal.example',
+            'dr' => 70,
+            'bulk_discount_percent' => 10,
+        ]);
+        $this->makeBulkSite(3, [
+            'site_name' => 'Mid DR Deal',
+            'site_url' => 'https://mid-dr-deal.example',
+            'domain' => 'mid-dr-deal.example',
+            'dr' => 40,
+            'bulk_discount_percent' => 12,
+        ]);
+
+        $html = $this->catalogHtml();
+
+        // Min DR applies to the rail only — the listing can still show the site.
+        $this->assertStringNotContainsString('data-bulk-host="low-dr-deal.example"', $html);
+        $this->assertStringContainsString('data-bulk-host="high-dr-deal.example"', $html);
+        $this->assertStringContainsString('data-bulk-host="mid-dr-deal.example"', $html);
+        $highPos = strpos($html, 'data-bulk-host="high-dr-deal.example"');
+        $midPos = strpos($html, 'data-bulk-host="mid-dr-deal.example"');
+        $this->assertNotFalse($highPos);
+        $this->assertNotFalse($midPos);
+        $this->assertLessThan($midPos, $highPos);
+        $this->assertStringContainsString('and save', $html);
+        $this->assertStringContainsString('on these live deals.', $html);
+        $this->assertStringNotContainsString('save 10–80%', $html);
+    }
+
+    public function test_bulk_deals_dedupe_the_same_host(): void
+    {
+        $first = $this->makeBulkSite(1, [
+            'site_name' => 'Aitoloakarnania News',
+            'site_url' => 'https://www.aitoloakarnania.example/news',
+            'domain' => 'www.aitoloakarnania.example',
+            'dr' => 30,
+        ]);
+        $this->makeBulkSite(2, [
+            'site_name' => 'Aitoloakarnania Blog',
+            'site_url' => 'https://aitoloakarnania.example/blog',
+            'domain' => 'aitoloakarnania.example',
+            'dr' => 20,
+        ]);
+
+        $html = $this->catalogHtml();
+
+        $this->assertSame(1, substr_count($html, 'data-bulk-deal-card'));
+        $this->assertSame(1, substr_count($html, 'data-bulk-host="aitoloakarnania.example"'));
+        $this->assertStringContainsString('data-bulk-site-id="'.$first->id.'"', $html);
     }
 
     public function test_bulk_deals_blacklist_only_mode_matches_listing(): void

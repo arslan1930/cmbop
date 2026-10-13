@@ -128,8 +128,9 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringContainsString('is-live-search', $html);
         $this->assertStringContainsString('id="applyFiltersBtn"', $html);
         $this->assertStringContainsString('Applies as you type', $html);
+        $this->assertStringContainsString('catalog-js-fallback-submit', $html);
         $this->assertMatchesRegularExpression(
-            '/class="[^"]*btn-cta-secondary[^"]*" id="applyFiltersBtn"/',
+            '/class="[^"]*catalog-js-fallback-submit[^"]*"[\s\S]*?id="applyFiltersBtn"/',
             $html
         );
         $this->assertDoesNotMatchRegularExpression(
@@ -139,6 +140,18 @@ class CatalogUxHoverTest extends TestCase
         $this->assertMatchesRegularExpression(
             '/id="applyFiltersBtn"[^>]*>[\s\S]*?Apply/',
             $html
+        );
+        $morePos = strpos($html, 'id="toggleMoreFiltersBtn"');
+        $resetPos = strpos($html, 'id="catalogResetFilters"');
+        $this->assertNotFalse($morePos);
+        $this->assertNotFalse($resetPos);
+        $this->assertLessThan($resetPos, $morePos);
+
+        $css = (string) file_get_contents(public_path('assets/css/catalog.css'));
+        $this->assertStringContainsString('.catalog-page.is-live-search .catalog-js-fallback-submit', $css);
+        $this->assertMatchesRegularExpression(
+            '/\.catalog-page \.filter-presets\[data-preset-group="price"\] \{[^}]*flex-wrap:\s*nowrap/s',
+            $css
         );
     }
 

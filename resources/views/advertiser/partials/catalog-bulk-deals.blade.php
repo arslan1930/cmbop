@@ -4,6 +4,13 @@
         $bulkDealPages = $bulkDeals->values()->chunk($bulkPageSize);
         $bulkPageCount = max(1, $bulkDealPages->count());
         $bulkStartOpen = request('bulk_deals') == '1' || request('bulk_deals') === 1;
+        $liveDealPercents = $bulkDeals->map(fn ($deal) => (float) ($deal->bulk_pack_discount_percent ?? 0))
+            ->filter(fn ($pct) => $pct > 0);
+        $liveDealMinPct = $liveDealPercents->isNotEmpty() ? (float) $liveDealPercents->min() : null;
+        $liveDealMaxPct = $liveDealPercents->isNotEmpty() ? (float) $liveDealPercents->max() : null;
+        $formatDealPct = static fn (?float $pct) => $pct === null
+            ? ''
+            : rtrim(rtrim(number_format($pct, 1), '0'), '.');
     @endphp
     {{-- Paged batches of 6 with a smooth R→L slide between pages (translateX).
          Autoplay advances slowly; hover/focus pauses. Search beside Hide.
@@ -14,6 +21,7 @@
              data-bulk-rail
              data-bulk-page-size="6"
              data-bulk-start="{{ $bulkStartOpen ? 'open' : 'collapsed' }}"
+             data-bulk-remember="catalog.bulkDeals.collapsed"
              aria-labelledby="bulkDealsHeading">
         <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div class="min-w-0">
@@ -22,7 +30,19 @@
                     Bulk discount deals
                     <span class="badge rounded-pill catalog-bulk-count">{{ $bulkDeals->count() }}</span>
                 </strong>
-                <div class="small text-muted">Add a 3-article pack to cart (adjust to 3–5 there) and save {{ (int) config('site_promotions.bulk.min_percent', 10) }}–{{ (int) config('site_promotions.bulk.max_percent', 80) }}%. Totals at checkout include the discount.</div>
+                <div class="small text-muted">
+                    Add a 3-article pack to cart (adjust to 3–5 there)
+                    @if($liveDealMinPct !== null && $liveDealMaxPct !== null)
+                        @if(abs($liveDealMaxPct - $liveDealMinPct) < 0.05)
+                            and save {{ $formatDealPct($liveDealMinPct) }}%
+                        @else
+                            and save {{ $formatDealPct($liveDealMinPct) }}–{{ $formatDealPct($liveDealMaxPct) }}%
+                        @endif
+                        on these live deals.
+                    @else
+                        — totals at checkout include the discount.
+                    @endif
+                </div>
             </div>
 
             <div class="catalog-bulk-controls">
@@ -102,6 +122,8 @@
                         <article class="bulk-deal-card"
                                  data-bulk-card
                                  data-bulk-deal-card
+                                 data-bulk-site-id="{{ $deal->id }}"
+                                 data-bulk-host="{{ $dealHost }}"
                                  data-bulk-search-text="{{ $dealSearch }}">
                             <div class="bulk-deal-card__head">
                                 @include('advertiser.partials.catalog-site-tile', [
@@ -111,9 +133,17 @@
                                     'faviconChain' => $dealFaviconChain,
                                 ])
                                 <div class="bulk-deal-card__identity min-w-0 flex-grow-1">
-                                    <span class="bulk-deal-card__name" title="{{ $dealName }}">{{ $dealName }}</span>
-                                    @if($dealUrl !== '')
-                                        <span class="bulk-deal-card__url" title="{{ $dealUrl }}">{{ $dealUrl }}</span>
+                                    @php
+                                        $dealLabel = $dealHost !== '' ? $dealHost : $dealName;
+                                        $dealTitle = trim(implode(' · ', array_filter([$dealName !== $dealLabel ? $dealName : null, $dealUrl !== '' ? $dealUrl : $dealLabel])));
+                                    @endphp
+                                    <span class="bulk-deal-card__name" title="{{ $dealTitle }}">{{ $dealLabel }}</span>
+                                    @if($dealHost !== '')
+                                        <a href="{{ route('advertiser.catalog.visit', $deal->id) }}"
+                                           target="_blank"
+                                           rel="noopener nofollow"
+                                           class="bulk-deal-card__url"
+                                           title="{{ $dealTitle }}">{{ $dealHost }}</a>
                                     @endif
                                     @if($dealTld !== '')
                                         <span class="bulk-deal-card__tld">{{ $dealTld }}</span>

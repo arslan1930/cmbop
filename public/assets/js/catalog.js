@@ -5146,19 +5146,35 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('url-host-' + siteId),
             document.getElementById('url-host-mobile-' + siteId),
         ].filter(Boolean);
+        const painted = [];
         nodes.forEach(function (el) {
-            el.textContent = displayText;
+            const visitHref = el.getAttribute('data-visit-href')
+                || el.getAttribute('href')
+                || '/advertiser/go/' + siteId;
+            const extraTruncate = el.classList.contains('text-truncate') ? ' text-truncate' : '';
+            const next = document.createElement(bareHost ? 'a' : 'span');
+            next.id = el.id;
+            next.setAttribute('data-visit-href', visitHref);
+            next.setAttribute('data-site-host', '');
             if (bareHost) {
-                el.dataset.host = bareHost;
-                el.removeAttribute('data-glass-tip');
-                el.removeAttribute('data-glass-tip-title');
-                el.removeAttribute('data-glass-tip-body');
+                next.className = 'site-open-link catalog-site-rooted-url catalog-site-url' + extraTruncate;
+                next.setAttribute('href', visitHref);
+                next.setAttribute('target', '_blank');
+                next.setAttribute('rel', 'noopener nofollow');
+                next.setAttribute('data-url-open', String(siteId));
+                next.setAttribute('data-host', bareHost);
+                next.setAttribute('aria-label', 'Open ' + displayText + ' in a new tab');
+                next.textContent = displayText;
             } else {
-                delete el.dataset.host;
+                next.className = 'catalog-site-rooted-url catalog-site-url catalog-site-url--hidden' + extraTruncate;
+                next.setAttribute('title', 'Name and URL hidden — use Reveal');
+                next.innerHTML = '<i class="fa-solid fa-lock" aria-hidden="true"></i><span data-url-text></span>';
+                next.querySelector('[data-url-text]').textContent = displayText;
             }
-            el.removeAttribute('title');
+            el.replaceWith(next);
+            painted.push(next);
         });
-        return nodes[0] || null;
+        return painted[0] || null;
     }
 
     /**
