@@ -7,10 +7,11 @@
         $avatarUrl = '';
     }
     $avatarId = 'ua'.($avatarUser?->id ?? '0').'s'.$avatarSize;
+    $avatarAlt = trim((string) ($avatarUser?->name ?: 'Account'));
 @endphp
 @if($avatarUrl !== '')
     <img src="{{ $avatarUrl }}"
-         alt=""
+         alt="{{ $avatarAlt }}"
          class="rounded-circle"
          width="{{ $avatarSize }}"
          height="{{ $avatarSize }}"

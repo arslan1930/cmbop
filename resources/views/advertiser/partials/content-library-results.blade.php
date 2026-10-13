@@ -244,7 +244,7 @@
                             @endphp
                             @if($featureThumb !== '')
                                 <img src="{{ $featureThumb }}"
-                                     alt=""
+                                     alt="{{ $submission->title ?: $submission->original_filename ?: 'Article image' }}"
                                      class="library-feature-thumb"
                                      width="40"
                                      height="40"

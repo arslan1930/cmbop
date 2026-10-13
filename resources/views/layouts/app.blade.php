@@ -155,6 +155,7 @@
     <meta property="og:image:alt" content="{{ $pageImageAlt }}">
     <meta property="og:logo" content="{{ $pageLogo }}">
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@seolinkbuildings">
     <meta name="twitter:title" content="{{ $pageTitle }}">
     <meta name="twitter:description" content="{{ $pageDescription }}">
     <meta name="twitter:image" content="{{ $pageImage }}">

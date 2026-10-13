@@ -10,11 +10,24 @@
         if (! str_contains($advertiserPageTitle, 'SEOLinkBuildings')) {
             $advertiserPageTitle .= ' · SEOLinkBuildings';
         }
+        $advertiserPageDescription = html_entity_decode(
+            trim((string) $__env->yieldContent('meta_description')),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8'
+        );
+        if ($advertiserPageDescription === '') {
+            $advertiserPageDescription = 'Advertiser dashboard for browsing publisher sites, managing orders, and funding your SEOLinkBuildings wallet.';
+        }
     @endphp
     <title>{{ $advertiserPageTitle }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="description" content="@yield('meta_description', 'Advertiser dashboard for browsing publisher sites, managing orders, and funding your SEOLinkBuildings wallet.')">
+    <meta name="description" content="{{ $advertiserPageDescription }}">
+    @include('partials.social-meta', [
+        'title' => $advertiserPageTitle,
+        'description' => $advertiserPageDescription,
+        'url' => url()->current(),
+    ])
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('components.favicon')
     @include('partials.shell-wordmark-preload')

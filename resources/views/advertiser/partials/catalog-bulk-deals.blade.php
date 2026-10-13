@@ -128,6 +128,7 @@
                             <div class="bulk-deal-card__head">
                                 @include('advertiser.partials.catalog-site-tile', [
                                     'label' => $dealHost !== '' ? $dealHost : $dealName,
+                                    'alt' => $dealName !== '' ? $dealName : $dealHost,
                                     'size' => 'md',
                                     'faviconUrl' => $dealFaviconUrl,
                                     'faviconChain' => $dealFaviconChain,
