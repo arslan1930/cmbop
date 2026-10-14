@@ -47,12 +47,7 @@ class AccountCurrency
             return null;
         }
 
-        $saved = self::normalize((string) ($user->display_currency ?? ''));
-        if ($saved !== null) {
-            return $saved;
-        }
-
-        return app(DisplayCurrencyPreference::class)->accountCountryCurrency($user);
+        return app(DisplayCurrencyPreference::class)->resolveEmptyAccount($user);
     }
 
     /**

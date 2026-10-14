@@ -219,7 +219,7 @@ class AppServiceProvider extends ServiceProvider
             return '/';
         });
 
-        // Locked display_currency wins; first login persists country / history / geo.
+        // Locked display_currency wins; first login persists euro history or EUR.
         // Logout drops the year-long cookie so a shared browser cannot leak rails.
         Event::listen(Login::class, function (Login $event): void {
             try {

@@ -103,6 +103,8 @@ class GeoCurrencyDisplayTest extends TestCase
     public function test_gb_add_funds_shows_gbp_rails_and_us_hides_bank_transfer(): void
     {
         $gb = $this->advertiser('GB');
+        $gb->display_currency = 'GBP';
+        $gb->save();
         $this->wallet($gb);
         $this->withCountry('GB');
 
@@ -136,6 +138,8 @@ class GeoCurrencyDisplayTest extends TestCase
             ->assertDontSee('≈ €', false);
 
         $us = $this->advertiser('US');
+        $us->display_currency = 'USD';
+        $us->save();
         $this->wallet($us, 'USD');
         $this->withCountry('US');
         $this->flushSession();
@@ -155,6 +159,8 @@ class GeoCurrencyDisplayTest extends TestCase
     public function test_deposit_store_converts_gbp_amount_to_eur_ledger(): void
     {
         $user = $this->advertiser('GB');
+        $user->display_currency = 'GBP';
+        $user->save();
         $this->wallet($user);
         $this->withCountry('GB');
 
@@ -181,6 +187,8 @@ class GeoCurrencyDisplayTest extends TestCase
     public function test_deposit_store_validates_min_max_against_eur_equivalent(): void
     {
         $user = $this->advertiser('GB');
+        $user->display_currency = 'GBP';
+        $user->save();
         $this->wallet($user);
         $this->withCountry('GB');
 
@@ -263,6 +271,8 @@ class GeoCurrencyDisplayTest extends TestCase
     public function test_cart_and_activity_follow_display_currency_without_secondary_text(): void
     {
         $user = $this->advertiser('GB');
+        $user->display_currency = 'GBP';
+        $user->save();
         $wallet = $this->wallet($user);
         $this->withCountry('GB');
         $this->actingAs($user);

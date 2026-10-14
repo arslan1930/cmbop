@@ -1236,6 +1236,7 @@ class AddFundsController extends Controller
             $billing = [
                 'billing_name' => $request->billing_name,
                 'company_name' => $request->company_name,
+                // Country is billing-only — do not touch users.display_currency.
                 'country' => $request->country,
                 'state' => $request->state,
                 'city' => $request->city,

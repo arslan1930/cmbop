@@ -146,6 +146,7 @@ class ProfileController extends Controller
 
         try {
             $user->billing_name = $request->billing_name;
+            // Country is billing-only — do not touch users.display_currency.
             $user->country = $request->country;
             $user->state = $request->state;
             $user->city = $request->city;

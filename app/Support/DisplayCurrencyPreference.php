@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Models\DepositRequest;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use Illuminate\Http\Request;
@@ -12,8 +14,9 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Viewer-selected display currency (EUR / GBP / USD).
  * Guests: session + cookie (and geo). Logged-in users: locked
- * users.display_currency — header switch is ignored. Empty accounts persist
- * the first resolved currency on login (country / history / geo).
+ * users.display_currency — header switch, legacy session/cookie, billing
+ * country, and IP are ignored. Empty accounts persist EUR when they have
+ * euro ledger history (deposits, wallet transactions, orders) or none.
  */
 class DisplayCurrencyPreference
 {
@@ -32,39 +35,37 @@ class DisplayCurrencyPreference
         $user = Auth::user();
 
         if ($user instanceof User && $this->usersHaveDisplayCurrencyColumn()) {
-            $fromUser = $this->normalize((string) ($user->display_currency ?? ''));
-            if ($fromUser !== null) {
-                return $fromUser;
-            }
+            return $this->resolveEmptyAccount($user, $request);
         }
 
-        $explicit = $this->explicitGuestChoice($request);
-        if ($user instanceof User && $this->usersHaveDisplayCurrencyColumn()) {
-            if ($explicit !== null) {
-                $this->persistResolved($user, $explicit, $request);
-
-                return $explicit;
-            }
-            $fromAccount = $this->accountCountryCurrency($user);
-            if ($fromAccount !== null) {
-                $this->persistResolved($user, $fromAccount, $request);
-
-                return $fromAccount;
-            }
-            if ($this->hasEuroLedgerHistory($user)) {
-                $this->persistResolved($user, 'EUR', $request);
-
-                return 'EUR';
-            }
-
-            return null;
-        }
-
-        return $explicit;
+        return $this->explicitGuestChoice($request);
     }
 
     /**
-     * Persist a first-choice default (header switch, inferred history, country, or geo).
+     * Authenticated account currency. Saved users.display_currency wins.
+     * Otherwise euro history (deposits, wallet transactions, orders /
+     * order items) persists EUR, then accounts with no history default
+     * to EUR. Session, cookie, billing country, and IP are never used.
+     *
+     * @return 'EUR'|'GBP'|'USD'
+     */
+    public function resolveEmptyAccount(User $user, ?Request $request = null): string
+    {
+        $fromUser = $this->normalize((string) ($user->display_currency ?? ''));
+        if ($fromUser !== null) {
+            return $fromUser;
+        }
+
+        if ($this->hasEuroLedgerHistory($user)) {
+            return $this->persistResolved($user, 'EUR', $request);
+        }
+
+        return $this->persistResolved($user, 'EUR', $request);
+    }
+
+    /**
+     * Persist a first-choice default (inferred history or EUR) without
+     * overwriting a currency that is already saved.
      */
     public function persistResolved(User $user, string $currency, ?Request $request = null): string
     {
@@ -90,6 +91,7 @@ class DisplayCurrencyPreference
 
     /**
      * Save the first inferred (or already stored) currency as soon as they sign in.
+     * Existing accounts never take currency from IP or the legacy header cookie.
      */
     public function persistAuthenticatedChoice(?User $user = null, ?Request $request = null): ?string
     {
@@ -234,6 +236,28 @@ class DisplayCurrencyPreference
         }
         try {
             if (WalletTransaction::query()->where('user_id', $user->id)->exists()) {
+                return true;
+            }
+        } catch (\Throwable) {
+        }
+        try {
+            if (Order::query()->where('user_id', $user->id)->exists()) {
+                return true;
+            }
+        } catch (\Throwable) {
+        }
+        try {
+            if (OrderItem::query()->whereHas('order', function ($query) use ($user): void {
+                $query->where('user_id', $user->id);
+            })->exists()) {
+                return true;
+            }
+        } catch (\Throwable) {
+        }
+        try {
+            if (OrderItem::query()->whereHas('site', function ($query) use ($user): void {
+                $query->where('publisher_id', $user->id);
+            })->exists()) {
                 return true;
             }
         } catch (\Throwable) {

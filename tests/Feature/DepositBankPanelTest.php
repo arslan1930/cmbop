@@ -69,6 +69,8 @@ class DepositBankPanelTest extends TestCase
     public function test_paying_from_gbp_shows_gbp_send_amount(): void
     {
         $user = $this->advertiser('GB');
+        $user->display_currency = 'GBP';
+        $user->save();
         $this->wallet($user);
         $this->withCountry('GB');
 
