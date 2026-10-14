@@ -17,6 +17,8 @@ class EmailLog extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    public const STATUS_DISMISSED = 'dismissed';
+
     protected $fillable = [
         'uuid',
         'mailable',
@@ -59,6 +61,38 @@ class EmailLog extends Model
     public function scopeFailed($query)
     {
         return $query->where('status', self::STATUS_FAILED);
+    }
+
+    public function scopeDismissed($query)
+    {
+        return $query->where('status', self::STATUS_DISMISSED);
+    }
+
+    public static function openFailedCount(): int
+    {
+        try {
+            return (int) static::query()->where('status', self::STATUS_FAILED)->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    public function dismiss(?string $reason = null): bool
+    {
+        if ($this->status !== self::STATUS_FAILED) {
+            return false;
+        }
+
+        $meta = is_array($this->meta) ? $this->meta : [];
+        $meta['dismissed_at'] = now()->toIso8601String();
+        if (filled($reason)) {
+            $meta['dismissed_reason'] = $reason;
+        }
+
+        $this->status = self::STATUS_DISMISSED;
+        $this->meta = $meta;
+
+        return $this->save();
     }
 
     /**

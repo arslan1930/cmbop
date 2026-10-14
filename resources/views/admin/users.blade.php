@@ -98,6 +98,7 @@
                 <button type="submit" class="btn btn-primary">
                     <i class="fa fa-search me-1"></i> Filter
                 </button>
+                <a href="{{ route('admin.users.export', request()->query()) }}" class="btn btn-outline-primary">Export CSV</a>
                 @if($hasActiveFilters)
                     <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">Clear filters</a>
                 @endif
@@ -118,6 +119,8 @@
             <th class="admin-col-email">Email</th>
             <th class="admin-narrow-col">Phone</th>
             <th class="admin-narrow-col">Country</th>
+            <th class="admin-narrow-col">Wallet</th>
+            <th class="admin-narrow-col">Orders</th>
             <th class="admin-col-start">Role</th>
             <th class="admin-narrow-col">Joined</th>
             <th class="admin-narrow-col">Last activity</th>
@@ -178,7 +181,9 @@
         </td>
         <td class="admin-col-email">{{ $user->email }}</td>
         <td class="admin-narrow-col">{{ $user->phone ?? '-' }}</td>
-        <td class="admin-narrow-col">{{ $user->country ?? '-' }}</td>
+        <td class="admin-narrow-col" title="{{ $user->country ?? '' }}">{{ \App\Support\CountryCode::displayName($user->country) }}</td>
+        <td class="admin-narrow-col">€{{ number_format((float) ($user->wallet_balance ?? 0), 2) }}</td>
+        <td class="admin-narrow-col">{{ (int) ($user->paid_orders_count ?? 0) }}</td>
         <td class="admin-col-start">
             <div class="role-badges admin-role-badges" data-id="{{ $user->id }}">
                 @forelse($userRoleNames as $roleName)
@@ -237,7 +242,7 @@
     </tr>
 
 <tr class="expand-row" id="expand-{{ $user->id }}">
-    <td colspan="9">
+    <td colspan="11">
         <div class="expand-box">
 
             <div class="row text-start">
@@ -389,7 +394,7 @@
 
     @empty
     <tr>
-        <td colspan="9" class="text-center text-muted">
+        <td colspan="11" class="text-center text-muted">
             No users found.
         </td>
     </tr>

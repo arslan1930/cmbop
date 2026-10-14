@@ -8,6 +8,7 @@ use App\Models\ContentModerationSetting;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\ContentModeration\ContentModerationService;
+use App\Services\ContentUpload\AdminLibraryStaffActions;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Support\AdminModeration;
 use App\Support\PhpIniSize;
@@ -204,6 +205,45 @@ class ContentModerationController extends Controller
             'builtinExceptions',
             'listUrl',
         ));
+    }
+
+    public function scanAll(Request $request, AdminLibraryStaffActions $staff): RedirectResponse
+    {
+        if (! Schema::hasTable('content_submissions')) {
+            return back()->with('error', 'Content library is unavailable.');
+        }
+
+        $query = ContentSubmission::query()->orderBy('id');
+        if (Schema::hasColumn('content_submissions', 'archived_at')) {
+            $query->whereNull('archived_at');
+        }
+        if (Schema::hasColumn('content_submissions', 'moderation_log_id')) {
+            $query->whereNull('moderation_log_id');
+        }
+
+        $rows = $query->limit(50)->get();
+        $done = 0;
+        $skipped = 0;
+        foreach ($rows as $submission) {
+            try {
+                $staff->retry($submission);
+                $done++;
+            } catch (\Throwable) {
+                $skipped++;
+            }
+        }
+
+        ActivityLogger::tryLog(
+            'moderation.scan_all',
+            (auth()->user()?->name ?? 'Admin').' scanned '.$done.' previously unchecked article(s)',
+            null,
+            ['count' => $done, 'skipped' => $skipped]
+        );
+
+        return back()->with(
+            'success',
+            'Scanned '.$done.' article(s) that had no moderation log.'.($skipped > 0 ? ' Skipped '.$skipped.'.' : '')
+        );
     }
 
     public function show(Request $request, ContentModerationLog $log, ContentModerationService $moderation): View

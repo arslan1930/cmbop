@@ -12,6 +12,7 @@ use App\Services\OrderChatContactGuard;
 use App\Support\UserMessages;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Article evaluation: gambling/adult, language, off-platform contact,
@@ -67,7 +68,7 @@ class ArticleEvaluationService
     public function evaluate(ContentSubmission $submission, ?User $user = null): array
     {
         try {
-            return $this->evaluateUnchecked($submission, $user);
+            return $this->attachFingerprint($submission, $this->evaluateUnchecked($submission, $user));
         } catch (\Throwable $e) {
             Log::error('Content evaluation failed', [
                 'submission_id' => $submission->id,
@@ -684,6 +685,71 @@ class ArticleEvaluationService
         } catch (\Throwable $e) {
             Log::info('Optional AI content notes skipped', ['error' => $e->getMessage()]);
 
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function attachFingerprint(ContentSubmission $submission, array $result): array
+    {
+        try {
+            $fingerprint = $this->moderation->contentFingerprint($submission);
+        } catch (\Throwable) {
+            return $result;
+        }
+
+        $result['content_fingerprint'] = $fingerprint;
+        $report = is_array($result['report'] ?? null) ? $result['report'] : [];
+        $report['content_fingerprint'] = $fingerprint;
+
+        $duplicate = $this->findDuplicateSubmission($submission, $fingerprint);
+        if ($duplicate) {
+            $result['duplicate_of_id'] = (int) $duplicate->id;
+            $report['duplicate_of_id'] = (int) $duplicate->id;
+            $hints = is_array($report['fix_hints'] ?? null) ? $report['fix_hints'] : [];
+            $hints[] = 'Duplicate of library article #'.$duplicate->id.' (“'.$duplicate->title.'”).';
+            $report['fix_hints'] = $hints;
+            $report['checks'] = is_array($report['checks'] ?? null) ? $report['checks'] : [];
+            $report['checks'][] = [
+                'key' => 'duplicate_upload',
+                'label' => 'Duplicate article',
+                'status' => 'warn',
+                'detail' => 'Same content as article #'.$duplicate->id,
+            ];
+        }
+
+        $result['report'] = $report;
+
+        return $result;
+    }
+
+    private function findDuplicateSubmission(ContentSubmission $submission, string $fingerprint): ?ContentSubmission
+    {
+        if ($fingerprint === '' || ! $submission->id) {
+            return null;
+        }
+
+        try {
+            $query = ContentSubmission::query()
+                ->where('id', '!=', $submission->id)
+                ->orderByDesc('id');
+            if (Schema::hasColumn('content_submissions', 'archived_at')) {
+                $query->whereNull('archived_at');
+            }
+            if (Schema::hasColumn('content_submissions', 'content_fingerprint')) {
+                $match = (clone $query)->where('content_fingerprint', $fingerprint)->first();
+                if ($match) {
+                    return $match;
+                }
+            }
+
+            return $query
+                ->where('evaluation_report', 'like', '%'.$fingerprint.'%')
+                ->first();
+        } catch (\Throwable) {
             return null;
         }
     }

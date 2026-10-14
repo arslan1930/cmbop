@@ -146,6 +146,11 @@ class DepositRequest extends Model
      */
     public function targetBank(): ?string
     {
+        $method = strtolower((string) ($this->payment_method ?? ''));
+        if (! in_array($method, ['bank', 'wise', 'crypto'], true)) {
+            return AccountCurrency::normalizeBank((string) ($this->bank_account ?? ''));
+        }
+
         return AccountCurrency::normalizeBank((string) ($this->bank_account ?? ''))
             ?? AccountCurrency::bankAccountForCurrency($this->depositCurrency());
     }

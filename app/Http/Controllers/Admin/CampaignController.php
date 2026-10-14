@@ -7,6 +7,7 @@ use App\Jobs\SendEmailCampaignJob;
 use App\Mail\AudienceCampaignMail;
 use App\Models\EmailCampaign;
 use App\Models\EmailCampaignRecipient;
+use App\Models\EmailLog;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\AudienceInventoryService;
@@ -107,6 +108,7 @@ class CampaignController extends Controller
             'auto_drain' => (bool) config('email_notifications.auto_drain'),
             'mail_pending_jobs' => $this->queuedMailJobsCount(),
             'mail_failed_jobs' => $this->failedMailJobsCount(),
+            'open_failed_logs' => EmailLog::openFailedCount(),
         ];
 
         return view('admin.campaigns.index', compact(

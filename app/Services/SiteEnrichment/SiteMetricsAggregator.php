@@ -78,8 +78,15 @@ class SiteMetricsAggregator
             }
 
             $provider = $this->resolve($key);
-            // Unconfigured API providers are normal fallback skips — do not fetch or log.
             if (! $provider->isConfigured()) {
+                if ($key !== 'manual') {
+                    $errors[] = $key.': not configured (missing API key)';
+                    Log::warning('Site metrics provider is not configured', [
+                        'site_id' => $site->id,
+                        'provider' => $key,
+                    ]);
+                }
+
                 continue;
             }
 

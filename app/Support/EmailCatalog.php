@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\AdminNewUserRegistered;
+use App\Mail\AdminNewUsersDigest;
 use App\Mail\AdminPublishedSiteNotification;
 use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
@@ -447,6 +448,13 @@ class EmailCatalog
                 'mailable' => AdminNewUserRegistered::class,
                 'status' => 'active',
             ],
+            'admin_new_users_digest' => [
+                'name' => 'New Users Digest',
+                'description' => 'Batched admin notice of recent signups (replaces per-signup mail).',
+                'category' => 'Admin',
+                'mailable' => AdminNewUsersDigest::class,
+                'status' => 'active',
+            ],
             'site_claim_submitted' => [
                 'name' => 'Site Claim Submitted',
                 'description' => 'Admins notified when a user claims ownership of a catalog listing, with a review CTA.',
@@ -740,6 +748,7 @@ class EmailCatalog
             'new advertiser registered' => 'admin_new_user',
             'new publisher registered' => 'admin_new_user',
             'new user registered' => 'admin_new_user',
+            'new users registered' => 'admin_new_users_digest',
             'new sites in the catalog' => 'new_sites_digest',
             'new sites just added' => 'new_sites_digest',
             'weekly activity summary' => 'weekly_activity_summary',
@@ -852,6 +861,7 @@ class EmailCatalog
             ),
             'trustpilot_review' => new TrustpilotReviewRequest($user, $order),
             'admin_new_user' => new AdminNewUserRegistered($user, $user),
+            'admin_new_users_digest' => new AdminNewUsersDigest($user, collect([$user])),
             'site_claim_submitted' => new SiteClaimSubmitted(self::sampleSiteClaim()),
             'site_claim_reviewed' => new SiteClaimReviewed(self::sampleSiteClaim('approved')),
             'site_claim_ownership_transferred' => new SiteClaimOwnershipTransferred(self::sampleSiteClaim('approved'), $user),

@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Middleware\SkipRetryOnPermanentSmtpFailure;
 use App\Models\EmailCampaign;
 use App\Models\EmailLog;
 use App\Models\EmailNotificationPreference;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Services\Billing\InvoicePdfGenerator;
 use App\Services\Wallet\WelcomeBonusService;
 use App\Support\EmailCatalog;
+use App\Support\MailAddress;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -50,6 +52,20 @@ abstract class PlatformMailable extends Mailable implements ShouldQueue
 
     /** Why send() returned null (stale / disabled / preference / duplicate). */
     public ?string $suppressReason = null;
+
+    /** Retry SMTP 451/421 rate limits; permanent 554 fails immediately via middleware. */
+    public int $tries = 4;
+
+    /** @var list<int> */
+    public array $backoff = [90, 300, 900];
+
+    /**
+     * @return list<object>
+     */
+    public function middleware(): array
+    {
+        return [new SkipRetryOnPermanentSmtpFailure];
+    }
 
     public function __construct()
     {
@@ -152,6 +168,16 @@ abstract class PlatformMailable extends Mailable implements ShouldQueue
                 'reason' => $this->suppressReason,
             ]);
             $this->abandonOpenLog($this->suppressErrorMessage());
+
+            return null;
+        } elseif ($this->hasInvalidRecipientAddress()) {
+            $this->suppressReason = 'invalid_address';
+            Log::warning('Email dropped — invalid recipient address', [
+                'type' => $this->notificationType,
+                'dedupe' => $this->dedupeKey,
+                'to' => $this->recipientUser?->email,
+            ]);
+            $this->abandonOpenLog('Invalid recipient address; not queued.');
 
             return null;
         }
@@ -316,8 +342,19 @@ abstract class PlatformMailable extends Mailable implements ShouldQueue
             'preference' => 'Suppressed: recipient opted out',
             'staff' => 'Suppressed: recipient is staff',
             'duplicate' => 'Suppressed: duplicate of a recent send',
+            'invalid_address' => 'Invalid recipient address; not queued.',
             default => 'Suppressed by notification policy',
         };
+    }
+
+    protected function hasInvalidRecipientAddress(): bool
+    {
+        $email = $this->recipientUser?->email;
+        if (! filled($email)) {
+            return false;
+        }
+
+        return ! MailAddress::isValid($email);
     }
 
     /**

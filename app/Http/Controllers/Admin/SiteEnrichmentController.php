@@ -9,6 +9,7 @@ use App\Jobs\RefreshSiteMetricsJob;
 use App\Models\Site;
 use App\Models\SiteEnrichmentRun;
 use App\Services\ActivityLogger;
+use App\Services\SiteEnrichment\ScreenshotCaptureService;
 use App\Services\SiteEnrichment\SiteEnrichmentService;
 use App\Services\SiteEnrichment\SiteMetricsAggregator;
 use App\Support\UserFacingError;
@@ -47,6 +48,15 @@ class SiteEnrichmentController extends Controller
         }
 
         $aggregator = app(SiteMetricsAggregator::class);
+        $screenshotStatus = app(ScreenshotCaptureService::class)->providerStatus();
+        $failedAttentionCount = 0;
+        try {
+            if (Schema::hasTable('site_enrichment_runs')) {
+                $failedAttentionCount = SiteEnrichmentRun::query()->needsAttention()->count();
+            }
+        } catch (\Throwable) {
+            $failedAttentionCount = 0;
+        }
         $config = [
             'enabled' => (bool) config('site_enrichment.enabled'),
             'default_provider' => (string) config('site_enrichment.default_provider'),
@@ -54,7 +64,10 @@ class SiteEnrichmentController extends Controller
             'has_api_keys' => $aggregator->anyApiProviderConfigured(),
             'refresh_frequency' => (string) config('site_enrichment.refresh_frequency'),
             'max_age_days' => (int) config('site_enrichment.max_age_days'),
-            'screenshot_provider' => $this->screenshotProviderLabel(),
+            'screenshot_provider' => $screenshotStatus['label'],
+            'screenshot_ready' => $screenshotStatus['ready'],
+            'screenshot_warning' => $screenshotStatus['warning'],
+            'failed_attention_count' => $failedAttentionCount,
         ];
 
         $staleSites = new LengthAwarePaginator([], 0, 40);
@@ -549,25 +562,7 @@ class SiteEnrichmentController extends Controller
 
     private function screenshotProviderLabel(): string
     {
-        $provider = (string) config('site_enrichment.screenshots.provider', 'thum_io');
-
-        if ($provider === 'thum_io') {
-            return 'thum_io (unauthenticated)';
-        }
-
-        if ($provider === 'screenshotone') {
-            return filled(config('site_enrichment.screenshots.screenshotone_access_key'))
-                ? 'screenshotone'
-                : 'screenshotone (no key)';
-        }
-
-        if ($provider === 'url_api') {
-            return filled(config('site_enrichment.screenshots.api_url'))
-                ? 'url_api'
-                : 'url_api (no url)';
-        }
-
-        return $provider;
+        return app(ScreenshotCaptureService::class)->providerStatus()['label'];
     }
 
     private function isMarketingEditor(Request $request): bool

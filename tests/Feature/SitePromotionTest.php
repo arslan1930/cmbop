@@ -716,8 +716,16 @@ class SitePromotionTest extends TestCase
             ->get(route('admin.promotions.index'))
             ->assertOk()
             ->getContent();
-        $this->assertStringContainsString((string) $publisher->email, $hub);
+        $this->assertStringContainsString(route('admin.promotions.feature-credits.users'), $hub);
         $this->assertStringNotContainsString((string) $advertiser->email, $hub);
+        $this->assertStringNotContainsString((string) $publisher->email, $hub);
+
+        $search = $this->actingAs($admin)
+            ->getJson(route('admin.promotions.feature-credits.users', ['q' => $publisher->email]))
+            ->assertOk()
+            ->json('options');
+        $this->assertTrue(collect($search)->contains(fn ($row) => str_contains((string) ($row['label'] ?? ''), (string) $publisher->email)));
+        $this->assertFalse(collect($search)->contains(fn ($row) => str_contains((string) ($row['label'] ?? ''), (string) $advertiser->email)));
     }
 
     public function test_non_admin_cannot_grant_a_feature_credit(): void

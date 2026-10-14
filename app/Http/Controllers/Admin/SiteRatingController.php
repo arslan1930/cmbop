@@ -54,7 +54,10 @@ class SiteRatingController extends Controller
                 $ratings = $query->paginate(30)->withQueryString();
             }
 
-            $sites = Site::query()->orderBy('site_name')->get(['id', 'site_name', 'domain']);
+            $selectedSiteId = (int) $request->query('site_id');
+            if ($selectedSiteId > 0) {
+                $sites = Site::query()->whereKey($selectedSiteId)->get(['id', 'site_name', 'domain']);
+            }
         } catch (\Throwable $e) {
             Log::warning('Admin site ratings index failed', [
                 'error' => $e->getMessage(),
@@ -64,6 +67,40 @@ class SiteRatingController extends Controller
         }
 
         return view('admin.site-ratings', compact('ratings', 'sites', 'ratingsTableReady'));
+    }
+
+    public function searchSites(Request $request): JsonResponse
+    {
+        $q = search_text($request->query('q'));
+        $selectedId = (int) $request->query('selected', $request->query('site_id', 0));
+
+        $query = Site::query()->orderBy('site_name')->orderBy('domain');
+        if ($q !== '') {
+            $like = like_contains($q);
+            $query->where(function ($inner) use ($like) {
+                $inner->whereRaw('site_name LIKE ? ESCAPE ?', [$like, '\\'])
+                    ->orWhereRaw('domain LIKE ? ESCAPE ?', [$like, '\\']);
+            })->limit(20);
+        } else {
+            $query->orderByDesc('id')->limit(8);
+        }
+
+        $rows = $query->get(['id', 'site_name', 'domain']);
+        if ($selectedId > 0 && ! $rows->contains(fn (Site $site) => (int) $site->id === $selectedId)) {
+            $selected = Site::query()->whereKey($selectedId)->first(['id', 'site_name', 'domain']);
+            if ($selected) {
+                $rows = $rows->prepend($selected);
+            }
+        }
+
+        return response()->json([
+            'options' => $rows->map(fn (Site $site) => [
+                'value' => (string) $site->id,
+                'label' => trim((string) $site->site_name) !== ''
+                    ? $site->site_name.' ('.$site->domain.')'
+                    : (string) $site->domain,
+            ])->values()->all(),
+        ]);
     }
 
     public function store(Request $request)

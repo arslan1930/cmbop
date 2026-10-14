@@ -108,9 +108,11 @@ class PromotionController extends Controller
         $featureCreditSites = collect();
         $featureCreditsTableReady = false;
         if (auth()->user()?->isAdmin()) {
-            $featureCreditUsers = $this->featureCreditPublishers();
             $selectedUserId = (int) old('user_id');
-            if ($selectedUserId > 0 && $featureCreditUsers->contains('id', $selectedUserId)) {
+            if ($selectedUserId > 0) {
+                $featureCreditUsers = User::query()
+                    ->whereKey($selectedUserId)
+                    ->get(['id', 'name', 'email']);
                 $featureCreditSites = $this->sitesForPublisher($selectedUserId);
             }
         }
@@ -186,6 +188,49 @@ class PromotionController extends Controller
             'bannerImps7ById',
             'bannerClicks7ById'
         ));
+    }
+
+    public function searchFeatureCreditUsers(Request $request): JsonResponse
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        $q = search_text($request->query('q'));
+        $selectedId = (int) $request->query('selected', $request->query('user_id', 0));
+
+        $query = User::query()
+            ->whereHas('roles', fn ($roles) => $roles->where('name', 'publisher'))
+            ->whereHas('sites')
+            ->orderBy('name')
+            ->orderBy('email');
+
+        if ($q !== '') {
+            $like = like_contains($q);
+            $query->where(function ($inner) use ($like) {
+                $inner->whereRaw('name LIKE ? ESCAPE ?', [$like, '\\'])
+                    ->orWhereRaw('email LIKE ? ESCAPE ?', [$like, '\\']);
+            })->limit(20);
+        } else {
+            $query->orderByDesc('id')->limit(8);
+        }
+
+        $rows = $query->get(['id', 'name', 'email']);
+        if ($selectedId > 0 && ! $rows->contains(fn (User $user) => (int) $user->id === $selectedId)) {
+            $selected = User::query()->whereKey($selectedId)->first(['id', 'name', 'email']);
+            if ($selected) {
+                $rows = $rows->prepend($selected);
+            }
+        }
+
+        return response()->json([
+            'options' => $rows->map(function (User $user) {
+                $name = trim((string) $user->name);
+
+                return [
+                    'value' => (string) $user->id,
+                    'label' => $name !== '' ? $name.' — '.$user->email : $user->email,
+                ];
+            })->values()->all(),
+        ]);
     }
 
     public function featureCreditSites(Request $request): JsonResponse
@@ -298,19 +343,6 @@ class PromotionController extends Controller
             'track' => false,
             'placementWired' => in_array($audience, config('promotions.wired_placements.'.$placement, []), true),
         ]);
-    }
-
-    /**
-     * @return Collection<int, User>
-     */
-    private function featureCreditPublishers()
-    {
-        return User::query()
-            ->whereHas('roles', fn ($query) => $query->where('name', 'publisher'))
-            ->whereHas('sites')
-            ->orderBy('name')
-            ->orderBy('email')
-            ->get(['id', 'name', 'email']);
     }
 
     /**

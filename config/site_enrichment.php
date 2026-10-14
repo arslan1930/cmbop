@@ -59,6 +59,8 @@ return [
         'height' => (int) env('SITE_SCREENSHOT_HEIGHT', 800),
         'thumb_width' => (int) env('SITE_SCREENSHOT_THUMB_WIDTH', 640),
         'screenshotone_access_key' => env('SCREENSHOTONE_ACCESS_KEY'),
+        /** Optional thum.io auth token. Unauthenticated calls are treated as unconfigured. */
+        'thum_io_auth' => env('THUM_IO_AUTH'),
         /** Template with {url} placeholder, used when provider=url_api */
         'api_url' => env('SITE_SCREENSHOT_API_URL'),
         'timeout' => (int) env('SITE_SCREENSHOT_TIMEOUT', 45),

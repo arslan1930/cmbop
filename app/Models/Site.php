@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Storage;
 
 class Site extends Model
 {
+    use Concerns\NormalizesCountry;
     use ToleratesUnparseableDates;
 
     protected static function booted(): void

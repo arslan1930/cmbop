@@ -22,6 +22,8 @@ use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\Withdrawal;
+use App\Support\AdminSignupDigest;
+use App\Support\MailAddress;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -57,27 +59,40 @@ class EmailNotificationService
 
     public function notifyAdminsNewUser(User $user): void
     {
-        foreach ($this->adminUsers() as $admin) {
-            $this->dispatch(
-                'admin_new_user',
-                $admin,
-                new AdminNewUserRegistered($user, $admin),
-                'admin_new_user:'.$user->id.':admin:'.$admin->id
-            );
-        }
-
-        $fallback = config('mail.admin_email') ?: config('email_notifications.brand.support_email');
-        if ($this->adminUsers()->isEmpty() && filled($fallback)) {
+        if (AdminSignupDigest::enabled()) {
             try {
-                $mailable = new AdminNewUserRegistered($user, null);
-                $mailable->notificationType = 'admin_new_user';
-                $mailable->dedupeKey = 'admin_new_user:'.$user->id.':fallback';
-                Mail::to($fallback)->send($mailable);
+                app(AdminSignupDigest::class)->remember($user);
             } catch (\Throwable $e) {
-                Log::warning('Fallback admin new-user email failed', [
+                Log::warning('Admin signup digest enqueue failed', [
                     'user_id' => $user->id,
                     'error' => $e->getMessage(),
                 ]);
+            }
+        } else {
+            foreach ($this->adminUsers() as $admin) {
+                $this->dispatch(
+                    'admin_new_user',
+                    $admin,
+                    new AdminNewUserRegistered($user, $admin),
+                    'admin_new_user:'.$user->id.':admin:'.$admin->id
+                );
+            }
+
+            $fallback = MailAddress::normalize(
+                config('mail.admin_email') ?: config('email_notifications.brand.support_email')
+            );
+            if ($this->adminUsers()->isEmpty() && filled($fallback)) {
+                try {
+                    $mailable = new AdminNewUserRegistered($user, null);
+                    $mailable->notificationType = 'admin_new_user';
+                    $mailable->dedupeKey = 'admin_new_user:'.$user->id.':fallback';
+                    Mail::to($fallback)->send($mailable);
+                } catch (\Throwable $e) {
+                    Log::warning('Fallback admin new-user email failed', [
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         }
 
@@ -110,7 +125,9 @@ class EmailNotificationService
                 );
             }
 
-            $fallback = config('mail.admin_email') ?: config('email_notifications.brand.support_email');
+            $fallback = MailAddress::normalize(
+                config('mail.admin_email') ?: config('email_notifications.brand.support_email')
+            );
             if ($staff->isEmpty() && filled($fallback)) {
                 try {
                     $mailable = new NewSiteNotification($site, $action);
@@ -168,7 +185,9 @@ class EmailNotificationService
             );
         }
 
-        $fallback = config('mail.admin_email') ?: config('email_notifications.brand.support_email');
+        $fallback = MailAddress::normalize(
+            config('mail.admin_email') ?: config('email_notifications.brand.support_email')
+        );
         if ($admins->isEmpty() && filled($fallback)) {
             try {
                 $mailable = new WithdrawalRequestNotification($withdrawal, $requester);
@@ -218,7 +237,9 @@ class EmailNotificationService
             );
         }
 
-        $fallback = config('mail.admin_email') ?: config('email_notifications.brand.support_email');
+        $fallback = MailAddress::normalize(
+            config('mail.admin_email') ?: config('email_notifications.brand.support_email')
+        );
         if ($admins->isEmpty() && filled($fallback)) {
             try {
                 $mailable = new AdminManualPaymentNotification($customer, $orderList->all(), $paymentMethod, $totalAmount);
@@ -413,7 +434,9 @@ class EmailNotificationService
 
         // Fallback admin inbox if no admin users
         if ($this->usersWithRole('admin')->isEmpty()) {
-            $fallback = config('mail.admin_email') ?: config('email_notifications.brand.support_email');
+            $fallback = MailAddress::normalize(
+                config('mail.admin_email') ?: config('email_notifications.brand.support_email')
+            );
             if (filled($fallback)) {
                 $ghost = new User(['name' => 'Admin', 'email' => $fallback]);
                 $ghost->id = 0;
@@ -461,7 +484,7 @@ class EmailNotificationService
      */
     public function sendReminder(?User $recipient, PlatformMailable $mailable): bool
     {
-        if (! $recipient?->email || ! $mailable->notificationType) {
+        if (! MailAddress::isValid($recipient?->email) || ! $mailable->notificationType) {
             return false;
         }
 
@@ -488,7 +511,12 @@ class EmailNotificationService
 
     protected function dispatch(string $type, ?User $recipient, PlatformMailable $mailable, string $dedupeKey): bool
     {
-        if (! $recipient?->email) {
+        if (! MailAddress::isValid($recipient?->email)) {
+            Log::warning('EmailNotificationService skipped invalid address', [
+                'type' => $type,
+                'to' => $recipient?->email,
+            ]);
+
             return false;
         }
 

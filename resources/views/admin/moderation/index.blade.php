@@ -7,9 +7,18 @@
             <h1 class="h3 mb-1">Content Moderation</h1>
             <p class="text-muted mb-0">Policy settings, prohibited categories, and article scan logs.</p>
         </div>
-        <a href="{{ route('admin.content-library.index') }}" class="btn btn-outline-primary btn-sm">
-            <i class="fa fa-folder-open me-1" aria-hidden="true"></i> Browse articles
-        </a>
+        <div class="d-flex flex-wrap gap-2">
+            <form method="POST" action="{{ route('admin.moderation.scan-all') }}"
+                  data-slb-confirm="Scan up to 50 library articles that have never been moderated?"
+                  data-slb-confirm-title="Scan unchecked articles?"
+                  data-slb-confirm-text="Scan">
+                @csrf
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Scan unchecked articles</button>
+            </form>
+            <a href="{{ route('admin.content-library.index') }}" class="btn btn-outline-primary btn-sm">
+                <i class="fa fa-folder-open me-1" aria-hidden="true"></i> Browse articles
+            </a>
+        </div>
     </div>
 
     @php
@@ -42,7 +51,7 @@
             <div>
                 <strong>{{ $offCategories->count() }} {{ $offCategories->count() === 1 ? 'category is' : 'categories are' }} not being checked:</strong>
                 {{ $offCategories->implode(', ') }}.
-                Articles in {{ $offCategories->count() === 1 ? 'that category' : 'those categories' }} will not be flagged.
+                Unchecked boxes are marketplace-allowed topics (crypto placements stay sellable). Tick a box and save policy to prohibit it. Every checked category is scanned.
             </div>
         </div>
     @endif

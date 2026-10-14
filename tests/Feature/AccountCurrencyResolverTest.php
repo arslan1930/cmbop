@@ -246,7 +246,7 @@ class AccountCurrencyResolverTest extends TestCase
             ->assertRedirect(route('profile'));
 
         $fresh = $user->fresh();
-        $this->assertSame('US', $fresh->country);
+        $this->assertSame('us', $fresh->country);
         $this->assertSame('EUR', $fresh->display_currency);
 
         $this->withCountry('US');
@@ -270,7 +270,7 @@ class AccountCurrencyResolverTest extends TestCase
             ->assertRedirect(route('profile'));
 
         $fresh = $user->fresh();
-        $this->assertSame('GB', $fresh->country);
+        $this->assertSame('uk', $fresh->country);
         $this->assertNull($fresh->display_currency);
 
         $this->withCountry('GB');
@@ -293,12 +293,13 @@ class AccountCurrencyResolverTest extends TestCase
                 'country' => 'US',
                 'city' => 'Austin',
                 'address' => '1 Main St',
+                'postal_code' => '78701',
             ])
             ->assertOk()
             ->assertJsonPath('success', true);
 
         $fresh = $user->fresh();
-        $this->assertSame('US', $fresh->country);
+        $this->assertSame('us', $fresh->country);
         $this->assertSame('GBP', $fresh->display_currency);
         $this->assertSame('GBP', app(DisplayCurrencyPreference::class)->preferred());
         $this->assertSame('GBP', AccountCurrency::forUser($fresh));

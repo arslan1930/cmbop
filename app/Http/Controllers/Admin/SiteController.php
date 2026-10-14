@@ -6500,7 +6500,7 @@ class SiteController extends Controller
             'publisher_id' => ['nullable', 'integer'],
         ];
         if (! $matchAll) {
-            $rules['ids'] = ['required', 'array', 'min:1', 'max:50'];
+            $rules['ids'] = ['required', 'array', 'min:1', 'max:200'];
             $rules['ids.*'] = ['integer', 'distinct'];
         }
         $data = $request->validate($rules);

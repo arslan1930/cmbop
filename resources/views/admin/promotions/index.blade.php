@@ -183,11 +183,15 @@
             @if(empty($featureCreditsTableReady))
                 <p class="small text-muted mb-0">Feature credits are unavailable until the database is migrated.</p>
             @else
-                <form method="POST" action="{{ route('admin.promotions.feature-credits.store') }}" class="admin-deposits-filters row g-2 align-items-end" data-admin-filter-live="1">
+                <form method="POST" action="{{ route('admin.promotions.feature-credits.store') }}" class="admin-deposits-filters row g-2 align-items-end" data-admin-filter-live="1" data-admin-select-no-submit="1">
                     @csrf
                     <div class="col-md-4">
                         <label class="form-label" for="featureCreditUser">Publisher</label>
-                        <select id="featureCreditUser" name="user_id" class="form-select" data-admin-select-search="1" data-admin-select-search-label="Search publishers" data-admin-select-search-empty="No matching publishers">
+                        <select id="featureCreditUser" name="user_id" class="form-select"
+                                data-admin-select-search="1"
+                                data-admin-select-search-url="{{ route('admin.promotions.feature-credits.users') }}"
+                                data-admin-select-search-label="Search publishers"
+                                data-admin-select-search-empty="No matching publishers">
                             <option value="">Choose a publisher</option>
                             @foreach($featureCreditUsers ?? [] as $creditUser)
                                 <option value="{{ $creditUser->id }}" @selected((string) old('user_id') === (string) $creditUser->id)>

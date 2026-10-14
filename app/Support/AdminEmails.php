@@ -18,7 +18,7 @@ class AdminEmails
     public static function indexQuery(Request $request): array
     {
         $status = search_text($request->input('status'));
-        if (! in_array($status, ['pending', 'delivered', 'failed'], true)) {
+        if (! in_array($status, ['pending', 'delivered', 'failed', 'dismissed'], true)) {
             $status = '';
         }
 

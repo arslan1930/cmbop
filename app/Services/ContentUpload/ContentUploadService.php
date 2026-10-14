@@ -14,6 +14,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\Mime\MimeTypes;
@@ -256,18 +257,7 @@ class ContentUploadService
 
         $report = $this->evaluationReportWithNotifyStatus($submission, $result);
 
-        $submission->update([
-            'preview_html' => $previewHtml,
-            'moderation_status' => $result['moderation_status'],
-            'evaluation_status' => $result['evaluation_status'],
-            'uniqueness_score' => $result['uniqueness_score'],
-            'quality_score' => $result['quality_score'],
-            'evaluation_report' => $report,
-            'evaluated_at' => now(),
-            'moderation_log_id' => $result['log']?->id,
-            'scan_token' => $result['log']?->scan_token,
-            'wizard_step' => $result['approved'] ? max(2, (int) $submission->wizard_step) : 1,
-        ]);
+        $submission->update($this->evaluationPersistPayload($submission, $result, $previewHtml, $report));
 
         $fresh = $submission->fresh();
         $this->reconcileImageRightsAfterParse($fresh, $imageRights, $imageRightsSource);
@@ -666,18 +656,7 @@ class ContentUploadService
 
         $report = $this->evaluationReportWithNotifyStatus($submission, $result);
 
-        $submission->update([
-            'preview_html' => $previewHtml,
-            'moderation_status' => $result['moderation_status'],
-            'evaluation_status' => $result['evaluation_status'],
-            'uniqueness_score' => $result['uniqueness_score'],
-            'quality_score' => $result['quality_score'],
-            'evaluation_report' => $report,
-            'evaluated_at' => now(),
-            'moderation_log_id' => $result['log']?->id,
-            'scan_token' => $result['log']?->scan_token,
-            'wizard_step' => $result['approved'] ? max(2, (int) $submission->wizard_step) : 1,
-        ]);
+        $submission->update($this->evaluationPersistPayload($submission, $result, $previewHtml, $report));
 
         $fresh = $submission->fresh();
         $result = $this->presentEvaluationResult($fresh, $result);
@@ -697,6 +676,40 @@ class ContentUploadService
             'moderation_status' => (string) ($result['moderation_status'] ?? $fresh->moderation_status),
             'notify_status' => (string) ($result['notify_status'] ?? $result['moderation_status'] ?? $fresh->moderation_status),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @param  array<string, mixed>  $report
+     * @return array<string, mixed>
+     */
+    private function evaluationPersistPayload(
+        ContentSubmission $submission,
+        array $result,
+        string $previewHtml,
+        array $report,
+    ): array {
+        $payload = [
+            'preview_html' => $previewHtml,
+            'moderation_status' => $result['moderation_status'],
+            'evaluation_status' => $result['evaluation_status'],
+            'uniqueness_score' => $result['uniqueness_score'],
+            'quality_score' => $result['quality_score'],
+            'evaluation_report' => $report,
+            'evaluated_at' => now(),
+            'moderation_log_id' => $result['log']?->id,
+            'scan_token' => $result['log']?->scan_token,
+            'wizard_step' => $result['approved'] ? max(2, (int) $submission->wizard_step) : 1,
+        ];
+
+        try {
+            if (Schema::hasColumn('content_submissions', 'content_fingerprint') && filled($result['content_fingerprint'] ?? null)) {
+                $payload['content_fingerprint'] = (string) $result['content_fingerprint'];
+            }
+        } catch (\Throwable) {
+        }
+
+        return $payload;
     }
 
     public function validateMarket(?string $country, ?string $language, ?ContentSubmission $replace = null): ?string

@@ -25,6 +25,24 @@ class ScreenshotCaptureService
         $basename = 'site-'.$site->id.'-'.now()->format('YmdHis');
 
         $provider = (string) config('site_enrichment.screenshots.provider', 'thum_io');
+        $status = $this->providerStatus();
+        if (! $status['ready']) {
+            Log::warning('Screenshot provider is not configured; skipping capture', [
+                'site_id' => $site->id,
+                'url' => $url,
+                'provider' => $provider,
+                'warning' => $status['warning'],
+            ]);
+
+            return [
+                'path' => $site->screenshot_path,
+                'thumb_path' => $site->screenshot_thumb_path,
+                'success' => false,
+                'error' => $status['warning'],
+                'used_placeholder' => false,
+            ];
+        }
+
         $binary = $this->fetchScreenshotBinary($url);
 
         if ($binary === null) {
@@ -128,6 +146,47 @@ class ScreenshotCaptureService
         ];
     }
 
+    /**
+     * @return array{provider: string, ready: bool, warning: ?string, label: string}
+     */
+    public function providerStatus(): array
+    {
+        $provider = (string) config('site_enrichment.screenshots.provider', 'thum_io');
+
+        return match ($provider) {
+            'none', 'placeholder' => [
+                'provider' => $provider,
+                'ready' => true,
+                'warning' => null,
+                'label' => $provider,
+            ],
+            'screenshotone' => filled(config('site_enrichment.screenshots.screenshotone_access_key'))
+                ? ['provider' => $provider, 'ready' => true, 'warning' => null, 'label' => 'screenshotone']
+                : [
+                    'provider' => $provider,
+                    'ready' => false,
+                    'warning' => 'ScreenshotOne is selected but SCREENSHOTONE_ACCESS_KEY is empty. Set the key or switch SITE_SCREENSHOT_PROVIDER.',
+                    'label' => 'screenshotone (no key)',
+                ],
+            'url_api' => (filled(config('site_enrichment.screenshots.api_url')) && str_contains((string) config('site_enrichment.screenshots.api_url'), '{url}'))
+                ? ['provider' => $provider, 'ready' => true, 'warning' => null, 'label' => 'url_api']
+                : [
+                    'provider' => $provider,
+                    'ready' => false,
+                    'warning' => 'url_api is selected but SITE_SCREENSHOT_API_URL is missing a {url} placeholder.',
+                    'label' => 'url_api (no url)',
+                ],
+            default => filled(config('site_enrichment.screenshots.thum_io_auth'))
+                ? ['provider' => 'thum_io', 'ready' => true, 'warning' => null, 'label' => 'thum_io']
+                : [
+                    'provider' => 'thum_io',
+                    'ready' => false,
+                    'warning' => 'thum.io is unauthenticated. Set THUM_IO_AUTH or switch SITE_SCREENSHOT_PROVIDER to screenshotone / url_api. Captures are skipped until a key is configured.',
+                    'label' => 'thum_io (unauthenticated)',
+                ],
+        };
+    }
+
     private function fetchScreenshotBinary(string $url): ?string
     {
         $provider = (string) config('site_enrichment.screenshots.provider', 'thum_io');
@@ -153,13 +212,16 @@ class ScreenshotCaptureService
 
     private function viaThumIo(string $url): ?string
     {
-        // Free/public thumbnail service — replaceable via config.
-        // Force a desktop viewport (not a phone-sized capture) then crop to the
-        // configured desktop frame so catalog/admin previews read as 16:10.
+        $auth = trim((string) config('site_enrichment.screenshots.thum_io_auth'));
+        if ($auth === '') {
+            return null;
+        }
+
         $width = max(1024, (int) config('site_enrichment.screenshots.width', 1280));
         $height = max(640, (int) config('site_enrichment.screenshots.height', 800));
         $endpoint = sprintf(
-            'https://image.thum.io/get/width/%d/crop/%d/viewportWidth/%d/noanimate/%s',
+            'https://image.thum.io/get/auth/%s/width/%d/crop/%d/viewportWidth/%d/noanimate/%s',
+            rawurlencode($auth),
             $width,
             $height,
             $width,
@@ -168,12 +230,26 @@ class ScreenshotCaptureService
         $response = Http::timeout(45)->get($endpoint);
 
         if (! $response->successful()) {
+            Log::warning('thum.io screenshot HTTP failure', [
+                'status' => $response->status(),
+                'url' => $url,
+                'provider' => 'thum_io',
+            ]);
+
             return null;
         }
 
         $body = $response->body();
+        if (! is_string($body) || strlen($body) <= 500) {
+            Log::warning('thum.io screenshot returned a tiny/non-image body', [
+                'bytes' => is_string($body) ? strlen($body) : 0,
+                'url' => $url,
+            ]);
 
-        return is_string($body) && strlen($body) > 500 ? $body : null;
+            return null;
+        }
+
+        return $body;
     }
 
     private function viaUrlApi(string $url): ?string
@@ -213,6 +289,11 @@ class ScreenshotCaptureService
         ]);
 
         if (! $response->successful()) {
+            Log::warning('ScreenshotOne HTTP failure', [
+                'status' => $response->status(),
+                'url' => $url,
+            ]);
+
             return null;
         }
 

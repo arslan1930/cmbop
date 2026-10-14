@@ -42,6 +42,7 @@ class DepositController extends Controller
                 'completed' => 0,
                 'rejected' => 0,
                 'total_amount' => 0,
+                'pending_amount' => 0,
             ];
             $invoiceLinks = collect();
 
@@ -66,6 +67,7 @@ class DepositController extends Controller
                 'rejected' => DepositRequest::where('status', 'rejected')->count(),
                 'refunded' => DepositRequest::where('status', 'refunded')->count(),
                 'total_amount' => DepositRequest::where('status', 'completed')->sum('amount'),
+                'pending_amount' => DepositRequest::where('status', 'pending')->sum('amount'),
             ];
 
             $deposits = $query
@@ -87,6 +89,7 @@ class DepositController extends Controller
                 'completed' => 0,
                 'rejected' => 0,
                 'total_amount' => 0,
+                'pending_amount' => 0,
             ];
 
             return view('admin.deposits', [
@@ -202,6 +205,48 @@ class DepositController extends Controller
                 'message' => UserFacingError::message($e, 'Failed to approve deposit. Please try again.'),
             ]);
         }
+    }
+
+    public function bulkApprove(Request $request, ManualDepositApprovalService $approvals)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        if (! DepositRequest::tableAvailable()) {
+            return back()->with('error', 'Deposits are unavailable.');
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $data['ids'])));
+        $approved = 0;
+        $skipped = 0;
+        foreach (DepositRequest::query()->whereIn('id', $ids)->limit(100)->get() as $deposit) {
+            $method = strtolower((string) ($deposit->payment_method ?? ''));
+            if (! $deposit->isPending() || ! in_array($method, ['bank', 'wise', 'crypto'], true)) {
+                $skipped++;
+
+                continue;
+            }
+            try {
+                $approvals->approve($deposit, $request->user(), 'Bulk approved', null, null);
+                $approved++;
+            } catch (\Throwable) {
+                $skipped++;
+            }
+        }
+
+        ActivityLogger::tryLog(
+            'deposit.bulk_approved',
+            ($request->user()?->name ?? 'Admin').' bulk-approved '.$approved.' deposit(s)',
+            null,
+            ['count' => $approved, 'skipped' => $skipped]
+        );
+
+        return back()->with(
+            'success',
+            'Approved '.$approved.' manual deposit(s).'.($skipped > 0 ? ' Skipped '.$skipped.' (card/PayPal or already processed).' : '')
+        );
     }
 
     public function refundPaypal(Request $request, $id, WalletPaypalDepositService $paypalDeposits)

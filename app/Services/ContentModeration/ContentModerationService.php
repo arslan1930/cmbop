@@ -204,6 +204,11 @@ class ContentModerationService
         $cfg = $this->effectiveConfig();
         $text = trim($text);
         $contentSubmissionId = $contentSubmissionId ?: $this->submissionIdFromSource($sourceLabel);
+        $scanFingerprint = hash('sha256', $title."\n".$text."\n".$html."\n".implode("\n", $links));
+        $reused = $this->reuseRecentScanLog($contentSubmissionId, $scanFingerprint);
+        if ($reused) {
+            return $this->resultFromLog($reused);
+        }
 
         if ($text === '') {
             $log = ContentModerationLog::create([
@@ -385,6 +390,7 @@ class ContentModerationService
                 'matched_terms' => $matchedTerms,
                 'blocked_urls' => $blockedUrls,
                 'source' => str_starts_with($sourceLabel, 'upload:') ? 'upload' : 'url',
+                'content_fingerprint' => $scanFingerprint,
             ],
             'word_count' => $quality['word_count'] ?? 0,
             'scan_token' => $token,
@@ -1327,6 +1333,34 @@ class ContentModerationService
         $fromFile = pathinfo((string) $submission->original_filename, PATHINFO_FILENAME);
 
         return $fromFile !== '' ? $fromFile : 'Article';
+    }
+
+    private function reuseRecentScanLog(?int $contentSubmissionId, string $fingerprint): ?ContentModerationLog
+    {
+        if (! $contentSubmissionId || $fingerprint === '') {
+            return null;
+        }
+
+        try {
+            if (! ContentModerationLog::tableAvailable()) {
+                return null;
+            }
+
+            $recent = ContentModerationLog::query()
+                ->where('content_submission_id', $contentSubmissionId)
+                ->where('created_at', '>=', now()->subHour())
+                ->latest('id')
+                ->first();
+            if (! $recent || $recent->wasSkipped()) {
+                return null;
+            }
+
+            return data_get($recent->signals, 'content_fingerprint') === $fingerprint
+                ? $recent
+                : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function contentFingerprint(ContentSubmission $submission): string

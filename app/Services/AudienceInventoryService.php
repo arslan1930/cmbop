@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Support\CountryCode;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
@@ -250,17 +251,20 @@ class AudienceInventoryService
                 ->where('country', '!=', '')
                 ->whereRaw('TRIM(country) != ?', ['']);
 
-            return $query
-                ->selectRaw('MIN(country) as country_value, COUNT(*) as users_count')
-                ->groupByRaw('LOWER(TRIM(country))')
-                ->orderBy('country_value')
-                ->get()
-                ->map(fn ($row) => [
-                    'value' => (string) $row->country_value,
-                    'count' => (int) $row->users_count,
-                ])
-                ->values()
-                ->all();
+            $grouped = [];
+            foreach ($query->get(['country']) as $row) {
+                $code = CountryCode::normalize((string) $row->country) ?: strtolower(trim((string) $row->country));
+                if ($code === '') {
+                    continue;
+                }
+                $grouped[$code] = ($grouped[$code] ?? 0) + 1;
+            }
+            ksort($grouped);
+
+            return collect($grouped)->map(fn ($count, $code) => [
+                'value' => (string) $code,
+                'count' => (int) $count,
+            ])->values()->all();
         } catch (\Throwable $e) {
             report($e);
 
@@ -775,7 +779,20 @@ class AudienceInventoryService
             $query->whereDate('created_at', '<=', $filters['registered_to']);
         }
         if (filled($filters['country'] ?? null)) {
-            $query->whereRaw('LOWER(country) = ?', [mb_strtolower(trim((string) $filters['country']))]);
+            $raw = mb_strtolower(trim((string) $filters['country']));
+            $code = CountryCode::normalize($raw) ?: $raw;
+            $aliases = [$raw, $code];
+            foreach (CountryCode::aliasMap() as $name => $mapped) {
+                if ($mapped === $code) {
+                    $aliases[] = $name;
+                }
+            }
+            $aliases = array_values(array_unique($aliases));
+            $query->where(function ($inner) use ($aliases) {
+                foreach ($aliases as $alias) {
+                    $inner->orWhereRaw('LOWER(TRIM(country)) = ?', [$alias]);
+                }
+            });
         }
 
         $marketing = $filters['marketing'] ?? 'all';

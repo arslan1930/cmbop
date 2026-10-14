@@ -146,13 +146,17 @@ class SiteEnrichmentTest extends TestCase
         config([
             'site_enrichment.enabled' => true,
             'site_enrichment.screenshots.provider' => 'thum_io',
+            'site_enrichment.screenshots.thum_io_auth' => 'test-auth',
         ]);
 
         $warnings = [];
         Event::listen(
             MessageLogged::class,
             function (MessageLogged $event) use (&$warnings) {
-                if ($event->level === 'warning' && str_contains((string) $event->message, 'Screenshot capture failed')) {
+                if ($event->level === 'warning' && (
+                    str_contains((string) $event->message, 'Screenshot capture failed')
+                    || str_contains((string) $event->message, 'thum.io screenshot HTTP failure')
+                )) {
                     $warnings[] = [
                         'message' => $event->message,
                         'context' => $event->context,
@@ -165,7 +169,8 @@ class SiteEnrichmentTest extends TestCase
         app(ScreenshotCaptureService::class)->capture($site);
 
         $this->assertNotEmpty($warnings);
-        $this->assertSame('thum_io', $warnings[0]['context']['provider'] ?? null);
+        $withProvider = collect($warnings)->first(fn ($row) => ($row['context']['provider'] ?? null) === 'thum_io');
+        $this->assertNotNull($withProvider, 'Capture failure should name the thum.io provider.');
     }
 
     public function test_failed_refresh_keeps_previous_screenshot_files(): void
@@ -177,6 +182,7 @@ class SiteEnrichmentTest extends TestCase
         config([
             'site_enrichment.enabled' => true,
             'site_enrichment.screenshots.provider' => 'thum_io',
+            'site_enrichment.screenshots.thum_io_auth' => 'test-auth',
         ]);
 
         $oldPath = 'site-screenshots/site-keep-full.webp';
@@ -264,7 +270,8 @@ class SiteEnrichmentTest extends TestCase
         $this->assertSame(9000, $snapshot->monthlyOrganicTraffic);
         $this->assertSame(['manual'], $result['providers_used']);
         $this->assertSame('manual', $snapshot->provider);
-        $this->assertSame([], $result['errors']);
+        $this->assertNotEmpty($result['errors']);
+        $this->assertTrue(collect($result['errors'])->contains(fn ($msg) => str_contains((string) $msg, 'not configured')));
 
         $run = app(SiteEnrichmentService::class)->refreshMetrics($site, 'test');
         $this->assertSame('manual', $run->provider);
@@ -435,7 +442,7 @@ class SiteEnrichmentTest extends TestCase
         ]);
         $detector->detectAndApply($british);
         $british->refresh();
-        $this->assertSame('gb', $british->country);
+        $this->assertSame('uk', $british->country);
 
         $portugal = $this->makeSite([
             'site_name' => 'Portugal Com',
@@ -610,6 +617,7 @@ class SiteEnrichmentTest extends TestCase
         Storage::fake('public');
         config([
             'site_enrichment.screenshots.provider' => 'thum_io',
+            'site_enrichment.screenshots.thum_io_auth' => 'test-auth',
             'site_enrichment.screenshots.width' => 1280,
             'site_enrichment.screenshots.height' => 800,
         ]);
@@ -640,7 +648,7 @@ class SiteEnrichmentTest extends TestCase
             $this->assertStringEndsWith('.png', (string) $result['path']);
         }
         Http::assertSent(function ($request) {
-            return str_contains($request->url(), 'image.thum.io/get/width/1280/crop/800/viewportWidth/1280/')
+            return str_contains($request->url(), 'image.thum.io/get/auth/test-auth/width/1280/crop/800/viewportWidth/1280/')
                 && str_contains($request->url(), rawurlencode('https://desktop-shot.example:8080/home'));
         });
     }
