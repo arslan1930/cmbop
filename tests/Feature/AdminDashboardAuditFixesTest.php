@@ -13,6 +13,7 @@ use App\Services\Admin\DashboardMetricsService;
 use App\Support\CountryCode;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -224,5 +225,23 @@ class AdminDashboardAuditFixesTest extends TestCase
 
         $this->assertSame('Claimed bulk request', activity_action_label('bulk_request.claimed'));
         $this->assertSame('es', CountryCode::normalize('España'));
+    }
+
+    public function test_countries_normalize_previews_until_apply(): void
+    {
+        $user = $this->userWithRole('advertiser', ['country' => 'Italy']);
+        // Factory/save already canonicalizes; seed a dirty row the command must see.
+        DB::table('users')->where('id', $user->id)->update(['country' => 'Italia']);
+
+        $this->artisan('countries:normalize')
+            ->expectsOutputToContain('PREVIEW users')
+            ->expectsOutputToContain('Italia')
+            ->assertSuccessful();
+        $this->assertSame('Italia', DB::table('users')->where('id', $user->id)->value('country'));
+
+        $this->artisan('countries:normalize', ['--apply' => true])
+            ->expectsOutputToContain('UPDATE users')
+            ->assertSuccessful();
+        $this->assertSame('it', DB::table('users')->where('id', $user->id)->value('country'));
     }
 }

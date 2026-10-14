@@ -10,16 +10,17 @@ use Illuminate\Support\Facades\Schema;
 class NormalizeCountries extends Command
 {
     protected $signature = 'countries:normalize
-                            {--preview : Print SELECT-style rows without writing}
+                            {--preview : Print SELECT-style rows without writing (default)}
+                            {--apply : Write the updates}
                             {--table= : users, sites, or all (default all)}';
 
-    protected $description = 'Normalize users.country and sites.country to ISO-2 (uk not gb). Preview with --preview.';
+    protected $description = 'Normalize users.country and sites.country to ISO-2 (uk not gb). Preview by default; pass --apply to write.';
 
     public function handle(): int
     {
         $tableOpt = strtolower((string) ($this->option('table') ?: 'all'));
         $tables = $tableOpt === 'all' ? ['users', 'sites'] : [$tableOpt];
-        $preview = (bool) $this->option('preview');
+        $preview = ! $this->option('apply') || $this->option('preview');
 
         foreach ($tables as $table) {
             if (! in_array($table, ['users', 'sites'], true)) {
@@ -66,7 +67,7 @@ class NormalizeCountries extends Command
         }
 
         if ($preview) {
-            $this->comment('Re-run without --preview to write. SQL equivalent: database/sql/normalize_country_codes.sql');
+            $this->comment('Preview only. Re-run with --apply to write. SQL equivalent: database/sql/normalize_country_codes.sql');
         }
 
         return self::SUCCESS;

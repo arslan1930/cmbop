@@ -3390,12 +3390,17 @@ document.addEventListener('click', function (e) {
         });
     }
     if (archiveBtn) {
-        archiveBtn.addEventListener('click', function () {
+        archiveBtn.addEventListener('click', async function () {
             var ids = selectedIds();
             if (!ids.length) return;
-            if (!window.confirm('Archive inactive listings for ' + ids.length + ' selected publisher' + (ids.length === 1 ? '' : 's') + '? Live sites stay. Publishers will not be emailed.')) {
-                return;
-            }
+            var ok = typeof window.slbConfirm === 'function'
+                ? await window.slbConfirm({
+                    title: 'Archive inactive listings?',
+                    text: 'Archive inactive listings for ' + ids.length + ' selected publisher' + (ids.length === 1 ? '' : 's') + '? Live sites stay. Publishers will not be emailed.',
+                    confirmText: 'Archive',
+                })
+                : false;
+            if (!ok) return;
             fetch(STAFF_BASE + '/sites/publishers/archive-inactive', {
                 method: 'POST',
                 headers: {
