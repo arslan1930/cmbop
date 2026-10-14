@@ -263,7 +263,7 @@ class AddFundsPageUxTest extends TestCase
         $this->assertStringContainsString('autocomplete="name"', $html);
         $this->assertStringContainsString('for="company_name"', $html);
         $this->assertStringContainsString('for="country"', $html);
-        $this->assertStringContainsString('autocomplete="country-name"', $html);
+        $this->assertStringContainsString('autocomplete="country"', $html);
         $this->assertStringContainsString('for="state"', $html);
         $this->assertStringContainsString('for="city"', $html);
         $this->assertStringContainsString('for="postal_code"', $html);

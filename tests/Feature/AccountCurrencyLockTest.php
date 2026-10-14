@@ -122,6 +122,33 @@ class AccountCurrencyLockTest extends TestCase
         $this->assertStringNotContainsString('I\'m paying from:', $html);
         $this->assertStringNotContainsString('UK bank (GBP)', $html);
         $this->assertStringNotContainsString('Other (EUR)', $html);
+        $this->assertStringContainsString('id="summaryAmount"', $html);
+        $this->assertDoesNotMatchRegularExpression('/id="summaryAmount"[^>]*>€/', $html);
+        $this->assertMatchesRegularExpression('/id="summaryAmount"[^>]*>£0\.00/', $html);
+        $this->assertMatchesRegularExpression('/id="summaryTotal"[^>]*>£0\.00/', $html);
+    }
+
+    public function test_usd_add_funds_payment_summary_uses_dollars(): void
+    {
+        $user = $this->advertiser('US');
+        $user->display_currency = 'USD';
+        $user->save();
+        $this->wallet($user);
+        $this->withCountry('US');
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.add-funds'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('$50', $html);
+        $this->assertStringContainsString('id="customAmountPrefix"', $html);
+        $this->assertDoesNotMatchRegularExpression('/id="summaryAmount"[^>]*>€/', $html);
+        $this->assertMatchesRegularExpression('/id="summaryAmount"[^>]*>\$0\.00/', $html);
+        $this->assertMatchesRegularExpression('/id="summaryTotal"[^>]*>\$0\.00/', $html);
+        $this->assertMatchesRegularExpression('/id="afMobileTotal"[^>]*>\$0\.00/', $html);
+        $this->assertStringContainsString('displaySymbol: "$"', $html);
+        $this->assertStringContainsString('displayCurrency: "USD"', $html);
     }
 
     public function test_eur_add_funds_shows_only_eur_wise_bank(): void

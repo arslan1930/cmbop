@@ -75,26 +75,23 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 -- Backfill bank rail from the stored charge currency (bank deposits only).
-UPDATE `deposit_requests`
-SET `bank_account` = CASE
-    WHEN UPPER(TRIM(COALESCE(`charge_currency`, ''))) = 'GBP' THEN 'gbp_wise'
-    WHEN `payment_method` = 'bank' THEN 'eur_wise'
-    ELSE `bank_account`
-  END
-WHERE `bank_account` IS NULL
-  AND `payment_method` = 'bank';
+SET @can_backfill_bank := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'deposit_requests'
+    AND COLUMN_NAME IN ('bank_account', 'charge_currency', 'payment_method')
+);
+SET @sql := IF(@can_backfill_bank = 3,
+  'UPDATE `deposit_requests` SET `bank_account` = CASE WHEN UPPER(TRIM(COALESCE(`charge_currency`, ''''))) = ''GBP'' THEN ''gbp_wise'' WHEN `payment_method` = ''bank'' THEN ''eur_wise'' ELSE `bank_account` END WHERE `bank_account` IS NULL AND `payment_method` = ''bank''',
+  'SELECT ''skip bank_account backfill — missing columns'' AS info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Backfill SLB-<id>-<currency> when the reference is still empty.
-UPDATE `deposit_requests`
-SET `payment_reference` = CONCAT(
-    'SLB-',
-    `id`,
-    '-',
-    CASE
-      WHEN UPPER(TRIM(COALESCE(`charge_currency`, ''))) IN ('GBP', 'USD', 'EUR')
-        THEN UPPER(TRIM(`charge_currency`))
-      ELSE 'EUR'
-    END
-  )
-WHERE `payment_reference` IS NULL
-  AND `payment_method` IN ('bank', 'wise', 'crypto');
+SET @can_backfill_ref := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'deposit_requests'
+    AND COLUMN_NAME IN ('payment_reference', 'charge_currency', 'payment_method')
+);
+SET @sql := IF(@can_backfill_ref = 3,
+  'UPDATE `deposit_requests` SET `payment_reference` = CONCAT(''SLB-'', `id`, ''-'', CASE WHEN UPPER(TRIM(COALESCE(`charge_currency`, ''''))) IN (''GBP'', ''USD'', ''EUR'') THEN UPPER(TRIM(`charge_currency`)) ELSE ''EUR'' END) WHERE `payment_reference` IS NULL AND `payment_method` IN (''bank'', ''wise'', ''crypto'')',
+  'SELECT ''skip payment_reference backfill — missing columns'' AS info');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

@@ -73,6 +73,7 @@
     </div>
 </div>
 
+<script src="{{ asset('assets/js/searchable-select.js') }}?v={{ @filemtime(public_path('assets/js/searchable-select.js')) ?: '1' }}"></script>
 <script>
 document.querySelectorAll('#roleSelect .role-card').forEach(card => {
     card.addEventListener('click', function () {

@@ -612,7 +612,8 @@ class FinanceOverviewService
         $openWithdrawalsByCurrency = ['EUR' => 0.0, 'GBP' => 0.0, 'USD' => 0.0];
         if ($openQuery) {
             $hasWithdrawalCurrency = Schema::hasColumn('withdrawals', 'currency');
-            foreach ((clone $openQuery)->get(['net_amount', 'currency']) as $openWithdrawal) {
+            $openSelect = $hasWithdrawalCurrency ? ['net_amount', 'currency'] : ['net_amount'];
+            foreach ((clone $openQuery)->get($openSelect) as $openWithdrawal) {
                 $openCurrency = $hasWithdrawalCurrency
                     ? strtoupper(trim((string) ($openWithdrawal->currency ?: 'EUR')))
                     : 'EUR';

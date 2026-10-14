@@ -1566,4 +1566,46 @@ class AdminFinanceHubTest extends TestCase
             ]);
         }
     }
+
+    public function test_open_withdrawals_omit_currency_column_when_missing(): void
+    {
+        $publisher = $this->makeUser('publisher');
+        $pubRole = Role::firstOrCreate(['name' => 'publisher']);
+        Wallet::create([
+            'user_id' => $publisher->id,
+            'role_id' => $pubRole->id,
+            'balance' => 25,
+            'bonus_balance' => 0,
+            'reserved_balance' => 0,
+            'bonus_reserved' => 0,
+            'currency' => 'EUR',
+        ]);
+
+        Schema::table('withdrawals', function ($table) {
+            if (Schema::hasColumn('withdrawals', 'currency')) {
+                $table->dropColumn('currency');
+            }
+        });
+        $this->assertFalse(Schema::hasColumn('withdrawals', 'currency'));
+
+        Withdrawal::create([
+            'user_id' => $publisher->id,
+            'amount' => 25,
+            'fee' => 0,
+            'net_amount' => 25,
+            'payment_method' => 'bank',
+            'status' => 'pending',
+        ]);
+
+        $overview = app(FinanceOverviewService::class)->overview(
+            app(FinanceOverviewService::class)->resolvePeriod('all')
+        );
+
+        $byCurrency = $overview['listing_fx']['open_withdrawals_by_currency'] ?? null;
+        $this->assertIsArray($byCurrency);
+        $this->assertEquals(25.0, $byCurrency['EUR']);
+        $this->assertEquals(0.0, $byCurrency['GBP']);
+        $this->assertEquals(0.0, $byCurrency['USD']);
+        $this->assertEquals(25.0, $overview['due_to_pay_now']);
+    }
 }

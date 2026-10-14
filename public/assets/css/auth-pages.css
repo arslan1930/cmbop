@@ -581,6 +581,108 @@ body.slb-marketing:has(.auth-page) {
   }
 }
 
+.slb-search-select {
+  position: relative;
+}
+
+.slb-search-select__native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.slb-search-select__toggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--auth-line, #e2e8f0);
+  border-radius: 12px;
+  padding: 0.7rem 2.2rem 0.7rem 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-align: left;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%231a585e' d='M1.4.6 6 5.2 10.6.6 12 2 6 8 0 2z'/%3E%3C/svg%3E") no-repeat right 0.9rem center;
+  color: var(--auth-ink, #0f172a);
+  cursor: pointer;
+  transition: border-color var(--motion-hover, 140ms ease), box-shadow var(--motion-hover, 140ms ease);
+}
+
+.slb-search-select__toggle.is-placeholder {
+  color: #94a3b8;
+}
+
+.slb-search-select__toggle:hover {
+  border-color: #cbd5e1;
+}
+
+.slb-search-select.is-open .slb-search-select__toggle,
+.slb-search-select__toggle:focus {
+  border-color: var(--auth-teal-soft, #3faeb2);
+  box-shadow: 0 0 0 4px rgba(63, 174, 178, 0.18);
+  outline: none;
+}
+
+.slb-search-select__panel {
+  background: #fff;
+  border: 1px solid var(--auth-line, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  padding: 0.5rem;
+}
+
+.slb-search-select__query {
+  width: 100%;
+  border: 1px solid var(--auth-line, #e2e8f0);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+
+.slb-search-select__query:focus {
+  border-color: var(--auth-teal-soft, #3faeb2);
+  box-shadow: 0 0 0 3px rgba(63, 174, 178, 0.16);
+  outline: none;
+}
+
+.slb-search-select__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.slb-search-select__option {
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--auth-ink, #0f172a);
+}
+
+.slb-search-select__option:hover,
+.slb-search-select__option.is-active {
+  background: var(--auth-mint, #e6f5f5);
+  color: var(--auth-teal, #1a585e);
+}
+
+.slb-search-select__option.is-selected {
+  font-weight: 600;
+  color: var(--auth-teal, #1a585e);
+}
+
+.slb-search-select__empty {
+  padding: 0.6rem 0.7rem;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 767.98px) {
   .auth-page {
     padding: 1.25rem 0 5.5rem;
