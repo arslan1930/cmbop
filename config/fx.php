@@ -57,8 +57,8 @@ return [
     'deposit_tolerance_percent' => (float) env('FX_DEPOSIT_TOLERANCE_PERCENT', 2),
 
     /*
-    | Built into the converted advertiser € price when listing currency ≠ EUR.
-    | 0 disables it. No separate fee line.
+    | Built into the advertiser € price when listing currency ≠ buyer
+    | display currency. Stored sites.price stays unbuffered. 0 disables it.
     */
     'conversion_buffer_percent' => (float) env('FX_CONVERSION_BUFFER_PERCENT', 0.5),
 ];

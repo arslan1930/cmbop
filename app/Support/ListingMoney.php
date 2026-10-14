@@ -2,9 +2,14 @@
 
 namespace App\Support;
 
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+
 /**
  * Publisher listing amounts (EUR or GBP) and the advertiser EUR ledger.
- * Buffer applies only when listing currency differs from the ledger (EUR).
+ * Buffer applies only when listing currency differs from the buyer's
+ * display currency (users.display_currency / header preference).
  */
 class ListingMoney
 {
@@ -28,28 +33,135 @@ class ListingMoney
         return max(0, $value);
     }
 
-    public function appliesBuffer(?string $listingCurrency, ?string $ledgerCurrency = self::LEDGER): bool
+    /**
+     * Buyer-facing FX cushion. Applies only when the listing currency
+     * differs from the shopper's display currency — never because the
+     * listing is not the EUR ledger.
+     */
+    public function appliesBuffer(?string $listingCurrency, ?string $buyerCurrency = null): bool
     {
         $listing = $this->normalizeListing($listingCurrency);
-        $ledger = $this->normalizeWallet($ledgerCurrency);
+        $buyer = $this->normalizeWallet($buyerCurrency ?? $this->buyerCurrency());
 
-        return $listing !== $ledger;
+        return $listing !== $buyer;
     }
 
     /**
-     * Convert a listing amount into EUR. Buffer is optional and only for
-     * cross-currency lines (catalog / advertiser price).
+     * Shopper currency: saved users.display_currency first, then the
+     * live MoneyDisplay resolver (header switch / geo).
+     */
+    public function buyerCurrency(?User $buyer = null): string
+    {
+        $buyer ??= Auth::user();
+        if ($buyer instanceof User) {
+            $saved = strtoupper(trim((string) ($buyer->display_currency ?? '')));
+            if (in_array($saved, self::WALLET_CURRENCIES, true)) {
+                return $saved;
+            }
+        }
+
+        return $this->normalizeWallet($this->money->currency());
+    }
+
+    /**
+     * Add-site picker default: GBP when the publisher's account currency
+     * or country is GB, otherwise EUR.
+     */
+    public function defaultListingCurrencyForPublisher(?User $publisher): string
+    {
+        if (! $publisher) {
+            return self::LEDGER;
+        }
+
+        $account = strtoupper(trim((string) ($publisher->display_currency ?? '')));
+        if ($account === 'GBP') {
+            return 'GBP';
+        }
+
+        $country = strtoupper(trim((string) ($publisher->country ?? '')));
+        if (in_array($country, ['GB', 'UK', 'UNITED KINGDOM'], true)) {
+            return 'GBP';
+        }
+
+        return self::LEDGER;
+    }
+
+    public function applyBufferToEuros(float $euros, bool $withBuffer): float
+    {
+        $euros = round($euros, 2);
+        if (! $withBuffer) {
+            return $euros;
+        }
+
+        $percent = $this->bufferPercent();
+        if ($percent <= 0) {
+            return $euros;
+        }
+
+        return round($euros * (1 + $percent / 100), 2);
+    }
+
+    /**
+     * Unbuffered EUR catalog amount → buyer-facing EUR (buffer when
+     * listing currency ≠ buyer currency).
+     */
+    public function buyerFacingEuros(float $unbufferedEuros, ?string $listingCurrency, ?string $buyerCurrency = null): float
+    {
+        return $this->applyBufferToEuros(
+            $unbufferedEuros,
+            $this->appliesBuffer($listingCurrency, $buyerCurrency)
+        );
+    }
+
+    /**
+     * SQL for the buyer-facing EUR catalog amount stored in $column
+     * (unbuffered sites.price). Used by catalog filters / sort / min.
+     */
+    public function buyerFacingEurSql(string $column = 'price', ?string $buyerCurrency = null): string
+    {
+        $buyer = $this->normalizeWallet($buyerCurrency ?? $this->buyerCurrency());
+        $percent = $this->bufferPercent();
+        if ($percent <= 0) {
+            return $column;
+        }
+
+        $factor = rtrim(rtrim(number_format(1 + $percent / 100, 6, '.', ''), '0'), '.');
+        if ($factor === '' || $factor === '1') {
+            return $column;
+        }
+
+        $hasListing = false;
+        try {
+            $hasListing = Schema::hasColumn('sites', 'listing_currency');
+        } catch (\Throwable) {
+            $hasListing = false;
+        }
+
+        if (! $hasListing) {
+            return $buyer === self::LEDGER
+                ? $column
+                : "ROUND({$column} * {$factor}, 2)";
+        }
+
+        $listingColumn = str_contains($column, '.')
+            ? (string) preg_replace('/\.[^.]+$/', '.listing_currency', $column)
+            : 'listing_currency';
+        $listingExpr = "UPPER(TRIM(COALESCE(NULLIF({$listingColumn}, ''), 'EUR')))";
+
+        return "ROUND({$column} * (CASE WHEN {$listingExpr} = '{$buyer}' THEN 1 ELSE {$factor} END), 2)";
+    }
+
+    /**
+     * Convert a listing amount into unbuffered EUR. Pass $withBuffer only
+     * at display / cart / checkout — never when writing sites.price.
      */
     public function toEuros(mixed $local, ?string $currency, bool $withBuffer = false): float
     {
         $amount = round((float) $local, 2);
         $code = $this->normalizeListing($currency);
         $euros = $this->money->toEuros($amount, $code);
-        if ($withBuffer && $this->appliesBuffer($code)) {
-            $euros = round($euros * (1 + $this->bufferPercent() / 100), 2);
-        }
 
-        return $euros;
+        return $this->applyBufferToEuros($euros, $withBuffer);
     }
 
     public function fromEuros(mixed $euros, ?string $currency): float

@@ -58,7 +58,7 @@ class CartPricingService
      *   publisher_currency: string,
      *   advertiser_eur_amount: float,
      *   fx_rate: ?float,
-     *   fx_buffer_percent: ?float
+     *   fx_buffer_percent: float
      * }
      */
     public function priceForAdvertiser(
@@ -67,11 +67,13 @@ class CartPricingService
         int $quantity = 1,
         int|string|null $homepageDays = null,
         bool $defaultHomepage = true,
+        ?string $buyerCurrency = null,
     ): array {
         $listing = app(ListingMoney::class);
         $listingCurrency = $site->listingCurrency();
         $listingBase = $site->listingBaseAmount();
-        $withBuffer = $listing->appliesBuffer($listingCurrency);
+        $buyerCurrency = $listing->normalizeWallet($buyerCurrency ?? $listing->buyerCurrency());
+        $withBuffer = $listing->appliesBuffer($listingCurrency, $buyerCurrency);
         $publisherPrice = $listing->toEuros($listingBase, $listingCurrency, false);
         $advertiserListingEuros = $listing->toEuros($listingBase, $listingCurrency, $withBuffer);
         $feePercent = $this->fees->feePercentForBase($advertiserListingEuros);
@@ -147,8 +149,8 @@ class CartPricingService
         $homepageFee = $listing->toEuros($listingHomepage, $listingCurrency, $withBuffer);
         $total = round($articleTotal + $homepageFee, 2);
         $publisherAmount = round($listingBase + $listingAdditional + $listingHomepage, 2);
-        $fxRate = $withBuffer ? $listing->ratePerEur($listingCurrency) : null;
-        $fxBuffer = $withBuffer ? $listing->bufferPercent() : null;
+        $fxRate = $listing->ratePerEur($listingCurrency);
+        $fxBuffer = $withBuffer ? $listing->bufferPercent() : 0.0;
 
         return [
             'base' => $base,
@@ -447,6 +449,27 @@ class CartPricingService
     }
 
     /**
+     * Buyer display currency for cart / checkout. Prefer the cart owner's
+     * saved users.display_currency so totals match catalog for that shopper.
+     */
+    private function resolveBuyerCurrency(?int $buyerId = null): string
+    {
+        $listing = app(ListingMoney::class);
+        if ($buyerId !== null && $buyerId > 0) {
+            $auth = auth()->user();
+            if ($auth instanceof User && (int) $auth->id === $buyerId) {
+                return $listing->buyerCurrency($auth);
+            }
+            $loaded = User::query()->find($buyerId);
+            if ($loaded instanceof User) {
+                return $listing->buyerCurrency($loaded);
+            }
+        }
+
+        return $listing->buyerCurrency();
+    }
+
+    /**
      * Same ownership rule as Site::isOwnedBy() without loading the user.
      */
     private function buyerOwnsSite(Site $site, ?int $buyerId): bool
@@ -506,7 +529,8 @@ class CartPricingService
                 $item['sensitive_type'] ?? null,
                 $quantity,
                 $item['homepage_days'] ?? null,
-                ! $hasHomepageKey
+                ! $hasHomepageKey,
+                $this->resolveBuyerCurrency($buyerId)
             );
 
             for ($i = 0; $i < $quantity; $i++) {
@@ -534,7 +558,7 @@ class CartPricingService
                     'publisher_currency' => $pricing['publisher_currency'] ?? 'EUR',
                     'advertiser_eur_amount' => $pricing['advertiser_eur_amount'] ?? $pricing['total'],
                     'fx_rate' => $pricing['fx_rate'] ?? null,
-                    'fx_buffer_percent' => $pricing['fx_buffer_percent'] ?? null,
+                    'fx_buffer_percent' => $pricing['fx_buffer_percent'] ?? 0,
                 ];
             }
         }
@@ -584,7 +608,8 @@ class CartPricingService
                 $item['sensitive_type'] ?? null,
                 $quantity,
                 $item['homepage_days'] ?? null,
-                ! $hasHomepageKey
+                ! $hasHomepageKey,
+                $this->resolveBuyerCurrency($buyerId)
             );
             $unitListWithHomepage = round($pricing['list_total'] + $pricing['homepage_price'], 2);
             $lineTotal = round($pricing['total'] * $quantity, 2);

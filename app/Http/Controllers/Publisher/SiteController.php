@@ -109,6 +109,9 @@ class SiteController extends Controller
             report($e);
         }
 
+        $defaultListingCurrency = app(ListingMoney::class)
+            ->defaultListingCurrencyForPublisher(auth()->user());
+
         return view('publisher.websites', compact(
             'countries',
             'categories',
@@ -118,7 +121,8 @@ class SiteController extends Controller
             'openBulkRequest',
             'awaitingDetailsCount',
             'detailsCompleteCount',
-            'gbpListingPrompts'
+            'gbpListingPrompts',
+            'defaultListingCurrency'
         ));
     }
 
@@ -1341,19 +1345,18 @@ class SiteController extends Controller
         $listingPrice = round((float) $request->price, 2);
         $listingSensitive = $this->collectListingSensitivePrices($request);
         $listingHomepage = $this->collectListingHomepagePrices($request);
-        $withBuffer = $listing->appliesBuffer($currency);
 
         return [
             'listing_currency' => $currency,
             'listing_price' => $listingPrice,
             'listing_sensitive_prices' => $listingSensitive !== [] ? $listingSensitive : null,
             'listing_homepage_prices' => $listingHomepage !== [] ? $listingHomepage : null,
-            'price' => $listing->toEuros($listingPrice, $currency, $withBuffer),
+            'price' => $listing->toEuros($listingPrice, $currency, false),
             'sensitive_prices' => $listingSensitive !== []
-                ? $listing->mapToEuros($listingSensitive, $currency, $withBuffer)
+                ? $listing->mapToEuros($listingSensitive, $currency, false)
                 : [],
             'homepage_placement_prices' => $listingHomepage !== []
-                ? $listing->mapToEuros($listingHomepage, $currency, $withBuffer)
+                ? $listing->mapToEuros($listingHomepage, $currency, false)
                 : [],
         ];
     }
@@ -1444,9 +1447,7 @@ class SiteController extends Controller
             return app(ListingMoney::class)->normalizeListing($site->listing_currency);
         }
 
-        $fromCountry = app(MoneyDisplay::class)->currencyForCountry($country);
-
-        return $fromCountry === 'GBP' ? 'GBP' : 'EUR';
+        return app(ListingMoney::class)->defaultListingCurrencyForPublisher(auth()->user());
     }
 
     /**

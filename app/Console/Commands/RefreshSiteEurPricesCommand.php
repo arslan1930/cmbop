@@ -11,7 +11,7 @@ class RefreshSiteEurPricesCommand extends Command
 {
     protected $signature = 'sites:refresh-eur-prices {--limit= : Max sites to refresh}';
 
-    protected $description = 'Refresh sites.price (EUR catalog) from listing_price using the live rate and FX buffer';
+    protected $description = 'Refresh sites.price (unbuffered EUR catalog) from listing_price using the live rate';
 
     public function handle(ListingMoney $listing): int
     {

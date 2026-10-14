@@ -115,7 +115,7 @@ class DepositFx
         ];
     }
 
-    public function sendLabel(string $chargeCurrency, float $chargeAmount, float $euros, ?float $feePercent = null): string
+    public function sendLabel(string $chargeCurrency, float $chargeAmount, float $euros): string
     {
         $euros = round($euros, 2);
         $charge = strtoupper($chargeCurrency);
@@ -136,9 +136,6 @@ class DepositFx
         }
 
         $credit = 'we credit €'.number_format($euros, 2);
-        if ($charge === 'USD' && $feePercent !== null && $feePercent > 0) {
-            $credit .= ', includes '.rtrim(rtrim(number_format($feePercent, 2), '0'), '.').'% conversion fee';
-        }
 
         return 'Send '.$local
             .' ('.$credit.') — rate locked '.$this->lockDays()

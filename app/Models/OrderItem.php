@@ -545,7 +545,7 @@ class OrderItem extends Model
             'publisher_amount' => $pricing['publisher_amount'] ?? $pricing['publisher_price'] ?? null,
             'publisher_currency' => $pricing['publisher_currency'] ?? 'EUR',
             'fx_rate' => $pricing['fx_rate'] ?? null,
-            'fx_buffer_percent' => $pricing['fx_buffer_percent'] ?? null,
+            'fx_buffer_percent' => $pricing['fx_buffer_percent'] ?? 0,
         ];
     }
 

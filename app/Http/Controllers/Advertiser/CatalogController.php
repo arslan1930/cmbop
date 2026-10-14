@@ -65,6 +65,7 @@ use App\Support\CartDisplayFx;
 use App\Support\CatalogProblemReport;
 use App\Support\CatalogVisitUrl;
 use App\Support\DepositPaymentConfig;
+use App\Support\ListingMoney;
 use App\Support\PaypalPaymentError;
 use App\Support\PlatformCharge;
 use App\Support\SiteDescriptionRules;
@@ -73,6 +74,7 @@ use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -101,10 +103,52 @@ class CatalogController extends Controller
      * Used for other people's listings (bulk rail, etc.). Own listings are not
      * orderable and show the entered publisher price instead.
      */
-    private function advertiserCatalogListPrice(float|int|string $publisherBase): float
+    private function advertiserCatalogListPrice(float|int|string $unbufferedEur, ?string $listingCurrency = null): float
     {
-        return app(PlatformFeeService::class)
-            ->advertiserBase((float) $publisherBase);
+        $buyerEuros = app(ListingMoney::class)
+            ->buyerFacingEuros((float) $unbufferedEur, $listingCurrency);
+
+        return app(PlatformFeeService::class)->advertiserBase($buyerEuros);
+    }
+
+    /**
+     * Price filters compare the same buyer-facing advertiser total as the
+     * catalog row / cart (unbuffered sites.price + per-buyer buffer + fee).
+     * Done in PHP so SQLite and MySQL stay on the same rounding as checkout.
+     *
+     * @param  Builder<Site>  $query
+     */
+    private function constrainCatalogAdvertiserPrice($query, ?float $min, ?float $max, ListingMoney $listing): void
+    {
+        if ($min === null && $max === null) {
+            return;
+        }
+
+        $fees = app(PlatformFeeService::class);
+        $buyer = $listing->buyerCurrency();
+        $columns = ['id', 'price'];
+        if (Schema::hasColumn('sites', 'listing_currency')) {
+            $columns[] = 'listing_currency';
+        }
+        $ids = Site::query()
+            ->get($columns)
+            ->filter(function (Site $site) use ($listing, $fees, $buyer, $min, $max): bool {
+                $advertiser = $fees->advertiserBase(
+                    $listing->buyerFacingEuros((float) $site->price, $site->listingCurrency(), $buyer)
+                );
+                if ($min !== null && $advertiser < $min) {
+                    return false;
+                }
+                if ($max !== null && $advertiser > $max) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->pluck('id')
+            ->all();
+
+        $query->whereIn('id', $ids !== [] ? $ids : [0]);
     }
 
     /**
@@ -629,7 +673,7 @@ class CatalogController extends Controller
                     ? 'sale'
                     : 'bulk';
                 $dealSite->original_price = $dealSite->price;
-                $dealSite->price = $this->advertiserCatalogListPrice($dealSite->price);
+                $dealSite->price = $this->advertiserCatalogListPrice($dealSite->price, $dealSite->listingCurrency());
             } catch (\Throwable $e) {
                 report($e);
             }
@@ -828,16 +872,16 @@ class CatalogController extends Controller
             }
         }
 
-        $advPriceSql = app(PlatformFeeService::class)->advertiserBaseSqlExpression('price');
+        $listingMoney = app(ListingMoney::class);
+        $catalogEurSql = $listingMoney->buyerFacingEurSql('price');
+        $advPriceSql = app(PlatformFeeService::class)->advertiserBaseSqlExpression($catalogEurSql);
 
-        $priceMin = filter_number($request->input('price_min'));
-        if ($priceMin !== null) {
-            $query->whereRaw("({$advPriceSql}) >= ?", [$priceMin]);
-        }
-        $priceMax = filter_number($request->input('price_max'));
-        if ($priceMax !== null) {
-            $query->whereRaw("({$advPriceSql}) <= ?", [$priceMax]);
-        }
+        $this->constrainCatalogAdvertiserPrice(
+            $query,
+            filter_number($request->input('price_min')),
+            filter_number($request->input('price_max')),
+            $listingMoney
+        );
 
         $tagFilter = SiteTag::catalogFilterFromRequest($request);
         if ($tagFilter !== null) {
@@ -933,7 +977,7 @@ class CatalogController extends Controller
                 // Own listings stay at the entered publisher price so leftover
                 // Add-to-cart markup cannot paint a fee-inclusive number.
                 if (! $site->isOwnedBy(auth()->user())) {
-                    $site->price = $this->advertiserCatalogListPrice($site->price);
+                    $site->price = $this->advertiserCatalogListPrice($site->price, $site->listingCurrency());
                 }
 
                 $sensitivePrices = $site->safeJsonArray('sensitive_prices');
@@ -1296,7 +1340,7 @@ class CatalogController extends Controller
         $homepage = [];
         $sensitive = [];
         try {
-            foreach ($site->homepagePlacementOptions() as $days => $price) {
+            foreach ($site->advertiserFacingHomepageOptions() as $days => $price) {
                 $homepage[] = [
                     'days' => (int) $days,
                     'price' => round((float) $price, 2),
@@ -1304,24 +1348,15 @@ class CatalogController extends Controller
                 ];
             }
 
-            $prices = $site->sensitive_prices ?? [];
-            if (is_string($prices)) {
-                $prices = json_decode($prices, true) ?: [];
-            }
-            if (is_array($prices)) {
-                foreach ($prices as $type => $price) {
-                    if (! is_numeric($price) || (float) $price <= 0) {
-                        continue;
-                    }
-                    $label = trim((string) $type);
-                    if ($label === '') {
-                        continue;
-                    }
-                    $sensitive[] = [
-                        'type' => $label,
-                        'price' => round((float) $price, 2),
-                    ];
+            foreach ($site->advertiserFacingSensitivePrices() as $type => $price) {
+                $label = trim((string) $type);
+                if ($label === '' || ! is_numeric($price) || (float) $price <= 0) {
+                    continue;
                 }
+                $sensitive[] = [
+                    'type' => $label,
+                    'price' => round((float) $price, 2),
+                ];
             }
         } catch (\Throwable $e) {
             report($e);

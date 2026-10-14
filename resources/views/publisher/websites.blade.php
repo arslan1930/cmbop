@@ -1306,8 +1306,9 @@
                                 <label class="form-label" data-listing-price-label>Price <span class="req" aria-hidden="true">*</span></label>
                                 <div class="d-flex gap-2">
                                     <select name="price_input_currency" id="price_input_currency" class="form-select" style="max-width:7rem;">
-                                        <option value="EUR" @selected(old('price_input_currency', 'EUR') === 'EUR')>EUR €</option>
-                                        <option value="GBP" @selected(old('price_input_currency') === 'GBP')>GBP £</option>
+                                        @php $defaultListingCurrency = $defaultListingCurrency ?? 'EUR'; @endphp
+                                        <option value="EUR" @selected(old('price_input_currency', $defaultListingCurrency) === 'EUR')>EUR €</option>
+                                        <option value="GBP" @selected(old('price_input_currency', $defaultListingCurrency) === 'GBP')>GBP £</option>
                                     </select>
                                     <input type="number" name="price" id="price" class="form-control" placeholder="Enter price" min="0" step="0.01" value="{{ old_text('price') }}" required>
                                 </div>

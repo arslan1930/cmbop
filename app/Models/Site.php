@@ -2855,17 +2855,16 @@ class Site extends Model
         }
 
         $currency = $this->listingCurrency();
-        $withBuffer = $listing->appliesBuffer($currency);
-        $this->price = $listing->toEuros($this->listingBaseAmount(), $currency, $withBuffer);
+        $this->price = $listing->toEuros($this->listingBaseAmount(), $currency, false);
 
         $sensitive = $this->listingSensitiveMap();
         if ($sensitive !== [] && static::hasSitesColumn('sensitive_prices')) {
-            $this->sensitive_prices = $listing->mapToEuros($sensitive, $currency, $withBuffer);
+            $this->sensitive_prices = $listing->mapToEuros($sensitive, $currency, false);
         }
 
         $homepage = $this->listingHomepageMap();
         if ($homepage !== [] && static::hasSitesColumn('homepage_placement_prices')) {
-            $this->homepage_placement_prices = $listing->mapToEuros($homepage, $currency, $withBuffer);
+            $this->homepage_placement_prices = $listing->mapToEuros($homepage, $currency, false);
         }
     }
 
@@ -2877,13 +2876,48 @@ class Site extends Model
      *
      * @return array<string, mixed>
      */
-    public function advertiserCatalogPricing(?string $sensitiveType = null, int $quantity = 1): array
+    public function advertiserCatalogPricing(?string $sensitiveType = null, int $quantity = 1, ?string $buyerCurrency = null): array
     {
         $forCart = clone $this;
         $forCart->setAttribute('price', $this->publisherBasePrice());
 
         return app(CartPricingService::class)
-            ->priceForAdvertiser($forCart, $sensitiveType, $quantity);
+            ->priceForAdvertiser($forCart, $sensitiveType, $quantity, null, true, $buyerCurrency);
+    }
+
+    /**
+     * Stored EUR extras (unbuffered) with the buyer FX buffer applied.
+     *
+     * @return array<string, float>
+     */
+    public function advertiserFacingSensitivePrices(?string $buyerCurrency = null): array
+    {
+        $listing = app(ListingMoney::class);
+        $apply = $listing->appliesBuffer($this->listingCurrency(), $buyerCurrency ?? $listing->buyerCurrency());
+        $raw = collect($this->safeJsonArray('sensitive_prices'))
+            ->filter(fn ($amount, $type) => is_string($type) && $type !== ''
+                && is_numeric($amount) && (float) $amount > 0)
+            ->map(fn ($amount) => $listing->applyBufferToEuros(round((float) $amount, 2), $apply))
+            ->all();
+
+        return $raw;
+    }
+
+    /**
+     * Homepage durations with buyer-facing EUR fees (buffer when currencies differ).
+     *
+     * @return array<int, float>
+     */
+    public function advertiserFacingHomepageOptions(?string $buyerCurrency = null): array
+    {
+        $listing = app(ListingMoney::class);
+        $apply = $listing->appliesBuffer($this->listingCurrency(), $buyerCurrency ?? $listing->buyerCurrency());
+        $out = [];
+        foreach ($this->homepagePlacementOptions() as $days => $price) {
+            $out[(int) $days] = $listing->applyBufferToEuros((float) $price, $apply);
+        }
+
+        return $out;
     }
 
     /**
@@ -2978,7 +3012,10 @@ class Site extends Model
                 ];
             }
 
-            $pricing = $this->advertiserCatalogPricing();
+            $buyerCurrency = $user instanceof User
+                ? app(ListingMoney::class)->buyerCurrency($user)
+                : null;
+            $pricing = $this->advertiserCatalogPricing(null, 1, $buyerCurrency);
             $list = (float) $pricing['base'];
             $sale = null;
             $salePercent = null;
