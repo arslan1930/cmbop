@@ -16,6 +16,7 @@ use App\Models\WebsiteSuggestion;
 use App\Services\ActivityLogger;
 use App\Services\Admin\FinanceOverviewService;
 use App\Services\Wallet\PayoutProfileService;
+use App\Support\AccountCurrency;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -154,6 +155,7 @@ class UserController extends Controller
         }
         $marketingCount = $this->marketingCount();
         $maxMarketing = self::MAX_MARKETING;
+        $currencyChangeRisk = AccountCurrency::changeRisk($user);
 
         return view('admin.users.show', compact(
             'user',
@@ -163,7 +165,8 @@ class UserController extends Controller
             'activities',
             'related',
             'marketingCount',
-            'maxMarketing'
+            'maxMarketing',
+            'currencyChangeRisk'
         ));
     }
 
@@ -427,6 +430,7 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'display_currency' => 'required|in:EUR,GBP,USD',
+            'reason' => 'required|string|min:5|max:500',
         ]);
 
         $user = User::findOrFail($id);
@@ -440,11 +444,15 @@ class UserController extends Controller
         $from = strtoupper(trim((string) ($user->display_currency ?? '')));
         $from = in_array($from, ['EUR', 'GBP', 'USD'], true) ? $from : null;
         $to = $validated['display_currency'];
+        $reason = trim($validated['reason']);
+        $risk = AccountCurrency::changeRisk($user);
 
         if ($from === $to) {
             return response()->json([
                 'success' => true,
                 'display_currency' => $to,
+                'warning' => $risk['warning'],
+                'warning_message' => $risk['message'],
                 'message' => 'Display currency is already '.$to.'.',
             ]);
         }
@@ -460,8 +468,12 @@ class UserController extends Controller
                 [
                     'from' => $from,
                     'to' => $to,
+                    'reason' => $reason,
                     'actor_id' => $actor->id,
                     'ledger_unchanged' => true,
+                    'had_balance' => $risk['has_balance'],
+                    'had_open_orders' => $risk['has_open_orders'],
+                    'had_open_withdrawals' => $risk['has_open_withdrawals'],
                 ],
                 $user->name
             );
@@ -469,6 +481,8 @@ class UserController extends Controller
             return response()->json([
                 'success' => true,
                 'display_currency' => $to,
+                'warning' => $risk['warning'],
+                'warning_message' => $risk['message'],
                 'message' => 'Display currency updated to '.$to.'. Wallet balance stays in EUR.',
             ]);
         } catch (\Throwable $e) {

@@ -92,6 +92,10 @@ class DepositApproveContext
             'fx_rate' => (float) ($deposit->fx_rate ?? 1),
             'rate_locked_until' => optional($deposit->rate_locked_until)?->toIso8601String(),
             'tolerance_percent' => $fx->tolerancePercent(),
+            'bank_account' => $deposit->bank_account,
+            'bank_label' => $deposit->targetBankLabel(),
+            'payment_reference' => $deposit->paymentReferenceLabel(),
+            'received_bank' => $deposit->received_bank,
         ];
     }
 

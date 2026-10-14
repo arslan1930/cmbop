@@ -814,6 +814,7 @@ if (! function_exists('activity_action_labels')) {
             'agency_import.submitted' => 'Submitted agency import',
             'bulk_request.created' => 'Created bulk request',
             'user.company_updated' => 'Updated company name',
+            'user.display_currency_updated' => 'Updated display currency',
             'user.payout_profile_updated' => 'Updated payout profile',
             'user.marketing_granted' => 'Granted marketing access',
             'user.marketing_revoked' => 'Revoked marketing access',

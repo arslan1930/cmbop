@@ -200,9 +200,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return Math.floor(100000 + Math.random() * 900000).toString();
     }
 
-    function stampServerReference(code) {
+    function stampServerReference(code, paymentRef) {
         referenceCode = isRealReference(code) ? String(code).trim().replace(/^REF/i, '') : null;
-        const label = referenceCode ? ('REF' + referenceCode) : '—';
+        const label = paymentRef || (referenceCode ? ('REF' + referenceCode) : '—');
+        const bankRef = document.getElementById('bankPaymentReference');
+        if (bankRef && paymentRef) {
+            bankRef.textContent = paymentRef;
+            document.querySelectorAll('[data-deposit-payment-reference]').forEach(function (box) {
+                box.hidden = false;
+            });
+        }
         const refCodeDisplay = document.getElementById('referenceCode');
         const refCodeTexts = document.querySelectorAll('.ref-code-display');
         const refCodeDisplaySpan = document.getElementById('refCodeDisplay');
@@ -297,7 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
             invoiceMarkPaidUrl = data.mark_paid_url || data.markPaidUrl || null;
             invoiceViewUrl = data.invoice_url || data.invoiceUrl || null;
             boot.depositId = data.deposit_id || data.depositId || boot.depositId || null;
-            stampServerReference(code);
+            stampServerReference(code, data.payment_reference || data.paymentReference || null);
             const details = document.getElementById('paymentDetailsSection');
             if (details) {
                 details.style.display = 'block';
@@ -858,7 +865,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!referenceCode) {
                 return;
             }
-            navigator.clipboard.writeText('REF' + referenceCode).then(() => {
+            const copyLabel = (document.getElementById('bankPaymentReference') || {}).textContent
+                || document.querySelector('.ref-code-display')?.textContent
+                || ('REF' + referenceCode);
+            navigator.clipboard.writeText(copyLabel).then(() => {
                 const originalHtml = this.innerHTML;
                 this.innerHTML = '<i class="fas fa-check"></i> Copied!';
                 setTimeout(() => this.innerHTML = originalHtml, 1500);
@@ -896,8 +906,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 Swal.fire({
                     title: 'Invoice ready',
-                    html: `Transfer <strong>${formatPickedAmount(selectedLocal)}</strong> and include<br>
-                           <strong class="font-monospace">REF${data.reference_code}</strong> in the payment note.<br><br>
+                    html: `Transfer <strong>${formatPickedAmount(selectedLocal)}</strong> and put<br>
+                           <strong class="font-monospace">${data.payment_reference || ('REF' + data.reference_code)}</strong> in the payment reference.<br><br>
                            Pay details are on this page. Status stays <strong>Pending</strong> until we confirm and credit your wallet.`,
                     icon: 'success',
                     confirmButtonText: 'Show pay details',

@@ -38,6 +38,7 @@ class ManualDepositApprovalService
         ?User $actor = null,
         ?string $adminNotes = null,
         ?float $receivedCharge = null,
+        ?string $receivedBank = null,
     ): array {
         $depositId = $deposit instanceof DepositRequest ? (int) $deposit->id : (int) $deposit;
 
@@ -45,7 +46,7 @@ class ManualDepositApprovalService
             throw new RuntimeException('Deposit request not found');
         }
 
-        $completed = DB::transaction(function () use ($depositId, $adminNotes, $receivedCharge) {
+        $completed = DB::transaction(function () use ($depositId, $adminNotes, $receivedCharge, $receivedBank) {
             $locked = DepositRequest::query()
                 ->whereKey($depositId)
                 ->lockForUpdate()
@@ -73,6 +74,7 @@ class ManualDepositApprovalService
                 'status' => 'approved',
                 'admin_notes' => $adminNotes,
                 'approved_at' => now(),
+                'received_bank' => $receivedBank,
             ]));
 
             $advertiserRoleId = Wallet::advertiserRoleId();

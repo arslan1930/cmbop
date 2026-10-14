@@ -135,7 +135,8 @@ class UsdBankTransferNoteTest extends TestCase
             ->assertDontSee('international wire to a EUR account', false);
 
         $note = $this->pendingDepositNote($deposit, $user);
-        $this->assertStringContainsString('IBAN (from outside the UK):', $note);
+        $this->assertStringContainsString('IBAN:', $note);
+        $this->assertStringContainsString('SEPA payers need only the IBAN.', $note);
         $this->assertStringNotContainsString('includes 0.5% conversion fee', $note);
         $this->assertStringNotContainsString('international wire to a EUR account', $note);
     }
@@ -161,7 +162,8 @@ class UsdBankTransferNoteTest extends TestCase
             ->assertDontSee('international wire to a EUR account', false);
 
         $note = $this->pendingDepositNote($deposit, $user);
-        $this->assertStringContainsString('IBAN (from outside the UK):', $note);
+        $this->assertStringContainsString('IBAN:', $note);
+        $this->assertStringContainsString('SEPA payers need only the IBAN.', $note);
         $this->assertStringNotContainsString('international wire to a EUR account', $note);
         $this->assertStringNotContainsString('Send €50.00 (≈ $', $note);
     }

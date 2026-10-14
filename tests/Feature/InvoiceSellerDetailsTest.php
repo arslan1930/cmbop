@@ -96,9 +96,13 @@ class InvoiceSellerDetailsTest extends TestCase
         $this->assertStringContainsString('20 Wenlock Road, London, England, N1 7GU', $html);
         $this->assertStringContainsString('Registration No:', $html);
         $this->assertStringContainsString('Beneficiary:', $html);
-        $this->assertStringContainsString('Teqno LTD', $html);
-        $this->assertStringContainsString('TRWIGB2LXXX', $html);
-        $this->assertStringContainsString('GB30 TRWI 2308 0132 9321 94', $html);
+        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $html);
+        $this->assertStringContainsString('TRWIBEB1XXX', $html);
+        $this->assertStringContainsString('BE40 9059 9538 0863', $html);
+        $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $html);
+        $this->assertStringContainsString('SEPA payers need only the IBAN.', $html);
+        $this->assertStringNotContainsString('TRWIGB2LXXX', $html);
+        $this->assertStringNotContainsString('GB30 TRWI 2308 0132 9321 94', $html);
         $this->assertStringNotContainsString('32932194', $html);
         $this->assertStringNotContainsString('23-08-01', $html);
         $this->assertStringNotContainsString('±2%', $html);

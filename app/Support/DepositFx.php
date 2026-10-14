@@ -76,6 +76,11 @@ class DepositFx
      */
     public function chargeCurrencyForPayFrom(?string $payFrom = null): string
     {
+        $user = auth()->user();
+        if ($user) {
+            return AccountCurrency::chargeCurrencyForUser($user);
+        }
+
         $from = $this->preference->normalizePayFrom((string) $payFrom) ?? $this->preference->payFrom();
 
         return $from === 'gbp' ? 'GBP' : 'EUR';

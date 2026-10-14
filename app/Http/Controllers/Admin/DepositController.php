@@ -8,14 +8,16 @@ use App\Http\Controllers\Controller;
 use App\Mail\DepositRejected;
 use App\Models\DepositRequest;
 use App\Services\ActivityLogger;
+use App\Services\Admin\FinanceOverviewService;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\InAppNotificationService;
 use App\Services\PaypalCheckoutService;
 use App\Services\Wallet\DepositApproveContext;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
-use App\Services\Wallet\ManualDepositApproveLink;
 use App\Services\Wallet\ManualDepositApprovalService;
+use App\Services\Wallet\ManualDepositApproveLink;
 use App\Services\WalletPaypalDepositService;
+use App\Support\AccountCurrency;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Illuminate\Database\Eloquent\Builder;
@@ -155,6 +157,7 @@ class DepositController extends Controller
     {
         $notes = $this->validatedAdminNotes($request);
         $receivedCharge = $this->validatedReceivedAmount($request);
+        $receivedBank = $this->validatedReceivedBank($request);
 
         if (! DepositRequest::tableAvailable()) {
             return response()->json([
@@ -177,7 +180,8 @@ class DepositController extends Controller
                 $deposit,
                 $request->user(),
                 $notes,
-                $receivedCharge
+                $receivedCharge,
+                $receivedBank
             );
 
             return response()->json([
@@ -425,6 +429,19 @@ class DepositController extends Controller
         ]);
     }
 
+    private function validatedReceivedBank(Request $request): ?string
+    {
+        $data = $request->validate([
+            'received_bank' => ['nullable', 'in:gbp_wise,eur_wise,gbp,eur'],
+        ]);
+        $raw = $data['received_bank'] ?? null;
+        if (! is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        return AccountCurrency::normalizeBank($raw);
+    }
+
     private function validatedReceivedAmount(Request $request): ?float
     {
         $data = $request->validate([
@@ -486,7 +503,7 @@ class DepositController extends Controller
         $from = scalar_text($request->input('from'));
         $to = scalar_text($request->input('to'));
         if ($request->boolean('finance') && $status === 'completed') {
-            app(\App\Services\Admin\FinanceOverviewService::class)->applyDepositCompletedWindow(
+            app(FinanceOverviewService::class)->applyDepositCompletedWindow(
                 $query,
                 $from !== '' ? $from : null,
                 $to !== '' ? $to : null

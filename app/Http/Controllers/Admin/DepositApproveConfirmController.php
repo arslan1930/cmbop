@@ -7,6 +7,7 @@ use App\Models\DepositRequest;
 use App\Services\Wallet\DepositApproveContext;
 use App\Services\Wallet\ManualDepositAlreadyProcessedException;
 use App\Services\Wallet\ManualDepositApprovalService;
+use App\Support\AccountCurrency;
 use App\Support\DepositFx;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
@@ -60,6 +61,9 @@ class DepositApproveConfirmController extends Controller
             'fxRate' => (float) ($deposit->fx_rate ?? 1),
             'tolerancePercent' => $fx->tolerancePercent(),
             'withinTolerance' => $fx->withinTolerance($deposit, $fx->expectedCharge($deposit)),
+            'targetBank' => $deposit->targetBank(),
+            'targetBankLabel' => $deposit->targetBankLabel(),
+            'paymentReference' => $deposit->paymentReferenceLabel(),
         ]));
     }
 
@@ -72,17 +76,20 @@ class DepositApproveConfirmController extends Controller
         $data = $request->validate([
             'admin_notes' => 'nullable|string|max:1000',
             'received_amount' => 'nullable|numeric|min:0|max:99999999.99',
+            'received_bank' => 'nullable|in:gbp_wise,eur_wise,gbp,eur',
         ]);
 
         try {
             $received = array_key_exists('received_amount', $data) && $data['received_amount'] !== null && $data['received_amount'] !== ''
                 ? round((float) $data['received_amount'], 2)
                 : null;
+            $receivedBank = AccountCurrency::normalizeBank((string) ($data['received_bank'] ?? ''));
             $result = $approvals->approve(
                 $deposit,
                 $request->user(),
                 $request->input('admin_notes'),
-                $received
+                $received,
+                $receivedBank
             );
 
             $message = $result['message'];

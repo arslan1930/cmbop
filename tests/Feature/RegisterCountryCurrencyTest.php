@@ -42,7 +42,10 @@ class RegisterCountryCurrencyTest extends TestCase
 
         $this->assertStringContainsString('name="country"', $html);
         $this->assertStringContainsString('value="uk" selected', $html);
-        $this->assertStringContainsString('Your account currency: £ GBP, you can change it anytime', $html);
+        $this->assertStringContainsString('Your account currency: £ GBP', $html);
+        $this->assertStringNotContainsString('you can change it anytime', $html);
+        $this->assertStringNotContainsString('cannot be changed', $html);
+        $this->assertStringNotContainsString('contact support', $html);
     }
 
     public function test_register_saves_gb_as_gbp_and_us_as_usd(): void

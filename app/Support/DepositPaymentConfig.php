@@ -13,6 +13,16 @@ class DepositPaymentConfig
 
     public const TOPURLZ_REGISTRATION_NO = '16607074';
 
+    public const EUR_IBAN_DEFAULT = 'BE40 9059 9538 0863';
+
+    public const EUR_BIC_DEFAULT = 'TRWIBEB1XXX';
+
+    public const EUR_BIC_NOTE = 'Swift/BIC: use when sending from outside SEPA';
+
+    public const EUR_SEPA_NOTE = 'SEPA payers need only the IBAN.';
+
+    public const BENEFICIARY_DISPLAY = 'Teqno Ltd (partners SEOLinkBuildings)';
+
     public static function isUsdCurrencyUser(?User $user = null, ?string $walletCurrency = null): bool
     {
         $user ??= auth()->user();
@@ -62,11 +72,53 @@ class DepositPaymentConfig
         $bic = trim((string) ($pay['bic'] ?? 'TRWIGB2LXXX'));
         $pay['iban'] = $iban;
         $pay['bic'] = $bic;
-        $pay['eur_iban'] = trim((string) ($pay['eur_iban'] ?? '')) ?: $iban;
-        $pay['eur_bic'] = trim((string) ($pay['eur_bic'] ?? '')) ?: $bic;
+        $pay['eur_iban'] = trim((string) ($pay['eur_iban'] ?? '')) ?: self::EUR_IBAN_DEFAULT;
+        $pay['eur_bic'] = trim((string) ($pay['eur_bic'] ?? '')) ?: self::EUR_BIC_DEFAULT;
+        $pay['beneficiary'] = trim((string) ($pay['beneficiary'] ?? 'Teqno Ltd')) ?: 'Teqno Ltd';
+        $pay['beneficiary_display'] = self::beneficiaryDisplayName($pay);
         $pay['registration_no'] = self::beneficiaryRegistrationNo($pay);
 
         return $pay;
+    }
+
+    /**
+     * Teqno Ltd on bank panels, invoices, and deposit emails.
+     *
+     * @param  array<string, mixed>|null  $pay
+     */
+    public static function beneficiaryDisplayName(?array $pay = null): string
+    {
+        $pay ??= (array) config('billing.deposit_payment', []);
+        $name = trim((string) ($pay['beneficiary'] ?? 'Teqno Ltd'));
+        if ($name === '' || preg_match('/^teqno ltd$/i', $name) === 1) {
+            return self::BENEFICIARY_DISPLAY;
+        }
+
+        return $name;
+    }
+
+    /**
+     * MOD-97 IBAN checksum (ISO 13616). Spaces ignored.
+     */
+    public static function ibanChecksumValid(string $iban): bool
+    {
+        $compact = strtoupper(preg_replace('/\s+/', '', $iban) ?? '');
+        if (preg_match('/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/', $compact) !== 1) {
+            return false;
+        }
+
+        $rearranged = substr($compact, 4).substr($compact, 0, 4);
+        $numeric = '';
+        foreach (str_split($rearranged) as $ch) {
+            $numeric .= ctype_alpha($ch) ? (string) (ord($ch) - 55) : $ch;
+        }
+
+        $checksum = 0;
+        foreach (str_split($numeric, 7) as $chunk) {
+            $checksum = (int) (($checksum.$chunk) % 97);
+        }
+
+        return $checksum === 1;
     }
 
     /**
@@ -77,10 +129,10 @@ class DepositPaymentConfig
     public static function beneficiaryRegistrationNo(?array $pay = null): string
     {
         $pay ??= (array) config('billing.deposit_payment', []);
-        $beneficiary = trim((string) ($pay['beneficiary'] ?? 'Teqno LTD'));
+        $beneficiary = trim((string) ($pay['beneficiary'] ?? 'Teqno Ltd'));
         $reg = trim((string) ($pay['registration_no'] ?? ''));
 
-        if ($reg === self::TOPURLZ_REGISTRATION_NO && strcasecmp($beneficiary, 'Teqno LTD') === 0) {
+        if ($reg === self::TOPURLZ_REGISTRATION_NO && preg_match('/^teqno ltd$/i', $beneficiary) === 1) {
             return self::TEQNO_REGISTRATION_NO;
         }
 
