@@ -173,6 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
         paymentMethodsSetup: '/advertiser/payment-methods/setup',
         paymentMethodsBase: '/advertiser/payment-methods',
         wiseQr: '/advertiser/add-funds/wise-qr',
+        rememberPayFrom: '/advertiser/add-funds/pay-from',
     };
     Object.keys(routeFallbacks).forEach(function (key) {
         boot.routes[key] = sameOriginRoute(boot.routes[key], routeFallbacks[key]);
@@ -295,6 +296,7 @@ document.addEventListener('DOMContentLoaded', function() {
             invoiceLocked = true;
             invoiceMarkPaidUrl = data.mark_paid_url || data.markPaidUrl || null;
             invoiceViewUrl = data.invoice_url || data.invoiceUrl || null;
+            boot.depositId = data.deposit_id || data.depositId || boot.depositId || null;
             stampServerReference(code);
             const details = document.getElementById('paymentDetailsSection');
             if (details) {
@@ -725,42 +727,67 @@ document.addEventListener('DOMContentLoaded', function() {
         applyPickedAmount(displayFromEuros(euros), euros);
     }
 
-    function depositSendLine(amount) {
+    function formatLedgerEuro(amount) {
         const eur = Number(amount) || 0;
-        const days = Number(boot.depositLockDays) || 7;
-        const currency = displayCurrency();
-        if (currency === 'EUR' && boot.payFrom !== 'gbp') {
-            return 'Send €' + eur.toFixed(2);
-        }
-        let local;
+        return '€' + eur.toFixed(2);
+    }
+
+    function railSendAmount(amount) {
+        const eur = Number(amount) || 0;
         if (boot.payFrom === 'gbp') {
             const rate = Number(boot.gbpPerEur) || 0;
             const gbp = rate > 0 ? Math.round(eur * rate * 100) / 100 : eur;
-            local = '£' + gbp.toFixed(2);
-        } else {
-            local = formatEuro(eur);
+            return '£' + gbp.toFixed(2);
         }
-        return 'Send ' + local + ' (we credit €' + eur.toFixed(2) + ') — rate locked ' + days
-            + ' days; amount received may differ slightly (±2%) due to exchange rates/bank fees';
+        return formatLedgerEuro(eur);
+    }
+
+    function depositSendLine(amount) {
+        return 'Send ' + railSendAmount(amount);
     }
 
     function syncBankSendLabel(amount) {
-        const label = depositSendLine(amount);
+        const euros = Number(amount);
+        const ledger = Number.isFinite(euros) ? euros : selectedAmount;
+        const label = depositSendLine(ledger);
         document.querySelectorAll('[data-deposit-send-label]').forEach(el => {
             el.textContent = label;
         });
         const bankAmount = document.getElementById('bankAmount');
-        if (bankAmount && (boot.payFrom === 'gbp' || displayCurrency() !== 'EUR')) {
-            bankAmount.textContent = label;
+        if (bankAmount) {
+            bankAmount.textContent = railSendAmount(ledger);
         }
+        document.querySelectorAll('[data-pay-from-switch]').forEach(function (box) {
+            box.setAttribute('data-send-eur', 'Send ' + formatLedgerEuro(ledger));
+            const rate = Number(boot.gbpPerEur) || 0;
+            const gbp = rate > 0 ? Math.round(ledger * rate * 100) / 100 : ledger;
+            box.setAttribute('data-send-gbp', 'Send £' + gbp.toFixed(2));
+        });
+        document.querySelectorAll('[data-deposit-fx-notes]').forEach(function (el) {
+            var show = boot.payFrom === 'gbp' || displayCurrency() === 'USD' || displayCurrency() === 'GBP';
+            el.hidden = !show;
+            var lock = el.querySelector('[data-deposit-rate-lock]');
+            if (lock) {
+                lock.textContent = show ? (el.getAttribute('data-rate-lock') || '') : '';
+            }
+        });
     }
+
+    window.slbSyncBankSendLabel = function () {
+        syncBankSendLabel(selectedAmount);
+    };
 
     function syncUsdBankSend(amount) {
         const wire = boot.usdBankWire || {};
         if (!wire.show) {
             return;
         }
-        syncBankSendLabel(amount);
+        const euros = Number(amount);
+        const ledger = Number.isFinite(euros) ? euros : selectedAmount;
+        const label = 'Send ' + formatLedgerEuro(ledger);
+        document.querySelectorAll('.js-usd-bank-send-label').forEach(el => {
+            el.textContent = label;
+        });
     }
     
     function updateSummary(local) {

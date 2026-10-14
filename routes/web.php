@@ -214,6 +214,9 @@ Route::get('/{locale}/register', fn () => Redirect::to('/register', 301))
     ->where('locale', $prefixedLocalePattern)
     ->name('locale.register.redirect');
 
+// Placeholder currency guide — owner will replace the destination later.
+Route::redirect('/help/currencies', '/faq#currency')->name('help.currencies');
+
 $registerPublicMarketingRoutes = function (string $locale = 'en') {
     $p = function (string $english) use ($locale): string {
         $localized = class_exists(LocalizedPublicPath::class)
@@ -1959,6 +1962,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::post('/add-funds', [AddFundsController::class, 'store'])
             ->middleware('throttle:10,1')
             ->name('add-funds.store');
+        Route::post('/add-funds/pay-from', [AddFundsController::class, 'rememberPayFrom'])
+            ->middleware('throttle:60,1')
+            ->name('add-funds.pay-from');
         Route::get('/add-funds/wise-qr', [AddFundsController::class, 'wiseQr'])
             ->middleware('throttle:60,1')
             ->name('add-funds.wise-qr');

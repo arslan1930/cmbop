@@ -257,6 +257,43 @@ class AddFundsController extends Controller
         return $preference->payFrom($request);
     }
 
+    public function rememberPayFrom(Request $request)
+    {
+        $request->validate([
+            'pay_from' => 'required|in:gbp,eur,uk,other',
+            'deposit_id' => 'nullable|integer',
+        ]);
+
+        $payFrom = $this->resolvedPayFrom($request);
+        $chargeCurrency = app(DepositFx::class)->chargeCurrencyForPayFrom($payFrom);
+        $euros = 0.0;
+        $deposit = null;
+
+        if ($request->filled('deposit_id')) {
+            $deposit = DepositRequest::query()
+                ->where('user_id', auth()->id())
+                ->where('id', $request->integer('deposit_id'))
+                ->where('status', 'pending')
+                ->first();
+            if ($deposit) {
+                $euros = (float) $deposit->amount;
+                $payload = app(DepositFx::class)->lockPayload($euros, $chargeCurrency);
+                if (method_exists(DepositRequest::class, 'attributesThatExist')) {
+                    $payload = DepositRequest::attributesThatExist($payload);
+                }
+                $deposit->update($payload);
+            }
+        }
+
+        $quote = app(DepositFx::class)->quote($euros, $chargeCurrency);
+
+        return response()->json([
+            'success' => true,
+            'pay_from' => $payFrom,
+            'send_label' => $quote['send_label'],
+        ]);
+    }
+
     private function depositRailReady(
         string $method,
         bool $stripeConfigured,

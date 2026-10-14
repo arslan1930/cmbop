@@ -122,10 +122,16 @@ class GeoCurrencyDisplayTest extends TestCase
             ->assertSee('id="customAmountPrefix"', false)
             ->assertSee('Minimum £8.50', false)
             ->assertSee('Maximum £42,500.00', false)
-            ->assertSee(e('Send £42.50 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees'), false)
+            ->assertSee('Send £42.50', false)
+            ->assertSee('Rate locked for 7 days.', false)
+            ->assertSee('Paying in another currency? Read our currency guide', false)
+            ->assertDontSee('Amount received may differ slightly', false)
+            ->assertDontSee('Send $', false)
+            ->assertDontSee('we credit', false)
             ->assertSee('23-08-01', false)
-            ->assertDontSee('data-bank-rail="eur"', false)
-            ->assertDontSee('id="bankIban"', false)
+            ->assertSee('data-bank-rail="eur"', false)
+            ->assertSee('id="bankIban"', false)
+            ->assertSee('data-pay-from="eur"', false)
             ->assertDontSee('≈ €', false);
 
         $us = $this->advertiser('US');
@@ -139,10 +145,15 @@ class GeoCurrencyDisplayTest extends TestCase
             ->assertSee('data-bank-rail="eur"', false)
             ->assertSee('bankIban', false)
             ->assertSee('data-usd-bank-wire="1"', false)
-            ->assertSee(e('Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees'), false)
+            ->assertSee('Send €50.00', false)
+            ->assertSee('Rate locked for 7 days.', false)
+            ->assertSee('Paying in another currency? Read our currency guide', false)
+            ->assertDontSee('Amount received may differ slightly', false)
+            ->assertDontSee('Send $55.00', false)
+            ->assertDontSee('we credit', false)
             ->assertSee('Please choose OUR', false)
             ->assertSee('Want to avoid wire fees? Pay instantly by Card or PayPal instead.', false)
-            ->assertDontSee('data-bank-rail="gbp"', false);
+            ->assertSee('data-bank-rail="gbp"', false);
     }
 
     public function test_deposit_store_converts_gbp_amount_to_eur_ledger(): void
@@ -245,11 +256,11 @@ class GeoCurrencyDisplayTest extends TestCase
         $deposit->setRelation('user', $user);
 
         $html = (new DepositRequestSubmitted($deposit))->render();
-        $this->assertStringContainsString(
-            'Send £42.50 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees',
-            $html
-        );
-        $this->assertSame(1, substr_count($html, '±2%'));
+        $this->assertStringContainsString('Send £42.50', $html);
+        $this->assertStringContainsString('Rate locked for 7 days.', $html);
+        $this->assertStringNotContainsString('Amount received may differ slightly', $html);
+        $this->assertStringNotContainsString('we credit', $html);
+        $this->assertStringNotContainsString('±2%', $html);
         $this->assertStringNotContainsString($note, $html);
     }
 
@@ -324,9 +335,10 @@ class GeoCurrencyDisplayTest extends TestCase
             ->assertSee('Minimum €10.00', false)
             ->assertSee('data-bank-rail="eur"', false)
             ->assertSee('bankIban', false)
+            ->assertSee('data-bank-rail="gbp"', false)
+            ->assertSee('data-pay-from="gbp"', false)
             ->assertDontSee('data-usd-bank-wire="1"', false)
-            ->assertDontSee('Please choose OUR', false)
-            ->assertDontSee('data-bank-rail="gbp"', false);
+            ->assertDontSee('Please choose OUR', false);
 
         $this->assertSame('EUR', $user->fresh()->display_currency);
     }

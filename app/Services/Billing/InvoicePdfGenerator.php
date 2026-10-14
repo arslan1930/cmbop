@@ -3,6 +3,7 @@
 namespace App\Services\Billing;
 
 use App\Models\Invoice;
+use App\Support\DepositPaymentConfig;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -108,7 +109,8 @@ class InvoicePdfGenerator
     private function currentSellerMark(): string
     {
         $legal = preg_replace('/\s+/', ' ', trim((string) config('billing.company.legal_name'))) ?: '';
-        $iban = preg_replace('/\s+/', '', (string) config('billing.deposit_payment.iban')) ?: '';
+        $pay = DepositPaymentConfig::depositPayment();
+        $iban = preg_replace('/\s+/', '', (string) ($pay['eur_iban'] ?? $pay['iban'] ?? '')) ?: '';
 
         return '% CMBOP-SELLER '.$legal.' '.$iban;
     }
