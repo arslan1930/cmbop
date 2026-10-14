@@ -116,9 +116,13 @@ class AddFundsPageUxTest extends TestCase
     {
         $html = $this->addFundsHtml();
 
+        $this->assertStringContainsString('GBP account — send pounds from a UK bank', $html);
         $this->assertStringContainsString('EUR account — send euros (SEPA / from outside the UK)', $html);
+        $this->assertStringContainsString('Use this GBP account when sending pounds from a UK bank', $html);
         $this->assertStringContainsString('Use this EUR account when sending euros, including from outside the UK', $html);
+        $this->assertSame(1, substr_count($html, 'Use this EUR account when sending euros, including from outside the UK'));
         $this->assertStringNotContainsString('GBP · From the UK', $html);
+        $this->assertStringNotContainsString('Phone no:', $html);
     }
 
     public function test_recently_used_ignores_pending_invoices(): void

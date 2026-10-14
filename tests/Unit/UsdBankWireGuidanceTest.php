@@ -35,10 +35,7 @@ class UsdBankWireGuidanceTest extends TestCase
         $this->assertEqualsWithDelta(55.0, $quote['usd'], 0.01);
         $this->assertSame('€50.00', $quote['eur_label']);
         $this->assertSame('$55.00', $quote['usd_label']);
-        $this->assertSame(
-            'Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees',
-            $quote['send_label']
-        );
+        $this->assertSame('Send €50.00', $quote['send_label']);
     }
 
     public function test_quote_from_usd_uses_money_display_to_euros(): void
@@ -47,10 +44,7 @@ class UsdBankWireGuidanceTest extends TestCase
 
         $this->assertSame(50.0, $quote['euros']);
         $this->assertSame(55.0, $quote['usd']);
-        $this->assertSame(
-            'Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees',
-            $quote['send_label']
-        );
+        $this->assertSame('Send €50.00', $quote['send_label']);
     }
 
     public function test_applies_for_usd_wallet_not_eur_wallet(): void

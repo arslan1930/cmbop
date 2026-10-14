@@ -102,9 +102,14 @@ class InvoiceSellerDetailsTest extends TestCase
         $this->assertStringNotContainsString('32932194', $html);
         $this->assertStringNotContainsString('23-08-01', $html);
         $this->assertStringNotContainsString('±2%', $html);
+        $this->assertStringNotContainsString('Amount received may differ slightly', $html);
         $this->assertStringNotContainsString('we credit', $html);
-        $this->assertStringContainsString('+447445152374', $html);
-        $this->assertStringContainsString('16607074', $html);
+        $this->assertStringContainsString('Paying in another currency? Read our currency guide', $html);
+        $this->assertStringContainsString('/help/currencies', $html);
+        $this->assertStringNotContainsString('+447445152374', $html);
+        $this->assertStringNotContainsString('Phone no:', $html);
+        $this->assertStringContainsString('17392540', $html);
+        $this->assertStringNotContainsString('16607074', $html);
         $this->assertStringContainsString('support@seolinkbuildings.com', $html);
         $this->assertStringContainsString('Not VAT registered', $html);
     }

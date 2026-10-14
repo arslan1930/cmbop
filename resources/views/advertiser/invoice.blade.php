@@ -245,7 +245,7 @@
                             $company = function_exists('billing_company_for_documents')
                                 ? billing_company_for_documents()
                                 : config('billing.company', []);
-                            $depositPayment = config('billing.deposit_payment', []);
+                            $depositPayment = \App\Support\DepositPaymentConfig::depositPayment();
                             $invoiceLogo = billing_company_logo_data_uri() ?: asset(ltrim((string) ($company['logo_path'] ?? 'assets/img/email-logo.png'), '/'));
                             $isDepositInvoice = ($invoiceType ?? '') === 'deposit';
                         @endphp
@@ -256,8 +256,11 @@
                                 @foreach(($company['address_lines'] ?? []) as $line)
                                     <p><strong>{{ $loop->first ? 'Address:' : '' }}</strong> {{ $line }}</p>
                                 @endforeach
-                                @if(!empty($company['registration_no']))
-                                    <p><strong>Registration No:</strong> {{ $company['registration_no'] }}</p>
+                                @php
+                                    $depositRegistration = $depositPayment['registration_no'] ?? null;
+                                @endphp
+                                @if(!empty($depositRegistration))
+                                    <p><strong>Registration No:</strong> {{ $depositRegistration }}</p>
                                 @endif
                                 @if(!empty($company['support_email']))
                                     <p><strong>Email:</strong> {{ $company['support_email'] }}</p>
@@ -270,6 +273,8 @@
                                 @php
                                     $invoiceBankRail = $bankRail ?? app(\App\Support\DisplayCurrencyPreference::class)->payFrom();
                                     $invoiceBankRail = $invoiceBankRail === 'gbp' ? 'gbp' : 'eur';
+                                    $invoiceIban = $depositPayment['eur_iban'] ?? $depositPayment['iban'] ?? null;
+                                    $invoiceBic = $depositPayment['eur_bic'] ?? $depositPayment['bic'] ?? null;
                                 @endphp
                                 @if($invoiceBankRail === 'gbp')
                                     @if(!empty($depositPayment['uk_sort_code']))
@@ -283,33 +288,31 @@
                                         </p>
                                     @endif
                                 @else
-                                    @if(!empty($depositPayment['iban']))
-                                        <p><strong>IBAN:</strong> {{ $depositPayment['iban'] }}
-                                            @if(!empty($depositPayment['intl_transfer_note']))
-                                                <span class="text-muted">({{ $depositPayment['intl_transfer_note'] }})</span>
-                                            @endif
-                                        </p>
+                                    @if(!empty($invoiceIban))
+                                        <p><strong>IBAN:</strong> {{ $invoiceIban }}</p>
                                     @endif
-                                    @if(!empty($depositPayment['bic']))
-                                        <p><strong>Swift/BIC:</strong> {{ $depositPayment['bic'] }}
-                                            @if(!empty($depositPayment['intl_transfer_note']))
-                                                <span class="text-muted">({{ $depositPayment['intl_transfer_note'] }})</span>
-                                            @endif
-                                        </p>
+                                    @if(!empty($invoiceBic))
+                                        <p><strong>Swift/BIC:</strong> {{ $invoiceBic }}</p>
+                                    @endif
+                                    @if(!empty($depositPayment['intl_transfer_note']))
+                                        <p class="text-muted">{{ $depositPayment['intl_transfer_note'] }}</p>
                                     @endif
                                 @endif
                                 @if(!empty($sendLabel))
                                     <p data-deposit-send-label="1"><strong>{{ $sendLabel }}</strong></p>
                                 @endif
+                                @if(!empty($rateLockNote))
+                                    <p data-deposit-rate-lock="1">{{ $rateLockNote }}</p>
+                                @endif
+                                <p data-currency-guide="1">
+                                    <a href="{{ $currencyGuideUrl ?? \App\Support\DepositPaymentConfig::currencyGuideUrl() }}">{{ $currencyGuideLabel ?? \App\Support\DepositPaymentConfig::currencyGuideLabel() }}</a>
+                                </p>
                                 @include('partials.usd-bank-wire-note', [
                                     'walletCurrency' => $walletCurrency ?? null,
                                     'eurAmount' => $amount ?? null,
                                     'showMethodSwitch' => true,
                                     'methodSwitchAsLinks' => true,
                                 ])
-                                @if(!empty($depositPayment['phone']))
-                                    <p><strong>Phone no:</strong> {{ $depositPayment['phone'] }}</p>
-                                @endif
                             @else
                                 <p><strong>Seller / Service Provider:</strong> {{ $company['legal_name'] ?? $company['name'] ?? 'SEOLinkBuildings' }}</p>
                                 @foreach(($company['address_lines'] ?? []) as $line)

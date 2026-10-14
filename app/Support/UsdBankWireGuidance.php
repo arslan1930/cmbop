@@ -175,7 +175,7 @@ class UsdBankWireGuidance
             'rate' => $this->money->usdPerEur(),
             'eur_label' => $eurLabel,
             'usd_label' => $usdLabel,
-            'send_label' => app(DepositFx::class)->sendLabel('USD', $usd, $euros),
+            'send_label' => app(DepositFx::class)->sendLabel('EUR', $euros, $euros),
         ];
     }
 

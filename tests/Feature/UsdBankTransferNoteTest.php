@@ -52,7 +52,6 @@ class UsdBankTransferNoteTest extends TestCase
             ->getContent();
 
         $this->assertStringNotContainsString('we credit', $html);
-        $this->assertStringNotContainsString('±2%', $html);
         $this->assertStringNotContainsString('js-switch-deposit-method', $html);
     }
 

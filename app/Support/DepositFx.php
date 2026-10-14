@@ -38,8 +38,8 @@ class DepositFx
     }
 
     /**
-     * Customer-facing ±2% copy: deposit step / deposit email / deposit invoice only,
-     * and only when the viewer or charge rail is GBP or USD.
+     * Show the rate-lock line when the viewer or charge rail is GBP or USD.
+     * The ±2% variance sentence is not used on the deposit UI.
      */
     public function shouldShowTolerance(?DepositRequest $deposit = null, ?string $chargeCurrency = null): bool
     {
@@ -118,21 +118,34 @@ class DepositFx
     public function sendLabel(string $chargeCurrency, float $chargeAmount, float $euros): string
     {
         $euros = round($euros, 2);
-        $charge = strtoupper($chargeCurrency);
-        if (! in_array($charge, ['EUR', 'GBP', 'USD'], true)) {
-            $charge = 'EUR';
-        }
-        $display = $this->money->currency();
-        if ($display === 'EUR' && $charge === 'EUR') {
-            return 'Send €'.number_format($euros, 2);
+        $charge = strtoupper($chargeCurrency) === 'GBP' ? 'GBP' : 'EUR';
+        if ($charge === 'GBP') {
+            return 'Send '.$this->money->symbolFor('GBP').number_format($chargeAmount, 2);
         }
 
-        if ($charge === 'GBP') {
-            $local = $this->money->symbolFor('GBP').number_format($chargeAmount, 2);
-        } elseif ($charge === 'USD') {
-            $local = $this->money->symbolFor('USD').number_format($chargeAmount, 2);
-        } else {
-            $local = $this->money->formatLocal($euros);
+        return 'Send €'.number_format($euros, 2);
+    }
+
+    public function rateLockNote(): string
+    {
+        return 'Rate locked for '.$this->lockDays().' days.';
+    }
+
+    public function varianceNote(): string
+    {
+        $percent = rtrim(rtrim(number_format($this->tolerancePercent(), 2, '.', ''), '0'), '.');
+
+        return 'Amount received may differ slightly (±'.$percent.'%) due to exchange rates or bank fees.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function customerFxNotes(?DepositRequest $deposit = null, ?string $chargeCurrency = null): array
+    {
+        $charge = strtoupper((string) ($chargeCurrency ?: $deposit?->charge_currency ?: ''));
+        if ($charge !== 'GBP' && ! $this->shouldShowTolerance($deposit, $chargeCurrency)) {
+            return [];
         }
 
         $credit = 'we credit €'.number_format($euros, 2);

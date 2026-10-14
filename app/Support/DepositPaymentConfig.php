@@ -53,7 +53,54 @@ class DepositPaymentConfig
      */
     public static function depositPayment(): array
     {
-        return (array) config('billing.deposit_payment', []);
+        $pay = (array) config('billing.deposit_payment', []);
+        $iban = trim((string) ($pay['iban'] ?? 'GB30 TRWI 2308 0132 9321 94'));
+        $bic = trim((string) ($pay['bic'] ?? 'TRWIGB2LXXX'));
+        $pay['iban'] = $iban;
+        $pay['bic'] = $bic;
+        $pay['eur_iban'] = trim((string) ($pay['eur_iban'] ?? '')) ?: $iban;
+        $pay['eur_bic'] = trim((string) ($pay['eur_bic'] ?? '')) ?: $bic;
+        $pay['registration_no'] = self::beneficiaryRegistrationNo($pay);
+
+        return $pay;
+    }
+
+    /**
+     * Teqno LTD is 17392540. 16607074 is Topurlz Ltd — never show that as Teqno's number.
+     *
+     * @param  array<string, mixed>|null  $pay
+     */
+    public static function beneficiaryRegistrationNo(?array $pay = null): string
+    {
+        $pay ??= (array) config('billing.deposit_payment', []);
+        $beneficiary = trim((string) ($pay['beneficiary'] ?? 'Teqno LTD'));
+        $reg = trim((string) ($pay['registration_no'] ?? ''));
+
+        if ($reg === self::TOPURLZ_REGISTRATION_NO && strcasecmp($beneficiary, 'Teqno LTD') === 0) {
+            return self::TEQNO_REGISTRATION_NO;
+        }
+
+        return $reg !== '' ? $reg : self::TEQNO_REGISTRATION_NO;
+    }
+
+    public static function currencyGuideUrl(): string
+    {
+        $url = trim((string) config('billing.currency_guide_url', '/help/currencies'));
+        if ($url === '') {
+            $url = '/help/currencies';
+        }
+        if (! str_starts_with($url, 'http') && ! str_starts_with($url, '/')) {
+            $url = '/'.$url;
+        }
+
+        return $url;
+    }
+
+    public static function currencyGuideLabel(): string
+    {
+        $label = trim((string) config('billing.currency_guide_label', ''));
+
+        return $label !== '' ? $label : 'Paying in another currency? Read our currency guide';
     }
 
     public static function wisePayUrl(): string
