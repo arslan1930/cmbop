@@ -10,10 +10,15 @@ We received your withdrawal request WD-{{ $withdrawal->id }}.
 
 ## Details
 
-- Requested: €{{ number_format($withdrawal->amount, 2) }}
+- Requested: {{ format_money_amount($withdrawal->amount, $withdrawal->currency ?? 'EUR') }}
+@if((float) ($withdrawal->conversion_fee ?? 0) > 0)
+- Conversion fee ({{ rtrim(rtrim(number_format((float) ($withdrawal->conversion_fee_percent ?? 0), 2), '0'), '.') }}%): {{ format_money_amount($withdrawal->conversion_fee, $withdrawal->currency ?? 'EUR') }}
+@endif
 @if((float) $withdrawal->fee > 0)
-- Fee: €{{ number_format($withdrawal->fee, 2) }}
-- You will receive: €{{ number_format($withdrawal->net_amount, 2) }}
+- Fee: {{ format_money_amount($withdrawal->fee, $withdrawal->currency ?? 'EUR') }}
+@endif
+@if((float) ($withdrawal->conversion_fee ?? 0) > 0 || (float) $withdrawal->fee > 0)
+- You will receive: {{ format_money_amount($withdrawal->net_amount, $withdrawal->currency ?? 'EUR') }}
 @endif
 - Method: {{ strtoupper($withdrawal->payment_method) }}
 - Status: Requested (pending review)

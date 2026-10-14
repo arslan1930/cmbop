@@ -115,7 +115,7 @@ class DepositFx
         ];
     }
 
-    public function sendLabel(string $chargeCurrency, float $chargeAmount, float $euros): string
+    public function sendLabel(string $chargeCurrency, float $chargeAmount, float $euros, ?float $feePercent = null): string
     {
         $euros = round($euros, 2);
         $charge = strtoupper($chargeCurrency);
@@ -135,8 +135,13 @@ class DepositFx
             $local = $this->money->formatLocal($euros);
         }
 
+        $credit = 'we credit €'.number_format($euros, 2);
+        if ($charge === 'USD' && $feePercent !== null && $feePercent > 0) {
+            $credit .= ', includes '.rtrim(rtrim(number_format($feePercent, 2), '0'), '.').'% conversion fee';
+        }
+
         return 'Send '.$local
-            .' (we credit €'.number_format($euros, 2).') — rate locked '.$this->lockDays()
+            .' ('.$credit.') — rate locked '.$this->lockDays()
             .' days; amount received may differ slightly (±2%) due to exchange rates/bank fees';
     }
 

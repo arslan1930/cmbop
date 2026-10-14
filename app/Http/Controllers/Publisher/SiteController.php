@@ -18,6 +18,7 @@ use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
+use App\Support\ListingMoney;
 use App\Support\MoneyDisplay;
 use App\Support\NormalizesHttpUrls;
 use App\Support\SiteDescriptionRules;
@@ -96,6 +97,18 @@ class SiteController extends Controller
             $detailsCompleteCount = 0;
         }
 
+        $gbpListingPrompts = collect();
+        try {
+            $gbpListingPrompts = Site::query()
+                ->where('publisher_id', auth()->id())
+                ->notFromCancelledBulk()
+                ->get()
+                ->filter(fn (Site $site) => $site->needsGbpListingPrompt())
+                ->values();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return view('publisher.websites', compact(
             'countries',
             'categories',
@@ -104,7 +117,8 @@ class SiteController extends Controller
             'languageCountryMap',
             'openBulkRequest',
             'awaitingDetailsCount',
-            'detailsCompleteCount'
+            'detailsCompleteCount',
+            'gbpListingPrompts'
         ));
     }
 
@@ -291,8 +305,9 @@ class SiteController extends Controller
 
                 $site = new Site;
 
-                $sensitivePrices = $this->collectSensitivePrices($request, $countryCodes[0] ?? null);
-                $homepagePrices = $this->collectHomepagePlacementPrices($request, $countryCodes[0] ?? null);
+                $listingFields = $this->listingPersistencePayload($request, $countryCodes[0] ?? null);
+                $sensitivePrices = $listingFields['sensitive_prices'];
+                $homepagePrices = $listingFields['homepage_placement_prices'];
                 $socialPromotion = $this->collectSocialPromotion($request);
 
                 // Manual publisher metrics — never auto-fetched/overwritten.
@@ -318,7 +333,11 @@ class SiteController extends Controller
                     'languages' => $languageCodes,
                     'category' => $primaryCategory,
                     'categories' => $categoriesArray,
-                    'price' => $this->listingToEuros($request->price, $countryCodes[0] ?? null, $request->input('price_input_currency')),
+                    'price' => $listingFields['price'],
+                    'listing_currency' => $listingFields['listing_currency'],
+                    'listing_price' => $listingFields['listing_price'],
+                    'listing_sensitive_prices' => $listingFields['listing_sensitive_prices'],
+                    'listing_homepage_prices' => $listingFields['listing_homepage_prices'],
                     'turnaround_time' => $request->turnaround_time,
                     'publication_time' => $request->publicationTime,
                     'link_type' => $request->link_type,
@@ -820,8 +839,8 @@ class SiteController extends Controller
                 'languages' => $site->languages,
                 'category' => $site->category,
                 'categories' => $categories,
-                'price' => $this->listingFromEuros((float) $site->price, $site->country, $this->listingInputCurrency(null, $site->country)),
-                'price_input_currency' => $this->listingInputCurrency(null, $site->country),
+                'price' => $site->listingBaseAmount(),
+                'price_input_currency' => $site->listingCurrency(),
                 'turnaround_time' => $site->turnaround_time,
                 'publication_time' => $site->publication_time,
                 'link_type' => $site->link_type,
@@ -829,8 +848,10 @@ class SiteController extends Controller
                 'sponsored' => (bool) $site->sponsored,
                 'partner_material' => (bool) $site->partner_material,
                 'as_you_prefer' => (bool) $site->as_you_prefer,
-                'sensitive_prices' => $this->listingMapFromEuros($site->sensitive_prices, $site->country),
-                'homepage_placement_prices' => $this->listingMapFromEuros($site->homepage_placement_prices, $site->country),
+                'sensitive_prices' => $this->listingMapNative($site->listingSensitiveMap()),
+                'homepage_placement_prices' => $this->listingMapNative($site->listingHomepageMap()),
+                'needs_gbp_listing_prompt' => $site->needsGbpListingPrompt(),
+                'proposed_gbp_listing_price' => $site->proposedGbpListingPrice(),
                 'social_promotion' => $site->social_promotion ?: new \stdClass,
                 'verified' => (bool) $site->verified,
                 'active' => (bool) $site->active,
@@ -967,8 +988,9 @@ class SiteController extends Controller
 
         try {
             DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, $needsRereview, $keepAsBulkDraft) {
-                $sensitivePrices = $this->collectSensitivePrices($request, $countryCodes[0] ?? null);
-                $homepagePrices = $this->collectHomepagePlacementPrices($request, $countryCodes[0] ?? null);
+                $listingFields = $this->listingPersistencePayload($request, $countryCodes[0] ?? null, $site);
+                $sensitivePrices = $listingFields['sensitive_prices'];
+                $homepagePrices = $listingFields['homepage_placement_prices'];
                 $socialPromotion = $this->collectSocialPromotion($request);
 
                 $payload = [
@@ -984,7 +1006,11 @@ class SiteController extends Controller
                     'languages' => $languageCodes,
                     'category' => $primaryCategory,
                     'categories' => $categoriesArray,
-                    'price' => $this->listingToEuros($request->price, $countryCodes[0] ?? null, $request->input('price_input_currency')),
+                    'price' => $listingFields['price'],
+                    'listing_currency' => $listingFields['listing_currency'],
+                    'listing_price' => $listingFields['listing_price'],
+                    'listing_sensitive_prices' => $listingFields['listing_sensitive_prices'],
+                    'listing_homepage_prices' => $listingFields['listing_homepage_prices'],
                     'turnaround_time' => $request->turnaround_time,
                     'publication_time' => $request->publicationTime,
                     'link_type' => $request->link_type,
@@ -1306,9 +1332,36 @@ class SiteController extends Controller
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function listingPersistencePayload(Request $request, ?string $country, ?Site $site = null): array
+    {
+        $listing = app(ListingMoney::class);
+        $currency = $this->listingInputCurrency($request->input('price_input_currency'), $country, $site);
+        $listingPrice = round((float) $request->price, 2);
+        $listingSensitive = $this->collectListingSensitivePrices($request);
+        $listingHomepage = $this->collectListingHomepagePrices($request);
+        $withBuffer = $listing->appliesBuffer($currency);
+
+        return [
+            'listing_currency' => $currency,
+            'listing_price' => $listingPrice,
+            'listing_sensitive_prices' => $listingSensitive !== [] ? $listingSensitive : null,
+            'listing_homepage_prices' => $listingHomepage !== [] ? $listingHomepage : null,
+            'price' => $listing->toEuros($listingPrice, $currency, $withBuffer),
+            'sensitive_prices' => $listingSensitive !== []
+                ? $listing->mapToEuros($listingSensitive, $currency, $withBuffer)
+                : [],
+            'homepage_placement_prices' => $listingHomepage !== []
+                ? $listing->mapToEuros($listingHomepage, $currency, $withBuffer)
+                : [],
+        ];
+    }
+
+    /**
      * @return array<string, float>
      */
-    private function collectSensitivePrices(Request $request, ?string $country = null): array
+    private function collectListingSensitivePrices(Request $request): array
     {
         $sensitivePrices = [];
         foreach (['crypto', 'trading', 'CBD', 'forex'] as $topic) {
@@ -1321,10 +1374,18 @@ class SiteController extends Controller
                 continue;
             }
 
-            $sensitivePrices[$topic] = $this->listingToEuros($price, $country, $request->input('price_input_currency'));
+            $sensitivePrices[$topic] = round((float) $price, 2);
         }
 
         return $sensitivePrices;
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    private function collectSensitivePrices(Request $request, ?string $country = null): array
+    {
+        return $this->listingPersistencePayload($request, $country)['sensitive_prices'];
     }
 
     /**
@@ -1346,10 +1407,18 @@ class SiteController extends Controller
                 continue;
             }
 
-            $out[(string) $days] = $this->listingToEuros($price, $country, $request->input('price_input_currency'));
+            $out[(string) $days] = round($price, 2);
         }
 
         return $out;
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    private function collectListingHomepagePrices(Request $request): array
+    {
+        return $this->collectHomepagePlacementPrices($request);
     }
 
     private function listingSavedNote(mixed $typedLocal, float $storedEuros, ?string $country): string
@@ -1364,16 +1433,29 @@ class SiteController extends Controller
             .' (from '.$money->symbolFor($currency).number_format((float) $typedLocal, 2).').';
     }
 
-    private function listingInputCurrency(mixed $explicit, ?string $country): string
+    private function listingInputCurrency(mixed $explicit, ?string $country, ?Site $site = null): string
     {
         $code = strtoupper(trim((string) $explicit));
         if (in_array($code, ['EUR', 'GBP'], true)) {
             return $code;
         }
 
+        if ($site && Site::hasSitesColumn('listing_currency') && filled($site->listing_currency)) {
+            return app(ListingMoney::class)->normalizeListing($site->listing_currency);
+        }
+
         $fromCountry = app(MoneyDisplay::class)->currencyForCountry($country);
 
         return $fromCountry === 'GBP' ? 'GBP' : 'EUR';
+    }
+
+    /**
+     * @param  array<string, float>  $map
+     * @return array<string, float>|\stdClass
+     */
+    private function listingMapNative(array $map): array|\stdClass
+    {
+        return $map === [] ? new \stdClass : $map;
     }
 
     private function listingToEuros(mixed $local, ?string $country, mixed $explicitCurrency = null): float
@@ -1642,6 +1724,68 @@ class SiteController extends Controller
         }
 
         return trim((string) $value);
+    }
+
+    public function confirmGbpListing(Request $request, $id)
+    {
+        $site = Site::where('publisher_id', auth()->id())->findOrFail($id);
+        $this->ensureListingSchema();
+
+        $validator = Validator::make($request->all(), [
+            'listing_price' => 'required|numeric|min:0|max:99999999.99',
+        ]);
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+
+        $listing = app(ListingMoney::class);
+        $listingPrice = round((float) $request->input('listing_price'), 2);
+        $sensitive = $listing->normalizeMap($site->listingSensitiveMap());
+        if ($site->listingCurrency() !== 'GBP' && $sensitive !== []) {
+            $converted = [];
+            foreach ($sensitive as $key => $value) {
+                $converted[$key] = $listing->fromEuros($listing->toEuros($value, $site->listingCurrency(), false), 'GBP');
+            }
+            $sensitive = $converted;
+        }
+        $homepage = $listing->normalizeMap($site->listingHomepageMap());
+        if ($site->listingCurrency() !== 'GBP' && $homepage !== []) {
+            $converted = [];
+            foreach ($homepage as $key => $value) {
+                $converted[$key] = $listing->fromEuros($listing->toEuros($value, $site->listingCurrency(), false), 'GBP');
+            }
+            $homepage = $converted;
+        }
+
+        $site->applyMarketplaceListing([
+            'listing_currency' => 'GBP',
+            'listing_price' => $listingPrice,
+            'listing_sensitive_prices' => $sensitive !== [] ? $sensitive : null,
+            'listing_homepage_prices' => $homepage !== [] ? $homepage : null,
+            'listing_gbp_prompt_dismissed_at' => now(),
+        ]);
+        $site->refreshCatalogEuros($listing);
+        $site->save();
+
+        return redirect()->back()->with(
+            'success',
+            '“'.$site->site_name.'” is now listed in GBP at '.$listing->formatAmount($listingPrice, 'GBP').'. You will earn and withdraw in pounds.'
+        );
+    }
+
+    public function keepEurListing($id)
+    {
+        $site = Site::where('publisher_id', auth()->id())->findOrFail($id);
+        $this->ensureListingSchema();
+        $site->applyMarketplaceListing([
+            'listing_gbp_prompt_dismissed_at' => now(),
+        ]);
+        $site->save();
+
+        return redirect()->back()->with(
+            'success',
+            '“'.$site->site_name.'” stays in euros. You can switch it to GBP later from Edit website.'
+        );
     }
 
     /**

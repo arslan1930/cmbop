@@ -258,7 +258,12 @@ class WelcomeBonusGrantTest extends TestCase
         $this->mockGoogleCallback('google-disabled', 'google-disabled@example.com');
         $this->withServerVariables(['REMOTE_ADDR' => '8.8.4.4'])
             ->get(route('auth.google.callback'))
-            ->assertRedirect('/advertiser/dashboard');
+            ->assertRedirect(route('auth.google.complete', absolute: false));
+        $this->post(route('auth.google.complete.store'), [
+            'country' => 'de',
+            'role' => 'advertiser',
+            'terms' => '1',
+        ])->assertRedirect('/advertiser/dashboard');
 
         $user = User::where('email', 'google-disabled@example.com')->first();
         $this->assertAdvertiserBonus($user, 0.0);
@@ -273,7 +278,12 @@ class WelcomeBonusGrantTest extends TestCase
         $this->mockGoogleCallback('google-first', 'google-first@example.com');
         $this->withServerVariables(['REMOTE_ADDR' => '1.2.3.4'])
             ->get(route('auth.google.callback'))
-            ->assertRedirect('/advertiser/dashboard');
+            ->assertRedirect(route('auth.google.complete', absolute: false));
+        $this->post(route('auth.google.complete.store'), [
+            'country' => 'de',
+            'role' => 'advertiser',
+            'terms' => '1',
+        ])->assertRedirect('/advertiser/dashboard');
 
         $first = User::where('email', 'google-first@example.com')->first();
         $this->assertAdvertiserBonus($first, 20.0);
@@ -284,7 +294,12 @@ class WelcomeBonusGrantTest extends TestCase
         $this->mockGoogleCallback('google-second', 'google-second@example.com');
         $this->withServerVariables(['REMOTE_ADDR' => '1.2.3.4'])
             ->get(route('auth.google.callback'))
-            ->assertRedirect('/advertiser/dashboard');
+            ->assertRedirect(route('auth.google.complete', absolute: false));
+        $this->post(route('auth.google.complete.store'), [
+            'country' => 'de',
+            'role' => 'advertiser',
+            'terms' => '1',
+        ])->assertRedirect('/advertiser/dashboard');
 
         $second = User::where('email', 'google-second@example.com')->first();
         $this->assertNotNull($second);
@@ -514,6 +529,7 @@ class WelcomeBonusGrantTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role' => $role,
+            'country' => 'de',
             'terms' => '1',
         ];
     }

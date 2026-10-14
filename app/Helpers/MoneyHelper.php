@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\CartDisplayFx;
+use App\Support\ListingMoney;
 use App\Support\Money;
 use App\Support\MoneyDisplay;
 
@@ -38,6 +39,18 @@ if (! function_exists('format_money_local')) {
     function format_money_local(mixed $euros, array $options = []): string
     {
         return Money::local($euros, $options);
+    }
+}
+
+if (! function_exists('format_money_amount')) {
+    /**
+     * Format an amount already in $currency. Does not convert from EUR.
+     *
+     * @param  array{signed?: bool, decimals?: int}  $options
+     */
+    function format_money_amount(mixed $amount, ?string $currency = 'EUR', array $options = []): string
+    {
+        return app(ListingMoney::class)->formatAmount($amount, $currency, $options);
     }
 }
 

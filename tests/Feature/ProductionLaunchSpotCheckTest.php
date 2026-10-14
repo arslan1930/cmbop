@@ -47,6 +47,7 @@ class ProductionLaunchSpotCheckTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role' => 'advertiser',
+            'country' => 'de',
             'terms' => '1',
         ])->assertOk()
             ->assertJsonPath('status', 'success')

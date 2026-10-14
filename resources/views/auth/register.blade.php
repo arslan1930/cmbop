@@ -189,6 +189,8 @@
                                     <div class="invalid-feedback" id="roleError"></div>
                                 </div>
 
+                                @include('auth.partials.country-field')
+
                                 <div class="mb-3">
                                     <div class="form-check mb-2">
                                         <input type="checkbox" class="form-check-input" name="terms" id="terms" value="1" required>
@@ -383,7 +385,7 @@ document.querySelectorAll('#roleSelect .role-card').forEach(card=>{
             input.classList.remove('is-invalid');
         });
 
-        ['nameError','emailError','passwordError','password_confirmationError','roleError','termsError'].forEach(id => {
+        ['nameError','emailError','passwordError','password_confirmationError','roleError','countryError','termsError'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.innerText = '';
@@ -474,6 +476,24 @@ document.querySelectorAll('#roleSelect .role-card').forEach(card=>{
     form.addEventListener('submit', handleRegisterSubmit);
 
     updateRoleBenefits(document.getElementById('roleInput')?.value || 'advertiser');
+
+    const countrySelect = document.getElementById('country');
+    const currencyPreview = document.getElementById('signupCurrencyPreview');
+    function currencyForCountry(code) {
+        const c = String(code || '').toLowerCase();
+        if (c === 'uk' || c === 'gb') return { symbol: '£', currency: 'GBP' };
+        if (c === 'us') return { symbol: '$', currency: 'USD' };
+        return { symbol: '€', currency: 'EUR' };
+    }
+    function refreshCurrencyPreview() {
+        if (!currencyPreview) return;
+        const chosen = currencyForCountry(countrySelect?.value);
+        currencyPreview.textContent = 'Your account currency: ' + chosen.symbol + ' ' + chosen.currency + ', you can change it anytime';
+    }
+    if (countrySelect) {
+        countrySelect.addEventListener('change', refreshCurrencyPreview);
+        refreshCurrencyPreview();
+    }
 })();
 </script>
 @endsection

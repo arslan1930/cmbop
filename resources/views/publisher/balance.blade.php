@@ -12,11 +12,13 @@
     $canMove = (bool) ($canMove ?? false);
     $roleMoveMinAmount = max(0.01, round((float) ($roleMoveMinAmount ?? config('billing.role_move.min_amount', 0.01)), 2));
     $publisherDebt = (float) ($publisher['debt'] ?? $publisherDebt ?? 0);
+    $publisherCurrency = strtoupper((string) ($publisherCurrency ?? 'EUR')) ?: 'EUR';
+    $publisherWallets = $publisherWallets ?? collect();
     $withdrawDisabledReason = $publisherDebt > 0
-        ? 'Withdrawals are blocked while you have outstanding clawback debt of '.format_money($publisherDebt).'. Contact support to resolve this before withdrawing.'
-        : 'You need at least '.format_money($minWithdrawalAmount).' withdrawable balance to request a payout. Available now: '.format_money($publisher['withdrawable']).'.';
+        ? 'Withdrawals are blocked while you have outstanding clawback debt of '.format_money_amount($publisherDebt, $publisherCurrency).'. Contact support to resolve this before withdrawing.'
+        : 'You need at least '.format_money_amount($minWithdrawalAmount, $publisherCurrency).' withdrawable balance to request a payout. Available now: '.format_money_amount($publisher['withdrawable'], $publisherCurrency).'.';
     $moveDisabledReason = $publisherDebt > 0
-        ? 'Moves are blocked while you have outstanding clawback debt of '.format_money($publisherDebt).'. Contact support to resolve this before moving earnings.'
+        ? 'Moves are blocked while you have outstanding clawback debt of '.format_money_amount($publisherDebt, $publisherCurrency).'. Contact support to resolve this before moving earnings.'
         : 'No withdrawable earnings to move. Bonus credit cannot be moved.';
     $supportEmail = $supportEmail ?? config('email_notifications.brand.support_email', config('mail.from.address'));
 @endphp
@@ -43,7 +45,7 @@
                 <p class="publisher-needs-alert__copy mb-0">
                     <svg class="publisher-needs-alert__icon" xmlns="http://www.w3.org/2000/svg" viewBox="118 4 72 244" fill="currentColor" aria-hidden="true" focusable="false"><g transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)"><path d="M 49.083 71.489 l 5.776 -21.96 l 4.186 -15.247 c 3.497 -16.18 -32.704 -2.439 -38.002 1.695 l 0.425 4.853 c 4.824 -3.395 23.091 -7.744 19.449 4.275 l -1.634 6.135 l 0 0 l -8.329 31.071 c -3.497 16.18 32.704 2.439 38.002 -1.695 l -0.425 -4.853 C 63.708 79.159 45.441 83.508 49.083 71.489 z"/><circle cx="53.871" cy="11.201" r="11.201"/></g></svg>
                     <strong>Outstanding clawback debt</strong>
-                    <span class="ms-1">{{ format_money($publisherDebt) }}. Withdrawals and moves to your advertiser wallet are blocked until support clears this debt.</span>
+                    <span class="ms-1">{{ format_money_amount($publisherDebt, $publisherCurrency) }}. Withdrawals and moves to your advertiser wallet are blocked until support clears this debt.</span>
                 </p>
                 <p class="mb-0 mt-3 mt-md-0 ms-md-4">
                     <a class="publisher-needs-alert__link" href="mailto:{{ $supportEmail }}">Contact support</a>
@@ -62,27 +64,27 @@
                     label="About publisher earnings"
                     placement="top" />
             </div>
-            <div class="pb-wallet-card__value" id="publisherBalance">{{ format_money($publisher['withdrawable']) }}</div>
-            <p class="pb-wallet-card__sub">Withdrawable</p>
+            <div class="pb-wallet-card__value" id="publisherBalance">{{ format_money_amount($publisher['withdrawable'], $publisherCurrency) }}</div>
+            <p class="pb-wallet-card__sub">Withdrawable · {{ $publisherCurrency }}</p>
 
             @if((float) $publisher['reserved'] > 0 || (float) $publisher['bonus'] > 0 || (float) $publisher['debt'] > 0)
                 <div class="pb-wallet-card__chips">
                     @if((float) $publisher['reserved'] > 0)
                         <div class="pb-wallet-card__chip">
                             <span class="pb-wallet-card__chip-label">On hold</span>
-                            <span class="pb-wallet-card__chip-value">{{ format_money($publisher['reserved']) }}</span>
+                            <span class="pb-wallet-card__chip-value">{{ format_money_amount($publisher['reserved'], $publisherCurrency) }}</span>
                         </div>
                     @endif
                     @if((float) $publisher['bonus'] > 0)
                         <div class="pb-wallet-card__chip pb-wallet-card__chip--bonus">
                             <span class="pb-wallet-card__chip-label">Bonus</span>
-                            <span class="pb-wallet-card__chip-value">{{ format_money($publisher['bonus']) }}</span>
+                            <span class="pb-wallet-card__chip-value">{{ format_money_amount($publisher['bonus'], $publisherCurrency) }}</span>
                         </div>
                     @endif
                     @if((float) $publisher['debt'] > 0)
                         <div class="pb-wallet-card__chip pb-wallet-card__chip--debt">
                             <span class="pb-wallet-card__chip-label">Debt</span>
-                            <span class="pb-wallet-card__chip-value">{{ format_money($publisher['debt']) }}</span>
+                            <span class="pb-wallet-card__chip-value">{{ format_money_amount($publisher['debt'], $publisherCurrency) }}</span>
                         </div>
                     @endif
                 </div>
@@ -166,6 +168,21 @@
                 </form>
             @endif
         </article>
+
+        @foreach($publisherWallets as $extraWallet)
+            @php
+                $extraCurrency = strtoupper((string) ($extraWallet->currency ?? 'EUR')) ?: 'EUR';
+            @endphp
+            @if($extraCurrency !== $publisherCurrency)
+                <article class="pb-wallet-card" aria-labelledby="publisher{{ $extraCurrency }}Label">
+                    <div class="pb-wallet-card__header">
+                        <span class="pb-wallet-card__label" id="publisher{{ $extraCurrency }}Label">Publisher earnings · {{ $extraCurrency }}</span>
+                    </div>
+                    <div class="pb-wallet-card__value">{{ format_money_amount($extraWallet->withdrawableBalance(), $extraCurrency) }}</div>
+                    <p class="pb-wallet-card__sub">Withdrawable · {{ $extraCurrency }}</p>
+                </article>
+            @endif
+        @endforeach
 
         @if($showAdvertiserWallet)
             <article class="pb-wallet-card" aria-labelledby="advertiserSpendableLabel">

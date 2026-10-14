@@ -9,6 +9,7 @@ use App\Models\UserConsent;
 use App\Models\Wallet;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WelcomeBonusService;
+use App\Support\SignupCountry;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +40,10 @@ class RegisterController extends Controller
             }
         }
 
-        return view('auth.register', compact('roles', 'welcomeBonusEnabled', 'welcomeBonusAmount'));
+        return view('auth.register', array_merge(
+            compact('roles', 'welcomeBonusEnabled', 'welcomeBonusAmount'),
+            SignupCountry::formPayload()
+        ));
     }
 
     /**
@@ -62,13 +66,20 @@ class RegisterController extends Controller
             ], 429);
         }
 
+        $request->merge([
+            'country' => SignupCountry::incoming($request->input('country')),
+        ]);
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users',
             'password' => ['required', 'confirmed', Password::defaults()],
             'role' => 'required|in:advertiser,publisher',
+            'country' => SignupCountry::countryRules(),
             'terms' => 'accepted',
         ], [
+            'country.required' => 'Please select your country.',
+            'country.in' => 'Please select a valid country.',
             'terms.accepted' => 'You must agree to the Terms and Services.',
         ]);
 
@@ -113,6 +124,7 @@ class RegisterController extends Controller
             $activeRole = $request->role === 'advertiser' ? $advertiserRole : $publisherRole;
             $user->active_role_id = $activeRole->id;
             $user->save();
+            SignupCountry::applyToUser($user, $request->input('country'));
 
             $welcomeBonus = 0.0;
             if ($bonusService) {

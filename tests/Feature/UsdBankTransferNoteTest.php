@@ -7,6 +7,7 @@ use App\Models\DepositRequest;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Support\DepositPaymentConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -55,7 +56,7 @@ class UsdBankTransferNoteTest extends TestCase
         $this->assertStringNotContainsString('js-switch-deposit-method', $html);
     }
 
-    public function test_usd_wallet_add_funds_shows_eur_send_amount_and_wire_note(): void
+    public function test_usd_wallet_add_funds_hides_bank_transfer(): void
     {
         $user = $this->advertiser('USD', 'US');
         $this->wallet($user, 'USD');
@@ -63,23 +64,36 @@ class UsdBankTransferNoteTest extends TestCase
         $html = $this->actingAs($user)
             ->get(route('advertiser.add-funds', ['amount' => 50, 'method' => 'bank']))
             ->assertOk()
-            ->assertSee('Bank Transfer', false)
             ->assertSee('data-method="card"', false)
             ->assertSee('data-method="paypal"', false)
-            ->assertSee('data-method="bank"', false)
-            ->assertSee('bankIban', false)
-            ->assertSee('data-usd-bank-wire="1"', false)
-            ->assertSee(e('Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees'), false)
-            ->assertSee('This is an international wire to a EUR account.', false)
-            ->assertSee('Please choose OUR', false)
-            ->assertSee('Want to avoid wire fees? Pay instantly by Card or PayPal instead.', false)
-            ->assertSee('js-switch-deposit-method', false)
-            ->assertSee('data-method="card"', false)
+            ->assertSee('data-method="wise"', false)
+            ->assertDontSee('data-method="bank"', false)
+            ->assertDontSee('id="bankIban"', false)
+            ->assertDontSee('data-usd-bank-wire="1"', false)
+            ->assertDontSee('international wire to a EUR account', false)
+            ->assertDontSee('includes 0.5% conversion fee', false)
             ->getContent();
 
-        $this->assertStringContainsString('usdBankWire:', $html);
-        $this->assertMatchesRegularExpression('/data-method="card"/', $html);
-        $this->assertSame(2, substr_count($html, 'js-switch-deposit-method'));
+        $this->assertStringNotContainsString('data-method="bank"', $html);
+        $this->assertStringNotContainsString('js-switch-deposit-method', $html);
+    }
+
+    public function test_usd_bank_deposit_is_rejected_server_side(): void
+    {
+        $user = $this->advertiser('USD', 'US');
+        $this->wallet($user, 'USD');
+
+        $this->actingAs($user)
+            ->postJson(route('advertiser.add-funds.store'), [
+                'amount' => 50,
+                'amount_currency' => 'USD',
+                'payment_method' => 'bank',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', DepositPaymentConfig::bankUnavailableMessage());
+
+        $this->assertDatabaseCount('deposit_requests', 0);
     }
 
     public function test_us_ip_does_not_override_eur_user_bank_details(): void
@@ -100,7 +114,7 @@ class UsdBankTransferNoteTest extends TestCase
             ->assertSee('data-method="paypal"', false);
     }
 
-    public function test_usd_invoice_html_and_pending_note_include_wire_copy(): void
+    public function test_leftover_usd_bank_invoice_still_renders_without_wire_guidance(): void
     {
         $user = $this->advertiser('USD', 'US');
         $this->wallet($user, 'USD');
@@ -116,19 +130,15 @@ class UsdBankTransferNoteTest extends TestCase
         $this->actingAs($user)
             ->get(route('advertiser.invoice', $deposit->reference_code))
             ->assertOk()
-            ->assertSee('data-usd-bank-wire="1"', false)
-            ->assertSee(e('Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees'), false)
-            ->assertSee('international wire to a EUR account', false)
-            ->assertSee(route('advertiser.add-funds', ['method' => 'card'], false), false)
-            ->assertSee(route('advertiser.add-funds', ['method' => 'paypal'], false), false)
-            ->assertSee($deposit->reference_code, false);
+            ->assertSee($deposit->reference_code, false)
+            ->assertDontSee('data-usd-bank-wire="1"', false)
+            ->assertDontSee('includes 0.5% conversion fee', false)
+            ->assertDontSee('international wire to a EUR account', false);
 
         $note = $this->pendingDepositNote($deposit, $user);
         $this->assertStringContainsString('IBAN (from outside the UK):', $note);
-        $this->assertStringContainsString('Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees', $note);
-        $this->assertSame(1, substr_count($note, '±2%'));
-        $this->assertStringContainsString('international wire to a EUR account', $note);
-        $this->assertStringContainsString('Card or PayPal', $note);
+        $this->assertStringNotContainsString('includes 0.5% conversion fee', $note);
+        $this->assertStringNotContainsString('international wire to a EUR account', $note);
     }
 
     public function test_eur_invoice_omits_usd_wire_copy(): void

@@ -55,4 +55,10 @@ return [
     'deposit_lock_days' => (int) env('FX_DEPOSIT_LOCK_DAYS', 7),
 
     'deposit_tolerance_percent' => (float) env('FX_DEPOSIT_TOLERANCE_PERCENT', 2),
+
+    /*
+    | Built into the converted advertiser € price when listing currency ≠ EUR.
+    | 0 disables it. No separate fee line.
+    */
+    'conversion_buffer_percent' => (float) env('FX_CONVERSION_BUFFER_PERCENT', 0.5),
 ];

@@ -5,6 +5,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\ToleratesUnparseableDates;
+use App\Support\ListingMoney;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -51,6 +52,11 @@ class OrderItem extends Model
         'publisher_price',
         'platform_fee_percent',
         'platform_fee_amount',
+        'advertiser_eur_amount',
+        'publisher_amount',
+        'publisher_currency',
+        'fx_rate',
+        'fx_buffer_percent',
         'publisher_status',
         'accepted_at',
         'rejected_at',
@@ -85,6 +91,10 @@ class OrderItem extends Model
         'publisher_price' => 'decimal:2',
         'platform_fee_percent' => 'decimal:2',
         'platform_fee_amount' => 'decimal:2',
+        'advertiser_eur_amount' => 'decimal:2',
+        'publisher_amount' => 'decimal:2',
+        'fx_rate' => 'decimal:8',
+        'fx_buffer_percent' => 'decimal:2',
         'accepted_at' => 'datetime',
         'rejected_at' => 'datetime',
         'completed_at' => 'datetime',
@@ -480,17 +490,88 @@ class OrderItem extends Model
     }
 
     /**
-     * Amount credited to the publisher on approval.
-     * Publisher gets their entered base + sensitive add-ons; platform keeps the hidden fee.
+     * Amount credited to the publisher on approval, in publisherPayoutCurrency().
+     * Publisher gets their entered listing + add-ons; platform keeps the hidden fee.
      */
     public function publisherPayoutAmount(): float
     {
+        if ($this->publisher_amount !== null && $this->publisher_amount !== '') {
+            return round((float) $this->publisher_amount, 2);
+        }
+
         return round(
             $this->publisherBasePrice()
             + (float) ($this->additional_price ?? 0)
             + (float) ($this->homepage_price ?? 0),
             2
         );
+    }
+
+    public function publisherPayoutCurrency(): string
+    {
+        $code = strtoupper(trim((string) ($this->publisher_currency ?? '')));
+
+        return in_array($code, ['EUR', 'GBP', 'USD'], true) ? $code : 'EUR';
+    }
+
+    public function advertiserEurAmount(): float
+    {
+        if ($this->advertiser_eur_amount !== null && $this->advertiser_eur_amount !== '') {
+            return round((float) $this->advertiser_eur_amount, 2);
+        }
+
+        return round((float) $this->price, 2);
+    }
+
+    public function lockedFxRate(): ?float
+    {
+        $rate = $this->fx_rate;
+        if ($rate === null || $rate === '') {
+            return null;
+        }
+        $rate = (float) $rate;
+
+        return $rate > 0 ? $rate : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $pricing
+     * @return array<string, mixed>
+     */
+    public static function fxSnapshotFromPricing(array $pricing): array
+    {
+        return [
+            'advertiser_eur_amount' => $pricing['advertiser_eur_amount'] ?? $pricing['price'] ?? $pricing['total'] ?? null,
+            'publisher_amount' => $pricing['publisher_amount'] ?? $pricing['publisher_price'] ?? null,
+            'publisher_currency' => $pricing['publisher_currency'] ?? 'EUR',
+            'fx_rate' => $pricing['fx_rate'] ?? null,
+            'fx_buffer_percent' => $pricing['fx_buffer_percent'] ?? null,
+        ];
+    }
+
+    /**
+     * @return array{amount: float, currency: string, advertiser_eur: float, uncapped: float, capped: bool, platform_fee_eur: float}
+     */
+    public function cappedPublisherCredit(): array
+    {
+        $uncapped = $this->publisherPayoutAmount();
+        $currency = $this->publisherPayoutCurrency();
+        $advertiserEur = $this->advertiserEurAmount();
+        $amount = app(ListingMoney::class)->capPublisherAmount(
+            $uncapped,
+            $advertiserEur,
+            $currency,
+            $this->lockedFxRate()
+        );
+
+        return [
+            'amount' => $amount,
+            'currency' => $currency,
+            'advertiser_eur' => $advertiserEur,
+            'uncapped' => $uncapped,
+            'capped' => $amount + 0.001 < $uncapped,
+            'platform_fee_eur' => $this->platformFeeAmount(),
+        ];
     }
 
     /**

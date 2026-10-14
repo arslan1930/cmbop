@@ -17,16 +17,9 @@ class UsdBankWireGuidance
 
     public function applies(?string $walletCurrency = null, ?User $user = null): bool
     {
-        if ($this->money->currency() === 'USD') {
-            return true;
-        }
-
-        $currency = $this->normalizedCurrency($walletCurrency);
-        if ($currency === '' && $user) {
-            $currency = $this->walletCurrencyFor($user);
-        }
-
-        return $currency === 'USD';
+        // USD bank transfer is retired. Leftover pending bank deposits still
+        // render their invoice; this guidance is not shown on new flows.
+        return false;
     }
 
     public function walletCurrencyFor(?User $user): string

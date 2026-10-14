@@ -24,15 +24,16 @@ class BalanceController extends Controller
     {
         try {
             $user = auth()->user();
-            $publisherWallet = Wallet::where('user_id', $user->id)
-                ->where('role_id', Wallet::publisherRoleId())
-                ->first();
+            $publisherWallets = Wallet::forPublisherAll($user->id);
+            $publisherWallet = $publisherWallets->first(fn ($wallet) => strtoupper((string) $wallet->currency) === 'EUR')
+                ?? $publisherWallets->first();
             $advertiserWallet = Wallet::where('user_id', $user->id)
                 ->where('role_id', Wallet::advertiserRoleId())
                 ->first();
 
             $publisher = $publisherWallet?->roleSnapshot() ?? Wallet::emptyRoleSnapshot();
             $advertiser = $advertiserWallet?->roleSnapshot() ?? Wallet::emptyRoleSnapshot();
+            $publisherCurrency = strtoupper((string) ($publisherWallet->currency ?? 'EUR')) ?: 'EUR';
             $minWithdrawalAmount = max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
             $roleMoveMinAmount = max(0.01, round((float) config('billing.role_move.min_amount', 0.01), 2));
             $canWithdraw = $publisher['debt'] <= 0 && $publisher['withdrawable'] >= $minWithdrawalAmount;
@@ -44,6 +45,8 @@ class BalanceController extends Controller
             return view('publisher.balance', [
                 'publisher' => $publisher,
                 'advertiser' => $advertiser,
+                'publisherWallets' => $publisherWallets,
+                'publisherCurrency' => $publisherCurrency,
                 'publisherBalance' => $publisher['spendable'],
                 'advertiserBalance' => $advertiser['spendable'],
                 'publisherDebt' => $publisher['debt'],
@@ -65,6 +68,8 @@ class BalanceController extends Controller
             return view('publisher.balance', [
                 'publisher' => $empty,
                 'advertiser' => $empty,
+                'publisherWallets' => collect(),
+                'publisherCurrency' => 'EUR',
                 'publisherBalance' => 0.0,
                 'advertiserBalance' => 0.0,
                 'publisherDebt' => 0.0,

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Withdrawal;
 use App\Services\ActivityLogger;
+use App\Services\Admin\FinanceOverviewService;
 use App\Services\Billing\AdminInvoiceLinks;
 use App\Services\Wallet\ManualWithdrawalInvalidTransitionException;
 use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
@@ -18,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AdminWithdrawalController extends Controller
@@ -365,6 +367,8 @@ class AdminWithdrawalController extends Controller
                 'publisher_email',
                 'amount',
                 'fee',
+                'conversion_fee',
+                'conversion_fee_percent',
                 'net_amount',
                 'currency',
                 'payment_method',
@@ -392,8 +396,10 @@ class AdminWithdrawalController extends Controller
                     $w->user?->email,
                     number_format((float) $w->amount, 2, '.', ''),
                     number_format((float) $w->fee, 2, '.', ''),
+                    number_format((float) ($w->conversion_fee ?? 0), 2, '.', ''),
+                    number_format((float) ($w->conversion_fee_percent ?? 0), 2, '.', ''),
                     number_format((float) $w->net_amount, 2, '.', ''),
-                    'EUR',
+                    strtoupper((string) ($w->currency ?: 'EUR')) ?: 'EUR',
                     $w->payment_method,
                     $w->status,
                     $w->waiting_days,
@@ -405,6 +411,30 @@ class AdminWithdrawalController extends Controller
                     $details['crypto_type'] ?? '',
                     $details['wallet_address'] ?? '',
                     optional($w->created_at)->toDateTimeString(),
+                ]);
+            }
+
+            $byCurrency = [];
+            foreach ($rows as $w) {
+                $code = strtoupper((string) ($w->currency ?: 'EUR')) ?: 'EUR';
+                $byCurrency[$code] ??= ['count' => 0, 'amount' => 0.0, 'fee' => 0.0, 'conversion_fee' => 0.0, 'net' => 0.0];
+                $byCurrency[$code]['count']++;
+                $byCurrency[$code]['amount'] += (float) $w->amount;
+                $byCurrency[$code]['fee'] += (float) $w->fee;
+                $byCurrency[$code]['conversion_fee'] += (float) ($w->conversion_fee ?? 0);
+                $byCurrency[$code]['net'] += (float) $w->net_amount;
+            }
+            fputcsv($out, []);
+            fputcsv($out, ['totals_by_currency', 'currency', 'count', 'amount', 'fee', 'conversion_fee', 'net_amount']);
+            foreach ($byCurrency as $code => $total) {
+                fputcsv($out, [
+                    'TOTAL',
+                    $code,
+                    $total['count'],
+                    number_format($total['amount'], 2, '.', ''),
+                    number_format($total['fee'], 2, '.', ''),
+                    number_format($total['conversion_fee'], 2, '.', ''),
+                    number_format($total['net'], 2, '.', ''),
                 ]);
             }
 
@@ -442,6 +472,29 @@ class AdminWithdrawalController extends Controller
                     ],
                 ]);
 
+            $byCurrency = collect();
+            if (Schema::hasColumn('withdrawals', 'currency')) {
+                $byCurrency = Withdrawal::whereIn('status', ['pending', 'processing'])
+                    ->selectRaw("COALESCE(currency, 'EUR') as currency, COUNT(*) as count, SUM(net_amount) as net_total, SUM(amount) as amount_total")
+                    ->groupBy('currency')
+                    ->get()
+                    ->mapWithKeys(fn ($row) => [
+                        strtoupper((string) ($row->currency ?: 'EUR')) => [
+                            'count' => (int) $row->count,
+                            'net_total' => (float) $row->net_total,
+                            'amount_total' => (float) $row->amount_total,
+                        ],
+                    ]);
+            } else {
+                $byCurrency = collect([
+                    'EUR' => [
+                        'count' => (clone $openQuery)->count(),
+                        'net_total' => (float) (clone $openQuery)->sum('net_amount'),
+                        'amount_total' => (float) (clone $openQuery)->sum('amount'),
+                    ],
+                ]);
+            }
+
             $completedThisWeek = Withdrawal::where('status', 'completed');
             if (Withdrawal::hasProcessedAtColumn()) {
                 $completedThisWeek->whereProcessedAtIsRecorded()
@@ -469,6 +522,7 @@ class AdminWithdrawalController extends Controller
                 'total_fees_collected' => (float) Withdrawal::where('status', 'completed')->sum('fee'),
                 'total_amount_paid' => (float) Withdrawal::where('status', 'completed')->sum('net_amount'),
                 'by_method' => $byMethod,
+                'by_currency' => $byCurrency,
             ];
 
             return response()->json([
@@ -507,6 +561,7 @@ class AdminWithdrawalController extends Controller
             'total_fees_collected' => 0.0,
             'total_amount_paid' => 0.0,
             'by_method' => [],
+            'by_currency' => [],
         ];
     }
 
@@ -607,7 +662,7 @@ class AdminWithdrawalController extends Controller
             ]
         )->valid();
         if ($request->boolean('finance') && $status === 'completed') {
-            app(\App\Services\Admin\FinanceOverviewService::class)->applyWithdrawalPaidWindow(
+            app(FinanceOverviewService::class)->applyWithdrawalPaidWindow(
                 $query,
                 $dates['date_from'] ?? null,
                 $dates['date_to'] ?? null

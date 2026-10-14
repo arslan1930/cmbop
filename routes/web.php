@@ -1125,6 +1125,10 @@ Route::middleware('guest')->group(function () {
 // Local/testing may retry without OAuth "state"; production refuses that fallback.
 Route::get('auth/google', [SocialiteController::class, 'redirectToGoogle'])->name('auth.google');
 Route::get('auth/google/callback', [SocialiteController::class, 'handleGoogleCallback'])->name('auth.google.callback');
+Route::get('auth/google/complete', [SocialiteController::class, 'showGoogleComplete'])->name('auth.google.complete');
+Route::post('auth/google/complete', [SocialiteController::class, 'completeGoogle'])
+    ->middleware('throttle:register')
+    ->name('auth.google.complete.store');
 
 // Registration routes
 Route::post('/register', [RegisterController::class, 'register'])
@@ -2069,6 +2073,12 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
         Route::get('/sites/{id}/edit-data', [SiteController::class, 'editData'])->name('sites.edit-data');
         Route::put('/sites/{id}', [SiteController::class, 'update'])->name('sites.update');
+        Route::post('/sites/{id}/confirm-gbp-listing', [SiteController::class, 'confirmGbpListing'])
+            ->middleware('throttle:30,1')
+            ->name('sites.confirm-gbp-listing');
+        Route::post('/sites/{id}/keep-eur-listing', [SiteController::class, 'keepEurListing'])
+            ->middleware('throttle:30,1')
+            ->name('sites.keep-eur-listing');
         Route::delete('/sites/{id}', [SiteController::class, 'destroy'])->name('sites.destroy');
         Route::post('/sites/{id}/archive', [SiteController::class, 'archive'])->name('sites.archive');
         Route::post('/sites/{id}/unarchive', [SiteController::class, 'unarchive'])->name('sites.unarchive');

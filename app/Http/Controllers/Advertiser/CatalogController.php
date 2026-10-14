@@ -64,6 +64,7 @@ use App\Support\AdvertiserOrderStatus;
 use App\Support\CartDisplayFx;
 use App\Support\CatalogProblemReport;
 use App\Support\CatalogVisitUrl;
+use App\Support\DepositPaymentConfig;
 use App\Support\PaypalPaymentError;
 use App\Support\PlatformCharge;
 use App\Support\SiteDescriptionRules;
@@ -3101,6 +3102,10 @@ class CatalogController extends Controller
         $checkoutSelectedProjectId = $checkoutProject['selected_project_id'];
         $checkoutSuggestedProjectId = $checkoutProject['suggested_project_id'];
         $checkoutDuplicateHosts = $checkoutProject['duplicate_hosts'];
+        $bankTransferAllowed = DepositPaymentConfig::allowsBankTransfer(
+            auth()->user(),
+            $checkoutWallet?->currency ?? null
+        );
 
         return view('advertiser.checkout', array_merge(compact(
             'cartItems',
@@ -3126,6 +3131,7 @@ class CatalogController extends Controller
             'checkoutSelectedProjectId',
             'checkoutSuggestedProjectId',
             'checkoutDuplicateHosts',
+            'bankTransferAllowed',
         ), $scheduleContext));
     }
 
@@ -3168,6 +3174,14 @@ class CatalogController extends Controller
             // Bank / Wise / crypto never create an order here. Do not cancel
             // leftovers before sending the advertiser to Add Funds.
             if (in_array($paymentMethod, ['wise', 'crypto', 'bank'], true)) {
+                if ($paymentMethod === 'bank'
+                    && ! DepositPaymentConfig::allowsBankTransfer(auth()->user())) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => DepositPaymentConfig::bankUnavailableMessage(),
+                    ], 422);
+                }
+
                 $cartTotal = $this->estimateCartTotal($cart, (int) $userId);
 
                 return response()->json([
@@ -3501,6 +3515,7 @@ class CatalogController extends Controller
                 'publisher_price' => $orderItem['publisher_price'] ?? null,
                 'platform_fee_percent' => $orderItem['platform_fee_percent'] ?? null,
                 'platform_fee_amount' => $orderItem['platform_fee_amount'] ?? null,
+                ...OrderItem::fxSnapshotFromPricing($orderItem),
                 'content_submission_id' => $submission->id,
                 'content_link' => route('advertiser.content-submissions.download', $submission),
                 'content_disk' => $submission->disk,
@@ -6479,23 +6494,24 @@ class CatalogController extends Controller
                     $publisher = User::find($site->publisher_id);
 
                     if ($publisher && $publisherRoleId) {
-                        $publisherWallet = Wallet::lockOrCreateForRole($publisher->id, $publisherRoleId);
-
-                        // Publisher payout excludes the platform markup retained on the base price
-                        $amount = (float) $orderItem->publisherPayoutAmount();
-                        $advertiserPaid = round((float) $orderItem->price, 2);
-                        // Never credit more than the advertiser paid for this line
-                        // (guards legacy rows / discount edge cases).
-                        if ($amount > $advertiserPaid) {
+                        $credit = $orderItem->cappedPublisherCredit();
+                        $publisherWallet = Wallet::lockOrCreateForRole(
+                            $publisher->id,
+                            $publisherRoleId,
+                            $credit['currency']
+                        );
+                        $amount = $credit['amount'];
+                        $advertiserPaid = $credit['advertiser_eur'];
+                        if ($credit['capped']) {
                             Log::warning('Capping publisher payout to advertiser-paid amount', [
                                 'order_id' => $order->id,
                                 'order_item_id' => $orderItem->id,
                                 'advertiser_paid' => $advertiserPaid,
-                                'uncapped_payout' => $amount,
+                                'uncapped_payout' => $credit['uncapped'],
+                                'publisher_currency' => $credit['currency'],
                             ]);
-                            $amount = $advertiserPaid;
                         }
-                        $platformFee = max(0, round($advertiserPaid - $amount, 2));
+                        $platformFee = $credit['platform_fee_eur'];
                         $publisherWallet->credit($amount);
 
                         try {
@@ -7186,6 +7202,7 @@ class CatalogController extends Controller
             'publisher_price' => $orderItem['publisher_price'] ?? null,
             'platform_fee_percent' => $orderItem['platform_fee_percent'] ?? null,
             'platform_fee_amount' => $orderItem['platform_fee_amount'] ?? null,
+            ...OrderItem::fxSnapshotFromPricing($orderItem),
         ];
     }
 

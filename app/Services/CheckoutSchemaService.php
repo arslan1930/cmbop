@@ -111,6 +111,11 @@ class CheckoutSchemaService
         $this->addColumn('order_items', 'publisher_price', 'decimal(10,2) NULL');
         $this->addColumn('order_items', 'platform_fee_percent', 'decimal(5,2) NULL');
         $this->addColumn('order_items', 'platform_fee_amount', 'decimal(10,2) NULL');
+        $this->addColumn('order_items', 'advertiser_eur_amount', 'decimal(12,2) NULL');
+        $this->addColumn('order_items', 'publisher_amount', 'decimal(12,2) NULL');
+        $this->addColumn('order_items', 'publisher_currency', 'varchar(3) NULL');
+        $this->addColumn('order_items', 'fx_rate', 'decimal(16,8) NULL');
+        $this->addColumn('order_items', 'fx_buffer_percent', 'decimal(5,2) NULL');
         $this->addColumn('order_items', 'publisher_status', "varchar(40) NULL DEFAULT 'pending'");
         $this->addColumn('order_items', 'accepted_at', 'timestamp NULL');
         $this->addColumn('order_items', 'rejected_at', 'timestamp NULL');
@@ -213,6 +218,11 @@ class CheckoutSchemaService
         // Catalog GET and Site::countWithHomepagePlacement() query these JSON columns.
         $this->addNullableJsonColumn('sites', 'homepage_placement_prices');
         $this->addNullableJsonColumn('sites', 'social_promotion');
+        $this->addColumn('sites', 'listing_currency', "varchar(3) NOT NULL DEFAULT 'EUR'");
+        $this->addColumn('sites', 'listing_price', 'decimal(10,2) NULL');
+        $this->addNullableJsonColumn('sites', 'listing_sensitive_prices');
+        $this->addNullableJsonColumn('sites', 'listing_homepage_prices');
+        $this->addColumn('sites', 'listing_gbp_prompt_dismissed_at', 'timestamp NULL');
     }
 
     /**

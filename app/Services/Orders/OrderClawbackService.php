@@ -161,8 +161,9 @@ class OrderClawbackService
             $order = Order::where('id', $dispute->order_id)->lockForUpdate()->firstOrFail();
             $this->assertUpholdPreconditions($dispute, $order, $item);
 
-            $targetPayout = round((float) $item->publisherPayoutAmount(), 2);
-            $advertiserCredit = round((float) $item->price, 2);
+            $credit = $item->cappedPublisherCredit();
+            $targetPayout = $credit['amount'];
+            $advertiserCredit = $credit['advertiser_eur'];
             if (abs($advertiserCredit - $preparedPaypal['expected_credit']) > 0.009) {
                 throw ValidationException::withMessages([
                     'dispute' => 'The disputed line amount changed. Refresh and try again.',
@@ -179,7 +180,7 @@ class OrderClawbackService
             $publisherWallet = null;
 
             if ($publisherId && $publisherRoleId && $targetPayout > 0) {
-                $publisherWallet = Wallet::lockOrCreateForRole((int) $publisherId, (int) $publisherRoleId);
+                $publisherWallet = Wallet::lockOrCreateForRole((int) $publisherId, (int) $publisherRoleId, $credit['currency']);
                 $available = $publisherWallet->withdrawableBalance();
                 $debited = round(min($available, $targetPayout), 2);
                 $debtCreated = round(max(0, $targetPayout - $debited), 2);
