@@ -143,10 +143,11 @@ class AddFundsController extends Controller
         $stripeConfigured = app(StripeCustomerService::class)->configured();
         $paypalConfigured = app(PaypalCheckoutService::class)->configured();
         $cryptoEnabled = DepositPaymentConfig::cryptoEnabled();
+        $bankTransferAllowed = DepositPaymentConfig::allowsBankTransfer($user, $wallet?->currency ?? null);
         $prefillMethod = in_array($request->query('method'), ['wise', 'bank', 'crypto', 'card', 'paypal'], true)
             ? $request->query('method')
             : null;
-        if (is_string($prefillMethod) && ! $this->depositRailReady($prefillMethod, $stripeConfigured, $paypalConfigured, $cryptoEnabled)) {
+        if (is_string($prefillMethod) && ! $this->depositRailReady($prefillMethod, $stripeConfigured, $paypalConfigured, $cryptoEnabled, $bankTransferAllowed)) {
             $prefillMethod = null;
         }
         try {
@@ -155,10 +156,16 @@ class AddFundsController extends Controller
             report($e);
             $lastUsedMethod = null;
         }
-        if (is_string($lastUsedMethod) && ! $this->depositRailReady($lastUsedMethod, $stripeConfigured, $paypalConfigured, $cryptoEnabled)) {
+        if (is_string($lastUsedMethod) && ! $this->depositRailReady($lastUsedMethod, $stripeConfigured, $paypalConfigured, $cryptoEnabled, $bankTransferAllowed)) {
             $lastUsedMethod = null;
         }
         $depositMethodOrder = ['card', 'bank', 'paypal', 'wise', 'crypto'];
+        if (! $bankTransferAllowed) {
+            $depositMethodOrder = array_values(array_filter(
+                $depositMethodOrder,
+                static fn (string $method) => $method !== 'bank'
+            ));
+        }
         if (is_string($lastUsedMethod) && in_array($lastUsedMethod, $depositMethodOrder, true)) {
             $depositMethodOrder = array_values(array_unique(array_merge([$lastUsedMethod], $depositMethodOrder)));
         }
@@ -214,6 +221,7 @@ class AddFundsController extends Controller
             'prefillMethod' => $prefillMethod,
             'lastUsedMethod' => $lastUsedMethod,
             'depositMethodOrder' => $depositMethodOrder,
+            'bankTransferAllowed' => $bankTransferAllowed,
             'savedCards' => $savedCards,
             'stripeConfigured' => $stripeConfigured,
             'paypalConfigured' => $paypalConfigured,
@@ -299,12 +307,14 @@ class AddFundsController extends Controller
         bool $stripeConfigured,
         bool $paypalConfigured,
         bool $cryptoEnabled,
+        bool $bankTransferAllowed = true,
     ): bool {
         return match ($method) {
             'card' => $stripeConfigured,
             'paypal' => $paypalConfigured,
             'crypto' => $cryptoEnabled,
-            'wise', 'bank' => true,
+            'wise' => true,
+            'bank' => $bankTransferAllowed,
             default => false,
         };
     }
@@ -807,6 +817,14 @@ class AddFundsController extends Controller
             ]);
 
             $user = auth()->user();
+
+            if ($request->payment_method === 'bank'
+                && ! DepositPaymentConfig::allowsBankTransfer($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => DepositPaymentConfig::bankUnavailableMessage(),
+                ], 422);
+            }
 
             // Invoice methods need billing details on the PDF.
             if (in_array($request->payment_method, ['bank', 'wise', 'crypto'], true)) {

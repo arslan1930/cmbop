@@ -148,9 +148,11 @@ class DepositFx
             return [];
         }
 
-        return [
-            $this->rateLockNote(),
-        ];
+        $credit = 'we credit €'.number_format($euros, 2);
+
+        return 'Send '.$local
+            .' ('.$credit.') — rate locked '.$this->lockDays()
+            .' days; amount received may differ slightly (±2%) due to exchange rates/bank fees';
     }
 
     /**

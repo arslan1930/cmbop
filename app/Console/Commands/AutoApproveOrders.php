@@ -261,19 +261,24 @@ class AutoApproveOrders extends Command
                     $publisher = User::find($site->publisher_id);
 
                     if ($publisher) {
-                        $publisherWallet = Wallet::lockOrCreateForRole($publisher->id, $publisherRoleId);
-                        $amount = (float) $lockedItem->publisherPayoutAmount();
-                        $advertiserPaid = round((float) $lockedItem->price, 2);
-                        if ($amount > $advertiserPaid) {
+                        $credit = $lockedItem->cappedPublisherCredit();
+                        $publisherWallet = Wallet::lockOrCreateForRole(
+                            $publisher->id,
+                            $publisherRoleId,
+                            $credit['currency']
+                        );
+                        $amount = $credit['amount'];
+                        $advertiserPaid = $credit['advertiser_eur'];
+                        if ($credit['capped']) {
                             Log::warning('Auto-approve: capping publisher payout to advertiser-paid amount', [
                                 'order_id' => $order->id,
                                 'order_item_id' => $lockedItem->id,
                                 'advertiser_paid' => $advertiserPaid,
-                                'uncapped_payout' => $amount,
+                                'uncapped_payout' => $credit['uncapped'],
+                                'publisher_currency' => $credit['currency'],
                             ]);
-                            $amount = $advertiserPaid;
                         }
-                        $platformFee = max(0, round($advertiserPaid - $amount, 2));
+                        $platformFee = $credit['platform_fee_eur'];
                         $publisherWallet->credit($amount);
 
                         try {

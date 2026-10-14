@@ -9,7 +9,9 @@ use App\Models\Withdrawal;
 use App\Services\EmailNotificationService;
 use App\Services\Wallet\PayoutProfileService;
 use App\Services\Wallet\WalletLedgerService;
+use App\Support\ListingMoney;
 use App\Support\UserFacingError;
+use App\Support\WithdrawalPayoutConfig;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -28,9 +30,14 @@ class WithdrawalController extends Controller
         return (float) config('billing.withdrawal_fee_percent', 0);
     }
 
-    private function minWithdrawalAmount(): float
+    private function minWithdrawalAmount(?string $currency = 'EUR'): float
     {
-        return max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
+        return app(ListingMoney::class)->minWithdrawal($currency);
+    }
+
+    private function moneyLabel(float $amount, ?string $currency = 'EUR'): string
+    {
+        return app(ListingMoney::class)->formatAmount($amount, $currency);
     }
 
     public function index()
@@ -39,11 +46,13 @@ class WithdrawalController extends Controller
         $error = null;
 
         try {
-            $wallet = Wallet::forPublisher((int) $user->id);
+            $wallets = Wallet::forPublisherAll((int) $user->id);
+            $wallet = $wallets->first();
             $availableMethods = $this->payoutProfiles->availableMethods($user);
         } catch (\Throwable $e) {
             report($e);
             $wallet = null;
+            $wallets = collect();
             $availableMethods = [];
             $error = UserFacingError::message($e, 'We could not load your wallet. Please refresh and try again.');
         }
@@ -63,13 +72,34 @@ class WithdrawalController extends Controller
             session()->flash('error', $error);
         }
 
+        $currency = $wallet?->currency ?: 'EUR';
+        $allowedMethodsByCurrency = [];
+        $conversionFeePercents = [];
+        foreach (ListingMoney::WALLET_CURRENCIES as $code) {
+            $allowedMethodsByCurrency[$code] = WithdrawalPayoutConfig::allowedMethods($code);
+            $conversionFeePercents[$code] = WithdrawalPayoutConfig::conversionFeePercent($code);
+        }
+        $allowedWithdrawalMethods = WithdrawalPayoutConfig::allowedMethods($currency);
+        $savedMethods = $availableMethods;
+        $availableMethods = array_values(array_intersect($savedMethods, $allowedWithdrawalMethods));
+
         return view('publisher.withdraw', [
             'wallet' => $wallet,
+            'publisherWallets' => $wallets ?? collect(),
+            'walletCurrency' => $currency,
             'platformChargePercent' => $this->platformChargePercent(),
-            'minWithdrawalAmount' => $this->minWithdrawalAmount(),
+            'minWithdrawalAmount' => $this->minWithdrawalAmount($currency),
+            'minWithdrawalAmounts' => collect($wallets ?? [])->mapWithKeys(
+                fn (Wallet $w) => [strtoupper((string) $w->currency) => $this->minWithdrawalAmount($w->currency)]
+            )->all(),
             'payoutProfile' => $user->payoutProfile(),
             'payoutLocked' => $user->payoutProfileLocked(),
             'availableMethods' => $availableMethods,
+            'savedMethods' => $savedMethods,
+            'allowedWithdrawalMethods' => $allowedWithdrawalMethods,
+            'allowedMethodsByCurrency' => $allowedMethodsByCurrency,
+            'conversionFeePercents' => $conversionFeePercents,
+            'usdConversionFeePercent' => WithdrawalPayoutConfig::conversionFeePercent($currency),
             'supportEmail' => config('email_notifications.brand.support_email', config('mail.from.address')),
             'recentWithdrawals' => $recentWithdrawals,
         ]);
@@ -79,7 +109,8 @@ class WithdrawalController extends Controller
     {
         try {
             $user = auth()->user();
-            $wallet = Wallet::forPublisher((int) $user->id);
+            $currency = app(ListingMoney::class)->normalizeWallet($request->input('currency', 'EUR'));
+            $wallet = Wallet::forPublisher((int) $user->id, $currency);
 
             if (! $wallet) {
                 return response()->json([
@@ -94,21 +125,32 @@ class WithdrawalController extends Controller
                 return response()->json([
                     'success' => false,
                     'code' => 'wallet_debt',
-                    'message' => 'Withdrawals are blocked while you have outstanding clawback debt of €'
-                        .number_format($wallet->debtBalance(), 2)
+                    'message' => 'Withdrawals are blocked while you have outstanding clawback debt of '
+                        .$this->moneyLabel($wallet->debtBalance(), $currency)
                         .'. Please contact support to resolve this.',
                     'debt_balance' => $wallet->debtBalance(),
                 ], 422);
             }
 
-            $min = $this->minWithdrawalAmount();
+            $min = $this->minWithdrawalAmount($currency);
+            $allowedMethods = WithdrawalPayoutConfig::allowedMethods($currency);
 
             $request->validate([
                 'amount' => 'required|numeric|min:'.$min.'|max:999999.99',
-                'payment_method' => 'required|in:bank,paypal,wise,crypto',
+                'payment_method' => 'required|in:'.implode(',', $allowedMethods),
+                'currency' => 'nullable|in:EUR,GBP,USD',
             ], [
-                'amount.min' => 'Minimum withdrawal amount is €'.number_format($min, 2).'.',
+                'amount.min' => 'Minimum withdrawal amount is '.$this->moneyLabel($min, $currency).'.',
+                'payment_method.in' => WithdrawalPayoutConfig::methodUnavailableMessage(),
             ]);
+
+            if (! WithdrawalPayoutConfig::allowsMethod((string) $request->payment_method, $currency)) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'usd_method_not_allowed',
+                    'message' => WithdrawalPayoutConfig::methodUnavailableMessage(),
+                ], 422);
+            }
 
             $amount = round((float) $request->amount, 2);
             $availableBalance = $wallet->withdrawableBalance();
@@ -117,7 +159,7 @@ class WithdrawalController extends Controller
                 return response()->json([
                     'success' => false,
                     'code' => 'below_minimum',
-                    'message' => 'Minimum withdrawal amount is €'.number_format($min, 2).'.',
+                    'message' => 'Minimum withdrawal amount is '.$this->moneyLabel($min, $currency).'.',
                     'min_amount' => $min,
                 ], 422);
             }
@@ -139,12 +181,14 @@ class WithdrawalController extends Controller
                 return response()->json([
                     'success' => false,
                     'code' => $wallet->lockedBonusBalance() > 0 ? 'bonus_not_withdrawable' : 'insufficient_balance',
-                    'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: €'.number_format($availableBalance, 2).'.'.$promoNote,
+                    'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: '.$this->moneyLabel($availableBalance, $currency).'.'.$promoNote,
                 ], 422);
             }
 
             $fee = round(($amount * $this->platformChargePercent()) / 100, 2);
-            $netAmount = round($amount - $fee, 2);
+            $conversionFeePercent = WithdrawalPayoutConfig::conversionFeePercent($currency);
+            $conversionFee = WithdrawalPayoutConfig::conversionFee($amount, $currency);
+            $netAmount = round(max(0, $amount - $fee - $conversionFee), 2);
 
             $wasLocked = $user->payoutProfileLocked();
             $paymentDetails = $this->payoutProfiles->validatedPaymentDetails(
@@ -162,8 +206,8 @@ class WithdrawalController extends Controller
                 return response()->json([
                     'success' => false,
                     'code' => 'wallet_debt',
-                    'message' => 'Withdrawals are blocked while you have outstanding clawback debt of €'
-                        .number_format($wallet->debtBalance(), 2)
+                    'message' => 'Withdrawals are blocked while you have outstanding clawback debt of '
+                        .$this->moneyLabel($wallet->debtBalance(), $currency)
                         .'. Please contact support to resolve this.',
                     'debt_balance' => $wallet->debtBalance(),
                 ], 422);
@@ -182,11 +226,11 @@ class WithdrawalController extends Controller
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: €'.number_format($available, 2),
+                    'message' => 'Insufficient withdrawable balance for this withdrawal. Available to withdraw: '.$this->moneyLabel($available, $currency),
                 ], 422);
             }
 
-            $withdrawal = Withdrawal::create(array_merge([
+            $payload = [
                 'user_id' => $user->id,
                 'amount' => $amount,
                 'fee' => $fee,
@@ -194,7 +238,18 @@ class WithdrawalController extends Controller
                 'payment_method' => $request->payment_method,
                 'payment_details' => $paymentDetails,
                 'status' => 'pending',
-            ], Withdrawal::walletIdAttributes($wallet)));
+            ];
+            if (Withdrawal::hasTableColumn('conversion_fee')) {
+                $payload['conversion_fee'] = $conversionFee;
+            }
+            if (Withdrawal::hasTableColumn('conversion_fee_percent')) {
+                $payload['conversion_fee_percent'] = $conversionFeePercent;
+            }
+
+            $withdrawal = Withdrawal::create(array_merge(
+                $payload,
+                Withdrawal::walletIdAttributes($wallet)
+            ));
 
             $wallet->deductWithdrawable($amount);
 
@@ -221,6 +276,8 @@ class WithdrawalController extends Controller
                 'amount' => $amount,
                 'net_amount' => $netAmount,
                 'fee' => $fee,
+                'conversion_fee' => $conversionFee,
+                'currency' => $currency,
                 'payment_method' => $request->payment_method,
                 'payout_locked' => true,
             ]);
@@ -230,11 +287,14 @@ class WithdrawalController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Withdrawal request submitted successfully! Amount: €'.number_format($amount, 2),
+                'message' => 'Withdrawal request submitted successfully! Amount: '.$this->moneyLabel($amount, $currency),
                 'payout_locked' => true,
                 'withdrawal_id' => $withdrawal->id,
                 'fee' => $fee,
+                'conversion_fee' => $conversionFee,
+                'conversion_fee_percent' => $conversionFeePercent,
                 'net_amount' => $netAmount,
+                'currency' => $currency,
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -310,7 +370,10 @@ class WithdrawalController extends Controller
                     'reference' => 'WD-'.$w->id,
                     'amount' => (float) $w->amount,
                     'fee' => (float) $w->fee,
+                    'conversion_fee' => (float) ($w->conversion_fee ?? 0),
+                    'conversion_fee_percent' => (float) ($w->conversion_fee_percent ?? 0),
                     'net_amount' => (float) $w->net_amount,
+                    'currency' => strtoupper((string) ($w->currency ?: 'EUR')) ?: 'EUR',
                     'payment_method' => $w->payment_method,
                     'destination_snippet' => $w->destination_snippet,
                     'destination_copy_text' => $w->destination_copy_text,

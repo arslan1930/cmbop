@@ -1961,6 +1961,7 @@ class OrderPaymentService
                     'publisher_price' => $line['publisher_price'] ?? null,
                     'platform_fee_percent' => $line['platform_fee_percent'] ?? null,
                     'platform_fee_amount' => $line['platform_fee_amount'] ?? null,
+                    ...OrderItem::fxSnapshotFromPricing($line),
                 ];
 
                 $item = OrderItem::create($schema->filterExistingColumns('order_items', $itemPayload));
@@ -2311,6 +2312,7 @@ class OrderPaymentService
                     'publisher_price' => $line['publisher_price'] ?? null,
                     'platform_fee_percent' => $line['platform_fee_percent'] ?? null,
                     'platform_fee_amount' => $line['platform_fee_amount'] ?? null,
+                    ...OrderItem::fxSnapshotFromPricing($line),
                 ];
                 $item = OrderItem::create($schema->filterExistingColumns('order_items', $itemPayload));
 

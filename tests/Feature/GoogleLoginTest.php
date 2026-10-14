@@ -163,7 +163,15 @@ class GoogleLoginTest extends TestCase
         Socialite::shouldReceive('driver')->with('google')->andReturn($provider);
 
         $this->get(route('auth.google.callback'))
-            ->assertRedirect('/advertiser/dashboard');
+            ->assertRedirect(route('auth.google.complete', absolute: false));
+
+        $this->assertNull(User::where('email', 'new-google@example.com')->first());
+
+        $this->post(route('auth.google.complete.store'), [
+            'country' => 'de',
+            'role' => 'advertiser',
+            'terms' => '1',
+        ])->assertRedirect('/advertiser/dashboard');
 
         $user = User::where('email', 'new-google@example.com')->first();
         $this->assertNotNull($user);
@@ -193,7 +201,13 @@ class GoogleLoginTest extends TestCase
         $provider = $this->mockGoogleProvider($socialUser);
         Socialite::shouldReceive('driver')->with('google')->andReturn($provider);
 
-        $this->get(route('auth.google.callback'))->assertRedirect('/advertiser/dashboard');
+        $this->get(route('auth.google.callback'))
+            ->assertRedirect(route('auth.google.complete', absolute: false));
+        $this->post(route('auth.google.complete.store'), [
+            'country' => 'us',
+            'role' => 'advertiser',
+            'terms' => '1',
+        ])->assertRedirect('/advertiser/dashboard');
 
         $plain = null;
         Mail::assertQueued(GoogleTempPasswordMail::class, function (GoogleTempPasswordMail $mail) use (&$plain) {

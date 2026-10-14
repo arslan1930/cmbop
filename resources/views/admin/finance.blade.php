@@ -227,6 +227,40 @@
         </div>
     </div>
 
+    @php
+        $listingFx = $d['listing_fx'] ?? ($d['liability']['listing_fx'] ?? []);
+        $moneyNative = static function (float $amount, string $currency): string {
+            return format_money_amount($amount, $currency);
+        };
+    @endphp
+    <div class="row g-3 mb-3">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase fw-semibold">EUR held vs GBP owed</div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <div class="small text-muted">EUR held (advertiser cash)</div>
+                            <div class="fs-4 fw-bold">{{ $euro($listingFx['eur_held'] ?? 0) }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="small text-muted">GBP owed (wallets + open payouts)</div>
+                            <div class="fs-4 fw-bold">{{ $moneyNative((float) ($listingFx['gbp_owed'] ?? 0), 'GBP') }}</div>
+                            <div class="small text-muted">Wallets {{ $moneyNative((float) ($listingFx['gbp_owed_wallets'] ?? 0), 'GBP') }} · payouts {{ $moneyNative((float) ($listingFx['gbp_owed_withdrawals'] ?? 0), 'GBP') }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="small text-muted">EUR owed to publishers</div>
+                            <div class="fs-4 fw-bold">{{ $euro($listingFx['eur_owed'] ?? 0) }}</div>
+                            @if((float) ($listingFx['usd_owed'] ?? 0) > 0)
+                                <div class="small text-muted">USD owed {{ $moneyNative((float) $listingFx['usd_owed'], 'USD') }}</div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @if(!empty($d['liability']['open_withdrawal_rows']) || !empty($d['liability']['top_publisher_wallets']))
         <div class="row g-3 mb-3">
             @if(!empty($d['liability']['open_withdrawal_rows']))

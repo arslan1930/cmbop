@@ -243,7 +243,14 @@
 
                     <!-- Payment Methods -->
                     @php
+                        $bankTransferAllowed = $bankTransferAllowed ?? true;
                         $depositMethodOrder = $depositMethodOrder ?? ['card', 'bank', 'paypal', 'wise', 'crypto'];
+                        if (! $bankTransferAllowed) {
+                            $depositMethodOrder = array_values(array_filter(
+                                $depositMethodOrder,
+                                static fn ($method) => $method !== 'bank'
+                            ));
+                        }
                         $lastUsedMethod = $lastUsedMethod ?? null;
                         $depositMethodMeta = [
                             'card' => [
@@ -459,6 +466,7 @@
                         </div>
 
                         <!-- Bank Transfer Payment Details -->
+                        @if(!empty($bankTransferAllowed))
                         <div id="bankPaymentDetails" class="card border-0 shadow-sm mb-4" style="display: none;">
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
@@ -503,6 +511,7 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         <div id="paypalPaymentDetails" class="card border-0 shadow-sm mb-4" style="display: none;">
                             <div class="card-body">

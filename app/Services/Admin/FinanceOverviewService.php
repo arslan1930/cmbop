@@ -153,6 +153,7 @@ class FinanceOverviewService
                 'due_to_pay_now' => $liability['due_to_pay_now'],
                 'in_publisher_wallets' => $liability['in_publisher_wallets'],
                 'total_publisher_liability' => $liability['total_publisher_liability'],
+                'listing_fx' => $liability['listing_fx'] ?? $this->emptyListingFx(),
                 'clocks' => [
                     'deposits' => 'approved_at',
                     'orders_paid' => 'paid_at',
@@ -242,6 +243,7 @@ class FinanceOverviewService
                 'open_withdrawal_rows' => [],
                 'open_withdrawals_total' => 0,
                 'other_currencies' => [],
+                'listing_fx' => $this->emptyListingFx(),
             ],
             'money_in' => [
                 'deposits_completed' => [
@@ -315,6 +317,7 @@ class FinanceOverviewService
             'due_to_pay_now' => 0.0,
             'in_publisher_wallets' => 0.0,
             'total_publisher_liability' => 0.0,
+            'listing_fx' => $this->emptyListingFx(),
             'clocks' => [
                 'deposits' => 'approved_at',
                 'orders_paid' => 'paid_at',
@@ -516,6 +519,7 @@ class FinanceOverviewService
         // SUM(balance) - min(SUM(bonus), SUM(balance)) — that under/over-counts
         // when bonus is uneven across wallets.
         $otherCurrencies = [];
+        $publisherByCurrency = ['EUR' => 0.0, 'GBP' => 0.0, 'USD' => 0.0];
         $hasWalletCurrency = $this->walletsAvailable() && Schema::hasColumn('wallets', 'currency');
         if ($advertiserRoleId) {
             $columns = ['balance', 'reserved_balance'];
@@ -559,12 +563,14 @@ class FinanceOverviewService
                     $otherCurrencies[$walletCurrency] ??= ['currency' => $walletCurrency, 'balance' => 0.0, 'count' => 0];
                     $otherCurrencies[$walletCurrency]['balance'] = round($otherCurrencies[$walletCurrency]['balance'] + (float) $wallet->balance, 2);
                     $otherCurrencies[$walletCurrency]['count']++;
+                    $publisherByCurrency[$walletCurrency] = ($publisherByCurrency[$walletCurrency] ?? 0.0) + $wallet->withdrawableBalance();
 
                     continue;
                 }
                 $balance = (float) $wallet->balance;
                 $bonus = $hasBonus ? (float) $wallet->bonus_balance : 0.0;
                 $withdrawable = $wallet->withdrawableBalance();
+                $publisherByCurrency[$walletCurrency] = ($publisherByCurrency[$walletCurrency] ?? 0.0) + $withdrawable;
                 $pub['balance'] += $balance;
                 $pub['bonus'] += $bonus;
                 $pub['reserved'] += (float) $wallet->reserved_balance;
@@ -603,6 +609,20 @@ class FinanceOverviewService
         $openWithdrawalNets = $openQuery
             ? round((float) (clone $openQuery)->sum('net_amount'), 2)
             : 0.0;
+        $openWithdrawalsByCurrency = ['EUR' => 0.0, 'GBP' => 0.0, 'USD' => 0.0];
+        if ($openQuery) {
+            $hasWithdrawalCurrency = Schema::hasColumn('withdrawals', 'currency');
+            foreach ((clone $openQuery)->get(['net_amount', 'currency']) as $openWithdrawal) {
+                $openCurrency = $hasWithdrawalCurrency
+                    ? strtoupper(trim((string) ($openWithdrawal->currency ?: 'EUR')))
+                    : 'EUR';
+                if ($openCurrency === '') {
+                    $openCurrency = 'EUR';
+                }
+                $openWithdrawalsByCurrency[$openCurrency] = ($openWithdrawalsByCurrency[$openCurrency] ?? 0.0)
+                    + (float) $openWithdrawal->net_amount;
+            }
+        }
 
         $openWithdrawalTotal = $openQuery ? (clone $openQuery)->count() : 0;
         $openWithdrawalRows = $openWithdrawals->map(function (Withdrawal $w) {
@@ -647,6 +667,33 @@ class FinanceOverviewService
             'open_withdrawal_rows' => $openWithdrawalRows,
             'open_withdrawals_total' => $openWithdrawalTotal,
             'other_currencies' => array_values($otherCurrencies),
+            'listing_fx' => [
+                'eur_held' => $adv['cash'],
+                'gbp_owed_wallets' => round($publisherByCurrency['GBP'] ?? 0.0, 2),
+                'gbp_owed_withdrawals' => round($openWithdrawalsByCurrency['GBP'] ?? 0.0, 2),
+                'gbp_owed' => round(($publisherByCurrency['GBP'] ?? 0.0) + ($openWithdrawalsByCurrency['GBP'] ?? 0.0), 2),
+                'usd_owed' => round(($publisherByCurrency['USD'] ?? 0.0) + ($openWithdrawalsByCurrency['USD'] ?? 0.0), 2),
+                'eur_owed' => round(($publisherByCurrency['EUR'] ?? 0.0) + ($openWithdrawalsByCurrency['EUR'] ?? 0.0), 2),
+                'publisher_wallets_by_currency' => array_map(fn ($amount) => round((float) $amount, 2), $publisherByCurrency),
+                'open_withdrawals_by_currency' => array_map(fn ($amount) => round((float) $amount, 2), $openWithdrawalsByCurrency),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyListingFx(): array
+    {
+        return [
+            'eur_held' => 0.0,
+            'gbp_owed_wallets' => 0.0,
+            'gbp_owed_withdrawals' => 0.0,
+            'gbp_owed' => 0.0,
+            'usd_owed' => 0.0,
+            'eur_owed' => 0.0,
+            'publisher_wallets_by_currency' => ['EUR' => 0.0, 'GBP' => 0.0, 'USD' => 0.0],
+            'open_withdrawals_by_currency' => ['EUR' => 0.0, 'GBP' => 0.0, 'USD' => 0.0],
         ];
     }
 

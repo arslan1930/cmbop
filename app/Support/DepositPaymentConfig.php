@@ -2,14 +2,51 @@
 
 namespace App\Support;
 
+use App\Models\User;
+
 /**
  * Helpers for advertiser Add Funds deposit payment rails (bank / Wise / crypto).
  */
 class DepositPaymentConfig
 {
-    public const TEQNO_REGISTRATION_NO = '17392540';
+    public static function isUsdCurrencyUser(?User $user = null, ?string $walletCurrency = null): bool
+    {
+        $user ??= auth()->user();
+        try {
+            if (app(MoneyDisplay::class)->currency() === 'USD') {
+                return true;
+            }
+        } catch (\Throwable) {
+        }
 
-    public const TOPURLZ_REGISTRATION_NO = '16607074';
+        if (strtoupper(trim((string) $walletCurrency)) === 'USD') {
+            return true;
+        }
+
+        if ($user instanceof User) {
+            if (strtoupper(trim((string) ($user->display_currency ?? ''))) === 'USD') {
+                return true;
+            }
+            try {
+                if (app(UsdBankWireGuidance::class)->walletCurrencyFor($user) === 'USD') {
+                    return true;
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        return false;
+    }
+
+    public static function allowsBankTransfer(?User $user = null, ?string $walletCurrency = null): bool
+    {
+        return ! self::isUsdCurrencyUser($user, $walletCurrency);
+    }
+
+    public static function bankUnavailableMessage(): string
+    {
+        return 'Bank transfer is not available for USD accounts. Please pay with Wise, card, PayPal, or crypto.';
+    }
 
     /**
      * @return array<string, mixed>

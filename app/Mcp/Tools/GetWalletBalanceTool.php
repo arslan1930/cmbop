@@ -16,7 +16,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('get_wallet_balance')]
 #[Title('Get wallet balance')]
-#[Description('The signed-in advertiser\'s EUR wallet only (spendable, reserved, bonus). Never returns publisher payout wallets.')]
+#[Description('The signed-in advertiser\'s EUR wallet (spendable, reserved, bonus), plus native publisher_wallets when the account also publishes.')]
 #[IsReadOnly]
 class GetWalletBalanceTool extends Tool
 {
@@ -41,6 +41,21 @@ class GetWalletBalanceTool extends Tool
             : null;
 
         $snapshot = $wallet?->roleSnapshot() ?? Wallet::emptyRoleSnapshot();
+        $publisherWallets = [];
+        try {
+            foreach (Wallet::forPublisherAll((int) $user->id) as $publisherWallet) {
+                $publisherSnapshot = $publisherWallet->roleSnapshot();
+                $publisherWallets[] = [
+                    'currency' => strtoupper((string) ($publisherWallet->currency ?: 'EUR')) ?: 'EUR',
+                    'spendable' => $publisherSnapshot['spendable'],
+                    'reserved' => $publisherSnapshot['reserved'],
+                    'bonus' => $publisherSnapshot['bonus'],
+                    'withdrawable' => $publisherSnapshot['withdrawable'],
+                ];
+            }
+        } catch (\Throwable) {
+            $publisherWallets = [];
+        }
 
         return Response::json([
             'currency' => 'EUR',
@@ -48,6 +63,7 @@ class GetWalletBalanceTool extends Tool
             'reserved' => $snapshot['reserved'],
             'bonus' => $snapshot['bonus'],
             'withdrawable' => $snapshot['withdrawable'],
+            'publisher_wallets' => $publisherWallets,
         ]);
     }
 }

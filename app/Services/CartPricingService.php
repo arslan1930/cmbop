@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Site;
 use App\Models\User;
+use App\Support\ListingMoney;
 
 class CartPricingService
 {
@@ -52,7 +53,12 @@ class CartPricingService
      *   platform_fee_amount: float,
      *   homepage_days: ?int,
      *   homepage_price: float,
-     *   social_channels: list<string>
+     *   social_channels: list<string>,
+     *   publisher_amount: float,
+     *   publisher_currency: string,
+     *   advertiser_eur_amount: float,
+     *   fx_rate: ?float,
+     *   fx_buffer_percent: float
      * }
      */
     public function priceForAdvertiser(
@@ -61,12 +67,20 @@ class CartPricingService
         int $quantity = 1,
         int|string|null $homepageDays = null,
         bool $defaultHomepage = true,
+        ?string $buyerCurrency = null,
     ): array {
-        $publisherPrice = round((float) $site->price, 2);
-        $feePercent = $this->fees->feePercentForBase($publisherPrice);
-        $feeAmount = $this->fees->feeAmountForBase($publisherPrice);
-        $base = $this->fees->advertiserBase($publisherPrice);
-        $additional = $this->resolveSensitiveAdditional($site, $sensitiveType);
+        $listing = app(ListingMoney::class);
+        $listingCurrency = $site->listingCurrency();
+        $listingBase = $site->listingBaseAmount();
+        $buyerCurrency = $listing->normalizeWallet($buyerCurrency ?? $listing->buyerCurrency());
+        $withBuffer = $listing->appliesBuffer($listingCurrency, $buyerCurrency);
+        $publisherPrice = $listing->toEuros($listingBase, $listingCurrency, false);
+        $advertiserListingEuros = $listing->toEuros($listingBase, $listingCurrency, $withBuffer);
+        $feePercent = $this->fees->feePercentForBase($advertiserListingEuros);
+        $feeAmount = $this->fees->feeAmountForBase($advertiserListingEuros);
+        $base = $this->fees->advertiserBase($advertiserListingEuros);
+        $listingAdditional = $this->resolveListingSensitiveAdditional($site, $sensitiveType);
+        $additional = $listing->toEuros($listingAdditional, $listingCurrency, $withBuffer);
 
         // Canonicalize type to the key stored on the site (e.g. CBD not cbd).
         $canonicalType = null;
@@ -106,10 +120,13 @@ class CartPricingService
         $discountAmount = round($listTotal * ($nominalPercent / 100), 2);
         $articleTotal = max(0, round($listTotal - $discountAmount, 2));
 
-        // Publisher payout is the entered base + sensitive add-on (never cut by
-        // advertiser-facing discounts). Discounts are absorbed by the platform fee
-        // only — never let the advertiser pay less than the publisher will receive.
-        $publisherArticlePayout = round($publisherPrice + $additional, 2);
+        // Publisher payout is the entered listing base + sensitive add-on (never
+        // cut by advertiser-facing discounts). Compare the EUR equivalent without
+        // the FX buffer so the floor is the publisher earning, not the cushion.
+        $publisherArticlePayout = round(
+            $publisherPrice + $listing->toEuros($listingAdditional, $listingCurrency, false),
+            2
+        );
         if ($articleTotal < $publisherArticlePayout) {
             $articleTotal = $publisherArticlePayout;
             $discountAmount = max(0, round($listTotal - $articleTotal, 2));
@@ -128,8 +145,12 @@ class CartPricingService
         $feeAmount = max(0, round($articleTotal - $publisherArticlePayout, 2));
 
         $homepage = $this->resolveHomepageSelection($site, $homepageDays, $defaultHomepage);
-        $homepageFee = $homepage['price'];
+        $listingHomepage = $this->resolveListingHomepageAmount($site, $homepage['days']);
+        $homepageFee = $listing->toEuros($listingHomepage, $listingCurrency, $withBuffer);
         $total = round($articleTotal + $homepageFee, 2);
+        $publisherAmount = round($listingBase + $listingAdditional + $listingHomepage, 2);
+        $fxRate = $listing->ratePerEur($listingCurrency);
+        $fxBuffer = $withBuffer ? $listing->bufferPercent() : 0.0;
 
         return [
             'base' => $base,
@@ -148,6 +169,11 @@ class CartPricingService
             'homepage_days' => $homepage['days'],
             'homepage_price' => $homepageFee,
             'social_channels' => $site->enabledSocialChannels(),
+            'publisher_amount' => $publisherAmount,
+            'publisher_currency' => $listingCurrency,
+            'advertiser_eur_amount' => $total,
+            'fx_rate' => $fxRate,
+            'fx_buffer_percent' => $fxBuffer,
         ];
     }
 
@@ -250,6 +276,44 @@ class CartPricingService
         }
 
         return round((float) $prices[$resolvedKey], 2);
+    }
+
+    public function resolveListingSensitiveAdditional(Site $site, ?string $sensitiveType): float
+    {
+        if ($sensitiveType === null || $sensitiveType === '') {
+            return 0.0;
+        }
+
+        $prices = $site->listingSensitiveMap();
+        if ($prices === []) {
+            return 0.0;
+        }
+
+        $resolvedKey = $this->resolveSensitiveTypeKey($prices, $sensitiveType);
+        if ($resolvedKey === null) {
+            throw new \InvalidArgumentException(
+                'Invalid or unavailable sensitive content type for site: '.$site->site_name
+            );
+        }
+
+        return round((float) $prices[$resolvedKey], 2);
+    }
+
+    public function resolveListingHomepageAmount(Site $site, ?int $days): float
+    {
+        if ($days === null) {
+            return 0.0;
+        }
+
+        $map = $site->listingHomepageMap();
+        $key = (string) $days;
+        if (isset($map[$key]) && is_numeric($map[$key])) {
+            return round((float) $map[$key], 2);
+        }
+
+        $options = $site->homepagePlacementOptions();
+
+        return isset($options[$days]) ? round((float) $options[$days], 2) : 0.0;
     }
 
     /**
@@ -385,6 +449,27 @@ class CartPricingService
     }
 
     /**
+     * Buyer display currency for cart / checkout. Prefer the cart owner's
+     * saved users.display_currency so totals match catalog for that shopper.
+     */
+    private function resolveBuyerCurrency(?int $buyerId = null): string
+    {
+        $listing = app(ListingMoney::class);
+        if ($buyerId !== null && $buyerId > 0) {
+            $auth = auth()->user();
+            if ($auth instanceof User && (int) $auth->id === $buyerId) {
+                return $listing->buyerCurrency($auth);
+            }
+            $loaded = User::query()->find($buyerId);
+            if ($loaded instanceof User) {
+                return $listing->buyerCurrency($loaded);
+            }
+        }
+
+        return $listing->buyerCurrency();
+    }
+
+    /**
      * Same ownership rule as Site::isOwnedBy() without loading the user.
      */
     private function buyerOwnsSite(Site $site, ?int $buyerId): bool
@@ -444,7 +529,8 @@ class CartPricingService
                 $item['sensitive_type'] ?? null,
                 $quantity,
                 $item['homepage_days'] ?? null,
-                ! $hasHomepageKey
+                ! $hasHomepageKey,
+                $this->resolveBuyerCurrency($buyerId)
             );
 
             for ($i = 0; $i < $quantity; $i++) {
@@ -468,6 +554,11 @@ class CartPricingService
                     'publisher_price' => $pricing['publisher_price'],
                     'platform_fee_percent' => $pricing['platform_fee_percent'],
                     'platform_fee_amount' => $pricing['platform_fee_amount'],
+                    'publisher_amount' => $pricing['publisher_amount'] ?? $pricing['publisher_price'],
+                    'publisher_currency' => $pricing['publisher_currency'] ?? 'EUR',
+                    'advertiser_eur_amount' => $pricing['advertiser_eur_amount'] ?? $pricing['total'],
+                    'fx_rate' => $pricing['fx_rate'] ?? null,
+                    'fx_buffer_percent' => $pricing['fx_buffer_percent'] ?? 0,
                 ];
             }
         }
@@ -517,7 +608,8 @@ class CartPricingService
                 $item['sensitive_type'] ?? null,
                 $quantity,
                 $item['homepage_days'] ?? null,
-                ! $hasHomepageKey
+                ! $hasHomepageKey,
+                $this->resolveBuyerCurrency($buyerId)
             );
             $unitListWithHomepage = round($pricing['list_total'] + $pricing['homepage_price'], 2);
             $lineTotal = round($pricing['total'] * $quantity, 2);

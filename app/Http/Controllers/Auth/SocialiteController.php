@@ -10,14 +10,18 @@ use App\Models\Wallet;
 use App\Services\EmailNotificationService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WelcomeBonusService;
+use App\Support\SignupCountry;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\View\View;
 use Laravel\Socialite\Contracts\Provider;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
@@ -109,97 +113,16 @@ class SocialiteController extends Controller
             }
             RateLimiter::hit($registerKey, 600);
 
-            DB::beginTransaction();
-
-            $advertiserRole = Role::where('name', 'advertiser')->first();
-            $publisherRole = Role::where('name', 'publisher')->first();
-
-            if (! $advertiserRole || ! $publisherRole) {
-                throw new \RuntimeException('Roles not found. Please run database seeders.');
-            }
-
-            // Letters + numbers only — symbols in temp passwords get mangled when
-            // copied from email clients, so login with the emailed value fails even
-            // though Hash::check against the pristine string would pass. The User
-            // model hashed cast hashes once on assign; do not Hash::make here.
-            $temporaryPassword = Str::password(14, letters: true, numbers: true, symbols: false);
-
-            $user = User::create([
-                'name' => $name,
+            $request->session()->put(SignupCountry::GOOGLE_SESSION, [
+                'id' => $providerId,
                 'email' => $email,
-                'password' => $temporaryPassword,
-                'google_id' => $providerId,
+                'name' => $name,
                 'avatar' => $this->normalizedAvatarUrl($socialUser->getAvatar()),
+                'token' => $socialUser->token ?? null,
+                'refresh_token' => $socialUser->refreshToken ?? null,
             ]);
 
-            // Not mass-assignable: tokens, role, and verify must be set explicitly.
-            $user->google_token = $socialUser->token ?? null;
-            $user->google_refresh_token = $socialUser->refreshToken ?? null;
-            $user->active_role_id = $advertiserRole->id;
-            $user->email_verified_at = now();
-            $user->save();
-
-            $user->roles()->sync([$advertiserRole->id, $publisherRole->id]);
-
-            $welcomeBonus = $bonusService->amountFor($request, 'advertiser');
-            if ($welcomeBonus > 0 && ! $bonusService->recordClaim($user, $request, $welcomeBonus, 'socialite')) {
-                $welcomeBonus = 0.0;
-            }
-
-            $welcomeBonus = Wallet::insertRegistrationPair(
-                $user->id,
-                $advertiserRole->id,
-                $publisherRole->id,
-                $welcomeBonus
-            );
-
-            if (Schema::hasTable('user_consents')) {
-                UserConsent::create([
-                    'user_id' => $user->id,
-                    'terms_accepted' => true,
-                    'marketing_consent' => false,
-                    'newsletter_consent' => false,
-                    'consented_at' => now(),
-                    'ip_address' => request()->ip(),
-                    'user_agent' => request()->userAgent(),
-                ]);
-            }
-
-            DB::commit();
-
-            if ($welcomeBonus > 0) {
-                $bonusService->queueClaimCookie();
-            }
-
-            try {
-                $advertiserWallet = Wallet::where('user_id', $user->id)
-                    ->where('role_id', $advertiserRole->id)
-                    ->first();
-                if ($advertiserWallet && $welcomeBonus > 0) {
-                    app(WalletLedgerService::class)->recordBonusCredit(
-                        $advertiserWallet,
-                        (float) $welcomeBonus,
-                        'Welcome promotional bonus',
-                        ['source' => 'socialite']
-                    );
-                }
-            } catch (\Throwable $e) {
-                Log::warning('Welcome bonus ledger write failed during Google signup', [
-                    'user_id' => $user->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            try {
-                app(EmailNotificationService::class)->sendGoogleTempPassword($user, $temporaryPassword);
-            } catch (\Throwable $e) {
-                Log::warning('Google temporary password email failed during signup', [
-                    'user_id' => $user->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            return $this->loginAndRedirect($user);
+            return redirect()->to(route('auth.google.complete', absolute: false));
         } catch (\Throwable $e) {
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();
@@ -212,6 +135,188 @@ class SocialiteController extends Controller
             return redirect()->to(route('login', absolute: false))
                 ->with('error', $this->copy('oauth.failed', 'Google sign-in failed. Please try again or use email and password.'));
         }
+    }
+
+    public function showGoogleComplete(Request $request): RedirectResponse|View
+    {
+        $pending = $this->pendingGoogleSignup($request);
+        if ($pending === null) {
+            return $this->loginRedirect($this->copy('oauth.failed', 'Google sign-in failed. Please try again or use email and password.'));
+        }
+
+        $roles = ['advertiser' => 'Advertiser', 'publisher' => 'Publisher'];
+
+        return view('auth.register-google', array_merge(
+            compact('roles'),
+            SignupCountry::formPayload(),
+            ['pendingGoogle' => $pending]
+        ));
+    }
+
+    public function completeGoogle(Request $request): RedirectResponse
+    {
+        $pending = $this->pendingGoogleSignup($request);
+        if ($pending === null) {
+            return $this->loginRedirect($this->copy('oauth.failed', 'Google sign-in failed. Please try again or use email and password.'));
+        }
+
+        $request->merge([
+            'country' => SignupCountry::incoming($request->input('country')),
+        ]);
+
+        $validator = Validator::make($request->all(), [
+            'country' => SignupCountry::countryRules(),
+            'role' => 'required|in:advertiser,publisher',
+            'terms' => 'accepted',
+        ], [
+            'country.required' => 'Please select your country.',
+            'country.in' => 'Please select a valid country.',
+            'terms.accepted' => 'You must agree to the Terms and Services.',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->to(route('auth.google.complete', absolute: false))
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $existingUser = User::where('email', $pending['email'])->first();
+        if ($existingUser) {
+            $request->session()->forget(SignupCountry::GOOGLE_SESSION);
+
+            return $this->loginAndRedirect($existingUser);
+        }
+
+        try {
+            $user = $this->createGoogleUser($pending, (string) $request->input('role'), (string) $request->input('country'), $request);
+            $request->session()->forget(SignupCountry::GOOGLE_SESSION);
+
+            return $this->loginAndRedirect($user);
+        } catch (\Throwable $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
+            Log::error('Google signup completion failed: '.($e->getMessage() !== '' ? $e->getMessage() : $e::class), [
+                'exception' => $e::class,
+            ]);
+
+            return $this->loginRedirect($this->copy('oauth.failed', 'Google sign-in failed. Please try again or use email and password.'));
+        }
+    }
+
+    /**
+     * @return array{id: mixed, email: string, name: string, avatar: ?string, token: mixed, refresh_token: mixed}|null
+     */
+    private function pendingGoogleSignup(Request $request): ?array
+    {
+        $pending = $request->session()->get(SignupCountry::GOOGLE_SESSION);
+        if (! is_array($pending) || empty($pending['email'])) {
+            return null;
+        }
+
+        return $pending;
+    }
+
+    /**
+     * @param  array{id: mixed, email: string, name: string, avatar: ?string, token: mixed, refresh_token: mixed}  $pending
+     */
+    private function createGoogleUser(array $pending, string $role, string $country, Request $request): User
+    {
+        $bonusService = app(WelcomeBonusService::class);
+
+        DB::beginTransaction();
+
+        $advertiserRole = Role::where('name', 'advertiser')->first();
+        $publisherRole = Role::where('name', 'publisher')->first();
+
+        if (! $advertiserRole || ! $publisherRole) {
+            throw new \RuntimeException('Roles not found. Please run database seeders.');
+        }
+
+        // Letters + numbers only — symbols in temp passwords get mangled when
+        // copied from email clients, so login with the emailed value fails even
+        // though Hash::check against the pristine string would pass. The User
+        // model hashed cast hashes once on assign; do not Hash::make here.
+        $temporaryPassword = Str::password(14, letters: true, numbers: true, symbols: false);
+
+        $user = User::create([
+            'name' => $pending['name'] ?: Str::before($pending['email'], '@'),
+            'email' => $pending['email'],
+            'password' => $temporaryPassword,
+            'google_id' => $pending['id'],
+            'avatar' => $pending['avatar'] ?? null,
+        ]);
+
+        // Not mass-assignable: tokens, role, and verify must be set explicitly.
+        $user->google_token = $pending['token'] ?? null;
+        $user->google_refresh_token = $pending['refresh_token'] ?? null;
+        $user->active_role_id = $role === 'publisher' ? $publisherRole->id : $advertiserRole->id;
+        $user->email_verified_at = now();
+        $user->save();
+        SignupCountry::applyToUser($user, $country);
+
+        $user->roles()->sync([$advertiserRole->id, $publisherRole->id]);
+
+        $welcomeBonus = $bonusService->amountFor($request, $role === 'publisher' ? 'publisher' : 'advertiser');
+        if ($welcomeBonus > 0 && ! $bonusService->recordClaim($user, $request, $welcomeBonus, 'socialite')) {
+            $welcomeBonus = 0.0;
+        }
+
+        $welcomeBonus = Wallet::insertRegistrationPair(
+            $user->id,
+            $advertiserRole->id,
+            $publisherRole->id,
+            $welcomeBonus
+        );
+
+        if (Schema::hasTable('user_consents')) {
+            UserConsent::create([
+                'user_id' => $user->id,
+                'terms_accepted' => true,
+                'marketing_consent' => $request->boolean('marketing'),
+                'newsletter_consent' => $request->boolean('newsletter'),
+                'consented_at' => now(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+        }
+
+        DB::commit();
+
+        if ($welcomeBonus > 0) {
+            $bonusService->queueClaimCookie();
+        }
+
+        try {
+            $advertiserWallet = Wallet::where('user_id', $user->id)
+                ->where('role_id', $advertiserRole->id)
+                ->first();
+            if ($advertiserWallet && $welcomeBonus > 0) {
+                app(WalletLedgerService::class)->recordBonusCredit(
+                    $advertiserWallet,
+                    (float) $welcomeBonus,
+                    'Welcome promotional bonus',
+                    ['source' => 'socialite']
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Welcome bonus ledger write failed during Google signup', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            app(EmailNotificationService::class)->sendGoogleTempPassword($user, $temporaryPassword);
+        } catch (\Throwable $e) {
+            Log::warning('Google temporary password email failed during signup', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $user;
     }
 
     /**

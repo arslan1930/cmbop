@@ -225,6 +225,7 @@ class PublisherDashboardService
             'pendingWithdrawalCount' => 0,
             'pendingWithdrawalAmount' => 0.0,
             'minWithdrawalAmount' => $min,
+            'publisherWallets' => [],
             'needsYou' => 0,
             'waitingOnAdvertiser' => 0,
             'unreadChat' => 0,
@@ -632,6 +633,22 @@ class PublisherDashboardService
             $pendingAmount = 0.0;
         }
 
+        $publisherWallets = [];
+        try {
+            foreach (Wallet::forPublisherAll((int) $user->id) as $publisherWallet) {
+                $currency = strtoupper((string) ($publisherWallet->currency ?: 'EUR')) ?: 'EUR';
+                $amount = $publisherWallet->withdrawableBalance();
+                $publisherWallets[] = [
+                    'currency' => $currency,
+                    'withdrawable' => $amount,
+                    'available' => (float) $publisherWallet->balance,
+                    'label' => format_money_amount($amount, $currency),
+                ];
+            }
+        } catch (\Throwable) {
+            $publisherWallets = [];
+        }
+
         return [
             'availableBalance' => $available,
             'withdrawableBalance' => $withdrawable,
@@ -641,6 +658,7 @@ class PublisherDashboardService
             'pendingWithdrawalCount' => $pendingCount,
             'pendingWithdrawalAmount' => $pendingAmount,
             'minWithdrawalAmount' => max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2)),
+            'publisherWallets' => $publisherWallets,
         ];
     }
 
@@ -658,6 +676,7 @@ class PublisherDashboardService
             'pendingWithdrawalCount' => 0,
             'pendingWithdrawalAmount' => 0.0,
             'minWithdrawalAmount' => max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2)),
+            'publisherWallets' => [],
         ];
     }
 

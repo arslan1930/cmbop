@@ -217,6 +217,23 @@ return [
     'withdrawal_min_amount' => (float) env('WITHDRAWAL_MIN_AMOUNT', 20),
 
     /*
+    | Minimum publisher withdrawal per wallet currency. Falls back to
+    | withdrawal_min_amount when a currency key is missing.
+    */
+    'withdrawal_min_amounts' => [
+        'EUR' => (float) env('WITHDRAWAL_MIN_AMOUNT_EUR', env('WITHDRAWAL_MIN_AMOUNT', 20)),
+        'GBP' => (float) env('WITHDRAWAL_MIN_AMOUNT_GBP', env('WITHDRAWAL_MIN_AMOUNT', 20)),
+        'USD' => (float) env('WITHDRAWAL_MIN_AMOUNT_USD', env('WITHDRAWAL_MIN_AMOUNT', 20)),
+    ],
+
+    /*
+    | Conversion fee on USD publisher withdrawals (PayPal, Wise, USD bank).
+    | EUR and GBP withdrawals are not charged this fee. Advertiser USD bank
+    | deposits stay blocked separately — this is payout-only.
+    */
+    'withdrawal_usd_conversion_fee_percent' => (float) env('WITHDRAWAL_USD_CONVERSION_FEE_PERCENT', 0.5),
+
+    /*
     |--------------------------------------------------------------------------
     | Publisher → advertiser role move (spend earnings as advertiser)
     |--------------------------------------------------------------------------

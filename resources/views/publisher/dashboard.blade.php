@@ -274,6 +274,13 @@
                 <div>
                     <span class="kpi-label">Available balance</span>
                     <div class="kpi-value" id="availableBalance">{{ format_money($availableBalance) }}</div>
+                    @if(!empty($publisherWallets) && count($publisherWallets) > 1)
+                        <div class="small text-muted mt-1">
+                            @foreach($publisherWallets as $walletRow)
+                                <div>{{ $walletRow['label'] }} {{ $walletRow['currency'] }}</div>
+                            @endforeach
+                        </div>
+                    @endif
                     <div class="kpi-sub">
                         @if($debtBalance > 0)
                             Debt {{ format_money($debtBalance) }} blocks withdrawals

@@ -51,7 +51,7 @@ class UsdBankWireGuidanceTest extends TestCase
     {
         $guidance = app(UsdBankWireGuidance::class);
 
-        $this->assertTrue($guidance->applies('USD'));
+        $this->assertFalse($guidance->applies('USD'));
         $this->assertFalse($guidance->applies('EUR'));
         $this->assertFalse($guidance->applies('GBP'));
     }
@@ -60,7 +60,7 @@ class UsdBankWireGuidanceTest extends TestCase
     {
         config(['fx.fake_country' => 'US']);
 
-        $this->assertTrue(app(UsdBankWireGuidance::class)->applies('EUR'));
+        $this->assertFalse(app(UsdBankWireGuidance::class)->applies('EUR'));
     }
 
     public function test_saved_eur_display_does_not_apply_on_us_ip(): void
@@ -68,7 +68,7 @@ class UsdBankWireGuidanceTest extends TestCase
         config(['fx.fake_country' => 'US', 'fx.force_display' => 'eur']);
 
         $this->assertFalse(app(UsdBankWireGuidance::class)->applies('EUR'));
-        $this->assertTrue(app(UsdBankWireGuidance::class)->applies('USD'));
+        $this->assertFalse(app(UsdBankWireGuidance::class)->applies('USD'));
     }
 
     public function test_instruction_lines_only_for_usd(): void
@@ -78,10 +78,7 @@ class UsdBankWireGuidanceTest extends TestCase
         $this->assertSame([], $guidance->instructionLines(40, 'EUR'));
 
         $lines = $guidance->instructionLines(40, 'USD');
-        $this->assertCount(2, $lines);
-        $this->assertStringContainsString('international wire to a EUR account', $lines[0]);
-        $this->assertStringContainsString('OUR', $lines[0]);
-        $this->assertStringContainsString('Card or PayPal', $lines[1]);
+        $this->assertSame([], $lines);
     }
 
     public function test_wallet_currency_for_user(): void

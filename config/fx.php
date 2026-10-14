@@ -55,4 +55,10 @@ return [
     'deposit_lock_days' => (int) env('FX_DEPOSIT_LOCK_DAYS', 7),
 
     'deposit_tolerance_percent' => (float) env('FX_DEPOSIT_TOLERANCE_PERCENT', 2),
+
+    /*
+    | Built into the advertiser € price when listing currency ≠ buyer
+    | display currency. Stored sites.price stays unbuffered. 0 disables it.
+    */
+    'conversion_buffer_percent' => (float) env('FX_CONVERSION_BUFFER_PERCENT', 0.5),
 ];

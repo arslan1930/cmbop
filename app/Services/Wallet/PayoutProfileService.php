@@ -3,6 +3,7 @@
 namespace App\Services\Wallet;
 
 use App\Models\User;
+use App\Support\WithdrawalPayoutConfig;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -55,10 +56,11 @@ class PayoutProfileService
      *
      * @return list<string>
      */
-    public function availableMethods(User $user): array
+    public function availableMethods(User $user, ?string $currency = null): array
     {
+        $allowed = WithdrawalPayoutConfig::allowedMethods($currency);
         $methods = [];
-        foreach (['bank', 'paypal', 'wise', 'crypto'] as $method) {
+        foreach ($allowed as $method) {
             if ($this->profileHasMethod($user, $method)) {
                 $methods[] = $method;
             }

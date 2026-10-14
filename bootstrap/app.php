@@ -297,6 +297,11 @@ return Application::configure(basePath: dirname(__DIR__))
             $enrichCommand->weeklyOn(2, '4:15'); // Tuesday
         }
 
+        // Refresh catalog EUR prices from listing amounts + live FX buffer
+        $schedule->command('sites:refresh-eur-prices')
+            ->dailyAt('04:50')
+            ->withoutOverlapping();
+
         // Notify publishers when timed site discounts expire
         $schedule->command('sites:notify-expired-discounts')
             ->hourly()

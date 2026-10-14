@@ -36,7 +36,9 @@ class RegisterPageTest extends TestCase
             ->assertDontSee('€20 welcome credit', false)
             ->assertDontSee('Start with €20 free credit', false)
             ->assertSee('Free to start — no card required', false)
-            ->assertSee('const welcomeBonusEnabled = false', false);
+            ->assertSee('const welcomeBonusEnabled = false', false)
+            ->assertSee('Country', false)
+            ->assertSee('Your account currency:', false);
     }
 
     public function test_register_page_defines_role_benefits_helper_before_use(): void
@@ -74,6 +76,7 @@ class RegisterPageTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role' => 'advertiser',
+            'country' => 'de',
             'terms' => '1',
         ]);
 
@@ -84,6 +87,8 @@ class RegisterPageTest extends TestCase
 
         $user = User::where('email', 'alice-reg@example.com')->first();
         $this->assertNotNull($user);
+        $this->assertSame('de', $user->country);
+        $this->assertSame('EUR', $user->display_currency);
 
         Notification::assertSentTo($user, VerifyEmail::class);
 
@@ -113,7 +118,7 @@ class RegisterPageTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonPath('status', 'validation')
-            ->assertJsonStructure(['errors' => ['email', 'terms']]);
+            ->assertJsonStructure(['errors' => ['email', 'terms', 'country']]);
     }
 
     public function test_register_password_errors_are_outside_the_input_group(): void
@@ -144,6 +149,7 @@ class RegisterPageTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role' => 'advertiser',
+            'country' => 'fr',
             'terms' => '1',
         ]);
 

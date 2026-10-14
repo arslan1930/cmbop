@@ -100,7 +100,7 @@ class GeoCurrencyDisplayTest extends TestCase
         }
     }
 
-    public function test_gb_add_funds_shows_only_gbp_rails_and_us_keeps_usd_wire_note(): void
+    public function test_gb_add_funds_shows_gbp_rails_and_us_hides_bank_transfer(): void
     {
         $gb = $this->advertiser('GB');
         $this->wallet($gb);
@@ -142,18 +142,13 @@ class GeoCurrencyDisplayTest extends TestCase
         $this->actingAs($us)
             ->get(route('advertiser.add-funds', ['amount' => 50, 'method' => 'bank']))
             ->assertOk()
-            ->assertSee('data-bank-rail="eur"', false)
-            ->assertSee('bankIban', false)
-            ->assertSee('data-usd-bank-wire="1"', false)
-            ->assertSee('Send €50.00', false)
-            ->assertSee('Rate locked for 7 days.', false)
-            ->assertSee('Paying in another currency? Read our currency guide', false)
-            ->assertDontSee('Amount received may differ slightly', false)
-            ->assertDontSee('Send $55.00', false)
-            ->assertDontSee('we credit', false)
-            ->assertSee('Please choose OUR', false)
-            ->assertSee('Want to avoid wire fees? Pay instantly by Card or PayPal instead.', false)
-            ->assertSee('data-bank-rail="gbp"', false);
+            ->assertSee('data-method="paypal"', false)
+            ->assertSee('data-method="wise"', false)
+            ->assertDontSee('data-method="bank"', false)
+            ->assertDontSee('id="bankIban"', false)
+            ->assertDontSee('data-usd-bank-wire="1"', false)
+            ->assertDontSee('includes 0.5% conversion fee', false)
+            ->assertDontSee('data-bank-rail="gbp"', false);
     }
 
     public function test_deposit_store_converts_gbp_amount_to_eur_ledger(): void

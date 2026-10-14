@@ -7,6 +7,8 @@
     @php
         $checkoutInWizard = request()->boolean('wizard')
             || ! empty(\App\Http\Controllers\Advertiser\GuestPostWizardController::stateFromSession()['language']);
+        $fundWalletFirstMessage = (! empty($bankTransferAllowed) ? 'Bank, Wise, and crypto' : 'Wise and crypto')
+            .' payments use an invoice on Add Funds. After we credit your wallet, pay this order from your balance.';
     @endphp
     @include('advertiser.partials.ordering-path', [
         'step' => 4,
@@ -358,7 +360,7 @@
                             <i class="fa fa-credit-card me-2"></i> {{ !empty($schedulingEnabled) ? '3' : '2' }}. Payment
                         </div>
                         <div class="card-body">
-                            <p class="text-muted small mb-3">Pay from your wallet, by card, or PayPal. Bank, Wise, and crypto fund your wallet via invoice first.</p>
+                            <p class="text-muted small mb-3">Pay from your wallet, by card, or PayPal. {{ !empty($bankTransferAllowed) ? 'Bank, Wise, and crypto' : 'Wise and crypto' }} fund your wallet via invoice first.</p>
                             @if(($checkoutDebtBalance ?? 0) > 0.009)
                                 <div class="alert alert-warning py-2 px-3 mb-3 small" role="alert">
                                     {{ $checkoutDebtReason }}
@@ -463,7 +465,7 @@
                             <div class="border rounded-3 p-3 mb-1" style="background:#f8fafc; border-color:#e2e8f0 !important;" id="fundWalletCheckoutHint">
                                 <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
                                     <div>
-                                        <div class="fw-semibold" style="color:var(--brand-primary, #1a585e);">Paying by Bank, Wise, or crypto?</div>
+                                        <div class="fw-semibold" style="color:var(--brand-primary, #1a585e);">{{ !empty($bankTransferAllowed) ? 'Paying by Bank, Wise, or crypto?' : 'Paying by Wise or crypto?' }}</div>
                                         <p class="small text-muted mb-0 mt-1">
                                             Get an invoice on Add Funds, transfer with your REF, then we credit your wallet after funds arrive. Come back and pay this order from your wallet.
                                         </p>
@@ -647,6 +649,7 @@
                         </div>
 
                         <!-- Bank Transfer Payment Details -->
+                        @if(!empty($bankTransferAllowed))
                         <div id="bankPaymentDetails" class="card border-0 shadow-sm mb-4" style="display: none;">
                             <div class="card-body">
                                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
@@ -682,6 +685,7 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         <!-- Card Payment Details -->
                         <div id="cardPaymentDetails" class="card border-0 shadow-sm mb-4" style="display: none;">
@@ -1818,7 +1822,7 @@ document.addEventListener('DOMContentLoaded', function() {
             Swal.fire({
                 icon: 'info',
                 title: 'Fund your wallet first',
-                text: 'Bank, Wise, and crypto payments use an invoice on Add Funds. After we credit your wallet, pay this order from your balance.',
+                text: @json($fundWalletFirstMessage),
                 confirmButtonText: 'Add funds & get invoice'
             }).then((result) => {
                 if (result.isConfirmed) {

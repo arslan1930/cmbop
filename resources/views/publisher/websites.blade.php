@@ -701,6 +701,36 @@
         </div>
     @endif
 
+    @if(!empty($gbpListingPrompts) && $gbpListingPrompts->isNotEmpty())
+        <div class="alert alert-light border mb-3" id="gbpListingPrompt">
+            <strong>Switch these UK sites to pounds?</strong>
+            <p class="small text-muted mb-2">
+                They are still priced in euros. Confirm a GBP price to earn and withdraw in pounds.
+                Until you confirm, the listing stays in euros.
+            </p>
+            @foreach($gbpListingPrompts as $promptSite)
+                <form method="POST" action="{{ route('publisher.sites.confirm-gbp-listing', $promptSite->id) }}" class="d-flex flex-wrap align-items-end gap-2 mb-2">
+                    @csrf
+                    <div>
+                        <div class="fw-semibold">{{ $promptSite->site_name }}</div>
+                        <div class="small text-muted">{{ $promptSite->site_url }} · current €{{ number_format((float) $promptSite->price, 2) }}</div>
+                    </div>
+                    <div>
+                        <label class="form-label mb-0 small" for="gbp_listing_price_{{ $promptSite->id }}">GBP price</label>
+                        <input type="number" step="0.01" min="0" max="99999999.99" class="form-control form-control-sm"
+                               id="gbp_listing_price_{{ $promptSite->id }}" name="listing_price"
+                               value="{{ number_format($promptSite->proposedGbpListingPrice(), 2, '.', '') }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary">List in GBP</button>
+                    <button type="submit" form="keep-eur-{{ $promptSite->id }}" class="btn btn-sm btn-outline-secondary">Keep euros</button>
+                </form>
+                <form id="keep-eur-{{ $promptSite->id }}" method="POST" action="{{ route('publisher.sites.keep-eur-listing', $promptSite->id) }}" class="d-none">
+                    @csrf
+                </form>
+            @endforeach
+        </div>
+    @endif
+
     <button id="showFormBtn" class="btn btn-primary mb-3 shadow-sm">
         <i class="fa fa-plus"></i> Add New Website
     </button>
@@ -1276,8 +1306,9 @@
                                 <label class="form-label" data-listing-price-label>Price <span class="req" aria-hidden="true">*</span></label>
                                 <div class="d-flex gap-2">
                                     <select name="price_input_currency" id="price_input_currency" class="form-select" style="max-width:7rem;">
-                                        <option value="EUR" @selected(old('price_input_currency', 'EUR') === 'EUR')>EUR €</option>
-                                        <option value="GBP" @selected(old('price_input_currency') === 'GBP')>GBP £</option>
+                                        @php $defaultListingCurrency = $defaultListingCurrency ?? 'EUR'; @endphp
+                                        <option value="EUR" @selected(old('price_input_currency', $defaultListingCurrency) === 'EUR')>EUR €</option>
+                                        <option value="GBP" @selected(old('price_input_currency', $defaultListingCurrency) === 'GBP')>GBP £</option>
                                     </select>
                                     <input type="number" name="price" id="price" class="form-control" placeholder="Enter price" min="0" step="0.01" value="{{ old_text('price') }}" required>
                                 </div>
@@ -3252,6 +3283,12 @@ function prefillSiteForm(site) {
     $('#dr').val(site.dr);
     $('#traffic').val(site.traffic);
     $('#price').val(site.price);
+    if (site.price_input_currency) {
+        $('#price_input_currency').val(site.price_input_currency);
+        if (typeof syncListingPricePreview === 'function') {
+            syncListingPricePreview();
+        }
+    }
     $('#turnaroundTime').val(site.turnaround_time || '3days');
     $('#publicationTime').val(site.publication_time);
 

@@ -204,15 +204,9 @@
             @php
                 $isBlacklisted = in_array($site->id, $blacklist);
                 $isFavorited = in_array($site->id, $favorites);
-                // Decode sensitive prices (only positive numeric add-ons are selectable)
-                $sensitivePrices = $site->safeJsonArray('sensitive_prices');
-                $sensitivePrices = collect($sensitivePrices)
-                    ->filter(fn ($amount, $type) => is_string($type) && $type !== ''
-                        && is_numeric($amount) && (float) $amount > 0)
-                    ->map(fn ($amount) => round((float) $amount, 2))
-                    ->all();
-
-                $homepageOptions = $site->homepagePlacementOptions();
+                // Buyer-facing extras (unbuffered stored EUR + per-buyer FX buffer)
+                $sensitivePrices = $site->advertiserFacingSensitivePrices();
+                $homepageOptions = $site->advertiserFacingHomepageOptions();
                 $defaultHomepageDays = $site->longestFreeHomepageDays();
                 $socialChannels = $site->enabledSocialChannels();
                 $socialChannelLabels = [
@@ -1041,13 +1035,8 @@
             $tileFaviconChain = $tileFaviconUrl ? [$tileFaviconUrl] : [];
             $mobileLabels = $site->nicheBadgeLabels();
             $mobileCategory = $mobileLabels[0] ?? '—';
-            $mobileSensitivePrices = $site->safeJsonArray('sensitive_prices');
-            $mobileSensitivePrices = collect($mobileSensitivePrices)
-                ->filter(fn ($amount, $type) => is_string($type) && $type !== ''
-                    && is_numeric($amount) && (float) $amount > 0)
-                ->map(fn ($amount) => round((float) $amount, 2))
-                ->all();
-            $homepageOptions = $site->homepagePlacementOptions();
+            $mobileSensitivePrices = $site->advertiserFacingSensitivePrices();
+            $homepageOptions = $site->advertiserFacingHomepageOptions();
             $defaultHomepageDays = $site->longestFreeHomepageDays();
             $socialChannels = $site->enabledSocialChannels();
             $socialChannelLabels = [
