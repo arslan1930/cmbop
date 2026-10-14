@@ -454,6 +454,53 @@ class BulkSiteRequestController extends Controller
         return back()->with('success', 'You are on this request.');
     }
 
+    public function bulkClaim(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $data['ids'])));
+        $claimed = 0;
+        $skipped = 0;
+        $actorId = (int) auth()->id();
+        $actorName = auth()->user()->name ?? 'Staff';
+
+        foreach (BulkSiteRequest::query()->whereIn('id', $ids)->limit(100)->get() as $bulkRequest) {
+            if ($bulkRequest->isCancelled()) {
+                $skipped++;
+
+                continue;
+            }
+            if ((int) ($bulkRequest->handled_by ?? 0) === $actorId) {
+                $skipped++;
+
+                continue;
+            }
+
+            $bulkRequest->forceFill(['handled_by' => $actorId])->save();
+            $claimed++;
+
+            ActivityLogger::tryLog(
+                'bulk_request.claimed',
+                $actorName.' claimed bulk request #'.$bulkRequest->id,
+                $bulkRequest,
+                [
+                    'bulk_site_request_id' => $bulkRequest->id,
+                    'publisher_id' => $bulkRequest->publisher_id,
+                    'bulk' => true,
+                ],
+                'Bulk request #'.$bulkRequest->id
+            );
+        }
+
+        return back()->with(
+            'success',
+            'Claimed '.$claimed.' request(s).'.($skipped > 0 ? ' Skipped '.$skipped.'.' : '')
+        );
+    }
+
     public function cancel(Request $request, int $id)
     {
         $reason = trim((string) $request->validate([

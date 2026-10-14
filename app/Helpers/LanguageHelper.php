@@ -813,6 +813,18 @@ if (! function_exists('activity_action_labels')) {
             'site.metrics_api_unlocked' => 'Allowed API overwrite',
             'agency_import.submitted' => 'Submitted agency import',
             'bulk_request.created' => 'Created bulk request',
+            'bulk_request.claimed' => 'Claimed bulk request',
+            'bulk_request.notes_updated' => 'Updated bulk request notes',
+            'bulk_request.items_rejected' => 'Rejected bulk request items',
+            'deposit.bulk_approved' => 'Bulk-approved deposits',
+            'deposit.exported' => 'Exported deposits',
+            'content.rescore_needs_fix' => 'Rescored library articles',
+            'email.dismissed' => 'Dismissed failed emails',
+            'user.suspended' => 'Suspended user',
+            'user.unsuspended' => 'Reactivated user',
+            'user.note_added' => 'Added user note',
+            'user.email_verified' => 'Marked user email verified',
+            'user.exported' => 'Exported users',
             'user.company_updated' => 'Updated company name',
             'user.display_currency_updated' => 'Updated display currency',
             'user.payout_profile_updated' => 'Updated payout profile',
@@ -953,7 +965,9 @@ if (! function_exists('activity_action_label')) {
             return $method !== '' ? 'Verified site ('.$method.')' : 'Verified site';
         }
 
-        return $action;
+        $human = trim(preg_replace('/\s+/', ' ', str_replace(['.', '_', '-'], ' ', $action)) ?? '');
+
+        return $human === '' ? $action : ucwords($human);
     }
 }
 

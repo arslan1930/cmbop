@@ -6,6 +6,7 @@
         'delivered' => 'success',
         'pending' => 'warning',
         'failed' => 'danger',
+        'dismissed' => 'secondary',
         'active' => 'success',
         'ready' => 'info',
         'framework' => 'secondary',
@@ -60,7 +61,7 @@
                 <div class="card-body">
                     <div class="label">❌ Open failed</div>
                     <div class="value text-danger">{{ number_format($stats['failed']) }}</div>
-                    <p class="ec-kpi-note mb-0">{{ number_format($stats['failed_today'] ?? 0) }} today · all-time open</p>
+                    <p class="ec-kpi-note mb-0">{{ number_format($stats['failed_today'] ?? 0) }} today · all-time open (dismissed excluded)</p>
                 </div>
             </div>
             </a>
@@ -92,7 +93,7 @@
                             <label class="form-label" for="ecLogStatus">Status</label>
                             <select name="status" id="ecLogStatus" class="form-select">
                                 <option value="">All statuses</option>
-                                @foreach(['delivered', 'pending', 'failed'] as $status)
+                                @foreach(['delivered', 'pending', 'failed', 'dismissed'] as $status)
                                     <option value="{{ $status }}" @selected(($logFilters['status'] ?? '') === $status)>{{ ucfirst($status) }}</option>
                                 @endforeach
                             </select>
@@ -231,12 +232,13 @@
                         <div class="col-6"><div class="border rounded-3 p-2">Mail queue name: <strong>{{ $queue['mail_queue'] }}</strong></div></div>
                         <div class="col-6"><div class="border rounded-3 p-2">Auto-drain: <strong>{{ $queue['auto_drain'] ? 'on' : 'off' }}</strong></div></div>
                         <div class="col-6"><div class="border rounded-3 p-2">Mail jobs pending: <strong>{{ $queue['mail_pending_jobs'] }}</strong></div></div>
-                        <div class="col-6"><div class="border rounded-3 p-2">Mail jobs failed: <strong>{{ $queue['mail_failed_jobs'] }}</strong></div></div>
+                        <div class="col-6"><div class="border rounded-3 p-2">Mail jobs failed (queue): <strong>{{ $queue['mail_failed_jobs'] }}</strong></div></div>
+                        <div class="col-6"><div class="border rounded-3 p-2">Open failed logs (this page): <strong>{{ $queue['open_failed_logs'] ?? $stats['failed'] ?? 0 }}</strong></div></div>
                         <div class="col-6"><div class="border rounded-3 p-2">All failed jobs (any queue): <strong>{{ $queue['failed_jobs'] }}</strong></div></div>
                     </div>
-                    <p class="small text-muted mb-3">Worker must include <code>emails</code> (<code>queue:work --queue=default,emails</code>) <strong>or</strong> leave auto-drain on. Retry below only requeues <strong>mail</strong> failed jobs.</p>
+                    <p class="small text-muted mb-3">Worker must include <code>emails</code> (<code>queue:work --queue=default,emails</code>) <strong>or</strong> leave auto-drain on. Retry below only requeues <strong>mail</strong> failed jobs. Open failed logs are SMTP history (Email Center KPI); queue failed jobs are leftover <code>failed_jobs</code> rows. Campaigns shows both so the numbers match.</p>
 
-                    <form method="post" action="{{ route('admin.emails.retry') }}" class="mb-3"
+                    <form method="post" action="{{ route('admin.emails.retry') }}" class="mb-2"
                           data-slb-confirm="Retry failed mail queue jobs only? Email logs stay failed until a send succeeds. Other failed jobs are left untouched."
                           data-slb-confirm-title="Retry failed mail jobs?"
                           data-slb-confirm-text="Retry now"
@@ -244,6 +246,22 @@
                         @csrf
                         <button class="btn btn-outline-danger btn-sm w-100" type="submit">
                             <i class="fa fa-redo me-1"></i> Retry failed mail jobs
+                        </button>
+                    </form>
+                    <form method="post" action="{{ route('admin.emails.dismiss') }}" class="mb-3"
+                          data-slb-confirm="Dismiss every open failed log matching the Recent filters (or all failed if unfiltered)? They leave the Open failed KPI. SMTP is not retried."
+                          data-slb-confirm-title="Dismiss matching failed logs?"
+                          data-slb-confirm-text="Dismiss"
+                          data-slb-confirm-danger="1">
+                        @csrf
+                        <input type="hidden" name="all_matching" value="1">
+                        @foreach(($logFilters ?? []) as $filterKey => $filterVal)
+                            @if(filled($filterVal))
+                                <input type="hidden" name="{{ $filterKey }}" value="{{ $filterVal }}">
+                            @endif
+                        @endforeach
+                        <button class="btn btn-outline-secondary btn-sm w-100" type="submit">
+                            <i class="fa fa-check me-1"></i> Dismiss matching failed logs
                         </button>
                     </form>
 
@@ -523,6 +541,14 @@
                                                 @csrf
                                                 <input type="hidden" name="log_id" value="{{ $log->id }}">
                                                 <button class="btn btn-sm btn-outline-danger" type="submit">Retry</button>
+                                            </form>
+                                            <form method="post" action="{{ route('admin.emails.dismiss') }}"
+                                                  data-slb-confirm="Dismiss this failed log without retrying?"
+                                                  data-slb-confirm-title="Dismiss failed email?"
+                                                  data-slb-confirm-text="Dismiss">
+                                                @csrf
+                                                <input type="hidden" name="log_id" value="{{ $log->id }}">
+                                                <button class="btn btn-sm btn-outline-secondary" type="submit">Dismiss</button>
                                             </form>
                                         </div>
                                     </td>

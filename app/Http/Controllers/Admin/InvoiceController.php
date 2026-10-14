@@ -577,6 +577,7 @@ class InvoiceController extends Controller
         return match ($sort) {
             'oldest' => $query->orderBy('invoice_date')->orderBy('id'),
             'amount' => $query->orderByDesc('total_amount')->orderByDesc('id'),
+            'number' => $query->orderByDesc('invoice_number')->orderByDesc('id'),
             default => $query->orderByDesc('invoice_date')->orderByDesc('id'),
         };
     }

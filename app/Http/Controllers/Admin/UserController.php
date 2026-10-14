@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserController extends Controller
 {
@@ -56,6 +57,9 @@ class UserController extends Controller
                 ], 'total_amount');
             }
         }
+        if ($this->tableExists('wallets') && $this->hasColumn('wallets', 'balance')) {
+            $query->withSum('wallets as wallet_balance', 'balance');
+        }
 
         $this->applyUserIndexFilters($query, $filters);
 
@@ -87,6 +91,85 @@ class UserController extends Controller
         $maxMarketing = self::MAX_MARKETING;
 
         return view('admin.users', compact('users', 'adminCount', 'marketingCount', 'maxMarketing', 'filters'));
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $hasRolePivot = $this->rolePivotAvailable();
+        $filters = $this->userIndexFilters($request);
+        $query = User::query();
+        if ($hasRolePivot) {
+            $query->with('roles');
+        }
+        if ($this->tableExists('orders') && $this->hasColumn('orders', 'payment_status')) {
+            $query->withCount([
+                'orders as paid_orders_count' => fn ($q) => $q->where('payment_status', 'paid'),
+            ]);
+        }
+        if ($this->tableExists('wallets') && $this->hasColumn('wallets', 'balance')) {
+            $query->withSum('wallets as wallet_balance', 'balance');
+        }
+        $this->applyUserIndexFilters($query, $filters);
+
+        $limit = 10000;
+        $rows = $query->limit($limit)->get();
+
+        ActivityLogger::tryLog(
+            'user.exported',
+            ($request->user()?->name ?? 'Admin').' exported users ('.$rows->count().' row(s)).',
+            null,
+            ['rows_exported' => $rows->count()]
+        );
+
+        $filename = 'users-export-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($rows, $hasRolePivot) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'id',
+                'name',
+                'email',
+                'phone',
+                'country',
+                'roles',
+                'wallet_balance',
+                'paid_orders',
+                'verified',
+                'suspended',
+                'joined_at',
+                'last_seen_at',
+            ]);
+            foreach ($rows as $user) {
+                $roles = $hasRolePivot && $user->relationLoaded('roles')
+                    ? $user->roles->pluck('name')->implode('|')
+                    : '';
+                fputcsv($out, [
+                    $user->id,
+                    $this->csvCell($user->name),
+                    $this->csvCell($user->email),
+                    $this->csvCell($user->phone),
+                    $this->csvCell($user->country),
+                    $this->csvCell($roles),
+                    number_format((float) ($user->wallet_balance ?? 0), 2, '.', ''),
+                    (int) ($user->paid_orders_count ?? 0),
+                    $user->hasVerifiedEmail() ? 'yes' : 'no',
+                    $user->isSuspended() ? 'yes' : 'no',
+                    optional($user->created_at)?->toDateTimeString(),
+                    optional($user->last_seen_at)?->toDateTimeString(),
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function csvCell(mixed $value): string
+    {
+        $text = (string) ($value ?? '');
+        if ($text !== '' && preg_match('/^[=+\-@\t\r]/', $text)) {
+            return "'".$text;
+        }
+
+        return $text;
     }
 
     /**

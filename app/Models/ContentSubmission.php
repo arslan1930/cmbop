@@ -82,6 +82,7 @@ class ContentSubmission extends Model
         'word_count',
         'uniqueness_score',
         'quality_score',
+        'content_fingerprint',
         'evaluation_status',
         'evaluation_report',
         'evaluated_at',

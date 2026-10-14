@@ -396,10 +396,14 @@
                     <p class="text-muted mb-2">
                         {{ $queue['mail_connection'] ?? '—' }} / {{ $queue['mail_queue'] ?? 'emails' }}
                         · auto-drain {{ ($queue['auto_drain'] ?? false) ? 'on' : 'off' }}
-                        · {{ (int) ($queue['mail_pending_jobs'] ?? 0) }} pending
-                        · {{ (int) ($queue['mail_failed_jobs'] ?? 0) }} failed
+                        · {{ (int) ($queue['mail_pending_jobs'] ?? 0) }} pending jobs
                     </p>
-                    <p class="text-muted mb-2">Worker must include <code>emails</code> or leave auto-drain on. Retry failed mail from Email Center.</p>
+                    <p class="mb-2">
+                        <a href="{{ route('admin.emails.index', ['status' => 'failed']) }}#ec-recent">{{ number_format((int) ($queue['open_failed_logs'] ?? 0)) }} open failed logs</a>
+                        <span class="text-muted">(Email Center KPI)</span>
+                        · {{ (int) ($queue['mail_failed_jobs'] ?? 0) }} failed queue jobs
+                    </p>
+                    <p class="text-muted mb-2">Open failed logs are SMTP history. Failed queue jobs are leftover <code>failed_jobs</code> rows. Retry or dismiss from Email Center.</p>
                     <a href="{{ route('admin.emails.index') }}#ec-tools">Email Center tools</a>
                     <span class="text-muted"> · Ops notes: <code>docs/admin-campaigns.md</code></span>
                 </div>

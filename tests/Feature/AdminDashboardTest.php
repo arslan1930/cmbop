@@ -6,6 +6,7 @@ use App\Models\BulkSiteRequest;
 use App\Models\BulkSiteRequestItem;
 use App\Models\ContentModerationLog;
 use App\Models\DepositRequest;
+use App\Models\EmailLog;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
@@ -931,17 +932,13 @@ class AdminDashboardTest extends TestCase
             'site_id' => null,
         ]);
 
-        DB::table('failed_jobs')->insert([
+        EmailLog::create([
             'uuid' => (string) Str::uuid(),
-            'connection' => 'database',
-            'queue' => 'emails',
-            'payload' => json_encode([
-                'displayName' => 'App\\Mail\\WelcomeEmail',
-                'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
-                'data' => ['commandName' => 'Illuminate\\Mail\\SendQueuedMailable'],
-            ]),
-            'exception' => 'SMTP timeout while sending welcome mail',
-            'failed_at' => now()->subHours(3),
+            'to_email' => 'bounce@example.com',
+            'subject' => 'Welcome',
+            'status' => EmailLog::STATUS_FAILED,
+            'error' => 'SMTP timeout while sending welcome mail',
+            'attempts' => 1,
         ]);
 
         $modLog = ContentModerationLog::create([

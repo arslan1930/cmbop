@@ -150,13 +150,39 @@ class InvoiceRepairQueue
     /**
      * @return Builder<Order>
      */
+    /**
+     * Paid in the marketplace sense: `paid` plus the legacy `completed` alias.
+     * Orders with a paid_at stamp and no refund/failure flag also count, so a
+     * wallet row that never got payment_status=paid still shows on the tile.
+     *
+     * @return list<string>
+     */
+    public static function paidPaymentStatuses(): array
+    {
+        return ['paid', 'completed'];
+    }
+
     private function missingTaxInvoiceBase(): Builder
     {
         return Order::query()
-            ->where('payment_status', 'paid')
+            ->where(function ($q) {
+                $q->whereIn('payment_status', self::paidPaymentStatuses());
+                if (Schema::hasColumn('orders', 'paid_at')) {
+                    $q->orWhere(function ($paid) {
+                        $paid->whereNotNull('paid_at')
+                            ->where(function ($status) {
+                                $status->whereNull('payment_status')
+                                    ->orWhereNotIn('payment_status', ['refunded', 'failed', 'cancelled', 'unpaid', 'pending']);
+                            });
+                    });
+                }
+            })
             ->whereDoesntHave('invoices', function ($q) {
                 $q->where('type', Invoice::TYPE_TAX_INVOICE)
-                    ->where('status', '!=', Invoice::STATUS_CANCELLED);
+                    ->where(function ($status) {
+                        $status->whereNull('status')
+                            ->orWhere('status', '!=', Invoice::STATUS_CANCELLED);
+                    });
             });
     }
 }

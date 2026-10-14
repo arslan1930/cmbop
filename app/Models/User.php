@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\NormalizesCountry;
 use App\Models\Concerns\ToleratesUnparseableDates;
 use App\Notifications\VerifyEmail;
 use Carbon\CarbonInterface;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Schema;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, Notifiable, ToleratesUnparseableDates;
+    use HasFactory, NormalizesCountry, Notifiable, ToleratesUnparseableDates;
 
     /**
      * The attributes that are mass assignable.

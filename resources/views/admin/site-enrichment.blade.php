@@ -36,6 +36,7 @@
                             Fallbacks: {{ implode(', ', $config['fallback_providers'] ?? []) ?: '—' }}
                         @endif
                     </div>
+                    <div class="small text-muted">Screenshots: {{ $config['screenshot_provider'] ?? '—' }}</div>
                 </div>
             </div>
         </div>
@@ -52,14 +53,28 @@
             <a href="#stale-sites" class="text-decoration-none text-reset">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body">
-                        <div class="text-muted small">Stale / missing</div>
+                        <div class="text-muted small">Stale / missing catalog</div>
                         <div class="fw-semibold">{{ number_format($staleCount) }} sites</div>
-                        <div class="small text-muted">Screenshot: {{ $config['screenshot_provider'] }}</div>
+                        <div class="small text-muted">Active listings older than {{ $config['max_age_days'] }} days, or missing metrics/screenshots. Dashboard “Enrichment failures” is latest-run failed/partial ({{ number_format((int) ($config['failed_attention_count'] ?? 0)) }}), not this number.</div>
                     </div>
                 </div>
             </a>
         </div>
     </div>
+
+    @if(empty($config['has_api_keys']) || empty($config['screenshot_ready']))
+        <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+            <i class="fa fa-triangle-exclamation mt-1" aria-hidden="true"></i>
+            <div>
+                @if(empty($config['has_api_keys']))
+                    <p class="mb-1"><strong>No SEO metrics API keys.</strong> Set <code>AHREFS_API_KEY</code>, <code>MOZ_ACCESS_TOKEN</code>, or <code>SEMRUSH_API_KEY</code> (and <code>SITE_METRICS_PROVIDER</code>). Until then only manual DA/DR/traffic on the listing is kept — live metrics will not refresh.</p>
+                @endif
+                @if(! empty($config['screenshot_warning']))
+                    <p class="mb-0"><strong>Screenshots:</strong> {{ $config['screenshot_warning'] }}</p>
+                @endif
+            </div>
+        </div>
+    @endif
 
     <div class="alert alert-light border">
         Configure providers via environment variables:
@@ -76,7 +91,7 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <span class="fw-semibold">Needs attention</span>
+            <span class="fw-semibold">Needs attention (failed / partial runs)</span>
             <form method="get" class="admin-deposits-filters staff-site-filters d-flex flex-wrap align-items-end gap-2">
                 <div>
                 <label class="form-label" for="attentionStatus">Status</label>

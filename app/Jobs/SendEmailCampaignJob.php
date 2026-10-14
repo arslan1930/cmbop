@@ -9,6 +9,7 @@ use App\Models\EmailCampaignRecipient;
 use App\Models\EmailNotificationPreference;
 use App\Models\EmailNotificationSetting;
 use App\Services\AudienceInventoryService;
+use App\Support\MailAddress;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -139,7 +140,7 @@ class SendEmailCampaignJob implements ShouldQueue
         $live = trim((string) ($user?->email ?? ''));
         $stored = trim((string) ($row->email ?? ''));
         $email = ($live !== '' && str_contains($live, '@')) ? $live : $stored;
-        if ($user === null || $email === '' || ! str_contains($email, '@')) {
+        if ($user === null || ! MailAddress::isValid($email)) {
             $this->claimPending($row, EmailCampaignRecipient::STATUS_FAILED, EmailCampaignRecipient::SKIP_ERROR);
 
             return;

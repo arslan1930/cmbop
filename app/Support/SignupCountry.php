@@ -109,11 +109,11 @@ class SignupCountry
 
     public static function normalize(?string $country): ?string
     {
-        $code = strtolower(trim((string) $country));
-        if ($code === 'gb') {
-            $code = 'uk';
+        $code = CountryCode::normalize($country);
+        if ($code === null) {
+            return null;
         }
-        if ($code === '' || ! in_array($code, self::codes(), true)) {
+        if (! in_array($code, self::codes(), true) && ! CountryCode::isKnownCode($code)) {
             return null;
         }
 

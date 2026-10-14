@@ -64,12 +64,13 @@
         <div class="col-6 col-xl-3">
             <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.users.index') }}">
                 <div class="card-body">
-                    <div class="text-muted small">Total Users</div>
+                    <div class="text-muted small" id="kpiUsersLabel" title="Every account on Users. Audiences Unique is advertisers and publishers excluding staff and unusable emails.">Total Users</div>
                     <div class="d-flex align-items-end justify-content-between">
                         <h3 class="mb-0" id="kpiUsers">—</h3>
                         <span class="badge bg-primary-subtle text-primary" id="kpiUsers7d">+0 / 7d</span>
                     </div>
-                    <div class="small text-muted mt-1 js-kpi-users-caption">Active role: chosen at signup, or a site / order. The Users by Role chart counts assigned roles, which still overlap.</div>
+                    <div class="small text-muted mt-1 js-kpi-users-caption">Usage counts: chosen active role, or a site / order. Assigned roles still overlap at signup.</div>
+                    <div class="small text-muted mt-1" id="kpiUsersVsAudiences" title="Users lists every account. Audiences Unique counts marketplace advertisers and publishers, excluding admin/marketing staff and addresses that cannot receive email."></div>
                     <div class="small text-muted mt-1">
                         <span id="kpiAdvertisers">0</span> advertisers ·
                         <span id="kpiPublishers">0</span> publishers ·
@@ -1212,6 +1213,10 @@ async function loadStatistics(options = {}) {
 
         setText('kpiUsers', num(d.total_users));
         setText('kpiUsers7d', '+' + num(d.new_users_7d) + ' / 7d');
+        const vsAudiences = document.getElementById('kpiUsersVsAudiences');
+        if (vsAudiences && d.audience_unique != null) {
+            vsAudiences.textContent = 'Audiences Unique: ' + num(d.audience_unique) + ' (excludes staff / unusable emails)';
+        }
         setText('kpiAdvertisers', num(d.advertisers));
         setText('kpiPublishers', num(d.publishers));
         setText('kpiAdmins', num(d.admins));
@@ -2155,24 +2160,32 @@ async function bulkSites(action) {
             });
             if (!result.isConfirmed) return;
             reason = String(result.value || '').trim();
-        } else {
-            const ok = window.confirm('Reject ' + ids.length + ' selected site(s)?');
+        } else if (typeof window.slbConfirm === 'function') {
+            const ok = await window.slbConfirm({
+                title: 'Reject selected sites?',
+                text: 'Reject ' + ids.length + ' selected site' + (ids.length === 1 ? '' : 's') + '? You will be asked for a reason.',
+                confirmText: 'Reject',
+            });
             if (!ok) return;
             reason = window.prompt('Reason (at least 10 characters)') || '';
             if (reason.trim().length < 10) {
                 if (window.showAppToast) window.showAppToast('Reason must be at least 10 characters.', 'error');
                 return;
             }
+        } else {
+            if (window.showAppToast) window.showAppToast('Cannot confirm this action in this browser.', 'error');
+            return;
         }
-    } else {
-        const ok = window.slbConfirm
-            ? await window.slbConfirm({
-                title: 'Approve selected sites?',
-                text: 'Approve ' + ids.length + ' site' + (ids.length === 1 ? '' : 's') + ' waiting for verification.',
-                confirmText: 'Approve',
-            })
-            : window.confirm('Approve ' + ids.length + ' selected site(s)?');
+    } else if (typeof window.slbConfirm === 'function') {
+        const ok = await window.slbConfirm({
+            title: 'Approve selected sites?',
+            text: 'Approve ' + ids.length + ' site' + (ids.length === 1 ? '' : 's') + ' waiting for verification.',
+            confirmText: 'Approve',
+        });
         if (!ok) return;
+    } else {
+        if (window.showAppToast) window.showAppToast('Cannot confirm this action in this browser.', 'error');
+        return;
     }
 
     try {

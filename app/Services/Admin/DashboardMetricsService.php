@@ -8,6 +8,7 @@ use App\Models\ContentSubmission;
 use App\Models\Country;
 use App\Models\DepositRequest;
 use App\Models\EmailCampaign;
+use App\Models\EmailLog;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
@@ -20,6 +21,7 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\WebsiteSuggestion;
 use App\Models\Withdrawal;
+use App\Services\AudienceInventoryService;
 use App\Services\Billing\InvoiceRepairQueue;
 use App\Services\PromotionService;
 use App\Services\Reminders\StalledOrderQueue;
@@ -119,7 +121,12 @@ class DashboardMetricsService
         $siteBreakdown = $this->siteStatusBreakdown();
 
         return [
-            'total_users' => $this->safeInt(fn () => $this->usersQuery()->count()),
+            'total_users' => $this->safeInt(fn () => User::count()),
+            'audience_unique' => $this->safeInt(fn () => app(AudienceInventoryService::class)->count(
+                AudienceInventoryService::AUDIENCE_BOTH,
+                null,
+                true
+            )),
             'advertisers' => $this->usageAdvertiserCount($advertiserRoleId),
             'publishers' => $this->usagePublisherCount($publisherRoleId),
             'advertisers_assigned' => $this->roleUserCount($advertiserRoleId),
@@ -1140,37 +1147,73 @@ class DashboardMetricsService
     }
 
     /**
-     * Retryable SendQueuedMailable rows — same source as Email Center’s failed-mail count.
+     * Open failed email_logs — same source as Email Center’s failed-mail count.
+     * When no EmailLog rows exist, leftover failed_jobs still surface so SMTP
+     * wreckage from before logging stayed visible.
      *
      * @return Collection<int, array<string, mixed>>
      */
     private function failedMailQueue(): Collection
     {
         try {
+            if (Schema::hasTable('email_logs')) {
+                $fromLogs = EmailLog::query()
+                    ->where('status', EmailLog::STATUS_FAILED)
+                    ->orderByDesc('id')
+                    ->limit(5)
+                    ->get()
+                    ->map(function (EmailLog $log) {
+                        $label = trim((string) ($log->error ?: $log->subject ?: 'Failed email'));
+
+                        return [
+                            'id' => $log->id,
+                            'label' => Str::limit($label, 80),
+                            'date' => $this->formatDate($log->sent_at ?? $log->created_at, 'd M Y H:i'),
+                            'age' => $this->ageLabel($log->sent_at ?? $log->created_at),
+                            'url' => $this->safeRoute('admin.emails.index'),
+                        ];
+                    });
+
+                if ($fromLogs->isNotEmpty()) {
+                    return $fromLogs;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard failed-mail queue failed', ['error' => $e->getMessage()]);
+        }
+
+        return $this->leftoverFailedMailableJobs();
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function leftoverFailedMailableJobs(): Collection
+    {
+        try {
             if (! Schema::hasTable('failed_jobs')) {
                 return collect();
             }
 
-            return collect(DB::table('failed_jobs')
+            return DB::table('failed_jobs')
                 ->where('payload', 'like', '%SendQueuedMailable%')
-                ->orderByRaw('CASE WHEN failed_at IS NULL THEN 1 ELSE 0 END')
-                ->orderBy('failed_at')
-                ->orderBy('id')
-                ->take(5)
-                ->get())
-                ->map(function ($row) {
-                    $firstLine = strtok(str_replace(["\r\n", "\r"], "\n", (string) ($row->exception ?? '')), "\n") ?: 'Failed mail job';
+                ->orderByDesc('id')
+                ->limit(5)
+                ->get()
+                ->map(function ($job) {
+                    $exception = (string) ($job->exception ?? '');
+                    $label = trim(strtok($exception, "\n") ?: 'Failed mailable');
 
                     return [
-                        'id' => $row->id,
-                        'label' => Str::limit(trim((string) $firstLine), 80),
-                        'date' => $this->formatDate($row->failed_at ?? null, 'd M Y H:i'),
-                        'age' => $this->ageLabel($row->failed_at ?? null),
+                        'id' => $job->id,
+                        'label' => Str::limit($label, 80),
+                        'date' => $this->formatDate($job->failed_at ?? null, 'd M Y H:i'),
+                        'age' => $this->ageLabel($job->failed_at ?? null),
                         'url' => $this->safeRoute('admin.emails.index'),
                     ];
                 });
         } catch (\Throwable $e) {
-            Log::warning('Dashboard failed-mail queue failed', ['error' => $e->getMessage()]);
+            Log::warning('Dashboard leftover failed-mail jobs failed', ['error' => $e->getMessage()]);
 
             return collect();
         }
@@ -1260,15 +1303,7 @@ class DashboardMetricsService
 
     private function failedMailCount(): int
     {
-        try {
-            if (! Schema::hasTable('failed_jobs')) {
-                return 0;
-            }
-
-            return (int) DB::table('failed_jobs')->where('payload', 'like', '%SendQueuedMailable%')->count();
-        } catch (\Throwable) {
-            return 0;
-        }
+        return EmailLog::openFailedCount();
     }
 
     private function moderationErrorsCount(): int
@@ -1431,7 +1466,7 @@ class DashboardMetricsService
             ['key' => 'bulk', 'label' => 'Bulk requests', 'count' => $counts['open_bulk_requests'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.bulk-site-requests.index', ['status' => 'needs_marketer'])],
             ['key' => 'mail', 'label' => 'Failed mail', 'count' => $counts['failed_mail'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.emails.index')],
             ['key' => 'moderation', 'label' => 'Moderation errors', 'count' => $counts['moderation_errors'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.moderation.index', ['status' => 'error'])],
-            ['key' => 'enrichment', 'label' => 'Enrichment', 'count' => $counts['enrichment_failed'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.site-enrichment.index')],
+            ['key' => 'enrichment', 'label' => 'Enrichment failures', 'count' => $counts['enrichment_failed'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.site-enrichment.index')],
             ['key' => 'catalog_hide', 'label' => 'Hide-mode', 'count' => $counts['catalog_hide'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.catalog-activity')],
             ['key' => 'library', 'label' => 'Articles in review', 'count' => $counts['library_evaluating'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.content-library.index', ['availability' => 'evaluating'])],
             ['key' => 'campaigns', 'label' => 'Campaigns', 'count' => $counts['campaigns_attention'] ?? 0, 'amount' => null, 'severity' => 'muted', 'bucket' => 'backlog', 'url' => $this->safeRoute('admin.campaigns.index', ['status' => 'attention'])],

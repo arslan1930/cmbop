@@ -54,7 +54,7 @@
             @foreach([
                 ['tab' => 'advertisers', 'stat' => 'advertisers', 'title' => 'Advertisers', 'hint' => 'Users with advertiser role'],
                 ['tab' => 'publishers', 'stat' => 'publishers', 'title' => 'Publishers', 'hint' => 'Users with publisher role'],
-                ['tab' => 'both', 'stat' => 'both_unique', 'title' => 'Unique (either role)', 'hint' => 'Combined reach without duplicates'],
+                ['tab' => 'both', 'stat' => 'both_unique', 'title' => 'Unique (either role)', 'hint' => 'Advertisers + publishers, no staff, usable email only. Users lists every account and is usually a few higher.'],
                 ['tab' => 'no_orders', 'stat' => 'advertisers_never_checked_out', 'title' => 'Never checked out', 'hint' => 'Advertisers with no order row'],
                 ['tab' => 'no_paid_orders', 'stat' => 'advertisers_no_paid_orders', 'title' => 'No paid orders', 'hint' => 'Advertisers with no paid or refunded order'],
                 ['tab' => 'paid_orders', 'stat' => 'advertisers_paid_orders', 'title' => 'Paid customers', 'hint' => 'Advertisers with a paid or refunded order'],
@@ -121,7 +121,11 @@
                     <select name="country" id="audienceCountry" class="form-select">
                         <option value="">All countries</option>
                         @foreach($countries as $countryRow)
-                            <option value="{{ $countryRow['value'] }}" @selected(strcasecmp($currentCountry, $countryRow['value']) === 0)>{{ $countryRow['value'] }} ({{ number_format($countryRow['count']) }})</option>
+                            @php
+                                $countryCode = strtoupper(\App\Support\CountryCode::normalize($countryRow['value']) ?: (string) $countryRow['value']);
+                                $countryName = \App\Support\CountryCode::displayName($countryRow['value']);
+                            @endphp
+                            <option value="{{ $countryRow['value'] }}" @selected(strcasecmp($currentCountry, $countryRow['value']) === 0)>{{ $countryCode }} ({{ $countryName }}) ({{ number_format($countryRow['count']) }})</option>
                         @endforeach
                         @if($currentCountry !== '' && ! $countryValues->contains(fn ($value) => strcasecmp((string) $value, $currentCountry) === 0))
                             <option value="{{ $currentCountry }}" selected>{{ $currentCountry }}</option>
@@ -239,7 +243,7 @@
                                         <span class="badge bg-light text-dark">Not opted out</span>
                                     @endif
                                 </td>
-                                <td class="small text-muted">{{ $user->country ?: '—' }}</td>
+                                <td class="small text-muted" title="{{ $user->country ?: '' }}">{{ \App\Support\CountryCode::displayName($user->country) }}</td>
                                 <td><a href="{{ $userUrl($user) }}" class="link-dark">{{ (int) ($user->paid_orders_count ?? 0) }}</a></td>
                                 <td><a href="{{ $userUrl($user) }}" class="link-dark">{{ (int) ($user->sites_count ?? 0) }}</a></td>
                                 <td><a href="{{ $userUrl($user) }}" class="link-dark">{{ (int) ($user->completed_deposits_count ?? 0) }}</a></td>

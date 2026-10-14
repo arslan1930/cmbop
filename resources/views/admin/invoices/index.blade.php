@@ -48,7 +48,7 @@
     <div class="row g-3 mb-4">
         @foreach([
             ['All documents', $stats['documents'], route('admin.invoices.index')],
-            ['Tax invoices', $stats['tax_invoices'], route('admin.invoices.index', ['type' => 'tax_invoice'])],
+            ['Tax invoices issued', $stats['tax_invoices'], route('admin.invoices.index', ['type' => 'tax_invoice'])],
             ['Payment failures', $stats['payment_failures'], route('admin.invoices.index', ['type' => 'payment_failure'])],
             ['Refund receipts', $stats['refunds'], route('admin.invoices.index', ['type' => 'refund_receipt'])],
             ['Deposit receipts', $stats['deposits'], route('admin.invoices.index', ['type' => 'deposit_receipt'])],
@@ -90,6 +90,7 @@
                 <div class="card-body py-3">
                     <div class="small text-muted">Missing tax invoices</div>
                     <div class="fs-4 fw-bold" style="color:#1a585e;">{{ number_format($missingTaxCount ?? 0) }}</div>
+                    <div class="small text-muted">Paid orders with no live INV</div>
                 </div>
             </a>
         </div>
@@ -140,8 +141,9 @@
                 <div>
                     <label class="form-label" for="adminInvoicesSort">Sort</label>
                     <select name="sort" id="adminInvoicesSort" class="form-select">
-                        <option value="">Newest</option>
-                        <option value="oldest" @selected(request('sort')==='oldest')>Oldest</option>
+                        <option value="">Newest date</option>
+                        <option value="oldest" @selected(request('sort')==='oldest')>Oldest date</option>
+                        <option value="number" @selected(request('sort')==='number')>Number</option>
                         <option value="amount" @selected(request('sort')==='amount')>Amount</option>
                     </select>
                 </div>

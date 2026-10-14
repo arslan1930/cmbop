@@ -101,8 +101,9 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-muted mb-1">Total Amount</h6>
+                            <h6 class="text-muted mb-1">Completed total</h6>
                             <h2 class="mb-0 text-primary">€{{ number_format($stats['total_amount'], 2) }}</h2>
+                            <div class="small text-muted mt-1">Pending: €{{ number_format((float) ($stats['pending_amount'] ?? 0), 2) }}</div>
                         </div>
                         <div class="bg-primary bg-opacity-10 p-3 rounded">
                             <i class="fa fa-euro-sign fa-2x text-primary"></i>
@@ -182,12 +183,22 @@
     </div>
 
     <!-- Deposits Table -->
+    <form method="POST" action="{{ route('admin.deposits.bulk-approve') }}" id="adminDepositsBulkForm"
+          data-slb-confirm="Approve selected pending bank/Wise/crypto deposits? Card and PayPal rows are skipped."
+          data-slb-confirm-title="Bulk approve deposits?"
+          data-slb-confirm-text="Approve">
+    @csrf
+    <div class="d-flex flex-wrap gap-2 mb-2">
+        <button type="submit" class="btn btn-sm btn-outline-primary">Approve selected</button>
+        <span class="small text-muted align-self-center">Manual rails only (bank / Wise / crypto).</span>
+    </div>
     <div class="card border-0 shadow-sm admin-table-fit">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0 admin-deposits-table">
                     <thead class="table-light">
                         <tr>
+                            <th class="admin-num-col"><input type="checkbox" class="form-check-input" id="adminDepositsSelectAll" aria-label="Select all"></th>
                             <th class="admin-num-col">ID</th>
                             <th>User</th>
                             <th>Reference</th>
@@ -203,6 +214,11 @@
                     <tbody>
                         @forelse($deposits as $deposit)
                         <tr>
+                            <td>
+                                @if($deposit->isPending() && in_array(strtolower((string) $deposit->payment_method), ['bank', 'wise', 'crypto'], true))
+                                    <input type="checkbox" class="form-check-input js-deposit-bulk" name="ids[]" value="{{ $deposit->id }}">
+                                @endif
+                            </td>
                             <td class="admin-deposit-id">#{{ $deposit->id }}</td>
                             <td>
                                 @php
@@ -298,7 +314,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="text-center py-5">
+                            <td colspan="11" class="text-center py-5">
                                 <i class="fa fa-inbox fa-3x text-muted mb-3"></i>
                                 <p class="text-muted">No deposit requests found</p>
                             </td>
@@ -309,6 +325,7 @@
             </div>
         </div>
     </div>
+    </form>
     
     <div class="mt-3">
         {{ $deposits->links() }}
@@ -806,6 +823,15 @@ document.addEventListener('DOMContentLoaded', function() {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    const selectAllDeposits = document.getElementById('adminDepositsSelectAll');
+    if (selectAllDeposits) {
+        selectAllDeposits.addEventListener('change', function () {
+            document.querySelectorAll('.js-deposit-bulk').forEach(function (box) {
+                box.checked = selectAllDeposits.checked;
+            });
+        });
     }
 });
 </script>

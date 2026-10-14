@@ -37,10 +37,9 @@ class AdminModerationDeskTest extends TestCase
 
     private function rejectCasinoArticle(User $advertiser): array
     {
+        $submission = $this->createApprovedSubmission($advertiser);
         config(['content_moderation.enabled' => true]);
         ContentModerationSetting::clearCache();
-
-        $submission = $this->createApprovedSubmission($advertiser);
         $body = 'Play at the best online casino and claim your no deposit bonus for slots and roulette today.';
         $submission->update([
             'title' => 'Casino guide',
@@ -136,7 +135,7 @@ class AdminModerationDeskTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.moderation.show', $log))
             ->assertOk()
-            ->assertSee(route('admin.moderation.index', ['status' => 'needs', 'q' => 'Casino']), false);
+            ->assertSee(e(route('admin.moderation.index', ['status' => 'needs', 'q' => 'Casino'])), false);
     }
 
     public function test_policy_save_does_not_write_upload_config(): void

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Billing\DepositReceiptService;
 use App\Services\Billing\InvoiceNumberGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -81,6 +82,28 @@ class DepositReceiptPdfTest extends TestCase
         $this->assertSame(Invoice::STATUS_PAID, $receipt->status);
         $this->assertNotNull($receipt->pdf_path);
         Storage::disk('local')->assertExists($receipt->pdf_path);
+    }
+
+    public function test_receipt_number_uses_the_paid_at_year(): void
+    {
+        $user = $this->advertiser();
+        $paidAt = Carbon::create(2024, 3, 15, 12, 0, 0);
+        DepositRequest::create([
+            'user_id' => $user->id,
+            'reference_code' => 'DEP-YEAR-2024',
+            'amount' => 80,
+            'payment_method' => 'bank',
+            'status' => 'completed',
+            'approved_at' => $paidAt,
+            'paid_at' => $paidAt,
+        ]);
+
+        $receipt = Invoice::where('reference_code', 'DEP-YEAR-2024')
+            ->where('type', Invoice::TYPE_DEPOSIT_RECEIPT)
+            ->first();
+
+        $this->assertNotNull($receipt);
+        $this->assertStringStartsWith('RCT-2024-', $receipt->invoice_number);
     }
 
     public function test_receipt_carries_no_tax_line(): void

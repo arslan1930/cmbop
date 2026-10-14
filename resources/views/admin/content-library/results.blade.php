@@ -63,6 +63,14 @@
                 data-slb-confirm-text="Re-evaluate">
             Re-evaluate selected
         </button>
+        <button type="submit" class="btn btn-sm btn-outline-primary"
+                formaction="{{ route('admin.content-library.rescore-needs-fix') }}"
+                formnovalidate
+                data-slb-confirm="Re-score up to 50 Needs corrections articles that still show 0% quality/uniqueness? Selection is ignored — this uses the needs-fix queue."
+                data-slb-confirm-title="Rescore needs-corrections?"
+                data-slb-confirm-text="Rescore">
+            Rescore 0% needs-corrections
+        </button>
         <button type="submit" class="btn btn-sm btn-outline-secondary"
                 data-slb-confirm="Archive the selected articles? Advertisers can still restore them."
                 data-slb-confirm-title="Archive selected?"

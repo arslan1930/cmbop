@@ -3,6 +3,7 @@
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\AdminNewUserRegistered;
+use App\Mail\AdminNewUsersDigest;
 use App\Mail\AdminPublishedSiteNotification;
 use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
@@ -120,6 +121,16 @@ return [
     | 0 disables the campaign-specific cap (falls through to not dropping).
     */
     'campaign_max_age_hours' => (int) env('MAIL_CAMPAIGN_MAX_AGE_HOURS', 72),
+
+    /*
+    | Batch admin "New User Registered" notices instead of one SMTP send per
+    | signup × admin (Hostinger 451 / spam 554). Set ADMIN_SIGNUP_DIGEST=false
+    | to restore per-signup mail.
+    */
+    'admin_signup_digest' => [
+        'enabled' => (bool) env('ADMIN_SIGNUP_DIGEST', true),
+        'window_minutes' => (int) env('ADMIN_SIGNUP_DIGEST_MINUTES', 15),
+    ],
 
     /*
     | Signed marketing unsubscribe links (GET confirm + POST one-click).
@@ -431,6 +442,13 @@ return [
             'audience' => 'admin',
             'preference' => null,
             'mailable' => AdminNewUserRegistered::class,
+            'default_enabled' => true,
+        ],
+        'admin_new_users_digest' => [
+            'name' => 'New Users Digest',
+            'audience' => 'admin',
+            'preference' => null,
+            'mailable' => AdminNewUsersDigest::class,
             'default_enabled' => true,
         ],
         'site_claim_submitted' => [

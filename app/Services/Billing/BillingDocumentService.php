@@ -516,7 +516,10 @@ class BillingDocumentService
             ?: $order->order_number;
 
         $payload = array_merge([
-            'invoice_number' => $this->numbers->nextForType($type),
+            'invoice_number' => $this->numbers->nextForType(
+                $type,
+                $this->numbers->yearFromDate(data_get($extra, 'paid_at') ?: $order->paid_at)
+            ),
             'type' => $type,
             'status' => $status,
             'user_id' => $order->user_id,

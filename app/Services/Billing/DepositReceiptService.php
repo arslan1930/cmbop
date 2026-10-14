@@ -94,7 +94,7 @@ class DepositReceiptService
         $paidAt = $deposit->paid_at ?: $deposit->approved_at ?: now();
 
         return [
-            'invoice_number' => $this->numbers->nextReceipt(),
+            'invoice_number' => $this->numbers->nextReceipt($this->numbers->yearFromDate($paidAt)),
             'type' => Invoice::TYPE_DEPOSIT_RECEIPT,
             'status' => Invoice::STATUS_PAID,
             'user_id' => $deposit->user_id,

@@ -107,6 +107,7 @@ class EmailCenterController extends Controller
             'failed_jobs' => $this->schemaTableAvailable('failed_jobs') ? DB::table('failed_jobs')->count() : 0,
             'mail_pending_jobs' => $this->queuedMailJobsCount(),
             'mail_failed_jobs' => $this->failedMailJobsCount(),
+            'open_failed_logs' => EmailLog::openFailedCount(),
         ];
 
         $failedLogs = $this->failedEmailLogs();
@@ -404,6 +405,75 @@ class EmailCenterController extends Controller
         );
 
         return back()->with('success', 'Retried '.count($retried).' failed mail job(s). Other failed jobs were left untouched.');
+    }
+
+    public function dismissFailed(Request $request)
+    {
+        if (! $this->schemaTableAvailable('email_logs')) {
+            return back()->with('error', 'Email logs are unavailable because the destination table is missing.');
+        }
+
+        $data = $request->validate([
+            'log_id' => ['nullable', 'integer', 'exists:email_logs,id'],
+            'ids' => ['nullable', 'array'],
+            'ids.*' => ['integer'],
+            'all_matching' => ['nullable', 'boolean'],
+        ]);
+
+        $reason = 'Dismissed in Email Center';
+        $count = 0;
+
+        if (! empty($data['log_id'])) {
+            $log = EmailLog::query()->find((int) $data['log_id']);
+            if ($log?->dismiss($reason)) {
+                $count = 1;
+            }
+        } elseif (! empty($data['ids'])) {
+            $logs = EmailLog::query()
+                ->where('status', EmailLog::STATUS_FAILED)
+                ->whereIn('id', $data['ids'])
+                ->limit(500)
+                ->get();
+            foreach ($logs as $log) {
+                if ($log->dismiss($reason)) {
+                    $count++;
+                }
+            }
+        } elseif ($request->boolean('all_matching')) {
+            $filters = AdminEmails::recentFilters($request);
+            $query = EmailLog::query()->where('status', EmailLog::STATUS_FAILED);
+            if (($filters['template_key'] ?? null) !== null) {
+                $query->where('template_key', $filters['template_key']);
+            }
+            if (($filters['to_email'] ?? null) !== null) {
+                $this->applyToEmailFilter($query, (string) $filters['to_email']);
+            }
+            if (($filters['date_from'] ?? null) !== null) {
+                $query->whereRaw('date(coalesce(sent_at, created_at)) >= ?', [$filters['date_from']]);
+            }
+            if (($filters['date_to'] ?? null) !== null) {
+                $query->whereRaw('date(coalesce(sent_at, created_at)) <= ?', [$filters['date_to']]);
+            }
+            $logs = $query->limit(2000)->get();
+            foreach ($logs as $log) {
+                if ($log->dismiss($reason)) {
+                    $count++;
+                }
+            }
+        }
+
+        if ($count === 0) {
+            return back()->with('success', 'No failed logs to dismiss.');
+        }
+
+        ActivityLogger::tryLog(
+            'email.dismissed',
+            ($request->user()?->name ?? 'Admin').' dismissed '.$count.' failed email log(s)',
+            null,
+            ['count' => $count]
+        );
+
+        return back()->with('success', 'Dismissed '.$count.' failed email log(s). They no longer count as open failed.');
     }
 
     protected function retryFailedLog(int $logId)

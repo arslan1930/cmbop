@@ -155,11 +155,21 @@
         @endif
     </form>
 
+    <form method="POST" action="{{ staff_route('bulk-site-requests.bulk-claim') }}" id="adminBulkRequestsClaimForm">
+    @csrf
+    <div class="d-flex flex-wrap gap-2 mb-2">
+        <button type="submit" class="btn btn-sm btn-outline-primary"
+                data-slb-confirm="Claim selected bulk requests?"
+                data-slb-confirm-title="Claim requests?"
+                data-slb-confirm-text="Claim">Claim selected</button>
+        <span class="small text-muted align-self-center">Assigns the handler to you. Cancelled rows are skipped.</span>
+    </div>
     <div class="card border-0 shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle admin-table-fit staff-queue-table bulk-request-index-table">
                 <thead>
                     <tr>
+                        <th class="admin-num-col"><input type="checkbox" class="form-check-input" id="adminBulkRequestsSelectAll" aria-label="Select all"></th>
                         <th>#</th>
                         <th>Publisher</th>
                         <th>Est.</th>
@@ -192,6 +202,11 @@
                             $staffAssignedCount = (int) ($req->staff_assigned_count ?? 0);
                         @endphp
                         <tr>
+                            <td>
+                                @if(! $req->isCancelled())
+                                    <input type="checkbox" class="form-check-input js-bulk-request-claim" name="ids[]" value="{{ $req->id }}">
+                                @endif
+                            </td>
                             <td>{{ $req->id }}</td>
                             <td>
                                 @if(auth()->user()?->isAdmin() && $req->publisher)
@@ -227,6 +242,11 @@
                             </td>
                             <td class="small">{{ $req->handler?->name ?? 'Unclaimed' }}</td>
                             <td class="text-end text-nowrap">
+                                @if(! $req->isCancelled() && (int) ($req->handled_by ?? 0) !== (int) auth()->id())
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                            formaction="{{ staff_route('bulk-site-requests.claim', $req->id) }}"
+                                            formnovalidate>Claim</button>
+                                @endif
                                 <a href="{{ staff_route('bulk-site-requests.show', $req) }}" class="btn btn-sm btn-outline-primary">Open</a>
                                 @if($waitingPublisher)
                                     <a href="{{ staff_route('sites.index', array_filter(['waiting_on_publisher' => 1, 'q' => $req->publisher?->email])) }}" class="btn btn-sm btn-outline-secondary">Sites: waiting</a>
@@ -235,7 +255,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="text-center text-muted py-4">
+                            <td colspan="12" class="text-center text-muted py-4">
                                 @if(!empty($filtersActive))
                                     <div class="mb-2">No requests match this filter.</div>
                                     <a href="{{ staff_route('bulk-site-requests.index') }}" class="btn btn-outline-secondary">Reset filter</a>
@@ -255,7 +275,15 @@
             </table>
         </div>
     </div>
+    </form>
 
     <div class="mt-3">{{ $requests->links() }}</div>
 </div>
+<script>
+document.getElementById('adminBulkRequestsSelectAll')?.addEventListener('change', function () {
+    document.querySelectorAll('.js-bulk-request-claim').forEach(function (box) {
+        box.checked = this.checked;
+    }, this);
+});
+</script>
 @endsection

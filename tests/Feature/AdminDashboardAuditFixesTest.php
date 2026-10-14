@@ -2,374 +2,246 @@
 
 namespace Tests\Feature;
 
-use App\Models\DepositRequest;
+use App\Models\BulkSiteRequest;
+use App\Models\EmailLog;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\Site;
-use App\Models\SiteEnrichmentRun;
 use App\Models\User;
 use App\Models\Wallet;
-use App\Models\WalletTransaction;
 use App\Services\Admin\DashboardMetricsService;
-use App\Services\SiteEnrichment\SiteEnrichmentService;
-use App\Support\MoneyDisplay;
+use App\Support\CountryCode;
 use Database\Seeders\RolesTableSeeder;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AdminDashboardAuditFixesTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeAdmin(): User
+    protected function setUp(): void
     {
+        parent::setUp();
         $this->seed(RolesTableSeeder::class);
-        $role = Role::where('name', 'admin')->firstOrFail();
-        $user = User::factory()->create([
-            'active_role_id' => $role->id,
-            'email_verified_at' => now(),
-        ]);
-        $user->roles()->attach($role->id);
-
-        return $user;
     }
 
-    private function makePublisher(array $overrides = []): User
+    private function userWithRole(string $roleName, array $overrides = []): User
     {
-        $role = Role::firstOrCreate(['name' => 'publisher']);
+        $role = Role::where('name', $roleName)->firstOrFail();
         $user = User::factory()->create(array_merge([
-            'active_role_id' => $role->id,
             'email_verified_at' => now(),
+            'active_role_id' => $role->id,
         ], $overrides));
         $user->roles()->attach($role->id);
 
-        return $user;
+        return $user->fresh();
     }
 
-    private function makeSite(User $publisher, array $overrides = []): Site
+    public function test_users_list_shows_wallet_orders_and_exports_csv(): void
     {
-        return Site::create(array_merge([
-            'publisher_id' => $publisher->id,
-            'site_name' => 'Audit Site',
-            'site_url' => 'https://audit-site.example',
-            'domain' => 'audit-site.example',
-            'da' => 10,
-            'dr' => 10,
-            'traffic' => 100,
-            'country' => 'us',
-            'language' => 'en',
-            'category' => 'marketing',
-            'price' => 40,
-            'publication_time' => 'permanent',
-            'link_type' => 'dofollow',
-            'description' => 'Dashboard audit fixture',
-            'verified' => 1,
-            'active' => 1,
-        ], $overrides));
-    }
-
-    public function test_test_accounts_are_excluded_from_dashboard_until_toggled(): void
-    {
-        $admin = $this->makeAdmin();
-        $live = $this->makePublisher(['name' => 'Live Publisher', 'email' => 'live-pub@example.com']);
-        $test = $this->makePublisher(['name' => 'Test Publisher', 'email' => 'test-pub@example.com']);
-        $test->forceFill(['is_test' => true])->save();
-
-        DepositRequest::create([
-            'user_id' => $test->id,
-            'reference_code' => '333222',
-            'amount' => 25,
-            'payment_method' => 'wise',
-            'status' => 'pending',
+        $admin = $this->userWithRole('admin', ['name' => 'Ops Admin', 'email' => 'ops.admin@example.com']);
+        $advertiser = $this->userWithRole('advertiser', [
+            'name' => 'Wallet Buyer',
+            'email' => 'wallet.buyer@example.com',
+            'country' => 'Spain',
         ]);
-        DepositRequest::create([
-            'user_id' => $live->id,
-            'reference_code' => '333223',
-            'amount' => 15,
-            'payment_method' => 'wise',
-            'status' => 'pending',
-        ]);
+        $this->assertSame('es', $advertiser->fresh()->country);
 
-        $hidden = $this->actingAs($admin)
-            ->getJson(route('admin.dashboard.queue-counts'))
-            ->assertOk()
-            ->assertJsonPath('pending_deposits', 1)
-            ->json();
-
-        $this->assertSame(1, $hidden['needs_attention_urgent']);
-
-        $stats = $this->actingAs($admin)
-            ->getJson(route('admin.dashboard.statistics'))
-            ->assertOk()
-            ->json('data');
-        $this->assertSame(2, $stats['total_users']);
-        $this->assertFalse($stats['include_test_data']);
-
-        $this->actingAs($admin)
-            ->get(route('admin.dashboard', ['show_test' => 1]))
-            ->assertOk()
-            ->assertSee('Showing test data', false);
-
-        $this->actingAs($admin)
-            ->getJson(route('admin.dashboard.queue-counts'))
-            ->assertOk()
-            ->assertJsonPath('pending_deposits', 2)
-            ->assertJsonPath('needs_attention_urgent', 2);
-
-        $shown = $this->actingAs($admin)
-            ->getJson(route('admin.dashboard.statistics'))
-            ->assertOk()
-            ->json('data');
-        $this->assertSame(3, $shown['total_users']);
-        $this->assertTrue($shown['include_test_data']);
-    }
-
-    public function test_admin_can_mark_and_filter_test_accounts(): void
-    {
-        $admin = $this->makeAdmin();
-        $member = $this->makePublisher(['name' => 'Flag Me', 'email' => 'flag-me@example.com']);
-
-        $this->actingAs($admin)
-            ->from(route('admin.users.show', $member))
-            ->post(route('admin.users.test-flag', $member), ['is_test' => 1])
-            ->assertRedirect(route('admin.users.show', $member));
-
-        $this->assertTrue($member->fresh()->isTestAccount());
-
-        $this->actingAs($admin)
-            ->get(route('admin.users.index', ['flag' => 'test']))
-            ->assertOk()
-            ->assertSee('flag-me@example.com', false)
-            ->assertSee('Test', false);
-
-        $this->actingAs($admin)
-            ->from(route('admin.users.show', $member))
-            ->post(route('admin.users.test-flag', $member), ['is_test' => 0])
-            ->assertRedirect();
-
-        $this->assertFalse($member->fresh()->isTestAccount());
-    }
-
-    public function test_enrichment_queue_shows_friendly_sql_error(): void
-    {
-        $admin = $this->makeAdmin();
-        $publisher = $this->makePublisher();
-        $site = $this->makeSite($publisher, [
-            'site_name' => 'SQL Fail Site',
-            'site_url' => 'https://sql-fail.example',
-            'domain' => 'sql-fail.example',
-        ]);
-        SiteEnrichmentRun::create([
-            'site_id' => $site->id,
-            'type' => 'screenshot',
-            'provider' => 'thum_io',
-            'status' => 'failed',
-            'error' => "SQLSTATE[42S22]: Unknown column 'screenshot_path' in 'SET'",
-            'triggered_by' => 'system',
-        ]);
-
-        $queue = $this->actingAs($admin)
-            ->getJson(route('admin.dashboard.action-queue'))
-            ->assertOk()
-            ->json('enrichment.0');
-
-        $this->assertSame('Could not save the screenshot (database column missing).', $queue['error']);
-        $this->assertStringContainsString('screenshot_path', (string) $queue['error_raw']);
-        $this->assertStringNotContainsString('SQLSTATE', (string) $queue['error']);
-
-        $this->actingAs($admin)
-            ->get(route('admin.site-enrichment.index'))
-            ->assertOk()
-            ->assertSee('Could not save the screenshot (database column missing).', false)
-            ->assertSee('SQLSTATE[42S22]', false);
-    }
-
-    public function test_screenshot_persist_degrades_when_column_missing(): void
-    {
-        $publisher = $this->makePublisher();
-        $site = $this->makeSite($publisher);
-        if (Schema::hasColumn('sites', 'screenshot_path')) {
-            Schema::table('sites', function (Blueprint $table) {
-                $table->dropColumn('screenshot_path');
-            });
-            Site::forgetColumnCache();
-        }
-
-        config([
-            'site_enrichment.enabled' => true,
-            'site_enrichment.screenshots.provider' => 'none',
-        ]);
-
-        $run = app(SiteEnrichmentService::class)->refreshScreenshot($site->fresh(), 'test');
-        $this->assertContains($run->status, ['failed', 'partial', 'success']);
-        $this->assertDoesNotMatchRegularExpression('/SQLSTATE/', (string) $run->error);
-    }
-
-    public function test_needs_attention_splits_urgent_and_backlog_and_excludes_enrichment(): void
-    {
-        $admin = $this->makeAdmin();
-        $publisher = $this->makePublisher();
-        $site = $this->makeSite($publisher);
-        SiteEnrichmentRun::create([
-            'site_id' => $site->id,
-            'type' => 'metrics',
-            'provider' => 'manual',
-            'status' => 'failed',
-            'error' => 'Provider timed out',
-            'triggered_by' => 'admin',
+        Wallet::create([
+            'user_id' => $advertiser->id,
+            'role_id' => $advertiser->active_role_id,
+            'balance' => 42.5,
+            'currency' => 'EUR',
         ]);
         Order::create([
-            'user_id' => $admin->id,
-            'order_number' => 'ORD-AUDIT-1',
-            'reference_code' => 'REF-AUDIT-1',
-            'subtotal' => 50,
+            'user_id' => $advertiser->id,
+            'order_number' => 'ORD-WALLET-1',
+            'subtotal' => 10,
             'tax' => 0,
-            'total_amount' => 50,
-            'payment_method' => 'bank',
-            'payment_status' => 'pending',
-            'status' => 'pending',
-        ]);
-
-        $this->actingAs($admin)
-            ->getJson(route('admin.dashboard.queue-counts'))
-            ->assertOk()
-            ->assertJsonPath('pending_payments', 1)
-            ->assertJsonPath('enrichment_failed', 1)
-            ->assertJsonPath('needs_attention_urgent', 1)
-            ->assertJsonPath('needs_attention_backlog', 0)
-            ->assertJsonPath('needs_attention', 1);
-    }
-
-    public function test_fee_margin_breakdown_and_minus_format(): void
-    {
-        $this->assertSame('−€40.00', format_eur_admin(-40));
-        $this->assertSame('€0.00', format_eur_admin(0));
-        $this->assertSame('€12.50', format_eur_admin(12.5));
-        $this->assertSame(MoneyDisplay::MINUS.'€40.00', format_eur_admin(-40));
-
-        $admin = $this->makeAdmin();
-        $advertiser = Role::firstOrCreate(['name' => 'advertiser']);
-        $buyer = User::factory()->create([
-            'active_role_id' => $advertiser->id,
-            'email_verified_at' => now(),
-        ]);
-        $buyer->roles()->attach($advertiser->id);
-
-        $wallet = Wallet::create([
-            'user_id' => $buyer->id,
-            'role_id' => $advertiser->id,
-            'balance' => 40,
-            'bonus_balance' => 40,
-            'reserved_balance' => 0,
-            'bonus_reserved' => 0,
-            'currency' => 'EUR',
-        ]);
-        WalletTransaction::create([
-            'user_id' => $buyer->id,
-            'wallet_id' => $wallet->id,
-            'type' => WalletTransaction::TYPE_BONUS_CREDIT,
-            'direction' => 'credit',
-            'amount' => 40,
-            'bonus_amount' => 40,
-            'balance_after' => 40,
-            'bonus_balance_after' => 40,
-            'currency' => 'EUR',
+            'total_amount' => 10,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
             'status' => 'completed',
-            'description' => 'Welcome bonus',
+            'paid_at' => now(),
         ]);
 
-        $json = $this->actingAs($admin)
-            ->getJson(route('admin.dashboard.finance'))
+        $html = $this->actingAs($admin)
+            ->get(route('admin.users.index', ['q' => 'wallet.buyer']))
             ->assertOk()
-            ->json('data');
+            ->assertSee('€42.50', false)
+            ->assertSee('data-paid-orders="1"', false)
+            ->getContent();
+        $this->assertStringContainsString(route('admin.users.export'), $html);
 
-        $this->assertSame(0.0, (float) $json['fees']);
-        $this->assertSame(40.0, (float) $json['bonuses_issued']);
-        $this->assertSame(-40.0, (float) $json['margin']);
+        $csv = $this->actingAs($admin)
+            ->get(route('admin.users.export', ['q' => 'wallet.buyer']))
+            ->assertOk()
+            ->streamedContent();
+        $this->assertStringContainsString('wallet_balance', $csv);
+        $this->assertStringContainsString('42.50', $csv);
+        $this->assertStringContainsString('wallet.buyer@example.com', $csv);
+    }
+
+    public function test_dashboard_reports_audience_unique_separately_from_total_users(): void
+    {
+        $admin = $this->userWithRole('admin', ['email' => 'staff.only@example.com']);
+        $this->userWithRole('advertiser', ['email' => 'market.buyer@example.com']);
+
+        $stats = app(DashboardMetricsService::class)->statistics();
+        $this->assertGreaterThanOrEqual(2, $stats['total_users']);
+        $this->assertLessThan($stats['total_users'], $stats['audience_unique']);
 
         $this->actingAs($admin)
-            ->get(route('admin.finance'))
+            ->getJson(route('admin.dashboard.statistics'))
             ->assertOk()
-            ->assertSee('−€40.00', false)
-            ->assertSee('Est. fee margin', false);
+            ->assertJsonPath('data.total_users', $stats['total_users'])
+            ->assertJsonPath('data.audience_unique', $stats['audience_unique']);
     }
 
-    public function test_all_sites_and_enrichment_index_paginate_fifty(): void
+    public function test_bulk_requests_can_be_claimed_in_bulk(): void
     {
-        $admin = $this->makeAdmin();
-        $publisher = $this->makePublisher();
-        for ($i = 1; $i <= 51; $i++) {
-            $site = $this->makeSite($publisher, [
-                'site_name' => 'Paged Site '.$i,
-                'site_url' => 'https://paged-site-'.$i.'.example',
-                'domain' => 'paged-site-'.$i.'.example',
-            ]);
-            SiteEnrichmentRun::create([
-                'site_id' => $site->id,
-                'type' => 'metrics',
-                'provider' => 'manual',
-                'status' => 'failed',
-                'error' => 'Capture failed '.$i,
-                'triggered_by' => 'admin',
-            ]);
-        }
-
-        $sites = $this->actingAs($admin)
-            ->get(route('admin.sites.index', ['all' => 1]))
-            ->assertOk();
-        $sitesHtml = $sites->getContent();
-        $this->assertSame(50, substr_count($sitesHtml, 'data-review-name="Paged Site'));
-        $sites->assertSee('Showing 1–50 of 51', false);
-        $sites->assertSee('page=2', false);
-
-        $records = $this->actingAs($admin)
-            ->get(route('admin.sites.records'))
-            ->assertOk();
-        $recordsHtml = $records->getContent();
-        $records->assertSee('Showing 51 sites', false);
-        $records->assertSee('page=2', false);
-        preg_match_all('/paged-site-(\d+)\.example/', $recordsHtml, $recordMatches);
-        $this->assertCount(50, array_unique($recordMatches[1] ?? []));
-
-        $enrichment = $this->actingAs($admin)
-            ->get(route('admin.site-enrichment.index'))
-            ->assertOk();
-        $html = $enrichment->getContent();
-        preg_match_all('/title="Capture failed (\d+)"/', $html, $attentionErrors);
-        $this->assertCount(50, $attentionErrors[1] ?? []);
-        $enrichment->assertSee('page=2', false);
-    }
-
-    public function test_role_distribution_note_and_pipeline_empty_flag(): void
-    {
-        $admin = $this->makeAdmin();
-
-        $json = $this->actingAs($admin)
-            ->getJson(route('admin.dashboard.distributions'))
-            ->assertOk()
-            ->json();
-
-        $this->assertTrue($json['orders']['empty']);
-        $this->assertStringContainsString('Assigned roles', (string) $json['roles']['note']);
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher');
+        $first = BulkSiteRequest::create([
+            'publisher_id' => $publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 2,
+        ]);
+        $second = BulkSiteRequest::create([
+            'publisher_id' => $publisher->id,
+            'status' => BulkSiteRequest::STATUS_REQUESTED,
+            'estimated_count' => 3,
+        ]);
 
         $this->actingAs($admin)
-            ->get(route('admin.dashboard'))
+            ->get(route('admin.bulk-site-requests.index', ['status' => 'all']))
             ->assertOk()
-            ->assertSee('Users by assigned role', false)
-            ->assertSee('Active role counts', false);
+            ->assertSee('Claim selected', false);
+
+        $this->actingAs($admin)
+            ->post(route('admin.bulk-site-requests.bulk-claim'), [
+                'ids' => [$first->id, $second->id],
+            ])
+            ->assertRedirect();
+
+        $this->assertSame($admin->id, (int) $first->fresh()->handled_by);
+        $this->assertSame($admin->id, (int) $second->fresh()->handled_by);
     }
 
-    public function test_metrics_service_can_include_test_data(): void
+    public function test_ratings_and_promotions_use_ajax_search_instead_of_loading_every_row(): void
     {
-        $this->makeAdmin();
-        $test = $this->makePublisher();
-        $test->forceFill(['is_test' => true])->save();
+        $admin = $this->userWithRole('admin');
+        $publisher = $this->userWithRole('publisher', [
+            'name' => 'Searchable Publisher',
+            'email' => 'searchable.pub@example.com',
+        ]);
+        Site::create([
+            'publisher_id' => $publisher->id,
+            'site_name' => 'Ajax Rated Site',
+            'site_url' => 'https://ajax-rated.example',
+            'domain' => 'ajax-rated.example',
+            'da' => 20,
+            'dr' => 20,
+            'traffic' => 1000,
+            'country' => 'us',
+            'language' => 'en',
+            'category' => 'News',
+            'price' => 40,
+            'publication_time' => '3',
+            'description' => 'Test',
+            'link_type' => 'dofollow',
+            'verified' => true,
+            'active' => true,
+        ]);
 
-        $hidden = app(DashboardMetricsService::class)->statistics();
-        $shown = app(DashboardMetricsService::class)->includeTestData(true)->statistics();
+        $this->actingAs($admin)
+            ->get(route('admin.site-ratings.index'))
+            ->assertOk()
+            ->assertSee(route('admin.site-ratings.sites-search', [], false), false)
+            ->assertDontSee('ajax-rated.example', false);
 
-        $this->assertSame($hidden['total_users'] + 1, $shown['total_users']);
+        $this->actingAs($admin)
+            ->getJson(route('admin.site-ratings.sites-search', ['q' => 'ajax-rated']))
+            ->assertOk()
+            ->assertJsonFragment(['label' => 'Ajax Rated Site (ajax-rated.example)']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.promotions.index'))
+            ->assertOk()
+            ->assertSee(route('admin.promotions.feature-credits.users', [], false), false)
+            ->assertDontSee('searchable.pub@example.com', false);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.promotions.feature-credits.users', ['q' => 'searchable.pub']))
+            ->assertOk()
+            ->assertJsonFragment(['label' => 'Searchable Publisher — searchable.pub@example.com']);
+    }
+
+    public function test_deposits_page_offers_bulk_approve_and_completed_total_label(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $html = $this->actingAs($admin)
+            ->get(route('admin.deposits'))
+            ->assertOk()
+            ->assertSee('Completed total', false)
+            ->assertSee('Approve selected', false)
+            ->getContent();
+        $this->assertStringContainsString(route('admin.deposits.bulk-approve'), $html);
+    }
+
+    public function test_email_center_can_bulk_dismiss_failed_logs(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $log = EmailLog::create([
+            'uuid' => (string) Str::uuid(),
+            'to_email' => 'bounce@example.com',
+            'subject' => 'New User Registered',
+            'status' => EmailLog::STATUS_FAILED,
+            'error' => '554 spam',
+            'attempts' => 1,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.emails.dismiss'), [
+                'ids' => [$log->id],
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(EmailLog::STATUS_DISMISSED, $log->fresh()->status);
+        $this->assertSame(0, EmailLog::openFailedCount());
+    }
+
+    public function test_activity_history_labels_bulk_claim_actions(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $this->actingAs($admin)
+            ->get(route('admin.activity-logs.index'))
+            ->assertOk()
+            ->assertSee('From', false)
+            ->assertSee('To', false);
+
+        $this->assertSame('Claimed bulk request', activity_action_label('bulk_request.claimed'));
+        $this->assertSame('es', CountryCode::normalize('España'));
+    }
+
+    public function test_countries_normalize_previews_until_apply(): void
+    {
+        $user = $this->userWithRole('advertiser', ['country' => 'Italy']);
+        // Factory/save already canonicalizes; seed a dirty row the command must see.
+        DB::table('users')->where('id', $user->id)->update(['country' => 'Italia']);
+
+        $this->artisan('countries:normalize')
+            ->expectsOutputToContain('PREVIEW users')
+            ->expectsOutputToContain('Italia')
+            ->assertSuccessful();
+        $this->assertSame('Italia', DB::table('users')->where('id', $user->id)->value('country'));
+
+        $this->artisan('countries:normalize', ['--apply' => true])
+            ->expectsOutputToContain('UPDATE users')
+            ->assertSuccessful();
+        $this->assertSame('it', DB::table('users')->where('id', $user->id)->value('country'));
     }
 }

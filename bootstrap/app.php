@@ -322,5 +322,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyMinute()
             ->withoutOverlapping(5)
             ->runInBackground();
+
+        $schedule->command('emails:send-admin-signup-digest')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping();
     })
     ->create();

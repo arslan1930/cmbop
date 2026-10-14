@@ -959,6 +959,54 @@ class ContentLibraryController extends Controller
         return $this->runBulk($request, 'retry', 'Re-evaluated %d article(s).');
     }
 
+    public function rescoreNeedsFix(Request $request): RedirectResponse
+    {
+        try {
+            $query = ContentSubmission::query()->orderBy('id');
+            if ($this->schemaColumnAvailable('content_submissions', 'archived_at')) {
+                $query->whereNull('archived_at');
+            }
+            $query->whereIn('moderation_status', [
+                ContentSubmission::STATUS_REJECTED,
+                ContentSubmission::STATUS_ERROR,
+                ContentSubmission::STATUS_NEEDS_IMPROVEMENT,
+            ]);
+            if ($this->schemaColumnAvailable('content_submissions', 'quality_score')) {
+                $query->where(function ($inner) {
+                    $inner->whereNull('quality_score')->orWhere('quality_score', 0);
+                })->where(function ($inner) {
+                    $inner->whereNull('uniqueness_score')->orWhere('uniqueness_score', 0);
+                });
+            }
+            $rows = $query->limit(50)->get();
+        } catch (\Throwable $e) {
+            return back()->with('error', UserFacingError::message($e, 'Could not load articles to rescore.'));
+        }
+
+        $done = 0;
+        $skipped = 0;
+        foreach ($rows as $submission) {
+            try {
+                $this->staffActions->retry($submission);
+                $done++;
+            } catch (\Throwable) {
+                $skipped++;
+            }
+        }
+
+        ActivityLogger::tryLog(
+            'content.rescore_needs_fix',
+            (auth()->user()?->name ?? 'Admin').' re-scored '.$done.' needs-corrections article(s)',
+            null,
+            ['count' => $done, 'skipped' => $skipped]
+        );
+
+        return back()->with(
+            'success',
+            'Re-scored '.$done.' article(s) with 0% quality/uniqueness.'.($skipped > 0 ? ' Skipped '.$skipped.' (missing file or locked).' : '')
+        );
+    }
+
     public function bulkArchive(Request $request): RedirectResponse
     {
         return $this->runBulk($request, 'archive', 'Archived %d article(s).');

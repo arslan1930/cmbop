@@ -1249,6 +1249,8 @@ $registerStaffOpsRoutes = function () {
 
     Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
         ->name('bulk-site-requests.index');
+    Route::post('/bulk-site-requests/bulk-claim', [AdminBulkSiteRequestController::class, 'bulkClaim'])
+        ->name('bulk-site-requests.bulk-claim');
     Route::get('/bulk-site-requests/{id}', [AdminBulkSiteRequestController::class, 'show'])
         ->name('bulk-site-requests.show');
     Route::post('/bulk-site-requests/{id}/sheet-sent', [AdminBulkSiteRequestController::class, 'markSheetSent'])
@@ -1354,6 +1356,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
 
         Route::get('/site-ratings', [SiteRatingController::class, 'index'])
             ->name('site-ratings.index');
+        Route::get('/site-ratings/sites-search', [SiteRatingController::class, 'searchSites'])
+            ->middleware('throttle:30,1')
+            ->name('site-ratings.sites-search');
         Route::post('/site-ratings', [SiteRatingController::class, 'store'])
             ->name('site-ratings.store');
         Route::put('/site-ratings/{id}', [SiteRatingController::class, 'update'])
@@ -1414,6 +1419,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
 
         Route::get('/users', [UserController::class, 'index'])
             ->name('users.index');
+        Route::get('/users/export', [UserController::class, 'export'])
+            ->name('users.export');
         Route::get('/users/{user}', [UserController::class, 'show'])
             ->name('users.show');
         Route::post('/users/{user}/suspend', [UserController::class, 'suspend'])
@@ -1468,6 +1475,7 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::get('/deposits', [AdminDepositController::class, 'index'])->name('deposits');
         Route::get('/deposits/export', [AdminDepositController::class, 'export'])->name('deposits.export');
         Route::get('/deposits/{id}', [AdminDepositController::class, 'show'])->name('deposits.show');
+        Route::post('/deposits/bulk-approve', [AdminDepositController::class, 'bulkApprove'])->name('deposits.bulk-approve');
         Route::post('/deposits/{id}/approve', [AdminDepositController::class, 'approve'])->name('deposits.approve');
         Route::post('/deposits/{id}/reject', [AdminDepositController::class, 'reject'])->name('deposits.reject');
         Route::post('/deposits/{id}/paypal-refund', [AdminDepositController::class, 'refundPaypal'])->name('deposits.paypal-refund');
@@ -1514,6 +1522,7 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->middleware('throttle:5,1')
             ->name('emails.test');
         Route::post('/emails/retry', [AdminEmailCenterController::class, 'retryFailed'])->name('emails.retry');
+        Route::post('/emails/dismiss', [AdminEmailCenterController::class, 'dismissFailed'])->name('emails.dismiss');
         Route::post('/emails/settings', [AdminEmailCenterController::class, 'updateSettings'])->name('emails.settings');
 
         Route::post('/promotions/welcome-bonus', [AdminWelcomeBonusSettingController::class, 'toggle'])
@@ -1522,6 +1531,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('promotions.welcome-bonus.amount');
         Route::post('/promotions/feature-offers', [AdminPromotionController::class, 'updateFeatureOffers'])
             ->name('promotions.feature-offers.update');
+        Route::get('/promotions/feature-credit-users', [AdminPromotionController::class, 'searchFeatureCreditUsers'])
+            ->middleware('throttle:30,1')
+            ->name('promotions.feature-credits.users');
         Route::get('/promotions/feature-credit-sites', [AdminPromotionController::class, 'featureCreditSites'])
             ->name('promotions.feature-credits.sites');
         Route::post('/promotions/feature-credits', [AdminPromotionController::class, 'grantFeatureCredit'])
@@ -1568,6 +1580,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/moderation/test-scan', [AdminContentModerationController::class, 'testScan'])
             ->middleware('throttle:20,1')
             ->name('moderation.test-scan');
+        Route::post('/moderation/scan-all', [AdminContentModerationController::class, 'scanAll'])
+            ->middleware('throttle:5,1')
+            ->name('moderation.scan-all');
         Route::get('/moderation/logs/{log}', [AdminContentModerationController::class, 'show'])->name('moderation.show');
         Route::post('/moderation/logs/{log}/override', [AdminContentModerationController::class, 'override'])->name('moderation.override');
         Route::post('/moderation/logs/{log}/revert', [AdminContentModerationController::class, 'revert'])->name('moderation.revert');
@@ -1581,6 +1596,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/content-library/bulk-retry', [AdminContentLibraryController::class, 'bulkRetry'])
             ->middleware('throttle:10,1')
             ->name('content-library.bulk-retry');
+        Route::post('/content-library/rescore-needs-fix', [AdminContentLibraryController::class, 'rescoreNeedsFix'])
+            ->middleware('throttle:10,1')
+            ->name('content-library.rescore-needs-fix');
         Route::post('/content-library/bulk-archive', [AdminContentLibraryController::class, 'bulkArchive'])
             ->middleware('throttle:10,1')
             ->name('content-library.bulk-archive');
