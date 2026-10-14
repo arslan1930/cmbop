@@ -103,6 +103,13 @@ class AddFundsUiGuardTest extends TestCase
         $this->assertStringContainsString('Select an amount', $js);
         $this->assertStringContainsString('n >= depositMin && n <= depositMax', $js);
         $this->assertDoesNotMatchRegularExpression("/formatted = '€' \\+ \\(amt \\|\\| 0\\)\\.toFixed/", $js);
+        $this->assertStringNotContainsString('id="summaryAmount" class="fw-semibold">€0.00', $view);
+        $this->assertStringNotContainsString('id="summaryTotal">€0.00', $view);
+        $this->assertStringContainsString('$zeroDisplay', $view);
+        $this->assertStringContainsString('formatPickedAmount', $js);
+        $this->assertStringContainsString('updateSummary(selectedLocal || 0)', $js);
+        $this->assertStringContainsString('Postal code may contain letters, numbers, spaces and hyphens', $js);
+        $this->assertStringContainsString('<select name="country"', $view);
         $this->assertStringContainsString('applyPrefill();', $js);
         $this->assertStringContainsString('stampServerReference(referenceCode)', $js);
         $this->assertStringContainsString("'Accept': 'application/json'", $js);

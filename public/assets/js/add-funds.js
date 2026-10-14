@@ -619,7 +619,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Custom amount: allow mid-typing (e.g. "1" while entering "100").
-    // Enforce the €10 minimum on blur and when proceeding — not on every keystroke.
+    // Enforce the display-currency minimum on blur and when proceeding — not on every keystroke.
     if (customAmountInput) {
     customAmountInput.addEventListener('keydown', function (e) {
         if (['e', 'E', '+', '-', 'Subtract', 'Add'].includes(e.key)) {
@@ -708,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSummary(selectedLocal);
 
         document.querySelectorAll('.amount-display').forEach(el => {
-            el.innerText = Number(selectedAmount).toFixed(2);
+            el.innerText = Number(selectedLocal).toFixed(2);
         });
         document.querySelectorAll('.amount-link').forEach(el => {
             el.innerText = selectedAmount;
@@ -718,10 +718,12 @@ document.addEventListener('DOMContentLoaded', function() {
             syncWiseQr(selectedAmount);
         }
 
+        const wiseAmount = document.getElementById('wiseAmount');
         const cryptoAmount = document.getElementById('cryptoAmount');
         const bankAmount = document.getElementById('bankAmount');
-        if (cryptoAmount) cryptoAmount.innerHTML = formatEuro(selectedAmount);
-        if (bankAmount) bankAmount.innerHTML = formatEuro(selectedAmount);
+        if (wiseAmount) wiseAmount.textContent = formatPickedAmount(selectedLocal);
+        if (cryptoAmount) cryptoAmount.textContent = formatEuro(selectedAmount);
+        if (bankAmount) bankAmount.textContent = formatEuro(selectedAmount);
         syncBankSendLabel(selectedAmount);
         syncUsdBankSend(selectedAmount);
     }
@@ -963,6 +965,12 @@ document.addEventListener('DOMContentLoaded', function() {
             Swal.fire('Error', 'Please fill in all required fields (including company name)', 'error');
             return;
         }
+        const postal = String(formData.postal_code || '').trim();
+        if (!/^(?=.*[A-Za-z0-9])[A-Za-z0-9 \-]{2,10}$/.test(postal)) {
+            Swal.fire('Error', 'Postal code may contain letters, numbers, spaces and hyphens (2–10 characters).', 'error');
+            return;
+        }
+        formData.postal_code = postal.toUpperCase();
         
         fetch(boot.routes.saveBilling, {
             method: 'POST',
@@ -1181,6 +1189,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     applyPrefill();
+    if (typeof updateSummary === 'function') updateSummary(selectedLocal || 0);
     if (typeof stampServerReference === 'function') stampServerReference(referenceCode);
     if (typeof syncProceedLabel === 'function') syncProceedLabel();
 
@@ -1263,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.markDepositPaid = function markDepositPaid(url, opts = {}) {
         const ref = opts.ref || 'this invoice';
-        const amount = opts.amount ? ('€' + opts.amount) : 'the amount';
+        const amount = opts.amount ? formatEuro(opts.amount) : 'the amount';
 
         return Swal.fire({
             title: 'Confirm payment sent?',

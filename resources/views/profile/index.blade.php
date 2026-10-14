@@ -247,9 +247,10 @@
                             </div>
 
                             <div class="col-md-4 form-group">
-                                <label>Country</label>
-                                <input type="text" name="country" class="form-control form-control-sm"
-                                       value="{{ old_text('country', auth()->user()->country) }}" autocomplete="country">
+                                <label for="billing_country">Country</label>
+                                <select name="country" id="billing_country" class="form-select form-select-sm" autocomplete="country">
+                                    @include('partials.signup-country-options', ['selectedCountry' => old('country', auth()->user()->country)])
+                                </select>
                                 @error('country')
                                     <div class="text-danger fs-xs mt-1">{{ $message }}</div>
                                 @enderror
@@ -271,9 +272,11 @@
                                 @enderror
                             </div>
                             <div class="col-md-4 form-group">
-                                <label>Postal Code</label>
-                                <input type="text" name="postal_code" class="form-control form-control-sm"
-                                       value="{{ old_text('postal_code', auth()->user()->postal_code) }}" autocomplete="postal-code">
+                                <label for="billing_postal_code">Postal Code</label>
+                                <input type="text" name="postal_code" id="billing_postal_code" class="form-control form-control-sm"
+                                       value="{{ old_text('postal_code', auth()->user()->postal_code) }}" autocomplete="postal-code"
+                                       maxlength="10" pattern="[A-Za-z0-9][A-Za-z0-9 \-]{0,8}[A-Za-z0-9]"
+                                       title="{{ \App\Support\PostalCode::MESSAGE }}">
                                 @error('postal_code')
                                     <div class="text-danger fs-xs mt-1">{{ $message }}</div>
                                 @enderror
@@ -400,6 +403,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     setupFormStatus('formProfile', 'saveProfileStatus');
     setupFormStatus('formBilling', 'saveBillingStatus');
+
+    const billingForm = document.getElementById('formBilling');
+    const postalInput = document.getElementById('billing_postal_code');
+    function validPostalCode(raw) {
+        const s = String(raw || '').trim();
+        if (s === '') return true;
+        return /^(?=.*[A-Za-z0-9])[A-Za-z0-9 \-]{2,10}$/.test(s);
+    }
+    postalInput?.addEventListener('blur', function () {
+        this.value = String(this.value || '').trim().toUpperCase();
+        this.setCustomValidity(validPostalCode(this.value) ? '' : 'Postal code may contain letters, numbers, spaces and hyphens (2–10 characters).');
+    });
+    billingForm?.addEventListener('submit', function (e) {
+        if (postalInput) {
+            postalInput.value = String(postalInput.value || '').trim().toUpperCase();
+            postalInput.setCustomValidity(validPostalCode(postalInput.value) ? '' : 'Postal code may contain letters, numbers, spaces and hyphens (2–10 characters).');
+            if (!postalInput.checkValidity()) {
+                e.preventDefault();
+                postalInput.reportValidity();
+            }
+        }
+    });
 
     // ── Auto-dismiss flash messages ──
     const flashMsgs = document.querySelectorAll('.alert');

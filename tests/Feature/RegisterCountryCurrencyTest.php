@@ -41,6 +41,8 @@ class RegisterCountryCurrencyTest extends TestCase
         $html = $this->get(route('register'))->assertOk()->getContent();
 
         $this->assertStringContainsString('name="country"', $html);
+        $this->assertStringContainsString('js-slb-search-select', $html);
+        $this->assertStringContainsString('searchable-select.js', $html);
         $this->assertStringContainsString('value="uk" selected', $html);
         $this->assertStringContainsString('Your account currency: £ GBP', $html);
         $this->assertStringNotContainsString('you can change it anytime', $html);
@@ -154,7 +156,9 @@ class RegisterCountryCurrencyTest extends TestCase
             ->assertOk()
             ->assertSee('Finish your Google account', false)
             ->assertSee('Country', false)
-            ->assertSee('Your account currency:', false);
+            ->assertSee('Your account currency:', false)
+            ->assertSee('js-slb-search-select', false)
+            ->assertSee('searchable-select.js', false);
 
         $this->post(route('auth.google.complete.store'), [
             'role' => 'advertiser',

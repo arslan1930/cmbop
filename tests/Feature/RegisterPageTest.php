@@ -38,7 +38,21 @@ class RegisterPageTest extends TestCase
             ->assertSee('Free to start — no card required', false)
             ->assertSee('const welcomeBonusEnabled = false', false)
             ->assertSee('Country', false)
-            ->assertSee('Your account currency:', false);
+            ->assertSee('Your account currency:', false)
+            ->assertSee('js-slb-search-select', false)
+            ->assertSee('searchable-select.js', false)
+            ->assertSee('name="country"', false)
+            ->assertSee('required', false);
+
+        $css = (string) file_get_contents(public_path('assets/css/auth-pages.css'));
+        $this->assertStringContainsString('.slb-search-select__list', $css);
+        $this->assertStringContainsString('max-height: 280px', $css);
+        $this->assertStringContainsString('--auth-teal', $css);
+
+        $js = (string) file_get_contents(public_path('assets/js/searchable-select.js'));
+        $this->assertStringContainsString('js-slb-search-select', $js);
+        $this->assertStringContainsString("select.dispatchEvent(new Event('change'", $js);
+        $this->assertStringContainsString("toggle.setAttribute('aria-required', 'true')", $js);
     }
 
     public function test_register_page_defines_role_benefits_helper_before_use(): void

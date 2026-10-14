@@ -29,6 +29,8 @@ use App\Support\Money;
 use App\Support\MoneyDisplay;
 use App\Support\PaypalPaymentError;
 use App\Support\PlatformCharge;
+use App\Support\PostalCode;
+use App\Support\SignupCountry;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Endroid\QrCode\Builder\Builder;
@@ -1221,16 +1223,23 @@ class AddFundsController extends Controller
         try {
             $user = auth()->user();
 
-            $request->validate([
+            $request->merge([
+                'country' => SignupCountry::incoming($request->input('country')) ?: null,
+                'postal_code' => PostalCode::normalize($request->input('postal_code')),
+            ]);
+
+            $request->validate(array_merge([
                 'billing_name' => 'required|string|max:255',
                 'company_name' => 'required|string|max:255',
-                'country' => 'required|string|max:255',
+                'country' => SignupCountry::countryRules(),
                 'city' => 'required|string|max:255',
                 'address' => 'required|string',
                 'state' => 'nullable|string|max:255',
-                'postal_code' => 'nullable|string|max:64',
+                'postal_code' => PostalCode::rules(true),
                 'vat_number' => 'nullable|string|max:64',
-            ]);
+            ]), array_merge([
+                'country.in' => 'Please choose a country from the list.',
+            ], PostalCode::messages()));
 
             // Update user billing info directly on users table
             $billing = [

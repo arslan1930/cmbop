@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Mail\PasswordChangedMail;
+use App\Support\PostalCode;
+use App\Support\SignupCountry;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class ProfileController extends Controller
@@ -113,26 +116,29 @@ class ProfileController extends Controller
 
     public function billing(Request $request)
     {
-        $request->validate([
+        $request->merge([
+            'country' => SignupCountry::incoming($request->input('country')) ?: null,
+            'postal_code' => PostalCode::normalize($request->input('postal_code')),
+        ]);
+
+        $request->validate(array_merge([
             'billing_name' => 'nullable|string|max:255',
             'company_name' => 'nullable|string|max:255',
-            'country' => 'nullable|string|max:255',
+            'country' => ['nullable', 'string', Rule::in(SignupCountry::codes())],
             'state' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:255',
-            'postal_code' => ['nullable', 'regex:/^[0-9]+$/', 'max:20'],
+            'postal_code' => PostalCode::rules(),
             'vat_number' => 'nullable|string|max:100',
-        ], [
+        ]), array_merge([
             'billing_name.max' => 'Billing name cannot exceed 255 characters.',
             'company_name.max' => 'Company name cannot exceed 255 characters.',
-            'country.max' => 'Country cannot exceed 255 characters.',
+            'country.in' => 'Please choose a country from the list.',
             'state.max' => 'State cannot exceed 255 characters.',
             'city.max' => 'City cannot exceed 255 characters.',
             'address.max' => 'Address cannot exceed 255 characters.',
-            'postal_code.regex' => 'Postal code can only contain numbers.',
-            'postal_code.max' => 'Postal code cannot exceed 20 characters.',
             'vat_number.max' => 'VAT number cannot exceed 100 characters.',
-        ]);
+        ], PostalCode::messages()));
 
         $user = auth()->user();
 

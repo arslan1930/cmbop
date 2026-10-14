@@ -25,6 +25,9 @@
     $reservedHold = (float) ($summary['reserved_balance'] ?? 0);
     $depositMin = \App\Support\DepositPaymentConfig::depositMin();
     $depositMax = \App\Support\DepositPaymentConfig::depositMax();
+    $displaySymbol = \App\Support\Money::symbol();
+    $displayCurrency = \App\Support\Money::currency();
+    $zeroDisplay = $displaySymbol.'0.00';
 @endphp
 
 
@@ -226,7 +229,7 @@
                     <div class="af-mobile-summary d-lg-none mb-4" id="afMobileSummary">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted">Total</span>
-                            <strong id="afMobileTotal">€0.00</strong>
+                            <strong id="afMobileTotal">{{ $zeroDisplay }}</strong>
                         </div>
                         <button type="button" id="afMobileProceed" class="btn btn-primary w-100 py-2" disabled>
                             <i class="fa fa-arrow-right me-2"></i> Select an amount
@@ -237,7 +240,7 @@
                     <div id="selectedAmountDisplay" class="alert alert-info py-2 px-3 mb-4" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center">
                             <span>Amount to add:</span>
-                            <strong id="selectedAmountValue" class="fs-5 text-primary">€0</strong>
+                            <strong id="selectedAmountValue" class="fs-5 text-primary">{{ $zeroDisplay }}</strong>
                         </div>
                     </div>
 
@@ -392,7 +395,7 @@
                                 </div>
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
-                                    <p style="font-size: 14px; color: #6b7280; margin-bottom: 12px;">Send <strong id="wiseAmount" style="color: #1f2937;">€<span class="amount-display">0</span></strong> using the link or QR code below:</p>
+                                    <p style="font-size: 14px; color: #6b7280; margin-bottom: 12px;">Send <strong id="wiseAmount" style="color: #1f2937;">{{ $zeroDisplay }}</strong> using the link or QR code below:</p>
                                     
                                     <div style="margin-bottom: 16px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Wise Payment Link</p>
@@ -450,9 +453,9 @@
                                         @if(!empty($cryptoNote))
                                             <small>{{ $cryptoNote }}</small>
                                         @else
-                                            <small>Send the USDT TRC20 equivalent of the invoice amount in EUR.</small>
+                                            <small>Send the USDT TRC20 equivalent of the invoice amount in {{ $displayCurrency }}.</small>
                                         @endif
-                                        <div class="mt-1">Invoice amount: <strong id="cryptoAmount">€<span class="amount-display">0</span></strong></div>
+                                        <div class="mt-1">Invoice amount: <strong id="cryptoAmount">{{ $zeroDisplay }}</strong></div>
                                     </div>
                                     @foreach(($cryptoNetworks ?? []) as $network)
                                         <div style="margin-bottom: 12px;">
@@ -485,7 +488,7 @@
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
                                     <div class="alert alert-warning mb-3">
-                                        <small>Please send the exact amount: <strong id="bankAmount">€<span class="amount-display">0</span></strong></small>
+                                        <small>Please send the exact amount: <strong id="bankAmount">{{ $zeroDisplay }}</strong></small>
                                     </div>
                                     <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--brand-primary, #1a585e);">Bank Account Information</h4>
                                     <div style="margin-bottom: 12px;">
@@ -575,12 +578,12 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted">Amount to Add:</span>
-                        <span id="summaryAmount" class="fw-semibold">€0.00</span>
+                        <span id="summaryAmount" class="fw-semibold">{{ $zeroDisplay }}</span>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-3">
                         <strong>Total:</strong>
-                        <strong class="text-primary fs-5" id="summaryTotal">€0.00</strong>
+                        <strong class="text-primary fs-5" id="summaryTotal">{{ $zeroDisplay }}</strong>
                     </div>
                     <div class="alert alert-secondary py-2 px-3 mb-3 d-none" id="referenceRow" style="background-color: #f8f9fa;">
                         <div class="d-flex justify-content-between align-items-center">
@@ -746,7 +749,7 @@
     </div>
 
     <div class="af-sticky-pay d-lg-none" id="afStickyPay" hidden>
-        <div class="af-sticky-pay__amount" id="afStickyAmount">€0.00</div>
+        <div class="af-sticky-pay__amount" id="afStickyAmount">{{ $zeroDisplay }}</div>
         <button type="button" class="btn btn-primary" id="afStickyProceed" disabled>
             Select an amount
         </button>
@@ -810,7 +813,7 @@
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold" for="withdrawAmount">Amount (€)</label>
+                                <label class="form-label fw-semibold" for="withdrawAmount">Amount ({{ $displaySymbol }})</label>
                                 <input type="number" name="amount" id="withdrawAmount" class="form-control" step="0.01" min="0.01" max="{{ $available }}" required autocomplete="transaction-amount" inputmode="decimal">
                             </div>
                             <div class="col-md-6">
@@ -1566,7 +1569,9 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="country">Country <span class="text-danger">*</span></label>
-                            <input type="text" name="country" id="country" class="form-control" required autocomplete="country-name">
+                            <select name="country" id="country" class="form-select" required autocomplete="country">
+                                @include('partials.signup-country-options', ['selectedCountry' => auth()->user()->country ?? ''])
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="state">State/Province <span class="text-danger">*</span></label>
@@ -1578,7 +1583,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="postal_code">Postal Code <span class="text-danger">*</span></label>
-                            <input type="text" name="postal_code" id="postal_code" class="form-control" required autocomplete="postal-code">
+                            <input type="text" name="postal_code" id="postal_code" class="form-control" required autocomplete="postal-code" maxlength="10" pattern="[A-Za-z0-9][A-Za-z0-9 \-]{0,8}[A-Za-z0-9]" title="{{ \App\Support\PostalCode::MESSAGE }}">
                         </div>
                         <div class="col-12">
                             <label class="form-label" for="address">Address <span class="text-danger">*</span></label>

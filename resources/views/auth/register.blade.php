@@ -255,6 +255,7 @@
 {{-- Toast Container --}}
 <div class="slb-toast-stack" id="toastContainer"></div>
 
+<script src="{{ asset('assets/js/searchable-select.js') }}?v={{ @filemtime(public_path('assets/js/searchable-select.js')) ?: '1' }}"></script>
 <script>
 function togglePassword(id, iconSpan){
     const input = document.getElementById(id);
