@@ -488,7 +488,7 @@ document.querySelectorAll('#roleSelect .role-card').forEach(card=>{
     function refreshCurrencyPreview() {
         if (!currencyPreview) return;
         const chosen = currencyForCountry(countrySelect?.value);
-        currencyPreview.textContent = 'Your account currency: ' + chosen.symbol + ' ' + chosen.currency + ', you can change it anytime';
+        currencyPreview.textContent = 'Your account currency: ' + chosen.symbol + ' ' + chosen.currency;
     }
     if (countrySelect) {
         countrySelect.addEventListener('change', refreshCurrencyPreview);

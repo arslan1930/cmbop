@@ -33,18 +33,17 @@ return [
     |--------------------------------------------------------------------------
     */
     'deposit_payment' => [
-        'seller_name' => env('BILLING_DEPOSIT_SELLER_NAME') ?: 'Teqno LTD',
-        'beneficiary' => env('BILLING_DEPOSIT_BENEFICIARY') ?: 'Teqno LTD',
+        'seller_name' => env('BILLING_DEPOSIT_SELLER_NAME') ?: 'Teqno Ltd',
+        'beneficiary' => env('BILLING_DEPOSIT_BENEFICIARY') ?: 'Teqno Ltd',
         'bic' => env('BILLING_DEPOSIT_BIC') ?: 'TRWIGB2LXXX',
         'iban' => env('BILLING_DEPOSIT_IBAN') ?: 'GB30 TRWI 2308 0132 9321 94',
-        // Dedicated EUR (SEPA) rail. Defaults match the current Wise IBAN/BIC
-        // until a real EUR account is supplied — do not invent a new value.
-        'eur_bic' => env('BILLING_DEPOSIT_EUR_BIC') ?: env('BILLING_DEPOSIT_BIC') ?: 'TRWIGB2LXXX',
-        'eur_iban' => env('BILLING_DEPOSIT_EUR_IBAN') ?: env('BILLING_DEPOSIT_IBAN') ?: 'GB30 TRWI 2308 0132 9321 94',
+        // Dedicated Wise EUR (SEPA) rail. Independent of the GBP IBAN/BIC.
+        'eur_bic' => env('BILLING_DEPOSIT_EUR_BIC') ?: 'TRWIBEB1XXX',
+        'eur_iban' => env('BILLING_DEPOSIT_EUR_IBAN') ?: 'BE40 9059 9538 0863',
         'uk_account_number' => env('BILLING_DEPOSIT_UK_ACCOUNT') ?: '32932194',
         'uk_sort_code' => env('BILLING_DEPOSIT_UK_SORT') ?: '23-08-01',
         'uk_transfer_note' => env('BILLING_DEPOSIT_UK_NOTE') ?: 'Use this GBP account when sending pounds from a UK bank',
-        'intl_transfer_note' => env('BILLING_DEPOSIT_INTL_NOTE') ?: 'Use this EUR account when sending euros, including from outside the UK',
+        'intl_transfer_note' => env('BILLING_DEPOSIT_INTL_NOTE') ?: 'SEPA payers need only the IBAN.',
         'phone' => env('BILLING_DEPOSIT_PHONE') ?: '+447445152374',
         'address_lines' => array_values(array_filter([
             env('BILLING_DEPOSIT_ADDRESS_LINE1') ?: '20 Wenlock Road, London, England, N1 7GU',

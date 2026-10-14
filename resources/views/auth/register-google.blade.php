@@ -18,7 +18,7 @@
                 <div class="auth-card">
                     <div class="auth-form-col p-4 p-md-5">
                         <h2 class="auth-form-title">Finish your Google account</h2>
-                        <p class="auth-form-sub">We still need your country so we can set the right account currency. You can change the currency anytime from the header.</p>
+                        <p class="auth-form-sub">We still need your country so we can set the right account currency.</p>
 
                         @if($pendingName !== '' || $pendingEmail !== '')
                             <p class="small text-muted mb-3">
@@ -98,7 +98,7 @@ document.querySelectorAll('#roleSelect .role-card').forEach(card => {
     function refreshCurrencyPreview() {
         if (!currencyPreview) return;
         const chosen = currencyForCountry(countrySelect?.value);
-        currencyPreview.textContent = 'Your account currency: ' + chosen.symbol + ' ' + chosen.currency + ', you can change it anytime';
+        currencyPreview.textContent = 'Your account currency: ' + chosen.symbol + ' ' + chosen.currency;
     }
     if (countrySelect) {
         countrySelect.addEventListener('change', refreshCurrencyPreview);

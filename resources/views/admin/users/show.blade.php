@@ -81,7 +81,9 @@
                                 <button type="button"
                                         class="btn btn-sm btn-link text-primary p-0 ms-2 btn-edit-display-currency"
                                         data-id="{{ $user->id }}"
-                                        data-currency="{{ in_array(strtoupper((string) ($user->display_currency ?? '')), ['EUR', 'GBP', 'USD'], true) ? strtoupper((string) $user->display_currency) : 'EUR' }}">
+                                        data-currency="{{ in_array(strtoupper((string) ($user->display_currency ?? '')), ['EUR', 'GBP', 'USD'], true) ? strtoupper((string) $user->display_currency) : 'EUR' }}"
+                                        data-has-risk="{{ !empty($currencyChangeRisk['warning']) ? '1' : '0' }}"
+                                        data-warning="{{ $currencyChangeRisk['message'] ?? '' }}">
                                     Edit
                                 </button>
                                 <div class="small text-muted">Labels only. Wallet and charges stay EUR.</div>
@@ -567,20 +569,33 @@ document.addEventListener('click', function (e) {
     if (currencyBtn) {
         const id = currencyBtn.dataset.id;
         const current = currencyBtn.dataset.currency || 'EUR';
+        const warning = currencyBtn.dataset.warning || '';
+        const hasRisk = currencyBtn.dataset.hasRisk === '1';
         const span = document.querySelector('.display-currency-text[data-id="'+id+'"]');
         Swal.fire({
             title: 'Display currency',
             html: `<p class="text-muted small mb-2">On the user's request. Labels only — wallet stays EUR.</p>
+                ${hasRisk && warning ? `<div class="alert alert-warning text-start py-2 px-3 mb-3">${escapeHtml(warning)}</div>` : ''}
                 <select id="adminDisplayCurrency" class="form-select">
                     <option value="EUR" ${current === 'EUR' ? 'selected' : ''}>€ EUR</option>
                     <option value="GBP" ${current === 'GBP' ? 'selected' : ''}>£ GBP</option>
                     <option value="USD" ${current === 'USD' ? 'selected' : ''}>$ USD</option>
-                </select>`,
+                </select>
+                <label class="form-label small mt-3 mb-1" for="adminDisplayCurrencyReason">Reason</label>
+                <textarea id="adminDisplayCurrencyReason" class="form-control" rows="2" maxlength="500" placeholder="Why this change is being made"></textarea>`,
             showCancelButton: true,
             confirmButtonText: 'Update',
-            preConfirm: () => document.getElementById('adminDisplayCurrency')?.value || 'EUR'
+            preConfirm: () => {
+                const currency = document.getElementById('adminDisplayCurrency')?.value || 'EUR';
+                const reason = (document.getElementById('adminDisplayCurrencyReason')?.value || '').trim();
+                if (reason.length < 5) {
+                    Swal.showValidationError('Please enter a reason (at least 5 characters).');
+                    return false;
+                }
+                return { currency, reason };
+            }
         }).then((result) => {
-            if (!result.isConfirmed) return;
+            if (!result.isConfirmed || !result.value) return;
             fetch(displayCurrencyUpdateUrl(id), {
                 method: 'POST',
                 headers: {
@@ -590,13 +605,13 @@ document.addEventListener('click', function (e) {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({ display_currency: result.value })
+                body: JSON.stringify({ display_currency: result.value.currency, reason: result.value.reason })
             }).then(async (res) => {
                 let data = null;
                 try { data = await res.json(); } catch (err) { data = null; }
                 if (res.ok && data && data.success) {
-                    if (span) span.innerText = data.display_currency || result.value;
-                    if (currencyBtn) currencyBtn.dataset.currency = data.display_currency || result.value;
+                    if (span) span.innerText = data.display_currency || result.value.currency;
+                    if (currencyBtn) currencyBtn.dataset.currency = data.display_currency || result.value.currency;
                     Swal.fire('Updated!', data.message || '', 'success');
                 } else {
                     Swal.fire('Error!', (data && data.message) || 'Update failed', 'error');

@@ -123,13 +123,27 @@ class AddFundsPageUxTest extends TestCase
     {
         $html = $this->addFundsHtml();
 
-        $this->assertStringContainsString('GBP account — send pounds from a UK bank', $html);
-        $this->assertStringContainsString('EUR account — send euros (SEPA / from outside the UK)', $html);
-        $this->assertStringContainsString('Use this GBP account when sending pounds from a UK bank', $html);
-        $this->assertStringContainsString('Use this EUR account when sending euros, including from outside the UK', $html);
-        $this->assertSame(1, substr_count($html, 'Use this EUR account when sending euros, including from outside the UK'));
+        $this->assertStringContainsString('EUR account', $html);
+        $this->assertStringContainsString('SEPA payers need only the IBAN.', $html);
+        $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $html);
+        $this->assertSame(1, substr_count($html, 'SEPA payers need only the IBAN.'));
+        $this->assertStringNotContainsString('GBP account — send pounds from a UK bank', $html);
+        $this->assertStringNotContainsString('Use this GBP account when sending pounds from a UK bank', $html);
         $this->assertStringNotContainsString('GBP · From the UK', $html);
         $this->assertStringNotContainsString('Phone no:', $html);
+        $this->assertStringNotContainsString('23-08-01', $html);
+        $this->assertStringNotContainsString('32932194', $html);
+
+        $gbp = $this->advertiser();
+        $gbp->country = 'GB';
+        $gbp->display_currency = 'GBP';
+        $gbp->save();
+        $gbpHtml = $this->addFundsHtml($gbp);
+        $this->assertStringContainsString('GBP account — send pounds from a UK bank', $gbpHtml);
+        $this->assertStringContainsString('Use this GBP account when sending pounds from a UK bank', $gbpHtml);
+        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $gbpHtml);
+        $this->assertStringNotContainsString('BE40 9059 9538 0863', $gbpHtml);
+        $this->assertStringNotContainsString('TRWIBEB1XXX', $gbpHtml);
     }
 
     public function test_recently_used_ignores_pending_invoices(): void
@@ -165,9 +179,9 @@ class AddFundsPageUxTest extends TestCase
         ]);
         $html = $this->addFundsHtml();
 
-        $this->assertStringContainsString('Teqno LTD (operator of SEOLinkBuildings)', $html);
+        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $html);
         $this->assertStringNotContainsString('SEOLinkBuildings Partners with (Teqno LTD)', $html);
-        $this->assertStringNotContainsString('Teqno Ltd', $html);
+        $this->assertStringNotContainsString('Teqno LTD (operator of SEOLinkBuildings)', $html);
     }
 
     public function test_chat_and_mobile_layout_hooks(): void

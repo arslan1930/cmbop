@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Mail\DepositRequestSubmitted;
 use App\Models\DepositRequest;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Support\AccountCurrency;
 use App\Support\DepositFx;
 use App\Support\DepositPaymentConfig;
 use App\Support\DisplayCurrencyPreference;
@@ -84,38 +86,33 @@ class DepositBankPanelTest extends TestCase
         );
     }
 
-    public function test_pay_from_toggle_swaps_in_place_without_navigation(): void
+    public function test_pay_from_toggle_is_removed_and_route_keeps_locked_rail(): void
     {
         $user = $this->advertiser('DE');
         $this->wallet($user);
         $this->withCountry('DE');
 
         $html = $this->actingAs($user)
-            ->get(route('advertiser.add-funds', ['amount' => 50, 'method' => 'bank', 'pay_from' => 'eur']))
+            ->get(route('advertiser.add-funds', ['amount' => 50, 'method' => 'bank', 'pay_from' => 'gbp']))
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('data-pay-from-switch="1"', $html);
-        $this->assertStringContainsString('type="button"', $html);
-        $this->assertStringContainsString('data-pay-from="gbp"', $html);
-        $this->assertStringContainsString('data-pay-from="eur"', $html);
-        $this->assertStringNotContainsString('pay_from=gbp', $html);
-        $this->assertStringNotContainsString('pay_from=eur', $html);
-        $this->assertStringContainsString('data-bank-rail="gbp"', $html);
+        $this->assertStringNotContainsString('data-pay-from-switch="1"', $html);
+        $this->assertStringNotContainsString('I\'m paying from:', $html);
+        $this->assertStringNotContainsString('data-pay-from="gbp"', $html);
+        $this->assertStringNotContainsString('data-pay-from="eur"', $html);
+        $this->assertStringNotContainsString('data-bank-rail="gbp"', $html);
         $this->assertStringContainsString('data-bank-rail="eur"', $html);
-        $this->assertMatchesRegularExpression('/data-bank-rail="gbp"[^>]*\bhidden\b/', $html);
-        $this->assertStringContainsString('window.__slbPayFromBound', $html);
-        $this->assertStringContainsString('event.preventDefault()', $html);
 
         $this->actingAs($user)
             ->postJson(route('advertiser.add-funds.pay-from'), ['pay_from' => 'gbp'])
             ->assertOk()
             ->assertJson([
                 'success' => true,
-                'pay_from' => 'gbp',
+                'pay_from' => 'eur',
             ]);
 
-        $this->assertSame('gbp', app(DisplayCurrencyPreference::class)->payFrom());
+        $this->assertSame('eur', app(DisplayCurrencyPreference::class)->payFrom());
     }
 
     public function test_teqno_registration_number_on_panel_and_deposit_invoice(): void
@@ -146,13 +143,15 @@ class DepositBankPanelTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('17392540', $html);
+        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $html);
         $this->assertStringNotContainsString('>16607074<', $html);
         $this->assertStringNotContainsString('Phone no:', $html);
         $this->assertStringNotContainsString('+447445152374', $html);
         $this->assertSame(
             1,
-            substr_count($html, 'Use this EUR account when sending euros, including from outside the UK')
+            substr_count($html, 'SEPA payers need only the IBAN.')
         );
+        $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $html);
 
         $deposit = DepositRequest::create([
             'user_id' => $user->id,
@@ -168,15 +167,16 @@ class DepositBankPanelTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Teqno LTD', $invoice);
+        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $invoice);
         $this->assertStringContainsString('17392540', $invoice);
         $this->assertStringNotContainsString('16607074', $invoice);
         $this->assertStringNotContainsString('Phone no:', $invoice);
         $this->assertStringNotContainsString('+447445152374', $invoice);
         $this->assertSame(
             1,
-            substr_count($invoice, 'Use this EUR account when sending euros, including from outside the UK')
+            substr_count($invoice, 'SEPA payers need only the IBAN.')
         );
+        $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $invoice);
     }
 
     public function test_currency_guide_placeholder_redirects_to_faq_anchor(): void
@@ -184,11 +184,20 @@ class DepositBankPanelTest extends TestCase
         $this->get('/help/currencies')->assertRedirect('/faq#currency');
     }
 
-    public function test_eur_iban_is_configurable_without_changing_default_value(): void
+    public function test_wise_eur_iban_checksum_and_env_overridable_defaults(): void
     {
+        $this->assertTrue(DepositPaymentConfig::ibanChecksumValid(DepositPaymentConfig::EUR_IBAN_DEFAULT));
+        $this->assertTrue(DepositPaymentConfig::ibanChecksumValid('BE40 9059 9538 0863'));
+        $this->assertTrue(DepositPaymentConfig::ibanChecksumValid('BE40905995380863'));
+        $this->assertFalse(DepositPaymentConfig::ibanChecksumValid('BE00 9059 9538 0863'));
+        $this->assertFalse(DepositPaymentConfig::ibanChecksumValid('not-an-iban'));
+
         $pay = DepositPaymentConfig::depositPayment();
-        $this->assertSame('GB30 TRWI 2308 0132 9321 94', $pay['eur_iban']);
-        $this->assertSame('TRWIGB2LXXX', $pay['eur_bic']);
+        $this->assertSame('BE40 9059 9538 0863', $pay['eur_iban']);
+        $this->assertSame('TRWIBEB1XXX', $pay['eur_bic']);
+        $this->assertSame('Teqno Ltd (partners SEOLinkBuildings)', $pay['beneficiary_display']);
+        $this->assertSame('GB30 TRWI 2308 0132 9321 94', $pay['iban']);
+        $this->assertSame('TRWIGB2LXXX', $pay['bic']);
 
         config([
             'billing.deposit_payment.eur_iban' => 'BE12 TEQN 0000 0000 0000',
@@ -199,6 +208,58 @@ class DepositBankPanelTest extends TestCase
         $this->assertSame('BE12 TEQN 0000 0000 0000', $updated['eur_iban']);
         $this->assertSame('TEQNEUR2XXX', $updated['eur_bic']);
         $this->assertSame('GB30 TRWI 2308 0132 9321 94', $updated['iban']);
+        $this->assertSame('TRWIGB2LXXX', $updated['bic']);
+    }
+
+    public function test_eur_panel_invoice_and_email_share_wise_details(): void
+    {
+        $user = $this->advertiser('DE');
+        $this->wallet($user);
+        $this->withCountry('DE');
+
+        $html = $this->actingAs($user)
+            ->get(route('advertiser.add-funds', ['amount' => 40, 'method' => 'bank']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $html);
+        $this->assertStringContainsString('BE40 9059 9538 0863', $html);
+        $this->assertStringContainsString('TRWIBEB1XXX', $html);
+        $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $html);
+        $this->assertStringContainsString('SEPA payers need only the IBAN.', $html);
+        $this->assertStringNotContainsString('23-08-01', $html);
+        $this->assertStringNotContainsString('32932194', $html);
+        $this->assertStringNotContainsString('GB30 TRWI', $html);
+        $this->assertStringNotContainsString('TRWIGB2LXXX', $html);
+
+        $deposit = DepositRequest::create([
+            'user_id' => $user->id,
+            'reference_code' => 'EURBNK1',
+            'amount' => 40,
+            'charge_currency' => 'EUR',
+            'payment_method' => 'bank',
+            'status' => 'pending',
+        ]);
+        $deposit->assignPaymentTracking(AccountCurrency::EUR_WISE, 'EUR');
+        $deposit->setRelation('user', $user);
+
+        $invoice = $this->actingAs($user)
+            ->get(route('advertiser.invoice', $deposit->reference_code))
+            ->assertOk()
+            ->getContent();
+
+        $email = (new DepositRequestSubmitted($deposit))->render();
+
+        foreach ([$invoice, $email] as $surface) {
+            $this->assertStringContainsString('Teqno Ltd (partners SEOLinkBuildings)', $surface);
+            $this->assertStringContainsString('BE40 9059 9538 0863', $surface);
+            $this->assertStringContainsString('TRWIBEB1XXX', $surface);
+            $this->assertStringContainsString('Swift/BIC: use when sending from outside SEPA', $surface);
+            $this->assertStringContainsString('SEPA payers need only the IBAN.', $surface);
+            $this->assertStringNotContainsString('23-08-01', $surface);
+            $this->assertStringNotContainsString('32932194', $surface);
+            $this->assertStringNotContainsString('GB30 TRWI', $surface);
+        }
     }
 
     private function withCountry(string $country): void

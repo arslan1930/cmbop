@@ -27,8 +27,14 @@
                             <dt class="col-sm-4 text-muted">Method</dt>
                             <dd class="col-sm-8">{{ $deposit->paymentMethodLabel() }}</dd>
 
-                            <dt class="col-sm-4 text-muted">Reference</dt>
-                            <dd class="col-sm-8"><code>REF{{ $deposit->reference_code }}</code></dd>
+                            <dt class="col-sm-4 text-muted">Payment reference</dt>
+                            <dd class="col-sm-8"><code>{{ $paymentReference ?? $deposit->paymentReferenceLabel() }}</code></dd>
+
+                            <dt class="col-sm-4 text-muted">Currency</dt>
+                            <dd class="col-sm-8">{{ $chargeCurrency ?? strtoupper((string) ($deposit->charge_currency ?: 'EUR')) }}</dd>
+
+                            <dt class="col-sm-4 text-muted">Target bank</dt>
+                            <dd class="col-sm-8">{{ $targetBankLabel ?? $deposit->targetBankLabel() }}</dd>
 
                             <dt class="col-sm-4 text-muted">Advertiser</dt>
                             <dd class="col-sm-8">
@@ -133,6 +139,20 @@
                                 </p>
                             </div>
                             <div class="mb-3">
+                                <label for="received_bank" class="form-label">Account the money arrived in</label>
+                                @php
+                                    $selectedReceivedBank = old('received_bank', $targetBank ?? $deposit->targetBank());
+                                @endphp
+                                <select name="received_bank" id="received_bank" class="form-select" data-target-bank="{{ $targetBank ?? $deposit->targetBank() }}">
+                                    <option value="">Choose account</option>
+                                    <option value="gbp_wise" @selected($selectedReceivedBank === 'gbp_wise')>GBP Wise</option>
+                                    <option value="eur_wise" @selected($selectedReceivedBank === 'eur_wise')>EUR Wise</option>
+                                </select>
+                                <p class="small mb-0 mt-1" id="receivedBankMismatch" hidden>
+                                    <span class="text-danger">This does not match the bank shown to the advertiser.</span>
+                                </p>
+                            </div>
+                            <div class="mb-3">
                                 <label for="admin_notes" class="form-label">Admin notes (optional)</label>
                                 <textarea name="admin_notes" id="admin_notes" rows="2" class="form-control" maxlength="1000" placeholder="e.g. Wire matched on statement">{{ old('admin_notes') }}</textarea>
                                 <script>
@@ -158,6 +178,18 @@
                         </form>
                         <script>
                             document.addEventListener('DOMContentLoaded', function () {
+                                var bankSelect = document.getElementById('received_bank');
+                                var bankFlag = document.getElementById('receivedBankMismatch');
+                                if (bankSelect && bankFlag) {
+                                    function refreshBank() {
+                                        var target = bankSelect.getAttribute('data-target-bank') || '';
+                                        var chosen = bankSelect.value;
+                                        var mismatch = chosen && target && chosen !== target;
+                                        bankFlag.hidden = !mismatch;
+                                    }
+                                    bankSelect.addEventListener('change', refreshBank);
+                                    refreshBank();
+                                }
                                 var input = document.getElementById('received_amount');
                                 var flag = document.getElementById('receivedToleranceFlag');
                                 if (!input || !flag) return;

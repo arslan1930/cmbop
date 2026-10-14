@@ -269,12 +269,20 @@
                                     <p><strong>Website:</strong> {{ $company['website_url'] }}</p>
                                 @endif
                                 <p><strong>VAT:</strong> {{ $company['vat_note'] ?? 'Not VAT registered – no VAT charged' }}</p>
-                                <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary'] ?? 'Teqno LTD' }}</p>
+                                <p><strong>Beneficiary:</strong> {{ $depositPayment['beneficiary_display'] ?? \App\Support\DepositPaymentConfig::beneficiaryDisplayName($depositPayment) }}</p>
+                                @php
+                                    $invoicePaymentReference = $paymentReference
+                                        ?? (isset($deposit) && $deposit ? $deposit->paymentReferenceLabel() : ('REF'.$referenceCode));
+                                @endphp
+                                @if(!empty($invoicePaymentReference))
+                                    <p><strong>Payment reference:</strong> <code>{{ $invoicePaymentReference }}</code></p>
+                                    <p class="text-muted">Put this reference in the payment reference so we can match your transfer.</p>
+                                @endif
                                 @php
                                     $invoiceBankRail = $bankRail ?? app(\App\Support\DisplayCurrencyPreference::class)->payFrom();
                                     $invoiceBankRail = $invoiceBankRail === 'gbp' ? 'gbp' : 'eur';
-                                    $invoiceIban = $depositPayment['eur_iban'] ?? $depositPayment['iban'] ?? null;
-                                    $invoiceBic = $depositPayment['eur_bic'] ?? $depositPayment['bic'] ?? null;
+                                    $invoiceIban = $depositPayment['eur_iban'] ?? \App\Support\DepositPaymentConfig::EUR_IBAN_DEFAULT;
+                                    $invoiceBic = $depositPayment['eur_bic'] ?? \App\Support\DepositPaymentConfig::EUR_BIC_DEFAULT;
                                 @endphp
                                 @if($invoiceBankRail === 'gbp')
                                     @if(!empty($depositPayment['uk_sort_code']))
@@ -290,12 +298,10 @@
                                 @else
                                     @if(!empty($invoiceIban))
                                         <p><strong>IBAN:</strong> {{ $invoiceIban }}</p>
+                                        <p class="text-muted">{{ $depositPayment['intl_transfer_note'] ?? \App\Support\DepositPaymentConfig::EUR_SEPA_NOTE }}</p>
                                     @endif
                                     @if(!empty($invoiceBic))
-                                        <p><strong>Swift/BIC:</strong> {{ $invoiceBic }}</p>
-                                    @endif
-                                    @if(!empty($depositPayment['intl_transfer_note']))
-                                        <p class="text-muted">{{ $depositPayment['intl_transfer_note'] }}</p>
+                                        <p><strong>{{ \App\Support\DepositPaymentConfig::EUR_BIC_NOTE }}</strong> {{ $invoiceBic }}</p>
                                     @endif
                                 @endif
                                 @if(!empty($sendLabel))
@@ -422,7 +428,7 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Wallet Deposit - Reference: REF{{ $referenceCode }}<br>
+                        <td>Wallet Deposit - Reference: {{ $paymentReference ?? ('REF'.$referenceCode) }}<br>
                         </td>
                         <td class="amount">{{ format_money($amount) }}</td>
                     </tr>
@@ -485,7 +491,7 @@
     document.getElementById('invoiceMarkPaidBtn')?.addEventListener('click', function () {
         Swal.fire({
             title: 'Confirm payment sent?',
-            html: 'Have you already transferred <strong>€{{ number_format((float) $amount, 2) }}</strong> with <strong>REF{{ $referenceCode }}</strong> in the payment note?<br><br><span style="color: var(--brand-ink-muted, #75787B);font-size:13px;">Status stays Pending until we confirm and credit your wallet.</span>',
+            html: 'Have you already transferred <strong>€{{ number_format((float) $amount, 2) }}</strong> with <strong>{{ $paymentReference ?? ('REF'.$referenceCode) }}</strong> in the payment reference?<br><br><span style="color: var(--brand-ink-muted, #75787B);font-size:13px;">Status stays Pending until we confirm and credit your wallet.</span>',
             icon: 'question',
             input: 'text',
             inputPlaceholder: 'Optional: Wise/bank transfer reference',

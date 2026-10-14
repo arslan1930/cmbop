@@ -658,7 +658,7 @@
                                     </div>
                                     <div>
                                         <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Bank Transfer Payment</h3>
-                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">GBP bank transfer — UK account or international IBAN</p>
+                                        <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0;">Bank transfer in your account currency</p>
                                     </div>
                                 </div>
                                 
@@ -667,9 +667,6 @@
                                     <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #9333ea;">Bank Account Information</h4>
                                     @php
                                         $checkoutPayFrom = app(\App\Support\DisplayCurrencyPreference::class)->payFrom();
-                                        if (request()->filled('pay_from')) {
-                                            $checkoutPayFrom = app(\App\Support\DisplayCurrencyPreference::class)->rememberPayFrom((string) request('pay_from'));
-                                        }
                                     @endphp
                                     @include('partials.deposit-bank-account', [
                                         'depositPayment' => $depositPayment,
@@ -678,8 +675,6 @@
                                         'walletCurrency' => $checkoutWallet?->currency ?? null,
                                         'eurAmount' => $total ?? null,
                                         'showMethodSwitch' => true,
-                                        'bankRail' => $checkoutPayFrom,
-                                        'showPayFromSwitch' => true,
                                         'sendLabel' => app(\App\Support\DepositFx::class)->quote((float) ($total ?? 0), $checkoutPayFrom === 'gbp' ? 'GBP' : 'EUR')['send_label'],
                                     ])
                                 </div>

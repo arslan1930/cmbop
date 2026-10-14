@@ -65,7 +65,7 @@ class GeoCurrencyDisplayTest extends TestCase
         $this->assertStringNotContainsString('≈', format_money(12));
     }
 
-    public function test_user_switcher_overrides_geo_and_persists_in_session(): void
+    public function test_logged_in_switcher_is_ignored_and_account_currency_stays_locked(): void
     {
         $user = $this->advertiser('DE');
         $this->withCountry('GB');
@@ -74,10 +74,10 @@ class GeoCurrencyDisplayTest extends TestCase
             ->post(route('display-currency'), ['currency' => 'USD'])
             ->assertRedirect();
 
-        $this->assertSame('USD', app(DisplayCurrencyPreference::class)->preferred());
-        $this->assertSame('USD', app(ViewerCountry::class)->displayCurrency());
-        $this->assertSame('$13.20', format_money(12));
-        $this->assertSame('USD', $user->fresh()->display_currency);
+        $this->assertSame('EUR', app(DisplayCurrencyPreference::class)->preferred());
+        $this->assertSame('EUR', app(ViewerCountry::class)->displayCurrency());
+        $this->assertSame('€12.00', format_money(12));
+        $this->assertSame('EUR', $user->fresh()->display_currency);
     }
 
     public function test_publisher_gbp_price_converts_once_to_stored_euros(): void
@@ -110,8 +110,9 @@ class GeoCurrencyDisplayTest extends TestCase
             ->get(route('advertiser.add-funds', ['amount' => 50, 'method' => 'bank']))
             ->assertOk()
             ->assertSee('data-bank-rail="gbp"', false)
-            ->assertSee('data-pay-from="gbp"', false)
-            ->assertSee('UK bank (GBP)', false)
+            ->assertDontSee('data-pay-from="gbp"', false)
+            ->assertDontSee('UK bank (GBP)', false)
+            ->assertDontSee('I\'m paying from:', false)
             ->assertSee('data-amount="50"', false)
             ->assertSee('data-amount-currency="GBP"', false)
             ->assertSee('£50', false)
@@ -129,9 +130,9 @@ class GeoCurrencyDisplayTest extends TestCase
             ->assertDontSee('Send $', false)
             ->assertDontSee('we credit', false)
             ->assertSee('23-08-01', false)
-            ->assertSee('data-bank-rail="eur"', false)
-            ->assertSee('id="bankIban"', false)
-            ->assertSee('data-pay-from="eur"', false)
+            ->assertDontSee('data-bank-rail="eur"', false)
+            ->assertDontSee('id="bankIban"', false)
+            ->assertDontSee('data-pay-from="eur"', false)
             ->assertDontSee('≈ €', false);
 
         $us = $this->advertiser('US');
@@ -272,7 +273,8 @@ class GeoCurrencyDisplayTest extends TestCase
         $this->assertSame('GBP', money_js()['currency']);
         $this->assertTrue(money_js()['guide']);
 
-        $this->post(route('display-currency'), ['currency' => 'EUR'])->assertRedirect();
+        $user->display_currency = 'EUR';
+        $user->save();
         app()->forgetInstance(ViewerCountry::class);
         app()->forgetInstance(MoneyDisplay::class);
         app()->forgetInstance(DisplayCurrencyPreference::class);
@@ -296,7 +298,8 @@ class GeoCurrencyDisplayTest extends TestCase
         $this->assertStringNotContainsString('≈', (string) $row['amount_display']);
         $this->assertStringNotContainsString('£', (string) $row['amount_display']);
 
-        $this->actingAs($user)->post(route('display-currency'), ['currency' => 'GBP']);
+        $user->display_currency = 'GBP';
+        $user->save();
         app()->forgetInstance(ViewerCountry::class);
         app()->forgetInstance(MoneyDisplay::class);
         app()->forgetInstance(DisplayCurrencyPreference::class);
@@ -330,8 +333,9 @@ class GeoCurrencyDisplayTest extends TestCase
             ->assertSee('Minimum €10.00', false)
             ->assertSee('data-bank-rail="eur"', false)
             ->assertSee('bankIban', false)
-            ->assertSee('data-bank-rail="gbp"', false)
-            ->assertSee('data-pay-from="gbp"', false)
+            ->assertDontSee('data-bank-rail="gbp"', false)
+            ->assertDontSee('data-pay-from="gbp"', false)
+            ->assertDontSee('I\'m paying from:', false)
             ->assertDontSee('data-usd-bank-wire="1"', false)
             ->assertDontSee('Please choose OUR', false);
 
@@ -410,7 +414,8 @@ class GeoCurrencyDisplayTest extends TestCase
             'password' => 'password',
         ])->assertOk()->assertJsonPath('status', 'success');
 
-        $this->post(route('display-currency'), ['currency' => 'USD'])->assertRedirect();
+        $gb->display_currency = 'USD';
+        $gb->save();
         $this->assertSame('USD', $gb->fresh()->display_currency);
 
         $logout = $this->post(route('logout'));
@@ -443,11 +448,13 @@ class GeoCurrencyDisplayTest extends TestCase
             ->get(route('admin.users.show', $member))
             ->assertOk()
             ->assertSee('Display currency', false)
-            ->assertSee('btn-edit-display-currency', false);
+            ->assertSee('btn-edit-display-currency', false)
+            ->assertSee('This account has a non-zero wallet balance.', false);
 
         $this->actingAs($admin)
             ->postJson(route('admin.users.updateDisplayCurrency', $member->id), [
                 'display_currency' => 'GBP',
+                'reason' => 'Advertiser asked to switch to pounds',
             ])
             ->assertOk()
             ->assertJsonPath('success', true)
@@ -467,6 +474,7 @@ class GeoCurrencyDisplayTest extends TestCase
         $props = is_array($log->properties) ? $log->properties : [];
         $this->assertContains($props['from'] ?? null, [null, '', 'EUR']);
         $this->assertSame('GBP', $props['to'] ?? null);
+        $this->assertSame('Advertiser asked to switch to pounds', $props['reason'] ?? null);
         $this->assertTrue((bool) ($props['ledger_unchanged'] ?? false));
     }
 

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\ToleratesMissingSchema;
 use App\Models\Concerns\ToleratesUnparseableDates;
+use App\Support\AccountCurrency;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -26,6 +27,9 @@ class DepositRequest extends Model
         'charge_amount',
         'fx_rate',
         'rate_locked_until',
+        'bank_account',
+        'payment_reference',
+        'received_bank',
         'payment_method',
         'status',
         'admin_notes',
@@ -127,6 +131,70 @@ class DepositRequest extends Model
     public function paymentMethodLabel(): string
     {
         return Invoice::paymentMethodLabel($this->payment_method);
+    }
+
+    /**
+     * @return 'EUR'|'GBP'|'USD'
+     */
+    public function depositCurrency(): string
+    {
+        return AccountCurrency::normalize((string) ($this->charge_currency ?? '')) ?? 'EUR';
+    }
+
+    /**
+     * @return 'gbp_wise'|'eur_wise'|null
+     */
+    public function targetBank(): ?string
+    {
+        return AccountCurrency::normalizeBank((string) ($this->bank_account ?? ''))
+            ?? AccountCurrency::bankAccountForCurrency($this->depositCurrency());
+    }
+
+    public function targetBankLabel(): string
+    {
+        return AccountCurrency::bankLabel($this->targetBank()) ?: '—';
+    }
+
+    public function paymentReferenceLabel(): string
+    {
+        $stored = trim((string) ($this->payment_reference ?? ''));
+        if ($stored !== '') {
+            return $stored;
+        }
+
+        $code = trim((string) ($this->reference_code ?? ''));
+
+        return $code !== '' ? 'REF'.$code : '';
+    }
+
+    /**
+     * Persist the locked rail + SLB-<id>-GBP after the row has an id.
+     */
+    public function assignPaymentTracking(?string $bankAccount, string $currency): self
+    {
+        $payload = [];
+        $bank = AccountCurrency::normalizeBank((string) $bankAccount);
+        if ($bank !== null) {
+            $payload['bank_account'] = $bank;
+        }
+        $code = AccountCurrency::normalize($currency) ?? $this->depositCurrency();
+        if ($this->id) {
+            $payload['payment_reference'] = AccountCurrency::paymentReference((int) $this->id, $code);
+        }
+        if ($payload === []) {
+            return $this;
+        }
+        $this->update(static::attributesThatExist($payload));
+
+        return $this->fresh() ?? $this;
+    }
+
+    public function receivedBankMismatchesTarget(): bool
+    {
+        $received = AccountCurrency::normalizeBank((string) ($this->received_bank ?? ''));
+        $target = $this->targetBank();
+
+        return $received !== null && $target !== null && $received !== $target;
     }
 
     /**

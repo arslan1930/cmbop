@@ -190,8 +190,10 @@
                         <tr>
                             <th class="admin-num-col">ID</th>
                             <th>User</th>
-                            <th>Reference Code</th>
+                            <th>Reference</th>
                             <th class="admin-narrow-col">Amount</th>
+                            <th>Currency</th>
+                            <th>Bank</th>
                             <th>Payment Method</th>
                             <th class="admin-status-col">Status</th>
                             <th class="admin-narrow-col">Date</th>
@@ -224,7 +226,12 @@
                                     </div>
                                 </div>
                             </td>
-                            <td><code class="ref-code">{{ $deposit->reference_code }}</code></td>
+                            <td>
+                                <code class="ref-code">{{ $deposit->paymentReferenceLabel() }}</code>
+                                @if($deposit->reference_code && $deposit->payment_reference)
+                                    <div class="small text-muted">Invoice REF{{ $deposit->reference_code }}</div>
+                                @endif
+                            </td>
                             <td class="fw-semibold text-primary">
                                 €{{ number_format($deposit->amount, 2) }}
                                 @php
@@ -232,6 +239,14 @@
                                 @endphp
                                 @if($chargeCurrency !== '' && $chargeCurrency !== 'EUR' && $deposit->charge_amount !== null && $deposit->charge_amount !== '')
                                     <div class="small text-muted">Charged {{ $chargeCurrency }} {{ number_format((float) $deposit->charge_amount, 2) }}</div>
+                                @endif
+                            </td>
+                            <td>{{ $chargeCurrency !== '' ? $chargeCurrency : 'EUR' }}</td>
+                            <td>
+                                @if($deposit->targetBank())
+                                    {{ $deposit->targetBankLabel() }}
+                                @else
+                                    —
                                 @endif
                             </td>
                             <td>
@@ -373,6 +388,13 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         const key = String(method || '').toLowerCase();
         return labels[key] || (key ? String(method) : '—');
+    }
+
+    function bankAccountLabel(bank) {
+        const key = String(bank || '').toLowerCase();
+        if (key === 'gbp_wise' || key === 'gbp') return 'GBP Wise';
+        if (key === 'eur_wise' || key === 'eur') return 'EUR Wise';
+        return key ? String(bank) : '—';
     }
 
     function depositActionUrl(template, id) {
@@ -528,7 +550,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
                 <dl class="deposit-sheet__facts">
-                    ${depositFact('Reference', `<code class="ref-code">${escapeHtml(deposit.reference_code)}</code>`)}
+                    ${depositFact('Payment reference', `<code class="ref-code">${escapeHtml(deposit.payment_reference || deposit.reference_code || '')}</code>`)}
+                    ${deposit.reference_code && deposit.payment_reference ? depositFact('Invoice REF', `<code class="ref-code">${escapeHtml(deposit.reference_code)}</code>`) : ''}
+                    ${depositFact('Currency', escapeHtml(String(deposit.charge_currency || 'EUR').toUpperCase()))}
+                    ${deposit.bank_account ? depositFact('Target bank', escapeHtml(bankAccountLabel(deposit.bank_account))) : ''}
+                    ${deposit.received_bank ? depositFact('Arrived in', escapeHtml(bankAccountLabel(deposit.received_bank))) : ''}
                     ${depositFact('Amount', `<div class="deposit-sheet__amount">€${parseFloat(deposit.amount).toFixed(2)}</div>${chargeLine(deposit)}`)}
                     ${depositFact('Payment method', `<span class="admin-deposit-method">${escapeHtml(paymentMethodLabel(deposit.payment_method))}</span>`)}
                     ${depositFact('Status', statusBadge || '—')}

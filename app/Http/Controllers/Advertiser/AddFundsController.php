@@ -21,6 +21,7 @@ use App\Services\Wallet\PayoutProfileService;
 use App\Services\Wallet\WalletOverviewService;
 use App\Services\WalletPaypalDepositService;
 use App\Services\WalletStripeDepositService;
+use App\Support\AccountCurrency;
 use App\Support\DepositFx;
 use App\Support\DepositPaymentConfig;
 use App\Support\DisplayCurrencyPreference;
@@ -231,7 +232,7 @@ class AddFundsController extends Controller
             'cryptoEnabled' => $cryptoEnabled,
             'cryptoNetworks' => DepositPaymentConfig::cryptoNetworks(),
             'cryptoNote' => DepositPaymentConfig::cryptoNote(),
-            'payFrom' => $this->resolvedPayFrom($request),
+            'payFrom' => AccountCurrency::bankRailForUser($user),
         ]);
     }
 
@@ -257,41 +258,19 @@ class AddFundsController extends Controller
 
     private function resolvedPayFrom(Request $request): string
     {
-        $preference = app(DisplayCurrencyPreference::class);
-        if ($request->filled('pay_from')) {
-            return $preference->rememberPayFrom((string) $request->input('pay_from'), $request);
-        }
-
-        return $preference->payFrom($request);
+        return AccountCurrency::bankRailForUser(auth()->user());
     }
 
     public function rememberPayFrom(Request $request)
     {
         $request->validate([
-            'pay_from' => 'required|in:gbp,eur,uk,other',
+            'pay_from' => 'nullable|in:gbp,eur,uk,other',
             'deposit_id' => 'nullable|integer',
         ]);
 
         $payFrom = $this->resolvedPayFrom($request);
         $chargeCurrency = app(DepositFx::class)->chargeCurrencyForPayFrom($payFrom);
         $euros = 0.0;
-        $deposit = null;
-
-        if ($request->filled('deposit_id')) {
-            $deposit = DepositRequest::query()
-                ->where('user_id', auth()->id())
-                ->where('id', $request->integer('deposit_id'))
-                ->where('status', 'pending')
-                ->first();
-            if ($deposit) {
-                $euros = (float) $deposit->amount;
-                $payload = app(DepositFx::class)->lockPayload($euros, $chargeCurrency);
-                if (method_exists(DepositRequest::class, 'attributesThatExist')) {
-                    $payload = DepositRequest::attributesThatExist($payload);
-                }
-                $deposit->update($payload);
-            }
-        }
 
         $quote = app(DepositFx::class)->quote($euros, $chargeCurrency);
 
@@ -826,6 +805,21 @@ class AddFundsController extends Controller
                 ], 422);
             }
 
+            $lockedCurrency = AccountCurrency::forUser($user)
+                ?? app(DisplayCurrencyPreference::class)->preferred($request)
+                ?? app(MoneyDisplay::class)->currency();
+            $lockedCurrency = AccountCurrency::normalize((string) $lockedCurrency) ?? 'EUR';
+
+            if ($request->payment_method === 'bank') {
+                $mismatch = $this->bankDepositCurrencyMismatch($request, $lockedCurrency);
+                if ($mismatch !== null) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $mismatch,
+                    ], 422);
+                }
+            }
+
             // Invoice methods need billing details on the PDF.
             if (in_array($request->payment_method, ['bank', 'wise', 'crypto'], true)) {
                 if (! $this->userHasInvoiceBilling($user)) {
@@ -861,9 +855,14 @@ class AddFundsController extends Controller
             $referenceCode = $this->newDepositReferenceCode($request);
 
             $payFrom = $this->resolvedPayFrom($request);
-            $chargeCurrency = app(DepositFx::class)->chargeCurrencyForPayFrom($payFrom);
+            $chargeCurrency = $request->payment_method === 'bank'
+                ? ($lockedCurrency === 'GBP' ? 'GBP' : 'EUR')
+                : app(DepositFx::class)->chargeCurrencyForPayFrom($payFrom);
             $euros = $this->ledgerEurosFromRequest($request);
             $lock = app(DepositFx::class)->lockPayload($euros, $chargeCurrency);
+            $bankAccount = $request->payment_method === 'bank'
+                ? AccountCurrency::bankAccountForCurrency($chargeCurrency)
+                : null;
 
             $payload = array_merge([
                 'user_id' => auth()->id(),
@@ -871,12 +870,20 @@ class AddFundsController extends Controller
                 'amount' => $euros,
                 'payment_method' => $request->payment_method,
                 'status' => 'pending',
+                'bank_account' => $bankAccount,
             ], $lock);
             if (method_exists(DepositRequest::class, 'attributesThatExist')) {
                 $payload = DepositRequest::attributesThatExist($payload);
             }
 
             $depositRequest = DepositRequest::create($payload);
+            if (in_array($request->payment_method, ['bank', 'wise', 'crypto'], true)
+                && method_exists($depositRequest, 'assignPaymentTracking')) {
+                $depositRequest = $depositRequest->assignPaymentTracking(
+                    $bankAccount,
+                    (string) ($lock['charge_currency'] ?? $chargeCurrency)
+                );
+            }
 
             // Send email notification to admin (skip when no mailbox is configured —
             // empty ADMIN_EMAIL + no admin users used to throw "To/Cc/Bcc header").
@@ -923,6 +930,8 @@ class AddFundsController extends Controller
                 'success' => true,
                 'message' => 'Invoice created. Transfer the amount with your REF — we credit your wallet after funds arrive.',
                 'reference_code' => $referenceCode,
+                'payment_reference' => $depositRequest->paymentReferenceLabel(),
+                'bank_account' => $depositRequest->bank_account,
                 'deposit_id' => $depositRequest->id,
                 'invoice_url' => $invoiceUrl,
                 'mark_paid_url' => $markPaidUrl,
@@ -975,6 +984,36 @@ class AddFundsController extends Controller
         } catch (\Throwable) {
             return true;
         }
+    }
+
+    private function bankDepositCurrencyMismatch(Request $request, string $lockedCurrency): ?string
+    {
+        $locked = AccountCurrency::normalize($lockedCurrency) ?? 'EUR';
+        if ($locked === 'USD') {
+            return DepositPaymentConfig::bankUnavailableMessage();
+        }
+
+        $requested = [];
+        $fromPayFrom = app(DisplayCurrencyPreference::class)->normalizePayFrom((string) $request->input('pay_from', ''));
+        if ($fromPayFrom !== null) {
+            $requested[] = $fromPayFrom === 'gbp' ? 'GBP' : 'EUR';
+        }
+        $fromAmount = app(DisplayCurrencyPreference::class)->normalize((string) $request->input('amount_currency', ''));
+        if ($fromAmount !== null) {
+            $requested[] = $fromAmount;
+        }
+        $fromBank = AccountCurrency::normalizeBank((string) $request->input('bank_account', ''));
+        if ($fromBank !== null) {
+            $requested[] = AccountCurrency::currencyForBank($fromBank);
+        }
+
+        foreach ($requested as $code) {
+            if ($code !== null && $code !== $locked) {
+                return AccountCurrency::bankMismatchMessage($locked);
+            }
+        }
+
+        return null;
     }
 
     private function newDepositReferenceCode(Request $request): string

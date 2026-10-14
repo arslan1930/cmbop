@@ -112,7 +112,7 @@
         $openCardsTab = !empty($cardsTab);
         $pendingInvoiceCount = ($pendingRequests ?? collect())->count();
         $depositMethodLabels = ['card' => 'Card', 'paypal' => 'PayPal', 'bank' => 'Bank transfer', 'wise' => 'Wise', 'crypto' => 'Crypto'];
-        $depositPayment = $depositPayment ?? config('billing.deposit_payment', []);
+        $depositPayment = $depositPayment ?? \App\Support\DepositPaymentConfig::depositPayment();
     @endphp
 
     @if(($pendingRequests ?? collect())->isNotEmpty())
@@ -120,11 +120,11 @@
             <div class="fw-semibold mb-1">
                 <i class="fa fa-clock me-1"></i> Pending deposit invoices
             </div>
-            <p class="small text-muted mb-2">Transfer the amount, include the REF, then mark as paid — we credit your wallet after confirmation.</p>
+            <p class="small text-muted mb-2">Transfer the amount, put the reference in the payment reference, then mark as paid — we credit your wallet after confirmation.</p>
             <ul class="list-unstyled mb-0">
                 @foreach(($pendingRequests ?? collect())->take(3) as $deposit)
                     @php
-                        $pendingRef = 'REF' . $deposit->reference_code;
+                        $pendingRef = $deposit->paymentReferenceLabel();
                     @endphp
                     <li class="d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 {{ $loop->last && $pendingInvoiceCount <= 3 ? '' : 'border-bottom' }}">
                         <div class="small">
@@ -360,7 +360,7 @@
                     <!-- Payment Details Section -->
                     <div id="paymentDetailsSection" style="display: none;" data-invoice-ready="0">
                         <div id="invoiceReadyBar" class="alert alert-success border mb-3" style="display: none;" role="status">
-                            <div class="fw-semibold mb-1">Invoice ready — transfer this amount with the REF below.</div>
+                            <div class="fw-semibold mb-1">Invoice ready — transfer this amount with the payment reference below.</div>
                             <p class="small mb-2">Status stays <strong>Pending</strong> until we confirm and credit your wallet.</p>
                             <div class="d-flex flex-wrap gap-2 af-actions-safe">
                                 <a id="invoiceReadyView" class="btn btn-sm btn-primary" href="#" download="invoice.pdf">
@@ -490,7 +490,7 @@
                                     <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--brand-primary, #1a585e);">Bank Account Information</h4>
                                     <div style="margin-bottom: 12px;">
                                         <p style="font-size: 12px; color: #6b7280; margin-bottom: 2px;">Beneficiary:</p>
-                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['seller_name'] ?? $depositPayment['beneficiary'] ?? 'Teqno LTD' }} (operator of SEOLinkBuildings)</p>
+                                        <p style="font-weight: 600; margin: 0;">{{ $depositPayment['beneficiary_display'] ?? \App\Support\DepositPaymentConfig::beneficiaryDisplayName($depositPayment) }}</p>
                                     </div>
                                     @include('partials.deposit-bank-account', [
                                         'depositPayment' => $depositPayment,
@@ -500,8 +500,6 @@
                                         'walletCurrency' => $wallet?->currency ?? null,
                                         'eurAmount' => $prefillAmount ?? null,
                                         'showMethodSwitch' => true,
-                                        'bankRail' => $payFrom ?? 'eur',
-                                        'showPayFromSwitch' => true,
                                         'sendLabel' => app(\App\Support\DepositFx::class)->quote((float) ($prefillAmount ?? 0), ($payFrom ?? 'eur') === 'gbp' ? 'GBP' : 'EUR')['send_label'],
                                     ])
                                     <div>

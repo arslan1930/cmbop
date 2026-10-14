@@ -146,7 +146,7 @@ class SignupCountry
         return [
             'currency' => $currency,
             'symbol' => $symbol,
-            'label' => 'Your account currency: '.$symbol.' '.$currency.', you can change it anytime',
+            'label' => 'Your account currency: '.$symbol.' '.$currency,
         ];
     }
 }

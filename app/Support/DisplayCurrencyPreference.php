@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Viewer-selected display currency (EUR / GBP / USD). Overrides geo.
- * Session + cookie for guests; users.display_currency when signed in.
- * Saved user preference always wins over IP. Account country, EUR ledger
- * history, then geo fill a null preference and we persist that first choice.
+ * Viewer-selected display currency (EUR / GBP / USD).
+ * Guests: session + cookie (and geo). Logged-in users: locked
+ * users.display_currency — header switch is ignored. Empty accounts persist
+ * the first resolved currency on login (country / history / geo).
  */
 class DisplayCurrencyPreference
 {
@@ -132,20 +132,19 @@ class DisplayCurrencyPreference
 
     public function remember(string $currency, ?Request $request = null): string
     {
-        $code = $this->normalize($currency) ?? 'EUR';
         $request ??= request();
+        $user = Auth::user();
+        if ($user instanceof User) {
+            return app(ViewerCountry::class)->displayCurrency($request);
+        }
+
+        $code = $this->normalize($currency) ?? 'EUR';
 
         if ($request instanceof Request) {
             if ($request->hasSession()) {
                 $request->session()->put(self::SESSION_KEY, $code);
             }
             cookie()->queue(cookie(self::COOKIE_KEY, $code, 60 * 24 * 365));
-        }
-
-        $user = Auth::user();
-        if ($user instanceof User && $this->usersHaveDisplayCurrencyColumn()) {
-            $user->display_currency = $code;
-            $user->save();
         }
 
         return $code;
@@ -157,17 +156,9 @@ class DisplayCurrencyPreference
     public function payFrom(?Request $request = null): string
     {
         $request ??= request();
-        if ($request instanceof Request) {
-            $fromRequest = $this->normalizePayFrom((string) $request->input('pay_from', ''));
-            if ($fromRequest !== null) {
-                return $fromRequest;
-            }
-            if ($request->hasSession()) {
-                $fromSession = $this->normalizePayFrom((string) $request->session()->get(self::PAY_FROM_KEY, ''));
-                if ($fromSession !== null) {
-                    return $fromSession;
-                }
-            }
+        $user = Auth::user();
+        if ($user instanceof User) {
+            return AccountCurrency::bankRailForUser($user);
         }
 
         return app(ViewerCountry::class)->displayCurrency($request) === 'GBP' ? 'gbp' : 'eur';
@@ -175,13 +166,7 @@ class DisplayCurrencyPreference
 
     public function rememberPayFrom(string $payFrom, ?Request $request = null): string
     {
-        $value = $this->normalizePayFrom($payFrom) ?? 'eur';
-        $request ??= request();
-        if ($request instanceof Request && $request->hasSession()) {
-            $request->session()->put(self::PAY_FROM_KEY, $value);
-        }
-
-        return $value;
+        return $this->payFrom($request);
     }
 
     /**

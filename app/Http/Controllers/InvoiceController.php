@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Services\Billing\DepositReceiptService;
 use App\Services\Billing\InvoicePdfGenerator;
+use App\Support\AccountCurrency;
 use App\Support\DepositFx;
 use App\Support\DepositPaymentConfig;
 use App\Support\DisplayCurrencyPreference;
@@ -198,15 +199,16 @@ class InvoiceController extends Controller
         $fx = app(DepositFx::class);
         $deposit = $fx->refreshIfExpired($deposit);
         $rail = $this->bankRailForDeposit($deposit);
+        $paymentRef = method_exists($deposit, 'paymentReferenceLabel')
+            ? $deposit->paymentReferenceLabel()
+            : ('REF'.$deposit->reference_code);
         $lines = [
-            'Waiting for payment. The wallet is credited after this transfer is confirmed. Put REF'.$deposit->reference_code.' in the payment note.',
+            'Waiting for payment. The wallet is credited after this transfer is confirmed. Put '.$paymentRef.' in the payment reference.',
         ];
         $method = (string) $deposit->payment_method;
 
         if (in_array($method, ['wise', 'bank'], true)) {
-            if (! empty($pay['beneficiary'])) {
-                $lines[] = 'Beneficiary: '.$pay['beneficiary'].'.';
-            }
+            $lines[] = 'Beneficiary: '.DepositPaymentConfig::beneficiaryDisplayName($pay).'.';
             if ($rail === 'gbp') {
                 if (! empty($pay['uk_sort_code'])) {
                     $lines[] = 'Sort code (from the UK): '.$pay['uk_sort_code'].'.';
@@ -215,13 +217,14 @@ class InvoiceController extends Controller
                     $lines[] = 'GBP account (from the UK): '.$pay['uk_account_number'].'.';
                 }
             } else {
-                $iban = $pay['eur_iban'] ?? $pay['iban'] ?? null;
-                $bic = $pay['eur_bic'] ?? $pay['bic'] ?? null;
+                $iban = $pay['eur_iban'] ?? DepositPaymentConfig::EUR_IBAN_DEFAULT;
+                $bic = $pay['eur_bic'] ?? DepositPaymentConfig::EUR_BIC_DEFAULT;
                 if (! empty($iban)) {
-                    $lines[] = 'IBAN (from outside the UK): '.$iban.'.';
+                    $lines[] = 'IBAN: '.$iban.'.';
+                    $lines[] = DepositPaymentConfig::EUR_SEPA_NOTE;
                 }
                 if (! empty($bic)) {
-                    $lines[] = 'Swift/BIC (from outside the UK): '.$bic.'.';
+                    $lines[] = DepositPaymentConfig::EUR_BIC_NOTE.': '.$bic.'.';
                 }
             }
 
@@ -264,6 +267,14 @@ class InvoiceController extends Controller
      */
     private function bankRailForDeposit($deposit): string
     {
+        $bank = AccountCurrency::normalizeBank((string) ($deposit->bank_account ?? ''));
+        if ($bank === AccountCurrency::GBP_WISE) {
+            return 'gbp';
+        }
+        if ($bank === AccountCurrency::EUR_WISE) {
+            return 'eur';
+        }
+
         $stored = strtoupper((string) ($deposit->charge_currency ?? ''));
         if ($stored === 'GBP') {
             return 'gbp';
@@ -332,6 +343,9 @@ class InvoiceController extends Controller
         return [
             'invoiceType' => 'deposit',
             'referenceCode' => $deposit->reference_code,
+            'paymentReference' => method_exists($deposit, 'paymentReferenceLabel')
+                ? $deposit->paymentReferenceLabel()
+                : ('REF'.$deposit->reference_code),
             'amount' => $deposit->amount,
             'walletCurrency' => app(UsdBankWireGuidance::class)->walletCurrencyFor($user),
             'bankRail' => $this->bankRailForDeposit($deposit),
