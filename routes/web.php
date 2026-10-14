@@ -1427,6 +1427,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('users.suspend');
         Route::post('/users/{user}/unsuspend', [UserController::class, 'unsuspend'])
             ->name('users.unsuspend');
+        Route::post('/users/{user}/test-flag', [UserController::class, 'updateTestFlag'])
+            ->name('users.test-flag');
         Route::post('/users/{user}/notes', [UserController::class, 'storeNote'])
             ->name('users.notes.store');
         Route::post('/users/{user}/verify-email', [UserController::class, 'verifyEmail'])

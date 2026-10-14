@@ -54,6 +54,19 @@ if (! function_exists('format_money_amount')) {
     }
 }
 
+if (! function_exists('format_eur_admin')) {
+    /**
+     * Admin ledger euros: −€40.00 (minus before the symbol), never €-40.00.
+     */
+    function format_eur_admin(mixed $euros): string
+    {
+        $value = round((float) $euros, 2);
+        $abs = number_format(abs($value), 2);
+
+        return ($value < 0 ? MoneyDisplay::MINUS : '').'€'.$abs;
+    }
+}
+
 if (! function_exists('listing_price_symbol')) {
     function listing_price_symbol(?string $country = null): string
     {

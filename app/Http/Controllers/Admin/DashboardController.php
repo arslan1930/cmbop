@@ -13,15 +13,18 @@ use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
+    public const SHOW_TEST_SESSION_KEY = 'admin.dashboard.show_test';
+
     public function __construct(private DashboardMetricsService $metrics) {}
 
     /**
      * Admin dashboard page (marketing uses Marketing\PanelController).
      */
-    public function index()
+    public function index(Request $request)
     {
         $moderationOff = false;
         $opsAlerts = [];
+        $showTestData = $this->resolveShowTestData($request);
 
         try {
             $moderationOff = ! app(ContentModerationService::class)->isEnabled();
@@ -39,20 +42,21 @@ class DashboardController extends Controller
             );
         }
 
-        return view('admin.dashboard', compact('moderationOff', 'opsAlerts'));
+        return view('admin.dashboard', compact('moderationOff', 'opsAlerts', 'showTestData'));
     }
 
     /**
      * Top-level KPI cards + action counts (AJAX)
      */
-    public function getStatistics()
+    public function getStatistics(Request $request)
     {
         try {
-            $data = $this->remember('statistics', fn () => $this->metrics->statistics());
+            $metrics = $this->metricsFor($request);
+            $data = $this->remember('statistics', fn () => $metrics->statistics(), $request);
             // Queue fields are also the nav badges (live). Overlay so a cached
             // KPI payload cannot disagree with pending_deposits / needs_attention.
             if ($this->cacheTtl() > 0) {
-                $data = array_merge($data, $this->metrics->queueCounts());
+                $data = array_merge($data, $metrics->queueCounts());
             }
 
             return response()->json(['success' => true, 'data' => $data]);
@@ -76,7 +80,7 @@ class DashboardController extends Controller
 
             return response()->json([
                 'success' => true,
-                ...$this->remember('trends.'.$days, fn () => $this->metrics->trends($days)),
+                ...$this->remember('trends.'.$days, fn () => $this->metricsFor($request)->trends($days), $request),
             ]);
         } catch (\Throwable $e) {
             Log::error('Admin dashboard trends error: '.$e->getMessage());
@@ -91,12 +95,12 @@ class DashboardController extends Controller
     /**
      * Order status + role distribution pie data (AJAX)
      */
-    public function getDistributions()
+    public function getDistributions(Request $request)
     {
         try {
             return response()->json([
                 'success' => true,
-                ...$this->remember('distributions', fn () => $this->metrics->distributions()),
+                ...$this->remember('distributions', fn () => $this->metricsFor($request)->distributions(), $request),
             ]);
         } catch (\Throwable $e) {
             Log::error('Admin dashboard distributions error: '.$e->getMessage());
@@ -111,13 +115,13 @@ class DashboardController extends Controller
     /**
      * Sidebar badge counts for pending ops queues (AJAX)
      */
-    public function getQueueCounts()
+    public function getQueueCounts(Request $request)
     {
         try {
             // Nav badges poll this every 60s — do not put it behind the metrics cache.
             return response()->json([
                 'success' => true,
-                ...$this->metrics->queueCounts(),
+                ...$this->metricsFor($request)->queueCounts(),
             ]);
         } catch (\Throwable $e) {
             Log::error('Admin dashboard queue counts error: '.$e->getMessage());
@@ -132,11 +136,11 @@ class DashboardController extends Controller
     /**
      * Liability + this-month margin (same source as the finance hub).
      */
-    public function getFinanceStrip()
+    public function getFinanceStrip(Request $request)
     {
         try {
             // Due to pay now sits next to the live withdrawal queue — do not cache it.
-            return response()->json(['success' => true, 'data' => $this->metrics->financeStrip()]);
+            return response()->json(['success' => true, 'data' => $this->metricsFor($request)->financeStrip()]);
         } catch (\Throwable $e) {
             Log::error('Admin dashboard finance strip error: '.$e->getMessage());
 
@@ -150,12 +154,12 @@ class DashboardController extends Controller
     /**
      * Supply, in-flight orders, and time-to-publish (AJAX). Not cached.
      */
-    public function getMarketplaceHealth()
+    public function getMarketplaceHealth(Request $request)
     {
         try {
             return response()->json([
                 'success' => true,
-                'data' => $this->metrics->marketplaceHealth(),
+                'data' => $this->metricsFor($request)->marketplaceHealth(),
             ]);
         } catch (\Throwable $e) {
             Log::error('Admin dashboard marketplace health error: '.$e->getMessage());
@@ -178,7 +182,7 @@ class DashboardController extends Controller
             // Work list — same reason as queue-counts: do not freeze pending rows.
             return response()->json([
                 'success' => true,
-                ...$this->metrics->actionQueue($minAgeDays),
+                ...$this->metricsFor($request)->actionQueue($minAgeDays),
             ]);
         } catch (\Throwable $e) {
             Log::error('Admin dashboard action queue error: '.$e->getMessage());
@@ -190,17 +194,36 @@ class DashboardController extends Controller
         }
     }
 
+    private function metricsFor(Request $request): DashboardMetricsService
+    {
+        return $this->metrics->includeTestData($this->resolveShowTestData($request));
+    }
+
+    private function resolveShowTestData(Request $request): bool
+    {
+        if ($request->has('show_test')) {
+            $show = $request->boolean('show_test');
+            $request->session()->put(self::SHOW_TEST_SESSION_KEY, $show);
+
+            return $show;
+        }
+
+        return (bool) $request->session()->get(self::SHOW_TEST_SESSION_KEY, false);
+    }
+
     /**
      * Optional short-lived cache. TTL 0 (default) skips the store.
      */
-    private function remember(string $key, callable $callback): mixed
+    private function remember(string $key, callable $callback, ?Request $request = null): mixed
     {
         $ttl = $this->cacheTtl();
         if ($ttl <= 0) {
             return $callback();
         }
 
-        return Cache::remember('admin.dashboard.'.$key, $ttl, $callback);
+        $suffix = $request && $this->resolveShowTestData($request) ? '.test' : '';
+
+        return Cache::remember('admin.dashboard.'.$key.$suffix, $ttl, $callback);
     }
 
     private function cacheTtl(): int

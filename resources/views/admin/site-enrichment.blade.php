@@ -150,7 +150,10 @@
                             </td>
                             <td><span class="badge bg-secondary-subtle text-secondary">{{ $run->type }}</span></td>
                             <td>{{ $run->provider ?: '—' }}</td>
-                            <td class="small text-danger" style="max-width:320px;">{{ Str::limit($run->error, 160) }}</td>
+                            @php
+                                $enrichmentError = \App\Support\UserFacingError::enrichmentDisplay($run->error);
+                            @endphp
+                            <td class="small text-danger" style="max-width:320px;" title="{{ $enrichmentError['raw'] }}">{{ \Illuminate\Support\Str::limit($enrichmentError['text'], 160) }}</td>
                             <td class="text-end">
                                 @if($run->site && (! $marketingEditor || ! $run->site->isLockedForMarketingEdits()))
                                     <button type="button" class="btn btn-sm btn-outline-primary enrich-site-btn" data-id="{{ $run->site->id }}">

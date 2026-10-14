@@ -332,6 +332,40 @@ class UserController extends Controller
         return back()->with('success', $user->name.' can sign in again.');
     }
 
+    public function updateTestFlag(Request $request, User $user)
+    {
+        $data = $request->validate([
+            'is_test' => 'required|boolean',
+        ]);
+
+        if (! User::hasUsersColumn('is_test')) {
+            return back()->with('error', 'Test accounts cannot be marked on this database. Run database/sql/add_users_is_test.sql.');
+        }
+
+        $from = $user->isTestAccount();
+        $user->forceFill(User::existingAttributes([
+            'is_test' => (bool) $data['is_test'],
+        ]))->save();
+
+        ActivityLogger::tryLog(
+            $user->isTestAccount() ? 'user.marked_test' : 'user.unmarked_test',
+            ($request->user()?->name ?? 'Admin').' '.($user->isTestAccount() ? 'marked' : 'unmarked').' user #'.$user->id.' as a test account',
+            $user,
+            [
+                'from' => $from,
+                'to' => $user->isTestAccount(),
+            ],
+            $user->name
+        );
+
+        return back()->with(
+            'success',
+            $user->isTestAccount()
+                ? $user->name.' is a test account and is hidden from dashboard metrics by default.'
+                : $user->name.' is no longer a test account.'
+        );
+    }
+
     public function storeNote(Request $request, User $user)
     {
         $data = $request->validate([
@@ -834,7 +868,7 @@ class UserController extends Controller
         }
 
         $flag = search_text($request->input('flag'));
-        if (! in_array($flag, ['catalog_hide', 'copy_strike', 'payout_locked'], true)) {
+        if (! in_array($flag, ['catalog_hide', 'copy_strike', 'payout_locked', 'test'], true)) {
             $flag = '';
         }
 
@@ -911,6 +945,8 @@ class UserController extends Controller
             $query->where('catalog_copy_strike_count', '>=', 1);
         } elseif ($flag === 'payout_locked' && $this->hasColumn('users', 'payout_profile_locked_at')) {
             $query->whereNotNull('payout_profile_locked_at');
+        } elseif ($flag === 'test' && $this->hasColumn('users', 'is_test')) {
+            $query->where('is_test', 1);
         }
 
         match ($filters['sort']) {

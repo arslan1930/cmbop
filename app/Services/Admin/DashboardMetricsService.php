@@ -28,8 +28,10 @@ use App\Services\Reminders\StalledOrderQueue;
 use App\Services\Wallet\ManualDepositApproveLink;
 use App\Services\Wallet\ManualWithdrawalMarkPaidLink;
 use App\Support\MarketingOpsQueues;
+use App\Support\UserFacingError;
 use App\Support\ViewerCountry;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -45,11 +47,63 @@ use Illuminate\Support\Str;
  */
 class DashboardMetricsService
 {
+    private bool $includeTestData = false;
+
     public function __construct(
         private FinanceOverviewService $finance,
         private StalledOrderQueue $stalled,
         private InvoiceRepairQueue $repairQueue,
     ) {}
+
+    public function includeTestData(bool $include = true): static
+    {
+        $this->includeTestData = $include;
+
+        return $this;
+    }
+
+    public function includesTestData(): bool
+    {
+        return $this->includeTestData;
+    }
+
+    private function excludingTestAccounts(): bool
+    {
+        return ! $this->includeTestData && User::hasUsersColumn('is_test');
+    }
+
+    /**
+     * @template T of \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder
+     *
+     * @param  T  $query
+     * @return T
+     */
+    private function withoutTestUsers($query, string $userColumn = 'user_id')
+    {
+        if (! $this->excludingTestAccounts()) {
+            return $query;
+        }
+
+        return $query->whereNotExists(function ($inner) use ($userColumn) {
+            $inner->selectRaw('1')
+                ->from('users as dashboard_test_users')
+                ->whereColumn('dashboard_test_users.id', $userColumn)
+                ->where('dashboard_test_users.is_test', 1);
+        });
+    }
+
+    /**
+     * @return Builder<User>
+     */
+    private function usersQuery()
+    {
+        $query = User::query();
+        if ($this->excludingTestAccounts()) {
+            $query->notTest();
+        }
+
+        return $query;
+    }
 
     /**
      * Top-level KPI cards + action counts.
@@ -84,9 +138,9 @@ class DashboardMetricsService
             'live_sites' => $siteBreakdown['live'],
             'unverified_sites' => $queues['unverified_sites'],
             'site_status' => $siteBreakdown,
-            'total_orders' => $this->safeInt(fn () => Order::count()),
-            'paid_orders' => $this->safeInt(fn () => Order::where('payment_status', 'paid')->count()),
-            'revenue' => $this->safeFloat(fn () => Order::where('payment_status', 'paid')->sum('total_amount')),
+            'total_orders' => $this->safeInt(fn () => $this->withoutTestUsers(Order::query())->count()),
+            'paid_orders' => $this->safeInt(fn () => $this->withoutTestUsers(Order::query())->where('payment_status', 'paid')->count()),
+            'revenue' => $this->safeFloat(fn () => $this->withoutTestUsers(Order::query())->where('payment_status', 'paid')->sum('total_amount')),
             'pending_deposits' => $queues['pending_deposits'],
             'pending_withdrawals' => $queues['pending_withdrawals'],
             'pending_payments' => $queues['pending_payments'],
@@ -103,12 +157,15 @@ class DashboardMetricsService
             'library_evaluating' => $queues['library_evaluating'],
             'campaigns_attention' => $queues['campaigns_attention'],
             'needs_attention' => $queues['needs_attention'],
+            'needs_attention_urgent' => $queues['needs_attention_urgent'],
+            'needs_attention_backlog' => $queues['needs_attention_backlog'],
             'attention' => $queues['attention'],
-            'new_users_7d' => $this->safeInt(fn () => User::where('created_at', '>=', now()->subDays(7))->count()),
-            'orders_7d' => $this->safeInt(fn () => Order::where('payment_status', 'paid')
+            'include_test_data' => $this->includeTestData,
+            'new_users_7d' => $this->safeInt(fn () => $this->usersQuery()->where('created_at', '>=', now()->subDays(7))->count()),
+            'orders_7d' => $this->safeInt(fn () => $this->withoutTestUsers(Order::query())->where('payment_status', 'paid')
                 ->whereRaw($this->paidAtSql().' >= ?', [now()->subDays(7)])
                 ->count()),
-            'revenue_7d' => $this->safeFloat(fn () => Order::where('payment_status', 'paid')
+            'revenue_7d' => $this->safeFloat(fn () => $this->withoutTestUsers(Order::query())->where('payment_status', 'paid')
                 ->whereRaw($this->paidAtSql().' >= ?', [now()->subDays(7)])
                 ->sum('total_amount')),
             'promotions' => $this->promotionSnapshot(),
@@ -169,11 +226,13 @@ class DashboardMetricsService
         $pipeline = $this->orderPipeline();
 
         $roleCounts = $this->safeKeyedRows(function () {
-            return DB::table('role_user')
+            $query = DB::table('role_user')
                 ->join('roles', 'roles.id', '=', 'role_user.role_id')
                 ->select('roles.name', DB::raw('COUNT(DISTINCT role_user.user_id) as total'))
-                ->groupBy('roles.name')
-                ->pluck('total', 'name');
+                ->groupBy('roles.name');
+            $this->withoutTestUsers($query, 'role_user.user_id');
+
+            return $query->pluck('total', 'name');
         });
 
         return [
@@ -182,6 +241,7 @@ class DashboardMetricsService
                     'keys' => [],
                     'labels' => [],
                     'values' => [],
+                    'empty' => true,
                 ]
                 : [
                     'keys' => ['pending', 'processing', 'completed'],
@@ -191,12 +251,13 @@ class DashboardMetricsService
                         $pipeline['processing'],
                         $pipeline['completed_30d'],
                     ],
+                    'empty' => ($pipeline['pending'] + $pipeline['processing'] + $pipeline['completed_30d']) === 0,
                 ],
             'roles' => [
                 'keys' => $roleCounts->keys()->map(fn ($s) => (string) $s)->values(),
                 'labels' => $roleCounts->keys()->map(fn ($s) => ucfirst((string) $s))->values(),
                 'values' => $roleCounts->values()->map(fn ($v) => (int) $v)->values(),
-                'note' => 'Assigned-role slices still overlap: signup grants both advertiser and publisher. KPI cards use chosen active role or real usage.',
+                'note' => 'Assigned roles: signup grants both advertiser and publisher, so slices overlap. The Total Users card uses the chosen active role or real usage.',
             ],
             'countries' => $this->userCountriesByIp(),
         ];
@@ -228,7 +289,7 @@ class DashboardMetricsService
             $profileByUser = [];
             $userIds = [];
 
-            $query = DB::table('users')->select('id');
+            $query = $this->usersQuery()->select('id');
             if (User::hasUsersColumn('ip_address')) {
                 $query->addSelect('ip_address');
             }
@@ -505,22 +566,22 @@ class DashboardMetricsService
         $missingPdfInvoices = $this->safeInt(fn () => $this->repairQueue->missingPdfPathCount());
         $libraryEvaluating = $this->libraryEvaluatingCount();
         $campaignsAttention = $this->campaignsAttentionCount();
-        $needsAttention = $pendingDeposits
+        $attentionUrgent = $pendingDeposits
             + $pendingWithdrawals
-            + $unverifiedSites
             + $pendingPayments
-            + $pendingCommunity
             + $openDisputes
             + $stalledOrders
+            + $missingTaxInvoices
+            + $missingPdfInvoices;
+        $attentionBacklog = $unverifiedSites
+            + $pendingCommunity
             + $openBulk
             + $failedMail
             + $moderationErrors
-            + $enrichmentFailed
             + $catalogHide
-            + $missingTaxInvoices
-            + $missingPdfInvoices
             + $libraryEvaluating
             + $campaignsAttention;
+        $needsAttention = $attentionUrgent + $attentionBacklog;
 
         return [
             'pending_deposits' => $pendingDeposits,
@@ -544,6 +605,8 @@ class DashboardMetricsService
             'library_evaluating' => $libraryEvaluating,
             'campaigns_attention' => $campaignsAttention,
             'needs_attention' => $needsAttention,
+            'needs_attention_urgent' => $attentionUrgent,
+            'needs_attention_backlog' => $attentionBacklog,
             'attention' => $this->attentionItems([
                 'pending_deposits' => $pendingDeposits,
                 'pending_withdrawals' => $pendingWithdrawals,
@@ -600,6 +663,11 @@ class DashboardMetricsService
         }
 
         $advertiser = (array) data_get($overview, 'liability.advertiser', []);
+        $orderFees = round((float) data_get($overview, 'platform.order_fees', 0), 2);
+        $withdrawalFees = round((float) data_get($overview, 'platform.withdrawal_fees', 0), 2);
+        $refundedFees = round((float) data_get($overview, 'platform.refunded_order_fees', 0), 2);
+        $fees = round($orderFees + $withdrawalFees - $refundedFees, 2);
+        $bonusesIssued = round((float) data_get($overview, 'platform.bonuses_issued', 0), 2);
 
         return [
             'period_label' => (string) data_get($overview, 'period.label', ''),
@@ -607,6 +675,8 @@ class DashboardMetricsService
             'in_publisher_wallets' => (float) ($overview['in_publisher_wallets'] ?? 0),
             'total_publisher_liability' => (float) ($overview['total_publisher_liability'] ?? 0),
             'margin' => (float) data_get($overview, 'platform.margin', 0),
+            'fees' => $fees,
+            'bonuses_issued' => $bonusesIssued,
             'url' => $monthUrl,
             'collected' => $lines,
             'orders_not_recorded' => (int) data_get($collected, 'orders_not_recorded', 0),
@@ -676,7 +746,10 @@ class DashboardMetricsService
         $sites = collect();
         try {
             if (Schema::hasTable('sites')) {
-                $query = Site::with('publisher:id,name,email')->needsAdminReview();
+                $query = $this->withoutTestUsers(
+                    Site::with('publisher:id,name,email')->needsAdminReview(),
+                    'publisher_id'
+                );
                 if ($minAgeDays > 0) {
                     $query->where('created_at', '<=', now()->subDays($minAgeDays));
                 }
@@ -724,7 +797,7 @@ class DashboardMetricsService
      */
     private function unpaidOrdersQuery()
     {
-        return Order::query()->unpaidOps();
+        return $this->withoutTestUsers(Order::query()->unpaidOps());
     }
 
     /**
@@ -741,7 +814,7 @@ class DashboardMetricsService
                 && Schema::hasColumn('deposit_requests', 'charge_amount');
 
             return $this->oldestWaiting(
-                DepositRequest::with('user:id,name,email')->where('status', 'pending')
+                $this->withoutTestUsers(DepositRequest::with('user:id,name,email')->where('status', 'pending'))
             )
                 ->take(5)
                 ->get()
@@ -791,7 +864,7 @@ class DashboardMetricsService
             }
 
             return $this->oldestWaiting(
-                Withdrawal::with('user:id,name,email')->whereIn('status', ['pending', 'processing'])
+                $this->withoutTestUsers(Withdrawal::with('user:id,name,email')->whereIn('status', ['pending', 'processing']))
             )
                 ->take(5)
                 ->get()
@@ -824,7 +897,7 @@ class DashboardMetricsService
                 return 0;
             }
 
-            return DepositRequest::where('status', 'pending')->count();
+            return $this->withoutTestUsers(DepositRequest::where('status', 'pending'))->count();
         } catch (\Throwable) {
             return 0;
         }
@@ -837,7 +910,7 @@ class DashboardMetricsService
                 return 0;
             }
 
-            return Withdrawal::whereIn('status', ['pending', 'processing'])->count();
+            return $this->withoutTestUsers(Withdrawal::whereIn('status', ['pending', 'processing']))->count();
         } catch (\Throwable) {
             return 0;
         }
@@ -855,7 +928,7 @@ class DashboardMetricsService
     {
         try {
             return $this->oldestWaiting(
-                $this->unpaidOrdersQuery()->with('user:id,name,email')
+                $this->withoutTestUsers($this->unpaidOrdersQuery()->with('user:id,name,email'))
             )
                 ->take(5)
                 ->get()
@@ -891,11 +964,20 @@ class DashboardMetricsService
         }
 
         try {
-            return $this->oldestWaiting(
-                OrderItemDispute::query()
-                    ->where('status', OrderItemDispute::STATUS_OPEN)
-                    ->with(['order:id,order_number,user_id', 'order.user:id,name', 'orderItem:id,site_name'])
-            )
+            $query = OrderItemDispute::query()
+                ->where('status', OrderItemDispute::STATUS_OPEN)
+                ->with(['order:id,order_number,user_id', 'order.user:id,name', 'orderItem:id,site_name']);
+            if ($this->excludingTestAccounts() && Schema::hasTable('orders')) {
+                $query->whereNotExists(function ($inner) {
+                    $inner->selectRaw('1')
+                        ->from('orders')
+                        ->join('users as dashboard_test_users', 'dashboard_test_users.id', '=', 'orders.user_id')
+                        ->whereColumn('orders.id', 'order_item_disputes.order_id')
+                        ->where('dashboard_test_users.is_test', 1);
+                });
+            }
+
+            return $this->oldestWaiting($query)
                 ->take(5)
                 ->get()
                 ->map(fn (OrderItemDispute $d) => [
@@ -986,24 +1068,38 @@ class DashboardMetricsService
                 return collect();
             }
 
-            return $this->oldestWaiting(
-                SiteEnrichmentRun::query()
-                    ->with('site:id,site_name,site_url')
-                    ->needsAttention()
-            )
+            $query = SiteEnrichmentRun::query()
+                ->with('site:id,site_name,site_url')
+                ->needsAttention();
+            if ($this->excludingTestAccounts()) {
+                $query->whereNotExists(function ($inner) {
+                    $inner->selectRaw('1')
+                        ->from('sites')
+                        ->join('users as dashboard_test_users', 'dashboard_test_users.id', '=', 'sites.publisher_id')
+                        ->whereColumn('sites.id', 'site_enrichment_runs.site_id')
+                        ->where('dashboard_test_users.is_test', 1);
+                });
+            }
+
+            return $this->oldestWaiting($query)
                 ->take(5)
                 ->get()
-                ->map(fn (SiteEnrichmentRun $run) => [
-                    'id' => $run->id,
-                    'site_name' => $run->site?->site_name ?: 'Unknown site',
-                    'status' => $run->status,
-                    'error' => Str::limit((string) ($run->error ?: 'Enrichment failed'), 80),
-                    'date' => $this->formatDate($run->created_at, 'd M Y'),
-                    'age' => $this->ageLabel($run->created_at),
-                    'url' => $run->site_id
-                        ? route('admin.sites.edit', $run->site_id)
-                        : route('admin.site-enrichment.index'),
-                ]);
+                ->map(function (SiteEnrichmentRun $run) {
+                    $display = UserFacingError::enrichmentDisplay($run->error);
+
+                    return [
+                        'id' => $run->id,
+                        'site_name' => $run->site?->site_name ?: 'Unknown site',
+                        'status' => $run->status,
+                        'error' => Str::limit($display['text'], 80),
+                        'error_raw' => $display['raw'],
+                        'date' => $this->formatDate($run->created_at, 'd M Y'),
+                        'age' => $this->ageLabel($run->created_at),
+                        'url' => $run->site_id
+                            ? route('admin.sites.edit', $run->site_id)
+                            : route('admin.site-enrichment.index'),
+                    ];
+                });
         } catch (\Throwable $e) {
             // Same Hostinger/schema drift the enrichment page already swallows —
             // do not take down deposits/withdrawals with it.
@@ -1026,8 +1122,10 @@ class DashboardMetricsService
             }
 
             return $this->oldestWaiting(
-                MarketingOpsQueues::bulkWaitingOnMarketer()
-                    ->with('publisher:id,name,email')
+                $this->withoutTestUsers(
+                    MarketingOpsQueues::bulkWaitingOnMarketer()->with('publisher:id,name,email'),
+                    'publisher_id'
+                )
             )
                 ->take(5)
                 ->get()
@@ -1166,7 +1264,7 @@ class DashboardMetricsService
                 return collect();
             }
 
-            return User::query()
+            return $this->usersQuery()
                 ->whereNotNull('catalog_hide_until')
                 ->where('catalog_hide_until', '>', now())
                 ->orderBy('catalog_hide_until')
@@ -1197,7 +1295,7 @@ class DashboardMetricsService
                 return 0;
             }
 
-            return MarketingOpsQueues::bulkWaitingOnMarketer()->count();
+            return (int) $this->withoutTestUsers(MarketingOpsQueues::bulkWaitingOnMarketer(), 'publisher_id')->count();
         } catch (\Throwable) {
             return 0;
         }
@@ -1228,7 +1326,18 @@ class DashboardMetricsService
                 return 0;
             }
 
-            return SiteEnrichmentRun::query()->needsAttention()->count();
+            $query = SiteEnrichmentRun::query()->needsAttention();
+            if ($this->excludingTestAccounts()) {
+                $query->whereNotExists(function ($inner) {
+                    $inner->selectRaw('1')
+                        ->from('sites')
+                        ->join('users as dashboard_test_users', 'dashboard_test_users.id', '=', 'sites.publisher_id')
+                        ->whereColumn('sites.id', 'site_enrichment_runs.site_id')
+                        ->where('dashboard_test_users.is_test', 1);
+                });
+            }
+
+            return $query->count();
         } catch (\Throwable) {
             return 0;
         }
@@ -1241,7 +1350,7 @@ class DashboardMetricsService
                 return 0;
             }
 
-            return User::query()
+            return $this->usersQuery()
                 ->whereNotNull('catalog_hide_until')
                 ->where('catalog_hide_until', '>', now())
                 ->get(['id', 'catalog_hide_until'])
@@ -1258,7 +1367,20 @@ class DashboardMetricsService
             return 0;
         }
 
-        return $this->safeInt(fn () => OrderItemDispute::where('status', OrderItemDispute::STATUS_OPEN)->count());
+        return $this->safeInt(function () {
+            $query = OrderItemDispute::where('status', OrderItemDispute::STATUS_OPEN);
+            if ($this->excludingTestAccounts() && Schema::hasTable('orders')) {
+                $query->whereNotExists(function ($inner) {
+                    $inner->selectRaw('1')
+                        ->from('orders')
+                        ->join('users as dashboard_test_users', 'dashboard_test_users.id', '=', 'orders.user_id')
+                        ->whereColumn('orders.id', 'order_item_disputes.order_id')
+                        ->where('dashboard_test_users.is_test', 1);
+                });
+            }
+
+            return $query->count();
+        });
     }
 
     private function liveSitesCount(): int
@@ -1272,20 +1394,20 @@ class DashboardMetricsService
         }
 
         try {
-            return (int) Site::query()->catalogVisible()->count();
+            return (int) $this->withoutTestUsers(Site::query()->catalogVisible(), 'publisher_id')->count();
         } catch (\Throwable $e) {
             // Leftover Hostinger: catalogVisible() joins bulk_site_requests.
             Log::warning('Dashboard live sites count failed', ['error' => $e->getMessage()]);
         }
 
         try {
-            return (int) Site::query()->active()->notArchived()->count();
+            return (int) $this->withoutTestUsers(Site::query()->active()->notArchived(), 'publisher_id')->count();
         } catch (\Throwable $e) {
             Log::warning('Dashboard live sites fallback failed', ['error' => $e->getMessage()]);
         }
 
         try {
-            return (int) Site::query()->where('active', 1)->count();
+            return (int) $this->withoutTestUsers(Site::query()->where('active', 1), 'publisher_id')->count();
         } catch (\Throwable) {
             return 0;
         }
@@ -1307,7 +1429,10 @@ class DashboardMetricsService
         }
 
         try {
-            return (int) DB::table('role_user')->where('role_id', $roleId)->distinct()->count('user_id');
+            $query = DB::table('role_user')->where('role_id', $roleId);
+            $this->withoutTestUsers($query, 'role_user.user_id');
+
+            return (int) $query->distinct()->count('user_id');
         } catch (\Throwable) {
             return 0;
         }
@@ -1380,8 +1505,8 @@ class DashboardMetricsService
             }
 
             return [
-                'pending' => (int) Order::query()->where('payment_status', 'paid')->where('status', 'pending')->count(),
-                'processing' => (int) Order::query()->where('payment_status', 'paid')->where('status', 'processing')->count(),
+                'pending' => (int) $this->withoutTestUsers(Order::query())->where('payment_status', 'paid')->where('status', 'pending')->count(),
+                'processing' => (int) $this->withoutTestUsers(Order::query())->where('payment_status', 'paid')->where('status', 'processing')->count(),
                 'completed_30d' => $this->completedRecentCount(30),
             ];
         } catch (\Throwable $e) {
@@ -1394,7 +1519,7 @@ class DashboardMetricsService
     private function completedRecentCount(int $days): int
     {
         return $this->safeInt(function () use ($days) {
-            $query = Order::query()
+            $query = $this->withoutTestUsers(Order::query())
                 ->where('payment_status', 'paid')
                 ->where('status', 'completed');
             $column = Schema::hasColumn('orders', 'completed_at') ? 'completed_at' : 'updated_at';
@@ -1422,18 +1547,19 @@ class DashboardMetricsService
 
         return $this->safeInt(function () use ($roleId, $since) {
             if (Schema::hasColumn('users', 'active_role_id')) {
-                return (int) User::query()
+                return (int) $this->usersQuery()
                     ->where('active_role_id', $roleId)
                     ->where('created_at', '>=', $since)
                     ->count();
             }
 
-            return (int) DB::table('users')
+            $query = DB::table('users')
                 ->join('role_user', 'role_user.user_id', '=', 'users.id')
                 ->where('role_user.role_id', $roleId)
-                ->where('users.created_at', '>=', $since)
-                ->distinct()
-                ->count('users.id');
+                ->where('users.created_at', '>=', $since);
+            $this->withoutTestUsers($query, 'users.id');
+
+            return (int) $query->distinct()->count('users.id');
         });
     }
 
@@ -1443,7 +1569,7 @@ class DashboardMetricsService
     private function usageAdvertiserCount(mixed $roleId): int
     {
         return $this->safeInt(function () use ($roleId) {
-            $query = User::query()->where(function ($outer) use ($roleId) {
+            $query = $this->usersQuery()->where(function ($outer) use ($roleId) {
                 if ($roleId && Schema::hasColumn('users', 'active_role_id')) {
                     $outer->where('active_role_id', $roleId);
                 } elseif ($roleId) {
@@ -1473,7 +1599,7 @@ class DashboardMetricsService
     private function usagePublisherCount(mixed $roleId): int
     {
         return $this->safeInt(function () use ($roleId) {
-            $query = User::query()->where(function ($outer) use ($roleId) {
+            $query = $this->usersQuery()->where(function ($outer) use ($roleId) {
                 if ($roleId && Schema::hasColumn('users', 'active_role_id')) {
                     $outer->where('active_role_id', $roleId);
                 } elseif ($roleId) {
@@ -1526,26 +1652,26 @@ class DashboardMetricsService
         $live = $this->liveSitesCount();
         $inReview = $this->unverifiedSitesCountExclusiveOfLiveAndArchived();
         $archived = $this->safeInt(function () {
-            return Site::query()->archived()->count();
+            return $this->withoutTestUsers(Site::query()->archived(), 'publisher_id')->count();
         });
         $paused = $this->safeInt(function () {
-            return Site::query()
+            return $this->withoutTestUsers(Site::query()
                 ->where('verified', 1)
                 ->where(function ($q) {
                     $q->where('active', 0)->orWhereNull('active');
                 })
-                ->notArchived()
+                ->notArchived(), 'publisher_id')
                 ->count();
         });
         $draft = $this->safeInt(function () {
-            $query = Site::query()
+            $query = $this->withoutTestUsers(Site::query()
                 ->where(function ($q) {
                     $q->where('verified', 0)->orWhereNull('verified');
                 })
                 ->where(function ($q) {
                     $q->where('active', 0)->orWhereNull('active');
                 })
-                ->notArchived();
+                ->notArchived(), 'publisher_id');
             if (Site::hasSitesColumn('onboarding_status')) {
                 $query->whereIn('onboarding_status', [
                     Site::ONBOARDING_AWAITING_DETAILS,
@@ -1562,7 +1688,7 @@ class DashboardMetricsService
                 return 0;
             }
 
-            return Site::query()
+            return $this->withoutTestUsers(Site::query()
                 ->where(function ($q) {
                     $q->where('verified', 0)->orWhereNull('verified');
                 })
@@ -1570,10 +1696,10 @@ class DashboardMetricsService
                     $q->where('active', 0)->orWhereNull('active');
                 })
                 ->notArchived()
-                ->where('onboarding_status', Site::ONBOARDING_STAFF_HOLD)
+                ->where('onboarding_status', Site::ONBOARDING_STAFF_HOLD), 'publisher_id')
                 ->count();
         });
-        $total = $this->safeInt(fn () => Site::count());
+        $total = $this->safeInt(fn () => $this->withoutTestUsers(Site::query(), 'publisher_id')->count());
         $accounted = $live + $inReview + $archived + $paused + $draft + $held;
         $other = max(0, $total - $accounted);
 
@@ -1680,7 +1806,7 @@ class DashboardMetricsService
     private function paidAmountSeries(string $paidAt, Carbon $from, ?Carbon $until): Collection
     {
         return $this->safeKeyedRows(function () use ($paidAt, $from, $until) {
-            $query = Order::where('payment_status', 'paid')->whereRaw($paidAt.' >= ?', [$from]);
+            $query = $this->withoutTestUsers(Order::where('payment_status', 'paid'))->whereRaw($paidAt.' >= ?', [$from]);
             if ($until) {
                 $query->whereRaw($paidAt.' < ?', [$until]);
             }
@@ -1697,7 +1823,7 @@ class DashboardMetricsService
     private function paidCountSeries(string $paidAt, Carbon $from, ?Carbon $until): Collection
     {
         return $this->safeKeyedRows(function () use ($paidAt, $from, $until) {
-            $query = Order::where('payment_status', 'paid')->whereRaw($paidAt.' >= ?', [$from]);
+            $query = $this->withoutTestUsers(Order::where('payment_status', 'paid'))->whereRaw($paidAt.' >= ?', [$from]);
             if ($until) {
                 $query->whereRaw($paidAt.' < ?', [$until]);
             }
@@ -1719,7 +1845,7 @@ class DashboardMetricsService
         }
 
         return $this->safeKeyedRows(function () use ($from, $roleId) {
-            $query = User::query()->where('created_at', '>=', $from);
+            $query = $this->usersQuery()->where('created_at', '>=', $from);
             if ($roleId !== false) {
                 if (Schema::hasColumn('users', 'active_role_id')) {
                     $query->where('active_role_id', $roleId);
@@ -1817,7 +1943,7 @@ class DashboardMetricsService
             }
             DB::table('sites')->limit(1)->exists();
 
-            return MarketingOpsQueues::sitesReadyForStaffCount();
+            return (int) $this->withoutTestUsers(MarketingOpsQueues::sitesReadyForStaff(), 'publisher_id')->count();
         } catch (\Throwable) {
             return 0;
         }

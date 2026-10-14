@@ -92,7 +92,7 @@ class AdminDashboardTest extends TestCase
             ->assertSee('Due to pay now')
             ->assertSee('In publisher wallets')
             ->assertSee('Total publisher liability')
-            ->assertSee('Fee margin (this month)')
+            ->assertSee('Est. fee margin')
             ->assertSee('Open finance')
             ->assertSee('id="financePeriod"', false)
             ->assertDontSee('id="financePeriod" class="fw-normal text-capitalize"', false)
@@ -111,15 +111,15 @@ class AdminDashboardTest extends TestCase
             ->assertSee('loadFinanceStrip')
             ->assertSee('js-kpi-link')
             ->assertSee('js-kpi-users-caption')
-            ->assertSee('Usage counts: chosen active role, or a site / order.')
-            ->assertSee('Assigned roles still overlap at signup.')
+            ->assertSee('Active role: chosen at signup, or a site / order.')
+            ->assertSee('assigned roles', false)
             ->assertSee('Urgent')
             ->assertSee('Backlog')
             ->assertSee('Welcome bonus is closed')
             ->assertSee('id="dashboardRefresh"', false)
             ->assertSee('sitesAgeFilter')
             ->assertSee('sitesBulkApprove')
-            ->assertSee('No orders yet')
+            ->assertSee('No orders in last 30 days')
             ->assertSee('Mark all read')
             ->assertDontSee('id="logoNavbar"', false)
             ->assertSee('kpiAdmins')
@@ -153,7 +153,14 @@ class AdminDashboardTest extends TestCase
             ->assertSee(route('admin.users.index'), false)
             ->assertSee(route('admin.sites.records'), false)
             ->assertSee(route('admin.finance'), false)
-            ->assertSee('Fee margin (this month)', false)
+            ->assertSee('Est. fee margin', false)
+            ->assertSee('Bonuses issued', false)
+            ->assertSee('Show test data', false)
+            ->assertSee('kpiAttentionUrgent', false)
+            ->assertSee('kpiAttentionBacklog', false)
+            ->assertSee('formatSharePct', false)
+            ->assertSee('No paid-order revenue in this range.', false)
+            ->assertSee('No paid orders in the pipeline right now.', false)
             ->assertSee('Fees − fee reversals − bonuses', false)
             ->assertSee('js/chart.umd.min.js')
             ->assertDontSee('cdn.jsdelivr.net/npm/chart.js', false)
@@ -189,6 +196,8 @@ class AdminDashboardTest extends TestCase
                 'library_evaluating' => 0,
                 'campaigns_attention' => 0,
                 'needs_attention' => 0,
+                'needs_attention_urgent' => 0,
+                'needs_attention_backlog' => 0,
             ]);
     }
 
@@ -564,6 +573,8 @@ class AdminDashboardTest extends TestCase
         $this->assertEquals($overview['in_publisher_wallets'], $json['in_publisher_wallets']);
         $this->assertEquals($overview['total_publisher_liability'], $json['total_publisher_liability']);
         $this->assertEquals($overview['platform']['margin'], $json['margin']);
+        $this->assertArrayHasKey('fees', $json);
+        $this->assertArrayHasKey('bonuses_issued', $json);
         $this->assertEquals($overview['money_in']['orders_paid']['gmv'], $json['gmv']);
         $this->assertEquals($overview['ops']['unpaid_orders']['amount'], $json['unpaid_orders_amount']);
         $this->assertEquals($overview['ops']['open_withdrawals']['amount'], $json['open_withdrawals_amount']);
@@ -981,7 +992,9 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('moderation_errors', 1)
             ->assertJsonPath('enrichment_failed', 1)
             ->assertJsonPath('catalog_hide', 1)
-            ->assertJsonPath('needs_attention', 5);
+            ->assertJsonPath('needs_attention', 4)
+            ->assertJsonPath('needs_attention_urgent', 0)
+            ->assertJsonPath('needs_attention_backlog', 4);
 
         $queue = $this->actingAs($admin)
             ->getJson(route('admin.dashboard.action-queue'))

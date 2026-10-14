@@ -54,4 +54,24 @@ class ProductionSqlGuardTest extends TestCase
             $sql
         );
     }
+
+    public function test_screenshot_path_sql_is_idempotent(): void
+    {
+        $sql = (string) file_get_contents(base_path('database/sql/add_sites_screenshot_path.sql'));
+
+        $this->assertStringContainsString('information_schema.COLUMNS', $sql);
+        $this->assertStringContainsString("COLUMN_NAME = 'screenshot_path'", $sql);
+        $this->assertStringContainsString('ALTER TABLE `sites` ADD COLUMN `screenshot_path`', $sql);
+        $this->assertStringContainsString("already exists'' AS info", $sql);
+    }
+
+    public function test_users_is_test_sql_is_idempotent(): void
+    {
+        $sql = (string) file_get_contents(base_path('database/sql/add_users_is_test.sql'));
+
+        $this->assertStringContainsString('information_schema.COLUMNS', $sql);
+        $this->assertStringContainsString("COLUMN_NAME = 'is_test'", $sql);
+        $this->assertStringContainsString('ALTER TABLE `users` ADD COLUMN `is_test`', $sql);
+        $this->assertStringContainsString("already exists'' AS info", $sql);
+    }
 }
