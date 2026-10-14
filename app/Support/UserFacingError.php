@@ -100,6 +100,25 @@ class UserFacingError
     }
 
     /**
+     * Staff-facing enrichment error plus the raw string for a tooltip/log.
+     *
+     * @return array{text: string, raw: string}
+     */
+    public static function enrichmentDisplay(?string $message, string $fallback = 'Enrichment failed.'): array
+    {
+        $raw = trim((string) $message);
+        $text = self::safeText($raw !== '' ? $raw : null, $fallback);
+        if ($raw !== '' && (str_contains($raw, 'screenshot_path') || str_contains($raw, 'SQLSTATE'))) {
+            $text = 'Could not save the screenshot (database column missing).';
+        }
+
+        return [
+            'text' => $text,
+            'raw' => $raw,
+        ];
+    }
+
+    /**
      * Whether the exception message can be shown verbatim to an end user.
      */
     public static function isSafe(\Throwable $e): bool

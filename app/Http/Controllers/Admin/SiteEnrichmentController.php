@@ -25,7 +25,7 @@ class SiteEnrichmentController extends Controller
     {
         $status = $this->attentionStatusFilter($request->query('status'));
         $type = $this->attentionTypeFilter($request->query('type'));
-        $attention = new LengthAwarePaginator([], 0, 40);
+        $attention = new LengthAwarePaginator([], 0, 50);
         $attention->withPath($request->url())->appends($request->only(['status', 'type']));
 
         try {
@@ -35,14 +35,14 @@ class SiteEnrichmentController extends Controller
                     ->with(['site:'.implode(',', $siteSelect)])
                     ->needsAttention($status, $type)
                     ->latest('id')
-                    ->paginate(40)
+                    ->paginate(50)
                     ->withQueryString();
             }
         } catch (\Throwable $e) {
             Log::warning('Admin enrichment attention list failed', [
                 'error' => $e->getMessage(),
             ]);
-            $attention = new LengthAwarePaginator([], 0, 40);
+            $attention = new LengthAwarePaginator([], 0, 50);
             $attention->withPath($request->url())->appends($request->only(['status', 'type']));
         }
 
@@ -57,7 +57,7 @@ class SiteEnrichmentController extends Controller
             'screenshot_provider' => $this->screenshotProviderLabel(),
         ];
 
-        $staleSites = new LengthAwarePaginator([], 0, 40);
+        $staleSites = new LengthAwarePaginator([], 0, 50);
         $staleSites->withPath($request->url())->appends($request->query());
         $staleCount = 0;
         $placeholderSiteIds = [];
@@ -80,14 +80,14 @@ class SiteEnrichmentController extends Controller
             }
 
             $staleSites = $staleQuery
-                ->paginate(40, ['*'], 'stale_page')
+                ->paginate(50, ['*'], 'stale_page')
                 ->withQueryString();
             $staleCount = $staleSites->total();
         } catch (\Throwable $e) {
             Log::warning('Admin enrichment stale list failed', [
                 'error' => $e->getMessage(),
             ]);
-            $staleSites = new LengthAwarePaginator([], 0, 40);
+            $staleSites = new LengthAwarePaginator([], 0, 50);
             $staleSites->withPath($request->url())->appends($request->query());
         }
 

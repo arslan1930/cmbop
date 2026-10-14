@@ -27,6 +27,8 @@ class MoneyDisplayTest extends TestCase
         $this->assertSame('€12.00', format_money(12));
         $this->assertSame('€12.00', format_money_pay(12));
         $this->assertSame('−€40.00', format_money(-40));
+        $this->assertSame('−€40.00', format_eur_admin(-40));
+        $this->assertSame('€12.00', format_eur_admin(12));
         $this->assertSame('−€40.00', format_money_pay(-40));
         $this->assertSame('+€12.00', format_money(12, ['signed' => true]));
         $this->assertSame('−€40.00', format_money(-40, ['signed' => true]));

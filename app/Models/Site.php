@@ -2157,6 +2157,9 @@ class Site extends Model
     public function leftoverStringAttribute(string $attribute): ?string
     {
         try {
+            if (! static::hasSitesColumn($attribute)) {
+                return null;
+            }
             $value = $this->getAttribute($attribute);
         } catch (\Throwable $e) {
             report($e);

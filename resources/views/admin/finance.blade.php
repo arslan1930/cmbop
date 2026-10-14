@@ -3,7 +3,7 @@
 @section('content')
 @php
     $d = $data;
-    $euro = fn ($n) => '€'.number_format((float) $n, 2);
+    $euro = fn ($n) => format_eur_admin($n);
     $keepQuery = fn ($value) => $value !== null && $value !== '';
     $exportQuery = array_filter([
         'date_from' => $dateFrom ?: null,
@@ -470,8 +470,18 @@
                     <div class="small text-muted">Promo cost (not cash)</div>
                 </div>
                 <div class="col-6 col-lg">
-                    <div class="text-muted small">Est. fee margin</div>
+                    <div class="text-muted small">
+                        Est. fee margin
+                        <span class="ms-1" tabindex="0" role="img" title="Fees collected this period minus fee reversals and promotional bonuses. Bonuses can make the net negative when there are no fees. Stripe processor fees are not tracked." aria-label="Fees collected this period minus fee reversals and promotional bonuses. Bonuses can make the net negative when there are no fees. Stripe processor fees are not tracked.">
+                            <i class="fa fa-circle-info" aria-hidden="true"></i>
+                        </span>
+                    </div>
                     <div class="fs-5 fw-bold {{ $d['platform']['margin'] >= 0 ? 'text-success' : 'text-danger' }}">{{ $euro($d['platform']['margin']) }}</div>
+                    <div class="small text-muted">
+                        Fees {{ $euro(($d['platform']['order_fees'] ?? 0) + ($d['platform']['withdrawal_fees'] ?? 0) - ($d['platform']['refunded_order_fees'] ?? 0)) }}
+                        · Bonuses issued {{ $euro($d['platform']['bonuses_issued'] ?? 0) }}
+                        · Net {{ $euro($d['platform']['margin']) }}
+                    </div>
                     <div class="small text-muted">Fees − fee reversals − bonuses<br><span class="fst-italic">Stripe fees not tracked</span></div>
                 </div>
             </div>

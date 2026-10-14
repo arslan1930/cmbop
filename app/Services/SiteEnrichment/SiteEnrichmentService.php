@@ -252,7 +252,45 @@ class SiteEnrichmentService
             return;
         }
 
-        $site->forceFill($safe)->save();
+        try {
+            $site->forceFill($safe)->save();
+        } catch (\Throwable $e) {
+            if (! $this->isUnknownColumnError($e)) {
+                throw $e;
+            }
+
+            Log::warning('Site enrichment skipped missing columns', [
+                'site_id' => $site->id,
+                'columns' => array_keys($safe),
+                'error' => $e->getMessage(),
+            ]);
+
+            Site::forgetColumnCache();
+            $retry = [];
+            foreach ($safe as $column => $value) {
+                if (Site::hasSitesColumn((string) $column) && ! str_contains($e->getMessage(), (string) $column)) {
+                    $retry[$column] = $value;
+                }
+            }
+            foreach (array_keys($site->getDirty()) as $dirty) {
+                if (! array_key_exists($dirty, $retry)) {
+                    $site->syncOriginalAttribute($dirty);
+                }
+            }
+            if ($retry === []) {
+                return;
+            }
+
+            $site->forceFill($retry)->save();
+        }
+    }
+
+    private function isUnknownColumnError(\Throwable $e): bool
+    {
+        $message = $e->getMessage();
+
+        return str_contains($message, '42S22')
+            || str_contains($message, 'Unknown column');
     }
 
     /**

@@ -82,6 +82,7 @@
                     <option value="catalog_hide" @selected(($filters['flag'] ?? '') === 'catalog_hide')>Catalog hidden</option>
                     <option value="copy_strike" @selected(($filters['flag'] ?? '') === 'copy_strike')>Copy strike</option>
                     <option value="payout_locked" @selected(($filters['flag'] ?? '') === 'payout_locked')>Payout locked</option>
+                    <option value="test" @selected(($filters['flag'] ?? '') === 'test')>Test accounts</option>
                 </select>
             </div>
             <div>
@@ -161,6 +162,9 @@
                 @endif
                 @if($user->catalogCopyStatusLabel())
                     <span class="badge {{ $user->inCatalogHideMode() ? 'text-bg-danger' : 'text-bg-warning text-dark' }}">{{ $user->catalogCopyStatusLabel() }}</span>
+                @endif
+                @if($user->isTestAccount())
+                    <span class="badge text-bg-warning text-dark">Test</span>
                 @endif
                 @if($isRepeatBuyer || $isHighSpender)
                     <div class="d-flex flex-wrap gap-1">
