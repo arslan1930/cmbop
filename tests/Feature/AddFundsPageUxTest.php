@@ -38,6 +38,13 @@ class AddFundsPageUxTest extends TestCase
             ->getContent();
     }
 
+    public function test_add_funds_page_renders_200_for_advertiser(): void
+    {
+        $this->actingAs($this->advertiser())
+            ->get(route('advertiser.add-funds'))
+            ->assertOk();
+    }
+
     public function test_deposit_max_defaults_to_50000_and_rejects_above(): void
     {
         $this->assertSame(10.0, DepositPaymentConfig::depositMin());

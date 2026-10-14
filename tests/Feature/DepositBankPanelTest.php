@@ -41,9 +41,9 @@ class DepositBankPanelTest extends TestCase
 
     public function test_paying_from_eur_shows_euro_send_amount_not_display_currency(): void
     {
-        $user = $this->advertiser('US');
-        $this->wallet($user, 'USD');
-        $this->withCountry('US');
+        $user = $this->advertiser('DE');
+        $this->wallet($user);
+        $this->withCountry('DE');
 
         $html = $this->actingAs($user)
             ->get(route('advertiser.add-funds', ['amount' => 89.38, 'method' => 'bank', 'pay_from' => 'eur']))
@@ -86,9 +86,9 @@ class DepositBankPanelTest extends TestCase
 
     public function test_pay_from_toggle_swaps_in_place_without_navigation(): void
     {
-        $user = $this->advertiser('US');
-        $this->wallet($user, 'USD');
-        $this->withCountry('US');
+        $user = $this->advertiser('DE');
+        $this->wallet($user);
+        $this->withCountry('DE');
 
         $html = $this->actingAs($user)
             ->get(route('advertiser.add-funds', ['amount' => 50, 'method' => 'bank', 'pay_from' => 'eur']))
@@ -121,6 +121,20 @@ class DepositBankPanelTest extends TestCase
     public function test_teqno_registration_number_on_panel_and_deposit_invoice(): void
     {
         $this->assertSame('17392540', DepositPaymentConfig::beneficiaryRegistrationNo());
+        $this->assertSame(
+            DepositPaymentConfig::TEQNO_REGISTRATION_NO,
+            DepositPaymentConfig::beneficiaryRegistrationNo([
+                'beneficiary' => 'Teqno LTD',
+                'registration_no' => DepositPaymentConfig::TOPURLZ_REGISTRATION_NO,
+            ])
+        );
+        $this->assertSame(
+            DepositPaymentConfig::TOPURLZ_REGISTRATION_NO,
+            DepositPaymentConfig::beneficiaryRegistrationNo([
+                'beneficiary' => 'Topurlz Ltd',
+                'registration_no' => DepositPaymentConfig::TOPURLZ_REGISTRATION_NO,
+            ])
+        );
 
         $user = $this->advertiser('DE');
         $this->wallet($user);

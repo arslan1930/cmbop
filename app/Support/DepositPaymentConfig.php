@@ -9,6 +9,10 @@ use App\Models\User;
  */
 class DepositPaymentConfig
 {
+    public const TEQNO_REGISTRATION_NO = '17392540';
+
+    public const TOPURLZ_REGISTRATION_NO = '16607074';
+
     public static function isUsdCurrencyUser(?User $user = null, ?string $walletCurrency = null): bool
     {
         $user ??= auth()->user();
