@@ -299,9 +299,8 @@
                                     @endif
                                 @endif
                                 @if(!empty($sendLabel))
-                                    <p><strong>{{ $sendLabel }}</strong></p>
+                                    <p data-deposit-send-label="1"><strong>{{ $sendLabel }}</strong></p>
                                 @endif
-                                <p>{{ $toleranceNote ?? app(\App\Support\DepositFx::class)->toleranceNote() }}</p>
                                 @include('partials.usd-bank-wire-note', [
                                     'walletCurrency' => $walletCurrency ?? null,
                                     'eurAmount' => $amount ?? null,

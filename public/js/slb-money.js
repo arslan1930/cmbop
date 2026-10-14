@@ -1,5 +1,5 @@
 /**
- * EUR ledger amounts. Catalog uses live rate; cart/checkout use locked cart_rate.
+ * EUR ledger amounts. One display currency — no ≈ / about secondary text.
  * window.__slbMoney = { currency, usd, rate, cart_rate, symbol, guide }
  */
 (function (global) {
@@ -55,32 +55,56 @@
     function format(rawEuros, options) {
         options = options || {};
         var cfg = config();
-        var eur = euros(rawEuros);
         var value = amount(rawEuros);
         var symbol = cfg.symbol || '€';
         var prefix = signedPrefix(value, !!options.signed);
-        var local = symbol + grouped(value);
-        if (!cfg.guide || cfg.currency === 'EUR') {
-            return prefix + local;
-        }
-        return prefix + local + ' (≈ €' + grouped(eur) + ')';
+        return prefix + symbol + grouped(value);
     }
 
     function formatPay(rawEuros, options) {
         options = options || {};
-        var eur = euros(rawEuros);
-        var sign = signedPrefix(eur, !!options.signed);
-        var eurLabel = '€' + grouped(eur);
         var cfg = config();
         if (!cfg.guide || cfg.currency === 'EUR') {
-            return sign + eurLabel;
+            return format(rawEuros, options);
         }
+        var eur = euros(rawEuros);
         var rate = finiteRate(cfg.cart_rate, cfg.rate);
-        var local = Math.round(Math.abs(eur) * rate * 100) / 100;
-        return sign + eurLabel + ' · about ' + (cfg.symbol || '$') + grouped(local);
+        var local = Math.round(eur * rate * 100) / 100;
+        var prefix = signedPrefix(local, !!options.signed);
+        return prefix + (cfg.symbol || '€') + grouped(local);
+    }
+
+    function toEuros(localAmount) {
+        var n = Number(localAmount);
+        if (!Number.isFinite(n)) n = 0;
+        var cfg = config();
+        if (!cfg.guide || cfg.currency === 'EUR') {
+            return Math.round(n * 100) / 100;
+        }
+        var rate = finiteRate(cfg.rate, 1);
+        return Math.round((n / rate) * 100) / 100;
+    }
+
+    function applyFx(fx) {
+        if (!fx || typeof fx !== 'object') {
+            return config();
+        }
+        var currency = String(fx.currency || 'EUR').toUpperCase();
+        var next = {
+            currency: currency,
+            usd: !!fx.usd || currency === 'USD',
+            rate: finiteRate(fx.rate, 1),
+            cart_rate: finiteRate(fx.cart_rate, fx.rate),
+            symbol: currency === 'EUR' ? '€' : (fx.symbol || '€'),
+            guide: currency !== 'EUR'
+        };
+        global.__slbMoney = next;
+        return next;
     }
 
     global.slbFormatMoney = format;
     global.slbFormatPay = formatPay;
     global.slbMoneyAmount = amount;
+    global.slbToEuros = toEuros;
+    global.slbApplyMoneyFx = applyFx;
 })(window);

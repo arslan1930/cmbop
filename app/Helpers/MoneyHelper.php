@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\CartDisplayFx;
+use App\Support\Money;
 use App\Support\MoneyDisplay;
 
 if (! function_exists('format_money')) {
@@ -12,7 +13,7 @@ if (! function_exists('format_money')) {
      */
     function format_money(mixed $euros, array $options = []): string
     {
-        return app(MoneyDisplay::class)->format($euros, $options);
+        return Money::display($euros, $options);
     }
 }
 
@@ -24,7 +25,19 @@ if (! function_exists('format_money_pay')) {
      */
     function format_money_pay(mixed $euros, array $options = []): string
     {
-        return app(MoneyDisplay::class)->formatPay($euros, $options);
+        return Money::pay($euros, $options);
+    }
+}
+
+if (! function_exists('format_money_local')) {
+    /**
+     * Local amount only (no ≈ € ledger suffix).
+     *
+     * @param  array{signed?: bool, decimals?: int}  $options
+     */
+    function format_money_local(mixed $euros, array $options = []): string
+    {
+        return Money::local($euros, $options);
     }
 }
 

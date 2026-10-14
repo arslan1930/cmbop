@@ -129,34 +129,76 @@ class MoneyDisplay
     public const MINUS = "\u{2212}";
 
     /**
+     * One display currency. No secondary ≈ / about text.
+     *
      * @param  array{signed?: bool, decimals?: int}  $options
      */
     public function format(mixed $euros, array $options = []): string
     {
-        $eur = round((float) $euros, 2);
-        $value = $this->amount($euros);
-        $decimals = array_key_exists('decimals', $options) ? max(0, (int) $options['decimals']) : 2;
-        $prefix = $this->signedPrefix($value, ! empty($options['signed']));
-        $local = $this->symbol().number_format(abs($value), $decimals);
-        if ($this->currency() === 'EUR') {
-            return $prefix.$local;
-        }
-
-        return $prefix.$local.' (≈ €'.number_format(abs($eur), $decimals).')';
+        return $this->formatLocal($euros, $options);
     }
 
     /**
-     * Pay / cart label: euros first, locked local estimate when not EUR.
+     * Local amount only — no secondary ≈ € text.
      *
-     * @param  array{signed?: bool, rate?: float}  $options
+     * @param  array{signed?: bool, decimals?: int}  $options
+     */
+    public function formatLocal(mixed $euros, array $options = []): string
+    {
+        $value = $this->amount($euros);
+        $decimals = array_key_exists('decimals', $options) ? max(0, (int) $options['decimals']) : 2;
+        $prefix = $this->signedPrefix($value, ! empty($options['signed']));
+
+        return $prefix.$this->symbol().number_format(abs($value), $decimals);
+    }
+
+    public function quickAmountLabel(float $euros): string
+    {
+        $euros = round($euros, 2);
+        if ($this->currency() === 'EUR') {
+            return '€'.number_format($euros, 0);
+        }
+
+        return $this->formatLocal($euros, ['decimals' => 0]);
+    }
+
+    /**
+     * @return array{label: string, under: string, mid: string, plus: string}
+     */
+    public function priceFilterCopy(): array
+    {
+        if ($this->currency() === 'EUR') {
+            return [
+                'label' => 'Price (€)',
+                'under' => 'Under €50',
+                'mid' => '€50–150',
+                'plus' => '€150+',
+            ];
+        }
+
+        $under = $this->formatLocal(50, ['decimals' => 0]);
+        $midLocal = $this->amount(150);
+        $midNum = number_format(abs($midLocal), 0);
+        $plus = $this->formatLocal(150, ['decimals' => 0]);
+
+        return [
+            'label' => 'Price ('.$this->symbol().')',
+            'under' => 'Under '.$under,
+            'mid' => $under.'–'.$midNum,
+            'plus' => $plus.'+',
+        ];
+    }
+
+    /**
+     * Cart / checkout label. Same single currency as format(); uses the locked cart rate.
+     *
+     * @param  array{signed?: bool, rate?: float, decimals?: int}  $options
      */
     public function formatPay(mixed $euros, array $options = []): string
     {
         $eur = round((float) $euros, 2);
-        $prefix = $this->signedPrefix($eur, ! empty($options['signed']));
-        $eurLabel = '€'.number_format(abs($eur), 2);
         if ($this->currency() === 'EUR') {
-            return $prefix.$eurLabel;
+            return $this->format($eur, $options);
         }
 
         $rate = isset($options['rate']) ? (float) $options['rate'] : null;
@@ -166,9 +208,11 @@ class MoneyDisplay
             $rate = 1.0;
         }
 
-        $local = round(abs($eur) * $rate, 2);
+        $local = round($eur * $rate, 2);
+        $decimals = array_key_exists('decimals', $options) ? max(0, (int) $options['decimals']) : 2;
+        $prefix = $this->signedPrefix($local, ! empty($options['signed']));
 
-        return $prefix.$eurLabel.' · about '.$this->symbol().number_format($local, 2);
+        return $prefix.$this->symbol().number_format(abs($local), $decimals);
     }
 
     private function signedPrefix(float $value, bool $signed): string

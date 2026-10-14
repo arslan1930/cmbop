@@ -28,20 +28,15 @@ class CartDisplayFx
      */
     public function remember(): array
     {
+        $display = $this->displaySnap();
         $existing = $this->current();
-        if ($existing !== null) {
+        if ($existing !== null && strtoupper((string) $existing['currency']) === $display['currency']) {
             return $existing;
         }
 
-        $money = app(MoneyDisplay::class);
-        $snap = [
-            'currency' => $money->currency(),
-            'rate' => $money->rate(),
-            'symbol' => $money->symbol(),
-        ];
-        session([self::SESSION_KEY => $snap]);
+        session([self::SESSION_KEY => $display]);
 
-        return $snap;
+        return $display;
     }
 
     /**
@@ -76,5 +71,19 @@ class CartDisplayFx
     public function forget(): void
     {
         session()->forget(self::SESSION_KEY);
+    }
+
+    /**
+     * @return array{currency: string, rate: float, symbol: string}
+     */
+    public function displaySnap(): array
+    {
+        $money = app(MoneyDisplay::class);
+
+        return [
+            'currency' => $money->currency(),
+            'rate' => $money->rate(),
+            'symbol' => $money->symbol(),
+        ];
     }
 }

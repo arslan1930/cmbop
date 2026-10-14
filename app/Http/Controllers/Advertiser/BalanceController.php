@@ -11,6 +11,7 @@ use App\Services\EmailNotificationService;
 use App\Services\Wallet\PayoutProfileService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WalletOverviewService;
+use App\Support\Money;
 use App\Support\UserFacingError;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,9 +47,22 @@ class BalanceController extends Controller
                 'page' => $request->get('page', 1),
             ], (int) $request->get('per_page', 15));
 
+            $items = collect($paginator->items())->map(function ($row) {
+                $row = is_array($row) ? $row : (array) $row;
+                $amount = (float) ($row['amount'] ?? 0);
+                $signed = ($row['direction'] ?? '') === 'debit' ? -abs($amount) : abs($amount);
+                $row['amount_display'] = Money::display($signed, ['signed' => true]);
+                $row['balance_after_display'] = isset($row['balance_after']) && $row['balance_after'] !== null
+                    ? Money::display($row['balance_after'])
+                    : null;
+
+                return $row;
+            })->values()->all();
+
             return response()->json([
                 'success' => true,
-                'transactions' => $paginator->items(),
+                'transactions' => $items,
+                'fx' => Money::js(),
                 'pagination' => [
                     'current_page' => $paginator->currentPage(),
                     'last_page' => $paginator->lastPage(),

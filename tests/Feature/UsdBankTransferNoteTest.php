@@ -50,7 +50,8 @@ class UsdBankTransferNoteTest extends TestCase
             ->assertDontSee('international wire to a EUR account', false)
             ->getContent();
 
-        $this->assertStringNotContainsString('Send €50.00', $html);
+        $this->assertStringNotContainsString('we credit', $html);
+        $this->assertStringNotContainsString('±2%', $html);
         $this->assertStringNotContainsString('js-switch-deposit-method', $html);
     }
 
@@ -68,7 +69,7 @@ class UsdBankTransferNoteTest extends TestCase
             ->assertSee('data-method="bank"', false)
             ->assertSee('bankIban', false)
             ->assertSee('data-usd-bank-wire="1"', false)
-            ->assertSee(e('Send €50.00 (≈ $55.00 at today\'s rate)'), false)
+            ->assertSee(e('Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees'), false)
             ->assertSee('This is an international wire to a EUR account.', false)
             ->assertSee('Please choose OUR', false)
             ->assertSee('Want to avoid wire fees? Pay instantly by Card or PayPal instead.', false)
@@ -81,17 +82,20 @@ class UsdBankTransferNoteTest extends TestCase
         $this->assertSame(2, substr_count($html, 'js-switch-deposit-method'));
     }
 
-    public function test_us_ip_eur_wallet_still_gets_the_usd_wire_note(): void
+    public function test_us_ip_does_not_override_eur_user_bank_details(): void
     {
         config(['fx.fake_country' => 'US']);
         $user = $this->advertiser('EUR', 'DE');
+        $user->display_currency = 'EUR';
+        $user->save();
         $this->wallet($user, 'EUR');
 
         $this->actingAs($user)
             ->get(route('advertiser.add-funds', ['amount' => 40]))
             ->assertOk()
-            ->assertSee('data-usd-bank-wire="1"', false)
-            ->assertSee(e('Send €40.00 (≈ $44.00 at today\'s rate)'), false)
+            ->assertSee('data-bank-rail="eur"', false)
+            ->assertDontSee('data-usd-bank-wire="1"', false)
+            ->assertDontSee('Please choose OUR', false)
             ->assertSee('data-method="card"', false)
             ->assertSee('data-method="paypal"', false);
     }
@@ -113,7 +117,7 @@ class UsdBankTransferNoteTest extends TestCase
             ->get(route('advertiser.invoice', $deposit->reference_code))
             ->assertOk()
             ->assertSee('data-usd-bank-wire="1"', false)
-            ->assertSee(e('Send €50.00 (≈ $55.00 at today\'s rate)'), false)
+            ->assertSee(e('Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees'), false)
             ->assertSee('international wire to a EUR account', false)
             ->assertSee(route('advertiser.add-funds', ['method' => 'card'], false), false)
             ->assertSee(route('advertiser.add-funds', ['method' => 'paypal'], false), false)
@@ -121,7 +125,8 @@ class UsdBankTransferNoteTest extends TestCase
 
         $note = $this->pendingDepositNote($deposit, $user);
         $this->assertStringContainsString('IBAN (from outside the UK):', $note);
-        $this->assertStringContainsString('Send €50.00 (≈ $55.00 at today\'s rate)', $note);
+        $this->assertStringContainsString('Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees', $note);
+        $this->assertSame(1, substr_count($note, '±2%'));
         $this->assertStringContainsString('international wire to a EUR account', $note);
         $this->assertStringContainsString('Card or PayPal', $note);
     }

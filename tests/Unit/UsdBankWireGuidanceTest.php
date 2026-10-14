@@ -35,7 +35,10 @@ class UsdBankWireGuidanceTest extends TestCase
         $this->assertEqualsWithDelta(55.0, $quote['usd'], 0.01);
         $this->assertSame('€50.00', $quote['eur_label']);
         $this->assertSame('$55.00', $quote['usd_label']);
-        $this->assertSame('Send €50.00 (≈ $55.00 at today\'s rate)', $quote['send_label']);
+        $this->assertSame(
+            'Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees',
+            $quote['send_label']
+        );
     }
 
     public function test_quote_from_usd_uses_money_display_to_euros(): void
@@ -44,7 +47,10 @@ class UsdBankWireGuidanceTest extends TestCase
 
         $this->assertSame(50.0, $quote['euros']);
         $this->assertSame(55.0, $quote['usd']);
-        $this->assertSame('Send €50.00 (≈ $55.00 at today\'s rate)', $quote['send_label']);
+        $this->assertSame(
+            'Send $55.00 (we credit €50.00) — rate locked 7 days; amount received may differ slightly (±2%) due to exchange rates/bank fees',
+            $quote['send_label']
+        );
     }
 
     public function test_applies_for_usd_wallet_not_eur_wallet(): void
@@ -63,6 +69,14 @@ class UsdBankWireGuidanceTest extends TestCase
         $this->assertTrue(app(UsdBankWireGuidance::class)->applies('EUR'));
     }
 
+    public function test_saved_eur_display_does_not_apply_on_us_ip(): void
+    {
+        config(['fx.fake_country' => 'US', 'fx.force_display' => 'eur']);
+
+        $this->assertFalse(app(UsdBankWireGuidance::class)->applies('EUR'));
+        $this->assertTrue(app(UsdBankWireGuidance::class)->applies('USD'));
+    }
+
     public function test_instruction_lines_only_for_usd(): void
     {
         $guidance = app(UsdBankWireGuidance::class);
@@ -70,11 +84,10 @@ class UsdBankWireGuidanceTest extends TestCase
         $this->assertSame([], $guidance->instructionLines(40, 'EUR'));
 
         $lines = $guidance->instructionLines(40, 'USD');
-        $this->assertNotEmpty($lines);
-        $this->assertStringContainsString('Send €40.00 (≈ $44.00 at today\'s rate)', $lines[0]);
-        $this->assertStringContainsString('international wire to a EUR account', $lines[1]);
-        $this->assertStringContainsString('OUR', $lines[1]);
-        $this->assertStringContainsString('Card or PayPal', $lines[2]);
+        $this->assertCount(2, $lines);
+        $this->assertStringContainsString('international wire to a EUR account', $lines[0]);
+        $this->assertStringContainsString('OUR', $lines[0]);
+        $this->assertStringContainsString('Card or PayPal', $lines[1]);
     }
 
     public function test_wallet_currency_for_user(): void

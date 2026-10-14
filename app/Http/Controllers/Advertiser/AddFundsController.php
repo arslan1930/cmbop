@@ -24,6 +24,8 @@ use App\Services\WalletStripeDepositService;
 use App\Support\DepositFx;
 use App\Support\DepositPaymentConfig;
 use App\Support\DisplayCurrencyPreference;
+use App\Support\Money;
+use App\Support\MoneyDisplay;
 use App\Support\PaypalPaymentError;
 use App\Support\PlatformCharge;
 use App\Support\UserFacingError;
@@ -225,6 +227,26 @@ class AddFundsController extends Controller
         ]);
     }
 
+    /**
+     * Viewer types GBP/USD (or EUR). Ledger and wallet credit stay euros.
+     */
+    private function ledgerEurosFromRequest(Request $request): float
+    {
+        $raw = round((float) $request->input('amount', 0), 2);
+        $code = app(DisplayCurrencyPreference::class)->normalize((string) $request->input('amount_currency', ''));
+        $code ??= app(MoneyDisplay::class)->currency();
+        $euros = app(MoneyDisplay::class)->toEuros($raw, $code);
+        $min = DepositPaymentConfig::depositMin();
+        $max = DepositPaymentConfig::depositMax();
+        if ($euros + 0.00001 < $min || $euros - 0.00001 > $max) {
+            throw ValidationException::withMessages([
+                'amount' => 'Minimum is '.Money::display($min).' · Maximum is '.Money::display($max).'.',
+            ]);
+        }
+
+        return $euros;
+    }
+
     private function resolvedPayFrom(Request $request): string
     {
         $preference = app(DisplayCurrencyPreference::class);
@@ -255,11 +277,12 @@ class AddFundsController extends Controller
      */
     public function wiseQr(Request $request)
     {
-        $data = $request->validate([
-            'amount' => DepositPaymentConfig::amountRule(),
+        $request->validate([
+            'amount' => 'required|numeric|min:0.01|max:999999.99',
+            'amount_currency' => 'nullable|in:EUR,GBP,USD',
         ]);
 
-        $amount = round((float) $data['amount'], 2);
+        $amount = $this->ledgerEurosFromRequest($request);
         $payUrl = DepositPaymentConfig::wisePayLink($amount);
         $logoPath = public_path('assets/brand/web/favicon.svg');
         if (! is_file($logoPath)) {
@@ -315,9 +338,12 @@ class AddFundsController extends Controller
     {
         try {
             $request->validate([
-                'amount' => DepositPaymentConfig::amountRule(),
+                'amount' => 'required|numeric|min:0.01|max:999999.99',
+                'amount_currency' => 'nullable|in:EUR,GBP,USD',
                 'reference_code' => 'required|string',
             ]);
+
+            $charge = app(PlatformCharge::class)->quote($this->ledgerEurosFromRequest($request));
 
             if (! config('services.stripe.secret') || config('services.stripe.secret') === '') {
                 return response()->json([
@@ -327,8 +353,6 @@ class AddFundsController extends Controller
             }
 
             Stripe::setApiKey(config('services.stripe.secret'));
-
-            $charge = app(PlatformCharge::class)->quote(round((float) $request->amount, 2));
             $amountEuros = $charge['euros'];
             $amountCents = StripePaymentService::toCents($charge['amount']);
             $referenceCode = $request->reference_code;
@@ -390,10 +414,12 @@ class AddFundsController extends Controller
     {
         try {
             $request->validate([
-                'amount' => DepositPaymentConfig::amountRule(),
+                'amount' => 'required|numeric|min:0.01|max:999999.99',
+                'amount_currency' => 'nullable|in:EUR,GBP,USD',
                 'reference_code' => 'required|string',
             ]);
 
+            $amountEuros = $this->ledgerEurosFromRequest($request);
             $paypal = app(PaypalCheckoutService::class);
             if (! $paypal->configured()) {
                 return response()->json([
@@ -401,8 +427,6 @@ class AddFundsController extends Controller
                     'message' => UserMessages::get('payment.paypal_not_configured_deposit'),
                 ], 503);
             }
-
-            $amountEuros = round((float) $request->amount, 2);
             $referenceCode = trim((string) $request->reference_code);
             $user = auth()->user();
 
@@ -650,7 +674,8 @@ class AddFundsController extends Controller
     public function payWithSavedCard(Request $request)
     {
         $request->validate([
-            'amount' => DepositPaymentConfig::amountRule(),
+            'amount' => 'required|numeric|min:0.01|max:999999.99',
+            'amount_currency' => 'nullable|in:EUR,GBP,USD',
             'payment_method_id' => 'required|string',
             'reference_code' => 'required|string',
         ]);
@@ -663,7 +688,7 @@ class AddFundsController extends Controller
         }
 
         $user = auth()->user();
-        $charge = app(PlatformCharge::class)->quote(round((float) $request->amount, 2));
+        $charge = app(PlatformCharge::class)->quote($this->ledgerEurosFromRequest($request));
         $amountEuros = $charge['euros'];
         $referenceCode = (string) $request->reference_code;
 
@@ -737,7 +762,8 @@ class AddFundsController extends Controller
     {
         try {
             $request->validate([
-                'amount' => DepositPaymentConfig::amountRule(),
+                'amount' => 'required|numeric|min:0.01|max:999999.99',
+                'amount_currency' => 'nullable|in:EUR,GBP,USD',
                 'payment_method' => 'required|in:wise,crypto,bank',
                 'reference_code' => 'nullable|string',
                 'pay_from' => 'nullable|in:gbp,eur,uk,other',
@@ -781,12 +807,13 @@ class AddFundsController extends Controller
 
             $payFrom = $this->resolvedPayFrom($request);
             $chargeCurrency = app(DepositFx::class)->chargeCurrencyForPayFrom($payFrom);
-            $lock = app(DepositFx::class)->lockPayload((float) $request->amount, $chargeCurrency);
+            $euros = $this->ledgerEurosFromRequest($request);
+            $lock = app(DepositFx::class)->lockPayload($euros, $chargeCurrency);
 
             $payload = array_merge([
                 'user_id' => auth()->id(),
                 'reference_code' => $referenceCode,
-                'amount' => $request->amount,
+                'amount' => $euros,
                 'payment_method' => $request->payment_method,
                 'status' => 'pending',
             ], $lock);

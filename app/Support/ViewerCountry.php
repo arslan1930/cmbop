@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpFoundation\IpUtils;
@@ -95,11 +97,13 @@ class ViewerCountry
             }
         }
 
-        $preferred = app(DisplayCurrencyPreference::class)->preferred($request);
+        $preference = app(DisplayCurrencyPreference::class);
+        $preferred = $preference->preferred($request);
         if ($preferred !== null) {
             return $preferred;
         }
 
+        $resolved = 'EUR';
         if (filter_var(config('fx.geo_display', true), FILTER_VALIDATE_BOOLEAN)) {
             $country = $this->code($request);
             if ($country === 'UK') {
@@ -109,12 +113,17 @@ class ViewerCountry
             if (is_array($map) && is_string($country) && $country !== '') {
                 $mapped = strtoupper((string) ($map[$country] ?? ''));
                 if (in_array($mapped, ['EUR', 'GBP', 'USD'], true)) {
-                    return $mapped;
+                    $resolved = $mapped;
                 }
             }
         }
 
-        return 'EUR';
+        $user = Auth::user();
+        if ($user instanceof User) {
+            $preference->persistResolved($user, $resolved, $request);
+        }
+
+        return $resolved;
     }
 
     public function isUs(?Request $request = null): bool

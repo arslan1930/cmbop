@@ -38,6 +38,40 @@ class DepositFx
     }
 
     /**
+     * Customer-facing ±2% copy: deposit step / deposit email / deposit invoice only,
+     * and only when the viewer or charge rail is GBP or USD.
+     */
+    public function shouldShowTolerance(?DepositRequest $deposit = null, ?string $chargeCurrency = null): bool
+    {
+        $codes = [];
+        $push = static function (?string $raw) use (&$codes): void {
+            $code = strtoupper(trim((string) $raw));
+            if (in_array($code, ['EUR', 'GBP', 'USD'], true)) {
+                $codes[] = $code;
+            }
+        };
+
+        $push($chargeCurrency);
+        $push($deposit?->charge_currency);
+        $push($this->money->currency());
+
+        $user = $deposit?->user;
+        if ($user) {
+            $push((string) ($user->display_currency ?? ''));
+            $country = strtoupper(trim((string) ($user->country ?? '')));
+            if ($country === 'UK') {
+                $country = 'GB';
+            }
+            $map = config('fx.country_currency', []);
+            if (is_array($map) && $country !== '' && isset($map[$country])) {
+                $push((string) $map[$country]);
+            }
+        }
+
+        return in_array('GBP', $codes, true) || in_array('USD', $codes, true);
+    }
+
+    /**
      * @return 'EUR'|'GBP'
      */
     public function chargeCurrencyForPayFrom(?string $payFrom = null): string
@@ -53,7 +87,7 @@ class DepositFx
      *     charge_amount: float,
      *     euros: float,
      *     fx_rate: float,
-     *     rate_locked_until: \Carbon\CarbonInterface,
+     *     rate_locked_until: CarbonInterface,
      *     send_label: string,
      *     eur_per_unit: float
      * }
@@ -83,14 +117,27 @@ class DepositFx
 
     public function sendLabel(string $chargeCurrency, float $chargeAmount, float $euros): string
     {
-        $code = strtoupper($chargeCurrency) === 'GBP' ? 'GBP' : 'EUR';
-        $local = $this->money->symbolFor($code).number_format($chargeAmount, 2);
-        $eur = '€'.number_format($euros, 2);
-        if ($code === 'EUR') {
-            return 'Amount to send: '.$eur;
+        $euros = round($euros, 2);
+        $charge = strtoupper($chargeCurrency);
+        if (! in_array($charge, ['EUR', 'GBP', 'USD'], true)) {
+            $charge = 'EUR';
+        }
+        $display = $this->money->currency();
+        if ($display === 'EUR' && $charge === 'EUR') {
+            return 'Send €'.number_format($euros, 2);
         }
 
-        return 'Amount to send: '.$local.' (≈ '.$eur.' at today\'s rate, locked for '.$this->lockDays().' days)';
+        if ($charge === 'GBP') {
+            $local = $this->money->symbolFor('GBP').number_format($chargeAmount, 2);
+        } elseif ($charge === 'USD') {
+            $local = $this->money->symbolFor('USD').number_format($chargeAmount, 2);
+        } else {
+            $local = $this->money->formatLocal($euros);
+        }
+
+        return 'Send '.$local
+            .' (we credit €'.number_format($euros, 2).') — rate locked '.$this->lockDays()
+            .' days; amount received may differ slightly (±2%) due to exchange rates/bank fees';
     }
 
     /**

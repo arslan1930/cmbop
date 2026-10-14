@@ -208,17 +208,17 @@
                         <div class="row g-2 mb-3">
                             @foreach([50, 100, 250, 500, 1000] as $amount)
                                 <div class="col-4 col-md-3 col-lg-2">
-                                    <button type="button" class="amount-btn w-100 btn btn-outline-secondary py-2" data-amount="{{ $amount }}">
-                                        €{{ number_format($amount) }}
+                                    <button type="button" class="amount-btn w-100 btn btn-outline-secondary py-2" data-amount="{{ $amount }}" data-amount-currency="{{ \App\Support\Money::currency() }}">
+                                        {{ \App\Support\Money::symbol() }}{{ number_format($amount) }}
                                     </button>
                                 </div>
                             @endforeach
                         </div>
                         <div class="input-group" style="max-width: 250px;">
-                            <span class="input-group-text bg-white" id="customAmountPrefix">€</span>
+                            <span class="input-group-text bg-white" id="customAmountPrefix">{{ \App\Support\Money::symbol() }}</span>
                             <input type="text" inputmode="decimal" id="customAmount" name="deposit_amount" class="form-control"
                                    placeholder="Custom amount" autocomplete="transaction-amount"
-                                   aria-describedby="customAmountHelp amountError" min="{{ $depositMin }}" step="0.01">
+                                   aria-describedby="customAmountHelp amountError" min="{{ app(\App\Support\MoneyDisplay::class)->fromEuros($depositMin) }}" step="0.01">
                         </div>
                         <small id="customAmountHelp" class="form-text text-muted mt-1">Minimum {{ format_money($depositMin) }} · Maximum {{ format_money($depositMax) }}</small>
                         <div id="amountError" class="invalid-feedback d-none" role="alert"></div>
@@ -1002,6 +1002,9 @@
                     }
                     return;
                 }
+                if (typeof window.slbApplyMoneyFx === 'function' && res.fx) {
+                    window.slbApplyMoneyFx(res.fx);
+                }
                 renderTransactions(res.transactions || []);
                 renderPagination(res.pagination || {});
                 const p = res.pagination || {};
@@ -1045,7 +1048,10 @@
             const amountClass = debit ? 'wallet-amount-debit' : 'wallet-amount-credit';
             const sign = debit ? '−' : '+';
             const pending = !!row.is_live_pending;
-            const bal = row.balance_after != null ? ('Balance after ' + money(row.balance_after)) : '';
+            const amountLabel = row.amount_display || (sign + money(row.amount));
+            const bal = row.balance_after_display
+                ? ('Balance after ' + row.balance_after_display)
+                : (row.balance_after != null ? ('Balance after ' + money(row.balance_after)) : '');
 
             // No stopPropagation here: the row handler already ignores clicks on
             // a/button, and swallowing the event stops it reaching the delegated
@@ -1089,7 +1095,7 @@
                     </div>
                 </div>
                 <div class="af-activity-actions">
-                    <div class="af-activity-amount ${amountClass}">${sign} ${money(row.amount)}</div>
+                    <div class="af-activity-amount ${amountClass}">${escapeHtml(amountLabel)}</div>
                     ${actions}
                 </div>
             </li>`;
@@ -1603,6 +1609,9 @@ window.AddFundsBoot = {
     paypalLogo: @json(asset('assets/img/payments/paypal.png')),
     openCardsTab: @json((bool) ($openCardsTab ?? false)),
     usdBankWire: @json(app(\App\Support\UsdBankWireGuidance::class)->bootPayload($wallet?->currency ?? null, auth()->user())),
+    displayCurrency: @json(\App\Support\Money::currency()),
+    displayRate: @json(app(\App\Support\MoneyDisplay::class)->rate()),
+    displaySymbol: @json(\App\Support\Money::symbol()),
     payFrom: @json($payFrom ?? 'eur'),
     gbpPerEur: @json(app(\App\Support\FxRate::class)->perEur('GBP')),
     depositLockDays: @json(app(\App\Support\DepositFx::class)->lockDays()),

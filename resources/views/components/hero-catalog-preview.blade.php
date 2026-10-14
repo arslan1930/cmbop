@@ -223,15 +223,16 @@
             </div>
           </div>
           <div class="col-6 col-sm-6 col-lg-2">
-            <label class="form-label fw-semibold small text-muted mb-1">{{ __('messages.catalog_preview_price') }}</label>
+            @php $priceFilter = \App\Support\Money::priceFilterCopy(); @endphp
+            <label class="form-label fw-semibold small text-muted mb-1">{{ $priceFilter['label'] }}</label>
             <div class="d-flex gap-2">
               <input type="text" class="form-control form-control-sm" placeholder="{{ __('messages.catalog_preview_min') }}" disabled tabindex="-1" aria-hidden="true">
               <input type="text" class="form-control form-control-sm" placeholder="{{ __('messages.catalog_preview_max') }}" disabled tabindex="-1" aria-hidden="true">
             </div>
             <div class="filter-presets">
-              <span class="filter-preset">{{ __('messages.catalog_preview_under_50') }}</span>
-              <span class="filter-preset">{{ __('messages.catalog_preview_50_150') }}</span>
-              <span class="filter-preset">{{ __('messages.catalog_preview_150_plus') }}</span>
+              <span class="filter-preset">{{ $priceFilter['under'] }}</span>
+              <span class="filter-preset">{{ $priceFilter['mid'] }}</span>
+              <span class="filter-preset">{{ $priceFilter['plus'] }}</span>
             </div>
           </div>
           <div class="col-12 col-lg-2">

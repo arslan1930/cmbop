@@ -9,6 +9,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const cryptoEnabled = !!boot.cryptoEnabled;
 
     let selectedAmount = 0;
+    let selectedLocal = 0;
+
+    if (typeof window.slbApplyMoneyFx === 'function') {
+        window.slbApplyMoneyFx({
+            currency: boot.displayCurrency || 'EUR',
+            rate: boot.displayRate || 1,
+            cart_rate: boot.displayRate || 1,
+            symbol: boot.displaySymbol || '€',
+            guide: String(boot.displayCurrency || 'EUR').toUpperCase() !== 'EUR',
+            usd: String(boot.displayCurrency || '').toUpperCase() === 'USD'
+        });
+    }
     let selectedMethod = null;
     let referenceCode = null;
     let invoiceLocked = false;
@@ -27,7 +39,45 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const parts = Math.abs(amount).toFixed(2).split('.');
         parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        return '€' + parts.join('.');
+        return (boot.displaySymbol || '€') + parts.join('.');
+    }
+
+    function roundMoney(n) {
+        const value = Number(n);
+        return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
+    }
+
+    function formatPickedAmount(local) {
+        const symbol = boot.displaySymbol || (window.__slbMoney && window.__slbMoney.symbol) || '€';
+        const n = Number(local);
+        const parts = Math.abs(Number.isFinite(n) ? n : 0).toFixed(2).split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return symbol + parts.join('.');
+    }
+
+    function amountPayload() {
+        return {
+            amount: selectedLocal,
+            amount_currency: displayCurrency()
+        };
+    }
+
+    function displayCurrency() {
+        return String((window.__slbMoney && window.__slbMoney.currency) || boot.displayCurrency || 'EUR').toUpperCase();
+    }
+
+    function eurosFromDisplay(local) {
+        if (typeof window.slbToEuros === 'function') {
+            return window.slbToEuros(local);
+        }
+        return local;
+    }
+
+    function displayFromEuros(eur) {
+        if (typeof window.slbMoneyAmount === 'function') {
+            return window.slbMoneyAmount(eur);
+        }
+        return eur;
     }
 
     function showAmountError(message) {
@@ -283,15 +333,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function applyPrefill() {
         if (prefillAmount && Number(prefillAmount) >= depositMin && Number(prefillAmount) <= depositMax) {
-            setSelectedAmount(Number(prefillAmount));
+            setSelectedFromEuros(Number(prefillAmount));
             const matchBtn = Array.from(document.querySelectorAll('.amount-btn')).find(
-                btn => Number(btn.dataset.amount) === Number(prefillAmount)
+                btn => Number(btn.dataset.amount) === Number(selectedLocal)
             );
             if (matchBtn) {
                 document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
                 matchBtn.classList.add('active');
             } else if (customAmountInput) {
-                customAmountInput.value = Number(prefillAmount).toFixed(2);
+                customAmountInput.value = Number(selectedLocal).toFixed(2);
             }
         }
         if (prefillMethod) {
@@ -376,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const qrBase = wiseQrEndpoint();
         if (amount >= depositMin && qrBase) {
-            const nextSrc = `${qrBase}?amount=${encodeURIComponent(amount)}`;
+            const nextSrc = `${qrBase}?amount=${encodeURIComponent(amount)}&amount_currency=EUR`;
             wiseQRCode.onerror = function () {
                 wiseQRCode.style.display = 'none';
                 if (wiseQrHint) wiseQrHint.classList.add('d-none');
@@ -492,7 +542,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!amountReady()) {
             return '<i class="fa fa-arrow-right me-2"></i> Select an amount';
         }
-        const formatted = formatEuro(selectedAmount);
+        const formatted = formatPickedAmount(selectedLocal);
         if (selectedMethod === 'card') {
             return '<i class="fa fa-credit-card me-2"></i> Pay ' + formatted + ' with card';
         }
@@ -538,7 +588,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (sticky) {
             sticky.hidden = !amountReady();
         }
-        const shown = formatEuro(selectedAmount || 0);
+        const shown = formatPickedAmount(selectedLocal || 0);
         if (mobileTotal) mobileTotal.textContent = shown;
         if (stickyAmount) stickyAmount.textContent = shown;
     }
@@ -547,12 +597,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const summaryAmount = document.getElementById('summaryAmount');
     const summaryTotal = document.getElementById('summaryTotal');
 
-    // Amount button click
+    // Amount button click — data-amount is a round number in the display currency.
     amountBtns.forEach(btn => {
         btn.addEventListener('click', function() {
-            const amount = parseFloat(this.dataset.amount);
+            const local = parseFloat(this.dataset.amount);
             showAmountError('');
-            setSelectedAmount(amount);
+            setSelectedLocal(local);
             amountBtns.forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             if (customAmountInput) customAmountInput.value = '';
@@ -585,21 +635,24 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cleaned === '' || cleaned === '.') {
             selectedAmountDisplay.style.display = 'none';
             selectedAmount = 0;
+            selectedLocal = 0;
             showAmountError('');
             updateSummary(0);
             return;
         }
 
-        const amount = parseDepositAmount(cleaned);
+        const local = parseDepositAmount(cleaned);
+        const amount = eurosFromDisplay(local);
         if (!isNaN(amount) && amount >= depositMin && amount <= depositMax) {
             showAmountError('');
-            setSelectedAmount(amount);
+            setSelectedLocal(local);
             amountBtns.forEach(b => b.classList.remove('active'));
             return;
         }
 
         // Partial / below-minimum while typing — keep the field, clear the selection.
         selectedAmount = 0;
+        selectedLocal = 0;
         selectedAmountDisplay.style.display = 'none';
         if (!isNaN(amount) && amount > depositMax) {
             showAmountError('Maximum amount is ' + formatEuro(depositMax) + '.');
@@ -616,81 +669,90 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const amount = parseDepositAmount(raw);
+        const local = parseDepositAmount(raw);
+        const amount = eurosFromDisplay(local);
         if (isNaN(amount) || amount < depositMin) {
             showAmountError('Minimum amount is ' + formatEuro(depositMin) + '.');
             return;
         }
         if (amount > depositMax) {
             showAmountError('Maximum amount is ' + formatEuro(depositMax) + '.');
-            this.value = amount.toFixed(2);
+            this.value = local.toFixed(2);
             return;
         }
-        this.value = amount.toFixed(2);
+        this.value = local.toFixed(2);
         showAmountError('');
-        setSelectedAmount(amount);
+        setSelectedLocal(local);
         amountBtns.forEach(b => b.classList.remove('active'));
     });
     }
 
-    function setSelectedAmount(amount) {
-        selectedAmount = amount;
-        selectedAmountValue.innerText = formatEuro(amount);
-        selectedAmountDisplay.style.display = 'block';
-        updateSummary(amount);
-        
-        // Update amount displays
+    function applyPickedAmount(local, euros) {
+        selectedLocal = roundMoney(local);
+        selectedAmount = roundMoney(euros);
+        if (selectedAmountValue) {
+            selectedAmountValue.innerText = formatPickedAmount(selectedLocal);
+        }
+        if (selectedAmountDisplay) {
+            selectedAmountDisplay.style.display = 'block';
+        }
+        updateSummary(selectedLocal);
+
         document.querySelectorAll('.amount-display').forEach(el => {
-            el.innerText = Number(amount).toFixed(2);
+            el.innerText = Number(selectedAmount).toFixed(2);
         });
         document.querySelectorAll('.amount-link').forEach(el => {
-            el.innerText = amount;
+            el.innerText = selectedAmount;
         });
-        
-        // Wise QR stays off until applyInvoice() locks a server REF.
+
         if (invoiceLocked && selectedMethod === 'wise') {
-            syncWiseQr(amount);
+            syncWiseQr(selectedAmount);
         }
-        
-        // Update crypto and bank amounts
+
         const cryptoAmount = document.getElementById('cryptoAmount');
         const bankAmount = document.getElementById('bankAmount');
-        if (cryptoAmount) cryptoAmount.innerHTML = formatEuro(amount);
-        if (bankAmount) bankAmount.innerHTML = formatEuro(amount);
-        syncBankSendLabel(amount);
-        syncUsdBankSend(amount);
+        if (cryptoAmount) cryptoAmount.innerHTML = formatEuro(selectedAmount);
+        if (bankAmount) bankAmount.innerHTML = formatEuro(selectedAmount);
+        syncBankSendLabel(selectedAmount);
+        syncUsdBankSend(selectedAmount);
     }
 
-    function gbpBankSendLabel(amount) {
-        const rate = Number(boot.gbpPerEur) || 0;
+    function setSelectedLocal(local) {
+        applyPickedAmount(local, eurosFromDisplay(local));
+    }
+
+    function setSelectedFromEuros(euros) {
+        applyPickedAmount(displayFromEuros(euros), euros);
+    }
+
+    function depositSendLine(amount) {
         const eur = Number(amount) || 0;
-        const gbp = rate > 0 ? Math.round(eur * rate * 100) / 100 : eur;
         const days = Number(boot.depositLockDays) || 7;
-        return 'Amount to send: £' + gbp.toFixed(2) + ' (≈ €' + eur.toFixed(2) + ' at today\'s rate, locked for ' + days + ' days)';
+        const currency = displayCurrency();
+        if (currency === 'EUR' && boot.payFrom !== 'gbp') {
+            return 'Send €' + eur.toFixed(2);
+        }
+        let local;
+        if (boot.payFrom === 'gbp') {
+            const rate = Number(boot.gbpPerEur) || 0;
+            const gbp = rate > 0 ? Math.round(eur * rate * 100) / 100 : eur;
+            local = '£' + gbp.toFixed(2);
+        } else {
+            local = formatEuro(eur);
+        }
+        return 'Send ' + local + ' (we credit €' + eur.toFixed(2) + ') — rate locked ' + days
+            + ' days; amount received may differ slightly (±2%) due to exchange rates/bank fees';
     }
 
     function syncBankSendLabel(amount) {
-        const label = (boot.payFrom === 'gbp')
-            ? gbpBankSendLabel(amount)
-            : ('Amount to send: ' + formatEuro(amount));
+        const label = depositSendLine(amount);
         document.querySelectorAll('[data-deposit-send-label]').forEach(el => {
             el.textContent = label;
         });
         const bankAmount = document.getElementById('bankAmount');
-        if (bankAmount && boot.payFrom === 'gbp') {
+        if (bankAmount && (boot.payFrom === 'gbp' || displayCurrency() !== 'EUR')) {
             bankAmount.textContent = label;
         }
-    }
-
-    function usdBankSendLabel(amount) {
-        const wire = boot.usdBankWire || {};
-        const rate = Number(wire.rate) || 0;
-        const eur = Number(amount) || 0;
-        const usd = rate > 0 ? Math.round(eur * rate * 100) / 100 : 0;
-        const template = String(wire.sendTemplate || 'Send :eur (≈ :usd at today\'s rate)');
-        return template
-            .replace(/:eur/g, '€' + eur.toFixed(2))
-            .replace(/:usd/g, '$' + usd.toFixed(2));
     }
 
     function syncUsdBankSend(amount) {
@@ -698,18 +760,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!wire.show) {
             return;
         }
-        const label = usdBankSendLabel(amount);
-        document.querySelectorAll('.js-usd-bank-send-label').forEach(el => {
-            el.textContent = label;
-        });
-        const bankAmount = document.getElementById('bankAmount');
-        if (bankAmount) {
-            bankAmount.textContent = label;
-        }
+        syncBankSendLabel(amount);
     }
     
-    function updateSummary(amount) {
-        const label = formatEuro(amount);
+    function updateSummary(local) {
+        const label = formatPickedAmount(local);
         if (summaryAmount) summaryAmount.innerText = label;
         if (summaryTotal) summaryTotal.innerText = label;
         if (typeof syncProceedLabel === 'function') syncProceedLabel();
@@ -792,14 +847,13 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             credentials: 'same-origin',
             headers: jsonHeaders(),
-            body: JSON.stringify({
-                amount: selectedAmount,
+            body: JSON.stringify(Object.assign(amountPayload(), {
                 payment_method: selectedMethod,
                 // Leftover Hostinger store() still requires a 6-digit REF.
                 // Current store() ignores this and issues its own code.
                 reference_code: instantRailReference(),
                 pay_from: boot.payFrom || 'eur'
-            })
+            }))
         })
         .then(async response => {
             const data = await readJson(response);
@@ -815,7 +869,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 Swal.fire({
                     title: 'Invoice ready',
-                    html: `Transfer <strong>${formatEuro(selectedAmount)}</strong> and include<br>
+                    html: `Transfer <strong>${formatPickedAmount(selectedLocal)}</strong> and include<br>
                            <strong class="font-monospace">REF${data.reference_code}</strong> in the payment note.<br><br>
                            Pay details are on this page. Status stays <strong>Pending</strong> until we confirm and credit your wallet.`,
                     icon: 'success',
@@ -944,10 +998,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': boot.csrfToken
                     },
-                    body: JSON.stringify({
-                        amount: selectedAmount,
+                    body: JSON.stringify(Object.assign(amountPayload(), {
                         reference_code: instantRailReference()
-                    })
+                    }))
                 });
                 const data = await response.json();
                 if (data.success && data.checkout_url) {
@@ -993,11 +1046,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': boot.csrfToken
                         },
-                        body: JSON.stringify({
-                            amount: selectedAmount,
+                        body: JSON.stringify(Object.assign(amountPayload(), {
                             reference_code: cardReference,
                             payment_method_id: savedPm
-                        })
+                        }))
                     });
                     const data = await response.json();
                     if (data.success && data.requires_action && data.client_secret && data.stripe_key) {
@@ -1037,10 +1089,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': boot.csrfToken
                     },
-                    body: JSON.stringify({
-                        amount: selectedAmount,
+                    body: JSON.stringify(Object.assign(amountPayload(), {
                         reference_code: cardReference
-                    })
+                    }))
                 });
                 
                 const data = await response.json();

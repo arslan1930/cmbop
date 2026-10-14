@@ -78,7 +78,10 @@ class AddFundsPageUxTest extends TestCase
         $this->assertStringContainsString("addEventListener('paste'", $js);
         $this->assertStringContainsString('sanitizeAmountInput', $js);
         $this->assertStringContainsString("['e', 'E', '+', '-', 'Subtract', 'Add']", $js);
-        $this->assertStringContainsString('this.value = amount.toFixed(2)', $js);
+        $this->assertStringContainsString('this.value = local.toFixed(2)', $js);
+        $this->assertStringContainsString('function amountPayload', $js);
+        $this->assertStringContainsString('amount_currency', $js);
+        $this->assertStringContainsString('function setSelectedLocal', $js);
     }
 
     public function test_blur_keeps_field_and_does_not_open_modal_under_minimum(): void
@@ -113,11 +116,9 @@ class AddFundsPageUxTest extends TestCase
     {
         $html = $this->addFundsHtml();
 
-        $this->assertStringContainsString('GBP account — send pounds from a UK bank', $html);
         $this->assertStringContainsString('EUR account — send euros (SEPA / from outside the UK)', $html);
-        $this->assertStringNotContainsString('GBP · From the UK', $html);
-        $this->assertStringContainsString('Use this GBP account when sending pounds from a UK bank', $html);
         $this->assertStringContainsString('Use this EUR account when sending euros, including from outside the UK', $html);
+        $this->assertStringNotContainsString('GBP · From the UK', $html);
     }
 
     public function test_recently_used_ignores_pending_invoices(): void
