@@ -103,6 +103,11 @@ class ViewerCountry
             return $preferred;
         }
 
+        $user = Auth::user();
+        if ($user instanceof User) {
+            return $preference->resolveEmptyAccount($user, $request);
+        }
+
         $resolved = 'EUR';
         if (filter_var(config('fx.geo_display', true), FILTER_VALIDATE_BOOLEAN)) {
             $country = $this->code($request);
@@ -116,11 +121,6 @@ class ViewerCountry
                     $resolved = $mapped;
                 }
             }
-        }
-
-        $user = Auth::user();
-        if ($user instanceof User) {
-            $preference->persistResolved($user, $resolved, $request);
         }
 
         return $resolved;
