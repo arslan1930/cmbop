@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Services\Billing\DepositReceiptService;
 use App\Services\Billing\InvoicePdfGenerator;
 use App\Support\DepositFx;
+use App\Support\DepositPaymentConfig;
 use App\Support\DisplayCurrencyPreference;
 use App\Support\UsdBankWireGuidance;
 use App\Support\UserFacingError;
@@ -193,7 +194,7 @@ class InvoiceController extends Controller
 
     private function pendingDepositNote($deposit, $user = null): string
     {
-        $pay = config('billing.deposit_payment', []);
+        $pay = DepositPaymentConfig::depositPayment();
         $fx = app(DepositFx::class);
         $deposit = $fx->refreshIfExpired($deposit);
         $rail = $this->bankRailForDeposit($deposit);
@@ -214,17 +215,23 @@ class InvoiceController extends Controller
                     $lines[] = 'GBP account (from the UK): '.$pay['uk_account_number'].'.';
                 }
             } else {
-                if (! empty($pay['iban'])) {
-                    $lines[] = 'IBAN (from outside the UK): '.$pay['iban'].'.';
+                $iban = $pay['eur_iban'] ?? $pay['iban'] ?? null;
+                $bic = $pay['eur_bic'] ?? $pay['bic'] ?? null;
+                if (! empty($iban)) {
+                    $lines[] = 'IBAN (from outside the UK): '.$iban.'.';
                 }
-                if (! empty($pay['bic'])) {
-                    $lines[] = 'Swift/BIC (from outside the UK): '.$pay['bic'].'.';
+                if (! empty($bic)) {
+                    $lines[] = 'Swift/BIC (from outside the UK): '.$bic.'.';
                 }
             }
 
             $chargeCurrency = strtoupper((string) ($deposit->charge_currency ?: ($rail === 'gbp' ? 'GBP' : 'EUR')));
             $chargeAmount = $fx->expectedCharge($deposit);
             $lines[] = $fx->sendLabel($chargeCurrency, $chargeAmount, (float) $deposit->amount);
+            foreach ($fx->customerFxNotes($deposit, $chargeCurrency) as $note) {
+                $lines[] = $note;
+            }
+            $lines[] = DepositPaymentConfig::currencyGuideLabel().' '.url(DepositPaymentConfig::currencyGuideUrl());
 
             $user ??= $deposit->user;
             $guidance = app(UsdBankWireGuidance::class);
@@ -318,18 +325,25 @@ class InvoiceController extends Controller
 
     private function depositInvoiceData($deposit, $user): array
     {
+        $fx = app(DepositFx::class);
+        $chargeCurrency = strtoupper((string) ($deposit->charge_currency ?: 'EUR'));
+        $fxNotes = $fx->customerFxNotes($deposit, $chargeCurrency);
+
         return [
             'invoiceType' => 'deposit',
             'referenceCode' => $deposit->reference_code,
             'amount' => $deposit->amount,
             'walletCurrency' => app(UsdBankWireGuidance::class)->walletCurrencyFor($user),
             'bankRail' => $this->bankRailForDeposit($deposit),
-            'sendLabel' => app(DepositFx::class)->sendLabel(
-                strtoupper((string) ($deposit->charge_currency ?: 'EUR')),
-                app(DepositFx::class)->expectedCharge($deposit),
+            'sendLabel' => $fx->sendLabel(
+                $chargeCurrency,
+                $fx->expectedCharge($deposit),
                 (float) $deposit->amount
             ),
-            'toleranceNote' => app(DepositFx::class)->toleranceNote(),
+            'rateLockNote' => $fxNotes[0] ?? null,
+            'currencyGuideUrl' => DepositPaymentConfig::currencyGuideUrl(),
+            'currencyGuideLabel' => DepositPaymentConfig::currencyGuideLabel(),
+            'toleranceNote' => $fx->toleranceNote(),
             'billingName' => $user->billing_name ?? $user->name,
             'companyName' => $user->company_name ?? '',
             'country' => $user->country ?? '',

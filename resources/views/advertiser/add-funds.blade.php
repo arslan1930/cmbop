@@ -1627,6 +1627,7 @@ window.AddFundsBoot = {
         paymentMethodsBase: @json(url('/advertiser/payment-methods')),
         // Relative so APP_URL host mismatches do not break the QR <img> request.
         wiseQr: @json(route('advertiser.add-funds.wise-qr', absolute: false)),
+        rememberPayFrom: @json(route('advertiser.add-funds.pay-from', absolute: false)),
     },
 };
 </script>

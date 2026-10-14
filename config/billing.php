@@ -37,6 +37,10 @@ return [
         'beneficiary' => env('BILLING_DEPOSIT_BENEFICIARY') ?: 'Teqno LTD',
         'bic' => env('BILLING_DEPOSIT_BIC') ?: 'TRWIGB2LXXX',
         'iban' => env('BILLING_DEPOSIT_IBAN') ?: 'GB30 TRWI 2308 0132 9321 94',
+        // Dedicated EUR (SEPA) rail. Defaults match the current Wise IBAN/BIC
+        // until a real EUR account is supplied — do not invent a new value.
+        'eur_bic' => env('BILLING_DEPOSIT_EUR_BIC') ?: env('BILLING_DEPOSIT_BIC') ?: 'TRWIGB2LXXX',
+        'eur_iban' => env('BILLING_DEPOSIT_EUR_IBAN') ?: env('BILLING_DEPOSIT_IBAN') ?: 'GB30 TRWI 2308 0132 9321 94',
         'uk_account_number' => env('BILLING_DEPOSIT_UK_ACCOUNT') ?: '32932194',
         'uk_sort_code' => env('BILLING_DEPOSIT_UK_SORT') ?: '23-08-01',
         'uk_transfer_note' => env('BILLING_DEPOSIT_UK_NOTE') ?: 'Use this GBP account when sending pounds from a UK bank',
@@ -47,7 +51,7 @@ return [
             env('BILLING_DEPOSIT_ADDRESS_LINE2') ?: null,
             env('BILLING_DEPOSIT_ADDRESS_LINE3') ?: null,
         ])),
-        'registration_no' => env('BILLING_DEPOSIT_REGISTRATION_NO') ?: '16607074',
+        'registration_no' => env('BILLING_DEPOSIT_REGISTRATION_NO') ?: '17392540',
         'vat_note' => env('BILLING_DEPOSIT_VAT_NOTE') ?: 'Not VAT registered – no VAT charged',
         'wise_pay_url' => env('BILLING_WISE_PAY_URL') ?: 'https://wise.com/pay/business/teqnoltd',
         /*
@@ -161,6 +165,10 @@ return [
 
     'fx_tolerance_note' => env('BILLING_FX_TOLERANCE_NOTE')
         ?: 'Because of exchange rates and bank fees, the amount we receive may differ slightly (about ±2%). We\'ll credit your wallet with the euro value of what actually arrives.',
+
+    'currency_guide_url' => env('BILLING_CURRENCY_GUIDE_URL') ?: '/help/currencies',
+    'currency_guide_label' => env('BILLING_CURRENCY_GUIDE_LABEL')
+        ?: 'Paying in another currency? Read our currency guide',
 
     'deposit_receipt_note' => env('BILLING_DEPOSIT_RECEIPT_NOTE')
         ?: 'Funds added to your prepaid wallet balance. A wallet top-up is not a supply of services, so no VAT is charged on this receipt. Tax invoices are issued when you spend the balance on an order.',

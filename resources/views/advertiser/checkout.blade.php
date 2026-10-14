@@ -660,7 +660,7 @@
                                 </div>
                                 
                                 <div style="background: #f9fafb; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
-                                    @php $depositPayment = config('billing.deposit_payment', []); @endphp
+                                    @php $depositPayment = \App\Support\DepositPaymentConfig::depositPayment(); @endphp
                                     <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #9333ea;">Bank Account Information</h4>
                                     @php
                                         $checkoutPayFrom = app(\App\Support\DisplayCurrencyPreference::class)->payFrom();
