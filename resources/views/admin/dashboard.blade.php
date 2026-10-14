@@ -10,6 +10,12 @@
     ])
     <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="dashboardUpdatedRow">
         <div class="small text-muted" id="dashboardUpdated" hidden></div>
+        <a href="{{ route('admin.dashboard', ['show_test' => ($showTestData ?? false) ? 0 : 1]) }}"
+           class="btn btn-sm {{ ! empty($showTestData) ? 'btn-warning' : 'btn-outline-secondary' }}"
+           id="dashboardShowTest"
+           title="Test accounts are hidden from queues and KPIs unless this is on.">
+            {{ ! empty($showTestData) ? 'Showing test data' : 'Show test data' }}
+        </a>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="dashboardRefresh" title="Refresh dashboard figures">
             <i class="fa fa-rotate me-1" aria-hidden="true"></i>Refresh
         </button>
@@ -63,12 +69,13 @@
                         <h3 class="mb-0" id="kpiUsers">—</h3>
                         <span class="badge bg-primary-subtle text-primary" id="kpiUsers7d">+0 / 7d</span>
                     </div>
-                    <div class="small text-muted mt-1 js-kpi-users-caption">Usage counts: chosen active role, or a site / order. Assigned roles still overlap at signup.</div>
+                    <div class="small text-muted mt-1 js-kpi-users-caption">Active role: chosen at signup, or a site / order. The Users by Role chart counts assigned roles, which still overlap.</div>
                     <div class="small text-muted mt-1">
                         <span id="kpiAdvertisers">0</span> advertisers ·
                         <span id="kpiPublishers">0</span> publishers ·
                         <span id="kpiAdmins">0</span> admins ·
                         <span id="kpiMarketers">0</span> marketing
+                        <span class="d-block">Active role counts — not assigned-role slices.</span>
                     </div>
                 </div>
             </div>
@@ -107,10 +114,18 @@
             <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="#dashboardActionQueues">
                 <div class="card-body">
                     <div class="text-muted small">Needs Attention</div>
-                    <div class="d-flex align-items-end justify-content-between">
-                        <h3 class="mb-0" id="kpiAttention">—</h3>
+                    <div class="d-flex align-items-end justify-content-between gap-3">
+                        <div>
+                            <div class="small text-danger fw-semibold">Urgent</div>
+                            <h3 class="mb-0" id="kpiAttentionUrgent">—</h3>
+                        </div>
+                        <div>
+                            <div class="small text-muted fw-semibold">Backlog</div>
+                            <h3 class="mb-0" id="kpiAttentionBacklog">—</h3>
+                        </div>
                         <span class="badge bg-danger-subtle text-danger">Action queue</span>
                     </div>
+                    <h3 class="visually-hidden" id="kpiAttention">—</h3>
                     <div class="small mt-2" id="kpiAttentionList">
                         <div class="text-muted">Loading…</div>
                     </div>
@@ -159,9 +174,15 @@
         <div class="col-6 col-xl-3">
             <div class="card admin-dash-card h-100 cursor-pointer js-kpi-link" role="link" tabindex="0" data-href="{{ route('admin.finance', ['period' => 'month']) }}">
                 <div class="card-body py-3">
-                    <div class="text-muted small">Fee margin (this month)</div>
+                    <div class="text-muted small">
+                        Est. fee margin
+                        <span class="ms-1" tabindex="0" role="img" title="Fees collected this period minus fee reversals and promotional bonuses. Bonuses can make the net negative when there are no fees. Stripe processor fees are not tracked." aria-label="Fees collected this period minus fee reversals and promotional bonuses. Bonuses can make the net negative when there are no fees. Stripe processor fees are not tracked.">
+                            <i class="fa fa-circle-info" aria-hidden="true"></i>
+                        </span>
+                    </div>
                     <div class="fs-4 fw-semibold" id="financeMargin">—</div>
-                    <div class="small text-muted">Fees − fee reversals − bonuses. Recognized completion.</div>
+                    <div class="small text-muted" id="financeMarginBreakdown">Fees — · Bonuses issued — · Net —</div>
+                    <div class="small text-muted">Fees − fee reversals − bonuses. Stripe fees not tracked.</div>
                     <div class="small text-muted" id="financeMarginPrev">Last month: —</div>
                     <div class="small text-muted" id="financeRefunds">Refunds this month: —</div>
                     <div class="small text-muted" id="financeCollected">Collected this month: —</div>
@@ -631,6 +652,7 @@
                 </div>
                 <div class="card-body">
                     <canvas id="trendChart" height="110"></canvas>
+                    <div id="trendEmpty" class="text-muted small text-center py-4 d-none">No paid-order revenue in this range.</div>
                     <div class="small text-muted mt-2">Rolling paid-order euros by paid date. A day on Finance uses recognized completion, so that total can differ from this point.</div>
                     <div id="trendRetry" class="d-none text-center text-muted py-2"></div>
                 </div>
@@ -657,9 +679,10 @@
                     <div class="small text-muted mt-1">Paid orders in progress, plus completions from the last 30 days.</div>
                 </div>
                 <div class="card-body">
-                    <div class="admin-dash-chart admin-dash-chart--donut">
+                    <div class="admin-dash-chart admin-dash-chart--donut" id="orderStatusChartWrap">
                         <canvas id="orderStatusChart" style="max-height:168px;"></canvas>
                     </div>
+                    <div id="orderStatusEmpty" class="text-muted small text-center py-4 d-none">No paid orders in the pipeline right now.</div>
                     <div id="orderStatusBars" class="admin-dash-dist"></div>
                     <div id="orderStatusRetry" class="d-none text-center text-muted py-2"></div>
                 </div>
@@ -668,8 +691,8 @@
         <div class="col-lg-6">
             <div class="card admin-dash-card h-100">
                 <div class="card-header admin-dash-card__head">
-                    <strong>Users by Role</strong>
-                    <div class="small text-muted mt-1">Users with more than one role appear in more than one slice.</div>
+                    <strong>Users by assigned role</strong>
+                    <div class="small text-muted mt-1">Assigned roles. Users can appear in more than one slice, so this will not match the active-role counts on Total Users.</div>
                 </div>
                 <div class="card-body">
                     <div class="admin-dash-chart admin-dash-chart--donut">
@@ -845,7 +868,8 @@ function renderDistributionBars(containerId, labels, values, keys, hrefForKey, o
     }
     el.innerHTML = labels.map((label, i) => {
         const value = nums[i] || 0;
-        const pct = Math.round((value / total) * 100);
+        const pctLabel = formatSharePct(value, total);
+        const pctWidth = Math.max(value > 0 ? 4 : 0, Math.min(100, (value / total) * 100));
         const color = palette[i % palette.length];
         const key = keys && keys[i];
         const href = key && hrefForKey ? hrefForKey(key) : '';
@@ -869,8 +893,8 @@ function renderDistributionBars(containerId, labels, values, keys, hrefForKey, o
                 </div>
             </div>
             <div class="admin-dash-dist__meter">
-                <span class="admin-dash-dist__track"><span class="admin-dash-dist__fill" style="width:${Math.max(pct, value > 0 ? 4 : 0)}%;background:${fill}"></span></span>
-                <span class="admin-dash-dist__pct">${pct}%</span>
+                <span class="admin-dash-dist__track"><span class="admin-dash-dist__fill" style="width:${pctWidth}%;background:${fill}"></span></span>
+                <span class="admin-dash-dist__pct">${pctLabel}</span>
             </div>
         </${tag}>`;
     }).join('');
@@ -1014,7 +1038,16 @@ function bindDemographicHovers(map, svg, byCode) {
     }
 }
 
+function formatSharePct(value, total) {
+    if (total <= 0 || value <= 0) return '0%';
+    const pct = (value / total) * 100;
+    if (pct < 1) return '<1%';
+    return pct.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+}
+
 function applyAttentionCounts(d) {
+    setText('kpiAttentionUrgent', num(d.needs_attention_urgent ?? 0));
+    setText('kpiAttentionBacklog', num(d.needs_attention_backlog ?? 0));
     setText('kpiAttention', num(d.needs_attention));
     renderAttention(Array.isArray(d.attention) ? d.attention : []);
 }
@@ -1225,6 +1258,10 @@ async function loadFinanceStrip(options = {}) {
         document.getElementById('financeInWallets').textContent = money(d.in_publisher_wallets);
         document.getElementById('financeLiability').textContent = money(d.total_publisher_liability);
         document.getElementById('financeMargin').textContent = money(d.margin);
+        setText(
+            'financeMarginBreakdown',
+            'Fees ' + money(d.fees) + ' · Bonuses issued ' + money(d.bonuses_issued) + ' · Net ' + money(d.margin)
+        );
         setText('financeMarginPrev', (d.previous_period_label || 'Last month') + ': ' + money(d.margin_previous));
         setText('financeRefunds', 'Refunds this month: ' + money(d.refunds));
         setText('financeCollected', collectedLine(d));
@@ -1252,9 +1289,9 @@ async function loadFinanceStrip(options = {}) {
 }
 
 function formatHours(value) {
-    if (value == null || value === '') return 'No orders yet';
+    if (value == null || value === '') return 'No orders in last 30 days';
     const hours = Number(value);
-    if (!Number.isFinite(hours)) return 'No orders yet';
+    if (!Number.isFinite(hours)) return 'No orders in last 30 days';
     if (hours >= 48) {
         return (hours / 24).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' days';
     }
@@ -1295,6 +1332,16 @@ async function loadTrends() {
     try {
         const json = await dashboardFetch(`{{ route('admin.dashboard.trends') }}?days=${chartDays}`);
         trendDates = Array.isArray(json.dates) ? json.dates : [];
+        const revenueSeries = Array.isArray(json.revenue) ? json.revenue.map((v) => Number(v) || 0) : [];
+        const revenueEmpty = revenueSeries.length === 0 || revenueSeries.every((v) => v === 0);
+        const trendCanvas = document.getElementById('trendChart');
+        const trendEmpty = document.getElementById('trendEmpty');
+        if (trendEmpty) trendEmpty.classList.toggle('d-none', !revenueEmpty);
+        if (trendCanvas) trendCanvas.classList.toggle('d-none', revenueEmpty);
+        if (revenueEmpty && trendChart) {
+            trendChart.destroy();
+            trendChart = null;
+        }
 
         const commonOpts = {
             responsive: true,
@@ -1303,7 +1350,10 @@ async function loadTrends() {
             scales: { y: { beginAtZero: true } }
         };
 
-        trendChart = makeChart(trendChart, 'trendChart', {
+        if (revenueEmpty) {
+            retryEls.forEach(hideRetry);
+            // Still draw signups below; skip the all-zero revenue chart.
+        } else trendChart = makeChart(trendChart, 'trendChart', {
             type: 'line',
             data: {
                 labels: json.labels,
@@ -1423,7 +1473,18 @@ async function loadDistributions() {
             onHover: chartPointer,
         };
         const donutStyle = { borderWidth: 4, borderColor: '#ffffff', hoverOffset: 2, borderRadius: 6 };
+        const orderValues = ((json.orders && json.orders.values) || []).map((v) => Number(v) || 0);
+        const orderEmpty = !!(json.orders && json.orders.empty) || orderValues.length === 0 || orderValues.every((v) => v === 0);
+        const orderWrap = document.getElementById('orderStatusChartWrap');
+        const orderEmptyEl = document.getElementById('orderStatusEmpty');
+        if (orderWrap) orderWrap.classList.toggle('d-none', orderEmpty);
+        if (orderEmptyEl) orderEmptyEl.classList.toggle('d-none', !orderEmpty);
+        if (orderEmpty && orderStatusChart) {
+            orderStatusChart.destroy();
+            orderStatusChart = null;
+        }
 
+        if (!orderEmpty) {
         orderStatusChart = makeChart(orderStatusChart, 'orderStatusChart', {
             type: 'doughnut',
             data: {
@@ -1444,6 +1505,7 @@ async function loadDistributions() {
                 },
             }
         });
+        }
 
         roleChart = makeChart(roleChart, 'roleChart', {
             type: 'doughnut',
@@ -1466,6 +1528,7 @@ async function loadDistributions() {
             }
         });
 
+        if (!orderEmpty) {
         renderDistributionBars(
             'orderStatusBars',
             json.orders.labels,
@@ -1477,6 +1540,10 @@ async function loadDistributions() {
                 return url.toString();
             }
         );
+        } else {
+            const orderBars = document.getElementById('orderStatusBars');
+            if (orderBars) orderBars.innerHTML = '';
+        }
         renderDistributionBars(
             'roleBars',
             json.roles.labels,
@@ -1727,7 +1794,7 @@ async function loadActionQueue(options = {}) {
             enrichmentBody.innerHTML = enrichment.map(e => `
                 <tr>
                     <td class="fw-semibold">${cellLink(e.url, e.site_name)}</td>
-                    <td class="small text-truncate" style="max-width:120px;">${escapeHtml(e.error || '')}</td>
+                    <td class="small text-truncate" style="max-width:120px;" title="${escapeHtml(e.error_raw || e.error || '')}">${escapeHtml(e.error || '')}</td>
                     ${waitingCell(e)}
                 </tr>`).join('');
         }

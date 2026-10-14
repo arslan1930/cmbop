@@ -50,6 +50,7 @@ class User extends Authenticatable implements MustVerifyEmail
      * - catalog_reveal_exempt* (CatalogActivityController)
      * - last_seen_at (RecordUserLastSeen)
      * - suspended_at / suspended_reason / suspended_by (Admin\UserController)
+     * - is_test (Admin\UserController::updateTestFlag)
      */
 
     /**
@@ -89,6 +90,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'catalog_hide_until' => 'datetime',
         'last_seen_at' => 'datetime',
         'suspended_at' => 'datetime',
+        'is_test' => 'boolean',
     ];
 
     public const ONLINE_WINDOW_SECONDS = 120;
@@ -473,6 +475,34 @@ class User extends Authenticatable implements MustVerifyEmail
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    public function isTestAccount(): bool
+    {
+        if (! static::hasUsersColumn('is_test')) {
+            return false;
+        }
+
+        try {
+            return (bool) $this->is_test;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopeNotTest($query)
+    {
+        if (! static::hasUsersColumn('is_test')) {
+            return $query;
+        }
+
+        return $query->where(function ($inner) {
+            $inner->where('is_test', 0)->orWhereNull('is_test');
+        });
     }
 
     public function adminNotes()

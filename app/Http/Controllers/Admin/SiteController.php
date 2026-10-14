@@ -260,7 +260,7 @@ class SiteController extends Controller
                 ->paginate($listPerPage, ['*'], 'page', $this->staffListPage($request))
                 ->appends($listQuery);
         } elseif ($allSitesMode) {
-            $listPerPage = $this->staffListPerPage($request, 20);
+            $listPerPage = $this->staffListPerPage($request, 50);
             $listQuery = $this->staffSitesPagerAppendQuery(
                 $request,
                 $needsReviewFilter,
@@ -743,7 +743,7 @@ class SiteController extends Controller
 
             $page = $this->recordsPage($request);
             $sites = $query
-                ->paginate(100, ['*'], 'page', $page)
+                ->paginate(50, ['*'], 'page', $page)
                 ->appends($filter['query_params'])
                 ->through(fn (Site $site) => $this->leftoverSafeSiteRecordRow($site));
         } catch (\Throwable $e) {
@@ -761,7 +761,7 @@ class SiteController extends Controller
                 UserFacingError::message($e, 'We could not load site records. Please refresh and try again.')
             );
 
-            $sites = new LengthAwarePaginator([], 0, 100, $this->recordsPage($request), [
+            $sites = new LengthAwarePaginator([], 0, 50, $this->recordsPage($request), [
                 'path' => $request->url(),
                 'query' => $filter['query_params'],
             ]);

@@ -80,4 +80,16 @@ class UserFacingErrorTest extends TestCase
             UserFacingError::safeText('', 'Screenshot capture failed.')
         );
     }
+
+    public function test_enrichment_display_hides_sql_and_keeps_raw(): void
+    {
+        $display = UserFacingError::enrichmentDisplay(
+            'SQLSTATE[42S22]: Unknown column \'screenshot_path\' in \'SET\'',
+            'Enrichment failed.'
+        );
+
+        $this->assertSame('Could not save the screenshot (database column missing).', $display['text']);
+        $this->assertStringContainsString('screenshot_path', $display['raw']);
+        $this->assertSame('Capture failed', UserFacingError::enrichmentDisplay('Capture failed')['text']);
+    }
 }

@@ -40,6 +40,9 @@
         @else
             <span class="badge text-bg-success">Active</span>
         @endif
+        @if($user->isTestAccount())
+            <span class="badge text-bg-warning text-dark">Test account</span>
+        @endif
         @if($user->hasVerifiedEmail())
             <span class="badge text-bg-success">Email verified</span>
         @else
@@ -204,6 +207,16 @@
                                 @csrf
                                 <button type="submit" class="btn btn-sm btn-outline-success w-100">
                                     <i class="fa fa-unlock me-1"></i> Reactivate account
+                                </button>
+                            </form>
+                        @endif
+                        @if(\App\Models\User::hasUsersColumn('is_test'))
+                            <form method="POST" action="{{ route('admin.users.test-flag', $user) }}">
+                                @csrf
+                                <input type="hidden" name="is_test" value="{{ $user->isTestAccount() ? 0 : 1 }}">
+                                <button type="submit" class="btn btn-sm {{ $user->isTestAccount() ? 'btn-warning' : 'btn-outline-secondary' }} w-100">
+                                    <i class="fa fa-flask me-1"></i>
+                                    {{ $user->isTestAccount() ? 'Unmark test account' : 'Mark as test account' }}
                                 </button>
                             </form>
                         @endif
