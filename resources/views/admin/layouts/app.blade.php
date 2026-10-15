@@ -3,17 +3,14 @@
 <head>
     <meta charset="UTF-8">
     @php
-        $adminPageTitle = html_entity_decode(
-            trim((string) $__env->yieldContent('title', 'Admin Dashboard')),
-            ENT_QUOTES | ENT_HTML5,
-            'UTF-8'
+        $adminPageTitle = \App\Support\AdminPageTitle::document(
+            html_entity_decode(
+                trim((string) $__env->yieldContent('title')),
+                ENT_QUOTES | ENT_HTML5,
+                'UTF-8'
+            ),
+            request()->route()?->getName()
         );
-        if ($adminPageTitle === '') {
-            $adminPageTitle = 'Admin Dashboard';
-        }
-        if (! str_contains($adminPageTitle, 'SEOLinkBuildings')) {
-            $adminPageTitle .= ' — SEOLinkBuildings';
-        }
         $adminPageDescription = html_entity_decode(
             trim((string) $__env->yieldContent('meta_description')),
             ENT_QUOTES | ENT_HTML5,
@@ -332,14 +329,25 @@
     document.body.classList.remove('layout-dark');
     try { localStorage.removeItem('layoutDarkMode'); } catch (e) {}
 
+    function formatNavBadgeCount(count) {
+        const n = Number(count) || 0;
+        if (n < 1000) return String(n);
+        const k = n / 1000;
+        const rounded = Math.round(k * 10) / 10;
+        return (Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)) + 'k';
+    }
+
     function setNavBadge(id, count) {
         const el = document.getElementById(id);
         if (!el) return;
-        if (count > 0) {
+        const n = Number(count) || 0;
+        if (n > 0) {
             el.style.display = 'inline-block';
-            el.textContent = count > 99 ? '99+' : count;
+            el.textContent = formatNavBadgeCount(n);
+            el.title = n.toLocaleString() + ' need review';
         } else {
             el.style.display = 'none';
+            el.removeAttribute('title');
         }
     }
 

@@ -1332,6 +1332,7 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':marketing'])
 Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMiddleware::class.':admin'])
     ->prefix('admin')->name('admin.')
     ->group(function () use ($registerStaffOpsRoutes) {
+        Route::redirect('/', '/admin/dashboard', 302);
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])
             ->name('dashboard');
         $registerStaffOpsRoutes();
@@ -1489,6 +1490,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->whereNumber('deposit');
 
         Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals');
+        Route::get('/withdrawals/history', function () {
+            return redirect()->route('admin.withdrawals', ['queue' => 'history']);
+        })->name('withdrawals.history');
         Route::get('/withdrawals/data', [AdminWithdrawalController::class, 'getWithdrawalsData'])->name('withdrawals.data');
         Route::get('/withdrawals/statistics', [AdminWithdrawalController::class, 'getStatistics'])->name('withdrawals.statistics');
         Route::get('/withdrawals/export', [AdminWithdrawalController::class, 'exportCsv'])->name('withdrawals.export');
