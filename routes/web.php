@@ -83,6 +83,7 @@ use App\Http\Controllers\Publisher\BulkSiteRequestController as PublisherBulkSit
 use App\Http\Controllers\Publisher\DashboardController;
 use App\Http\Controllers\Publisher\OrderController;
 use App\Http\Controllers\Publisher\PublisherReportsController;
+use App\Http\Controllers\Publisher\SettingsController as PublisherSettingsController;
 use App\Http\Controllers\Publisher\SiteClaimController;
 use App\Http\Controllers\Publisher\SiteController;
 use App\Http\Controllers\Publisher\SitePromotionController;
@@ -2073,6 +2074,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
             ->middleware('throttle:10,1')
             ->name('balance.transfer');
         Route::get('/balance/history', [BalanceController::class, 'getTransferHistory'])->name('balance.history');
+        Route::get('/balance/transactions', [BalanceController::class, 'transactions'])->name('balance.transactions');
+
+        Route::get('/settings', [PublisherSettingsController::class, 'index'])->name('settings');
 
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -2140,6 +2144,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         Route::post('/sites/claim', [SiteClaimController::class, 'store'])
             ->middleware('throttle:10,1')
             ->name('sites.claim');
+        Route::get('/sites/claim-lookup', [SiteClaimController::class, 'lookup'])
+            ->middleware('throttle:30,1')
+            ->name('sites.claim-lookup');
         Route::post('/sites/{id}/verification/start', [SiteVerificationController::class, 'start'])
             ->middleware('throttle:20,1')
             ->name('sites.verification.start');

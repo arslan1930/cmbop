@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Publisher;
 use App\Http\Controllers\Controller;
 use App\Models\BalanceTransfer;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Services\Wallet\WalletRoleMoveException;
 use App\Services\Wallet\WalletRoleMoveService;
+use App\Support\ListingMoney;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class BalanceController extends Controller
 {
@@ -34,7 +37,7 @@ class BalanceController extends Controller
             $publisher = $publisherWallet?->roleSnapshot() ?? Wallet::emptyRoleSnapshot();
             $advertiser = $advertiserWallet?->roleSnapshot() ?? Wallet::emptyRoleSnapshot();
             $publisherCurrency = strtoupper((string) ($publisherWallet->currency ?? 'EUR')) ?: 'EUR';
-            $minWithdrawalAmount = max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2));
+            $minWithdrawalAmount = app(ListingMoney::class)->minWithdrawal($publisherCurrency);
             $roleMoveMinAmount = max(0.01, round((float) config('billing.role_move.min_amount', 0.01), 2));
             $canWithdraw = $publisher['debt'] <= 0 && $publisher['withdrawable'] >= $minWithdrawalAmount;
             $showAdvertiserWallet = $user->hasRole('advertiser');
@@ -73,7 +76,7 @@ class BalanceController extends Controller
                 'publisherBalance' => 0.0,
                 'advertiserBalance' => 0.0,
                 'publisherDebt' => 0.0,
-                'minWithdrawalAmount' => max(0.01, round((float) config('billing.withdrawal_min_amount', 20), 2)),
+                'minWithdrawalAmount' => app(ListingMoney::class)->minWithdrawal('EUR'),
                 'roleMoveMinAmount' => max(0.01, round((float) config('billing.role_move.min_amount', 0.01), 2)),
                 'canWithdraw' => false,
                 'canMove' => false,
@@ -161,6 +164,105 @@ class BalanceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => UserFacingError::message($e, 'Failed to fetch transfer history.'),
+            ], 500);
+        }
+    }
+
+    /**
+     * Publisher wallet ledger (earnings, withdrawals, moves, adjustments).
+     */
+    public function transactions(Request $request)
+    {
+        try {
+            if (! Schema::hasTable('wallet_transactions')) {
+                return response()->json([
+                    'success' => true,
+                    'transactions' => [],
+                    'pagination' => [
+                        'current_page' => 1,
+                        'last_page' => 1,
+                        'per_page' => 20,
+                        'total' => 0,
+                        'from' => null,
+                        'to' => null,
+                    ],
+                ]);
+            }
+
+            $user = auth()->user();
+            $walletIds = Wallet::forPublisherAll($user->id)->pluck('id')->filter()->values();
+            $query = WalletTransaction::query()
+                ->where('user_id', $user->id)
+                ->when($walletIds->isNotEmpty(), fn ($q) => $q->whereIn('wallet_id', $walletIds))
+                ->orderByDesc('created_at');
+
+            $type = search_text($request->get('type'));
+            if ($type !== '' && $type !== 'all') {
+                $query->where('type', $type);
+            }
+
+            $direction = search_text($request->get('direction'));
+            if (in_array($direction, ['credit', 'debit'], true)) {
+                $query->where('direction', $direction);
+            }
+
+            $search = search_text($request->get('q'));
+            if ($search !== '') {
+                $query->where(function ($builder) use ($search) {
+                    $builder->where('description', 'like', '%'.$search.'%')
+                        ->orWhere('reference', 'like', '%'.$search.'%')
+                        ->orWhere('type', 'like', '%'.$search.'%');
+                });
+            }
+
+            $page = $query->paginate(20)->withQueryString();
+            $items = collect($page->items())->map(function (WalletTransaction $tx) {
+                $currency = strtoupper((string) ($tx->currency ?: 'EUR')) ?: 'EUR';
+                $signed = $tx->isCredit()
+                    ? abs((float) $tx->amount)
+                    : -abs((float) $tx->amount);
+
+                return [
+                    'id' => $tx->id,
+                    'type' => $tx->type,
+                    'type_label' => match ($tx->type) {
+                        WalletTransaction::TYPE_TRANSFER_IN => 'Earnings',
+                        WalletTransaction::TYPE_ROLE_MOVE_OUT => 'Moved to advertiser wallet',
+                        default => $tx->typeLabel(),
+                    },
+                    'direction' => $tx->direction,
+                    'amount' => (float) $tx->amount,
+                    'amount_display' => format_money_amount($signed, $currency),
+                    'balance_after_display' => $tx->balance_after !== null
+                        ? format_money_amount($tx->balance_after, $currency)
+                        : null,
+                    'currency' => $currency,
+                    'status' => $tx->status,
+                    'description' => $tx->description,
+                    'reference' => $tx->reference,
+                    'created_at' => optional($tx->created_at)?->toIso8601String(),
+                    'created_label' => optional($tx->created_at)?->timezone(config('app.timezone'))->format('d M Y H:i'),
+                ];
+            })->values()->all();
+
+            return response()->json([
+                'success' => true,
+                'transactions' => $items,
+                'pagination' => [
+                    'current_page' => $page->currentPage(),
+                    'last_page' => $page->lastPage(),
+                    'per_page' => $page->perPage(),
+                    'total' => $page->total(),
+                    'from' => $page->firstItem(),
+                    'to' => $page->lastItem(),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Unable to load your wallet history.'),
             ], 500);
         }
     }
