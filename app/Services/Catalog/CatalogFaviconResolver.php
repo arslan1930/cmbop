@@ -2,6 +2,7 @@
 
 namespace App\Services\Catalog;
 
+use App\Jobs\CaptureCatalogFaviconJob;
 use App\Models\Site;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -34,14 +35,22 @@ class CatalogFaviconResolver
             return $this->fallbackResponse();
         }
 
-        if ($this->capture($site)) {
-            $cached = $this->cachedPath($site);
-            if ($cached !== null) {
-                return $this->fileResponse($cached);
-            }
+        if (! $this->hasFetchableHost($site)) {
+            $this->rememberMiss($site);
+
+            return $this->fallbackResponse();
         }
 
-        $this->rememberMiss($site);
+        try {
+            CaptureCatalogFaviconJob::dispatch($site->id);
+        } catch (\Throwable) {
+            $this->capture($site);
+        }
+
+        $cached = $this->cachedPath($site);
+        if ($cached !== null) {
+            return $this->fileResponse($cached);
+        }
 
         return $this->fallbackResponse();
     }
@@ -59,7 +68,7 @@ class CatalogFaviconResolver
         ]);
     }
 
-    private function capture(Site $site): bool
+    public function capture(Site $site): bool
     {
         foreach ($site->catalogFaviconHosts() as $host) {
             if (! $this->shouldFetchHost($host)) {
@@ -76,6 +85,17 @@ class CatalogFaviconResolver
                 if ($this->storeFromUrl($site, $url)) {
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    public function hasFetchableHost(Site $site): bool
+    {
+        foreach ($site->catalogFaviconHosts() as $host) {
+            if ($this->shouldFetchHost($host)) {
+                return true;
             }
         }
 
@@ -245,7 +265,7 @@ class CatalogFaviconResolver
         }
     }
 
-    private function rememberMiss(Site $site): void
+    public function rememberMiss(Site $site): void
     {
         try {
             Cache::put($this->missKey($site), 1, self::MISS_TTL);

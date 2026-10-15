@@ -409,16 +409,30 @@ class CartPricingService
      */
     public function syncAdvertiserSessionCart(?User $buyer = null): array
     {
+        $memoKey = '_advertiser_cart_sync';
+        try {
+            if (app()->bound('request')) {
+                $memo = request()->attributes->get($memoKey);
+                if (is_array($memo) && isset($memo['cart'])) {
+                    return $memo;
+                }
+            }
+        } catch (\Throwable) {
+        }
+
         $sessionCart = session('cart', []);
         if (! is_array($sessionCart)) {
             session()->put('cart', []);
 
-            return [
+            $empty = [
                 'cart' => [],
                 'removed_inactive' => [],
                 'removed_owned' => [],
                 'changed' => true,
             ];
+            $this->rememberAdvertiserCartSync($memoKey, $empty);
+
+            return $empty;
         }
 
         $pruned = $this->pruneAdvertiserCart($sessionCart ?: [], $buyer);
@@ -426,7 +440,22 @@ class CartPricingService
             session()->put('cart', array_values($pruned['cart']));
         }
 
+        $this->rememberAdvertiserCartSync($memoKey, $pruned);
+
         return $pruned;
+    }
+
+    /**
+     * @param  array{cart: list<array<string, mixed>>, removed_inactive: list<string>, removed_owned: list<string>, changed: bool}  $pruned
+     */
+    private function rememberAdvertiserCartSync(string $key, array $pruned): void
+    {
+        try {
+            if (app()->bound('request')) {
+                request()->attributes->set($key, $pruned);
+            }
+        } catch (\Throwable) {
+        }
     }
 
     /**

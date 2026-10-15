@@ -313,9 +313,15 @@ class CatalogCountryInventory
             return $query;
         }
 
-        return $query->where(function ($q) use ($normalized) {
+        $normColumn = Site::hasSitesColumn('country_norm');
+
+        return $query->where(function ($q) use ($normalized, $normColumn) {
             foreach ($normalized as $code) {
-                $q->orWhereRaw('LOWER(TRIM(country)) = ?', [$code]);
+                if ($normColumn) {
+                    $q->orWhere('country_norm', $code);
+                } else {
+                    $q->orWhereRaw('LOWER(TRIM(country)) = ?', [$code]);
+                }
             }
         });
     }
@@ -361,13 +367,21 @@ class CatalogCountryInventory
         $counts = [];
 
         try {
-            $grouped = Site::query()
+            $groupedQuery = Site::query()
                 ->catalogVisible()
                 ->whereNotNull('country')
-                ->where('country', '!=', '')
-                ->selectRaw('LOWER(TRIM(country)) as country_code, COUNT(*) as site_count')
-                ->groupByRaw('LOWER(TRIM(country))')
-                ->pluck('site_count', 'country_code');
+                ->where('country', '!=', '');
+            if (Site::hasSitesColumn('country_norm')) {
+                $grouped = $groupedQuery
+                    ->selectRaw('country_norm as country_code, COUNT(*) as site_count')
+                    ->groupBy('country_norm')
+                    ->pluck('site_count', 'country_code');
+            } else {
+                $grouped = $groupedQuery
+                    ->selectRaw('LOWER(TRIM(country)) as country_code, COUNT(*) as site_count')
+                    ->groupByRaw('LOWER(TRIM(country))')
+                    ->pluck('site_count', 'country_code');
+            }
 
             foreach ($grouped as $code => $count) {
                 $code = strtolower(trim((string) $code));
@@ -430,6 +444,25 @@ class CatalogCountryInventory
      * @return array<string, string>
      */
     private function marketplaceCountryNames(): array
+    {
+        try {
+            /** @var array<string, string> $cached */
+            $cached = Cache::remember('catalog.marketplace_country_names', 300, function () {
+                return $this->computeMarketplaceCountryNames();
+            });
+
+            return $cached;
+        } catch (\Throwable $e) {
+            Log::warning('Catalog country names cache failed', ['error' => $e->getMessage()]);
+
+            return $this->computeMarketplaceCountryNames();
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function computeMarketplaceCountryNames(): array
     {
         $names = [];
         if (function_exists('marketplace_countries')) {

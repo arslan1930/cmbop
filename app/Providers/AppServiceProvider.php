@@ -10,7 +10,6 @@ use App\Listeners\StampEmailLogFailedJobUuid;
 use App\Models\Blog;
 use App\Models\DepositRequest;
 use App\Models\Order;
-use App\Models\Project;
 use App\Models\User;
 use App\Services\CartPricingService;
 use App\Services\EmailNotificationService;
@@ -341,23 +340,6 @@ class AppServiceProvider extends ServiceProvider
                     'error' => $e->getMessage(),
                 ]);
             }
-        });
-
-        View::composer('*', function ($view) {
-            try {
-                if (auth()->check()) {
-                    $projects = Project::where('user_id', auth()->id())
-                        ->latest()
-                        ->get();
-                } else {
-                    $projects = collect();
-                }
-            } catch (\Throwable $e) {
-                Log::warning('sidebarProjects composer failed', ['error' => $e->getMessage()]);
-                $projects = collect();
-            }
-
-            $view->with('sidebarProjects', $projects);
         });
 
         // Recent published posts for the public footer "Latest Updates" section

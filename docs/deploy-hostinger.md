@@ -27,7 +27,8 @@ production page view. It does not migrate and it does not run the scheduler.
 2. `grep '^MEDIA_PATH=' .env` — must be absolute path outside `public_html`
 3. `ls -la public/storage` — must symlink to that path; if not:
    `rm -f public/storage && php artisan storage:link`
-4. Pending SQL under `database/sql/` is still manual (e.g. `add_homepage_social_placement.sql`
+4. Pending SQL under `database/sql/` is still manual (e.g. `add_catalog_performance_indexes.sql`
+   for catalog filter indexes + `country_norm`/`language_norm`, `add_homepage_social_placement.sql`
    so catalog Site Details can show Homepage promotions + Social, and
    `restrict_order_items_site_id_on_delete.sql` so deleting a site cannot cascade-wipe orders)
 5. `php artisan config:clear` (and `config:cache` if you normally cache) — `--repair`
@@ -71,4 +72,5 @@ production page view. It does not migrate and it does not run the scheduler.
 
 ## Weekly
 
-Back up `/home/USER/persistent/media` (zip / Hostinger backup / `tar`).
+Off-site: `backup:drive` (Google Drive, 03:00 Asia/Karachi) — see [`BACKUPS.md`](BACKUPS.md).
+Also back up `/home/USER/persistent/media` (zip / Hostinger backup / `tar`).

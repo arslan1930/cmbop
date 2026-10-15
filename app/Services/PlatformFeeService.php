@@ -103,19 +103,23 @@ class PlatformFeeService
     {
         $cases = [];
         foreach ($this->tiers as $tier) {
-            $rate = 1 + ($tier['percent'] / 100);
+            $percent = (float) $tier['percent'];
             $min = $tier['min'];
             $max = $tier['max'];
+            // Match advertiserBase(): round(base + round(base * percent/100, 2), 2)
+            // not ROUND(base * (1+percent/100), 2) which can differ by a penny.
+            $then = "ROUND({$column} + ROUND({$column} * {$percent} / 100, 2), 2)";
             if ($max === null) {
-                $cases[] = "WHEN {$column} >= {$min} THEN ROUND({$column} * {$rate}, 2)";
+                $cases[] = "WHEN {$column} >= {$min} THEN {$then}";
             } else {
-                $cases[] = "WHEN {$column} >= {$min} AND {$column} <= {$max} THEN ROUND({$column} * {$rate}, 2)";
+                $cases[] = "WHEN {$column} >= {$min} AND {$column} <= {$max} THEN {$then}";
             }
         }
 
-        $fallbackRate = 1 + ((float) end($this->tiers)['percent'] / 100);
+        $fallbackPercent = (float) end($this->tiers)['percent'];
+        $fallback = "ROUND({$column} + ROUND({$column} * {$fallbackPercent} / 100, 2), 2)";
 
-        return 'CASE '.implode(' ', $cases)." ELSE ROUND({$column} * {$fallbackRate}, 2) END";
+        return 'CASE '.implode(' ', $cases)." ELSE {$fallback} END";
     }
 
     /**

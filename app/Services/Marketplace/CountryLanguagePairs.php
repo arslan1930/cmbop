@@ -3,6 +3,7 @@
 namespace App\Services\Marketplace;
 
 use App\Models\Language;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Country-first marketplace language pairs.
@@ -88,6 +89,25 @@ class CountryLanguagePairs
      * @return array<string, list<array{code: string, name: string}>>
      */
     public function mapWithNames(): array
+    {
+        try {
+            /** @var array<string, list<array{code: string, name: string}>> $cached */
+            $cached = Cache::remember(
+                'catalog.country_language_map_v1',
+                300,
+                fn () => $this->computeMapWithNames()
+            );
+
+            return $cached;
+        } catch (\Throwable) {
+            return $this->computeMapWithNames();
+        }
+    }
+
+    /**
+     * @return array<string, list<array{code: string, name: string}>>
+     */
+    private function computeMapWithNames(): array
     {
         $names = Language::query()
             ->get(['code', 'name'])

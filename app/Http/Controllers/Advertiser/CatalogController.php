@@ -31,6 +31,7 @@ use App\Services\Advertiser\AdvertiserOrderSearchQuery;
 use App\Services\Advertiser\AdvertiserProjectCheckout;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\CartPricingService;
+use App\Services\Catalog\CatalogAdvertiserPriceFilter;
 use App\Services\Catalog\CatalogCountryInventory;
 use App\Services\Catalog\CatalogLanguageFilter;
 use App\Services\Catalog\CatalogSearchQuery;
@@ -115,41 +116,12 @@ class CatalogController extends Controller
     /**
      * Price filters compare the same buyer-facing advertiser total as the
      * catalog row / cart (unbuffered sites.price + per-buyer buffer + fee).
-     * Done in PHP so SQLite and MySQL stay on the same rounding as checkout.
      *
      * @param  Builder<Site>  $query
      */
     private function constrainCatalogAdvertiserPrice($query, ?float $min, ?float $max, ListingMoney $listing): void
     {
-        if ($min === null && $max === null) {
-            return;
-        }
-
-        $fees = app(PlatformFeeService::class);
-        $buyer = $listing->buyerCurrency();
-        $columns = ['id', 'price'];
-        if (Schema::hasColumn('sites', 'listing_currency')) {
-            $columns[] = 'listing_currency';
-        }
-        $ids = Site::query()
-            ->get($columns)
-            ->filter(function (Site $site) use ($listing, $fees, $buyer, $min, $max): bool {
-                $advertiser = $fees->advertiserBase(
-                    $listing->buyerFacingEuros((float) $site->price, $site->listingCurrency(), $buyer)
-                );
-                if ($min !== null && $advertiser < $min) {
-                    return false;
-                }
-                if ($max !== null && $advertiser > $max) {
-                    return false;
-                }
-
-                return true;
-            })
-            ->pluck('id')
-            ->all();
-
-        $query->whereIn('id', $ids !== [] ? $ids : [0]);
+        app(CatalogAdvertiserPriceFilter::class)->constrain($query, $min, $max, $listing);
     }
 
     /**
@@ -277,6 +249,65 @@ class CatalogController extends Controller
     }
 
     /**
+     * One grouped MAX(completed_at) join instead of a correlated subquery per row.
+     *
+     * @param  Builder<Site>  $query
+     */
+    private function joinCatalogLastCompletedAt($query): void
+    {
+        if (! $this->orderItemsHasCompletedAt()) {
+            return;
+        }
+
+        try {
+            $latest = DB::table('order_items')
+                ->select('site_id', DB::raw('MAX(completed_at) as last_completed_at'))
+                ->whereNotNull('completed_at')
+                ->groupBy('site_id');
+
+            $query->select('sites.*')
+                ->leftJoinSub($latest, 'catalog_last_pub', function ($join) {
+                    $join->on('catalog_last_pub.site_id', '=', 'sites.id');
+                })
+                ->addSelect('catalog_last_pub.last_completed_at as last_completed_at');
+        } catch (\Throwable $e) {
+            Log::warning('Catalog last-published join failed', ['error' => $e->getMessage()]);
+            try {
+                $query->withMax('orderItems as last_completed_at', 'completed_at');
+            } catch (\Throwable) {
+            }
+        }
+    }
+
+    /**
+     * Filtered-set min advertiser price. Cached 60s on the filter hash (not page/sort).
+     *
+     * @param  Builder<Site>  $query
+     */
+    private function catalogInventoryFrom(Request $request, $query, string $advPriceSql, ListingMoney $listing): ?float
+    {
+        $filters = CatalogUrlQuery::fromRequest($request);
+        unset($filters['page'], $filters['sort'], $filters['per_page'], $filters['wizard']);
+        $cacheKey = 'catalog.inventory_from.v1.'.sha1(json_encode([
+            $filters,
+            $listing->buyerCurrency(),
+        ]));
+
+        try {
+            $minRaw = Cache::remember($cacheKey, 60, function () use ($query, $advPriceSql) {
+                return (clone $query)->min(DB::raw('('.$advPriceSql.')'));
+            });
+            if ($minRaw !== null && $minRaw !== false && is_numeric($minRaw)) {
+                return round((float) $minRaw, 2);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Catalog inventory min price failed', ['error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
+    /**
      * Catalog niche options — loaded from the categories table (same source as
      * publisher/admin). Prefer Category::catalogPickerRows() / catalogPickerNames().
      *
@@ -389,14 +420,17 @@ class CatalogController extends Controller
             $siteCategories = $predefinedCategories;
         }
 
-        // Drop hidden/owned lines before the banner, wizard chrome, and header badge render.
+        // Merge saved cart first, then prune once. The layout composer reuses
+        // CartPricingService's per-request memo so it does not Site::whereIn again.
+        $this->leftoverSessionCart();
         try {
             $cartRemovedInactive = $this->syncPrunedSessionCart();
         } catch (\Throwable $e) {
             report($e);
             $cartRemovedInactive = false;
         }
-        $cart = $this->leftoverSessionCart();
+        $sessionCart = session()->get('cart', []);
+        $cart = is_array($sessionCart) ? array_values(array_filter($sessionCart, 'is_array')) : [];
 
         // Bulk discount marketplace section — follows Catalog country= (Option 1).
         // Option 2: hide the Spendable rail when More → Bulk deals only is on
@@ -874,8 +908,8 @@ class CatalogController extends Controller
         }
 
         $listingMoney = app(ListingMoney::class);
-        $catalogEurSql = $listingMoney->buyerFacingEurSql('price');
-        $advPriceSql = app(PlatformFeeService::class)->advertiserBaseSqlExpression($catalogEurSql);
+        $priceFilter = app(CatalogAdvertiserPriceFilter::class);
+        $advPriceSql = $priceFilter->advertiserFacingSql($listingMoney);
 
         $this->constrainCatalogAdvertiserPrice(
             $query,
@@ -928,15 +962,7 @@ class CatalogController extends Controller
         }
 
         // Filtered-set min (advertiser-facing), not the current page min.
-        $inventoryFrom = null;
-        try {
-            $minRaw = (clone $query)->min(DB::raw($advPriceSql));
-            if ($minRaw !== null && $minRaw !== false && is_numeric($minRaw)) {
-                $inventoryFrom = round((float) $minRaw, 2);
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Catalog inventory min price failed', ['error' => $e->getMessage()]);
-        }
+        $inventoryFrom = $this->catalogInventoryFrom($request, $query, $advPriceSql, $listingMoney);
 
         if (Site::hasSitesColumn('featured_until')) {
             $query->orderByRaw(
@@ -970,31 +996,13 @@ class CatalogController extends Controller
         // Pagination links always target the full catalog page (not /results),
         // and only carry the allowlisted listing query (URL source of truth).
         $perPage = CatalogUrlQuery::perPage($request);
-        if ($this->orderItemsHasCompletedAt()) {
-            $query->withMax('orderItems as last_completed_at', 'completed_at');
-        }
+        $this->joinCatalogLastCompletedAt($query);
         $sites = $query->paginate($perPage);
         $sites->appends(CatalogUrlQuery::fromRequest($request));
         $sites->setPath(route('advertiser.catalog', absolute: false));
 
         foreach ($sites as $site) {
             try {
-                $site->original_price = $site->price;
-                // Own listings stay at the entered publisher price so leftover
-                // Add-to-cart markup cannot paint a fee-inclusive number.
-                if (! $site->isOwnedBy(auth()->user())) {
-                    $site->price = $this->advertiserCatalogListPrice($site->price, $site->listingCurrency());
-                }
-
-                $sensitivePrices = $site->safeJsonArray('sensitive_prices');
-                if ($sensitivePrices !== []) {
-                    $processedSensitive = [];
-                    foreach ($sensitivePrices as $type => $additionalPrice) {
-                        $processedSensitive[$type] = $additionalPrice;
-                    }
-                    $site->sensitive_prices = $processedSensitive;
-                }
-
                 $site->categories_list = $site->nicheBadgeLabels();
             } catch (\Throwable $e) {
                 report($e);
@@ -1935,8 +1943,13 @@ class CatalogController extends Controller
             $rows = ProblemReport::query()
                 ->where('user_id', $userId)
                 ->where('subject', 'like', 'Catalog site:%')
+                ->where(function ($q) use ($siteIds) {
+                    foreach ($siteIds as $id) {
+                        $q->orWhere('message', 'like', '%Site ID: '.$id.'%');
+                    }
+                })
                 ->orderByDesc('id')
-                ->limit(400)
+                ->limit(count($siteIds) * 4)
                 ->get(['id', 'message']);
         } catch (\Throwable $e) {
             report($e);

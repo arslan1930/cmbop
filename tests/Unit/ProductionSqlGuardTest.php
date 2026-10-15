@@ -90,6 +90,21 @@ class ProductionSqlGuardTest extends TestCase
         $this->assertStringContainsString("already exists'' AS info", $sql);
     }
 
+    public function test_catalog_performance_indexes_sql_is_idempotent_and_uses_hostinger_db(): void
+    {
+        $sql = (string) file_get_contents(base_path('database/sql/add_catalog_performance_indexes.sql'));
+
+        $this->assertStringContainsString('USE u841082722_cmbop_db;', $sql);
+        $this->assertStringContainsString('information_schema.COLUMNS', $sql);
+        $this->assertStringContainsString('information_schema.statistics', $sql);
+        $this->assertStringContainsString('country_norm', $sql);
+        $this->assertStringContainsString('language_norm', $sql);
+        $this->assertStringContainsString('GENERATED ALWAYS AS (LOWER(TRIM(`country`))) STORED', $sql);
+        $this->assertStringContainsString('sites_active_da_index', $sql);
+        $this->assertStringContainsString('order_items_site_id_completed_at_index', $sql);
+        $this->assertStringContainsString('already exists', $sql);
+    }
+
     public function test_orders_completed_at_backfill_sql_is_idempotent(): void
     {
         $sql = (string) file_get_contents(base_path('database/sql/backfill_orders_completed_at.sql'));
