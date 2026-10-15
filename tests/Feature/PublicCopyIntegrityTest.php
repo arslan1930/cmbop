@@ -235,4 +235,101 @@ class PublicCopyIntegrityTest extends TestCase
             $messages['become_publisher_earnings_point_2_body']
         );
     }
+
+    /**
+     * The €20 welcome credit closed on 2026-10-04. Hardcoded amount+welcome
+     * marketing must not return in public source or rendered homepage schema.
+     */
+    public function test_public_copy_does_not_advertise_closed_20_euro_welcome_credit(): void
+    {
+        $pattern = '/(?:€\s*20|20\s*€|20\s*EUR|EUR\s*20).{0,80}(?:welcome|willkommen|bienvenue|welkomst|benvenuto|bienvenida|bun venit|välkomst|velkomst|üdvözlő|приветствен|tervitus|powitaln|aktionsguthaben)|(?:welcome|willkommen|bienvenue|welkomst|benvenuto|bienvenida|välkomst|velkomst).{0,80}(?:€\s*20|20\s*€|20\s*EUR|EUR\s*20)/iu';
+
+        $paths = array_merge(
+            glob(resource_path('lang/*/messages.php')) ?: [],
+            [resource_path('llms.txt'), config_path('country_landers.php')],
+            $this->publicViewFiles(),
+            glob(app_path('Support/*BlogPost.php')) ?: [],
+        );
+
+        $this->assertNotEmpty($paths, 'Expected public copy files to scan.');
+
+        foreach ($paths as $path) {
+            $source = file_get_contents($path);
+            $this->assertIsString($source);
+            $this->assertDoesNotMatchRegularExpression(
+                $pattern,
+                $source,
+                'Closed €20 welcome-credit copy returned in '.$path
+            );
+        }
+
+        foreach (['/', '/us'] as $uri) {
+            $html = $this->get($uri)->assertOk()->getContent();
+            $this->assertStringNotContainsString('€20 welcome credit', $html);
+            $this->assertStringNotContainsString('20 EUR welcome', $html);
+            $this->assertStringNotContainsString('20 € welcome', $html);
+
+            $descriptions = $this->softwareApplicationDescriptions($html);
+            $this->assertNotEmpty($descriptions, $uri.' is missing SoftwareApplication JSON-LD');
+            foreach ($descriptions as $description) {
+                $this->assertDoesNotMatchRegularExpression(
+                    $pattern,
+                    $description,
+                    $uri.' SoftwareApplication description still advertises the closed welcome credit: '.$description
+                );
+                $this->assertStringContainsString('EUR wallet', $description);
+                $this->assertStringContainsString('transparent prices', $description);
+            }
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function publicViewFiles(): array
+    {
+        $files = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(resource_path('views'), \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+            $path = $file->getPathname();
+            if (str_contains($path, '/admin/') || str_contains($path, '/emails/')) {
+                continue;
+            }
+            $files[] = $path;
+        }
+
+        return $files;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function softwareApplicationDescriptions(string $html): array
+    {
+        preg_match_all('#<script type="application/ld\+json">\s*(.*?)\s*</script>#s', $html, $matches);
+        $descriptions = [];
+
+        foreach ($matches[1] as $json) {
+            $payload = json_decode((string) $json, true);
+            if (! is_array($payload)) {
+                continue;
+            }
+            $nodes = isset($payload['@graph']) && is_array($payload['@graph'])
+                ? $payload['@graph']
+                : [$payload];
+            foreach ($nodes as $node) {
+                if (($node['@type'] ?? null) === 'SoftwareApplication' && isset($node['description'])) {
+                    $descriptions[] = (string) $node['description'];
+                }
+            }
+        }
+
+        return $descriptions;
+    }
 }

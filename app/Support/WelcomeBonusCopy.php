@@ -97,22 +97,17 @@ class WelcomeBonusCopy
     }
 
     /**
-     * Rewrite the grant line in the llms.txt template so crawlers
-     * do not see €20 after Disable or an amount change.
+     * Keep llms.txt from advertising a closed or amount-specific welcome grant.
      */
     public static function applyToLlmsTxt(string $body): string
     {
-        $grantLine = '- New advertisers: €20 welcome credit for first orders (spend-only, not withdrawable).';
         $offLine = '- New advertisers: promotional welcome credit is spend-only when granted; it is not always offered.';
-        $offer = self::offer();
-        $line = ($offer['can_grant'] && $offer['euro'] !== '')
-            ? '- New advertisers: '.$offer['euro'].' welcome credit for first orders (spend-only, not withdrawable).'
-            : $offLine;
+        $rewritten = preg_replace(
+            '/^- New advertisers:.*welcome credit.*$/m',
+            $offLine,
+            $body
+        );
 
-        if (str_contains($body, $grantLine) || str_contains($body, $offLine)) {
-            return str_replace([$grantLine, $offLine], $line, $body);
-        }
-
-        return $body;
+        return is_string($rewritten) ? $rewritten : $body;
     }
 }

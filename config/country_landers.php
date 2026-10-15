@@ -62,7 +62,7 @@ return [
         'point_1_title' => 'UK-primary listings',
         'point_1_body' => 'These teasers are sites whose primary country is the United Kingdom. US and other English markets stay on their own filters.',
         'point_2_title' => 'EUR checkout',
-        'point_2_body' => 'Quotes and the wallet are in EUR even when the publisher is British. New advertisers still get the welcome credit on first orders.',
+        'point_2_body' => 'Quotes and the wallet are in EUR even when the publisher is British. Fund once and check out without currency surprises.',
         'point_3_title' => 'What to skip',
         'point_3_body' => 'Treat “English” as a language, not a country. If you need UK readers or a UK brand SERP, filter UK — do not buy a generic English site and hope.',
         'teaser_title' => 'Sample UK inventory',

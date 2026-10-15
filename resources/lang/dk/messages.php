@@ -43,7 +43,7 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'pricing_hero_from' => 'Publikationer i markedspladsen starter fra',
     'pricing_cta_create' => 'Opret gratis konto',
     'pricing_cta_browse' => 'Gå til katalog efter login',
-    'pricing_bonus_note' => 'Nye annoncører får 20 € velkomstkredit til de første ordrer (kan ikke hæves).',
+    'pricing_bonus_note' => 'Nye annoncører får velkomstkredit til de første ordrer (kan ikke hæves).',
     'pricing_managed_title' => 'Vil du have en styret digital-PR-pakke?',
     'pricing_managed_body' => 'Teamet kan køre outreach, hvis du vil have levering uden selv at vælge hvert site.',
     'pricing_talk_sales' => 'Tal med salg',

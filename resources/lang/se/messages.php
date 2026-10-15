@@ -43,7 +43,7 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'pricing_hero_from' => 'Publiceringar i marknadsplatsen startar från',
     'pricing_cta_create' => 'Skapa gratis konto',
     'pricing_cta_browse' => 'Gå till katalogen efter inloggning',
-    'pricing_bonus_note' => 'Nya annonsörer får 20 € välkomstkredit till de första ordrarna (kan inte tas ut).',
+    'pricing_bonus_note' => 'Nya annonsörer får välkomstkredit till de första ordrarna (kan inte tas ut).',
     'pricing_managed_title' => 'Vill du ha ett styrt digital-PR-paket?',
     'pricing_managed_body' => 'Teamet kan köra outreach om du vill ha leverans utan att själv välja varje sajt.',
     'pricing_talk_sales' => 'Prata med sälj',

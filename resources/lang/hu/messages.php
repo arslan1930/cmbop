@@ -43,7 +43,7 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'pricing_hero_from' => 'A piactéri publikációk ettől kezdődnek',
     'pricing_cta_create' => 'Ingyenes fiók létrehozása',
     'pricing_cta_browse' => 'Katalógus belépés után',
-    'pricing_bonus_note' => 'Az új hirdetők 20 € üdvözlő kreditet kapnak az első rendelésekre (nem vehető fel).',
+    'pricing_bonus_note' => 'Az új hirdetők üdvözlő kreditet kapnak az első rendelésekre (nem vehető fel).',
     'pricing_managed_title' => 'Kezelt digital-PR csomagot szeretne?',
     'pricing_managed_body' => 'A csapat viheti az outreach-et, ha szállítást szeretne anélkül, hogy minden site-ot maga választana.',
     'pricing_talk_sales' => 'Beszéljen az értékesítéssel',

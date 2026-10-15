@@ -43,7 +43,7 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'pricing_hero_from' => 'Turul olevad publikatsioonid algavad',
     'pricing_cta_create' => 'Loo tasuta konto',
     'pricing_cta_browse' => 'Kataloogi pärast sisselogimist',
-    'pricing_bonus_note' => 'Uued reklaamijad saavad 20 € tervituskrediiti esimeste tellimuste jaoks (välja võtta ei saa).',
+    'pricing_bonus_note' => 'Uued reklaamijad saavad tervituskrediiti esimeste tellimuste jaoks (välja võtta ei saa).',
     'pricing_managed_title' => 'Eelistate juhitud digital-PR paketti?',
     'pricing_managed_body' => 'Meeskond saab vedada outreach’i, kui soovite tarnet ilma iga saiti ise valimata.',
     'pricing_talk_sales' => 'Rääkige müügiga',

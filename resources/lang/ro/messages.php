@@ -43,7 +43,7 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'pricing_hero_from' => 'Publicațiile din marketplace pornesc de la',
     'pricing_cta_create' => 'Creează cont gratuit',
     'pricing_cta_browse' => 'Explorează după autentificare',
-    'pricing_bonus_note' => 'Advertiserii noi primesc 20 € credit de bun venit pentru primele comenzi (nu se poate retrage).',
+    'pricing_bonus_note' => 'Advertiserii noi primesc credit de bun venit pentru primele comenzi (nu se poate retrage).',
     'pricing_managed_title' => 'Preferi un pachet gestionat de digital PR?',
     'pricing_managed_body' => 'Echipa poate gestiona campanii de outreach dacă vrei livrare fără să alegi tu fiecare site.',
     'pricing_talk_sales' => 'Vorbește cu vânzările',
