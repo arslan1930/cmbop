@@ -178,6 +178,91 @@ class CatalogLiveClientTest extends TestCase
         $this->assertStringContainsString('window.destroyBulkDealRail', $js);
     }
 
+    public function test_page_one_live_pagination_does_not_leave_overlay_stuck(): void
+    {
+        $js = $this->catalogJs();
+
+        // page=1 is stripped so share URLs stay clean — the page-1 link is
+        // often ?page=1 or no page param, which canonicalize to the same key.
+        $this->assertMatchesRegularExpression(
+            '/if \(key === [\'"]page[\'"] && value === [\'"]1[\'"]\) return;/',
+            $js
+        );
+
+        // fromForm must restore page= from the URL when keepPage is true.
+        // An unconditional `if (key === 'page') return` made lastAppliedQuery
+        // look like page 1 after a page-2 fetch.
+        $this->assertDoesNotMatchRegularExpression(
+            '/KEYS\.forEach\(function \(key\) \{[\s\S]{0,220}?if \(key === [\'"]page[\'"]\) return;/',
+            $js
+        );
+        $this->assertMatchesRegularExpression(
+            '/if \(key === [\'"]page[\'"] && !options\.keepPage\) return;/',
+            $js
+        );
+        $this->assertMatchesRegularExpression(
+            '/if \(!options\.keepPage\) \{\s*raw\.delete\([\'"]page[\'"]\);/s',
+            $js
+        );
+
+        // Same-query no-op also requires the browser URL to match, then hides
+        // the overlay (a sibling click handler used to raise it first).
+        $this->assertMatchesRegularExpression(
+            '/queryKey === lastAppliedQuery[\s\S]{0,180}?queryKey === locationKey[\s\S]{0,400}?clearCatalogResultsBusy\(\)[\s\S]{0,80}?return Promise\.resolve\(\)/s',
+            $js
+        );
+
+        // Live pagination / chip / clear-all clicks must not pre-mark busy.
+        $this->assertMatchesRegularExpression(
+            '/#catalogResults \.pagination a\.page-link[\s\S]{0,220}?filter-chip__remove[\s\S]{0,160}?catalog-clear-all[\s\S]{0,80}?return;/s',
+            $js
+        );
+
+        // Overlay always has a timeout fallback; apply() still clears in finally.
+        $this->assertStringContainsString('CATALOG_BUSY_FALLBACK_MS', $js);
+        $this->assertStringContainsString('armCatalogBusyFallback', $js);
+        $this->assertMatchesRegularExpression(
+            '/function markCatalogResultsBusy\([\s\S]*?armCatalogBusyFallback\(\)/s',
+            $js
+        );
+        $this->assertMatchesRegularExpression(
+            '/function clearCatalogResultsBusy\(\) \{[\s\S]*?catalogBusyFallbackTimer/s',
+            $js
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.finally\(function \(\) \{[\s\S]*?if \(fallbackNavigated\) return;[\s\S]*?clearCatalogResultsBusy\(\)/s',
+            $js
+        );
+
+        // Back/forward always fetches (force), per-page restarts at page 1.
+        $this->assertMatchesRegularExpression(
+            '/addEventListener\([\'"]popstate[\'"][\s\S]{0,180}?applyFromLocation\([\'"]none[\'"]\)/s',
+            $js
+        );
+        $this->assertStringContainsString('force: true', $js);
+        $this->assertMatchesRegularExpression(
+            '/getElementById\([\'"]catalogPerPage[\'"]\)[\s\S]{0,280}?submitCatalogFilters\(\{ replace: true/s',
+            $js
+        );
+        $this->assertStringContainsString("keepPage: true, intent: 'page'", $js);
+    }
+
+    public function test_page_one_live_pagination_node_contract(): void
+    {
+        $node = trim((string) shell_exec('command -v node'));
+        if ($node === '') {
+            $this->markTestSkipped('node is required for the catalog live page contract');
+        }
+
+        $script = base_path('tests/js/catalog-live-page.test.mjs');
+        $this->assertFileExists($script);
+
+        $command = escapeshellarg($node).' --test '.escapeshellarg($script).' 2>&1';
+        exec($command, $output, $code);
+
+        $this->assertSame(0, $code, implode("\n", $output));
+    }
+
     public function test_results_fragment_exposes_count_meta_for_live_bar(): void
     {
         $advertiser = $this->userWithRole('advertiser');

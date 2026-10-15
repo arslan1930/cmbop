@@ -122,6 +122,17 @@ class CatalogPaginationUxTest extends TestCase
 
         $catalogPath = parse_url(route('advertiser.catalog'), PHP_URL_PATH);
         $this->assertStringContainsString($catalogPath, $html);
+
+        // Page 1 links still carry page=1 (Laravel paginator). Live JS
+        // canonicalize drops that param — must not treat it as a no-op on page 2.
+        $this->assertMatchesRegularExpression(
+            '/class="page-link"[^>]+href="[^"]*(?:\?|&amp;)page=1(?:&|"|#)/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/data-effective-query="[^"]*page[^"]*2/',
+            $html
+        );
     }
 
     public function test_live_client_wires_focus_keyboard_and_per_page(): void

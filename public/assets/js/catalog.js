@@ -460,6 +460,18 @@ document.addEventListener('DOMContentLoaded', function () {
 let catalogFilterSubmitInFlight = false;
 
 let catalogSlbLoaderOn = false;
+let catalogBusyFallbackTimer = null;
+const CATALOG_BUSY_FALLBACK_MS = 16000;
+
+function armCatalogBusyFallback() {
+    if (catalogBusyFallbackTimer) {
+        clearTimeout(catalogBusyFallbackTimer);
+    }
+    catalogBusyFallbackTimer = setTimeout(function () {
+        catalogBusyFallbackTimer = null;
+        clearCatalogResultsBusy();
+    }, CATALOG_BUSY_FALLBACK_MS);
+}
 
 function setCatalogBusyLottie(busy, play) {
     if (!window.SlbLoader) return;
@@ -514,9 +526,14 @@ function markCatalogResultsBusy(options) {
     if (searchInput) searchInput.setAttribute('aria-busy', 'true');
     const applyBtn = document.getElementById('applyFiltersBtn');
     if (applyBtn) applyBtn.disabled = true;
+    armCatalogBusyFallback();
 }
 
 function clearCatalogResultsBusy() {
+    if (catalogBusyFallbackTimer) {
+        clearTimeout(catalogBusyFallbackTimer);
+        catalogBusyFallbackTimer = null;
+    }
     const card = document.getElementById('catalogResults');
     if (!card) return;
     card.classList.remove('is-busy');
@@ -551,12 +568,20 @@ document.addEventListener('DOMContentLoaded', function () {
         form.addEventListener('submit', markCatalogResultsBusy);
     }
 
-    // Pagination and the sort/recovery links all navigate away.
+    // Recovery / neighbor links still full-navigate. Pagination, chip-remove,
+    // and clear-all are intercepted by CatalogLive.apply, which raises busy
+    // itself. Marking busy here left the overlay stuck when apply() treated
+    // page=1 (canonicalize drops the param) as a same-query no-op.
     document.addEventListener('click', function (e) {
         const link = e.target.closest(
             '.pagination a.page-link, .catalog-clear-all, .filter-chip__remove, .catalog-clear-country, .catalog-clear-tag, .catalog-try-language, .catalog-neighbor-market'
         );
         if (!link || link.getAttribute('href') === null) return;
+        if (link.matches('#catalogResults .pagination a.page-link')
+            || link.classList.contains('filter-chip__remove')
+            || link.classList.contains('catalog-clear-all')) {
+            return;
+        }
         markCatalogResultsBusy();
     });
 });
@@ -2476,10 +2501,14 @@ const CatalogUrl = (function () {
         // Keep wizard (and any other contextual allowlisted keys not on the form).
         // Form checkboxes are omitted from FormData when unchecked — do not revive
         // them from the URL or live clear (Bulk / On sale / New / Quality) no-ops.
+        // page= is not a form field: restore it from the URL only when keepPage
+        // is set. Unconditional skip made lastAppliedQuery look like page 1
+        // after a page-2 fetch, so the page-1 link (canonicalize drops page=1)
+        // hit the same-query guard and left the overlay spinning.
         const current = new URLSearchParams(window.location.search);
         KEYS.forEach(function (key) {
             if (raw.has(key)) return;
-            if (key === 'page') return;
+            if (key === 'page' && !options.keepPage) return;
             if (form) {
                 const el = form.querySelector('[name="' + key + '"]');
                 if (el && el.type === 'checkbox') return;
@@ -3153,10 +3182,14 @@ const CatalogLive = (function () {
 
         const historyMode = options.history || 'replace';
         const queryKey = params.toString();
+        const locationKey = CatalogUrl.fromLocation().toString();
         // Skip a no-op Filter click when the listing already matches the URL.
         // Must run before pushState/replaceState so redundant Apply/Enter does
         // not leave an extra history entry with no fetch.
+        // Require the browser URL to match too: page=1 is stripped, so a stale
+        // lastAppliedQuery (empty) on ?page=2 used to no-op the page-1 click.
         if (!options.force && lastAppliedQuery !== null && queryKey === lastAppliedQuery
+            && queryKey === locationKey
             && document.getElementById('catalogResults')) {
             syncFilterChips(params);
             syncMoreFiltersBadge(params);
@@ -3164,6 +3197,8 @@ const CatalogLive = (function () {
             syncFavoritesQuick(params);
             syncFeaturedQuick(params);
             syncSuggestButtons(params);
+            // Click handlers may have raised the veil before apply() ran.
+            clearCatalogResultsBusy();
             return Promise.resolve();
         }
 
