@@ -42,6 +42,7 @@ class CatalogUrlQuery
         'quality',
         'rating_min',
         'has_completions',
+        'publication_time',
         'site',
         'sort',
         'per_page',

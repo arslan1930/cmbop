@@ -7,18 +7,17 @@ return [
     | Operating company
     |--------------------------------------------------------------------------
     |
-    | legal_name must be the exact Companies House spelling (TOPURLZ LTD or
-    | TEQNO LTD). Leave it empty until that is confirmed. Do not put
-    | "Partners with" in this value, and do not pair TEQNO LTD with company
-    | number 16607074 (that number is TOPURLZ LTD).
+    | legal_name must be the exact Companies House spelling (TEQNO LTD).
+    | Do not put "Partners with" in this value. 16607074 is a leftover
+    | TOPURLZ LTD number — never pair it with Teqno Ltd.
     |
     | Address and support email below are already used on the public site.
     |
     */
 
-    'legal_name' => env('COMPANY_LEGAL_NAME', ''),
+    'legal_name' => env('COMPANY_LEGAL_NAME', 'Teqno Ltd'),
 
-    'registration_no' => env('COMPANY_REGISTRATION_NO', ''),
+    'registration_no' => env('COMPANY_REGISTRATION_NO', '17392540'),
 
     'address' => [
         'street' => '20 Wenlock Road',

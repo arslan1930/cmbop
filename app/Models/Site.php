@@ -10,6 +10,7 @@ use App\Services\Catalog\SiteUrlVisibility;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Services\SiteDescriptionSanitizer;
 use App\Support\ListingMoney;
+use App\Support\PublicationDuration;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteTag;
 use App\Support\StaffArchiveReason;
@@ -757,14 +758,14 @@ class Site extends Model
             return $fallback;
         }
 
-        return match (strtolower($raw)) {
-            '6months', '6 months' => '6 months',
-            '1year', '1 year' => '1 year',
-            'permanent' => 'Permanent',
-            default => preg_match('/^(\d+)\s*days?$/i', $raw, $m)
-                ? ((int) $m[1] === 1 ? '1 day' : ((int) $m[1]).' days')
-                : $fallback,
-        };
+        $catalog = PublicationDuration::catalogLabel($raw);
+        if ($catalog !== null) {
+            return $catalog;
+        }
+
+        return preg_match('/^(\d+)\s*days?$/i', $raw, $m)
+            ? ((int) $m[1] === 1 ? '1 day' : ((int) $m[1]).' days')
+            : $fallback;
     }
 
     /**

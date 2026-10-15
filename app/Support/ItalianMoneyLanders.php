@@ -391,7 +391,7 @@ class ItalianMoneyLanders
                     ],
                     [
                         'title' => 'Ordine guest post e fattura',
-                        'body' => 'Le fatture degli addebiti portafoglio / ordini si scaricano dalla fatturazione dell\'inserzionista quando il prodotto le genera. Dati societari UK (Topurlz Ltd) in Chi siamo.',
+                        'body' => 'Le fatture degli addebiti portafoglio / ordini si scaricano dalla fatturazione dell\'inserzionista quando il prodotto le genera. Dati societari UK (Teqno Ltd) in Chi siamo.',
                     ],
                     [
                         'title' => 'Piattaforma per SEO specialist',

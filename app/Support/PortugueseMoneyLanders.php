@@ -163,7 +163,7 @@ class PortugueseMoneyLanders
                 'teaser_title' => 'Exemplo de sites para guest posts em Portugal',
                 'teaser_subtitle' => 'Pré-visualização mascarada de listings ativos de Portugal. Os domínios vêem-se depois do registo.',
                 'intro' => [
-                    'O SEOLinkBuildings é um marketplace self-service para anunciantes em Portugal, não um pacote opaco de guest posts. Escolha o site — muitas vezes .pt, muitas vezes em português europeu —, pague em euros a partir da carteira e mantenha briefing, chat e URL em vivo numa só encomenda. Sede em Londres (Topurlz Ltd); não há NIF português inventado.',
+                    'O SEOLinkBuildings é um marketplace self-service para anunciantes em Portugal, não um pacote opaco de guest posts. Escolha o site — muitas vezes .pt, muitas vezes em português europeu —, pague em euros a partir da carteira e mantenha briefing, chat e URL em vivo numa só encomenda. Sede em Londres (Teqno Ltd); não há NIF português inventado.',
                     '«Comprar guest post», «guest post em blogs portugueses» e «guest posting sites Portugal» são a mesma intenção: uma publicação paga num site que não é seu, com regras escritas de extensão, ligações e prazos.',
                 ],
                 'points' => [
@@ -413,7 +413,7 @@ class PortugueseMoneyLanders
                     ],
                     [
                         'title' => 'Encomenda e fatura',
-                        'body' => 'As faturas de encargos de carteira ou encomenda descarregam-se na faturação do anunciante quando o produto as gera. Dados da empresa UK (Topurlz Ltd) em <a href="/pt/sobre-nos">Quem somos</a> — não há entidade legal portuguesa inventada.',
+                        'body' => 'As faturas de encargos de carteira ou encomenda descarregam-se na faturação do anunciante quando o produto as gera. Dados da empresa UK (Teqno Ltd) em <a href="/pt/sobre-nos">Quem somos</a> — não há entidade legal portuguesa inventada.',
                     ],
                     [
                         'title' => 'Plataforma para equipas SEO',

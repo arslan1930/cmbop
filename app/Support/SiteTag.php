@@ -83,6 +83,11 @@ class SiteTag
         return ['' => self::NONE_LABEL] + self::LABELS;
     }
 
+    public static function helpText(): string
+    {
+        return 'Optional disclosure shown to advertisers: Sponsored, Partner article, or As you prefer. This is not the DoFollow / NoFollow link type.';
+    }
+
     /**
      * Staff / bulk-complete radios, including empty = No tags.
      *

@@ -16,7 +16,7 @@ return [
             env('BILLING_ADDRESS_LINE3') ?: null,
             env('BILLING_ADDRESS_COUNTRY') ?: null,
         ])),
-        'registration_no' => env('BILLING_REGISTRATION_NO') ?: '16607074',
+        'registration_no' => env('BILLING_REGISTRATION_NO') ?: '17392540',
         'support_email' => env('BILLING_SUPPORT_EMAIL')
             ?: env('MAIL_SUPPORT_EMAIL', 'support@seolinkbuildings.com'),
         // Never fall back to leftover APP_URL (localhost). brand_public_origin()

@@ -544,8 +544,9 @@ Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/pt/`, `/it/`, `/us/`, `/pl/
 
 ## Company
 - Brand: SEOLinkBuildings
-- Company number on the site: 16607074. The public schema does not publish a legalName until it is the exact Companies House spelling for that number.
-- Company number: 16607074
+- Operating company: Teqno Ltd
+- Company number on the site: 17392540. The public schema publishes legalName only when it is the exact Companies House spelling for that number.
+- Company number: 17392540
 - Address: 20 Wenlock Road, London, England, N1 7GU
 - Support: support@seolinkbuildings.com
 - LinkedIn: [SEOLinkBuildings on LinkedIn](https://www.linkedin.com/company/seolinkbuildings)

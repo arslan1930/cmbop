@@ -242,6 +242,11 @@
         margin-top: 8px;
         padding-top: 18px;
         border-top: 1px solid #e6ebf1;
+        position: sticky;
+        bottom: 0;
+        z-index: 1100;
+        background: #fff;
+        padding-bottom: 4px;
     }
     .wizard-draft-hint {
         font-size: 12px;
@@ -446,18 +451,43 @@
     
     .multi-select-dropdown {
         position: absolute;
-        top: 100%;
+        top: auto;
+        bottom: calc(100% + 4px);
         left: 0;
         right: 0;
         background: white;
         border: 1px solid #dfe3e8;
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        z-index: 1000;
-        max-height: 280px;
+        z-index: 20;
+        max-height: 180px;
         overflow-y: auto;
         display: none;
-        margin-top: 4px;
+        margin-top: 0;
+        margin-bottom: 4px;
+    }
+
+    #languageWrapper.is-readonly .single-select-input {
+        background: #eef2f6;
+        color: #64748b;
+        pointer-events: none;
+        cursor: default;
+        box-shadow: none;
+    }
+    #languageWrapper.is-readonly .single-select-arrow {
+        display: none;
+    }
+
+    .mysites-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .mysites-filters .form-label {
+        font-size: 12px;
+        margin-bottom: 4px;
     }
     
     .multi-select-dropdown.show {

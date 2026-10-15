@@ -99,7 +99,7 @@
                                     <div class="col-md-3"><span class="text-muted">DR / DA / Traffic</span><div>{{ $site->dr }} / {{ $site->da }} / {{ number_format((int) $site->traffic) }}</div></div>
                                     <div class="col-md-3"><span class="text-muted">Language / Country</span><div>{{ strtoupper((string) $site->language) }} / {{ strtoupper((string) $site->country) }}</div></div>
                                     <div class="col-md-3"><span class="text-muted">Turnaround</span><div>{{ $site->turnaround_time ?: '—' }}</div></div>
-                                    <div class="col-md-3"><span class="text-muted">Publication</span><div>{{ $site->publication_time ?: '—' }}</div></div>
+                                    <div class="col-md-3"><span class="text-muted">Publication</span><div>{{ $site->publicationDurationLabel() ?: '—' }}</div></div>
                                     <div class="col-md-3"><span class="text-muted">Link type</span><div>{{ $site->link_type ?: '—' }}</div></div>
                                     <div class="col-md-3"><span class="text-muted">Tag</span><div>{{ $tag }}</div></div>
                                     <div class="col-md-6"><span class="text-muted">Example URL</span>

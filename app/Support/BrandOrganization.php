@@ -14,7 +14,7 @@ class BrandOrganization
     public static function schema(array $extra = []): array
     {
         $company = config('billing.company', []);
-        $registrationNo = (string) ($company['registration_no'] ?? '16607074');
+        $registrationNo = (string) ($company['registration_no'] ?? '17392540');
         $supportEmail = trim((string) ($company['support_email'] ?? ''));
         if ($supportEmail === '') {
             $supportEmail = 'support@seolinkbuildings.com';
@@ -28,7 +28,7 @@ class BrandOrganization
             'name' => 'SEOLinkBuildings',
             'alternateName' => [
                 'Seolink Buildings',
-                'Topurlz Ltd',
+                'Teqno Ltd',
             ],
         ];
         if ($legalName !== null) {
@@ -134,7 +134,7 @@ class BrandOrganization
 
     /**
      * Companies House spelling only. The billing fallback "Partners with (Teqno LTD)"
-     * is not a legal name and must not be published next to company number 16607074.
+     * is not a legal name and must not be published as legalName.
      */
     public static function confirmedLegalName(): ?string
     {
@@ -154,7 +154,7 @@ class BrandOrganization
     public static function sameAs(?string $companiesHouse = null): array
     {
         $company = config('billing.company', []);
-        $registrationNo = (string) ($company['registration_no'] ?? '16607074');
+        $registrationNo = (string) ($company['registration_no'] ?? '17392540');
         $companiesHouse ??= 'https://find-and-update.company-information.service.gov.uk/company/'.$registrationNo;
         $trustpilot = trim((string) config('services.trustpilot.review_url', ''));
 

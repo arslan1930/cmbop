@@ -149,6 +149,7 @@ class MarketplaceListing
             'dofollow' => strtolower((string) ($site->link_type ?? '')) !== 'nofollow',
             'sponsored_label' => $site->tagLabel(),
             'publication_time' => (string) ($site->publication_time ?? ''),
+            'publication_duration' => $site->publicationDurationLabel() ?? '',
         ];
 
         if ($detailed) {

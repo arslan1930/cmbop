@@ -930,7 +930,7 @@
                             <strong>Publication duration</strong>
                             <x-glass-tip
                                 title="Publication duration"
-                                body="How long the published article stays live."
+                                body="How long the published article and link stay live — 6 months, 1 year, 2 years, 3 years, or permanent."
                                 label="About Publication duration"
                                 placement="top" />
                         </p>
@@ -1491,7 +1491,7 @@
                         Publication duration
                         <x-glass-tip
                             title="Publication duration"
-                            body="How long the published article stays live."
+                            body="How long the published article and link stay live — 6 months, 1 year, 2 years, 3 years, or permanent."
                             label="About Publication duration"
                             placement="top" />
                     </dt>

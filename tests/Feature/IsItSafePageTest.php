@@ -11,20 +11,21 @@ class IsItSafePageTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_page_renders_faq_schema_and_topurlz_only(): void
+    public function test_page_renders_faq_schema_and_teqno_only(): void
     {
         $html = $this->get('/is-seolinkbuildings-safe')
             ->assertOk()
             ->assertSee('Is SEOLinkBuildings safe?', false)
             ->assertSee('FAQPage', false)
-            ->assertSee('Topurlz Ltd', false)
-            ->assertSee('16607074', false)
+            ->assertSee('Teqno Ltd', false)
+            ->assertSee('17392540', false)
             ->assertSee('Verified publishers', false)
             ->assertSee('support@seolinkbuildings.com', false)
             ->assertSee('/how-it-works', false)
             ->assertSee('/refund-policy', false)
             ->assertSee('/about', false)
-            ->assertDontSee('Teqno', false)
+            ->assertDontSee('Topurlz', false)
+            ->assertDontSee('16607074', false)
             ->assertDontSee('messages.', false)
             ->getContent();
 

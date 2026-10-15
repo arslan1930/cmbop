@@ -107,7 +107,7 @@ class PolishMoneyLanders
     {
         return [
             'h2' => 'Ile kosztuje wpis gościnny i artykuł sponsorowany w Polsce',
-            'body' => 'Nie publikujemy stałego cennika PDF i nie wymyślamy polskiego NIP-u: cena jest witryny, w euro. «Ile kosztuje artykuł», «cennik link building» i «cena backlinków» wynikają z pozycji katalogu, które wybierasz. Ponumerowane pakiety powyżej to prowadzone kampanie digital PR, nie worek anonimowych URL-i. Aktualne kwoty są w <a href="'.self::marketingUrl('marketplace').'">polskim katalogu</a> po rejestracji. Siedziba jest w Londynie (Topurlz Ltd).',
+            'body' => 'Nie publikujemy stałego cennika PDF i nie wymyślamy polskiego NIP-u: cena jest witryny, w euro. «Ile kosztuje artykuł», «cennik link building» i «cena backlinków» wynikają z pozycji katalogu, które wybierasz. Ponumerowane pakiety powyżej to prowadzone kampanie digital PR, nie worek anonimowych URL-i. Aktualne kwoty są w <a href="'.self::marketingUrl('marketplace').'">polskim katalogu</a> po rejestracji. Siedziba jest w Londynie (Teqno Ltd).',
         ];
     }
 
@@ -141,7 +141,7 @@ class PolishMoneyLanders
                 'teaser_title' => 'Witryny na wpis gościnny w Polsce',
                 'teaser_subtitle' => 'Zamaskowany podgląd aktywnych pozycji katalogu w Polsce. Domeny zobaczysz po rejestracji.',
                 'intro' => [
-                    'SEOLinkBuildings to self-service marketplace, nie nieprzejrzysty pakiet wpisów. Wybierasz witrynę — często .pl, często po polsku — płacisz w euro z salda i trzymasz brief, czat i live-URL w tym samym zamówieniu. Siedziba jest w Londynie (Topurlz Ltd); nie wymyślamy polskiego NIP-u.',
+                    'SEOLinkBuildings to self-service marketplace, nie nieprzejrzysty pakiet wpisów. Wybierasz witrynę — często .pl, często po polsku — płacisz w euro z salda i trzymasz brief, czat i live-URL w tym samym zamówieniu. Siedziba jest w Londynie (Teqno Ltd); nie wymyślamy polskiego NIP-u.',
                     '«Kup guest post», «wpis gościnny na polskich blogach» i «artykuł sponsorowany» to w praktyce ta sama intencja: płatna publikacja na witrynie, której nie posiadasz, z zapisanymi zasadami długości, linków i dostawy. W Polsce dominuje termin artykuł sponsorowany — ta strona opisuje wpis gościnny; katalog i rozliczenie są te same.',
                 ],
                 'points' => [
@@ -368,7 +368,7 @@ class PolishMoneyLanders
                     ],
                     [
                         'title' => 'Zamówienie i faktura',
-                        'body' => 'Faktury za wpłaty albo zamówienia pobieracie z rozliczeń reklamodawcy, gdy produkt je wystawia. Dane spółki są brytyjskie (Topurlz Ltd). Nie wymyślamy polskiego NIP-u.',
+                        'body' => 'Faktury za wpłaty albo zamówienia pobieracie z rozliczeń reklamodawcy, gdy produkt je wystawia. Dane spółki są brytyjskie (Teqno Ltd). Nie wymyślamy polskiego NIP-u.',
                     ],
                     [
                         'title' => 'Powierzchnia pracy dla zespołów SEO',

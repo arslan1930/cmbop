@@ -108,7 +108,7 @@ class HungarianMoneyLanders
     {
         return [
             'h2' => 'Mennyibe kerül egy vendégposzt Magyarországon',
-            'body' => 'Nem adunk ki rögzített PDF-árlistát, és nem találunk ki magyar adószámot: az ár a site-é, euróban. A «mennyibe kerül a vendégposzt», a «linképítés árak» és a «backlink ár» azokhoz a katalógussorokhoz igazodik, amelyeket Ön választ. A fenti sorszámozott csomagok irányított digital-PR kampányok, nem zsáknyi névtelen URL. Az aktuális összegek a <a href="'.self::marketingUrl('marketplace').'">magyar katalógusban</a> jelennek meg regisztráció után. A székhely Londonban van (Topurlz Ltd).',
+            'body' => 'Nem adunk ki rögzített PDF-árlistát, és nem találunk ki magyar adószámot: az ár a site-é, euróban. A «mennyibe kerül a vendégposzt», a «linképítés árak» és a «backlink ár» azokhoz a katalógussorokhoz igazodik, amelyeket Ön választ. A fenti sorszámozott csomagok irányított digital-PR kampányok, nem zsáknyi névtelen URL. Az aktuális összegek a <a href="'.self::marketingUrl('marketplace').'">magyar katalógusban</a> jelennek meg regisztráció után. A székhely Londonban van (Teqno Ltd).',
         ];
     }
 
@@ -142,7 +142,7 @@ class HungarianMoneyLanders
                 'teaser_title' => 'Site-ok vendégposzthoz Magyarországon',
                 'teaser_subtitle' => 'Maszkolt előnézet az aktív magyar katalógussorokról. A domaineket regisztráció után látja.',
                 'intro' => [
-                    'A SEOLinkBuildings self-service piactér, nem átláthatatlan vendégposzt-csomag. Ön választja a site-ot — gyakran .hu, gyakran magyarul —, euróban fizet az egyenlegből, és a brief, a chat és az élő URL ugyanabban a megrendelésben marad. A székhely Londonban van (Topurlz Ltd); nem találunk ki magyar adószámot.',
+                    'A SEOLinkBuildings self-service piactér, nem átláthatatlan vendégposzt-csomag. Ön választja a site-ot — gyakran .hu, gyakran magyarul —, euróban fizet az egyenlegből, és a brief, a chat és az élő URL ugyanabban a megrendelésben marad. A székhely Londonban van (Teqno Ltd); nem találunk ki magyar adószámot.',
                     'A «vendégposzt vásárlás», a «guest post Magyarország» és a «vendégcikk» ugyanazt jelenti: fizetett publikáció olyan site-on, amelyet Ön nem birtokol, írásos szabályokkal a hosszra, a linkekre és a leadásra.',
                 ],
                 'points' => [
@@ -369,7 +369,7 @@ class HungarianMoneyLanders
                     ],
                     [
                         'title' => 'Megrendelés és számla',
-                        'body' => 'A befizetések vagy megrendelések számláit a hirdetői számlázásból tölti le, amikor a termék kiállítja őket. A cégadatok brit adatok (Topurlz Ltd). Nem találunk ki magyar adószámot.',
+                        'body' => 'A befizetések vagy megrendelések számláit a hirdetői számlázásból tölti le, amikor a termék kiállítja őket. A cégadatok brit adatok (Teqno Ltd). Nem találunk ki magyar adószámot.',
                     ],
                     [
                         'title' => 'Munkafelület SEO-csapatoknak',

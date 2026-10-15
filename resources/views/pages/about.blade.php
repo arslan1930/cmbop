@@ -7,7 +7,7 @@
 @php
     $company = $company ?? config('billing.company', []);
     $companiesHouseUrl = $companiesHouseUrl
-        ?? ('https://find-and-update.company-information.service.gov.uk/company/'.($company['registration_no'] ?? '16607074'));
+        ?? ('https://find-and-update.company-information.service.gov.uk/company/'.($company['registration_no'] ?? '17392540'));
     $stats = $stats ?? [
         'sites' => null,
         'countries' => null,
@@ -21,7 +21,7 @@
     if ($supportEmail === '') {
         $supportEmail = 'support@seolinkbuildings.com';
     }
-    $registrationNo = $company['registration_no'] ?? '16607074';
+    $registrationNo = $company['registration_no'] ?? '17392540';
     $legalName = class_exists(\App\Support\BrandOrganization::class)
         ? \App\Support\BrandOrganization::confirmedLegalName()
         : null;

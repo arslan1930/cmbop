@@ -111,6 +111,36 @@ class AgencyCsvBulkImportTest extends TestCase
             ->post(route('publisher.sites.bulk-import'), $payload);
     }
 
+    public function test_csv_template_documents_multi_year_publication_values(): void
+    {
+        $csv = $this->actingAs($this->publisher)
+            ->get(route('publisher.sites.bulk-template'))
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('publication_time', $csv);
+        $this->assertStringContainsString('2years', $csv);
+    }
+
+    public function test_publication_time_aliases_normalize_to_multi_year_slugs(): void
+    {
+        $twoYear = $this->validRow('two-year.example', 'Two Year Blog');
+        $twoYear[11] = '24months';
+        $threeYear = $this->validRow('three-year.example', 'Three Year Blog');
+        $threeYear[11] = '3 Years';
+
+        $this->uploadCsv([$twoYear, $threeYear])->assertRedirect();
+
+        $this->assertDatabaseHas('sites', [
+            'domain' => 'two-year.example',
+            'publication_time' => '2years',
+        ]);
+        $this->assertDatabaseHas('sites', [
+            'domain' => 'three-year.example',
+            'publication_time' => '3years',
+        ]);
+    }
+
     public function test_happy_path_creates_import_batch_and_stamps_acceptance(): void
     {
         Bus::fake();

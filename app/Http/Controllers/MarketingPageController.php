@@ -26,7 +26,7 @@ class MarketingPageController extends Controller
     public function about()
     {
         $company = config('billing.company', []);
-        $registrationNo = (string) ($company['registration_no'] ?? '16607074');
+        $registrationNo = (string) ($company['registration_no'] ?? '17392540');
 
         return view('pages.about', [
             'company' => $company,

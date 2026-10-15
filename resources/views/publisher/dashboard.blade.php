@@ -244,9 +244,9 @@
             <a href="{{ route('publisher.reports') }}" class="kpi-tile">
                 <div class="kpi-icon kpi-icon--earnings"><i class="fa fa-euro-sign"></i></div>
                 <div>
-                    <span class="kpi-label">Total earnings</span>
+                    <span class="kpi-label" data-glass-tip data-glass-tip-title="Lifetime earnings" data-glass-tip-body="Sum of completed placement payouts. This is not your current wallet balance." data-glass-tip-placement="top">Lifetime earnings</span>
                     <div class="kpi-value" id="totalEarnings">{{ format_money($stats['total_earnings']) }}</div>
-                    <div class="kpi-sub">Lifetime completed · wallet {{ format_money($availableBalance) }}</div>
+                    <div class="kpi-sub">Completed placements only</div>
                 </div>
             </a>
         </div>
@@ -254,7 +254,7 @@
             <div class="kpi-tile">
                 <div class="kpi-icon kpi-icon--pending"><i class="fa fa-hourglass-half"></i></div>
                 <div>
-                    <span class="kpi-label">Pending earnings</span>
+                    <span class="kpi-label" data-glass-tip data-glass-tip-title="Pending earnings" data-glass-tip-body="Publisher payout on orders still publishing or in advertiser review. Not in your wallet yet." data-glass-tip-placement="top">Pending earnings</span>
                     <div class="kpi-value" id="pendingEarnings">{{ format_money($pendingWallet) }}</div>
                     <div class="kpi-sub">
                         @if($inProgressEarnings > 0 && $pendingReview > 0)
@@ -272,7 +272,7 @@
             <a href="{{ route('publisher.withdraw') }}" class="kpi-tile">
                 <div class="kpi-icon kpi-icon--wallet"><i class="fa fa-wallet"></i></div>
                 <div>
-                    <span class="kpi-label">Available balance</span>
+                    <span class="kpi-label" data-glass-tip data-glass-tip-title="Wallet balance" data-glass-tip-body="Current publisher wallet. Withdrawable is this amount minus bonus. On hold is reserved for open orders." data-glass-tip-placement="top">Wallet balance</span>
                     <div class="kpi-value" id="availableBalance">{{ format_money($availableBalance) }}</div>
                     @if(!empty($publisherWallets) && count($publisherWallets) > 1)
                         <div class="small text-muted mt-1">
@@ -285,7 +285,7 @@
                         @if($debtBalance > 0)
                             Debt {{ format_money($debtBalance) }} blocks withdrawals
                         @elseif($reservedBalance > 0)
-                            Withdrawable {{ format_money($withdrawableBalance) }} · on hold {{ format_money($reservedBalance) }}
+                            Withdrawable {{ format_money($withdrawableBalance) }} · On hold {{ format_money($reservedBalance) }}
                         @else
                             Withdrawable {{ format_money($withdrawableBalance) }}
                         @endif
@@ -338,11 +338,12 @@
                             Add your first site
                         </a>
                     </div>
-                    <ol class="publisher-onboarding-steps mt-3 mb-0">
+                    <ol class="publisher-onboarding-steps mt-3 mb-3">
                         <li>Add a website with niche, language, and pricing</li>
                         <li>Wait for verification so advertisers can find you</li>
                         <li>Accept tasks and earn from completed placements</li>
                     </ol>
+                    @include('partials.publisher-help-links')
                 </div>
             </div>
         </div>

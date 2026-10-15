@@ -171,7 +171,7 @@ class DutchMoneyLanders
                 'teaser_title' => 'Sites voor gastblogs in Nederland',
                 'teaser_subtitle' => 'Gemaskeerde voorvertoning van actieve catalogusregels in Nederland. Domeinen ziet u na registratie.',
                 'intro' => [
-                    'SEOLinkBuildings is een self-service marktplaats, geen ondoorzichtig pakket gastblogs. U kiest de site — vaak .nl, vaak in het Nederlands —, betaalt in euro vanuit de portefeuille en houdt briefing, chat en live-URL in één bestelling. Het hoofdkantoor is in Londen (Topurlz Ltd); we verzinnen geen KvK-nummer in Nederland.',
+                    'SEOLinkBuildings is een self-service marktplaats, geen ondoorzichtig pakket gastblogs. U kiest de site — vaak .nl, vaak in het Nederlands —, betaalt in euro vanuit de portefeuille en houdt briefing, chat en live-URL in één bestelling. Het hoofdkantoor is in Londen (Teqno Ltd); we verzinnen geen KvK-nummer in Nederland.',
                     '«Gastblog kopen», «gastblog blogs Nederland» en «guest post kopen» beschrijven dezelfde intentie: een betaalde publicatie op een site die niet van u is, met geschreven regels voor lengte, links en levertijd.',
                 ],
                 'points' => [
@@ -402,7 +402,7 @@ class DutchMoneyLanders
                     ],
                     [
                         'title' => 'Bestelling en factuur',
-                        'body' => 'Facturen voor stortingen of bestellingen downloadt u uit de adverteerdersfacturatie, wanneer het product ze uitgeeft. De bedrijfsgegevens zijn die van het VK (Topurlz Ltd), op <a href="/nl/over-ons">Over ons</a> — er is geen verzonnen Nederlandse entiteit.',
+                        'body' => 'Facturen voor stortingen of bestellingen downloadt u uit de adverteerdersfacturatie, wanneer het product ze uitgeeft. De bedrijfsgegevens zijn die van het VK (Teqno Ltd), op <a href="/nl/over-ons">Over ons</a> — er is geen verzonnen Nederlandse entiteit.',
                     ],
                     [
                         'title' => 'Werkruimte voor SEO-teams',

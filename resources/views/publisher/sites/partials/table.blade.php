@@ -884,12 +884,8 @@
 
     if (!function_exists('getPublicationDuration')) {
         function getPublicationDuration($value) {
-            $durations = [
-                '6months' => '6 Months',
-                '1year' => '1 Year',
-                'permanent' => 'Permanent'
-            ];
-            return $durations[$value] ?? ucfirst($value);
+            return \App\Support\PublicationDuration::label($value)
+                ?? (is_scalar($value) && trim((string) $value) !== '' ? ucfirst((string) $value) : '');
         }
     }
 

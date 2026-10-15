@@ -25,8 +25,8 @@ class AboutPageContentTest extends TestCase
             ->assertSee('FAQPage', false)
             ->assertSee('areaServed', false)
             ->assertSee('knowsAbout', false)
-            ->assertSee('16607074', false)
-            ->assertSee('find-and-update.company-information.service.gov.uk/company/16607074', false)
+            ->assertSee('17392540', false)
+            ->assertSee('find-and-update.company-information.service.gov.uk/company/17392540', false)
             ->assertSee('https://www.facebook.com/seolinkbuildings/', false)
             ->assertSee('https://www.youtube.com/@seolinkbuildingss', false)
             ->assertSee('https://www.linkedin.com/company/seolinkbuildings', false)
@@ -190,7 +190,7 @@ class AboutPageContentTest extends TestCase
             ->assertOk()
             ->assertSee('Der Guest-Post-Marktplatz für Europa', false)
             ->assertSee('DACH', false)
-            ->assertSee('Betrieben von Topurlz Ltd', false)
+            ->assertSee('Betrieben von Teqno Ltd', false)
             ->assertSee('Companies House', false)
             ->assertSee('FAQPage', false);
     }

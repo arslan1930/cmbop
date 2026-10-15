@@ -348,5 +348,6 @@ window.AdvertiserOrdersConfig = {
 };
 </script>
 <script src="{{ asset('assets/js/single-select.js') }}?v={{ @filemtime(public_path('assets/js/single-select.js')) ?: '1' }}" defer></script>
+<script src="{{ asset('js/order-inline-thread.js') }}?v={{ @filemtime(public_path('js/order-inline-thread.js')) ?: '1' }}" defer></script>
 <script src="{{ same_origin_asset('assets/js/advertiser-orders.js') }}?v={{ @filemtime(public_path('assets/js/advertiser-orders.js')) ?: '1' }}" defer></script>
 @endpush

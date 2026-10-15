@@ -153,7 +153,7 @@
                 Columns: <code>url,price,da,dr,traffic,country,language,site_name,example_url,turnaround,publication,link_type,tag,niches,description</code>
                 Niches use <code>|</code> inside that column. The description is the rest of the line.
                 Turnaround is <code>24h</code>, <code>48h</code>, <code>3days</code>, <code>5days</code>, or <code>7days</code>.
-                Publication is <code>6months</code>, <code>1year</code>, or <code>permanent</code>.
+                Publication is {!! \App\Support\PublicationDuration::csvHint() !!}.
                 Link type is <code>dofollow</code> or <code>nofollow</code>.
                 Tag is <code>none</code>, <code>sponsored</code>, <code>partner_material</code>, or <code>as_you_prefer</code>.
                 Only pending URL + price domains from this request can be seeded here.
@@ -566,7 +566,7 @@
                                                             data-bulk-required
                                                             @disabled($isRejected)>
                                                         <option value="">Select…</option>
-                                                        @foreach(['6months' => '6 Months', '1year' => '1 Year', 'permanent' => 'Permanent'] as $val => $label)
+                                                        @foreach(\App\Support\PublicationDuration::options() as $val => $label)
                                                             <option value="{{ $val }}" @selected(($old['publication_time'] ?? '') === $val)>{{ $label }}</option>
                                                         @endforeach
                                                     </select>
