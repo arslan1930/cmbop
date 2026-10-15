@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'Orders')
+
 @section('content')
 <div class="container-fluid">
     @include('admin.partials.page-header', [
@@ -144,8 +146,11 @@
                         </tr>
                     </thead>
                     <tbody id="ordersTableBody">
-                        <tr>
-                            <td colspan="8" class="text-center text-muted py-4">Loading…</td>
+                        <tr class="placeholder-glow">
+                            <td colspan="8" class="py-4">
+                                <span class="placeholder col-12"></span>
+                                <span class="visually-hidden">Loading orders…</span>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -163,6 +168,7 @@
     const ordersDataUrl = @json(route('admin.orders.data'));
     const ordersIndexUrl = @json(route('admin.orders.index'));
     const ordersExportUrl = @json(route('admin.orders.export'));
+    const initialOrders = @json($initialOrders ?? null);
     const money = (n) => '€' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const num = (n) => Number(n || 0).toLocaleString();
     let currentPage = 1;
@@ -322,6 +328,16 @@
             .then(r => r.json())
             .then(json => {
                 if (token !== loadToken) return;
+                paintOrders(json, body);
+            })
+            .catch(() => {
+                if (token !== loadToken) return;
+                body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load orders. Please try again.</td></tr>';
+            });
+    }
+
+    function paintOrders(json, body) {
+                body = body || document.getElementById('ordersTableBody');
                 if (!json.success) {
                     body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">'
                         + escapeHtml(json.message || 'Failed to load orders') + '</td></tr>';
@@ -399,11 +415,6 @@
                     label: 'orders',
                     onNavigate: loadOrders,
                 });
-            })
-            .catch(() => {
-                if (token !== loadToken) return;
-                body.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Failed to load orders. Please try again.</td></tr>';
-            });
     }
 
     document.getElementById('orderFilterForm').addEventListener('submit', function (e) {
@@ -468,7 +479,12 @@
     document.getElementById('orderFilterForm').addEventListener('admin-filter-pick', function () {
         loadOrders(1);
     });
-    loadOrders(Number.isFinite(bootPage) && bootPage > 0 ? bootPage : 1);
+    if (initialOrders && initialOrders.success) {
+        currentPage = Number.isFinite(bootPage) && bootPage > 0 ? bootPage : 1;
+        paintOrders(initialOrders);
+    } else {
+        loadOrders(Number.isFinite(bootPage) && bootPage > 0 ? bootPage : 1);
+    }
 })();
 </script>
 @endsection

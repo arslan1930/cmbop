@@ -34,9 +34,16 @@ class OrderController extends Controller
 {
     private const EXPORT_LIMIT = 5000;
 
-    public function index()
+    public function index(Request $request)
     {
-        return view('admin.orders.index');
+        $initialOrders = null;
+        try {
+            $initialOrders = $this->ordersData($request)->getData(true);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to bootstrap admin orders: '.$e->getMessage());
+        }
+
+        return view('admin.orders.index', compact('initialOrders'));
     }
 
     public function data(Request $request)

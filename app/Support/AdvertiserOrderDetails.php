@@ -40,6 +40,53 @@ final class AdvertiserOrderDetails
         return 'No placements on this order.';
     }
 
+    public static function adminMissingPlacementsNote(Order $order): string
+    {
+        $number = filled($order->order_number) ? (string) $order->order_number : '#'.$order->id;
+
+        return 'Paid/completed orders normally have placements that name the publisher and stamp completion. '
+            .'Order '.$number.' has none — typically a legacy import, a status change made without checkout, or placements that were deleted. '
+            .'Publisher and live URL cannot be reconstructed from the order row alone.';
+    }
+
+    /**
+     * @return array{at: ?CarbonInterface, inferred: bool, note: ?string}
+     */
+    public static function completedAtDisplay(Order $order): array
+    {
+        if ($order->completed_at) {
+            return ['at' => $order->completed_at, 'inferred' => false, 'note' => null];
+        }
+
+        $order->loadMissing('items');
+        $itemAt = $order->items
+            ->map(fn ($line) => $line instanceof OrderItem ? $line->completed_at : null)
+            ->filter()
+            ->sort()
+            ->last();
+        if ($itemAt) {
+            return [
+                'at' => self::asDate($itemAt),
+                'inferred' => true,
+                'note' => 'From a placement stamp. orders.completed_at is empty — run database/sql/backfill_orders_completed_at.sql to persist it.',
+            ];
+        }
+
+        if ((string) $order->status === 'completed') {
+            $fallback = $order->paid_at ?: $order->updated_at;
+
+            return [
+                'at' => $fallback,
+                'inferred' => $fallback !== null,
+                'note' => $fallback
+                    ? 'Estimated from '.($order->paid_at ? 'paid_at' : 'last update').'. The order was marked completed without a completion stamp.'
+                    : 'This order is marked completed but has no completion timestamp.',
+            ];
+        }
+
+        return ['at' => null, 'inferred' => false, 'note' => null];
+    }
+
     public static function policyNote(Order $order): string
     {
         $status = (string) $order->status;
