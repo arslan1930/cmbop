@@ -2388,7 +2388,7 @@ const CatalogUrl = (function () {
             'price_min', 'price_max', 'da_min', 'da_max', 'dr_min', 'dr_max',
             'traffic_min', 'traffic_max', 'tag', 'sponsored', 'favorites_filter',
             'blacklist_filter', 'bulk_deals', 'new_badge', 'on_sale', 'featured', 'verified', 'quality',
-            'rating_min', 'has_completions', 'site', 'sort', 'per_page', 'page',
+            'rating_min', 'has_completions', 'publication_time', 'site', 'sort', 'per_page', 'page',
             'wizard',
         ];
     const DEFAULT_SORT = cfg.defaultSort || 'dr_desc';
@@ -2586,6 +2586,7 @@ const CatalogUrl = (function () {
         setInputValue(form.querySelector('[name="quality"]'), get('quality'));
         setInputValue(form.querySelector('[name="rating_min"]'), get('rating_min'));
         setInputValue(form.querySelector('[name="has_completions"]'), get('has_completions'));
+        setInputValue(form.querySelector('[name="publication_time"]'), get('publication_time'));
 
         const sortEl = document.getElementById('catalogSort');
         if (sortEl) sortEl.value = get('sort') || DEFAULT_SORT;
@@ -2924,6 +2925,14 @@ const CatalogLive = (function () {
         if (params.get('quality') === '1') chips.push({ label: 'Quality bar (DA/DR/traffic)', params: ['quality'] });
         if (params.get('rating_min')) chips.push({ label: 'Min rating ' + params.get('rating_min') + '+', params: ['rating_min'] });
         if (params.get('has_completions') === '1') chips.push({ label: 'Has completions', params: ['has_completions'] });
+        if (params.get('publication_time')) {
+            var durationLabels = (window.CatalogConfig && CatalogConfig.publicationDurationLabels) || {};
+            var durationSlug = params.get('publication_time');
+            chips.push({
+                label: 'Duration: ' + (durationLabels[durationSlug] || durationSlug),
+                params: ['publication_time'],
+            });
+        }
         if (params.get('per_page') && params.get('per_page') !== '20') {
             chips.push({ label: params.get('per_page') + ' per page', params: ['per_page'] });
         }
@@ -2985,7 +2994,7 @@ const CatalogLive = (function () {
             'favorites_filter', 'blacklist_filter', 'bulk_deals',
             'da_min', 'da_max', 'dr_min', 'dr_max',
             'traffic_min', 'traffic_max', 'new_badge', 'on_sale', 'featured', 'quality',
-            'rating_min', 'has_completions',
+            'rating_min', 'has_completions', 'publication_time',
         ];
         let count = 0;
         moreKeys.forEach(function (key) {

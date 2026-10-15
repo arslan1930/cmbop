@@ -743,4 +743,55 @@ class PublisherSiteStoreTest extends TestCase
         $this->assertFalse((bool) $site->as_you_prefer);
         $this->assertNull($site->tagValue());
     }
+
+    public function test_add_site_wizard_lists_two_and_three_year_publication_terms(): void
+    {
+        $html = (string) $this->actingAs($this->publisher)
+            ->get(route('publisher.websites'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('value="2years"', $html);
+        $this->assertStringContainsString('value="3years"', $html);
+        $this->assertStringContainsString('2 Years', $html);
+        $this->assertStringContainsString('3 Years', $html);
+        $this->assertStringContainsString('`2years`', $html);
+        $this->assertStringContainsString('`3years`', $html);
+    }
+
+    public function test_publisher_can_store_two_year_publication_duration(): void
+    {
+        Queue::fake();
+
+        $country = Country::marketplace()->where('code', 'de')->first()
+            ?? Country::marketplace()->firstOrFail();
+        $language = Language::marketplace()->where('code', 'de')->first()
+            ?? Language::marketplace()->firstOrFail();
+        $category = Category::query()->firstOrFail();
+
+        $this->actingAs($this->publisher)
+            ->post(route('publisher.sites.store'), [
+                'siteName' => 'Two Year News',
+                'siteUrl' => 'https://two-year-news.example',
+                'exampleUrl' => 'https://two-year-news.example/sample',
+                'da' => 40,
+                'dr' => 42,
+                'traffic' => 5000,
+                'country' => strtolower($country->code),
+                'language' => strtolower($language->code),
+                'categories' => [$category->name],
+                'price' => 90,
+                'turnaround_time' => '3days',
+                'publicationTime' => '2years',
+                'link_type' => 'dofollow',
+                'siteDescription' => str_repeat('Quality editorial site for guest posts. ', 4),
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('sites', [
+            'domain' => 'two-year-news.example',
+            'publication_time' => '2years',
+        ]);
+    }
 }

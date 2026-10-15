@@ -33,6 +33,7 @@ use App\Support\CatalogHealthQueue;
 use App\Support\CatalogProblemReport;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
+use App\Support\PublicationDuration;
 use App\Support\PublicStorageLink;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
@@ -3080,7 +3081,7 @@ class SiteController extends Controller
             'categories' => 'required|array|min:1|max:7',
             'price' => 'required|numeric|min:0|max:999999.99',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
-            'publication_time' => 'required|string|max:20|in:6months,1year,permanent',
+            'publication_time' => 'required|string|max:20|'.PublicationDuration::rule(),
             'link_type' => 'required|in:dofollow,nofollow',
             'description' => 'nullable|string|max:20000',
             'site_image' => SiteImageUpload::uploadedFileRules(false),
@@ -4770,7 +4771,7 @@ class SiteController extends Controller
             'price' => 'sometimes|required|numeric|min:0|max:999999.99',
             'description' => 'sometimes|nullable|string|max:20000',
             'category' => 'sometimes|nullable|string|max:255',
-            'publication_time' => 'sometimes|nullable|string|max:20',
+            'publication_time' => 'sometimes|nullable|string|max:20|'.PublicationDuration::rule(),
             // Dedicated editor is free text; modal may send dofollow/nofollow.
             'link_type' => 'sometimes|nullable|string|max:50',
             'site_tag' => 'sometimes|nullable|in:sponsored,partner_material,as_you_prefer,none',
@@ -5725,8 +5726,9 @@ class SiteController extends Controller
         if (! in_array($turnaround, ['24h', '48h', '3days', '5days', '7days'], true)) {
             $errors[] = 'Turnaround must be 24h, 48h, 3days, 5days, or 7days.';
         }
-        if (! in_array($publication, ['6months', '1year', 'permanent'], true)) {
-            $errors[] = 'Publication must be 6months, 1year, or permanent.';
+        $publication = PublicationDuration::normalize($publication) ?? $publication;
+        if (! in_array($publication, PublicationDuration::values(), true)) {
+            $errors[] = 'Publication must be '.PublicationDuration::csvHint().'.';
         }
         if (! in_array($linkType, ['dofollow', 'nofollow'], true)) {
             $errors[] = 'Link type must be dofollow or nofollow.';

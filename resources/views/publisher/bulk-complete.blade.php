@@ -85,7 +85,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Publication *</label>
                         <select name="publicationTime" class="form-select" required>
-                            @foreach(['6months'=>'6 Months','1year'=>'1 Year','permanent'=>'Permanent'] as $val => $label)
+                            @foreach(\App\Support\PublicationDuration::options() as $val => $label)
                                 <option value="{{ $val }}" @selected(($useOld ? old('publicationTime', $site->publication_time) : $site->publication_time) === $val)>{{ $label }}</option>
                             @endforeach
                         </select>

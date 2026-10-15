@@ -21,6 +21,8 @@ class SiteCatalogLabelHelpersTest extends TestCase
         return [
             ['1year', '1 year'],
             ['6months', '6 months'],
+            ['2years', '2 years'],
+            ['3years', '3 years'],
             ['permanent', 'Permanent'],
             ['7 days', '7 days'],
         ];

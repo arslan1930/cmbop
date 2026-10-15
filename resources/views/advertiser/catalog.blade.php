@@ -226,7 +226,7 @@
 
     <!-- FILTERS SECTION -->
 @php
-    $moreFilterKeys = ['favorites_filter','blacklist_filter','bulk_deals','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge','on_sale','featured','quality','rating_min','has_completions'];
+    $moreFilterKeys = ['favorites_filter','blacklist_filter','bulk_deals','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge','on_sale','featured','quality','rating_min','has_completions','publication_time'];
     $moreTagActive = \App\Support\SiteTag::catalogFilterFromRequest(request()) !== null;
     $moreFilterCount = collect($moreFilterKeys)->filter(fn ($k) => filled(request($k)))->count()
         + ($moreTagActive ? 1 : 0);
@@ -276,6 +276,14 @@
     $catalogRatingMin = filter_number(request('rating_min'));
     if ($catalogRatingMin !== null && $catalogRatingMin > 0) $activeFilterChips[] = ['label' => 'Min rating '.$catalogRatingMin.'+', 'key' => 'rating_min', 'params' => ['rating_min']];
     if (request('has_completions') == '1') $activeFilterChips[] = ['label' => 'Has completions', 'key' => 'has_completions', 'params' => ['has_completions']];
+    $catalogPublication = \App\Support\PublicationDuration::normalize(request('publication_time'));
+    if ($catalogPublication !== null) {
+        $activeFilterChips[] = [
+            'label' => 'Duration: '.\App\Support\PublicationDuration::label($catalogPublication),
+            'key' => 'publication_time',
+            'params' => ['publication_time'],
+        ];
+    }
     $catalogPerPage = \App\Services\Catalog\CatalogUrlQuery::perPage(request());
     if ($catalogPerPage !== \App\Services\Catalog\CatalogUrlQuery::DEFAULT_PER_PAGE) {
         $activeFilterChips[] = ['label' => $catalogPerPage.' per page', 'key' => 'per_page', 'params' => ['per_page']];
@@ -696,6 +704,19 @@
                                     <label class="form-check-label" for="catalogHasCompletions">Has completed placements</label>
                                 </div>
                             </div>
+
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogPublicationTime-trigger">
+                                    Publication duration
+                                </label>
+                                @include('advertiser.partials.catalog-theme-select', [
+                                    'selectId' => 'catalogPublicationTime',
+                                    'name' => 'publication_time',
+                                    'label' => 'Publication duration',
+                                    'current' => \App\Support\PublicationDuration::normalize(request('publication_time')) ?? '',
+                                    'options' => \App\Support\PublicationDuration::filterOptions(),
+                                ])
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -813,6 +834,7 @@ window.CatalogConfig = {
     // URL is the source of truth for listing state (Phase 2).
     catalogPath: @json(parse_url(route('advertiser.catalog'), PHP_URL_PATH)),
     queryKeys: @json(\App\Services\Catalog\CatalogUrlQuery::KEYS),
+    publicationDurationLabels: @json(\App\Support\PublicationDuration::LABELS),
     defaultSort: @json(\App\Services\Catalog\CatalogUrlQuery::DEFAULT_SORT),
     // Phase 7 kill switch — false falls back to full page navigations.
     liveSearch: @json((bool) config('catalog.live_search.enabled', true)),

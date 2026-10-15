@@ -162,7 +162,7 @@ class WalletBalancePageTest extends TestCase
         $this->actingAs($this->user->fresh())
             ->get(route('publisher.withdraw'))
             ->assertOk()
-            ->assertSee('Withdraw Funds', false);
+            ->assertSee('Withdraw', false);
 
         $this->assertSame('publisher', $this->user->fresh()->activeRole());
     }

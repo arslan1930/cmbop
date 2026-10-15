@@ -8,7 +8,7 @@
     $currentLabel = $currencyOptions[$currentDisplayCurrency] ?? ($currentDisplayCurrency ?: 'EUR');
 @endphp
 @auth
-    <span class="slb-currency-label d-inline-flex align-items-center" aria-label="Display currency" style="font-size:0.875rem;min-width:5.5rem;">{{ $currentLabel }}</span>
+    <span class="slb-currency-label d-inline-flex align-items-center" aria-label="Display currency {{ $currentLabel }}" title="Display currency (saved on your account)">{{ $currentLabel }}</span>
 @else
 <form method="POST" action="{{ route('display-currency') }}" class="slb-currency-switcher d-inline-flex align-items-center gap-1 mb-0" aria-label="Display currency">
     @csrf

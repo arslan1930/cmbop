@@ -6,6 +6,7 @@
     const pasteBtn = document.getElementById('bulkPasteUrlsBtn');
     const pasteError = document.getElementById('bulkPasteUrlsError');
     const pasteSuccess = document.getElementById('bulkPasteUrlsSuccess');
+    const pasteWarning = document.getElementById('bulkPasteUrlsWarning');
     const sheetFile = document.getElementById('bulkSheetFile');
     const sheetFileName = document.getElementById('bulkSheetFileName');
     const templateBtn = document.getElementById('bulkSheetTemplateBtn');
@@ -125,6 +126,10 @@
         syncRemoveButtons();
     }
 
+    function listingPriceSymbol() {
+        return window.__slbListingPriceSymbol || '€';
+    }
+
     function clearImportMessages() {
         if (pasteError) {
             pasteError.classList.add('d-none');
@@ -133,6 +138,10 @@
         if (pasteSuccess) {
             pasteSuccess.classList.add('d-none');
             pasteSuccess.textContent = '';
+        }
+        if (pasteWarning) {
+            pasteWarning.classList.add('d-none');
+            pasteWarning.textContent = '';
         }
     }
 
@@ -156,6 +165,12 @@
             pasteSuccess.textContent = msg;
             pasteSuccess.classList.remove('d-none');
         }
+    }
+
+    function showImportWarning(msg) {
+        if (!pasteWarning) return;
+        pasteWarning.textContent = msg || '';
+        pasteWarning.classList.toggle('d-none', !msg);
     }
 
     function stripCell(token) {
@@ -285,23 +300,42 @@
     function parseUrlPriceImport(text) {
         const raw = String(text || '').replace(/^\uFEFF/, '').trim();
         if (!raw) {
-            return { rows: [], mode: 'empty', truncated: false };
+            return { rows: [], mode: 'empty', truncated: false, skipped: [] };
         }
 
         const lines = raw.split(/\r\n|\n|\r/).map(function (l) { return l.trim(); }).filter(Boolean);
         const pairRows = [];
         const seen = {};
+        const skipped = [];
         let truncated = false;
 
-        function addPair(urlRaw, priceRaw) {
+        function skip(line, reason) {
+            skipped.push({ line: String(line || '').slice(0, 120), reason: reason });
+        }
+
+        function addPair(urlRaw, priceRaw, line) {
             const url = normalizeUrl(urlRaw);
-            if (!url) return false;
+            if (!url) {
+                skip(line || urlRaw, 'Not a valid website URL');
+                return false;
+            }
             let host = '';
-            try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) { return false; }
-            if (!host || seen[host]) return false;
+            try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) {
+                skip(line || urlRaw, 'Not a valid website URL');
+                return false;
+            }
+            if (!host) {
+                skip(line || urlRaw, 'Not a valid website URL');
+                return false;
+            }
+            if (seen[host]) {
+                skip(line || urlRaw, 'Duplicate domain');
+                return false;
+            }
             seen[host] = true;
             if (pairRows.length >= MAX_ROWS) {
                 truncated = true;
+                skip(line || urlRaw, 'Over the ' + MAX_ROWS + ' row limit');
                 return false;
             }
             const price = priceRaw === undefined || priceRaw === null || priceRaw === ''
@@ -317,6 +351,7 @@
             if (!nonEmpty.length) return;
             if (!started && looksLikeHeader(nonEmpty)) {
                 started = true;
+                skip(line, 'Header row');
                 return;
             }
             started = true;
@@ -325,22 +360,32 @@
                 const a = nonEmpty[0];
                 const b = nonEmpty[1];
                 if (normalizeUrl(a) && looksLikePrice(b)) {
-                    addPair(a, b);
+                    addPair(a, b, line);
                     return;
                 }
                 if (looksLikePrice(a) && normalizeUrl(b)) {
-                    addPair(b, a);
+                    addPair(b, a, line);
                     return;
                 }
                 if (normalizeUrl(a) && parsePriceToken(b) !== null) {
-                    addPair(a, b);
+                    addPair(a, b, line);
+                    return;
+                }
+                if (looksLikePrice(a) && !normalizeUrl(b)) {
+                    skip(line, 'Price without a URL');
                     return;
                 }
             }
 
             if (nonEmpty.length === 1 && normalizeUrl(nonEmpty[0])) {
-                addPair(nonEmpty[0], null);
+                addPair(nonEmpty[0], null, line);
+                return;
             }
+            if (nonEmpty.length === 1 && looksLikePrice(nonEmpty[0])) {
+                skip(line, 'Price without a URL');
+                return;
+            }
+            skip(line, 'Could not read a website URL on this line');
         });
 
         const withPrice = pairRows.filter(function (r) { return r.price !== null; }).length;
@@ -349,6 +394,7 @@
                 rows: pairRows,
                 mode: withPrice > 0 ? 'pairs' : 'urls',
                 truncated: truncated,
+                skipped: skipped,
             };
         }
 
@@ -370,7 +416,7 @@
             }
             urls.push({ url: url, price: null });
         });
-        return { rows: urls, mode: 'urls', truncated: truncated };
+        return { rows: urls, mode: 'urls', truncated: truncated, skipped: skipped };
     }
 
     function rowUrlInput(tr) {
@@ -381,9 +427,15 @@
         return tr.querySelector('input[name*="[price]"]') || tr.querySelector('input[type="number"]');
     }
 
-    function applyImportRows(rows, mode, truncated) {
+    function applyImportRows(rows, mode, truncated, skipped) {
         if (!rows || rows.length < 2) {
             showImportError('Need at least 2 valid website URLs. Use one per line, or url,price (CSV / Excel paste).');
+            if (skipped && skipped.length) {
+                const reasons = skipped.slice(0, 6).map(function (item) {
+                    return (item.reason || 'Skipped') + (item.line ? ' (“' + item.line + '”)' : '');
+                }).join(' · ');
+                showImportWarning('Skipped ' + skipped.length + ' line' + (skipped.length === 1 ? '' : 's') + ': ' + reasons);
+            }
             return false;
         }
 
@@ -402,23 +454,30 @@
         refreshOpenStateAfterImport();
 
         const priced = rows.filter(function (r) { return r.price !== null && r.price !== undefined; }).length;
+        const symbol = listingPriceSymbol();
         let msg = 'Loaded ' + rows.length + ' site' + (rows.length === 1 ? '' : 's');
         if (priced > 0) {
-            msg += ' (' + priced + ' with price)';
+            msg += ' (' + priced + ' with ' + symbol + ' price)';
         } else {
-            msg += ' — fill € prices in the rows before submit';
+            msg += ' — fill ' + symbol + ' prices in the rows before submit';
         }
         if (truncated) {
             msg += '. Maximum ' + MAX_ROWS + ' rows; extras were skipped.';
         }
         showImportSuccess(msg + '.');
+        if (skipped && skipped.length) {
+            const reasons = skipped.slice(0, 8).map(function (item) {
+                return (item.reason || 'Skipped') + (item.line ? ' (“' + item.line + '”)' : '');
+            }).join(' · ');
+            showImportWarning('Skipped ' + skipped.length + ' line' + (skipped.length === 1 ? '' : 's') + ': ' + reasons);
+        }
         return true;
     }
 
     function importFromText(text) {
         clearImportMessages();
         const parsed = parseUrlPriceImport(text);
-        return applyImportRows(parsed.rows, parsed.mode, parsed.truncated);
+        return applyImportRows(parsed.rows, parsed.mode, parsed.truncated, parsed.skipped || []);
     }
 
     function refreshOpenStateAfterImport() {

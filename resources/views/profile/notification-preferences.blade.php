@@ -1,13 +1,12 @@
 @php
     $user = auth()->user();
-    $useAdvertiserShell = $user && method_exists($user, 'hasRole') && $user->hasRole('advertiser');
 @endphp
-@extends($useAdvertiserShell ? 'advertiser.layouts.app' : 'layouts.app')
+@extends(\App\Support\PortalShell::layout($user))
 
 @section('title', 'Email Preferences')
 
 @section('content')
-<div class="{{ $useAdvertiserShell ? 'container-fluid' : 'container py-5' }}" style="max-width:720px;">
+<div class="{{ \App\Support\PortalShell::contentClass($user) }}" style="max-width:720px;">
     <div class="mb-4">
         <h1 class="fw-semibold mb-1" style="color:#1a585e;">Email Preferences</h1>
         <p class="text-muted mb-0">Choose which emails you want to receive. Security alerts always stay on.</p>

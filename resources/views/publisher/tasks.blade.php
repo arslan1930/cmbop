@@ -1,6 +1,6 @@
 @extends('publisher.layouts.app')
 
-@section('title', 'My Tasks')
+@section('title', 'Tasks')
 
 @section('content')
 <div class="container-fluid">
@@ -8,7 +8,7 @@
     <!-- HEADER -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <h2 class="mb-1 fw-semibold">My Tasks</h2>
+            <h2 class="mb-1 fw-semibold">Tasks</h2>
             <p class="text-muted mb-0">
                 Manage and fulfill orders for your sites.
             </p>
@@ -153,11 +153,51 @@
                         <tr>
                             <th class="publisher-task-col-id">Order ID</th>
                             <th>Site Details</th>
-                            <th class="publisher-task-col-money text-nowrap">Base</th>
-                            <th class="publisher-task-col-sensitive text-nowrap">Sensitive</th>
-                            <th class="publisher-task-col-money text-nowrap">You earn</th>
+                            <th class="publisher-task-col-money text-nowrap">
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    Base
+                                    <x-glass-tip
+                                        title="Base"
+                                        body="The listing price for this placement before extras."
+                                        label="What Base means"
+                                        placement="top"
+                                    />
+                                </span>
+                            </th>
+                            <th class="publisher-task-col-sensitive text-nowrap">
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    Sensitive
+                                    <x-glass-tip
+                                        title="Sensitive"
+                                        body="Extra you earn when the advertiser chose a sensitive niche (crypto, CBD, forex, trading)."
+                                        label="What Sensitive means"
+                                        placement="top"
+                                    />
+                                </span>
+                            </th>
+                            <th class="publisher-task-col-money text-nowrap">
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <span>You earn</span>
+                                    <x-glass-tip
+                                        title="You earn"
+                                        body="Base plus any sensitive or homepage extras — the amount credited to you for this task."
+                                        label="What You earn means"
+                                        placement="top"
+                                    />
+                                </span>
+                            </th>
                             <th>Order Status</th>
-                            <th class="publisher-task-col-content">Content Link</th>
+                            <th class="publisher-task-col-content">
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    Content Link
+                                    <x-glass-tip
+                                        title="Content Link"
+                                        body="Download the advertiser’s article to publish. Word files can run macros — download only, do not enable them."
+                                        label="What Content Link means"
+                                        placement="top"
+                                    />
+                                </span>
+                            </th>
                             <th class="publisher-task-actions-col text-end">Action</th>
                         </tr>
                     </thead>
@@ -359,6 +399,7 @@
 <script src="{{ asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 <script src="{{ asset('assets/vendor/sweetalert2/sweetalert2.min.js') }}?v={{ @filemtime(public_path('assets/vendor/sweetalert2/sweetalert2.min.js')) ?: '1' }}"></script>
 <script src="{{ asset('assets/js/article-preview-tools.js') }}?v={{ @filemtime(public_path('assets/js/article-preview-tools.js')) ?: '1' }}"></script>
+<script src="{{ asset('js/order-inline-thread.js') }}?v={{ @filemtime(public_path('js/order-inline-thread.js')) ?: '1' }}"></script>
 
 <script>
     function taskMoney(n) {
@@ -1505,10 +1546,17 @@ $(document).ready(function() {
                 '</div>' +
             '</div>' +
         '</div>' +
-        buildPublisherArticlePreview(item);
+        buildPublisherArticlePreview(item) +
+        '<div class="mt-4" id="publisherOrderThread" data-thread-host="publisher-details"></div>';
         
         $('#detailsContent').html(html);
         bindPublisherArticlePreviewTools(item);
+        if (window.OrderInlineThread && item.order && item.order.id) {
+            window.OrderInlineThread.mount('#publisherOrderThread', {
+                orderId: item.order.id,
+                orderNumber: item.order.order_number || ''
+            });
+        }
     }
 
     function buildPublisherArticlePreview(item) {

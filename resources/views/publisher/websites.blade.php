@@ -1,5 +1,7 @@
 @extends('publisher.layouts.app')
 
+@section('title', 'My Sites')
+
 @section('content')
 <style>
     body {
@@ -731,37 +733,49 @@
         </div>
     @endif
 
-    <button id="showFormBtn" class="btn btn-primary mb-3 shadow-sm">
-        <i class="fa fa-plus"></i> Add New Website
-    </button>
-
-    <button id="showBulkRequestBtn" type="button" class="btn mb-3 shadow-sm btn-outline-secondary ms-1"
-            data-bs-toggle="modal" data-bs-target="#bulkRequestModal"
-            @if(!empty($openBulkRequest)) disabled title="You already have an open bulk request" @endif>
-        <i class="fa fa-layer-group"></i> I want to add many sites
-    </button>
-
-    <button id="showBulkBtn" type="button" class="btn mb-3 shadow-sm btn-outline-primary ms-1">
-        <i class="fa fa-file-csv"></i> Bulk Import (Agency)
-    </button>
-
-    <button id="showClaimBtn" type="button" class="btn mb-3 shadow-sm btn-outline-warning ms-1">
-        <i class="fa fa-user-check"></i> Claim a website
-    </button>
-    <a href="{{ route('site-claims.index') }}" class="btn mb-3 shadow-sm btn-outline-secondary ms-1" id="myClaimsLink">
-        <i class="fa fa-list"></i> My claims
-    </a>
-
-    @if(!empty($awaitingDetailsCount) && $awaitingDetailsCount > 0)
-        <a href="{{ route('publisher.bulk-sites.complete') }}" class="btn mb-3 shadow-sm btn-upload ms-1" id="bulkCompleteDetailsBtn">
-            <i class="fa fa-pen-to-square"></i> Complete details ({{ $awaitingDetailsCount }})
-        </a>
-    @endif
-    @if(!empty($detailsCompleteCount) && $detailsCompleteCount > 0)
-        <a href="{{ route('publisher.bulk-sites.review') }}" class="btn mb-3 shadow-sm btn-outline-primary ms-1" id="bulkReviewSubmitBtn">
-            <i class="fa fa-clipboard-check"></i> Review &amp; submit ({{ $detailsCompleteCount }})
-        </a>
-    @endif
+    <div class="mysites-toolbar">
+        <button id="showFormBtn" class="btn btn-primary shadow-sm">
+            <i class="fa fa-plus"></i> Add New Website
+        </button>
+        <button id="showClaimBtn" type="button" class="btn shadow-sm btn-warning rounded-pill">
+            <i class="fa fa-user-check"></i> Claim a website
+        </button>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary shadow-sm dropdown-toggle" type="button" id="mysitesMoreActions" data-bs-toggle="dropdown" aria-expanded="false">
+                More
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="mysitesMoreActions">
+                <li>
+                    <button id="showBulkRequestBtn" type="button" class="dropdown-item"
+                            data-bs-toggle="modal" data-bs-target="#bulkRequestModal"
+                            @if(!empty($openBulkRequest)) disabled title="You already have an open bulk request" @endif>
+                        <i class="fa fa-layer-group me-1"></i> I want to add many sites
+                    </button>
+                </li>
+                <li>
+                    <button id="showBulkBtn" type="button" class="dropdown-item">
+                        <i class="fa fa-file-csv me-1"></i> Bulk Import (Agency)
+                    </button>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a href="{{ route('site-claims.index') }}" class="dropdown-item" id="myClaimsLink">
+                        <i class="fa fa-list me-1"></i> My claims
+                    </a>
+                </li>
+            </ul>
+        </div>
+        @if(!empty($awaitingDetailsCount) && $awaitingDetailsCount > 0)
+            <a href="{{ route('publisher.bulk-sites.complete') }}" class="btn shadow-sm btn-upload" id="bulkCompleteDetailsBtn">
+                <i class="fa fa-pen-to-square"></i> Complete details ({{ $awaitingDetailsCount }})
+            </a>
+        @endif
+        @if(!empty($detailsCompleteCount) && $detailsCompleteCount > 0)
+            <a href="{{ route('publisher.bulk-sites.review') }}" class="btn shadow-sm btn-outline-primary" id="bulkReviewSubmitBtn">
+                <i class="fa fa-clipboard-check"></i> Review &amp; submit ({{ $detailsCompleteCount }})
+            </a>
+        @endif
+    </div>
 
     @if(!empty($openBulkRequest))
         @php
@@ -837,6 +851,7 @@
                             <span class="form-text mb-0">Formats: <code>url,price</code> · tab from Excel · <code>url price</code> · URLs only</span>
                         </div>
                         <div class="small text-success mt-1 d-none" id="bulkPasteUrlsSuccess" role="status"></div>
+                        <div class="small text-warning mt-1 d-none" id="bulkPasteUrlsWarning" role="status"></div>
                         <div class="small text-danger mt-1 d-none" id="bulkPasteUrlsError" role="alert"></div>
                     </div>
 
@@ -943,6 +958,7 @@
                     <p class="small text-muted mb-0">
                         If another publisher listed your site, submit a claim. We’ll verify ownership using the
                         <strong>exact website name</strong> on the listing plus your proof message.
+                        Review usually takes <strong>1–2 business days</strong>.
                     </p>
                 </div>
                 <button type="button" class="btn-close" id="closeClaimCard" aria-label="Close"></button>
@@ -950,7 +966,8 @@
             <form id="claimWebsiteForm" class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Website URL</label>
-                    <input type="text" name="website_url" class="form-control" placeholder="example.com or https://example.com" required>
+                    <input type="text" name="website_url" id="claimWebsiteUrl" class="form-control" placeholder="example.com or https://example.com" required>
+                    <div class="form-text" id="claimUrlStatus" role="status"></div>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Website name (must match listing)</label>
@@ -964,9 +981,10 @@
                     <label class="form-label">Proof of ownership</label>
                     <textarea name="proof_message" class="form-control" rows="4" minlength="20" required
                               placeholder="Explain how you own this site (e.g. domain registrar email, CMS access, who listed it incorrectly…)"></textarea>
+                    <div class="form-text">Minimum 20 characters. Review usually takes 1–2 business days.</div>
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-warning">Submit claim for review</button>
+                    <button type="submit" class="btn btn-warning rounded-pill">Submit claim for review</button>
                 </div>
             </form>
         </div>
@@ -1061,7 +1079,8 @@
                 <div>
                     <h5 class="mb-1">Bulk Import for Agencies</h5>
                     <p class="text-muted mb-0 small">
-                        Own 150+ websites? Upload a CSV to submit many sites at once (max 200 per upload).
+                        Have a full CSV for many sites? Upload at least 2 rows (max 200 per file).
+                        Prices use listing currency <strong>EUR or GBP</strong> — not USD.
                         Each site still needs admin approval before it goes live.
                     </p>
                 </div>
@@ -1075,13 +1094,39 @@
                 <ul class="mb-0 mt-1">
                     <li><code>country</code> / <code>language</code> = one 2-letter code each (e.g. <code>at</code> + <code>de</code> for German in Austria)</li>
                     <li>Legacy columns <code>countries</code> / <code>languages</code> still accepted (first code only)</li>
+                    <li><code>price</code> is in <code>EUR</code> or <code>GBP</code> (optional <code>price_input_currency</code> column). Listings are not accepted in USD.</li>
                     <li><code>categories</code> = exact category names, separated by <code>|</code> (max 7)</li>
                     <li><code>turnaround_time</code> = <code>24h</code>, <code>48h</code>, <code>3days</code>, <code>5days</code>, or <code>7days</code></li>
-                    <li><code>publication_time</code> = <code>6months</code>, <code>1year</code>, or <code>permanent</code></li>
+                    <li><code>publication_time</code> = {!! \App\Support\PublicationDuration::csvHint() !!}</li>
                     <li><code>link_type</code> = <code>dofollow</code> or <code>nofollow</code></li>
                     <li><code>description</code> must be at least 50 characters</li>
                     <li>Flags (<code>sponsored</code>, <code>partner_material</code>, <code>as_you_prefer</code>) use <code>1</code> / <code>0</code> — set only one</li>
                 </ul>
+                <details class="mt-2">
+                    <summary class="fw-semibold" style="cursor:pointer;">Valid category names, country codes, and language codes</summary>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <div class="text-muted small mb-1">Categories</div>
+                            <div class="small" style="max-height:9rem;overflow:auto;">{{ implode(', ', $categories ?? []) }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-muted small mb-1">Country codes</div>
+                            <div class="small" style="max-height:9rem;overflow:auto;">
+                                @foreach(($countries ?? []) as $country)
+                                    <code>{{ strtolower($country->code) }}</code> {{ $country->name }}@if(! $loop->last), @endif
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-muted small mb-1">Language codes</div>
+                            <div class="small" style="max-height:9rem;overflow:auto;">
+                                @foreach(($languages ?? []) as $language)
+                                    <code>{{ strtolower($language->code) }}</code> {{ $language->name }}@if(! $loop->last), @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </div>
 
             <form method="POST" action="{{ route('publisher.sites.bulk-import', absolute: false) }}" enctype="multipart/form-data">
@@ -1158,6 +1203,7 @@
                                     (Domain Authority) <span class="req" aria-hidden="true">*</span>
                                 </label>
                                 <input type="number" name="da" id="da" class="form-control" placeholder="0-100" min="0" max="100" value="{{ old_text('da') }}" required>
+                                <div class="help-text">Moz Domain Authority (0–100). Use the live Moz score for this domain.</div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">
@@ -1165,6 +1211,7 @@
                                     (Domain Rating) <span class="req" aria-hidden="true">*</span>
                                 </label>
                                 <input type="number" name="dr" id="dr" class="form-control" placeholder="0-100" min="0" max="100" value="{{ old_text('dr') }}" required>
+                                <div class="help-text">Ahrefs Domain Rating (0–100). Use the live Ahrefs score for this domain.</div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Traffic <span class="req" aria-hidden="true">*</span></label>
@@ -1316,12 +1363,13 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Publication Duration <span class="req" aria-hidden="true">*</span></label>
+                                @php $publicationDefault = old('publicationTime', \App\Support\PublicationDuration::DEFAULT); @endphp
                                 <select name="publicationTime" id="publicationTime" class="form-select" required>
-                                    <option value="">Select Duration</option>
-                                    <option value="6months" {{ old('publicationTime') == '6months' ? 'selected' : '' }}>6 Months</option>
-                                    <option value="1year" {{ old('publicationTime') == '1year' ? 'selected' : '' }}>1 Year</option>
-                                    <option value="permanent" {{ old('publicationTime') == 'permanent' ? 'selected' : '' }}>Permanent</option>
+                                    @foreach(\App\Support\PublicationDuration::options() as $value => $label)
+                                        <option value="{{ $value }}" @selected($publicationDefault === $value)>{{ $label }}</option>
+                                    @endforeach
                                 </select>
+                                <div class="help-text">{{ \App\Support\PublicationDuration::helpText() }}</div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Link Type <span class="req" aria-hidden="true">*</span></label>
@@ -1354,6 +1402,7 @@
                         <div class="row bg-light p-3 rounded g-3 g-form align-items-center">
                             <div class="col-12">
                                 <label class="form-label mb-2">Optional — choose one</label>
+                                <div class="help-text mb-2">{{ \App\Support\SiteTag::helpText() }}</div>
                                 <div class="d-flex flex-wrap gap-3" role="radiogroup" aria-label="Site tag">
                                     @foreach(\App\Support\SiteTag::publisherFormOptions() as $value => $label)
                                         @php $tagId = $value === '' ? 'tagNone' : 'tag'.str_replace(' ', '', ucwords(str_replace('_', ' ', $value))); @endphp
@@ -1503,7 +1552,7 @@
 
     <div class="mt-5">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <h4 class="mb-0">Your Sites</h4>
+            <h4 class="mb-0">My Sites</h4>
             <div class="d-inline-flex flex-wrap align-items-center gap-2" role="group" aria-label="Filter sites by status">
                 <div class="site-status-filter-group">
                     <button type="button" class="btn btn-sm site-status-filter is-active" data-status="active" id="sitesFilterActive" aria-pressed="true">
@@ -1547,8 +1596,35 @@
             </div>
         </div>
         <p class="small text-muted mb-2" id="sitesFilterHint">Approved and live sites on your panel.</p>
-        <div class="mb-2" style="max-width: 22rem;">
-            <x-slb-search-field name="site_search" id="siteSearch" placeholder="Search sites..." input-class="form-control table-search" mode="" />
+        <div class="mysites-filters row g-2 align-items-end mb-2">
+            <div class="col-12 col-lg-4" style="max-width: 22rem;">
+                <x-slb-search-field name="site_search" id="siteSearch" placeholder="Search sites..." input-class="form-control table-search" mode="" />
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <label class="form-label text-muted" for="sitesNicheFilter">Niche</label>
+                <select id="sitesNicheFilter" class="form-select form-select-sm">
+                    <option value="">All niches</option>
+                    @foreach(($categories ?? []) as $categoryName)
+                        <option value="{{ $categoryName }}">{{ $categoryName }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-3 col-md-2 col-lg-1">
+                <label class="form-label text-muted" for="sitesDaMin">DA min</label>
+                <input type="number" id="sitesDaMin" class="form-control form-control-sm" min="0" max="100" inputmode="numeric" placeholder="0">
+            </div>
+            <div class="col-3 col-md-2 col-lg-1">
+                <label class="form-label text-muted" for="sitesDaMax">DA max</label>
+                <input type="number" id="sitesDaMax" class="form-control form-control-sm" min="0" max="100" inputmode="numeric" placeholder="100">
+            </div>
+            <div class="col-3 col-md-2 col-lg-1">
+                <label class="form-label text-muted" for="sitesPriceMin">Price min</label>
+                <input type="number" id="sitesPriceMin" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal" placeholder="0">
+            </div>
+            <div class="col-3 col-md-2 col-lg-1">
+                <label class="form-label text-muted" for="sitesPriceMax">Price max</label>
+                <input type="number" id="sitesPriceMax" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal" placeholder="∞">
+            </div>
         </div>
         <div id="sitesTableWrapper" class="mt-3"></div>
     </div>
@@ -1621,6 +1697,7 @@ window.PublisherWebsitesConfig = {
         balance: @json(route('publisher.balance', absolute: false)),
         promotionsWallet: @json(route('publisher.promotions.wallet', absolute: false)),
         claim: @json(route('publisher.sites.claim', absolute: false)),
+        claimLookup: @json(route('publisher.sites.claim-lookup', absolute: false)),
     },
     bulkMinPercent: {{ (int) config('site_promotions.bulk.min_percent', 10) }},
     bulkMaxPercent: {{ (int) config('site_promotions.bulk.max_percent', 80) }},
@@ -2304,6 +2381,7 @@ document.addEventListener('input', function (event) {
 document.addEventListener('change', function (event) {
     if (event.target && event.target.id === 'price_input_currency') {
         syncListingPricePreview();
+        syncListingPriceLabels();
     }
 });
 document.addEventListener('DOMContentLoaded', syncListingPricePreview);
@@ -2316,8 +2394,14 @@ function listingSymbolForCountry(code) {
     return '€';
 }
 
+function listingSymbolFromCurrencySelect() {
+    const sel = document.getElementById('price_input_currency');
+    const code = String(sel && sel.value ? sel.value : 'EUR').toUpperCase();
+    return code === 'GBP' ? '£' : '€';
+}
+
 function syncListingPriceLabels(code) {
-    const symbol = listingSymbolForCountry(code);
+    const symbol = listingSymbolFromCurrencySelect() || listingSymbolForCountry(code);
     const main = document.querySelector('[data-listing-price-label]');
     if (main) {
         const req = main.querySelector('.req');
@@ -2364,6 +2448,8 @@ function applyCountryLanguageFilter(countryCode, { clearLanguage = true, preferL
         languageSingleSelect.setPlaceholder('Select country first...');
         if (clearLanguage) languageSingleSelect.clearSelection();
         if (hint.length) hint.text('Select a country first.');
+        $('#languageWrapper').removeClass('is-readonly');
+        $('#languageInput').attr({'aria-disabled': 'false', tabindex: '0'});
         return;
     }
 
@@ -2379,7 +2465,11 @@ function applyCountryLanguageFilter(countryCode, { clearLanguage = true, preferL
             languageSingleSelect.setSelectedValue(only, opt.data('label'));
         }
         if (hint.length) hint.text('Language locked to ' + (opt.data('label') || only.toUpperCase()) + ' for this country.');
+        $('#languageWrapper').addClass('is-readonly');
+        $('#languageInput').attr({'aria-disabled': 'true', tabindex: '-1'});
     } else if (relatedCodes.length) {
+        $('#languageWrapper').removeClass('is-readonly');
+        $('#languageInput').attr({'aria-disabled': 'false', tabindex: '0'});
         if (preferLanguage && relatedCodes.indexOf(String(preferLanguage).toLowerCase()) !== -1) {
             const code = String(preferLanguage).toLowerCase();
             const opt = $(`#languageOptions .single-select-option[data-value="${code}"]`);
@@ -2390,8 +2480,10 @@ function applyCountryLanguageFilter(countryCode, { clearLanguage = true, preferL
             return opt.length ? opt.data('label') : code.toUpperCase();
         });
         if (hint.length) hint.text('Allowed: ' + labels.join(', '));
-    } else if (hint.length) {
-        hint.text('No paired languages for this country.');
+    } else {
+        $('#languageWrapper').removeClass('is-readonly');
+        $('#languageInput').attr({'aria-disabled': 'false', tabindex: '0'});
+        if (hint.length) hint.text('No paired languages for this country.');
     }
 }
 
@@ -2599,6 +2691,12 @@ function loadSiteDraft() {
             });
         }
 
+        const hasContent = ['siteName','siteUrl','exampleUrl','da','dr','traffic','price','siteDescription','country','language','categories']
+            .some(function (key) { return String(draft[key] || '').trim() !== ''; });
+        if (!hasContent) {
+            return false;
+        }
+
         setWizardStep(draft.step || 1);
         $('#wizardDraftHint').text('Draft restored');
         return true;
@@ -2607,16 +2705,47 @@ function loadSiteDraft() {
     }
 }
 
+function escapeHtml(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function wizardFieldLabel(el) {
+    if (!el) return '';
+    const id = el.id;
+    if (id) {
+        const lab = document.querySelector('label[for="' + id + '"]');
+        if (lab) return String(lab.textContent || '').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+    }
+    const wrap = el.closest('.col-md-4, .col-md-3, .col-12, .form-section');
+    const nearby = wrap && wrap.querySelector('.form-label');
+    return nearby
+        ? String(nearby.textContent || '').replace(/\*/g, '').replace(/\s+/g, ' ').trim()
+        : String(el.getAttribute('name') || 'This field');
+}
+
+function focusWizardField(el) {
+    if (!el) return;
+    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (e2) {} }
+}
+
 function validateWizardStep(step) {
     const pane = $(`.wizard-pane[data-wizard-pane="${step}"]`);
     let ok = true;
     let message = '';
+    let firstInvalid = null;
 
     pane.find('input[required], select[required]').each(function() {
         if (this.type === 'hidden' || this.id === 'siteDescription') return;
         if (!this.checkValidity()) {
             ok = false;
             $(this).addClass('is-invalid');
+            if (!firstInvalid) firstInvalid = this;
             if (!message) message = this.validationMessage || 'Please fill in all required fields.';
         } else {
             $(this).removeClass('is-invalid');
@@ -2634,6 +2763,7 @@ function validateWizardStep(step) {
             ok = false;
             message = message || descMsg;
             showSiteDescError(descMsg);
+            if (!firstInvalid) firstInvalid = document.getElementById('quillEditor') || document.getElementById('siteDescription');
         } else {
             showSiteDescError('');
         }
@@ -2643,19 +2773,30 @@ function validateWizardStep(step) {
         if (!countrySingleSelect.getSelectedValue()) {
             ok = false;
             message = message || 'Please select a country / market.';
+            if (!firstInvalid) firstInvalid = document.getElementById('countryInput');
         }
         if (!languageSingleSelect.getSelectedValue()) {
             ok = false;
             message = message || 'Please select a language.';
+            if (!firstInvalid) firstInvalid = document.getElementById('languageInput');
         }
         if (categoryMultiSelect.getSelectedItems().length === 0) {
             ok = false;
             message = message || 'Please select at least one category.';
+            if (!firstInvalid) firstInvalid = document.getElementById('categoryInput');
         }
     }
 
     if (!ok) {
-        Swal.fire({ icon: 'error', title: 'Almost there', text: message || 'Please complete this step.' });
+        const field = firstInvalid ? wizardFieldLabel(firstInvalid) : '';
+        focusWizardField(firstInvalid);
+        Swal.fire({
+            icon: 'error',
+            title: 'Almost there',
+            html: field
+                ? '<p class="mb-2"><strong>' + escapeHtml(field) + '</strong></p><p class="mb-0">' + escapeHtml(message || 'Please complete this step.') + '</p>'
+                : escapeHtml(message || 'Please complete this step.')
+        });
     }
     return ok;
 }
@@ -2689,6 +2830,7 @@ addBtn.on('click', function() {
     bulkBtn.toggleClass('d-none', isOpen);
     bulkRequestBtn.toggleClass('d-none', isOpen);
     claimBtn.toggleClass('d-none', isOpen);
+    document.body.classList.toggle('publisher-wizard-open', isOpen);
     formHeaderSpan.text('Add New Website');
 
     if(isOpen){
@@ -3075,7 +3217,16 @@ function fetchSites(page = 1, query = '', opts = {}) {
         url: (window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.routes.ajax) || '/publisher/websites/ajax',
         method: 'GET',
         dataType: 'html',
-        data: { page: page, query: query, status: sitesStatusFilter },
+        data: {
+            page: page,
+            query: query,
+            status: sitesStatusFilter,
+            niche: $('#sitesNicheFilter').val() || '',
+            da_min: $('#sitesDaMin').val() || '',
+            da_max: $('#sitesDaMax').val() || '',
+            price_min: $('#sitesPriceMin').val() || '',
+            price_max: $('#sitesPriceMax').val() || '',
+        },
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
         success: function(res) {
             const html = (res || '').trim();
@@ -3228,6 +3379,12 @@ $(document).ready(function(){
             fetchSites(1, $(this).val());
         }, 400);
     });
+    $('#sitesNicheFilter, #sitesDaMin, #sitesDaMax, #sitesPriceMin, #sitesPriceMax').on('change input', function(){
+        clearTimeout(delayTimer);
+        delayTimer = setTimeout(() => {
+            fetchSites(1, $('#siteSearch').val());
+        }, 300);
+    });
 
     $(document).on('click', '.pagination a', function(e){
         const href = $(this).attr('href');
@@ -3251,8 +3408,24 @@ $(document).ready(function(){
 });
 
 
+function prefixHttps(input) {
+    if (!input) return;
+    var v = String(input.value || '').trim();
+    if (!v) return;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return;
+    if (/^\/\//.test(v)) {
+        input.value = 'https:' + v;
+        return;
+    }
+    input.value = 'https://' + v.replace(/^\/+/, '');
+}
+$('#siteUrl, #exampleUrl').on('blur', function () {
+    prefixHttps(this);
+});
+
 function prefillSiteForm(site) {
     $('#formCard').removeClass('d-none');
+    document.body.classList.add('publisher-wizard-open');
     $('#claimCard').addClass('d-none');
     $('#bulkCard').addClass('d-none');
     $('#showFormBtn').addClass('d-none');
@@ -3495,6 +3668,7 @@ closeBtn.on('click', function(){
         saveSiteDraft();
     }
     formCard.addClass('d-none');
+    document.body.classList.remove('publisher-wizard-open');
     addBtn.removeClass('d-none');
     bulkBtn.removeClass('d-none');
     bulkRequestBtn.removeClass('d-none');
@@ -3566,8 +3740,50 @@ $('#closeClaimCard').on('click', function () {
     claimCard.addClass('d-none');
     formHeaderSpan.text('Add New Website');
 });
+let claimListedOk = false;
+async function lookupClaimUrl() {
+    const input = document.getElementById('claimWebsiteUrl');
+    const status = document.getElementById('claimUrlStatus');
+    const url = String(input && input.value ? input.value : '').trim();
+    claimListedOk = false;
+    if (status) status.textContent = '';
+    if (!url) return false;
+    const lookup = (window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.routes.claimLookup) || '/publisher/sites/claim-lookup';
+    try {
+        const res = await fetch(lookup + '?website_url=' + encodeURIComponent(url), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (status) {
+            status.textContent = data.message || '';
+            status.className = 'form-text ' + (data.listed && !data.owned ? 'text-success' : 'text-danger');
+        }
+        claimListedOk = !!(data.success && data.listed && !data.owned);
+        return claimListedOk;
+    } catch (e) {
+        if (status) {
+            status.textContent = 'Could not check that URL. Try again.';
+            status.className = 'form-text text-danger';
+        }
+        return false;
+    }
+}
+$('#claimWebsiteUrl').on('blur', function () {
+    lookupClaimUrl();
+});
 $('#claimWebsiteForm').on('submit', async function (e) {
     e.preventDefault();
+    const proof = String(this.proof_message && this.proof_message.value ? this.proof_message.value : '').trim();
+    if (proof.length < 20) {
+        Swal.fire({ icon: 'error', title: 'Almost there', text: 'Proof of ownership must be at least 20 characters.' });
+        return;
+    }
+    const listed = claimListedOk || await lookupClaimUrl();
+    if (!listed) {
+        Swal.fire({ icon: 'error', title: 'Website not listed', text: (document.getElementById('claimUrlStatus') && document.getElementById('claimUrlStatus').textContent) || 'Claims only work for sites already listed by another publisher.' });
+        return;
+    }
     const fd = new FormData(this);
     const payload = Object.fromEntries(fd.entries());
     const res = await fetch((window.PublisherWebsitesConfig && window.PublisherWebsitesConfig.routes.claim) || '/publisher/sites/claim', {

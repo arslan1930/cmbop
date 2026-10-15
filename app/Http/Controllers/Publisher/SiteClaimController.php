@@ -228,6 +228,47 @@ class SiteClaimController extends Controller
         ]);
     }
 
+    /**
+     * Pre-submit check: is this URL already a listed site?
+     */
+    public function lookup(Request $request)
+    {
+        $url = $this->normalizeHttpUrl($request->query('website_url', $request->input('website_url', '')));
+        $domain = $this->extractDomain((string) $url);
+        if (! $domain) {
+            return response()->json([
+                'success' => false,
+                'listed' => false,
+                'message' => 'Enter a full website URL, like https://example.com.',
+            ], 422);
+        }
+
+        $site = Site::findOccupyingDomain($domain);
+        if (! $site) {
+            return response()->json([
+                'success' => true,
+                'listed' => false,
+                'message' => 'We could not find that website in our catalog. Claims only work for sites already listed by another publisher.',
+            ]);
+        }
+
+        if ((int) $site->publisher_id === (int) auth()->id()) {
+            return response()->json([
+                'success' => true,
+                'listed' => true,
+                'owned' => true,
+                'message' => 'You already own this listing.',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'listed' => true,
+            'owned' => false,
+            'message' => 'This URL matches a listed site. Submit proof of at least 20 characters — review usually takes 1–2 business days.',
+        ]);
+    }
+
     private function extractDomain(string $url): ?string
     {
         $host = parse_url($url, PHP_URL_HOST);

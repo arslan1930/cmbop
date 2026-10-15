@@ -1,12 +1,13 @@
 @php
     $user = auth()->user();
-    $useAdvertiserShell = $user && method_exists($user, 'hasRole') && $user->hasRole('advertiser');
+    $portalLayout = \App\Support\PortalShell::layout($user);
+    $usePortalShell = \App\Support\PortalShell::isPortal($user);
 @endphp
-@extends($useAdvertiserShell ? 'advertiser.layouts.app' : 'layouts.app')
+@extends($portalLayout)
 
 @section('title', 'Profile')
 
-@push($useAdvertiserShell ? 'page-styles' : 'styles')
+@push(\App\Support\PortalShell::styleStack($user))
 <style>
     :root {
         --card-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
@@ -19,8 +20,8 @@
 @endpush
 
 @section('content')
-<div class="{{ $useAdvertiserShell ? 'container-fluid' : 'container py-5' }}">
-    <h1 class="{{ $useAdvertiserShell ? 'h3 mb-4' : 'h3 mb-4' }}">Profile</h1>
+<div class="{{ \App\Support\PortalShell::contentClass($user) }}">
+    <h1 class="h3 mb-4">Profile</h1>
 
     {{-- ─── FLASH MESSAGES (pill style) ─── --}}
 

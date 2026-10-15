@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends(\App\Support\PortalShell::layout())
 
 @section('title', 'My ownership claims')
 

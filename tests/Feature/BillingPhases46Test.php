@@ -540,7 +540,7 @@ class BillingPhases46Test extends TestCase
             ->get(route('publisher.withdraw'))
             ->assertOk()
             ->assertSee(route('publisher.billing.index'), false)
-            ->assertSee('Payout documents', false);
+            ->assertSee('Payout docs', false);
     }
 
     public function test_line_refund_amount_uses_order_total_for_single_item(): void

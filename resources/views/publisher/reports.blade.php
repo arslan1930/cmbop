@@ -13,7 +13,7 @@
 
     <div class="row mb-4">
         <div class="col-md-12">
-            <h2 class="mb-1 fw-semibold">Financial Reports</h2>
+            <h2 class="mb-1 fw-semibold">Reports</h2>
             <p class="text-muted mb-0">
                 Earnings from completed placements and your withdrawal history.
             </p>

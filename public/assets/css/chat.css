@@ -404,6 +404,22 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+.order-inline-thread {
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  padding: 0.85rem;
+  background: var(--surface-1, #fff);
+}
+.order-inline-thread__messages {
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 0.75rem;
+  padding-right: 0.25rem;
+}
+.order-inline-thread .chat-bubble {
+  max-width: 92%;
+}
+
 @media (max-width: 575.98px) {
   .chat-messages {
     height: min(360px, 48vh);
