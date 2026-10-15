@@ -474,18 +474,11 @@ function armCatalogBusyFallback() {
 }
 
 function setCatalogBusyLottie(busy, play) {
-    if (!window.SlbLoader) return;
-    // Pair show/hide once. Live apply() plus form submit both mark busy, and
-    // two show() calls leave the overlay up after a single hide().
-    if (play) {
-        if (catalogSlbLoaderOn) return;
-        catalogSlbLoaderOn = true;
-        window.SlbLoader.show();
-        return;
+    // Live catalog uses a small non-blocking pill, not the full-page SlbLoader.
+    catalogSlbLoaderOn = !!play;
+    if (busy) {
+        busy.classList.toggle('is-on', !!play);
     }
-    if (!catalogSlbLoaderOn) return;
-    catalogSlbLoaderOn = false;
-    window.SlbLoader.hide();
 }
 
 /**
@@ -2413,7 +2406,8 @@ const CatalogUrl = (function () {
             'price_min', 'price_max', 'da_min', 'da_max', 'dr_min', 'dr_max',
             'traffic_min', 'traffic_max', 'tag', 'sponsored', 'favorites_filter',
             'blacklist_filter', 'bulk_deals', 'new_badge', 'on_sale', 'featured', 'verified', 'quality',
-            'rating_min', 'has_completions', 'publication_time', 'site', 'sort', 'per_page', 'page',
+            'rating_min', 'has_completions', 'publication_time', 'link_type', 'turnaround_max',
+            'sensitive_topics', 'google_news', 'site', 'sort', 'per_page', 'page',
             'wizard',
         ];
     const DEFAULT_SORT = cfg.defaultSort || 'dr_desc';
@@ -2616,6 +2610,10 @@ const CatalogUrl = (function () {
         setInputValue(form.querySelector('[name="rating_min"]'), get('rating_min'));
         setInputValue(form.querySelector('[name="has_completions"]'), get('has_completions'));
         setInputValue(form.querySelector('[name="publication_time"]'), get('publication_time'));
+        setInputValue(form.querySelector('[name="link_type"]'), get('link_type'));
+        setInputValue(form.querySelector('[name="turnaround_max"]'), get('turnaround_max'));
+        setInputValue(form.querySelector('[name="sensitive_topics"]'), get('sensitive_topics'));
+        setInputValue(form.querySelector('[name="google_news"]'), get('google_news'));
 
         const sortEl = document.getElementById('catalogSort');
         if (sortEl) sortEl.value = get('sort') || DEFAULT_SORT;
@@ -2916,6 +2914,31 @@ const CatalogLive = (function () {
         });
     }
 
+    function catalogCompactMoney(raw) {
+        const n = Number(raw);
+        if (!Number.isFinite(n)) return '';
+        if (Math.abs(n - Math.round(n)) < 0.001) {
+            return catalogMoneyLabel(Math.round(n)).replace(/\.00$/, '');
+        }
+        return catalogMoneyLabel(n);
+    }
+
+    function catalogPriceChipLabel(minRaw, maxRaw) {
+        const hasMin = minRaw != null && String(minRaw).trim() !== '';
+        const hasMax = maxRaw != null && String(maxRaw).trim() !== '';
+        if (hasMin && hasMax) return 'Price ' + catalogCompactMoney(minRaw) + '–' + catalogCompactMoney(maxRaw);
+        if (hasMax) return 'Price ≤ ' + catalogCompactMoney(maxRaw);
+        if (hasMin) return 'Price ≥ ' + catalogCompactMoney(minRaw);
+        return 'Price';
+    }
+
+    function catalogLanguageChipLabel(raw) {
+        const names = (window.CatalogConfig && CatalogConfig.languageNames) || {};
+        const codes = String(raw || '').split(',').map(function (c) { return c.trim().toLowerCase(); }).filter(Boolean);
+        if (!codes.length) return 'Language';
+        return codes.map(function (code) { return names[code] || code.toUpperCase(); }).join(', ');
+    }
+
     function chipDefs(params) {
         const chips = [];
         if (params.get('site')) chips.push({ label: 'Recommended site', params: ['site'] });
@@ -2930,8 +2953,12 @@ const CatalogLive = (function () {
             });
         }
         if (params.get('country')) chips.push({ label: 'Country', params: ['country'] });
-        if (params.get('price_min') || params.get('price_max')) chips.push({ label: 'Price', params: ['price_min', 'price_max'] });
-        if (params.get('language')) chips.push({ label: 'Language', params: ['language'] });
+        if (params.get('price_min') || params.get('price_max')) {
+            chips.push({ label: catalogPriceChipLabel(params.get('price_min'), params.get('price_max')), params: ['price_min', 'price_max'] });
+        }
+        if (params.get('language')) {
+            chips.push({ label: catalogLanguageChipLabel(params.get('language')), params: ['language'] });
+        }
         var tagFilter = params.get('tag') || (params.get('sponsored') === '1' ? 'sponsored' : '');
         var tagLabels = {
             sponsored: 'Sponsored',
@@ -2961,6 +2988,26 @@ const CatalogLive = (function () {
                 label: 'Duration: ' + (durationLabels[durationSlug] || durationSlug),
                 params: ['publication_time'],
             });
+        }
+        if (params.get('link_type') === 'dofollow') chips.push({ label: 'DoFollow', params: ['link_type'] });
+        if (params.get('link_type') === 'nofollow') chips.push({ label: 'NoFollow', params: ['link_type'] });
+        if (params.get('turnaround_max')) {
+            var turnaroundDays = String(params.get('turnaround_max'));
+            var turnaroundLabels = {
+                '1': 'Turnaround: 1 day or faster',
+                '2': 'Turnaround: 2 days or faster',
+                '3': 'Turnaround: 3 days or faster',
+                '5': 'Turnaround: 5 days or faster',
+                '7': 'Turnaround: 7 days or faster',
+            };
+            chips.push({
+                label: turnaroundLabels[turnaroundDays] || ('Turnaround ≤ ' + turnaroundDays + ' days'),
+                params: ['turnaround_max'],
+            });
+        }
+        if (params.get('sensitive_topics') === '1') chips.push({ label: 'Accepts sensitive topics', params: ['sensitive_topics'] });
+        if (params.get('google_news') === '1' && window.CatalogConfig && CatalogConfig.googleNewsAvailable) {
+            chips.push({ label: 'Google News', params: ['google_news'] });
         }
         if (params.get('per_page') && params.get('per_page') !== '20') {
             chips.push({ label: params.get('per_page') + ' per page', params: ['per_page'] });
@@ -3024,6 +3071,7 @@ const CatalogLive = (function () {
             'da_min', 'da_max', 'dr_min', 'dr_max',
             'traffic_min', 'traffic_max', 'new_badge', 'on_sale', 'featured', 'quality',
             'rating_min', 'has_completions', 'publication_time',
+            'link_type', 'turnaround_max', 'sensitive_topics', 'google_news',
         ];
         let count = 0;
         moreKeys.forEach(function (key) {
@@ -3420,7 +3468,7 @@ window.scheduleCatalogFilterLive = scheduleCatalogFilterLive;
     bindCatalogThemeSelects();
 
     // More-filters selects + checkbox filters share the live path.
-    ['tag', 'favorites_filter', 'blacklist_filter'].forEach(function (name) {
+    ['tag', 'favorites_filter', 'blacklist_filter', 'publication_time', 'link_type', 'turnaround_max'].forEach(function (name) {
         const select = document.querySelector('#filterForm select[name="' + name + '"]');
         if (!select) return;
         select.addEventListener('change', function () {
@@ -3473,6 +3521,20 @@ window.scheduleCatalogFilterLive = scheduleCatalogFilterLive;
     const hasCompletions = document.getElementById('catalogHasCompletions');
     if (hasCompletions) {
         hasCompletions.addEventListener('change', function () {
+            submitCatalogFilters();
+        });
+    }
+
+    const sensitiveTopics = document.getElementById('catalogSensitiveTopics');
+    if (sensitiveTopics) {
+        sensitiveTopics.addEventListener('change', function () {
+            submitCatalogFilters();
+        });
+    }
+
+    const googleNews = document.getElementById('catalogGoogleNews');
+    if (googleNews) {
+        googleNews.addEventListener('change', function () {
             submitCatalogFilters();
         });
     }

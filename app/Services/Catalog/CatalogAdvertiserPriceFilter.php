@@ -9,11 +9,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Advertiser catalog min/max price: same buyer-facing total as checkout
- * (unbuffered sites.price + FX buffer + tiered portal fee).
+ * Advertiser catalog min/max/sort/from-€: the price the buyer actually pays
+ * (list + FX buffer + fee, then live custom sale floored at publisher payout).
  *
  * Filtering is SQL so a priced search does not load the whole sites table.
- * phpMatchingIds() is the previous in-memory algorithm, kept for tests.
+ * phpMatchingIds() is the in-memory algorithm, kept for tests.
  */
 class CatalogAdvertiserPriceFilter
 {
@@ -28,6 +28,48 @@ class CatalogAdvertiserPriceFilter
         $eurSql = $listing->buyerFacingEurSql('price');
 
         return $this->fees->advertiserBaseSqlExpression($eurSql);
+    }
+
+    /**
+     * SQL for the painted catalog pay price (sale when live, else list).
+     *
+     * Same rounding as CartPricingService qty-1: discount_amount =
+     * round(list * pct/100, 2), then floor at sites.price (publisher payout).
+     * Bulk packs do not apply on qty 1, so they are omitted.
+     */
+    public function buyerPaySql(?ListingMoney $listing = null): string
+    {
+        $list = '('.$this->advertiserFacingSql($listing).')';
+        $pct = $this->activeCustomDiscountPercentSql();
+        if ($pct === null) {
+            return $list;
+        }
+
+        $discounted = "ROUND({$list} - ROUND({$list} * {$pct} / 100, 2), 2)";
+
+        return "(CASE WHEN {$discounted} < price THEN price WHEN {$discounted} < 0 THEN 0 ELSE {$discounted} END)";
+    }
+
+    public function activeCustomDiscountPercentSql(): ?string
+    {
+        if (! Site::hasSitesColumn('custom_discount_percent')) {
+            return null;
+        }
+
+        $now = now()->format('Y-m-d H:i:s');
+        $ceil = Site::PLAUSIBLE_SQL_DATETIME_CEIL;
+        $floor = Site::PLAUSIBLE_SQL_DATETIME_FLOOR;
+
+        return '(CASE WHEN custom_discount_percent IS NOT NULL'
+            .' AND custom_discount_percent > 0'
+            .' AND custom_discount_ends_at IS NOT NULL'
+            ." AND custom_discount_ends_at > '{$now}'"
+            ." AND custom_discount_ends_at <= '{$ceil}'"
+            .' AND (custom_discount_starts_at IS NULL'
+            ." OR (custom_discount_starts_at <= '{$now}'"
+            ." AND custom_discount_starts_at >= '{$floor}'"
+            ." AND custom_discount_starts_at <= '{$ceil}'))"
+            .' THEN custom_discount_percent ELSE 0 END)';
     }
 
     /**
@@ -47,7 +89,7 @@ class CatalogAdvertiserPriceFilter
             return;
         }
 
-        $sql = '('.$this->advertiserFacingSql($listing).')';
+        $sql = '('.$this->buyerPaySql($listing).')';
         if ($min !== null) {
             $query->whereRaw($sql.' >= ?', [$min]);
         }
@@ -75,22 +117,16 @@ class CatalogAdvertiserPriceFilter
     public function phpMatchingIdsFrom($query, ?float $min, ?float $max, ?ListingMoney $listing = null): array
     {
         $listing ??= $this->listing;
-        $fees = $this->fees;
         $buyer = $listing->buyerCurrency();
-        $columns = ['id', 'price'];
-        if (Schema::hasColumn('sites', 'listing_currency')) {
-            $columns[] = 'listing_currency';
-        }
+        $columns = $this->phpPriceColumns();
 
         $rows = $query instanceof Builder
             ? (clone $query)->get($columns)
             : Site::query()->get($columns);
 
         return $rows
-            ->filter(function (Site $site) use ($listing, $fees, $buyer, $min, $max): bool {
-                $advertiser = $fees->advertiserBase(
-                    $listing->buyerFacingEuros((float) $site->price, $site->listingCurrency(), $buyer)
-                );
+            ->filter(function (Site $site) use ($buyer, $min, $max): bool {
+                $advertiser = $this->phpBuyerPay($site, $buyer);
                 if ($min !== null && $advertiser < $min) {
                     return false;
                 }
@@ -118,32 +154,45 @@ class CatalogAdvertiserPriceFilter
             return Site::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
         }
 
-        $listing ??= $this->listing;
-        $fees = $this->fees;
-        $buyer = $listing->buyerCurrency();
+        return $this->phpMatchingIdsFrom(Site::query(), $min, $max, $listing);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function phpPriceColumns(): array
+    {
         $columns = ['id', 'price'];
-        if (Schema::hasColumn('sites', 'listing_currency')) {
-            $columns[] = 'listing_currency';
+        foreach ([
+            'listing_currency',
+            'listing_price',
+            'custom_discount_percent',
+            'custom_discount_starts_at',
+            'custom_discount_ends_at',
+            'bulk_discount_enabled',
+            'bulk_discount_percent',
+        ] as $column) {
+            if (Schema::hasColumn('sites', $column)) {
+                $columns[] = $column;
+            }
         }
 
-        return Site::query()
-            ->get($columns)
-            ->filter(function (Site $site) use ($listing, $fees, $buyer, $min, $max): bool {
-                $advertiser = $fees->advertiserBase(
-                    $listing->buyerFacingEuros((float) $site->price, $site->listingCurrency(), $buyer)
-                );
-                if ($min !== null && $advertiser < $min) {
-                    return false;
-                }
-                if ($max !== null && $advertiser > $max) {
-                    return false;
-                }
+        return $columns;
+    }
 
-                return true;
-            })
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
+    public function phpBuyerPay(Site $site, ?string $buyerCurrency = null): float
+    {
+        try {
+            $pricing = $site->advertiserCatalogPricing(null, 1, $buyerCurrency);
+
+            return round((float) $pricing['article_total'], 2);
+        } catch (\Throwable) {
+            $listing = $this->listing;
+            $buyer = $buyerCurrency ?? $listing->buyerCurrency();
+
+            return $this->fees->advertiserBase(
+                $listing->buyerFacingEuros((float) $site->price, $site->listingCurrency(), $buyer)
+            );
+        }
     }
 }

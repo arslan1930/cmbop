@@ -241,7 +241,7 @@ class CommunityFeedbackTest extends TestCase
         $this->assertSame('Owned News Daily', $claim->website_name);
     }
 
-    public function test_catalog_and_publisher_sites_both_expose_claim_entry_points(): void
+    public function test_publisher_sites_expose_claim_and_advertiser_catalog_does_not(): void
     {
         $owner = $this->userWithRole('publisher');
         $advertiser = $this->userWithRole('advertiser');
@@ -251,9 +251,9 @@ class CommunityFeedbackTest extends TestCase
             ->get(route('advertiser.catalog'))
             ->assertOk()
             ->getContent();
-        $this->assertStringContainsString('btn-claim-site', $catalog);
-        $this->assertStringContainsString('siteClaim', $catalog);
-        $this->assertMatchesRegularExpression('#advertiser\\\\?/sites\\\\?/claim#', $catalog);
+        $this->assertStringNotContainsString('btn-claim-site', $catalog);
+        $this->assertStringNotContainsString('Claim website', $catalog);
+        $this->assertStringNotContainsString('Is this your site?', $catalog);
 
         // Publishers can also claim via My Sites (URL + exact listing name form).
         $publisherPage = $this->actingAs($owner)

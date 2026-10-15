@@ -115,7 +115,9 @@ class CatalogUxHoverTest extends TestCase
         $this->assertStringNotContainsString('Browse verified publishers', $html);
         $this->assertStringNotContainsString('fw-semibold">Catalog</h2>', $html);
         $this->assertStringContainsString('Browse publisher listings', $html);
-        $this->assertStringContainsString('class="expand-arrow visually-hidden"', $html);
+        $this->assertStringContainsString('expand-arrow catalog-details-toggle', $html);
+        $this->assertStringContainsString('catalog-details-toggle__label">Details', $html);
+        $this->assertStringNotContainsString('class="expand-arrow visually-hidden"', $html);
         $this->assertStringContainsString('catalog-card-details-toggle', $html);
     }
 
@@ -546,7 +548,7 @@ class CatalogUxHoverTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Leftover Trust Claim', $html);
-        $this->assertStringContainsString('btn-claim-site', $html);
+        $this->assertStringNotContainsString('btn-claim-site', $html);
         $this->assertStringNotContainsString('javascript:alert', $html);
         $this->assertStringNotContainsString('site-trust-chip', $html);
         $this->assertStringNotContainsString('???', $html);

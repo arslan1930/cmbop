@@ -44,6 +44,10 @@
         || request()->input('bulk_deals') == '1'
         || request()->input('on_sale') == '1'
         || request()->input('featured') == '1'
+        || request()->filled('link_type')
+        || request()->filled('turnaround_max')
+        || request()->input('sensitive_topics') == '1'
+        || request()->input('google_news') == '1'
         || \App\Services\Catalog\CatalogUrlQuery::perPage(request())
             !== \App\Services\Catalog\CatalogUrlQuery::DEFAULT_PER_PAGE
     );
@@ -109,7 +113,8 @@
                  data-status-text="{{ $catalogResultsStatus['text'] }}"
                  data-status-announce="{{ $catalogResultsStatus['announce'] }}">
                 <div class="catalog-results-busy" hidden aria-hidden="true">
-                    <span class="catalog-results-busy__label visually-hidden">Updating results…</span>
+                    <span class="catalog-results-busy__dot" aria-hidden="true"></span>
+                    <span class="catalog-results-busy__label">Updating results…</span>
                 </div>
                 <div class="card-body p-0">
                     
@@ -285,12 +290,6 @@
                     @include('advertiser.partials.catalog-new-ribbon', ['isNew' => $isNew])
 
                     <div class="catalog-site-stack catalog-site-stack--tiled">
-                        <button type="button"
-                                class="expand-arrow visually-hidden"
-                                id="arrow-{{ $site->id }}"
-                                aria-label="Show details for {{ $identityLabel }}"
-                                aria-expanded="false"
-                                aria-controls="site-details-{{ $site->id }}"></button>
                         @include('advertiser.partials.catalog-site-tile', [
                             'label' => $displayHost,
                             'alt' => $displayName !== '' ? $displayName : $displayHost,
@@ -352,6 +351,17 @@
                                         </button>
                                     @endif
                                 </span>
+                                <span class="catalog-site-actions">
+                                    <button type="button"
+                                            class="expand-arrow catalog-details-toggle"
+                                            id="arrow-{{ $site->id }}"
+                                            aria-label="Show details for {{ $identityLabel }}"
+                                            aria-expanded="false"
+                                            aria-controls="site-details-{{ $site->id }}">
+                                        <span class="catalog-details-toggle__label">Details</span>
+                                        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                    </button>
+                                </span>
 
                             </span>
                         </div>
@@ -368,6 +378,10 @@
                                     'defaultHomepageDays' => $defaultHomepageDays,
                                     'socialChannels' => $socialChannels,
                                     'socialChannelLabels' => $socialChannelLabels,
+                                    'openDetailsId' => (string) $site->id,
+                                ])
+                                @include('advertiser.partials.catalog-sensitive-chip', [
+                                    'sensitivePrices' => $sensitivePrices,
                                     'openDetailsId' => (string) $site->id,
                                 ])
                                 @include('advertiser.partials.catalog-site-tools')
@@ -393,10 +407,13 @@
                                 $dealBulkPct = $site->joinsBulkDiscount()
                                     ? (float) $site->bulk_discount_percent
                                     : null;
-                                $showSaleChip = $dealCustomPct !== null && $catalogSalePctDisplay;
+                                $dealSaleChipPct = \App\Support\CatalogSaleBadge::percent(
+                                    (float) $catalogListPrice,
+                                    (float) $articlePay
+                                );
+                                $showSaleChip = $dealCustomPct !== null && $dealSaleChipPct !== null;
                                 $showBulkChip = $dealBulkPct !== null
                                     && ($dealCustomPct === null || $dealBulkPct > (float) $dealCustomPct);
-                                $dealSaleChipPct = $catalogSalePctDisplay;
                                 $dealBulkChipPct = $dealBulkPct;
                                 if ($showBulkChip) {
                                     // $site->price is already advertiser-facing; reprice from
@@ -675,6 +692,7 @@
                     <div class="col-lg-3 col-md-6 catalog-expand-pricing">
                         <div class="d-flex flex-column gap-2">
                                 @if($hasSensitiveExtras)
+                                <div data-catalog-section="sensitive">
                                 <p class="mb-0 catalog-details-heading">
                                     <strong>Sensitive topics</strong>
                                     <x-glass-tip
@@ -739,6 +757,7 @@
                                             </label>
                                         </div>
                                     @endforeach
+                                </div>
                                 </div>
                                 @endif
 
@@ -940,14 +959,6 @@
                                 {{ $site->publicationDurationLabel() }}
                             </span>
                         @endif
-
-                        @include('advertiser.partials.catalog-claim', [
-                            'site' => $site,
-                            'displayName' => $displayName,
-                            'identityLabel' => $identityLabel,
-                            'canSeeUrl' => $canSeeUrl,
-                            'isOwnedByMe' => $isOwnedByMe,
-                        ])
                     </div>
 
                 </div>
@@ -1101,6 +1112,10 @@
                             'socialChannelLabels' => $socialChannelLabels,
                             'openDetailsId' => (string) $site->id,
                         ])
+                        @include('advertiser.partials.catalog-sensitive-chip', [
+                            'sensitivePrices' => $mobileSensitivePrices,
+                            'openDetailsId' => (string) $site->id,
+                        ])
                         @include('advertiser.partials.catalog-site-tools')
                         @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                     </div>
@@ -1116,10 +1131,13 @@
                             $mobileBulkPct = $site->joinsBulkDiscount()
                                 ? (float) $site->bulk_discount_percent
                                 : null;
-                            $showMobileSaleChip = $mobileCustomPct !== null && $catalogSalePctDisplay;
+                            $mobileSaleChipPct = \App\Support\CatalogSaleBadge::percent(
+                                (float) $catalogListPrice,
+                                (float) $articlePay
+                            );
+                            $showMobileSaleChip = $mobileCustomPct !== null && $mobileSaleChipPct !== null;
                             $showMobileBulkChip = $mobileBulkPct !== null
                                 && ($mobileCustomPct === null || $mobileBulkPct > (float) $mobileCustomPct);
-                            $mobileSaleChipPct = $catalogSalePctDisplay;
                             $mobileBulkChipPct = $mobileBulkPct;
                             if ($showMobileBulkChip) {
                                 // $site->price is already advertiser-facing; reprice from
@@ -1207,6 +1225,7 @@
             </div>
             @if(!empty($mobileSensitivePrices))
                 <div class="sensitive-prices-group mt-3"
+                     data-catalog-section="sensitive"
                      data-site-id="{{ $site->id }}"
                      data-base-price="{{ $catalogListPrice }}"
                      data-publisher-price="{{ $catalogPublisherPrice }}"
@@ -1624,20 +1643,6 @@
                     </dd>
                 </div>
                 @endif
-                @unless($isOwnedByMe)
-                <div class="catalog-card-details__row">
-                    <dt>Claim listing</dt>
-                    <dd>
-                        @include('advertiser.partials.catalog-claim', [
-                            'site' => $site,
-                            'displayName' => $displayName,
-                            'identityLabel' => $identityLabel,
-                            'canSeeUrl' => $canSeeUrl,
-                            'isOwnedByMe' => $isOwnedByMe,
-                        ])
-                    </dd>
-                </div>
-                @endunless
             </dl>
         </article>
     @empty
@@ -1683,10 +1688,20 @@
                             ])
                         </div>
                         <p class="catalog-pagination__meta">
+                            @if($sites->firstItem())
                             Showing
                             <strong>{{ $sites->firstItem() }}–{{ $sites->lastItem() }}</strong>
                             of <strong>{{ number_format($resultTotal) }}</strong>
                             {{ Str::plural('site', $resultTotal) }}
+                            @else
+                            @php
+                                $missingPageQuery = \App\Services\Catalog\CatalogUrlQuery::except(request()->all(), ['page']);
+                                if (($resultLastPage ?? 1) > 1) {
+                                    $missingPageQuery['page'] = (string) $resultLastPage;
+                                }
+                            @endphp
+                            <a href="{{ route('advertiser.catalog', $missingPageQuery) }}">This page doesn’t exist — view the last page of results</a>
+                            @endif
                             @if($sites->lastPage() > 1)
                             <span class="catalog-pagination__page-label" aria-hidden="true">
                                 · Page {{ $sites->currentPage() }} of {{ $sites->lastPage() }}

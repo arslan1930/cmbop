@@ -32,6 +32,9 @@ class CatalogFilterA11yTest extends TestCase
         $this->assertStringContainsString('for="new_badge"', $blade);
         $this->assertStringContainsString('for="catalogQualityGate"', $blade);
         $this->assertStringContainsString('for="catalogHasCompletions"', $blade);
+        $this->assertStringContainsString('for="catalogSensitiveTopics"', $blade);
+        $this->assertStringContainsString('for="catalogLinkType-trigger"', $blade);
+        $this->assertStringContainsString('for="catalogTurnaroundMax-trigger"', $blade);
         $this->assertStringContainsString('aria-label="More filters"', $blade);
         $this->assertStringContainsString('data-type="category"', $blade);
         $this->assertStringContainsString('data-type="country"', $blade);

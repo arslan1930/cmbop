@@ -46,6 +46,10 @@ class CatalogUrlQueryTest extends TestCase
     public function test_per_page_is_allowlisted_clamped_and_default_omitted(): void
     {
         $this->assertContains('per_page', CatalogUrlQuery::KEYS);
+        $this->assertContains('link_type', CatalogUrlQuery::KEYS);
+        $this->assertContains('turnaround_max', CatalogUrlQuery::KEYS);
+        $this->assertContains('sensitive_topics', CatalogUrlQuery::KEYS);
+        $this->assertContains('google_news', CatalogUrlQuery::KEYS);
         $this->assertSame(20, CatalogUrlQuery::perPage(['per_page' => '20']));
         $this->assertSame(10, CatalogUrlQuery::perPage(['per_page' => '10']));
         $this->assertSame(50, CatalogUrlQuery::perPage(['per_page' => '50']));

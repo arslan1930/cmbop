@@ -440,10 +440,10 @@ class CatalogVisualLanguageTest extends TestCase
         $html = $this->catalogHtml();
         $js = (string) file_get_contents(public_path('assets/js/catalog.js'));
 
-        // Closed table rows have no Details / Hide details label. Cards keep
-        // the labelled disclosure; the table expand control stays visually hidden.
-        $this->assertStringNotContainsString('expand-arrow catalog-details-toggle', $html);
-        $this->assertStringContainsString('class="expand-arrow visually-hidden"', $html);
+        // Closed table rows and cards both expose a labelled Details control.
+        $this->assertStringContainsString('expand-arrow catalog-details-toggle', $html);
+        $this->assertStringNotContainsString('class="expand-arrow visually-hidden"', $html);
+        $this->assertStringContainsString('catalog-details-toggle__label">Details', $html);
         $this->assertStringContainsString('catalog-card-details-toggle', $html);
         $this->assertStringContainsString('function setCatalogDetailsToggleState(', $js);
     }

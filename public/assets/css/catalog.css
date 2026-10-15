@@ -2216,6 +2216,12 @@ a.bulk-deal-card__url:hover {
     border: 1px solid #99f6e4;
 }
 
+.site-chip--sensitive {
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fdba74;
+}
+
 .site-chip--social {
     background: #eff6ff;
     color: #1d4ed8;
@@ -2381,20 +2387,43 @@ a.bulk-deal-card__url:hover {
     margin: 0 auto 0.85rem;
 }
 
-/* Live search/filter covers the results while the fragment loads so the click
-   has an answer instead of looking dead. */
+/* Live search/filter: small non-blocking pill. Rows stay clickable (PR #1293
+   busy-state guards still clear the overlay; this is just the paint). */
 .catalog-results-card {
     position: relative;
 }
 
 .catalog-results-busy {
     position: absolute;
-    inset: 0;
+    top: 10px;
+    right: 12px;
     z-index: 4;
     display: none;
     pointer-events: none;
-    border-radius: inherit;
-    background: rgba(255, 255, 255, 0.12);
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(26, 88, 94, 0.18);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+    color: #1a585e;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.catalog-results-busy__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #1a585e;
+    animation: catalog-busy-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes catalog-busy-pulse {
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1); }
 }
 
 /* Belt-and-suspenders: without catalog.css a plain div is display:block and
@@ -2404,23 +2433,17 @@ a.bulk-deal-card__url:hover {
 }
 
 .catalog-results-card.is-busy .catalog-results-busy {
-    display: flex;
+    display: inline-flex;
 }
 
 .catalog-results-card.is-busy .catalog-results-busy[hidden] {
-    display: flex !important;
-}
-
-/* Stale rows must not stay clickable under the veil (Buy / heart / etc.). */
-.catalog-results-card.is-busy > .card-body {
-    pointer-events: none;
-    user-select: none;
-    opacity: 0.92;
+    display: inline-flex !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .catalog-results-card.is-busy > .card-body {
-        opacity: 1;
+    .catalog-results-busy__dot {
+        animation: none;
+        opacity: 0.8;
     }
 }
 
@@ -2508,11 +2531,7 @@ a.bulk-deal-card__url:hover {
 }
 
 .catalog-site-stack--tiled > .expand-arrow {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    display: none;
 }
 
 .catalog-site-stack--tiled > .catalog-tile {

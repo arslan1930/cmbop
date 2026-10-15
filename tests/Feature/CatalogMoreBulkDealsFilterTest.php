@@ -175,12 +175,12 @@ class CatalogMoreBulkDealsFilterTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // Listing rows use data-site-name; the Spendable rail uses bulk-deal-card__name
-        // and can still show bulk pack sites when on_sale alone is active.
-        $this->assertStringContainsString('data-site-name="Sale Only Site"', $filtered);
-        $this->assertStringContainsString('data-site-name="Both Promo Site"', $filtered);
-        $this->assertStringNotContainsString('data-site-name="Bulk Only Site"', $filtered);
-        $this->assertStringNotContainsString('data-site-name="Expired Sale Site"', $filtered);
+        // Listing rows: tr.site-row data-name. The Spendable rail also uses
+        // data-name and can still show bulk pack sites when on_sale is on.
+        $this->assertMatchesRegularExpression('/<tr class="site-row[^"]*"[\s\S]{0,400}data-name="Sale Only Site"/', $filtered);
+        $this->assertMatchesRegularExpression('/<tr class="site-row[^"]*"[\s\S]{0,400}data-name="Both Promo Site"/', $filtered);
+        $this->assertDoesNotMatchRegularExpression('/<tr class="site-row[^"]*"[\s\S]{0,400}data-name="Bulk Only Site"/', $filtered);
+        $this->assertDoesNotMatchRegularExpression('/<tr class="site-row[^"]*"[\s\S]{0,400}data-name="Expired Sale Site"/', $filtered);
         $this->assertStringContainsString('>On sale<', $filtered);
         $this->assertMatchesRegularExpression(
             '/type="checkbox" name="on_sale"[^>]*checked/s',
@@ -224,9 +224,9 @@ class CatalogMoreBulkDealsFilterTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('data-site-name="Live Sale Site"', $filtered);
-        $this->assertStringNotContainsString('data-site-name="Garbage Ends Site"', $filtered);
-        $this->assertStringNotContainsString('data-site-name="Garbage Starts Site"', $filtered);
+        $this->assertStringContainsString('data-name="Live Sale Site"', $filtered);
+        $this->assertStringNotContainsString('data-name="Garbage Ends Site"', $filtered);
+        $this->assertStringNotContainsString('data-name="Garbage Starts Site"', $filtered);
     }
 
     public function test_featured_sort_does_not_promote_unparseable_featured_until(): void
@@ -251,8 +251,8 @@ class CatalogMoreBulkDealsFilterTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $highPos = strpos($html, 'data-site-name="High Dr Site"');
-        $leftoverPos = strpos($html, 'data-site-name="Leftover Featured Site"');
+        $highPos = strpos($html, 'data-name="High Dr Site"');
+        $leftoverPos = strpos($html, 'data-name="Leftover Featured Site"');
         $this->assertNotFalse($highPos);
         $this->assertNotFalse($leftoverPos);
         $this->assertLessThan($leftoverPos, $highPos);
@@ -310,7 +310,7 @@ class CatalogMoreBulkDealsFilterTest extends TestCase
             $js
         );
         $this->assertMatchesRegularExpression(
-            '/\[\'tag\', \'favorites_filter\', \'blacklist_filter\'\]/',
+            '/\[\'tag\', \'favorites_filter\', \'blacklist_filter\', \'publication_time\', \'link_type\', \'turnaround_max\'\]/',
             $js
         );
         $this->assertStringContainsString('id="bulk_deals"', $blade);
