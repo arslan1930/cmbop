@@ -1362,6 +1362,15 @@
                                 <p class="small text-muted mb-0 mt-1" id="listingPricePreview" data-listing-price-preview></p>
                             </div>
                             <div class="col-md-4">
+                                <label class="form-label" for="writing_fee">Publisher writing fee</label>
+                                <input type="number" name="writing_fee" id="writing_fee" class="form-control" min="0" step="0.01" value="{{ old_text('writing_fee') }}" placeholder="Leave blank for default">
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="writing_disabled" value="1" id="writing_disabled" {{ old('writing_disabled') ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="writing_disabled">I do not write articles for advertisers</label>
+                                </div>
+                                <p class="small text-muted mb-0 mt-1">Default €25 for English listings and €35 for other languages when unset. Advertisers choose this at checkout; you keep the writing fee.</p>
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label">Publication Duration <span class="req" aria-hidden="true">*</span></label>
                                 @php $publicationDefault = old('publicationTime', \App\Support\PublicationDuration::DEFAULT); @endphp
                                 <select name="publicationTime" id="publicationTime" class="form-select" required>
@@ -3456,6 +3465,8 @@ function prefillSiteForm(site) {
     $('#dr').val(site.dr);
     $('#traffic').val(site.traffic);
     $('#price').val(site.price);
+    $('#writing_fee').val(site.writing_fee || '');
+    $('#writing_disabled').prop('checked', site.writing_enabled === false);
     if (site.price_input_currency) {
         $('#price_input_currency').val(site.price_input_currency);
         if (typeof syncListingPricePreview === 'function') {

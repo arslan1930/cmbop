@@ -242,6 +242,8 @@
                         </div>
                     </div>
 
+                    @include('advertiser.partials.checkout-addons', ['cartItems' => $cartItems])
+
                     @php
                         $checkoutProjects = $checkoutProjects ?? collect();
                         $checkoutSelectedProjectId = $checkoutSelectedProjectId ?? null;
@@ -768,6 +770,14 @@
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Subtotal:</span>
                                 <span id="subtotal">{{ format_money_pay($total) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2 d-none" id="writingFeeRow">
+                                <span class="text-muted">Publisher writing:</span>
+                                <span id="writingFeeAmount">€0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2 d-none" id="guaranteeFeeRow">
+                                <span class="text-muted">12-month link guarantee:</span>
+                                <span id="guaranteeFeeAmount">€0.00</span>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Tax (0%):</span>
@@ -1364,7 +1374,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (bankDetails) bankDetails.style.display = 'none';
     
     let selectedMethod = null;
-    const totalAmount = {{ (float) $total }};
+    const baseTotalAmount = {{ (float) $total }};
+    let totalAmount = baseTotalAmount;
+    const guaranteePercent = {{ (float) app(\App\Services\Marketplace\CheckoutAddOnService::class)->guaranteePercent() }};
     const walletCash = {{ (float) ($checkoutCashBalance ?? 0) }};
     const walletBonus = {{ (float) ($checkoutBonusBalance ?? 0) }};
     const walletSpendable = {{ (float) ($checkoutSpendableBalance ?? 0) }};
@@ -1373,6 +1385,52 @@ document.addEventListener('DOMContentLoaded', function() {
     const bonusAppliedAmount = document.getElementById('bonusAppliedAmount');
     const grandTotalEl = document.getElementById('grandTotal');
     const walletAmountDueEl = document.getElementById('walletAmountDue');
+
+    function writingFeeTotal() {
+        let extra = 0;
+        document.querySelectorAll('.checkout-writing-line').forEach(function (line) {
+            const publisher = line.querySelector('input.checkout-content-source[value="publisher"]');
+            if (publisher && publisher.checked) {
+                extra += parseFloat(line.getAttribute('data-writing-fee') || '0') || 0;
+            }
+        });
+        return Math.round(extra * 100) / 100;
+    }
+    function placementTotal() {
+        return Math.round((baseTotalAmount + writingFeeTotal()) * 100) / 100;
+    }
+    function guaranteeFee() {
+        const box = document.getElementById('linkGuarantee');
+        if (!box || !box.checked) return 0;
+        return Math.round(placementTotal() * (guaranteePercent / 100) * 100) / 100;
+    }
+    function refreshAddOnTotals() {
+        totalAmount = Math.round((placementTotal() + guaranteeFee()) * 100) / 100;
+        const writingRow = document.getElementById('writingFeeRow');
+        const writingAmt = document.getElementById('writingFeeAmount');
+        const gRow = document.getElementById('guaranteeFeeRow');
+        const gAmt = document.getElementById('guaranteeFeeAmount');
+        const writing = writingFeeTotal();
+        const guarantee = guaranteeFee();
+        if (writingRow && writingAmt) {
+            writingRow.classList.toggle('d-none', writing <= 0);
+            writingAmt.textContent = moneyFmt(writing);
+        }
+        if (gRow && gAmt) {
+            gRow.classList.toggle('d-none', guarantee <= 0);
+            gAmt.textContent = moneyFmt(guarantee);
+        }
+        const sub = document.getElementById('subtotal');
+        if (sub) sub.textContent = moneyFmt(placementTotal());
+        document.querySelectorAll('.checkout-writing-line').forEach(function (line) {
+            const brief = line.querySelector('.checkout-writing-brief');
+            const publisher = line.querySelector('input.checkout-content-source[value="publisher"]');
+            if (brief) brief.classList.toggle('d-none', !(publisher && publisher.checked));
+            const target = line.querySelector('.checkout-writing-target');
+            if (target) target.required = !!(publisher && publisher.checked);
+        });
+        refreshBonusUi();
+    }
 
     function bonusToApply() {
         if (!useBonusEl || !useBonusEl.checked || walletBonus <= 0) return 0;
@@ -1454,7 +1512,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (useBonusEl) {
         useBonusEl.addEventListener('change', refreshBonusUi);
     }
-    refreshBonusUi();
+    document.querySelectorAll('.checkout-content-source').forEach(function (el) {
+        el.addEventListener('change', refreshAddOnTotals);
+    });
+    const guaranteeBox = document.getElementById('linkGuarantee');
+    if (guaranteeBox) guaranteeBox.addEventListener('change', refreshAddOnTotals);
+    refreshAddOnTotals();
 
     paymentOptions.forEach(option => {
         option.addEventListener('keydown', function(e) {
@@ -1677,6 +1740,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 payment_method: selectedMethod,
                 reference_code: referenceCode,
                 use_bonus: !!(useBonusEl && useBonusEl.checked),
+                link_guarantee: !!(document.getElementById('linkGuarantee') && document.getElementById('linkGuarantee').checked),
+                content_source: (function () {
+                    const out = {};
+                    document.querySelectorAll('.checkout-writing-line').forEach(function (line) {
+                        const picked = line.querySelector('input.checkout-content-source:checked');
+                        const siteId = line.getAttribute('data-site-id');
+                        if (siteId && picked) out[siteId] = picked.value;
+                    });
+                    return out;
+                })(),
+                writing_brief: (function () {
+                    const out = {};
+                    document.querySelectorAll('.checkout-writing-line').forEach(function (line) {
+                        const siteId = line.getAttribute('data-site-id');
+                        const target = line.querySelector('.checkout-writing-target');
+                        const anchor = line.querySelector('input[name*="[anchor_text]"]');
+                        if (siteId) {
+                            out[siteId] = {
+                                target_url: target ? target.value : '',
+                                anchor_text: anchor ? anchor.value : ''
+                            };
+                        }
+                    });
+                    return out;
+                })(),
                 publication_mode: schedule.publication_mode,
                 scheduled_date: schedule.scheduled_date || null,
                 scheduled_time: schedule.scheduled_time || null,

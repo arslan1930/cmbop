@@ -5,6 +5,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\ToleratesUnparseableDates;
+use App\Services\Marketplace\CheckoutAddOnService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -46,6 +47,14 @@ class Order extends Model
         'sensitive_type',
         'additional_price',
         'project_id',
+        'link_guarantee',
+        'link_guarantee_fee',
+        'link_guarantee_covered_amount',
+        'link_guarantee_status',
+        'link_guarantee_starts_at',
+        'link_guarantee_ends_at',
+        'link_guarantee_restore_due_at',
+        'link_guarantee_refunded_at',
     ];
 
     protected $casts = [
@@ -62,11 +71,31 @@ class Order extends Model
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'link_guarantee' => 'boolean',
+        'link_guarantee_fee' => 'decimal:2',
+        'link_guarantee_covered_amount' => 'decimal:2',
+        'link_guarantee_starts_at' => 'datetime',
+        'link_guarantee_ends_at' => 'datetime',
+        'link_guarantee_restore_due_at' => 'datetime',
+        'link_guarantee_refunded_at' => 'datetime',
     ];
 
     public function isScheduled(): bool
     {
         return $this->status === 'scheduled' || $this->publication_mode === 'scheduled';
+    }
+
+    public function linkGuaranteeTermsNote(): string
+    {
+        if (! $this->link_guarantee) {
+            return '';
+        }
+
+        try {
+            return app(CheckoutAddOnService::class)->termsText();
+        } catch (\Throwable) {
+            return 'Optional 12-month link guarantee: monthly URL checks, 7 days to restore a missing hyperlink, then a wallet refund of the guaranteed placement amount.';
+        }
     }
 
     /**

@@ -117,6 +117,8 @@
             'linkAll' => true,
             'contentRoute' => route('advertiser.content-library'),
             'actions' => '<button type="button" class="catalog-plain-action" onclick="openCart()"><i class="fa fa-shopping-cart" aria-hidden="true"></i> Open cart</button>'
+                .'<a href="'.e(route('advertiser.catalog.export', \App\Services\Catalog\CatalogUrlQuery::fromRequest(request()))).'" class="catalog-plain-action"><i class="fa fa-file-csv" aria-hidden="true"></i> Export CSV</a>'
+                .'<button type="button" class="catalog-plain-action" data-bs-toggle="modal" data-bs-target="#saveSearchModal"><i class="fa fa-bookmark" aria-hidden="true"></i> Save search</button>'
                 .'<a href="'.e(route('advertiser.wizard.start')).'" class="catalog-plain-action"><i class="fa fa-compass" aria-hidden="true"></i> Guided</a>',
         ])
     @endif
@@ -860,6 +862,13 @@
                 </div>
                 <div id="catalogLiveStatus" class="visually-hidden" aria-live="polite" aria-atomic="true">{{ $catalogResultsCopy['announce'] }}</div>
                 <div class="d-flex flex-wrap align-items-center gap-2">
+                    <a href="{{ route('advertiser.catalog.export', \App\Services\Catalog\CatalogUrlQuery::fromRequest(request())) }}"
+                       class="btn btn-sm btn-outline-secondary">
+                        <i class="fa fa-file-csv me-1" aria-hidden="true"></i> Export CSV
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#saveSearchModal">
+                        <i class="fa fa-bookmark me-1" aria-hidden="true"></i> Save search
+                    </button>
                     <button type="button" class="btn btn-sm btn-outline-success btn-suggest-website"
                             data-search="{{ $catalogSearchText }}">
                         <i class="fa-solid fa-lightbulb me-1" aria-hidden="true"></i> Suggest a website
@@ -946,5 +955,6 @@ window.CatalogConfig = {
 </script>
 <script src="{{ asset('assets/js/single-select.js') }}?v={{ @filemtime(public_path('assets/js/single-select.js')) ?: '1' }}" defer></script>
 <script src="{{ asset('assets/js/catalog.js') }}?v={{ @filemtime(public_path('assets/js/catalog.js')) ?: '1' }}" defer></script>
+@include('advertiser.partials.catalog-save-search-modal')
 
 @endsection

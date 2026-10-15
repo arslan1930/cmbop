@@ -499,6 +499,13 @@ class BillingDocumentService
             if (! empty($item->sensitive_type)) {
                 $service .= ' (+ '.$item->sensitive_type.')';
             }
+            if (($item->content_source ?? '') === 'publisher' && (float) ($item->writing_fee ?? 0) > 0) {
+                $service .= ' + publisher-written article';
+            }
+            $order = $item->relationLoaded('order') ? $item->order : $item->order()->first();
+            if ($order && $order->link_guarantee) {
+                $service .= ' + 12-month link guarantee';
+            }
 
             return [
                 'description' => $service,

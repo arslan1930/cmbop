@@ -91,6 +91,9 @@
         <a href="{{ route('admin.orders.index') }}" class="{{ request()->routeIs('admin.orders.*') ? 'active' : '' }}">
             <i class="fa fa-shopping-bag"></i> <span>Orders</span>
         </a>
+        <a href="{{ route('admin.link-guarantees.index') }}" class="{{ request()->routeIs('admin.link-guarantees*') ? 'active' : '' }}">
+            <i class="fa fa-link"></i> <span>Link guarantees</span>
+        </a>
         @endif
         <a href="{{ staff_route('sites.index') }}" class="{{ request()->routeIs($staffPrefix.'sites.*') ? 'active' : '' }}" title="Sites Management — all publishers">
             <i class="fa fa-globe"></i>

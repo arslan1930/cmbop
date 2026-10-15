@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\EmailCenterController as AdminEmailCenterControll
 // Publisher and Advertiser controllers
 use App\Http\Controllers\Admin\FinanceController as AdminFinanceController;
 use App\Http\Controllers\Admin\InvoiceController as AdminInvoiceController;
+use App\Http\Controllers\Admin\LinkGuaranteeController as AdminLinkGuaranteeController;
 use App\Http\Controllers\Admin\OnDemandContactController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\OrderDisputeController as AdminOrderDisputeController;
@@ -37,6 +38,7 @@ use App\Http\Controllers\Advertiser\ApiSettingsController;
 use App\Http\Controllers\Advertiser\BillingController as AdvertiserBillingController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\CatalogCopyTrackController;
+use App\Http\Controllers\Advertiser\CatalogExportController;
 use App\Http\Controllers\Advertiser\CatalogFaviconController;
 use App\Http\Controllers\Advertiser\CatalogListingController;
 use App\Http\Controllers\Advertiser\ContentLibraryController;
@@ -47,6 +49,7 @@ use App\Http\Controllers\Advertiser\GuestPostWizardController;
 use App\Http\Controllers\Advertiser\PaymentMethodController;
 use App\Http\Controllers\Advertiser\ProjectController;
 use App\Http\Controllers\Advertiser\ReportsController;
+use App\Http\Controllers\Advertiser\SavedSearchController;
 use App\Http\Controllers\Advertiser\SavedSitesController;
 use App\Http\Controllers\Advertiser\ScheduledOrdersController;
 use App\Http\Controllers\Advertiser\SiteUrlConcealController;
@@ -1386,6 +1389,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::get('/activity-logs/export', [AdminActivityLogController::class, 'export'])
             ->name('activity-logs.export');
 
+        Route::get('/link-guarantees', [AdminLinkGuaranteeController::class, 'index'])
+            ->name('link-guarantees.index');
         Route::get('/catalog-activity', [AdminCatalogActivityController::class, 'index'])
             ->name('catalog-activity');
         Route::get('/catalog-activity/{user}', [AdminCatalogActivityController::class, 'show'])
@@ -1794,6 +1799,10 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
             ->middleware('throttle:60,1,catalog-bulk-deals')
             ->name('catalog.bulk-deals');
 
+        Route::get('/catalog/export', [CatalogExportController::class, 'export'])
+            ->middleware('throttle:10,1,catalog-export')
+            ->name('catalog.export');
+
         // One publisher domain per request. Throttled on top of the daily
         // allowance so a script cannot burn a funded account's unlimited quota
         // faster than a person could click.
@@ -1854,6 +1863,13 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
             ->name('catalog.site-report.delete');
 
         // Dedicated Saved Sites manager (favorites + blacklist)
+        Route::get('/saved-searches', [SavedSearchController::class, 'index'])->name('saved-searches');
+        Route::post('/saved-searches', [SavedSearchController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('saved-searches.store');
+        Route::delete('/saved-searches/{savedSearch}', [SavedSearchController::class, 'destroy'])
+            ->name('saved-searches.destroy');
+
         Route::get('/saved-sites', [SavedSitesController::class, 'index'])->name('saved-sites');
         Route::post('/saved-sites/favorites/remove', [SavedSitesController::class, 'removeFavorite'])
             ->name('saved-sites.favorites.remove');

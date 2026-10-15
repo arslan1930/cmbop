@@ -18,6 +18,7 @@ use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
+use App\Services\Marketplace\WritingFeeService;
 use App\Support\FasterPublisherPayoutsBlogPost;
 use App\Support\HowToPriceYourSiteBlogPost;
 use App\Support\ListingMoney;
@@ -228,6 +229,8 @@ class SiteController extends Controller
             'categories' => 'required|array|min:1|max:7',
             'price' => 'required|numeric|min:0|max:99999999.99',
             'price_input_currency' => 'nullable|in:EUR,GBP',
+            'writing_fee' => 'nullable|numeric|min:0|max:99999999.99',
+            'writing_disabled' => 'nullable|boolean',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
             'publicationTime' => 'required|string|max:20|'.PublicationDuration::rule(),
             'link_type' => 'required|in:dofollow,nofollow',
@@ -345,6 +348,9 @@ class SiteController extends Controller
                     'listing_price' => $listingFields['listing_price'],
                     'listing_sensitive_prices' => $listingFields['listing_sensitive_prices'],
                     'listing_homepage_prices' => $listingFields['listing_homepage_prices'],
+                    'writing_enabled' => $listingFields['writing_enabled'] ?? true,
+                    'writing_fee' => $listingFields['writing_fee'] ?? null,
+                    'listing_writing_fee' => $listingFields['listing_writing_fee'] ?? null,
                     'turnaround_time' => $request->turnaround_time,
                     'publication_time' => $request->publicationTime,
                     'link_type' => $request->link_type,
@@ -883,6 +889,8 @@ class SiteController extends Controller
                 'homepage_placement_prices' => $this->listingMapNative($site->listingHomepageMap()),
                 'needs_gbp_listing_prompt' => $site->needsGbpListingPrompt(),
                 'proposed_gbp_listing_price' => $site->proposedGbpListingPrice(),
+                'writing_enabled' => $site->writing_enabled !== false,
+                'writing_fee' => $site->listing_writing_fee ?? $site->writing_fee,
                 'social_promotion' => $site->social_promotion ?: new \stdClass,
                 'verified' => (bool) $site->verified,
                 'active' => (bool) $site->active,
@@ -957,6 +965,8 @@ class SiteController extends Controller
             'categories' => 'required|array|min:1|max:7',
             'price' => 'required|numeric|min:0|max:99999999.99',
             'price_input_currency' => 'nullable|in:EUR,GBP',
+            'writing_fee' => 'nullable|numeric|min:0|max:99999999.99',
+            'writing_disabled' => 'nullable|boolean',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
             'publicationTime' => 'required|string|max:20|'.PublicationDuration::rule(),
             'link_type' => 'required|in:dofollow,nofollow',
@@ -1042,6 +1052,9 @@ class SiteController extends Controller
                     'listing_price' => $listingFields['listing_price'],
                     'listing_sensitive_prices' => $listingFields['listing_sensitive_prices'],
                     'listing_homepage_prices' => $listingFields['listing_homepage_prices'],
+                    'writing_enabled' => $listingFields['writing_enabled'] ?? true,
+                    'writing_fee' => $listingFields['writing_fee'] ?? null,
+                    'listing_writing_fee' => $listingFields['listing_writing_fee'] ?? null,
                     'turnaround_time' => $request->turnaround_time,
                     'publication_time' => $request->publicationTime,
                     'link_type' => $request->link_type,
@@ -1373,6 +1386,9 @@ class SiteController extends Controller
         $listingSensitive = $this->collectListingSensitivePrices($request);
         $listingHomepage = $this->collectListingHomepagePrices($request);
 
+        $writing = app(WritingFeeService::class)
+            ->persistenceFromRequest($request, $site ?? new Site, $country);
+
         return [
             'listing_currency' => $currency,
             'listing_price' => $listingPrice,
@@ -1385,6 +1401,9 @@ class SiteController extends Controller
             'homepage_placement_prices' => $listingHomepage !== []
                 ? $listing->mapToEuros($listingHomepage, $currency, false)
                 : [],
+            'writing_enabled' => $writing['writing_enabled'],
+            'writing_fee' => $writing['writing_fee'],
+            'listing_writing_fee' => $writing['listing_writing_fee'],
         ];
     }
 
@@ -1590,6 +1609,8 @@ class SiteController extends Controller
             'price_trading',
             'price_CBD',
             'price_forex',
+            'writing_enabled',
+            'writing_fee',
         ];
 
         $example = [
@@ -1613,6 +1634,8 @@ class SiteController extends Controller
             '',
             '',
             '',
+            '',
+            '1',
             '',
         ];
 

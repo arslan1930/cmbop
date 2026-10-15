@@ -97,14 +97,24 @@ final class AdvertiserOrderDetails
                 return '';
             }
 
-            return 'If a published link is later removed, use Report link removed.';
+            $note = 'If a published link is later removed, use Report link removed.';
+            if ($order->link_guarantee) {
+                $note .= ' '.$order->linkGuaranteeTermsNote();
+            }
+
+            return $note;
         }
 
         if ($status === 'cancelled' || $payment === 'refunded' || $payment === 'failed') {
             return '';
         }
 
-        return 'Declines refund automatically · request changes before auto-approve';
+        $note = 'Declines refund automatically · request changes before auto-approve';
+        if ($order->link_guarantee) {
+            $note .= ' · '.$order->linkGuaranteeTermsNote();
+        }
+
+        return $note;
     }
 
     public static function hasLiveUrl(Order $order): bool
@@ -156,6 +166,8 @@ final class AdvertiserOrderDetails
         $row['target_url'] = $line->target_url;
         $row['feature_image_url'] = $line->feature_image_url;
         $row['price'] = $line->price;
+        $row['content_source'] = $line->content_source ?? 'buyer';
+        $row['writing_fee'] = $line->writing_fee;
         $row['additional_price'] = $line->additional_price;
         $row['homepage_price'] = $line->homepage_price;
         $row['homepage_days'] = $line->homepage_days;

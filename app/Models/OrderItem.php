@@ -79,6 +79,9 @@ class OrderItem extends Model
         'publish_nudge_sent_at',
         'review_nudge_sent_at',
         'stalled_notice_sent_at',
+        'content_source',
+        'writing_fee',
+        'listing_writing_fee',
     ];
 
     protected $casts = [
@@ -114,6 +117,8 @@ class OrderItem extends Model
         'publish_nudge_sent_at' => 'datetime',
         'review_nudge_sent_at' => 'datetime',
         'stalled_notice_sent_at' => 'datetime',
+        'writing_fee' => 'decimal:2',
+        'listing_writing_fee' => 'decimal:2',
     ];
 
     /**

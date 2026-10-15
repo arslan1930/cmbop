@@ -141,6 +141,10 @@
             <i class="fa-solid fa-heart nav-icon-heart" aria-hidden="true"></i>
             <span class="nav-label">Saved Sites</span>
         </a>
+        <a href="{{ route('advertiser.saved-searches') }}" class="{{ request()->routeIs('advertiser.saved-searches*') ? 'active' : '' }}">
+            <i class="fa fa-bookmark" aria-hidden="true"></i>
+            <span class="nav-label">Saved searches</span>
+        </a>
 
         <a href="{{ route('advertiser.projects.index') }}" class="{{ request()->routeIs('advertiser.projects*') ? 'active' : '' }}">
             <i class="fa fa-folder-open" aria-hidden="true"></i>

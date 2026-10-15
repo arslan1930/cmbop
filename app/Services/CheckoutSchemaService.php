@@ -87,6 +87,14 @@ class CheckoutSchemaService
         $this->addColumn('orders', 'paypal_refund_id', 'varchar(255) NULL');
         $this->addNullableJsonColumn('orders', 'paypal_response');
         $this->addColumn('orders', 'project_id', 'bigint unsigned NULL');
+        $this->addColumn('orders', 'link_guarantee', 'tinyint(1) NOT NULL DEFAULT 0');
+        $this->addColumn('orders', 'link_guarantee_fee', 'decimal(10,2) NOT NULL DEFAULT 0');
+        $this->addColumn('orders', 'link_guarantee_covered_amount', 'decimal(10,2) NOT NULL DEFAULT 0');
+        $this->addColumn('orders', 'link_guarantee_status', 'varchar(32) NULL');
+        $this->addColumn('orders', 'link_guarantee_starts_at', 'timestamp NULL');
+        $this->addColumn('orders', 'link_guarantee_ends_at', 'timestamp NULL');
+        $this->addColumn('orders', 'link_guarantee_restore_due_at', 'timestamp NULL');
+        $this->addColumn('orders', 'link_guarantee_refunded_at', 'timestamp NULL');
         $this->addIndexIfMissing('orders', 'project_id');
         $this->addIndexIfMissing('orders', 'paypal_order_id');
         $this->addUniqueIfMissing('orders', 'paypal_capture_id');
@@ -142,6 +150,9 @@ class CheckoutSchemaService
         $this->addColumn('order_items', 'publish_nudge_sent_at', 'timestamp NULL');
         $this->addColumn('order_items', 'review_nudge_sent_at', 'timestamp NULL');
         $this->addColumn('order_items', 'stalled_notice_sent_at', 'timestamp NULL');
+        $this->addColumn('order_items', 'content_source', "varchar(20) NOT NULL DEFAULT 'buyer'");
+        $this->addColumn('order_items', 'writing_fee', 'decimal(10,2) NOT NULL DEFAULT 0');
+        $this->addColumn('order_items', 'listing_writing_fee', 'decimal(12,2) NULL');
     }
 
     private function ensureCheckoutIntentsTable(): void
@@ -223,6 +234,9 @@ class CheckoutSchemaService
         $this->addNullableJsonColumn('sites', 'listing_sensitive_prices');
         $this->addNullableJsonColumn('sites', 'listing_homepage_prices');
         $this->addColumn('sites', 'listing_gbp_prompt_dismissed_at', 'timestamp NULL');
+        $this->addColumn('sites', 'writing_enabled', 'tinyint(1) NOT NULL DEFAULT 1');
+        $this->addColumn('sites', 'writing_fee', 'decimal(10,2) NULL');
+        $this->addColumn('sites', 'listing_writing_fee', 'decimal(12,2) NULL');
     }
 
     /**

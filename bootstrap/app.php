@@ -327,6 +327,18 @@ return Application::configure(basePath: dirname(__DIR__))
             ->dailyAt('05:40')
             ->withoutOverlapping();
 
+        $schedule->command('orders:check-link-guarantees --limit='.(int) config('orders.link_guarantee.check_limit', 40))
+            ->dailyAt('06:10')
+            ->withoutOverlapping();
+
+        $schedule->command('publishers:refresh-reliability-stats')
+            ->dailyAt('03:45')
+            ->withoutOverlapping();
+
+        $schedule->command('emails:send-saved-search-alerts')
+            ->dailyAt('10:30')
+            ->withoutOverlapping();
+
         // Queued mail sits on the "emails" queue until a worker consumes it. Hosts
         // that only offer cron have no resident worker, so drain the backlog here.
         $schedule->command('mail:drain-queue')
