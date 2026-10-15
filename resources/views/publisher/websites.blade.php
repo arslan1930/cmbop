@@ -1269,7 +1269,7 @@
                                         </div>
                                         <div class="single-select-options" id="countryOptions">
                                             @foreach($countries as $country)
-                                                <div class="single-select-option" data-value="{{ strtolower($country->code) }}" data-label="{{ $country->name }}">{{ $country->name }}</div>
+                                                <div class="single-select-option" data-value="{{ marketplace_option_code($country) }}" data-label="{{ marketplace_option_name($country) }}">{{ marketplace_option_name($country) }}</div>
                                             @endforeach
                                         </div>
                                     </div>
@@ -1297,7 +1297,7 @@
                                         </div>
                                         <div class="single-select-options" id="languageOptions">
                                             @foreach($languages as $language)
-                                                <div class="single-select-option" data-value="{{ strtolower($language->code) }}" data-label="{{ $language->name }}">{{ $language->name }}</div>
+                                                <div class="single-select-option" data-value="{{ marketplace_option_code($language) }}" data-label="{{ marketplace_option_name($language, 'language') }}">{{ marketplace_option_name($language, 'language') }}</div>
                                             @endforeach
                                         </div>
                                     </div>

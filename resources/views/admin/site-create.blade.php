@@ -232,9 +232,9 @@
                                 data-admin-select-search-empty="No countries match">
                             <option value="">Select…</option>
                             @foreach($countries as $country)
-                                <option value="{{ strtolower($country->code) }}"
-                                    @selected(old_text('country', $prefillCountry) === strtolower($country->code))>
-                                    {{ $country->name }}
+                                <option value="{{ marketplace_option_code($country) }}"
+                                    @selected(old_text('country', $prefillCountry) === marketplace_option_code($country))>
+                                    {{ marketplace_option_name($country) }}
                                 </option>
                             @endforeach
                         </select>
@@ -247,9 +247,9 @@
                         <select id="language" name="language" class="form-select @error('language') is-invalid @enderror" required>
                             <option value="">{{ old_text('country', $prefillCountry) !== '' ? 'Select…' : 'Select country first' }}</option>
                             @foreach($languages as $language)
-                                <option value="{{ strtolower($language->code) }}"
-                                    @selected(old_text('language', $prefillLanguage) === strtolower($language->code))>
-                                    {{ $language->name }}
+                                <option value="{{ marketplace_option_code($language) }}"
+                                    @selected(old_text('language', $prefillLanguage) === marketplace_option_code($language))>
+                                    {{ marketplace_option_name($language, 'language') }}
                                 </option>
                             @endforeach
                         </select>

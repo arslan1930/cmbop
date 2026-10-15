@@ -397,9 +397,9 @@
                                                             @disabled($isRejected)>
                                                         <option value="">Select…</option>
                                                         @foreach($countries as $country)
-                                                            <option value="{{ strtolower($country->code) }}"
-                                                                @selected($oldCountry === strtolower($country->code))>
-                                                                {{ $country->name }}
+                                                            <option value="{{ marketplace_option_code($country) }}"
+                                                                @selected($oldCountry === marketplace_option_code($country))>
+                                                                {{ marketplace_option_name($country) }}
                                                             </option>
                                                         @endforeach
                                                     </select>

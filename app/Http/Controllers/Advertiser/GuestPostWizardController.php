@@ -4,12 +4,11 @@ namespace App\Http\Controllers\Advertiser;
 
 use App\Http\Controllers\Controller;
 use App\Models\ContentSubmission;
-use App\Models\Country;
-use App\Models\Language;
 use App\Models\Site;
 use App\Services\CartPricingService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
+use App\Support\MarketplacePicker;
 use App\Support\UserFacingError;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,8 +43,8 @@ class GuestPostWizardController extends Controller
     {
         $state = $this->state();
         try {
-            $languages = Language::marketplace()->orderBy('name')->get(['code', 'name']);
-            $countries = Country::marketplace()->orderBy('name')->get(['code', 'name']);
+            $languages = MarketplacePicker::languages();
+            $countries = MarketplacePicker::countries();
             $languageCountryMap = $this->languageCountryMap->map();
             $countryLanguageMap = $this->countryLanguagePairs->mapWithNames();
             $categories = $this->nicheCategories();
@@ -171,8 +170,8 @@ class GuestPostWizardController extends Controller
 
         try {
             $approvedArticles = ContentSubmission::pickerArticlesForUser((int) auth()->id(), $mustIncludeIds);
-            $marketplaceCountries = Country::marketplace()->orderBy('name')->get(['code', 'name']);
-            $marketplaceLanguages = Language::marketplace()->orderBy('name')->get(['code', 'name']);
+            $marketplaceCountries = MarketplacePicker::countries();
+            $marketplaceLanguages = MarketplacePicker::languages();
             $languageCountryMap = $this->languageCountryMap->map();
         } catch (\Throwable $e) {
             report($e);

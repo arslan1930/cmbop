@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Advertiser;
 
 use App\Http\Controllers\Controller;
 use App\Models\ContentSubmission;
-use App\Models\Country;
-use App\Models\Language;
 use App\Models\OrderItemDispute;
 use App\Models\User;
 use App\Services\Advertiser\ContentLibraryDuplicator;
@@ -13,6 +11,7 @@ use App\Services\Advertiser\ContentLibrarySearchQuery;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
+use App\Support\MarketplacePicker;
 use App\Support\UserFacingError;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -293,11 +292,11 @@ class ContentLibraryController extends Controller
         );
 
         $countries = $this->safeLibraryQuery(
-            fn () => Country::marketplace()->orderBy('name')->get(['code', 'name']),
+            fn () => MarketplacePicker::countries(),
             collect(),
         );
         $languages = $this->safeLibraryQuery(
-            fn () => Language::marketplace()->orderBy('name')->get(['code', 'name']),
+            fn () => MarketplacePicker::languages(),
             collect(),
         );
         $languageCountryMap = $this->safeLibraryQuery(fn () => $this->languageCountryMap->map(), []);

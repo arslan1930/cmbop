@@ -201,9 +201,9 @@
                             <select id="country" name="country" class="form-select @error('country') is-invalid @enderror" required>
                                 <option value="">Select…</option>
                                 @foreach($countries as $country)
-                                    <option value="{{ strtolower($country->code) }}"
-                                        @selected(old_text('country', strtolower((string) $site->country)) === strtolower($country->code))>
-                                        {{ $country->name }}
+                                    <option value="{{ marketplace_option_code($country) }}"
+                                        @selected(old_text('country', strtolower((string) $site->country)) === marketplace_option_code($country))>
+                                        {{ marketplace_option_name($country) }}
                                     </option>
                                 @endforeach
                             </select>
@@ -215,9 +215,9 @@
                             <select id="language" name="language" class="form-select @error('language') is-invalid @enderror" required>
                                 <option value="">Select country first</option>
                                 @foreach($languages as $language)
-                                    <option value="{{ strtolower($language->code) }}"
-                                        @selected(old_text('language', strtolower((string) $site->language)) === strtolower($language->code))>
-                                        {{ $language->name }}
+                                    <option value="{{ marketplace_option_code($language) }}"
+                                        @selected(old_text('language', strtolower((string) $site->language)) === marketplace_option_code($language))>
+                                        {{ marketplace_option_name($language, 'language') }}
                                     </option>
                                 @endforeach
                             </select>
@@ -446,9 +446,9 @@
                             <select id="country" name="country" class="form-select">
                                 <option value="">Select…</option>
                                 @foreach($countries as $country)
-                                    <option value="{{ strtolower($country->code) }}"
-                                        @selected(old_text('country', strtolower((string) $site->country)) === strtolower($country->code))>
-                                        {{ $country->name }}
+                                    <option value="{{ marketplace_option_code($country) }}"
+                                        @selected(old_text('country', strtolower((string) $site->country)) === marketplace_option_code($country))>
+                                        {{ marketplace_option_name($country) }}
                                     </option>
                                 @endforeach
                             </select>
@@ -458,9 +458,9 @@
                             <select id="language" name="language" class="form-select">
                                 <option value="">Select country first</option>
                                 @foreach($languages as $language)
-                                    <option value="{{ strtolower($language->code) }}"
-                                        @selected(old_text('language', strtolower((string) $site->language)) === strtolower($language->code))>
-                                        {{ $language->name }}
+                                    <option value="{{ marketplace_option_code($language) }}"
+                                        @selected(old_text('language', strtolower((string) $site->language)) === marketplace_option_code($language))>
+                                        {{ marketplace_option_name($language, 'language') }}
                                     </option>
                                 @endforeach
                             </select>

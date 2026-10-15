@@ -20,7 +20,7 @@ use App\Services\SiteClaimTransferService;
 use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
 use App\Support\MarketingOpsQueues;
-use App\Support\PublicationDuration;
+use App\Support\MarketplacePicker;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
@@ -315,8 +315,8 @@ class BulkSiteRequestController extends Controller
             }
         }
 
-        $countries = Country::marketplace()->orderBy('name')->get();
-        $languages = Language::marketplace()->orderBy('name')->get();
+        $countries = MarketplacePicker::countries();
+        $languages = MarketplacePicker::languages();
         // Same A–Z niche list as Catalog main search filter.
         $categories = Category::catalogPickerNames();
         $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();

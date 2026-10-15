@@ -521,9 +521,9 @@
                             $countryLabel = $userCountry;
                             if ($userCountry !== '') {
                                 $countryMatch = collect($marketplaceCountries ?? [])->first(
-                                    fn ($country) => strtolower((string) $country->code) === strtolower($userCountry)
+                                    fn ($country) => marketplace_option_code($country) === strtolower($userCountry)
                                 );
-                                $countryLabel = $countryMatch?->name ?? strtoupper($userCountry);
+                                $countryLabel = $countryMatch ? marketplace_option_name($countryMatch) : strtoupper($userCountry);
                             }
                             $joinedLabel = $user->created_at
                                 ? $user->created_at->timezone((string) config('app.timezone'))->format('M j, Y')
