@@ -4,6 +4,7 @@ use App\Models\ActivityLog;
 use App\Models\User;
 use App\Support\LeftoverPublicI18nSlugs;
 use App\Support\MarketingHistoryDisplay;
+use App\Support\MarketplacePicker;
 use App\Support\PublicI18n;
 use App\Support\WelcomeBonusCopy;
 use Illuminate\Support\Facades\App;
@@ -275,6 +276,26 @@ if (! function_exists('fullCountry')) {
         $key = strtolower((string) $code);
 
         return $countries[$key] ?? strtoupper((string) $code);
+    }
+}
+
+if (! function_exists('marketplace_option_code')) {
+    /**
+     * ISO code from a picker row that may be a model, array, or plain string.
+     */
+    function marketplace_option_code(mixed $item): string
+    {
+        return MarketplacePicker::code($item);
+    }
+}
+
+if (! function_exists('marketplace_option_name')) {
+    /**
+     * Display label from a picker row that may be a model, array, or plain string.
+     */
+    function marketplace_option_name(mixed $item, string $kind = 'country'): string
+    {
+        return MarketplacePicker::name($item, $kind);
     }
 }
 

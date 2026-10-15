@@ -365,15 +365,15 @@
                                     <div class="d-flex flex-wrap gap-1 align-items-end">
                                         <select name="country" class="form-select form-select-sm" style="max-width:8rem;" required>
                                             @foreach(($countries ?? []) as $country)
-                                                <option value="{{ $country->code }}" @selected(strtolower((string) $submission->country) === strtolower((string) $country->code))>
-                                                    {{ $country->name }}
+                                                <option value="{{ marketplace_option_code($country) }}" @selected(strtolower((string) $submission->country) === marketplace_option_code($country))>
+                                                    {{ marketplace_option_name($country) }}
                                                 </option>
                                             @endforeach
                                         </select>
                                         <select name="language" class="form-select form-select-sm" style="max-width:8rem;" required>
                                             @foreach(($languages ?? []) as $language)
-                                                <option value="{{ $language->code }}" @selected(strtolower((string) $submission->language) === strtolower((string) $language->code))>
-                                                    {{ $language->name }}
+                                                <option value="{{ marketplace_option_code($language) }}" @selected(strtolower((string) $submission->language) === marketplace_option_code($language))>
+                                                    {{ marketplace_option_name($language, 'language') }}
                                                 </option>
                                             @endforeach
                                         </select>

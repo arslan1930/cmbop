@@ -72,7 +72,7 @@
         <select class="form-select" name="country" data-staff-filter="country">
             <option value="">All</option>
             @foreach($countries as $country)
-                <option value="{{ strtolower((string) $country->code) }}" @selected(strtolower((string) ($filters['country'] ?? '')) === strtolower((string) $country->code))>{{ $country->name }}</option>
+                <option value="{{ marketplace_option_code($country) }}" @selected(strtolower((string) ($filters['country'] ?? '')) === marketplace_option_code($country))>{{ marketplace_option_name($country) }}</option>
             @endforeach
         </select>
     </label>
@@ -120,7 +120,7 @@
         <select class="form-select" name="language" data-staff-filter="language">
             <option value="">All</option>
             @foreach($languages as $language)
-                <option value="{{ strtolower((string) $language->code) }}" @selected(strtolower((string) ($filters['language'] ?? '')) === strtolower((string) $language->code))>{{ $language->name }}</option>
+                <option value="{{ marketplace_option_code($language) }}" @selected(strtolower((string) ($filters['language'] ?? '')) === marketplace_option_code($language))>{{ marketplace_option_name($language, 'language') }}</option>
             @endforeach
         </select>
     </label>

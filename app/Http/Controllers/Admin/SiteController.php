@@ -33,6 +33,7 @@ use App\Support\CatalogHealthQueue;
 use App\Support\CatalogProblemReport;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
+use App\Support\MarketplacePicker;
 use App\Support\PublicStorageLink;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
@@ -2642,12 +2643,12 @@ class SiteController extends Controller
     }
 
     /**
-     * @return Collection<int, Country>
+     * @return Collection<int, object{code: string, name: string}>
      */
     private function staffMarketplaceCountries()
     {
         try {
-            return Country::marketplace()->orderBy('name')->get(['code', 'name']);
+            return MarketplacePicker::cachedCountries();
         } catch (\Throwable $e) {
             report($e);
 
@@ -2656,12 +2657,12 @@ class SiteController extends Controller
     }
 
     /**
-     * @return Collection<int, Language>
+     * @return Collection<int, object{code: string, name: string}>
      */
     private function staffMarketplaceLanguages()
     {
         try {
-            return Language::marketplace()->orderBy('name')->get(['code', 'name']);
+            return MarketplacePicker::cachedLanguages();
         } catch (\Throwable $e) {
             report($e);
 
@@ -2939,8 +2940,8 @@ class SiteController extends Controller
                     && ! $publisher->hasVerifiedEmail()
             );
 
-        $languages = Cache::remember('admin.marketplace.languages', 300, fn () => Language::marketplace()->orderBy('name')->get());
-        $countries = Cache::remember('admin.marketplace.countries', 300, fn () => Country::marketplace()->orderBy('name')->get());
+        $languages = MarketplacePicker::cachedLanguages();
+        $countries = MarketplacePicker::cachedCountries();
         // Same A–Z niche list as Catalog main search filter.
         $categories = Cache::remember('admin.marketplace.catalog_picker_names', 300, fn () => Category::catalogPickerNames());
         $countryLanguageMap = Cache::remember(
@@ -4221,8 +4222,8 @@ class SiteController extends Controller
         $user = auth()->user();
         $isMarketingEditor = $this->isMarketingEditor($user);
         $marketingListingLocked = $isMarketingEditor && $this->marketingListingIsLocked($site);
-        $languages = Cache::remember('admin.marketplace.languages', 300, fn () => Language::marketplace()->orderBy('name')->get());
-        $countries = Cache::remember('admin.marketplace.countries', 300, fn () => Country::marketplace()->orderBy('name')->get());
+        $languages = MarketplacePicker::cachedLanguages();
+        $countries = MarketplacePicker::cachedCountries();
         // Same A–Z niche list as Catalog main search filter.
         $categories = Cache::remember('admin.marketplace.catalog_picker_names', 300, fn () => Category::catalogPickerNames());
         $countryLanguageMap = Cache::remember(

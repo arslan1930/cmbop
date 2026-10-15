@@ -227,9 +227,9 @@
                         <select name="country" id="libraryCountry" class="form-select" required>
                             <option value="">Select country</option>
                             @foreach(($countries ?? []) as $country)
-                                <option value="{{ strtolower($country->code) }}"
-                                    @selected(strtolower((string) ($editSubmission?->country ?? '')) === strtolower($country->code))>
-                                    {{ $country->name }}
+                                <option value="{{ marketplace_option_code($country) }}"
+                                    @selected(strtolower((string) ($editSubmission?->country ?? '')) === marketplace_option_code($country))>
+                                    {{ marketplace_option_name($country) }}
                                 </option>
                             @endforeach
                         </select>

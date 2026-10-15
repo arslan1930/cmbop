@@ -1,10 +1,10 @@
 @php
     $selectedCountry = $selectedCountry ?? old('country', '');
-    $billingCountries = \App\Models\Country::marketplace()->orderBy('name')->get(['code', 'name']);
+    $billingCountries = \App\Support\MarketplacePicker::countries();
 @endphp
 <option value="">Select Country</option>
 @foreach($billingCountries as $country)
-    <option value="{{ $country->name }}" @selected($selectedCountry === $country->name || $selectedCountry === $country->code)>
-        {{ $country->name }}
+    <option value="{{ marketplace_option_name($country) }}" @selected($selectedCountry === marketplace_option_name($country) || $selectedCountry === marketplace_option_code($country))>
+        {{ marketplace_option_name($country) }}
     </option>
 @endforeach

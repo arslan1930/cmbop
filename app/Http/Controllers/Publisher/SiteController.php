@@ -19,6 +19,7 @@ use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
 use App\Support\ListingMoney;
+use App\Support\MarketplacePicker;
 use App\Support\MoneyDisplay;
 use App\Support\NormalizesHttpUrls;
 use App\Support\SiteDescriptionRules;
@@ -46,12 +47,10 @@ class SiteController extends Controller
             $this->ensureListingSchema();
 
             // Europe + major North America markets
-            $countries = Country::marketplace()->orderBy('name')->get();
+            $countries = MarketplacePicker::countries();
             // Same A–Z niche list as Catalog main search filter (Category::catalogPickerNames).
             $categories = Category::catalogPickerNames();
-            $languages = Language::marketplace()
-                ->orderBy('name')
-                ->get();
+            $languages = MarketplacePicker::languages();
 
             $pairs = app(CountryLanguagePairs::class);
             // Country-first: country code → allowed languages.
