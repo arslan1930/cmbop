@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'Community')
+
 @php
     use App\Support\CommunityInbox;
     $kind = $kind ?? '';
@@ -32,6 +34,7 @@
         @endforeach
     </nav>
 
+    @if(! empty($showFilters) || ! empty($filtered) || ! empty($tabHasRows))
     <form method="get" class="card border-0 shadow-sm mb-3 community-inbox-filters admin-deposits-filter-card admin-deposits-filters admin-orders-filters">
         <div class="card-body">
             <div class="admin-orders-filters__grid">
@@ -108,6 +111,12 @@
                 <input type="checkbox" class="form-check-input" name="stale" value="1" id="communityStaleFilter" @checked($stale)>
                 <label class="form-check-label" for="communityStaleFilter">Stale pending (48h+)</label>
             </div>
+            @if(! empty($canHideTest))
+                <div class="form-check mt-4">
+                    <input type="checkbox" class="form-check-input" name="include_test" value="1" id="communityIncludeTestFilter" @checked(! empty($includeTest))>
+                    <label class="form-check-label" for="communityIncludeTestFilter">Show test accounts</label>
+                </div>
+            @endif
             <div class="admin-deposits-filters__actions admin-orders-filters__actions">
                 <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-primary">Filter</button>
@@ -117,6 +126,7 @@
             </div>
         </div>
     </form>
+    @endif
 
     <div class="card border-0 shadow-sm admin-table-fit community-inbox">
         <div class="table-responsive">
@@ -128,6 +138,7 @@
                             <th>Subject</th>
                             <th>Message</th>
                             <th>Status</th>
+                            <th>Reviewer</th>
                             <th>When</th>
                             <th class="admin-actions-wide-col"><span class="visually-hidden">Actions</span></th>
                         </tr>
@@ -176,16 +187,14 @@
                                         <div class="small text-muted">{{ $catalog['site']->domain }}</div>
                                     @endif
                                     @if($pageUrl)
-                                        <a href="{{ $pageUrl }}" target="_blank" rel="noopener noreferrer" class="small">{{ \Illuminate\Support\Str::limit($pageUrl, 42) }}</a>
+                                        <a href="{{ $pageUrl }}" target="_blank" rel="noopener noreferrer" class="small" title="{{ $pageUrl }}">{{ \Illuminate\Support\Str::limit($pageUrl, 42) }}</a>
                                     @endif
                                 </td>
                                 <td class="small" style="max-width:280px;">{{ \Illuminate\Support\Str::limit($preview, 160) }}</td>
                                 <td>
                                     <span class="badge {{ CommunityInbox::statusBadgeClass($item->status) }}">{{ $item->status }}</span>
-                                    @if($item->reviewer)
-                                        <div class="small text-muted">{{ $item->reviewer->name }}</div>
-                                    @endif
                                 </td>
+                                <td class="small">{{ $item->reviewer?->name ?: '—' }}</td>
                                 <td class="small text-muted">
                                     {{ optional($item->created_at)->diffForHumans() }}
                                     @if($item->status === 'pending' && $item->created_at?->lte(now()->subHours(48)))
@@ -207,7 +216,7 @@
                                 </td>
                             </tr>
                         @empty
-                            @include('admin.community.empty-row', ['empty' => 'No problem reports yet.'])
+                            @include('admin.community.empty-row', ['empty' => 'No problem reports yet.', 'colspan' => 7])
                         @endforelse
                     </tbody>
                 </table>
@@ -261,7 +270,7 @@
                                 <td class="small" style="max-width:320px;">
                                     {{ \Illuminate\Support\Str::limit($item->message, 180) }}
                                     @if($pageUrl)
-                                        <div><a href="{{ $pageUrl }}" target="_blank" rel="noopener noreferrer">{{ \Illuminate\Support\Str::limit($pageUrl, 42) }}</a></div>
+                                        <div><a href="{{ $pageUrl }}" target="_blank" rel="noopener noreferrer" title="{{ $pageUrl }}">{{ \Illuminate\Support\Str::limit($pageUrl, 42) }}</a></div>
                                     @endif
                                 </td>
                                 <td><span class="badge {{ CommunityInbox::statusBadgeClass($item->status) }}">{{ $item->status }}</span></td>

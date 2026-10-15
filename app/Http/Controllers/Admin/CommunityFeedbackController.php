@@ -34,17 +34,17 @@ class CommunityFeedbackController extends Controller
     {
         $q = search_text($request->get('q'));
         $tabs = CommunityInbox::TABS;
+        $includeTest = CommunityInbox::includeTest($request->query('include_test'));
         $counts = [
-            'problems' => $this->pendingInboxCount(ProblemReport::class),
-            'suggestions' => $this->pendingInboxCount(Suggestion::class),
-            'websites' => $this->pendingInboxCount(WebsiteSuggestion::class),
-            'claims' => $this->pendingInboxCount(SiteClaim::class),
+            'problems' => $this->pendingInboxCount(ProblemReport::class, $includeTest),
+            'suggestions' => $this->pendingInboxCount(Suggestion::class, $includeTest),
+            'websites' => $this->pendingInboxCount(WebsiteSuggestion::class, $includeTest),
+            'claims' => $this->pendingInboxCount(SiteClaim::class, $includeTest),
         ];
-
         $tabProvided = search_text($request->query('tab')) !== '';
         $tab = $tabProvided
             ? CommunityInbox::normalizeTab($request->query('tab'))
-            : CommunityInbox::landingTab($counts);
+            : CommunityInbox::DEFAULT_TAB;
         $status = CommunityInbox::normalizeStatus($tab, $request->get('status'));
         $statuses = CommunityInbox::statusesFor($tab);
         $kind = $tab === CommunityInbox::TAB_PROBLEMS ? CommunityInbox::normalizeKind($request->get('kind')) : '';
@@ -54,10 +54,13 @@ class CommunityFeedbackController extends Controller
         $occupying = $tab === CommunityInbox::TAB_WEBSITES ? CommunityInbox::normalizeOccupying($request->get('occupying')) : '';
         $claimView = $tab === CommunityInbox::TAB_CLAIMS ? CommunityInbox::normalizeClaimView($request->get('claim')) : '';
         $filtered = $q !== '' || $status !== null || $kind !== '' || $stale || $category !== ''
-            || $occupying !== '' || $claimView !== '' || $sort === 'oldest';
+            || $occupying !== '' || $claimView !== '' || $sort === 'oldest' || $includeTest;
         $tabQueries = [];
         foreach (array_keys($tabs) as $key) {
             $tabQueries[$key] = CommunityInbox::tabQuery($key, $q, $request->get('status'));
+            if ($includeTest) {
+                $tabQueries[$key]['include_test'] = 1;
+            }
         }
 
         $problems = $this->inboxPage(
@@ -65,7 +68,7 @@ class CommunityFeedbackController extends Controller
             $tab === 'problems',
             ProblemReport::class,
             'problems_page',
-            function () use ($status, $q, $kind, $stale, $sort) {
+            function () use ($status, $q, $kind, $stale, $sort, $includeTest) {
                 $query = ProblemReport::query()
                     ->with($this->inboxRelations(ProblemReport::class))
                     ->when($status, fn ($inner) => $inner->where('status', $status))
@@ -75,6 +78,9 @@ class CommunityFeedbackController extends Controller
                             $search->orWhereHas('user', fn ($u) => CommunityInbox::constrainSearch($u, ['name', 'email'], $q, 'users'));
                         });
                     });
+                if (! $includeTest) {
+                    CommunityInbox::constrainExcludeTestUsers($query);
+                }
                 CommunityInbox::constrainProblemKind($query, $kind);
                 if ($stale) {
                     CommunityInbox::constrainStalePending($query);
@@ -90,7 +96,7 @@ class CommunityFeedbackController extends Controller
             $tab === 'suggestions',
             Suggestion::class,
             'suggestions_page',
-            function () use ($status, $q, $stale, $sort, $category) {
+            function () use ($status, $q, $stale, $sort, $category, $includeTest) {
                 $query = Suggestion::query()
                     ->with($this->inboxRelations(Suggestion::class))
                     ->when($status, fn ($inner) => $inner->where('status', $status))
@@ -101,6 +107,9 @@ class CommunityFeedbackController extends Controller
                             $search->orWhereHas('user', fn ($u) => CommunityInbox::constrainSearch($u, ['name', 'email'], $q, 'users'));
                         });
                     });
+                if (! $includeTest) {
+                    CommunityInbox::constrainExcludeTestUsers($query);
+                }
                 if ($stale) {
                     CommunityInbox::constrainStalePending($query);
                 }
@@ -115,7 +124,7 @@ class CommunityFeedbackController extends Controller
             $tab === 'websites',
             WebsiteSuggestion::class,
             'websites_page',
-            function () use ($status, $q, $stale, $sort, $occupying) {
+            function () use ($status, $q, $stale, $sort, $occupying, $includeTest) {
                 $query = WebsiteSuggestion::query()
                     ->with($this->inboxRelations(WebsiteSuggestion::class))
                     ->when($status, fn ($inner) => $inner->where('status', $status))
@@ -125,6 +134,9 @@ class CommunityFeedbackController extends Controller
                             $search->orWhereHas('user', fn ($u) => CommunityInbox::constrainSearch($u, ['name', 'email'], $q, 'users'));
                         });
                     });
+                if (! $includeTest) {
+                    CommunityInbox::constrainExcludeTestUsers($query);
+                }
                 CommunityInbox::constrainWebsiteOccupying($query, $occupying);
                 if ($stale) {
                     CommunityInbox::constrainStalePending($query);
@@ -142,7 +154,7 @@ class CommunityFeedbackController extends Controller
             $tab === 'claims',
             SiteClaim::class,
             'claims_page',
-            function () use ($status, $q, $hasSites, $hasRolePivot, $stale, $sort, $claimView) {
+            function () use ($status, $q, $hasSites, $hasRolePivot, $stale, $sort, $claimView, $includeTest) {
                 $query = SiteClaim::query()
                     ->with(array_values(array_filter([
                         $hasSites ? $this->claimSiteWith() : null,
@@ -152,6 +164,7 @@ class CommunityFeedbackController extends Controller
                         SiteClaim::hasTableColumn('reviewed_by') ? 'reviewer:id,name' : null,
                     ])))
                     ->when($status, fn ($inner) => $inner->where('status', $status))
+                    ->when(! $includeTest, fn ($inner) => CommunityInbox::constrainExcludeTestUsers($inner, 'claimer_id'))
                     ->when($q !== '', function ($inner) use ($q, $hasSites) {
                         $inner->where(function ($search) use ($q, $hasSites) {
                             CommunityInbox::constrainSearch($search, ['website_name', 'domain', 'proof_message', 'contact_email'], $q, 'site_claims');
@@ -285,6 +298,16 @@ class CommunityFeedbackController extends Controller
             }
         }
 
+        $tabRows = match ($tab) {
+            CommunityInbox::TAB_SUGGESTIONS => $suggestions,
+            CommunityInbox::TAB_WEBSITES => $websites,
+            CommunityInbox::TAB_CLAIMS => $claims,
+            default => $problems,
+        };
+        $tabHasRows = (int) $tabRows->total() > 0;
+        $canHideTest = User::hasUsersColumn('is_test');
+        $showFilters = $filtered || $tabHasRows;
+
         return view('admin.community.index', compact(
             'tab',
             'tabs',
@@ -298,6 +321,10 @@ class CommunityFeedbackController extends Controller
             'occupying',
             'claimView',
             'filtered',
+            'includeTest',
+            'canHideTest',
+            'showFilters',
+            'tabHasRows',
             'tabQueries',
             'problems',
             'catalogProblems',
@@ -586,14 +613,22 @@ class CommunityFeedbackController extends Controller
         return $matched;
     }
 
-    private function pendingInboxCount(string $model): int
+    private function pendingInboxCount(string $model, bool $includeTest = false): int
     {
         try {
             if (! $model::tableAvailable() || ! $model::hasTableColumn('status')) {
                 return 0;
             }
 
-            return $model::where('status', 'pending')->count();
+            $query = $model::where('status', 'pending');
+            if (! $includeTest) {
+                CommunityInbox::constrainExcludeTestUsers(
+                    $query,
+                    $model === SiteClaim::class ? 'claimer_id' : 'user_id'
+                );
+            }
+
+            return $query->count();
         } catch (\Throwable) {
             return 0;
         }
