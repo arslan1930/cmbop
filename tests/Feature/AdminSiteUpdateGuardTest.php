@@ -1292,6 +1292,33 @@ class AdminSiteUpdateGuardTest extends TestCase
 
         $this->assertStringContainsString('checked', $html);
         $this->assertStringNotContainsString('id="sensitiveDisclosurePanel" hidden', $html);
+        $this->assertStringContainsString('value="2years"', $html);
+        $this->assertStringContainsString('value="3years"', $html);
+        $this->assertStringContainsString('2 Years', $html);
+        $this->assertStringContainsString('3 Years', $html);
+    }
+
+    public function test_admin_can_update_publication_time_to_three_years(): void
+    {
+        $site = $this->site(['example_url' => 'https://guard-site.example/sample']);
+
+        $this->actingAs($this->admin)
+            ->putJson(route('admin.sites.update', $site->id), [
+                'site_name' => 'Guard Site',
+                'site_url' => 'https://guard-site.example',
+                'example_url' => 'https://guard-site.example/sample',
+                'da' => 40,
+                'dr' => 42,
+                'traffic' => 15000,
+                'country' => 'de',
+                'language' => 'de',
+                'price' => 80,
+                'publication_time' => '3years',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('3years', $site->fresh()->publication_time);
     }
 
     public function test_edit_page_survives_array_shaped_stored_extras(): void

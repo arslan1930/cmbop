@@ -503,8 +503,11 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" for="publication_time">Publication time</label>
-                            <input type="text" id="publication_time" name="publication_time" class="form-control"
-                                   value="{{ old_text('publication_time', $site->publication_time) }}" placeholder="permanent">
+                            <select id="publication_time" name="publication_time" class="form-select">
+                                @foreach(\App\Support\PublicationDuration::options() as $value => $label)
+                                    <option value="{{ $value }}" @selected(old_text('publication_time', $site->publication_time) === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" for="link_type">Link type</label>

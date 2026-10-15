@@ -20,6 +20,7 @@ use App\Services\SiteClaimTransferService;
 use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
 use App\Support\MarketingOpsQueues;
+use App\Support\PublicationDuration;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
@@ -972,7 +973,7 @@ class BulkSiteRequestController extends Controller
                     'categories' => 'required',
                     'example_url' => 'required|url|max:255',
                     'turnaround_time' => 'required|in:24h,48h,3days,5days,7days',
-                    'publication_time' => 'required|in:6months,1year,permanent',
+                    'publication_time' => 'required|'.PublicationDuration::rule(),
                     'link_type' => 'required|in:dofollow,nofollow',
                     'site_tag' => 'required|in:none,sponsored,partner_material,as_you_prefer',
                     'description' => 'required|string',
@@ -1947,7 +1948,7 @@ class BulkSiteRequestController extends Controller
             $categories = [];
             $exampleUrl = '';
             if (count($parts) < 15) {
-                $errors[] = 'Add site name, example URL, turnaround (24h, 48h, 3days, 5days, or 7days), publication (6months, 1year, or permanent), link type (dofollow or nofollow), tag (none, sponsored, partner_material, or as_you_prefer), niches separated by |, and a description of at least '.SiteDescriptionRules::MIN_CHARS.' characters.';
+                $errors[] = 'Add site name, example URL, turnaround (24h, 48h, 3days, 5days, or 7days), publication ('.str_replace('`', '', PublicationDuration::csvHint()).'), link type (dofollow or nofollow), tag (none, sponsored, partner_material, or as_you_prefer), niches separated by |, and a description of at least '.SiteDescriptionRules::MIN_CHARS.' characters.';
             } else {
                 $exampleUrl = $this->normalizeHttpUrl($exampleRaw);
                 if (filter_var($exampleUrl, FILTER_VALIDATE_URL) === false || strlen($exampleUrl) > 255) {
@@ -1956,7 +1957,8 @@ class BulkSiteRequestController extends Controller
                 if (! in_array($turnaroundRaw, ['24h', '48h', '3days', '5days', '7days'], true)) {
                     $errors[] = 'Invalid turnaround';
                 }
-                if (! in_array($publicationRaw, ['6months', '1year', 'permanent'], true)) {
+                $publicationRaw = PublicationDuration::normalize($publicationRaw) ?? $publicationRaw;
+                if (! in_array($publicationRaw, PublicationDuration::values(), true)) {
                     $errors[] = 'Invalid publication time';
                 }
                 if (! in_array($linkTypeRaw, ['dofollow', 'nofollow'], true)) {

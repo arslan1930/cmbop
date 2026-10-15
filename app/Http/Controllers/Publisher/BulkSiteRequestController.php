@@ -13,6 +13,7 @@ use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\SiteDescriptionSanitizer;
 use App\Support\MoneyDisplay;
+use App\Support\PublicationDuration;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteTag;
 use App\Support\UserFacingError;
@@ -299,7 +300,7 @@ class BulkSiteRequestController extends Controller
         $validator = Validator::make($request->all(), [
             'exampleUrl' => 'required|url|max:255',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
-            'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
+            'publicationTime' => 'required|string|max:20|'.PublicationDuration::rule(),
             'link_type' => 'required|in:dofollow,nofollow',
             'siteDescription' => 'required|string',
             'site_tag' => 'nullable|in:sponsored,partner_material,as_you_prefer',

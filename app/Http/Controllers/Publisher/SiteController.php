@@ -21,6 +21,7 @@ use App\Services\Marketplace\LanguageCountryMap;
 use App\Support\ListingMoney;
 use App\Support\MoneyDisplay;
 use App\Support\NormalizesHttpUrls;
+use App\Support\PublicationDuration;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
@@ -226,7 +227,7 @@ class SiteController extends Controller
             'price' => 'required|numeric|min:0|max:99999999.99',
             'price_input_currency' => 'nullable|in:EUR,GBP',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
-            'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
+            'publicationTime' => 'required|string|max:20|'.PublicationDuration::rule(),
             'link_type' => 'required|in:dofollow,nofollow',
             'siteDescription' => 'required|string',
             'price_sensitive.*' => 'nullable|numeric|min:0|max:99999999.99',
@@ -931,7 +932,7 @@ class SiteController extends Controller
             'price' => 'required|numeric|min:0|max:99999999.99',
             'price_input_currency' => 'nullable|in:EUR,GBP',
             'turnaround_time' => 'required|string|in:24h,48h,3days,5days,7days',
-            'publicationTime' => 'required|string|max:20|in:6months,1year,permanent',
+            'publicationTime' => 'required|string|max:20|'.PublicationDuration::rule(),
             'link_type' => 'required|in:dofollow,nofollow',
             'siteDescription' => 'required|string',
             'price_sensitive.*' => 'nullable|numeric|min:0|max:99999999.99',
@@ -1556,7 +1557,7 @@ class SiteController extends Controller
             'Business & Finance|Technology',
             '120',
             '3days',
-            'permanent',
+            '2years',
             'dofollow',
             'High-quality editorial site covering business and technology topics for professional audiences.',
             '0',

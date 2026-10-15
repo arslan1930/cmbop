@@ -295,8 +295,8 @@
                     <div class="col-md-4">
                         <label class="form-label fw-semibold" for="publication_time">Publication time <span class="text-danger">*</span></label>
                         <select id="publication_time" name="publication_time" class="form-select @error('publication_time') is-invalid @enderror" required>
-                            @foreach(['6months' => '6 months', '1year' => '1 year', 'permanent' => 'Permanent'] as $value => $label)
-                                <option value="{{ $value }}" @selected(old_text('publication_time', 'permanent') === $value)>{{ $label }}</option>
+                            @foreach(\App\Support\PublicationDuration::options() as $value => $label)
+                                <option value="{{ $value }}" @selected(old_text('publication_time', \App\Support\PublicationDuration::DEFAULT) === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
                         @error('publication_time')<div class="invalid-feedback">{{ $message }}</div>@enderror

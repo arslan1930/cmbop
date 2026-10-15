@@ -1077,7 +1077,7 @@
                     <li>Legacy columns <code>countries</code> / <code>languages</code> still accepted (first code only)</li>
                     <li><code>categories</code> = exact category names, separated by <code>|</code> (max 7)</li>
                     <li><code>turnaround_time</code> = <code>24h</code>, <code>48h</code>, <code>3days</code>, <code>5days</code>, or <code>7days</code></li>
-                    <li><code>publication_time</code> = <code>6months</code>, <code>1year</code>, or <code>permanent</code></li>
+                    <li><code>publication_time</code> = {!! \App\Support\PublicationDuration::csvHint() !!}</li>
                     <li><code>link_type</code> = <code>dofollow</code> or <code>nofollow</code></li>
                     <li><code>description</code> must be at least 50 characters</li>
                     <li>Flags (<code>sponsored</code>, <code>partner_material</code>, <code>as_you_prefer</code>) use <code>1</code> / <code>0</code> — set only one</li>
@@ -1316,12 +1316,13 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Publication Duration <span class="req" aria-hidden="true">*</span></label>
+                                @php $publicationDefault = old('publicationTime', \App\Support\PublicationDuration::DEFAULT); @endphp
                                 <select name="publicationTime" id="publicationTime" class="form-select" required>
-                                    <option value="">Select Duration</option>
-                                    <option value="6months" {{ old('publicationTime') == '6months' ? 'selected' : '' }}>6 Months</option>
-                                    <option value="1year" {{ old('publicationTime') == '1year' ? 'selected' : '' }}>1 Year</option>
-                                    <option value="permanent" {{ old('publicationTime') == 'permanent' ? 'selected' : '' }}>Permanent</option>
+                                    @foreach(\App\Support\PublicationDuration::options() as $value => $label)
+                                        <option value="{{ $value }}" @selected($publicationDefault === $value)>{{ $label }}</option>
+                                    @endforeach
                                 </select>
+                                <div class="help-text">{{ \App\Support\PublicationDuration::helpText() }}</div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Link Type <span class="req" aria-hidden="true">*</span></label>

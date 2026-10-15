@@ -65,6 +65,21 @@ class ProductionSqlGuardTest extends TestCase
         $this->assertStringContainsString("already exists'' AS info", $sql);
     }
 
+    public function test_publication_time_sql_is_idempotent_and_adds_multi_year_terms(): void
+    {
+        $sql = (string) file_get_contents(base_path('database/sql/expand_sites_publication_time.sql'));
+
+        $this->assertStringContainsString('information_schema.COLUMNS', $sql);
+        $this->assertStringContainsString("COLUMN_NAME = 'publication_time'", $sql);
+        $this->assertStringContainsString('2years', $sql);
+        $this->assertStringContainsString('3years', $sql);
+        $this->assertStringContainsString('PREPARE stmt FROM @sql', $sql);
+        $this->assertStringContainsString('ENUM(', $sql);
+        $this->assertStringContainsString('VARCHAR(20)', $sql);
+        $this->assertStringContainsString('already includes 2years/3years', $sql);
+        $this->assertStringContainsString('already wide enough', $sql);
+    }
+
     public function test_users_is_test_sql_is_idempotent(): void
     {
         $sql = (string) file_get_contents(base_path('database/sql/add_users_is_test.sql'));

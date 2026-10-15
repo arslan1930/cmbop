@@ -68,6 +68,7 @@ use App\Support\DepositPaymentConfig;
 use App\Support\ListingMoney;
 use App\Support\PaypalPaymentError;
 use App\Support\PlatformCharge;
+use App\Support\PublicationDuration;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteTag;
 use App\Support\UserFacingError;
@@ -891,6 +892,11 @@ class CatalogController extends Controller
         $linkType = strtolower(search_text($request->input('link_type')));
         if (in_array($linkType, ['dofollow', 'nofollow'], true)) {
             $query->where('link_type', $linkType);
+        }
+
+        $publication = PublicationDuration::normalize($request->input('publication_time'));
+        if ($publication !== null) {
+            $query->where('publication_time', $publication);
         }
 
         // More → Bulk deals — pack program only (not custom Sale −%).
