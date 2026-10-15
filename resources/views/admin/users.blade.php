@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'Users')
+
 @section('content')
 @php
     $filters = $filters ?? ['q' => '', 'role' => '', 'status' => '', 'flag' => '', 'sort' => 'newest', 'user' => 0];
@@ -314,7 +316,7 @@
                     </div>
 
                     <div class="detail-line">
-                        <strong>Country:</strong> {{ $user->country ?? '-' }}
+                        <strong>Country:</strong> {{ \App\Support\CountryCode::displayName($user->country) }}
                     </div>
 
                     <div class="detail-line">

@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'User')
+
 @section('content')
 @php
     $t = $dossier['totals'] ?? [];
@@ -75,7 +77,7 @@
                         </div>
                         <div class="col-md-6">
                             <div class="small text-muted">Country</div>
-                            <div>{{ $user->country ?: '—' }}</div>
+                            <div title="{{ $user->country ?? '' }}">{{ \App\Support\CountryCode::displayName($user->country) }}</div>
                         </div>
                         <div class="col-md-6">
                             <div class="small text-muted">Display currency</div>
