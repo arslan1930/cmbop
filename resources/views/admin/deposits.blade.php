@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'Deposits')
+
 @section('content')
 <div class="container-fluid">
     <div class="row mb-4">
@@ -17,7 +19,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-muted mb-1">Pending</h6>
+                            <h6 class="text-muted mb-1" title="All pending deposits, not just this page">Pending</h6>
                             <h2 class="mb-0 text-warning">{{ $stats['pending'] }}</h2>
                         </div>
                         <div class="bg-warning bg-opacity-10 p-3 rounded">
@@ -113,6 +115,7 @@
             </div>
         </div>
     </div>
+    <p class="small text-muted mb-4">Tiles are global totals. The table below is paginated ({{ $deposits->perPage() }} per page)@if(request()->filled('status') || request()->filled('search') || request()->filled('payment_method') || request()->filled('from') || request()->filled('to') || request()->boolean('reported')) and filtered @endif — showing {{ $deposits->firstItem() ?: 0 }}–{{ $deposits->lastItem() ?: 0 }} of {{ $deposits->total() }}.</p>
 
     <!-- Filters -->
     <div class="card border-0 shadow-sm mb-4 admin-deposits-filter-card">
@@ -183,13 +186,13 @@
     </div>
 
     <!-- Deposits Table -->
-    <form method="POST" action="{{ route('admin.deposits.bulk-approve') }}" id="adminDepositsBulkForm"
-          data-slb-confirm="Approve selected pending bank/Wise/crypto deposits? Card and PayPal rows are skipped."
-          data-slb-confirm-title="Bulk approve deposits?"
-          data-slb-confirm-text="Approve">
+    <form method="POST" action="{{ route('admin.deposits.bulk-approve') }}" id="adminDepositsBulkForm">
     @csrf
     <div class="d-flex flex-wrap gap-2 mb-2">
-        <button type="submit" class="btn btn-sm btn-outline-primary">Approve selected</button>
+        <button type="submit" class="btn btn-sm btn-outline-primary"
+                data-slb-confirm="Approve selected pending bank/Wise/crypto deposits? Card and PayPal rows are skipped."
+                data-slb-confirm-title="Bulk approve deposits?"
+                data-slb-confirm-text="Approve">Approve selected</button>
         <span class="small text-muted align-self-center">Manual rails only (bank / Wise / crypto).</span>
     </div>
     <div class="card border-0 shadow-sm admin-table-fit">
@@ -299,7 +302,7 @@
                             </td>
                             <td>
                                 <div class="admin-deposit-actions">
-                                    <button class="btn btn-sm btn-outline-primary view-deposit"
+                                    <button type="button" class="btn btn-sm btn-outline-primary view-deposit"
                                             data-id="{{ $deposit->id }}"
                                             data-show-url="{{ route('admin.deposits.show', $deposit->id) }}">
                                         <i class="fa fa-eye"></i> View
@@ -567,8 +570,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
                 <dl class="deposit-sheet__facts">
-                    ${depositFact('Payment reference', `<code class="ref-code">${escapeHtml(deposit.payment_reference || deposit.reference_code || '')}</code>`)}
-                    ${deposit.reference_code && deposit.payment_reference ? depositFact('Invoice REF', `<code class="ref-code">${escapeHtml(deposit.reference_code)}</code>`) : ''}
+                    ${depositFact('Payment reference', `<code class="ref-code">${escapeHtml(deposit.payment_reference_label || deposit.payment_reference || (deposit.reference_code ? ('REF' + deposit.reference_code) : ''))}</code>`)}
+                    ${deposit.reference_code ? depositFact('Invoice REF', `<code class="ref-code">${escapeHtml(deposit.reference_code)}</code>`) : ''}
                     ${depositFact('Currency', escapeHtml(String(deposit.charge_currency || 'EUR').toUpperCase()))}
                     ${deposit.bank_account ? depositFact('Target bank', escapeHtml(bankAccountLabel(deposit.bank_account))) : ''}
                     ${deposit.received_bank ? depositFact('Arrived in', escapeHtml(bankAccountLabel(deposit.received_bank))) : ''}

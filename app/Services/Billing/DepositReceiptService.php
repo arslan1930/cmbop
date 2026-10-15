@@ -129,7 +129,7 @@ class DepositReceiptService
             ],
             'line_items' => [[
                 'description' => 'Wallet top-up',
-                'reference' => $deposit->reference_code,
+                'reference' => $deposit->paymentReferenceLabel() ?: $deposit->reference_code,
                 'quantity' => 1,
                 'unit_price' => $amount,
                 'line_total' => $amount,
@@ -142,6 +142,7 @@ class DepositReceiptService
                 'charge_currency' => $deposit->charge_currency,
                 'charge_amount' => $deposit->charge_amount,
                 'wallet_euros' => $amount,
+                'payment_reference' => $deposit->paymentReferenceLabel(),
             ],
         ];
     }

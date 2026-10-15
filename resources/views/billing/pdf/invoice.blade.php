@@ -239,6 +239,26 @@
                         <td class="v">#{{ $invoice->order_number }}</td>
                     </tr>
                 @endunless
+                @php
+                    $depositPaymentRef = trim((string) data_get($invoice->meta, 'payment_reference', ''));
+                    if ($depositPaymentRef === '' && ! empty($isDeposit)) {
+                        try {
+                            $depositId = $invoice->depositRequestId();
+                            if ($depositId && \App\Models\DepositRequest::tableAvailable()) {
+                                $linkedDeposit = \App\Models\DepositRequest::query()->find($depositId);
+                                $depositPaymentRef = $linkedDeposit?->paymentReferenceLabel() ?: '';
+                            }
+                        } catch (\Throwable) {
+                            $depositPaymentRef = '';
+                        }
+                    }
+                @endphp
+                @if($depositPaymentRef !== '')
+                    <tr>
+                        <td class="k">Payment reference</td>
+                        <td class="v">{{ $depositPaymentRef }}</td>
+                    </tr>
+                @endif
                 @if($invoice->reference_code)
                     <tr>
                         <td class="k">Ref</td>
