@@ -442,6 +442,13 @@ class CommunityFeedbackTest extends TestCase
     public function test_problems_filter_omits_approved_and_tab_switch_drops_it(): void
     {
         $admin = $this->userWithRole('admin');
+        ProblemReport::create([
+            'name' => 'Filter Probe',
+            'email' => 'filter-probe@example.com',
+            'subject' => 'Keep problem filters visible',
+            'message' => 'Empty tabs hide the status dropdown.',
+            'status' => 'pending',
+        ]);
 
         $html = $this->actingAs($admin)
             ->get(route('admin.community.index', ['tab' => 'problems']))

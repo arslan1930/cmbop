@@ -3,9 +3,6 @@
 @section('title', 'Withdrawals')
 
 @section('content')
-<style>
-    .withdrawals-mode-history .js-queue-open-only { display: none !important; }
-</style>
 @php
     $platformChargePercent = (float) config('billing.withdrawal_fee_percent', 0);
 @endphp
