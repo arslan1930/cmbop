@@ -21,6 +21,7 @@ use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
 use App\Support\MarketingOpsQueues;
 use App\Support\MarketplacePicker;
+use App\Support\PublicationDuration;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
