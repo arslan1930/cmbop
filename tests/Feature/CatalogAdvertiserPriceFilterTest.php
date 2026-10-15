@@ -161,4 +161,39 @@ class CatalogAdvertiserPriceFilterTest extends TestCase
             $sql
         );
     }
+
+    public function test_buyer_pay_sql_matches_php_for_live_custom_discounts(): void
+    {
+        $this->actingAs($this->advertiser);
+        $plain = $this->site(100, 'List Price Site');
+        $sale = $this->site(110, 'Sale Floor Site', [
+            'custom_discount_percent' => 20,
+            'custom_discount_starts_at' => now()->subDay(),
+            'custom_discount_ends_at' => now()->addDays(7),
+        ]);
+
+        $filter = app(CatalogAdvertiserPriceFilter::class);
+        $sql = $filter->buyerPaySql();
+        $rows = Site::query()
+            ->select('id', 'price')
+            ->selectRaw($sql.' as pay_sql')
+            ->whereIn('id', [$plain->id, $sale->id])
+            ->get()
+            ->keyBy('id');
+
+        $plainPay = $filter->phpBuyerPay($plain->fresh(), 'EUR');
+        $salePay = $filter->phpBuyerPay($sale->fresh(), 'EUR');
+
+        $this->assertEqualsWithDelta($plainPay, (float) $rows[$plain->id]->pay_sql, 0.001);
+        $this->assertEqualsWithDelta($salePay, (float) $rows[$sale->id]->pay_sql, 0.001);
+        $this->assertLessThan($plainPay, $salePay);
+
+        $constrainIds = Site::query()
+            ->tap(fn ($q) => $filter->constrain($q, null, $salePay))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $this->assertContains($sale->id, $constrainIds);
+        $this->assertNotContains($plain->id, $constrainIds);
+    }
 }

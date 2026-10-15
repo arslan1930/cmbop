@@ -184,8 +184,8 @@ class CatalogUrlRevealTest extends TestCase
         $this->assertStringContainsString('a-sample-guest-post', $html);
         $this->assertStringNotContainsString('href="https://open-sample.example/a-sample-guest-post"', $html);
         $this->assertStringNotContainsString('Use the eye to show this listing', $html);
-        $this->assertStringContainsString('data-site-url="https://open-sample.example"', $html);
-        $this->assertStringContainsString('btn-claim-site', $html);
+        $this->assertStringContainsString('open-sample.example', $html);
+        $this->assertStringNotContainsString('btn-claim-site', $html);
     }
 
     public function test_normal_catalog_always_shows_the_real_domain(): void

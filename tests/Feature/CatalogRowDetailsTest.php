@@ -96,7 +96,8 @@ class CatalogRowDetailsTest extends TestCase
         $titleChunk = substr($html, $titleStart, $identityStart - $titleStart);
         $this->assertStringContainsString('catalog-site-name', $titleChunk);
         $this->assertStringContainsString('site-chip--verified', $titleChunk);
-        $this->assertStringNotContainsString('catalog-details-toggle', $titleChunk);
+        $this->assertStringContainsString('catalog-details-toggle', $titleChunk);
+        $this->assertStringContainsString('catalog-details-toggle__label">Details', $titleChunk);
         $this->assertStringNotContainsString('site-open-link', $titleChunk);
         $this->assertStringNotContainsString('Partner article', $titleChunk);
 
@@ -155,7 +156,7 @@ class CatalogRowDetailsTest extends TestCase
         $this->assertStringNotContainsString('Ein deutscher Verlag', $html);
     }
 
-    public function test_card_buy_keeps_price_hooks_and_claim_is_quiet_copy(): void
+    public function test_card_buy_keeps_price_hooks_without_claim(): void
     {
         $this->makeSite();
 
@@ -168,8 +169,8 @@ class CatalogRowDetailsTest extends TestCase
         $this->assertStringContainsString('buy-now', $html);
         $this->assertStringContainsString('base-price-display', $html);
         $this->assertStringContainsString('list-price-display', $html);
-        $this->assertStringContainsString('btn-claim-site', $html);
-        $this->assertStringContainsString('Is this your site?', $html);
+        $this->assertStringNotContainsString('btn-claim-site', $html);
+        $this->assertStringNotContainsString('Is this your site?', $html);
         $this->assertStringContainsString('New listing', $html);
         $this->assertStringNotContainsString('Awaiting first ratings', $html);
         $this->assertStringNotContainsString('No completed orders yet', $html);

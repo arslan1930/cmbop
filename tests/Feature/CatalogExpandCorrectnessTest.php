@@ -272,7 +272,8 @@ class CatalogExpandCorrectnessTest extends TestCase
         // No sensitive add-ons: pricing column still shows advertiser You pay.
         $this->assertStringContainsString('catalog-expand-pricing', $html);
         $this->assertStringContainsString('You pay:', $html);
-        $this->assertStringNotContainsString('Sensitive topics', $html);
+        $this->assertStringNotContainsString('data-catalog-section="sensitive"', $html);
+        $this->assertStringNotContainsString('sensitive-prices-group', $html);
         $this->assertStringNotContainsString('Base guest post only', $html);
         // Mobile Details also lists the offers.
         $this->assertStringContainsString('Homepage promotions', $html);
@@ -295,7 +296,8 @@ class CatalogExpandCorrectnessTest extends TestCase
 
         $this->assertStringContainsString('catalog-expand-pricing', $html);
         $this->assertStringContainsString('You pay:', $html);
-        $this->assertStringNotContainsString('Sensitive topics', $html);
+        $this->assertStringNotContainsString('data-catalog-section="sensitive"', $html);
+        $this->assertStringNotContainsString('sensitive-prices-group', $html);
         $this->assertStringNotContainsString('No extra pricing options for this listing.', $html);
         $this->assertStringContainsString('Base guest post only — no homepage, social, or sensitive add-ons.', $html);
         // Homepage promotions is omitted when the listing has no homepage offer.

@@ -24,6 +24,7 @@
         ? (float) $bulkPercent
         : null;
     $bulkOfferQty = (int) ($bulkMinQty ?? config('site_promotions.bulk.min_qty', 3));
+    $saleBadgeLabel = \App\Support\CatalogSaleBadge::label((float) $listPrice, (float) $payPrice);
 @endphp
 
 <div class="catalog-price catalog-price--{{ $priceAlign }}">
@@ -36,11 +37,11 @@
         @endif
         <span class="catalog-price__list list-price-display" {{ $hasOffer ? '' : 'hidden' }}>{{ format_money($listPrice) }}</span>
     </div>
-    @if($hasOffer && $salePercent)
-        {{-- salePercent is effective (post floor); list/pay euros are the source of truth --}}
+    @if($hasOffer && $saleBadgeLabel)
+        {{-- Badge = (list − displayed) / list, not the stored nominal percent. --}}
         <span class="catalog-price__offer" data-catalog-offer-pct>
             <i class="fa-solid fa-tag" aria-hidden="true"></i>
-            <span class="catalog-price__offer-text">{{ rtrim(rtrim(number_format((float) $salePercent, 1), '0'), '.') }}% off</span>
+            <span class="catalog-price__offer-text">{{ $saleBadgeLabel }} off</span>
         </span>
     @endif
     @if($bulkOfferPct !== null)

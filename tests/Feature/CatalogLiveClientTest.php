@@ -111,6 +111,8 @@ class CatalogLiveClientTest extends TestCase
         $this->assertStringContainsString("'tag', 'favorites_filter', 'blacklist_filter'", $js);
         $this->assertStringContainsString("getElementById('bulk_deals')", $js);
         $this->assertStringContainsString("getElementById('on_sale')", $js);
+        $this->assertStringContainsString("getElementById('catalogSensitiveTopics')", $js);
+        $this->assertStringContainsString("'link_type', 'turnaround_max'", $js);
         // Unchecked form checkboxes must not be revived from the URL in fromForm.
         $this->assertMatchesRegularExpression(
             '/el\.type === [\'"]checkbox[\'"][\s\S]{0,80}return;/s',
@@ -138,9 +140,10 @@ class CatalogLiveClientTest extends TestCase
         $this->assertStringContainsString('id="catalogLiveStatus"', $blade);
         $this->assertStringContainsString('aria-live="polite"', $blade);
         $this->assertStringContainsString('lastAppliedQuery', $js);
-        // Stale rows under the veil must not stay clickable.
-        $this->assertStringContainsString('.catalog-results-card.is-busy > .card-body', $css);
+        // Small non-blocking pill: rows stay clickable (PR #1293 busy guards remain).
+        $this->assertStringContainsString('.catalog-results-busy', $css);
         $this->assertStringContainsString('pointer-events: none', $css);
+        $this->assertStringNotContainsString('.catalog-results-card.is-busy > .card-body', $css);
         $this->assertStringContainsString('intent: \'search\'', $js);
         $this->assertStringContainsString('intent: \'page\'', $js);
 

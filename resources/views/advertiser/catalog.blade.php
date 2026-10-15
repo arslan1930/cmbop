@@ -226,7 +226,7 @@
 
     <!-- FILTERS SECTION -->
 @php
-    $moreFilterKeys = ['favorites_filter','blacklist_filter','bulk_deals','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge','on_sale','featured','quality','rating_min','has_completions','publication_time'];
+    $moreFilterKeys = ['favorites_filter','blacklist_filter','bulk_deals','da_min','da_max','dr_min','dr_max','traffic_min','traffic_max','new_badge','on_sale','featured','quality','rating_min','has_completions','publication_time','link_type','turnaround_max','sensitive_topics','google_news'];
     $moreTagActive = \App\Support\SiteTag::catalogFilterFromRequest(request()) !== null;
     $moreFilterCount = collect($moreFilterKeys)->filter(fn ($k) => filled(request($k)))->count()
         + ($moreTagActive ? 1 : 0);
@@ -253,8 +253,20 @@
         }
     }
     if ($catalogCountryText !== '') $activeFilterChips[] = ['label' => 'Country', 'key' => 'country', 'params' => ['country']];
-    if (request('price_min') || request('price_max')) $activeFilterChips[] = ['label' => 'Price', 'key' => 'price', 'params' => ['price_min', 'price_max']];
-    if ($catalogLanguageText !== '') $activeFilterChips[] = ['label' => 'Language', 'key' => 'language', 'params' => ['language']];
+    if (request('price_min') || request('price_max')) {
+        $activeFilterChips[] = [
+            'label' => \App\Services\Catalog\CatalogFilterChips::priceLabel(request('price_min'), request('price_max')) ?? 'Price',
+            'key' => 'price',
+            'params' => ['price_min', 'price_max'],
+        ];
+    }
+    if ($catalogLanguageText !== '') {
+        $activeFilterChips[] = [
+            'label' => \App\Services\Catalog\CatalogFilterChips::languageLabel($catalogLanguageText, $availableLanguages ?? []),
+            'key' => 'language',
+            'params' => ['language'],
+        ];
+    }
     $catalogTagFilter = \App\Support\SiteTag::catalogFilterFromRequest(request());
     if ($catalogTagFilter !== null) {
         $activeFilterChips[] = [
@@ -283,6 +295,28 @@
             'key' => 'publication_time',
             'params' => ['publication_time'],
         ];
+    }
+    $catalogLinkType = strtolower(search_text(request('link_type')));
+    if (in_array($catalogLinkType, ['dofollow', 'nofollow'], true)) {
+        $activeFilterChips[] = [
+            'label' => $catalogLinkType === 'nofollow' ? 'NoFollow' : 'DoFollow',
+            'key' => 'link_type',
+            'params' => ['link_type'],
+        ];
+    }
+    $catalogTurnaroundMax = \App\Support\CatalogTurnaroundFilter::normalize(request('turnaround_max'));
+    if ($catalogTurnaroundMax !== null) {
+        $activeFilterChips[] = [
+            'label' => 'Turnaround: '.(\App\Support\CatalogTurnaroundFilter::options()[$catalogTurnaroundMax] ?? ($catalogTurnaroundMax.' days')),
+            'key' => 'turnaround_max',
+            'params' => ['turnaround_max'],
+        ];
+    }
+    if (request('sensitive_topics') == '1') {
+        $activeFilterChips[] = ['label' => 'Accepts sensitive topics', 'key' => 'sensitive_topics', 'params' => ['sensitive_topics']];
+    }
+    if (request('google_news') == '1' && \App\Support\CatalogGoogleNews::isAvailable()) {
+        $activeFilterChips[] = ['label' => 'Google News', 'key' => 'google_news', 'params' => ['google_news']];
     }
     $catalogPerPage = \App\Services\Catalog\CatalogUrlQuery::perPage(request());
     if ($catalogPerPage !== \App\Services\Catalog\CatalogUrlQuery::DEFAULT_PER_PAGE) {
@@ -717,6 +751,56 @@
                                     'options' => \App\Support\PublicationDuration::filterOptions(),
                                 ])
                             </div>
+
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogLinkType-trigger">
+                                    Link type
+                                </label>
+                                @include('advertiser.partials.catalog-theme-select', [
+                                    'selectId' => 'catalogLinkType',
+                                    'name' => 'link_type',
+                                    'label' => 'Link type',
+                                    'current' => in_array(strtolower(search_text(request('link_type'))), ['dofollow', 'nofollow'], true)
+                                        ? strtolower(search_text(request('link_type')))
+                                        : '',
+                                    'options' => ['' => 'Any', 'dofollow' => 'DoFollow', 'nofollow' => 'NoFollow'],
+                                ])
+                            </div>
+
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogTurnaroundMax-trigger">
+                                    Turnaround
+                                </label>
+                                @include('advertiser.partials.catalog-theme-select', [
+                                    'selectId' => 'catalogTurnaroundMax',
+                                    'name' => 'turnaround_max',
+                                    'label' => 'Maximum turnaround',
+                                    'current' => (string) (\App\Support\CatalogTurnaroundFilter::normalize(request('turnaround_max')) ?? ''),
+                                    'options' => collect(\App\Support\CatalogTurnaroundFilter::options())
+                                        ->mapWithKeys(fn ($label, $days) => [(string) $days => $label])
+                                        ->prepend('Any', '')
+                                        ->all(),
+                                ])
+                            </div>
+
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogSensitiveTopics">Sensitive topics</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="sensitive_topics" id="catalogSensitiveTopics" value="1" {{ request('sensitive_topics') == 1 ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="catalogSensitiveTopics">Accepts sensitive topics</label>
+                                </div>
+                                <div class="form-text">Crypto, trading, CBD, or forex add-ons — not casino.</div>
+                            </div>
+
+                            @if(\App\Support\CatalogGoogleNews::isAvailable())
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <label class="form-label fw-semibold small text-muted mb-1" for="catalogGoogleNews">Google News</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="google_news" id="catalogGoogleNews" value="1" {{ request('google_news') == 1 ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="catalogGoogleNews">Indexed in Google News</label>
+                                </div>
+                            </div>
+                            @endif
                         </div>
                     </div>
                 </form>
@@ -822,6 +906,8 @@ window.CatalogConfig = {
     categoryNames: @json(array_values($siteCategories ?? [])),
     countryParam: @json($catalogCountryText),
     languageParam: @json($catalogLanguageText),
+    languageNames: @json($availableLanguages ?? []),
+    googleNewsAvailable: @json(\App\Support\CatalogGoogleNews::isAvailable()),
     countryLanguageMap: @json(app(\App\Services\Marketplace\CountryLanguagePairs::class)->mapWithNames()),
     countryGroups: @json(collect($countryPickerGroups ?? [])->mapWithKeys(fn ($g) => [$g['key'] => $g['codes']])->all()),
     countryGroupLabels: @json(collect($countryPickerGroups ?? [])->mapWithKeys(fn ($g) => [$g['key'] => $g['label']])->all()),

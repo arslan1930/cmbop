@@ -65,7 +65,7 @@ class CatalogUxPolishTest extends TestCase
         ], $overrides));
     }
 
-    public function test_closed_row_shows_in_cart_and_keeps_claim_in_details(): void
+    public function test_closed_row_shows_in_cart_and_hides_claim_in_buyer_view(): void
     {
         $site = $this->makeSite();
 
@@ -83,8 +83,9 @@ class CatalogUxPolishTest extends TestCase
 
         $this->assertStringContainsString('is-in-cart', $html);
         $this->assertStringContainsString('>In cart</span>', $html);
-        $this->assertStringContainsString('btn-claim-site', $html);
-        $this->assertStringContainsString('Is this your site?', $html);
+        $this->assertStringNotContainsString('btn-claim-site', $html);
+        $this->assertStringNotContainsString('Is this your site?', $html);
+        $this->assertStringNotContainsString('Claim website', $html);
 
         $actionStart = strpos($html, 'catalog-td-action');
         $detailsStart = strpos($html, 'catalog-site-details');

@@ -63,7 +63,10 @@ use App\Services\Wallet\WalletLedgerService;
 use App\Support\AdvertiserOrderDetails;
 use App\Support\AdvertiserOrderStatus;
 use App\Support\CartDisplayFx;
+use App\Support\CatalogGoogleNews;
 use App\Support\CatalogProblemReport;
+use App\Support\CatalogSensitiveTopics;
+use App\Support\CatalogTurnaroundFilter;
 use App\Support\CatalogVisitUrl;
 use App\Support\DepositPaymentConfig;
 use App\Support\ListingMoney;
@@ -288,7 +291,7 @@ class CatalogController extends Controller
     {
         $filters = CatalogUrlQuery::fromRequest($request);
         unset($filters['page'], $filters['sort'], $filters['per_page'], $filters['wizard']);
-        $cacheKey = 'catalog.inventory_from.v1.'.sha1(json_encode([
+        $cacheKey = 'catalog.inventory_from.v2.'.sha1(json_encode([
             $filters,
             $listing->buyerCurrency(),
         ]));
@@ -350,6 +353,7 @@ class CatalogController extends Controller
             'catalogReported' => [],
             'showBlacklistedOnly' => search_text($request->input('blacklist_filter')) === '1',
             'inventoryFrom' => null,
+            'pageRedirect' => null,
         ];
     }
 
@@ -381,6 +385,9 @@ class CatalogController extends Controller
                 UserFacingError::message($e, 'Unable to load catalog listings. Please refresh and try again.')
             );
             $listing = $this->emptyCatalogListing($request);
+        }
+        if (! empty($listing['pageRedirect']) && is_array($listing['pageRedirect'])) {
+            return redirect()->route('advertiser.catalog', $listing['pageRedirect']);
         }
         $sites = $listing['sites'];
         $favorites = $listing['favorites'];
@@ -909,7 +916,7 @@ class CatalogController extends Controller
 
         $listingMoney = app(ListingMoney::class);
         $priceFilter = app(CatalogAdvertiserPriceFilter::class);
-        $advPriceSql = $priceFilter->advertiserFacingSql($listingMoney);
+        $advPriceSql = $priceFilter->buyerPaySql($listingMoney);
 
         $this->constrainCatalogAdvertiserPrice(
             $query,
@@ -926,6 +933,18 @@ class CatalogController extends Controller
         $linkType = strtolower(search_text($request->input('link_type')));
         if (in_array($linkType, ['dofollow', 'nofollow'], true)) {
             $query->where('link_type', $linkType);
+        }
+
+        CatalogTurnaroundFilter::constrainQuery($query, $request->input('turnaround_max'));
+
+        if ($request->input('sensitive_topics') == '1' || $request->input('sensitive_topics') === 1) {
+            CatalogSensitiveTopics::constrainQuery($query);
+        }
+
+        $googleNewsColumn = CatalogGoogleNews::column();
+        if ($googleNewsColumn !== null
+            && ($request->input('google_news') == '1' || $request->input('google_news') === 1)) {
+            $query->where($googleNewsColumn, 1);
         }
 
         $publication = PublicationDuration::normalize($request->input('publication_time'));
@@ -997,7 +1016,15 @@ class CatalogController extends Controller
         // and only carry the allowlisted listing query (URL source of truth).
         $perPage = CatalogUrlQuery::perPage($request);
         $this->joinCatalogLastCompletedAt($query);
-        $sites = $query->paginate($perPage);
+        $requestedPage = max(1, (int) $request->input('page', 1));
+        $sites = (clone $query)->paginate($perPage, ['*'], 'page', $requestedPage);
+        $pageRedirect = null;
+        if ($requestedPage > 1 && $requestedPage > $sites->lastPage()) {
+            $clamped = max(1, $sites->lastPage());
+            $request->merge(['page' => (string) $clamped]);
+            $sites = (clone $query)->paginate($perPage, ['*'], 'page', $clamped);
+            $pageRedirect = CatalogUrlQuery::fromRequest($request);
+        }
         $sites->appends(CatalogUrlQuery::fromRequest($request));
         $sites->setPath(route('advertiser.catalog', absolute: false));
 
@@ -1027,6 +1054,7 @@ class CatalogController extends Controller
             'catalogReported' => $catalogReported,
             'showBlacklistedOnly' => $showBlacklistedOnly,
             'inventoryFrom' => $inventoryFrom,
+            'pageRedirect' => $pageRedirect,
         ];
     }
 

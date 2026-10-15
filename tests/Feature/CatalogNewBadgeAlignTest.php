@@ -194,9 +194,9 @@ class CatalogNewBadgeAlignTest extends TestCase
             ->assertDontSee('Something went wrong')
             ->getContent();
 
-        $this->assertStringContainsString('data-site-name="Leftover Created Site"', $html);
+        $this->assertStringContainsString('data-name="Leftover Created Site"', $html);
         $this->assertDoesNotMatchRegularExpression(
-            '/data-site-name="Leftover Created Site"[\s\S]{0,2500}?site-badge-new/',
+            '/data-name="Leftover Created Site"[\s\S]{0,2500}?site-badge-new/',
             $html
         );
     }
@@ -218,8 +218,8 @@ class CatalogNewBadgeAlignTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('data-site-name="Really New Site"', $html);
-        $this->assertStringNotContainsString('data-site-name="Garbage Created Site"', $html);
+        $this->assertMatchesRegularExpression('/<tr class="site-row[^"]*"[\s\S]{0,400}data-name="Really New Site"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/<tr class="site-row[^"]*"[\s\S]{0,400}data-name="Garbage Created Site"/', $html);
         $this->assertTrue($live->fresh()->isRecentlyCreated());
     }
 
@@ -243,10 +243,12 @@ class CatalogNewBadgeAlignTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $freshPos = strpos($html, 'data-site-name="Really Newest Site"');
-        $leftoverPos = strpos($html, 'data-site-name="Garbage Newest Site"');
-        $this->assertNotFalse($freshPos);
-        $this->assertNotFalse($leftoverPos);
-        $this->assertLessThan($leftoverPos, $freshPos);
+        preg_match_all('/<tr class="site-row[^"]*"[\s\S]{0,400}data-name="([^"]+)"/', $html, $rows);
+        $names = $rows[1] ?? [];
+        $freshIdx = array_search('Really Newest Site', $names, true);
+        $leftoverIdx = array_search('Garbage Newest Site', $names, true);
+        $this->assertNotFalse($freshIdx);
+        $this->assertNotFalse($leftoverIdx);
+        $this->assertLessThan($leftoverIdx, $freshIdx);
     }
 }

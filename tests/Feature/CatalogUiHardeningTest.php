@@ -140,7 +140,7 @@ class CatalogUiHardeningTest extends TestCase
         $css = (string) file_get_contents(public_path('assets/css/catalog.css'));
         $this->assertStringContainsString('.form-check-input.sensitive-price-checkbox', $css);
         $this->assertStringContainsString('appearance: none', $css);
-        $this->assertStringContainsString("m6 10 3 3 6-6", $css);
+        $this->assertStringContainsString('m6 10 3 3 6-6', $css);
         $this->assertStringContainsString('cart-fly-arrow', $js);
         $this->assertStringContainsString('cart-fly-window', $js);
         $this->assertStringContainsString('.cart-fly-window', $css);
@@ -516,10 +516,11 @@ class CatalogUiHardeningTest extends TestCase
         $drawer = substr($drawer, 0, $drawerEnd);
 
         // Old col-md-2/3 cells summed past 12 and wrapped mid-row. Keep the
-        // shared 6/4/3 grid: four per lg row (Tag…Quality = 10 cells).
+        // shared 6/4/3 grid (four per lg row), including link type / TAT /
+        // sensitive topics / optional Google News.
         $this->assertSame(0, substr_count($drawer, 'class="col-md-2"'));
         $this->assertSame(0, substr_count($drawer, 'class="col-md-3"'));
-        $this->assertSame(12, substr_count($drawer, 'class="col-6 col-md-4 col-lg-3"'));
+        $this->assertSame(18, substr_count($drawer, 'class="col-6 col-md-4 col-lg-3"'));
 
         // Preset chips make DA taller than Tag/Favorites/Blacklist. Bottom
         // alignment floated the DA label above that first row.

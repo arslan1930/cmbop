@@ -143,6 +143,7 @@ class CatalogUrlSourceOfTruthTest extends TestCase
         $this->site($publisher, ['site_name' => 'Chip Url Site']);
 
         $html = $this->actingAs($advertiser)
+            ->followingRedirects()
             ->get(route('advertiser.catalog', [
                 'search' => 'Chip',
                 'da_min' => 30,
