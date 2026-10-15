@@ -109,7 +109,7 @@ class DanishMoneyLanders
     {
         return [
             'h2' => 'Hvad koster et gæsteindlæg i Danmark',
-            'body' => 'Vi udgiver ikke en fast PDF-prisliste og opfinder ikke et dansk CVR-tillæg: prisen er sitets, i euro. «Hvad koster et gæsteindlæg», «linkbuilding priser» og «pris backlinks» følger de katalogregler, du vælger. De nummererede pakker ovenfor er styrede digital-PR-kampagner, ikke en pose anonyme URL’er. Aktuelle beløb står i <a href="'.self::marketingUrl('marketplace').'">det danske katalog</a> efter registrering. Hovedkontoret er i London (Topurlz Ltd).',
+            'body' => 'Vi udgiver ikke en fast PDF-prisliste og opfinder ikke et dansk CVR-tillæg: prisen er sitets, i euro. «Hvad koster et gæsteindlæg», «linkbuilding priser» og «pris backlinks» følger de katalogregler, du vælger. De nummererede pakker ovenfor er styrede digital-PR-kampagner, ikke en pose anonyme URL’er. Aktuelle beløb står i <a href="'.self::marketingUrl('marketplace').'">det danske katalog</a> efter registrering. Hovedkontoret er i London (Teqno Ltd).',
         ];
     }
 
@@ -143,7 +143,7 @@ class DanishMoneyLanders
                 'teaser_title' => 'Sites til gæsteindlæg i Danmark',
                 'teaser_subtitle' => 'Maskeret forhåndsvisning af aktive katalogregler i Danmark. Domæner ser du efter registrering.',
                 'intro' => [
-                    'SEOLinkBuildings er en self-service markedsplads, ikke en uigennemsigtig pakke gæsteindlæg. Du vælger sitet — ofte .dk, ofte på dansk — betaler i euro fra saldoen og holder briefing, chat og live-URL i samme ordre. Hovedkontoret er i London (Topurlz Ltd); vi opfinder ikke et CVR-nummer i Danmark.',
+                    'SEOLinkBuildings er en self-service markedsplads, ikke en uigennemsigtig pakke gæsteindlæg. Du vælger sitet — ofte .dk, ofte på dansk — betaler i euro fra saldoen og holder briefing, chat og live-URL i samme ordre. Hovedkontoret er i London (Teqno Ltd); vi opfinder ikke et CVR-nummer i Danmark.',
                     '«Køb gæsteindlæg», «gæsteindlæg på danske blogs» og «køb guest post» er samme hensigt: en betalt publikation på et site, du ikke ejer, med skrevne regler for længde, links og levering.',
                 ],
                 'points' => [
@@ -370,7 +370,7 @@ class DanishMoneyLanders
                     ],
                     [
                         'title' => 'Ordre og faktura',
-                        'body' => 'Fakturaer for indbetalinger eller ordrer henter I i annoncørfaktureringen, når produktet udsteder dem. Selskabsoplysningerne er de britiske (Topurlz Ltd). Vi opfinder ikke et dansk CVR.',
+                        'body' => 'Fakturaer for indbetalinger eller ordrer henter I i annoncørfaktureringen, når produktet udsteder dem. Selskabsoplysningerne er de britiske (Teqno Ltd). Vi opfinder ikke et dansk CVR.',
                     ],
                     [
                         'title' => 'Arbejdsflade til SEO-teams',

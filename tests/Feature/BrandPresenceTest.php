@@ -36,12 +36,12 @@ class BrandPresenceTest extends TestCase
         $this->assertStringNotContainsString('SEO Link Buildings', $html);
         $this->assertStringNotContainsString('Partners with', $html);
         $this->assertStringContainsString('"Seolink Buildings"', $html);
-        $this->assertStringContainsString('"Topurlz Ltd"', $html);
+        $this->assertStringContainsString('"Teqno Ltd"', $html);
         $this->assertStringContainsString('20 Wenlock Road', $html);
         $this->assertStringContainsString('N1 7GU', $html);
-        $this->assertStringContainsString('16607074', $html);
+        $this->assertStringContainsString('17392540', $html);
         $this->assertStringContainsString('support@seolinkbuildings.com', $html);
-        $this->assertStringContainsString('find-and-update.company-information.service.gov.uk/company/16607074', $html);
+        $this->assertStringContainsString('find-and-update.company-information.service.gov.uk/company/17392540', $html);
         $this->assertStringNotContainsString('<title>SEO Link Buildings', $html);
         $this->assertStringNotContainsString('The guest post marketplace for verified publisher sites.</title>', $html);
     }
@@ -64,7 +64,7 @@ class BrandPresenceTest extends TestCase
         $sameAs = BrandOrganization::sameAs();
         $this->assertContains('https://www.linkedin.com/company/seolinkbuildings', $sameAs);
         $this->assertContains(config('services.trustpilot.review_url'), $sameAs);
-        $this->assertContains('https://find-and-update.company-information.service.gov.uk/company/16607074', $sameAs);
+        $this->assertContains('https://find-and-update.company-information.service.gov.uk/company/17392540', $sameAs);
     }
 
     public function test_homepage_and_marketplace_target_different_money_queries(): void

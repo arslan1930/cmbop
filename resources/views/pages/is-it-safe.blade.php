@@ -6,7 +6,7 @@
 
 @php
 $faq = [
- ['Is SEOLinkBuildings a legitimate company?', 'Yes. SEOLinkBuildings (seolinkbuildings.com) has operated since 2024 and is run by Topurlz Ltd (company no. 16607074), registered in England and Wales, at 20 Wenlock Road, London N1 7GU. You can check it on Companies House. The founder is M. Arslan.'],
+ ['Is SEOLinkBuildings a legitimate company?', 'Yes. SEOLinkBuildings (seolinkbuildings.com) has operated since 2024 and is run by Teqno Ltd (company no. 17392540), registered in England and Wales, at 20 Wenlock Road, London N1 7GU. You can check it on Companies House. The founder is M. Arslan.'],
  ['Are the publishers verified?', 'Every publisher site is reviewed before it goes live in the catalogue. Verified sites carry a Verified badge and can be filtered in the catalogue. Each site can also show advertiser ratings and a completion rate based on successful vs cancelled orders, so you can judge it on more than DA/DR.'],
  ['Do you sell PBN links or link packages?', 'No. You pick individual publisher sites with listed prices and metrics. We do not sell private blog networks or mystery link packages, and content is moderated before publishers publish it.'],
  ['Is my payment protected?', 'Yes. When you order, your money is held by us before the publisher starts work. The publisher is only paid after you approve the live URL (or automatically 72 hours after the publisher submits it, if you do not respond). If the publisher cannot deliver, rejects the order, or a case is upheld, wallet and card orders are returned as wallet credit and PayPal orders to the paying PayPal account.'],

@@ -165,7 +165,7 @@ class FrenchMoneyLanders
                 'teaser_title' => 'Sites pour guest posts en France',
                 'teaser_subtitle' => 'Aperçu masqué des fiches actives en France. Les domaines s’ouvrent après inscription.',
                 'intro' => [
-                    'SEOLinkBuildings est une marketplace en libre-service, pas un forfait opaque de guest posts. Vous choisissez le site — souvent en .fr, souvent en français —, vous payez en euros depuis le portefeuille et vous gardez le brief, le chat et l’URL live dans une seule commande. Le siège est à Londres (Topurlz Ltd) ; nous n’inventons pas un SIRET français.',
+                    'SEOLinkBuildings est une marketplace en libre-service, pas un forfait opaque de guest posts. Vous choisissez le site — souvent en .fr, souvent en français —, vous payez en euros depuis le portefeuille et vous gardez le brief, le chat et l’URL live dans une seule commande. Le siège est à Londres (Teqno Ltd) ; nous n’inventons pas un SIRET français.',
                     '« Guest post France », « publier sur des blogs en France » et « guest posting sites France » décrivent la même intention : une publication payante sur un site qui n’est pas le vôtre, avec des règles écrites de longueur, de liens et de délais.',
                 ],
                 'points' => [
@@ -360,7 +360,7 @@ class FrenchMoneyLanders
                     ],
                     [
                         'q' => 'Le netlinking white label change-t-il la facturation ?',
-                        'a' => 'La facturation de l’annonceur reste celle de Topurlz Ltd, à Londres. Vous refacturez votre client de votre côté. Nous n’ajoutons pas votre marque sur le site public.',
+                        'a' => 'La facturation de l’annonceur reste celle de Teqno Ltd, à Londres. Vous refacturez votre client de votre côté. Nous n’ajoutons pas votre marque sur le site public.',
                     ],
                 ],
                 'see_also' => [
@@ -388,7 +388,7 @@ class FrenchMoneyLanders
                 'points' => [
                     [
                         'title' => 'White label, limites claires',
-                        'body' => 'Vous pouvez travailler le netlinking white label au sens opérationnel : vos clients ne sont pas obligés de voir chaque échange. Le site public et la facturation restent ceux de SEOLinkBuildings / Topurlz Ltd.',
+                        'body' => 'Vous pouvez travailler le netlinking white label au sens opérationnel : vos clients ne sont pas obligés de voir chaque échange. Le site public et la facturation restent ceux de SEOLinkBuildings / Teqno Ltd.',
                     ],
                     [
                         'title' => 'Plusieurs commandes',

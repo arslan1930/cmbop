@@ -238,7 +238,7 @@ class SwissMoneyLanders
                 'teaser_subtitle' => 'Derselbe Schweiz-Katalog wie bei Gastbeiträgen. Hier zählt die kommerzielle Sprache: Advertorial, Sponsored Content, Werbeartikel.',
                 'intro' => [
                     '„Artikel sponsorieren Schweiz“, „Advertorial kaufen“ und „Medienplatzierung“ beschreiben eine bezahlte Veröffentlichung auf einer Dritt-Site. Bei SEOLinkBuildings ist das kein separates SKU: es ist dieselbe Katalogbestellung, mit Disclosure und Link-Attribut laut Listing.',
-                    'Wir verkaufen kein Ranking und keine Agenturmeldung. Checkout ist Euro (kein CHF-Wallet, keine erfundene Schweizer MWST-Nummer). HQ bleibt London UK (Topurlz Ltd).',
+                    'Wir verkaufen kein Ranking und keine Agenturmeldung. Checkout ist Euro (kein CHF-Wallet, keine erfundene Schweizer MWST-Nummer). HQ bleibt London UK (Teqno Ltd).',
                 ],
                 'points' => [
                     [
@@ -424,7 +424,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'title' => 'Auftrag und Rechnung',
-                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie in der Rechnungsübersicht des Advertisers herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
+                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie in der Rechnungsübersicht des Advertisers herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Teqno Ltd) unter Über uns.',
                     ],
                     [
                         'title' => 'Plattform für SEO-Teams',
@@ -448,7 +448,7 @@ class SwissMoneyLanders
                     ],
                     [
                         'q' => 'Stellen Sie Schweizer MWST-Rechnungen aus?',
-                        'a' => 'Die Rechnungsstellung folgt der UK-Gesellschaft (Topurlz Ltd, London). Es gibt keine erfundene Schweizer Niederlassung und keinen CHF-Checkout. Klären Sie MWST mit Ihrer Buchhaltung.',
+                        'a' => 'Die Rechnungsstellung folgt der UK-Gesellschaft (Teqno Ltd, London). Es gibt keine erfundene Schweizer Niederlassung und keinen CHF-Checkout. Klären Sie MWST mit Ihrer Buchhaltung.',
                     ],
                     [
                         'q' => 'Gibt es eine separate Agentur-Preisliste?',

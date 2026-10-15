@@ -163,7 +163,7 @@ class SpanishMoneyLanders
                 'teaser_title' => 'Ejemplo de sitios para guest posts en España',
                 'teaser_subtitle' => 'Vista previa enmascarada de listings activos de España. Los dominios se ven tras registrarse.',
                 'intro' => [
-                    'SEOLinkBuildings es un marketplace self-service para anunciantes en España, no un paquete opaco de guest posts. Elija el sitio — a menudo .es, a menudo en español —, pague en euros desde el monedero y mantenga el briefing, el chat y la URL en vivo en un solo pedido. Sede en Londres (Topurlz Ltd); no hay CIF español inventado.',
+                    'SEOLinkBuildings es un marketplace self-service para anunciantes en España, no un paquete opaco de guest posts. Elija el sitio — a menudo .es, a menudo en español —, pague en euros desde el monedero y mantenga el briefing, el chat y la URL en vivo en un solo pedido. Sede en Londres (Teqno Ltd); no hay CIF español inventado.',
                     '«Comprar guest post», «publicar artículo invitado» y «guest post España» son la misma intención: una publicación de pago en un sitio que no es suyo, con reglas escritas de longitud, enlaces y plazos.',
                 ],
                 'points' => [
@@ -409,7 +409,7 @@ class SpanishMoneyLanders
                     ],
                     [
                         'title' => 'Pedido y factura',
-                        'body' => 'Las facturas de cargos de monedero o pedido se descargan en la facturación del anunciante cuando el producto las genera. Datos de empresa UK (Topurlz Ltd) en Quiénes somos — no hay entidad legal española inventada.',
+                        'body' => 'Las facturas de cargos de monedero o pedido se descargan en la facturación del anunciante cuando el producto las genera. Datos de empresa UK (Teqno Ltd) en Quiénes somos — no hay entidad legal española inventada.',
                     ],
                     [
                         'title' => 'Plataforma para equipos SEO',
@@ -577,7 +577,7 @@ class SpanishMoneyLanders
                 'teaser_subtitle' => 'No clonamos el inventario de un competidor. Después del registro ve fichas propias con precio en euro.',
                 'intro' => [
                     'Las búsquedas «Publisuites alternativa», «Getlinko alternativa» o «mejores plataformas linkbuilding» quieren un comparador. Esta página no afirma ser «mejor» en métricas que no publicamos. Enumera lo que sí puede comprobar en SEOLinkBuildings.',
-                    'Sede: Londres, Topurlz Ltd. Catálogo europeo, checkout en EUR. No inventamos una sede española, un CIF ni un monedero en otra divisa.',
+                    'Sede: Londres, Teqno Ltd. Catálogo europeo, checkout en EUR. No inventamos una sede española, un CIF ni un monedero en otra divisa.',
                 ],
                 'points' => [
                     [

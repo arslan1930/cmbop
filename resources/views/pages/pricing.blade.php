@@ -179,7 +179,7 @@
     <h2 class="h4 mb-3" style="color:#1a585e;">Qué cuesta un guest post en España</h2>
     <p class="text-muted">No publicamos un PDF fijo ni una tarifa con IVA español inventado: el precio es el del sitio, en euros, en el checkout. «Precio guest post» y «coste linkbuilding» siguen los listings que elija. Los paquetes numerados de arriba son campañas gestionadas de digital PR, no un saco de URLs anónimas.</p>
     <p class="text-muted">Los precios en vivo están en el <a href="{{ localized_url('marketplace') }}">catálogo de España</a>, después del registro. Índice europeo (página en inglés): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
-    <p class="text-muted">El precio lo marcan autoridad, tráfico, nicho, país, requisitos de contenido y revisión editorial — por listing, no como medias inventadas. La sede es Londres (Topurlz Ltd); no hay CIF español.</p>
+    <p class="text-muted">El precio lo marcan autoridad, tráfico, nicho, país, requisitos de contenido y revisión editorial — por listing, no como medias inventadas. La sede es Londres (Teqno Ltd); no hay CIF español.</p>
     @include('components.italian-seo-cluster-nav', [
         'links' => \App\Support\SpanishMoneyLanders::clusterLinks('precios'),
         'current' => 'precios',
@@ -228,7 +228,7 @@
     <h2 class="h4 mb-3" style="color:#1a585e;">Cât costă un guest post în România</h2>
     <p class="text-muted">Nu publicăm un PDF fix și nu inventăm un tarif cu TVA românesc: prețul este al site-ului, în euro, la checkout. „Preț guest post” și „cost linkbuilding” urmează listingurile pe care le alegi. Pachetele numerotate de mai sus sunt campanii gestionate de digital PR, nu un sac de URL-uri anonime.</p>
     <p class="text-muted">Prețurile în vigoare sunt în <a href="{{ localized_url('marketplace') }}">catalogul din România</a>, după înregistrare. Indexul european (pagină în engleză): <a href="{{ url('/guest-post-prices-europe') }}">guest-post prices Europe</a>.</p>
-    <p class="text-muted">Prețul îl fac autoritatea, traficul, nișa, țara, cerințele de conținut și revizia editorială — după listing, nu ca medii inventate. Sediul este la Londra (Topurlz Ltd); nu există un CUI românesc.</p>
+    <p class="text-muted">Prețul îl fac autoritatea, traficul, nișa, țara, cerințele de conținut și revizia editorială — după listing, nu ca medii inventate. Sediul este la Londra (Teqno Ltd); nu există un CUI românesc.</p>
     @include('components.italian-seo-cluster-nav', [
         'links' => \App\Support\RomanianMoneyLanders::clusterLinks('preturi'),
         'current' => 'preturi',

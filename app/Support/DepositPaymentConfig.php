@@ -122,7 +122,8 @@ class DepositPaymentConfig
     }
 
     /**
-     * Teqno LTD is 17392540. 16607074 is Topurlz Ltd — never show that as Teqno's number.
+     * Teqno Ltd is 17392540. 16607074 is a leftover Topurlz Ltd number —
+     * never show that leftover number as Teqno's registration.
      *
      * @param  array<string, mixed>|null  $pay
      */

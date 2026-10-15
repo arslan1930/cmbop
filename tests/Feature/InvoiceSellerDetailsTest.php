@@ -21,7 +21,7 @@ class InvoiceSellerDetailsTest extends TestCase
         $this->seed(RolesTableSeeder::class);
     }
 
-    public function test_final_order_invoice_shows_partners_with_topurlz_seller_block(): void
+    public function test_final_order_invoice_shows_teqno_seller_block(): void
     {
         $html = view('advertiser.invoice', [
             'invoiceType' => 'order',
@@ -56,7 +56,7 @@ class InvoiceSellerDetailsTest extends TestCase
         $this->assertStringContainsString('SEOLinkBuildings Partners with (Teqno LTD)', $html);
         $this->assertStringContainsString('20 Wenlock Road, London, England, N1 7GU', $html);
         $this->assertStringContainsString('Registration No:', $html);
-        $this->assertStringContainsString('16607074', $html);
+        $this->assertStringContainsString('17392540', $html);
         $this->assertStringContainsString('support@seolinkbuildings.com', $html);
         $this->assertStringContainsString('Not VAT registered', $html);
         $this->assertStringNotContainsString('Beneficiary:', $html);
@@ -157,7 +157,7 @@ class InvoiceSellerDetailsTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('SEOLinkBuildings Partners with (Teqno LTD)', $html);
-        $this->assertStringContainsString('Registration No: 16607074', $html);
+        $this->assertStringContainsString('Registration No: 17392540', $html);
         $this->assertStringContainsString('Not VAT registered', $html);
         $this->assertStringContainsString('20 Wenlock Road', $html);
         $this->assertStringContainsString('https://seolinkbuildings.com', $html);

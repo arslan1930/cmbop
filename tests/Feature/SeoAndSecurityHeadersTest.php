@@ -119,7 +119,7 @@ class SeoAndSecurityHeadersTest extends TestCase
             ->assertSee('seolinkbuildings.com', false)
             ->assertSee('Companies House', false)
             ->assertSee('/pricing', false)
-            ->assertSee('16607074', false)
+            ->assertSee('17392540', false)
             ->assertSee('/es/', false)
             ->assertSee('/it/', false)
             ->assertSee('/us/', false);
@@ -190,7 +190,7 @@ class SeoAndSecurityHeadersTest extends TestCase
         $this->assertStringContainsString('"@type":"WebSite"', $html);
         $this->assertStringContainsString('"@type":"Organization"', $html);
         $this->assertStringContainsString('"@type":"SoftwareApplication"', $html);
-        $this->assertStringContainsString('16607074', $html);
+        $this->assertStringContainsString('17392540', $html);
         $this->assertStringContainsString('fetchpriority="high"', $html);
         $this->assertStringContainsString('https://www.facebook.com/seolinkbuildings/', $html);
         $this->assertStringContainsString('https://www.instagram.com/seolinkbuildings', $html);
@@ -320,7 +320,7 @@ class SeoAndSecurityHeadersTest extends TestCase
         $this->get('/about')
             ->assertOk()
             ->assertSee('AboutPage', false)
-            ->assertSee('16607074', false)
+            ->assertSee('17392540', false)
             ->assertSee('Wenlock', false)
             ->assertSee('BreadcrumbList', false);
     }
