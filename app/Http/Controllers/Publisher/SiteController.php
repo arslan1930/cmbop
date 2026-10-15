@@ -18,6 +18,8 @@ use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
+use App\Support\FasterPublisherPayoutsBlogPost;
+use App\Support\HowToPriceYourSiteBlogPost;
 use App\Support\ListingMoney;
 use App\Support\MoneyDisplay;
 use App\Support\NormalizesHttpUrls;
@@ -26,6 +28,7 @@ use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
 use App\Support\SiteTag;
 use App\Support\UserFacingError;
+use App\Support\WhySitesGetRejectedBlogPost;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
 use Illuminate\Database\Eloquent\Builder;
@@ -405,7 +408,14 @@ class SiteController extends Controller
             }
         }
 
-        return redirect()->back()->with('success', 'Site submitted successfully! Admin will review and activate it within 24-48 hours. A homepage screenshot is being generated automatically.'.$this->listingSavedNote($request->price, (float) ($site?->price ?? 0), $countryCodes[0] ?? null));
+        $savedNote = $this->listingSavedNote($request->price, (float) ($site?->price ?? 0), $countryCodes[0] ?? null);
+
+        return redirect()->back()
+            ->with(
+                'success',
+                'Site submitted successfully! Admin will review and activate it within 24-48 hours. We verify the listing details you entered and generate a homepage screenshot automatically.'.$savedNote
+            )
+            ->with('success_actions', $this->siteSubmittedHelpActions());
     }
 
     public function ajax(Request $request)
@@ -421,6 +431,11 @@ class SiteController extends Controller
                 $status = 'active';
             }
             $page = max(1, (int) scalar_text($request->get('page', 1)));
+            $niche = scalar_text($request->get('niche', $request->get('category')));
+            $daMin = scalar_text($request->get('da_min'));
+            $daMax = scalar_text($request->get('da_max'));
+            $priceMin = scalar_text($request->get('price_min'));
+            $priceMax = scalar_text($request->get('price_max'));
 
             $base = Site::where('publisher_id', auth()->id());
             $acceptedBase = (clone $base)->acceptedByPublisher();
@@ -488,11 +503,23 @@ class SiteController extends Controller
                             ->orWhere('domain', 'like', "%{$query}%");
                     });
                 })
+                ->filter([
+                    'category' => $niche !== '' ? $niche : null,
+                    'da_min' => $daMin !== '' ? $daMin : null,
+                    'da_max' => $daMax !== '' ? $daMax : null,
+                    'price_min' => $priceMin !== '' ? $priceMin : null,
+                    'price_max' => $priceMax !== '' ? $priceMax : null,
+                ])
                 ->latest()
                 ->paginate(20)
                 ->appends([
                     'status' => $status,
                     'query' => $query,
+                    'niche' => $niche,
+                    'da_min' => $daMin,
+                    'da_max' => $daMax,
+                    'price_min' => $priceMin,
+                    'price_max' => $priceMax,
                 ]);
 
             $featureCreditsBySite = [];
@@ -1423,6 +1450,27 @@ class SiteController extends Controller
     private function collectListingHomepagePrices(Request $request): array
     {
         return $this->collectHomepagePlacementPrices($request);
+    }
+
+    /**
+     * @return list<array{url: string, label: string}>
+     */
+    private function siteSubmittedHelpActions(): array
+    {
+        return [
+            [
+                'url' => url('/blog/'.HowToPriceYourSiteBlogPost::SLUG),
+                'label' => 'Pricing tips',
+            ],
+            [
+                'url' => url('/blog/'.WhySitesGetRejectedBlogPost::SLUG),
+                'label' => 'Content guidelines',
+            ],
+            [
+                'url' => url('/blog/'.FasterPublisherPayoutsBlogPost::SLUG),
+                'label' => 'Payout FAQ',
+            ],
+        ];
     }
 
     private function listingSavedNote(mixed $typedLocal, float $storedEuros, ?string $country): string

@@ -800,6 +800,12 @@ function loadSiteDraft() {
             });
         }
 
+        const hasContent = ['siteName','siteUrl','exampleUrl','da','dr','traffic','price','siteDescription','country','language','categories']
+            .some(function (key) { return String(draft[key] || '').trim() !== ''; });
+        if (!hasContent) {
+            return false;
+        }
+
         setWizardStep(draft.step || 1);
         $('#wizardDraftHint').text('Draft restored');
         return true;
@@ -859,7 +865,11 @@ function validateWizardStep(step) {
     }
 
     if (!ok) {
-        Swal.fire({ icon: 'error', title: 'Almost there', text: message || 'Please complete this step.' });
+        Swal.fire({
+            icon: 'error',
+            title: 'Almost there',
+            html: message || 'Please complete this step.',
+        });
     }
     return ok;
 }
@@ -1429,7 +1439,16 @@ function fetchSites(page = 1, query = '', opts = {}) {
         url: (window.PublisherWebsitesConfig.routes.ajax),
         method: 'GET',
         dataType: 'html',
-        data: { page: page, query: query, status: sitesStatusFilter },
+        data: {
+            page: page,
+            query: query,
+            status: sitesStatusFilter,
+            niche: $('#sitesNicheFilter').val() || '',
+            da_min: $('#sitesDaMin').val() || '',
+            da_max: $('#sitesDaMax').val() || '',
+            price_min: $('#sitesPriceMin').val() || '',
+            price_max: $('#sitesPriceMax').val() || '',
+        },
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
         success: function(res) {
             const html = (res || '').trim();

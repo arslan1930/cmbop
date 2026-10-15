@@ -1,5 +1,7 @@
 @extends('publisher.layouts.app')
 
+@section('title', 'Withdraw')
+
 @section('content')
 
 @php
@@ -60,10 +62,10 @@
 <link rel="stylesheet" href="{{ asset('assets/css/publisher-notice.css') }}?v={{ @filemtime(public_path('assets/css/publisher-notice.css')) ?: '1' }}">
 <script src="{{ asset('assets/vendor/sweetalert2/sweetalert2.min.js') }}?v={{ @filemtime(public_path('assets/vendor/sweetalert2/sweetalert2.min.js')) ?: '1' }}"></script>
 
-<div class="container-fluid">
+<div class="container-fluid publisher-withdraw">
     <div class="row mb-4 align-items-end g-3">
         <div class="col-md-8">
-            <h2 class="mb-1 fw-semibold">Withdraw Funds</h2>
+            <h2 class="mb-1 fw-semibold">Withdraw</h2>
             <p class="text-muted mb-0">Request a withdrawal of your earnings. Withdrawals are processed within 1–2 business days.</p>
         </div>
         <div class="col-md-4 text-md-end">
@@ -234,12 +236,12 @@
                         <div class="p-3 rounded mb-4" style="background: var(--surface-2, #f7fafb); border: 1px solid var(--border-subtle, #e2e8f0);">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="text-muted small">Amount</span>
-                                <span id="previewGross">€0.00</span>
+                                <span id="previewGross">{{ format_money_amount(0, $walletCurrency) }}</span>
                             </div>
                             @if($platformChargePercent > 0)
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <span class="text-muted small">Fee ({{ $platformChargePercent }}%)</span>
-                                    <span id="previewFee">€0.00</span>
+                                    <span id="previewFee">{{ format_money_amount(0, $walletCurrency) }}</span>
                                 </div>
                             @endif
                             <div id="previewConversionFeeRow" class="d-flex justify-content-between align-items-center mb-1{{ $usdConversionFeePercent > 0 ? '' : ' d-none' }}">
@@ -248,7 +250,7 @@
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="fw-semibold">You will receive</span>
-                                <strong class="fs-5" style="color: var(--brand-primary, #1a585e);" id="previewAmount">€0.00</strong>
+                                <strong class="fs-5" style="color: var(--brand-primary, #1a585e);" id="previewAmount">{{ format_money_amount(0, $walletCurrency) }}</strong>
                             </div>
                         </div>
 
@@ -489,6 +491,14 @@
 .ui-callout--attention .ui-callout__icon { color: var(--brand-danger, #dc2626); }
 .ui-callout__body { flex: 1 1 auto; min-width: 0; }
 .table td { vertical-align: middle; }
+@media (max-width: 767.98px) {
+    .publisher-withdraw .card-body { padding: 1rem; }
+    .publisher-withdraw .form-control-lg { font-size: 1rem; }
+    .publisher-withdraw .row.g-4 > [class*="col-"] { margin-bottom: 0.5rem; }
+    .publisher-withdraw #withdrawForm .payout-fields .mb-3 { margin-bottom: 0.85rem !important; }
+    .publisher-withdraw #withdrawForm .d-flex.justify-content-between { flex-wrap: wrap; gap: 0.25rem 0.75rem; }
+    .publisher-withdraw .col-md-4.text-md-end { text-align: left !important; }
+}
 </style>
 
 <script>
@@ -678,7 +688,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (formBlocked) {
             showError(@json($hasDebt
                 ? 'Withdrawals are blocked while you have outstanding clawback debt.'
-                : 'You need at least €'.number_format($minWithdrawalAmount, 2).' withdrawable balance.'));
+                : 'You need at least '.format_money_amount($minWithdrawalAmount, $walletCurrency).' withdrawable balance.'));
             return false;
         }
 

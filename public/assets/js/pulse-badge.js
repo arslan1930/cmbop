@@ -72,6 +72,7 @@
     el.classList.remove('is-pulsing', 'is-visible', 'is-alerting');
     el.style.display = 'none';
     el.dataset.pulseCount = '0';
+    el.textContent = '';
   }
 
   function alertOnce(el, opts) {

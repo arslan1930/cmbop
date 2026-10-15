@@ -1,10 +1,12 @@
 @extends('publisher.layouts.app')
 
+@section('title', 'Payout docs')
+
 @section('content')
 <div class="container-fluid">
     <div class="row mb-4 align-items-end g-3">
         <div class="col-md-8">
-            <h2 class="mb-1 fw-semibold">Payout documents</h2>
+            <h2 class="mb-1 fw-semibold">Payout docs</h2>
             <p class="text-muted mb-0">Download payout statements for completed withdrawals. These are not tax invoices.</p>
         </div>
         <div class="col-md-4 text-md-end">

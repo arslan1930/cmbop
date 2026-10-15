@@ -118,7 +118,7 @@ class PublisherReportsTest extends TestCase
         $this->actingAs($publisher)
             ->get(route('publisher.reports'))
             ->assertOk()
-            ->assertSee('Financial Reports', false)
+            ->assertSee('Reports', false)
             ->assertSee(route('publisher.reports.statistics', absolute: false), false)
             ->assertSee(route('publisher.tasks', absolute: false), false)
             ->assertSee('Available to Withdraw', false)

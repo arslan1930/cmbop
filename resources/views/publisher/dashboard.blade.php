@@ -141,11 +141,9 @@
     } else {
         $sitesKpiLabel = 'Live listings';
         $sitesKpiValue = $liveSiteCount;
-        $sitesKpiSub = $siteCount === 0
-            ? 'Add a site to get listed'
-            : ($unverifiedSiteCount > 0
-                ? $siteCount.' total site'.($siteCount === 1 ? '' : 's')
-                : 'All listed sites verified');
+        $sitesKpiSub = $unverifiedSiteCount > 0
+            ? $siteCount.' total site'.($siteCount === 1 ? '' : 's')
+            : 'All listed sites verified';
         $sitesKpiHref = route('publisher.websites');
         $sitesKpiWarn = false;
     }

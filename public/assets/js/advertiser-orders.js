@@ -2375,12 +2375,22 @@ function bootAdvertiserOrdersPage() {
                     <h6>Tracking</h6>
                     ${timelineHtml}
                 </div>
+
+                <div class="order-view-panel">
+                    <div id="advertiserOrderThread" data-thread-host="advertiser-details"></div>
+                </div>
             </div>
         `;
 
         const contentEl = document.getElementById('orderDetailsContent');
         if (contentEl) {
             contentEl.innerHTML = html;
+        }
+        if (window.OrderInlineThread && order && order.id) {
+            window.OrderInlineThread.mount('#advertiserOrderThread', {
+                orderId: order.id,
+                orderNumber: order.order_number || ''
+            });
         }
         const actionsEl = document.getElementById('orderDetailsActions');
         if (actionsEl) {
