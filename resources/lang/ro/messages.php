@@ -64,4 +64,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'marketplace_catalog_note' => 'Catalogul live se deschide după autentificare și rămâne în engleză. Filtrul de țară = România.',
     'meta_blog_title' => 'Blog de link building și PR digital | SEOLinkBuildings',
     'meta_blog_description' => 'Ghiduri practice despre guest posturi, ancore, AEO/SEO și outreach de la echipa SEOLinkBuildings.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'de la',
+    'catalog_percent_off' => ':percent reducere',
+    'catalog_bulk_when_buying' => '−:percent la cumpărarea a :qty+',
+    'catalog_turnaround_one' => '1 zi',
+    'catalog_turnaround_many' => ':count zile',
+    'catalog_sensitive_topics_from' => 'Subiecte sensibile de la :price',
+    'catalog_sensitive_crypto' => 'Crypto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Listing nou',
+    'catalog_new_listing_body' => 'Adăugat sau aprobat în ultimele 30 de zile — inventar recent de revizuit din timp.',
+    'catalog_report_listing' => 'Raportează listingul',
+    'catalog_report_listing_body' => 'Semnalează o problemă cu acest listing. Nu este un avertisment despre subiecte sensibile.',
+    'catalog_report_listing_done' => 'Ai raportat acest listing',
+    'catalog_report_listing_done_body' => 'Deschide pentru a actualiza sau șterge raportarea.',
 ]);

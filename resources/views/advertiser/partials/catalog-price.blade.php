@@ -12,23 +12,37 @@
     @param float|null $salePrice   null when there is no active offer
     @param float|null $salePercent
     @param string     $align       center (table) | start (card)
-    @param float|null $bulkPercent effective pack savings, when bulk wins
+    @param float|null $bulkPercent effective pack savings (ignored when bulkLabel set)
+    @param string|null $bulkLabel  unambiguous multi-buy copy, when pack beats qty-1
     @param int|null   $bulkMinQty
     @param int|null   $siteId      jumps the bulk rail to this listing
+    @param bool       $showFrom    prefix "from" when extra paid options exist
 --}}
 @php
     $priceAlign = ($align ?? 'center') === 'start' ? 'start' : 'center';
     $hasOffer = ($salePrice ?? null) !== null;
     $payPrice = $hasOffer ? $salePrice : $listPrice;
-    $bulkOfferPct = isset($bulkPercent) && $bulkPercent !== null && (float) $bulkPercent > 0
-        ? (float) $bulkPercent
-        : null;
-    $bulkOfferQty = (int) ($bulkMinQty ?? config('site_promotions.bulk.min_qty', 3));
     $saleBadgeLabel = \App\Support\CatalogSaleBadge::label((float) $listPrice, (float) $payPrice);
+    $offerText = $hasOffer
+        ? \App\Support\CatalogSaleBadge::offerText((float) $listPrice, (float) $payPrice)
+        : null;
+    $showFromPrice = ! empty($showFrom);
+    $bulkNoteLabel = trim((string) ($bulkLabel ?? ''));
+    if ($bulkNoteLabel === '') {
+        $bulkOfferPct = isset($bulkPercent) && $bulkPercent !== null && (float) $bulkPercent > 0
+            ? (float) $bulkPercent
+            : null;
+        $bulkOfferQty = (int) ($bulkMinQty ?? config('site_promotions.bulk.min_qty', 3));
+        $salePctForBulk = $hasOffer
+            ? \App\Support\CatalogSaleBadge::percent((float) $listPrice, (float) $payPrice)
+            : null;
+        $bulkNoteLabel = (string) (\App\Support\CatalogSaleBadge::bulkNote($salePctForBulk, $bulkOfferPct, $bulkOfferQty) ?? '');
+    }
 @endphp
 
 <div class="catalog-price catalog-price--{{ $priceAlign }}">
     <div class="catalog-price__row">
+        <span class="catalog-price__from" @if(! $showFromPrice) hidden @endif>{{ __('messages.catalog_price_from') }}</span>
         <span class="catalog-price__pay base-price-display">{{ format_money($payPrice) }}</span>
         @if(! empty($featured))
             <span class="catalog-site-featured-mark" role="img" aria-label="Featured">
@@ -37,17 +51,14 @@
         @endif
         <span class="catalog-price__list list-price-display" {{ $hasOffer ? '' : 'hidden' }}>{{ format_money($listPrice) }}</span>
     </div>
-    @if($hasOffer && $saleBadgeLabel)
+    @if($hasOffer && $offerText)
         {{-- Badge = (list − displayed) / list, not the stored nominal percent. --}}
         <span class="catalog-price__offer" data-catalog-offer-pct>
             <i class="fa-solid fa-tag" aria-hidden="true"></i>
-            <span class="catalog-price__offer-text">{{ $saleBadgeLabel }} off</span>
+            <span class="catalog-price__offer-text">{{ $offerText }}</span>
         </span>
     @endif
-    @if($bulkOfferPct !== null)
-        @php
-            $bulkNoteLabel = '−'.rtrim(rtrim(number_format($bulkOfferPct, 1), '0'), '.').'% on '.$bulkOfferQty.'+';
-        @endphp
+    @if($bulkNoteLabel !== '')
         <button type="button"
                 class="catalog-bulk-note catalog-price__bulk"
                 data-bulk-jump="{{ (int) ($siteId ?? 0) }}"

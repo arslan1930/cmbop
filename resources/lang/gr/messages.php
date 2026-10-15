@@ -21,4 +21,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'meta_home_description_off' => 'Αγοράστε guest posts σε επαληθευμένους εκδότες. Πορτοφόλι EUR, σαφείς τιμές, ζωντανό URL στην παραγγελία — το marketplace του SEOLinkBuildings.',
     'meta_blog_title' => 'Blog για link building και digital PR | SEOLinkBuildings',
     'meta_blog_description' => 'Πρακτικοί οδηγοί για guest posts, άγκυρες, AEO/SEO και outreach από την ομάδα SEOLinkBuildings.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'από',
+    'catalog_percent_off' => ':percent έκπτωση',
+    'catalog_bulk_when_buying' => '−:percent για αγορά :qty+',
+    'catalog_turnaround_one' => '1 ημέρα',
+    'catalog_turnaround_many' => ':count ημέρες',
+    'catalog_sensitive_topics_from' => 'Ευαίσθητα θέματα από :price',
+    'catalog_sensitive_crypto' => 'Crypto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Νέα καταχώριση',
+    'catalog_new_listing_body' => 'Προστέθηκε ή εγκρίθηκε τις τελευταίες 30 ημέρες — φρέσκο απόθεμα που αξίζει να δείτε νωρίς.',
+    'catalog_report_listing' => 'Αναφορά καταχώρισης',
+    'catalog_report_listing_body' => 'Επισημάνετε πρόβλημα σε αυτή την καταχώριση. Δεν είναι προειδοποίηση για ευαίσθητα θέματα.',
+    'catalog_report_listing_done' => 'Αναφέρατε αυτή την καταχώριση',
+    'catalog_report_listing_done_body' => 'Ανοίξτε για να ενημερώσετε ή να διαγράψετε την αναφορά.',
 ]);

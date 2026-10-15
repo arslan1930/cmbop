@@ -125,6 +125,9 @@ class CatalogCategoryOverflowTest extends TestCase
 
         $this->assertStringContainsString('catalog-category-cell', $html);
         $this->assertStringContainsString('+2 more', $html);
+        $this->assertStringContainsString('title="News and Media"', $html);
+        $this->assertStringContainsString('title="Education and Jobs"', $html);
+        $this->assertStringContainsString('title="Lifestyle and Fashion, Technology &amp; Gadgets"', $html);
         $this->assertMatchesRegularExpression(
             '/category-badge extra-category d-none[^>]*>\s*Lifestyle and Fashion/',
             $html

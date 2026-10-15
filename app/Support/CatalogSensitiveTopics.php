@@ -41,10 +41,10 @@ class CatalogSensitiveTopics
     public static function labels(): array
     {
         return [
-            'crypto' => 'Crypto',
-            'trading' => 'Trading',
-            'cbd' => 'CBD',
-            'forex' => 'Forex',
+            'crypto' => __('messages.catalog_sensitive_crypto'),
+            'trading' => __('messages.catalog_sensitive_trading'),
+            'cbd' => __('messages.catalog_sensitive_cbd'),
+            'forex' => __('messages.catalog_sensitive_forex'),
         ];
     }
 
@@ -97,7 +97,7 @@ class CatalogSensitiveTopics
         $money = format_money($min, ['signed' => true]);
         $label = count($names) <= 2
             ? implode('/', $names).' '.$money
-            : 'Sensitive topics from '.$money;
+            : __('messages.catalog_sensitive_topics_from', ['price' => $money]);
 
         return [
             'label' => $label,

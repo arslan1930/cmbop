@@ -65,4 +65,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'marketplace_catalog_note' => 'Żywy katalog otwiera się po zalogowaniu i zostaje po angielsku. Filtr kraju = Polska.',
     'meta_blog_title' => 'Blog o link buildingu i digital PR | SEOLinkBuildings',
     'meta_blog_description' => 'Praktyczne przewodniki po artykułach gościnnych, anchorach i AEO/SEO od zespołu SEOLinkBuildings.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'od',
+    'catalog_percent_off' => ':percent zniżki',
+    'catalog_bulk_when_buying' => '−:percent przy zakupie :qty+',
+    'catalog_turnaround_one' => '1 dzień',
+    'catalog_turnaround_many' => ':count dni',
+    'catalog_sensitive_topics_from' => 'Tematy wrażliwe od :price',
+    'catalog_sensitive_crypto' => 'Krypto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Nowe ogłoszenie',
+    'catalog_new_listing_body' => 'Dodane lub zatwierdzone w ciągu ostatnich 30 dni — świeży zasób wart wczesnego przeglądu.',
+    'catalog_report_listing' => 'Zgłoś ogłoszenie',
+    'catalog_report_listing_body' => 'Zgłoś problem z tym ogłoszeniem. To nie jest ostrzeżenie o tematach wrażliwych.',
+    'catalog_report_listing_done' => 'Zgłosiłeś to ogłoszenie',
+    'catalog_report_listing_done_body' => 'Otwórz, aby zaktualizować lub usunąć zgłoszenie.',
 ]);

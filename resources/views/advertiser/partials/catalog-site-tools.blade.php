@@ -18,9 +18,10 @@
             data-name="{{ $siteToolHost }}"
             data-report="{{ $siteToolReport }}"
             data-glass-tip
-            data-glass-tip-title="{{ $siteToolReported ? 'You reported this listing' : 'Report listing' }}"
-            data-glass-tip-body="{{ $siteToolReported ? 'Open to update or clear your report.' : 'Flag a problem with this listing for our team.' }}"
+            data-glass-tip-title="{{ $siteToolReported ? __('messages.catalog_report_listing_done') : __('messages.catalog_report_listing') }}"
+            data-glass-tip-body="{{ $siteToolReported ? __('messages.catalog_report_listing_done_body') : __('messages.catalog_report_listing_body') }}"
             data-glass-tip-placement="top"
+            title="{{ $siteToolReported ? __('messages.catalog_report_listing_done') : __('messages.catalog_report_listing') }}"
             aria-label="{{ $siteToolReported ? 'You reported '.$identityLabel : 'Report '.$identityLabel }}">
         <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
     </button>

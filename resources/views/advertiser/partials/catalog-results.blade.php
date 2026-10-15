@@ -390,58 +390,27 @@
                         </div>
 
                         @php
-                            $dealCustomPct = null;
-                            $dealBulkPct = null;
-                            $showSaleChip = false;
-                            $showBulkChip = false;
-                            $dealSaleChipPct = null;
-                            $dealBulkChipPct = null;
                             $showPlacementChips = $homepageOptions !== [] || $socialChannels !== [];
                             $inCart = in_array((int) $site->id, $cartSiteIds, true);
+                            $catalogDeals = [
+                                'sale_percent' => null,
+                                'bulk_percent' => null,
+                                'bulk_note' => null,
+                                'has_paid_addons' => false,
+                            ];
                             try {
-                                // Better-of on pack qty: hide bulk chip when custom is ≥ bulk
-                                // (bulk never wins). If bulk is stronger, keep both — custom
-                                // still applies on qty 1–2 where bulk does not.
-                                // Chip % labels use effective savings after the payout floor.
-                                $dealCustomPct = $site->activeCustomDiscountPercent();
-                                $dealBulkPct = $site->joinsBulkDiscount()
-                                    ? (float) $site->bulk_discount_percent
-                                    : null;
-                                $dealSaleChipPct = \App\Support\CatalogSaleBadge::percent(
+                                $catalogDeals = \App\Support\CatalogRowDeals::forSite(
+                                    $site,
                                     (float) $catalogListPrice,
-                                    (float) $articlePay
+                                    (float) $articlePay,
+                                    (float) $catalogPublisherPrice,
+                                    $sensitivePrices,
+                                    $homepageOptions
                                 );
-                                $showSaleChip = $dealCustomPct !== null && $dealSaleChipPct !== null;
-                                $showBulkChip = $dealBulkPct !== null
-                                    && ($dealCustomPct === null || $dealBulkPct > (float) $dealCustomPct);
-                                $dealBulkChipPct = $dealBulkPct;
-                                if ($showBulkChip) {
-                                    // $site->price is already advertiser-facing; reprice from
-                                    // the publisher base so the chip % is not fee-on-fee.
-                                    $packSite = clone $site;
-                                    $packSite->price = $catalogPublisherPrice;
-                                    $packPricing = app(\App\Services\CartPricingService::class)
-                                        ->priceForAdvertiser($packSite, null, (int) config('site_promotions.bulk.min_qty', 3));
-                                    $dealBulkChipPct = (float) ($packPricing['discount_percent'] ?? $dealBulkPct);
-                                    if ($dealBulkChipPct <= 0) {
-                                        $showBulkChip = false;
-                                    }
-                                }
                             } catch (\Throwable $e) {
                                 report($e);
                             }
                         @endphp
-                        @if($showSaleChip)
-                        <div class="catalog-site-deals">
-                            @if($showSaleChip)
-                                <span class="site-chip site-chip--sale site-chip--status">
-                                    <i class="fa-solid fa-percent" aria-hidden="true"></i>
-                                    <span>−{{ rtrim(rtrim(number_format((float) $dealSaleChipPct, 1), '0'), '.') }}%</span>
-                                </span>
-                            @endif
-
-                        </div>
-                        @endif
 
                         @if($isBlacklisted)
                         <div class="site-status-row">
@@ -482,7 +451,8 @@
 
             @foreach($categoryArray as $index => $cat)
 
-                <span class="category-badge {{ $index >= $showLimit ? 'extra-category d-none' : '' }}">
+                <span class="category-badge {{ $index >= $showLimit ? 'extra-category d-none' : '' }}"
+                      title="{{ $cat }}">
                     {{ $cat }}
                 </span>
 
@@ -494,6 +464,7 @@
             <button type="button"
                     class="toggle-cats-btn"
                     data-more-count="{{ $totalCategories - $showLimit }}"
+                    title="{{ implode(', ', array_slice($categoryArray, $showLimit)) }}"
                     aria-expanded="false">
                 +{{ $totalCategories - $showLimit }} more
             </button>
@@ -551,7 +522,8 @@
                             'salePrice' => $catalogSalePrice,
                             'salePercent' => $catalogSalePctDisplay,
                             'align' => 'center',
-                            'bulkPercent' => $showBulkChip ? $dealBulkChipPct : null,
+                            'bulkLabel' => $catalogDeals['bulk_note'] ?? null,
+                            'showFrom' => ! empty($catalogDeals['has_paid_addons']),
                             'siteId' => $site->id,
                             'featured' => $site->isFeatured(),
                         ])
@@ -1120,52 +1092,26 @@
                         @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                     </div>
                     @php
-                        $mobileCustomPct = null;
-                        $mobileBulkPct = null;
-                        $showMobileSaleChip = false;
-                        $showMobileBulkChip = false;
-                        $mobileSaleChipPct = null;
-                        $mobileBulkChipPct = null;
+                        $catalogDeals = [
+                            'sale_percent' => null,
+                            'bulk_percent' => null,
+                            'bulk_note' => null,
+                            'has_paid_addons' => false,
+                        ];
                         try {
-                            $mobileCustomPct = $site->activeCustomDiscountPercent();
-                            $mobileBulkPct = $site->joinsBulkDiscount()
-                                ? (float) $site->bulk_discount_percent
-                                : null;
-                            $mobileSaleChipPct = \App\Support\CatalogSaleBadge::percent(
+                            $catalogDeals = \App\Support\CatalogRowDeals::forSite(
+                                $site,
                                 (float) $catalogListPrice,
-                                (float) $articlePay
+                                (float) $articlePay,
+                                (float) $catalogPublisherPrice,
+                                $mobileSensitivePrices,
+                                $homepageOptions
                             );
-                            $showMobileSaleChip = $mobileCustomPct !== null && $mobileSaleChipPct !== null;
-                            $showMobileBulkChip = $mobileBulkPct !== null
-                                && ($mobileCustomPct === null || $mobileBulkPct > (float) $mobileCustomPct);
-                            $mobileBulkChipPct = $mobileBulkPct;
-                            if ($showMobileBulkChip) {
-                                // $site->price is already advertiser-facing; reprice from
-                                // the publisher base so the chip % is not fee-on-fee.
-                                $mobilePackSite = clone $site;
-                                $mobilePackSite->price = $catalogPublisherPrice;
-                                $mobilePackPricing = app(\App\Services\CartPricingService::class)
-                                    ->priceForAdvertiser($mobilePackSite, null, (int) config('site_promotions.bulk.min_qty', 3));
-                                $mobileBulkChipPct = (float) ($mobilePackPricing['discount_percent'] ?? $mobileBulkPct);
-                                if ($mobileBulkChipPct <= 0) {
-                                    $showMobileBulkChip = false;
-                                }
-                            }
                         } catch (\Throwable $e) {
                             report($e);
                         }
                     @endphp
-                    @if($showMobileSaleChip)
-                    <div class="catalog-site-deals catalog-site-deals--mobile mt-1">
-                        @if($showMobileSaleChip)
-                            <span class="site-chip site-chip--sale site-chip--status">
-                                <i class="fa-solid fa-percent" aria-hidden="true"></i>
-                                <span>−{{ rtrim(rtrim(number_format((float) $mobileSaleChipPct, 1), '0'), '.') }}%</span>
-                            </span>
-                        @endif
-                    </div>
-                    @endif
-                    <span class="category-badge mt-1">{{ $mobileCategory }}</span>
+                    <span class="category-badge mt-1" title="{{ $mobileCategory }}">{{ $mobileCategory }}</span>
                     @include('advertiser.partials.catalog-meta-chips', [
                         'site' => $site,
                     ])
@@ -1398,7 +1344,8 @@
                     'salePrice' => $catalogSalePrice,
                     'salePercent' => $catalogSalePctDisplay,
                     'align' => 'start',
-                    'bulkPercent' => ! empty($showMobileBulkChip) ? $mobileBulkChipPct : null,
+                    'bulkLabel' => $catalogDeals['bulk_note'] ?? null,
+                    'showFrom' => ! empty($catalogDeals['has_paid_addons']),
                     'siteId' => $site->id,
                     'featured' => $site->isFeatured(),
                 ])
