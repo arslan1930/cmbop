@@ -1,5 +1,7 @@
 @extends(staff_layout())
 
+@section('title', 'Sites')
+
 @section('content')
 @php
     $publisherSearch = trim((string) ($publisherSearch ?? ''));
@@ -53,9 +55,15 @@
 
     <div class="admin-sites-header d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
-            <h4 class="mb-0 fw-bold">Sites Management</h4>
+            @php
+                $publishersTabOn = empty($allSitesMode)
+                    && empty($needsReviewFilterActive)
+                    && empty($waitingOnPublisherFilterActive)
+                    && empty($flatQueue);
+            @endphp
+            <h4 class="mb-0 fw-bold">{{ $publishersTabOn ? 'Publishers' : 'Sites Management' }}</h4>
             <div id="staffCatalogWide">
-            <div class="small text-muted mt-1">Catalog-wide</div>
+            <div class="small text-muted mt-1">{{ $publishersTabOn ? 'Publisher directory — open a row for that publisher’s sites. Use All sites for the listing queue.' : 'Catalog-wide' }}</div>
             @if(($openReviewCount ?? 0) > 0)
                 <small class="text-muted">
                     <a href="{{ staff_route('sites.index', ['needs_review' => 1, 'flat' => 1]) }}" class="link-secondary" title="Submitted and waiting for a staff decision. Archived leftovers are excluded. Not the same as Ready to activate (verified, not live, in-bar).">
@@ -77,10 +85,10 @@
                 $nonArchivedListCount = (int) ($nonArchivedListCount ?? 0);
                 $healthLinks = [
                     'below_quality' => [
-                        'label' => 'below quality bar',
+                        'label' => 'below quality bar (all listings)',
                         'count' => (int) ($belowQualityListCount ?? 0),
                         'url' => staff_route('sites.index', ['all' => 1, 'below_quality' => 1]),
-                        'title' => 'DA, DR, or organic traffic is under the catalog bar (DA ≥ 30, DR ≥ 30, traffic ≥ 10,000), or that metric is missing. Counts every non-archived listing, not only live catalog rows.',
+                        'title' => 'DA, DR, or organic traffic is under the catalog bar (DA ≥ 30, DR ≥ 30, traffic ≥ 10,000), or that metric is missing. Counts every non-archived listing. Records “Below quality bar (live catalog)” is the live-only subset.',
                     ],
                     'unverified' => [
                         'label' => 'unverified active',
@@ -110,8 +118,8 @@
                        title="{{ $healthRow['title'] }}">
                         <span class="staff-catalog-health__count">{{ number_format($healthRow['count']) }}</span>
                         {{ $healthRow['label'] }}
-                        @if($healthRow['label'] === 'below quality bar' && $nonArchivedListCount > 0)
-                            <span class="staff-catalog-health__of">of {{ number_format($nonArchivedListCount) }}</span>
+                        @if(str_contains($healthRow['label'], 'below quality bar') && $nonArchivedListCount > 0)
+                            <span class="staff-catalog-health__of">of {{ number_format($nonArchivedListCount) }} non-archived</span>
                         @endif
                     </a>
                 @endforeach
@@ -122,10 +130,10 @@
             @php
                 $archivedFilterOn = ! empty($allSitesMode) && ! empty($staffSiteFilters['archived']);
                 $allSitesTabOn = ! empty($allSitesMode) && empty($staffSiteFilters['ready_to_activate']) && empty($staffSiteFilters['archived']);
-                $publishersTabOn = empty($allSitesMode)
+                $publishersTabOn = $publishersTabOn ?? (empty($allSitesMode)
                     && empty($needsReviewFilterActive)
                     && empty($waitingOnPublisherFilterActive)
-                    && empty($flatQueue);
+                    && empty($flatQueue));
                 $archivedChipQuery = array_filter([
                     'all' => 1,
                     'archived' => 1,
@@ -458,7 +466,9 @@
                     ? 'Publishers with listings waiting on the publisher'
                     : (!empty($needsReviewFilterActive) || !empty($unverifiedFilter) ? 'Publishers with sites needing review' : 'Publishers') }}
             </div>
-            @include('admin.sites.partials.list-filters', ['mode' => 'publishers'])
+            @if(empty($flatQueue) && empty($allSitesMode))
+                @include('admin.sites.partials.list-filters', ['mode' => 'publishers'])
+            @endif
 
             <div class="px-3 py-2 border-bottom d-flex flex-wrap gap-2 align-items-center" id="publisherBulkBar">
                 <span class="small text-muted" id="publisherBulkCount">0 selected</span>
@@ -675,7 +685,9 @@
                 <input class="form-check-input" type="checkbox" id="sitesNeedsReviewOnly">
                 <label class="form-check-label small" for="sitesNeedsReviewOnly">Needs review only</label>
             </div>
-            @include('admin.sites.partials.list-filters', ['mode' => 'publisher'])
+            @if(request()->filled('publisher'))
+                @include('admin.sites.partials.list-filters', ['mode' => 'publisher'])
+            @endif
         </div>
 
         <div class="card shadow-sm border-0 admin-table-fit">

@@ -51,7 +51,26 @@
                             @endif
                         </td>
                         <td class="text-uppercase small">{{ ($countriesCell = scalar_text($site['countries'] ?? '')) !== '' ? $countriesCell : '—' }}</td>
-                        <td class="small">{{ ($categoriesCell = scalar_text($site['categories'] ?? '')) !== '' ? $categoriesCell : '—' }}</td>
+                        <td class="small">
+                            @php
+                                $categoryChips = scalar_list($site['categories_list'] ?? []);
+                                if ($categoryChips === []) {
+                                    $categoryChips = array_values(array_filter(array_map(
+                                        static fn ($part) => trim(scalar_text($part)),
+                                        explode('|', scalar_text($site['categories'] ?? ''))
+                                    )));
+                                }
+                            @endphp
+                            @if($categoryChips !== [])
+                                <div class="d-flex flex-wrap gap-1">
+                                    @foreach($categoryChips as $chip)
+                                        <span class="badge text-bg-light border">{{ $chip }}</span>
+                                    @endforeach
+                                </div>
+                            @else
+                                —
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr>

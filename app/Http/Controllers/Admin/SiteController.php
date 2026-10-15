@@ -52,6 +52,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -775,6 +776,8 @@ class SiteController extends Controller
         $liveCount = $this->recordsLiveCount();
         $countries = $this->recordsCountryOptions($countryCounts);
         $selectedCountry = $countryFilter;
+        $recordsQuery = $filter['q'] ?? '';
+        $archivedCount = $this->recordsArchivedCount();
         $exportUrl = $this->recordsExportUrl($filter['query_params']);
 
         if ($wantsPartial) {
@@ -796,6 +799,8 @@ class SiteController extends Controller
                     'health_counts' => $healthCounts,
                     'live' => $liveFilter,
                     'live_count' => $liveCount,
+                    'q' => $recordsQuery,
+                    'archived_count' => $archivedCount,
                     'total' => is_object($sites) && method_exists($sites, 'total')
                         ? (int) $sites->total()
                         : 0,
@@ -824,7 +829,9 @@ class SiteController extends Controller
                 'healthFilter',
                 'healthCounts',
                 'liveFilter',
-                'liveCount'
+                'liveCount',
+                'recordsQuery',
+                'archivedCount'
             ));
         } catch (\Throwable $e) {
             report($e);
@@ -919,6 +926,7 @@ class SiteController extends Controller
      *     health: ?string,
      *     missing_market: bool,
      *     live: bool,
+     *     q: string,
      *     query_params: array<string, int|string>
      * }
      */
@@ -937,12 +945,14 @@ class SiteController extends Controller
 
             // Leftover ?live[]=1 TypeErrors $request->boolean(); flatten first.
             $live = $health === null && $this->requestFlag($request, 'live');
+            $q = search_text($request->query('q', ''));
 
             return [
                 'country' => $countryFilter,
                 'health' => $health,
                 'missing_market' => $health === CatalogHealthQueue::MISSING_MARKET,
                 'live' => $live,
+                'q' => $q,
                 'query_params' => array_filter([
                     'country' => $countryFilter !== '' ? $countryFilter : null,
                     'health' => ($health !== null && $health !== CatalogHealthQueue::MISSING_MARKET)
@@ -950,6 +960,7 @@ class SiteController extends Controller
                         : null,
                     'missing_market' => $health === CatalogHealthQueue::MISSING_MARKET ? 1 : null,
                     'live' => $live ? 1 : null,
+                    'q' => $q !== '' ? $q : null,
                 ]),
             ];
         } catch (\Throwable $e) {
@@ -960,6 +971,7 @@ class SiteController extends Controller
                 'health' => null,
                 'missing_market' => false,
                 'live' => false,
+                'q' => '',
                 'query_params' => [],
             ];
         }
@@ -974,15 +986,29 @@ class SiteController extends Controller
         try {
             if (is_string($filter['health'] ?? null) && $filter['health'] !== '') {
                 CatalogHealthQueue::apply($query, $filter['health']);
+            } else {
+                if (! empty($filter['live'])) {
+                    $this->constrainRecordsLive($query);
+                }
 
-                return;
+                $this->applyRecordsCountryFilter($query, scalar_text($filter['country'] ?? ''));
             }
 
-            if (! empty($filter['live'])) {
-                $this->constrainRecordsLive($query);
+            $q = search_text($filter['q'] ?? '');
+            if ($q !== '') {
+                $like = '%'.$q.'%';
+                $query->where(function ($inner) use ($like) {
+                    if (Site::hasSitesColumn('domain')) {
+                        $inner->orWhere('domain', 'like', $like);
+                    }
+                    if (Site::hasSitesColumn('site_name')) {
+                        $inner->orWhere('site_name', 'like', $like);
+                    }
+                    if (Site::hasSitesColumn('site_url')) {
+                        $inner->orWhere('site_url', 'like', $like);
+                    }
+                });
             }
-
-            $this->applyRecordsCountryFilter($query, scalar_text($filter['country'] ?? ''));
         } catch (\Throwable $e) {
             report($e);
         }
@@ -1206,6 +1232,21 @@ class SiteController extends Controller
             report($e);
 
             return collect();
+        }
+    }
+
+    private function recordsArchivedCount(): int
+    {
+        try {
+            if (! Site::hasSitesColumn('archived_at')) {
+                return 0;
+            }
+
+            return (int) Site::query()->whereNotNull('archived_at')->count();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return 0;
         }
     }
 
@@ -1636,6 +1677,7 @@ class SiteController extends Controller
                 'admin_url' => '',
                 'countries' => '',
                 'categories' => '',
+                'categories_list' => [],
                 'missing_market' => false,
                 'active' => false,
                 'listing_state' => 'not_live',
@@ -1669,14 +1711,16 @@ class SiteController extends Controller
         }
 
         $categories = '';
+        $categoriesList = [];
         try {
-            $categories = collect($site->categories_array)
+            $categoriesList = collect($site->categories_array)
                 ->filter()
                 ->map(fn ($cat) => trim(scalar_text($cat)))
                 ->filter()
                 ->unique()
                 ->values()
-                ->implode('|');
+                ->all();
+            $categories = implode('|', $categoriesList);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -1723,6 +1767,7 @@ class SiteController extends Controller
             'admin_url' => $this->leftoverSafeUtf8($adminUrl),
             'countries' => $this->leftoverSafeUtf8($countries),
             'categories' => $this->leftoverSafeUtf8($categories),
+            'categories_list' => array_map(fn ($cat) => $this->leftoverSafeUtf8(scalar_text($cat)), $categoriesList),
             'missing_market' => $missingMarket,
             'active' => $active,
             'listing_state' => $this->leftoverSafeUtf8($listingState),
@@ -2630,7 +2675,7 @@ class SiteController extends Controller
     private function staffNicheOptions(): array
     {
         try {
-            return Category::catalogPickerNames();
+            return Cache::remember('admin.marketplace.catalog_picker_names', 300, fn () => Category::catalogPickerNames());
         } catch (\Throwable $e) {
             report($e);
 
@@ -2894,11 +2939,15 @@ class SiteController extends Controller
                     && ! $publisher->hasVerifiedEmail()
             );
 
-        $languages = Language::marketplace()->orderBy('name')->get();
-        $countries = Country::marketplace()->orderBy('name')->get();
+        $languages = Cache::remember('admin.marketplace.languages', 300, fn () => Language::marketplace()->orderBy('name')->get());
+        $countries = Cache::remember('admin.marketplace.countries', 300, fn () => Country::marketplace()->orderBy('name')->get());
         // Same A–Z niche list as Catalog main search filter.
-        $categories = Category::catalogPickerNames();
-        $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
+        $categories = Cache::remember('admin.marketplace.catalog_picker_names', 300, fn () => Category::catalogPickerNames());
+        $countryLanguageMap = Cache::remember(
+            'admin.marketplace.country_language_map',
+            300,
+            fn () => app(CountryLanguagePairs::class)->mapWithNames()
+        );
         $isMarketingEditor = $this->isMarketingEditor(auth()->user());
         $sitesBackUrl = $this->staffSitesBackUrl($request, $selectedPublisherId);
 
@@ -4172,11 +4221,15 @@ class SiteController extends Controller
         $user = auth()->user();
         $isMarketingEditor = $this->isMarketingEditor($user);
         $marketingListingLocked = $isMarketingEditor && $this->marketingListingIsLocked($site);
-        $languages = Language::marketplace()->orderBy('name')->get();
-        $countries = Country::marketplace()->orderBy('name')->get();
+        $languages = Cache::remember('admin.marketplace.languages', 300, fn () => Language::marketplace()->orderBy('name')->get());
+        $countries = Cache::remember('admin.marketplace.countries', 300, fn () => Country::marketplace()->orderBy('name')->get());
         // Same A–Z niche list as Catalog main search filter.
-        $categories = Category::catalogPickerNames();
-        $countryLanguageMap = app(CountryLanguagePairs::class)->mapWithNames();
+        $categories = Cache::remember('admin.marketplace.catalog_picker_names', 300, fn () => Category::catalogPickerNames());
+        $countryLanguageMap = Cache::remember(
+            'admin.marketplace.country_language_map',
+            300,
+            fn () => app(CountryLanguagePairs::class)->mapWithNames()
+        );
         $sitesBackUrl = $this->staffSitesBackUrl(request(), (int) $site->publisher_id, (int) $site->id);
 
         $editData = compact(

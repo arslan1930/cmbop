@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'Records')
+
 @section('content')
 @php
     $selectedCountry = strtolower(trim(scalar_text($selectedCountry ?? '')));
@@ -48,6 +50,12 @@
             <h4 class="mb-1 fw-bold">Websites records sheet</h4>
             <p class="text-muted mb-0 small">
                 Live from database — refreshes on every load. Columns: URL, active, countries, categories, catalog health.
+                {{ number_format($totalSites) }} records
+                @if(($archivedCount ?? 0) > 0)
+                    ({{ number_format($archivedCount) }} archived · {{ number_format(max(0, $totalSites - $archivedCount)) }} non-archived in Sites Management).
+                @else
+                    · same universe as Sites Management unless archived rows exist.
+                @endif
             </p>
             @if($missingMarketCount > 0)
                 <p class="mb-0 mt-1 small" id="recordsMissingMarketNote">
@@ -69,6 +77,18 @@
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-3">
             <div class="row g-2 align-items-end">
+                <div class="col-sm-8 col-md-6 col-lg-4">
+                    <label for="recordsQuerySearch" class="form-label small fw-semibold mb-1">Search sites</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white"><i class="fa fa-globe text-muted"></i></span>
+                        <input type="search"
+                               id="recordsQuerySearch"
+                               class="form-control"
+                               placeholder="Domain, URL, or site name…"
+                               value="{{ $recordsQuery ?? '' }}"
+                               autocomplete="off">
+                    </div>
+                </div>
                 <div class="col-sm-8 col-md-6 col-lg-4">
                     <label for="recordsCountrySearch" class="form-label small fw-semibold mb-1">Filter by country</label>
                     <div data-records-country-filter>
@@ -158,8 +178,11 @@
                             <a href="{{ $healthHref }}"
                                class="btn btn-sm {{ $healthBtnClass }}"
                                data-health="{{ $healthKey }}"
+                               title="{{ $healthKey === \App\Support\CatalogHealthQueue::BELOW_QUALITY
+                                   ? 'Live catalog listings under DA 30 / DR 30 / 10,000 traffic. Sites Management counts every non-archived listing, which is a larger set.'
+                                   : ($healthLabels[$healthKey] ?? $healthLabel) }}"
                                @if($healthKey === \App\Support\CatalogHealthQueue::MISSING_MARKET) id="recordsMissingMarketBtn" @endif>
-                                {{ $healthLabel }}
+                                {{ $healthKey === \App\Support\CatalogHealthQueue::BELOW_QUALITY ? 'Below quality bar (live catalog)' : $healthLabel }}
                                 <span class="badge text-bg-light {{ $healthKey === \App\Support\CatalogHealthQueue::MISSING_MARKET ? 'text-danger' : 'text-warning' }} ms-1 {{ $healthCount < 1 ? 'd-none' : '' }}"
                                       data-health-count="{{ $healthKey }}"
                                       @if($healthKey === \App\Support\CatalogHealthQueue::MISSING_MARKET) id="recordsMissingMarketBtnCount" @endif>{{ $healthCount }}</span>
@@ -210,6 +233,7 @@
     let healthCounts = {!! $recordsHealthCountsJson !!};
     let liveFilter = @json((bool) $liveFilter);
     let liveCount = @json((int) $liveCount);
+    let recordsQuery = @json($recordsQuery ?? '');
     const HEALTH_LABELS = @json($healthLabels);
 
     const searchInput = document.getElementById('recordsCountrySearch');
@@ -399,6 +423,10 @@
         const token = ++fetchToken;
         const params = new URLSearchParams();
         params.set('partial', '1');
+        const nextQuery = Object.prototype.hasOwnProperty.call(options, 'q')
+            ? String(options.q || '')
+            : recordsQuery;
+        if (nextQuery) params.set('q', nextQuery);
         if (options.health === 'missing_market' || options.missingMarket) {
             params.set('missing_market', '1');
         } else if (options.health) {
@@ -432,9 +460,15 @@
             }
 
             tableWrap.innerHTML = data.table_html || '';
+            recordsQuery = String(data.q || nextQuery || '');
+            const queryInput = document.getElementById('recordsQuerySearch');
+            if (queryInput && document.activeElement !== queryInput) {
+                queryInput.value = recordsQuery;
+            }
             updateChrome(data);
 
             const nextParams = new URLSearchParams();
+            if (recordsQuery) nextParams.set('q', recordsQuery);
             if (data.health === 'missing_market' || data.missing_market) nextParams.set('missing_market', '1');
             else if (data.health) nextParams.set('health', data.health);
             else {
@@ -507,6 +541,22 @@
     clearBtn?.addEventListener('click', () => {
         loadRecords({ country: '' });
         setOpen(false);
+    });
+
+    const queryInput = document.getElementById('recordsQuerySearch');
+    let queryTimer = null;
+    queryInput?.addEventListener('input', () => {
+        clearTimeout(queryTimer);
+        queryTimer = setTimeout(() => {
+            loadRecords({ q: queryInput.value.trim() });
+        }, 250);
+    });
+    queryInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(queryTimer);
+            loadRecords({ q: queryInput.value.trim() });
+        }
     });
 
     chipWrap?.addEventListener('click', (e) => {

@@ -35,7 +35,7 @@
             'label' => 'Below quality',
             'count' => (int) ($belowQualityListCount ?? 0),
             'url' => staff_route('sites.index', ['all' => 1, 'below_quality' => 1]),
-            'hint' => 'DA < 30, DR < 30, or traffic < 10,000 (or missing) on any non-archived listing. Not limited to live catalog rows.',
+            'hint' => 'DA < 30, DR < 30, or traffic < 10,000 (or missing) on any non-archived listing. Records uses the live-catalog subset of this queue.',
             'active' => ! empty($allSitesMode) && ! empty($staffSiteFilters['below_quality']),
         ],
         [
