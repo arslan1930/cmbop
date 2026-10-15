@@ -56,7 +56,9 @@ class AdminAuditFollowupTest extends TestCase
 
         $this->assertStringContainsString('Admin page not found', $html);
         $this->assertStringContainsString(route('admin.dashboard', [], false), $html);
+        $this->assertStringContainsString('Admin dashboard', $html);
         $this->assertStringNotContainsString('Browse catalog', $html);
+        $this->assertStringNotContainsString('>Log in<', $html);
     }
 
     public function test_deposit_view_button_is_not_a_submit_and_confirm_is_on_bulk_button(): void

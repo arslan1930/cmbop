@@ -1634,6 +1634,12 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/orders/{id}/disputes', [AdminOrderDisputeController::class, 'open'])->name('orders.disputes.open');
         Route::post('/order-disputes/{id}/uphold', [AdminOrderDisputeController::class, 'uphold'])->name('orders.disputes.uphold');
         Route::post('/order-disputes/{id}/dismiss', [AdminOrderDisputeController::class, 'dismiss'])->name('orders.disputes.dismiss');
+
+        // Unmatched /admin/* must run auth so signed-in admins see the admin 404,
+        // not the public page that only offers Log in.
+        Route::any('{adminFallback}', function () {
+            abort(404);
+        })->where('adminFallback', '.*')->name('fallback');
     });
 
 // Public + authenticated feedback (report a problem / suggestion box).
