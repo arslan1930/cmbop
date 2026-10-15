@@ -135,7 +135,9 @@ class AdminWebsiteRecordsSheetTest extends TestCase
             ->assertSee('Open in admin', false)
             ->assertSee('>Off</span>', false)
             ->assertSee('de|at', false)
-            ->assertSee('Technology|Business &amp; Finance', false)
+            ->assertSee('>Technology</span>', false)
+            ->assertSee('>Business &amp; Finance</span>', false)
+            ->assertDontSee('Technology|Business &amp; Finance', false)
             ->assertDontSee('€99', false);
     }
 

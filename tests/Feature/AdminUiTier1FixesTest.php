@@ -157,12 +157,12 @@ class AdminUiTier1FixesTest extends TestCase
             ->get(route('admin.payments'))
             ->assertOk()
             ->getContent();
-        $this->assertStringContainsString('<title>Payments — SEOLinkBuildings</title>', $payments);
+        $this->assertStringContainsString('<title>Payments — Admin — SEOLinkBuildings</title>', $payments);
 
         $users = $this->actingAs($this->admin)
             ->get(route('admin.users.index'))
             ->assertOk()
             ->getContent();
-        $this->assertStringContainsString('<title>Admin Dashboard — SEOLinkBuildings</title>', $users);
+        $this->assertStringContainsString('<title>Users — Admin — SEOLinkBuildings</title>', $users);
     }
 }

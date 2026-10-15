@@ -74,4 +74,15 @@ class ProductionSqlGuardTest extends TestCase
         $this->assertStringContainsString('ALTER TABLE `users` ADD COLUMN `is_test`', $sql);
         $this->assertStringContainsString("already exists'' AS info", $sql);
     }
+
+    public function test_orders_completed_at_backfill_sql_is_idempotent(): void
+    {
+        $sql = (string) file_get_contents(base_path('database/sql/backfill_orders_completed_at.sql'));
+
+        $this->assertStringContainsString('information_schema.COLUMNS', $sql);
+        $this->assertStringContainsString("COLUMN_NAME = 'completed_at'", $sql);
+        $this->assertStringContainsString('ALTER TABLE `orders` ADD COLUMN `completed_at`', $sql);
+        $this->assertStringContainsString("already exists'' AS info", $sql);
+        $this->assertStringContainsString('SET o.completed_at = COALESCE', $sql);
+    }
 }

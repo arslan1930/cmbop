@@ -479,7 +479,7 @@ class AdminSiteReviewQueueTest extends TestCase
             ->assertSee('Scan failed', false)
             ->assertSee('Add site for publisher', false)
             ->assertSee('Websites records sheet', false)
-            ->assertSee('Not live yet. The publisher has submitted the listing.', false)
+            ->assertSee('Submitted and waiting for a staff decision', false)
             ->assertSee('data-staff-review', false)
             ->assertSee('staffSiteReviewDrawer', false)
             ->assertSee('>CSV</a>', false)
@@ -495,6 +495,7 @@ class AdminSiteReviewQueueTest extends TestCase
         $this->assertSame(1, substr_count($flatHtml, 'name="q"'));
         $this->assertStringNotContainsString('type="hidden" name="q"', $flatHtml);
         $this->assertStringContainsString('renderStaffBulkResult', $html);
-        $this->assertStringContainsString('View in catalog', $html);
+        $this->assertStringContainsString('Edit site', $html);
+        $this->assertStringContainsString('Search catalog', $html);
     }
 }

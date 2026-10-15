@@ -14,7 +14,7 @@ class AdminSitesIndexMarkupTest extends TestCase
         $this->assertStringNotContainsString('<<<<<<<', $blade);
         $this->assertStringNotContainsString('>>>>>>>', $blade);
         $this->assertStringNotContainsString('<<<<<<<', $strip);
-        $this->assertSame(1, substr_count($blade, '<h4 class="mb-0 fw-bold">Sites Management</h4>'));
+        $this->assertSame(1, substr_count($blade, '$publishersTabOn ? \'Publishers\' : \'Sites Management\''));
         $this->assertStringContainsString('Ready to activate', $blade);
         $this->assertStringContainsString("staff_route('sites.index')", $blade);
         $this->assertStringContainsString("['publishers' => 1]", $blade);
