@@ -104,6 +104,9 @@ class Site extends Model
         'status_reason_at',
         'status_reason_by',
         'archive_reason',
+        'writing_enabled',
+        'writing_fee',
+        'listing_writing_fee',
     ];
 
     public const ONBOARDING_AWAITING_DETAILS = 'awaiting_details';
@@ -159,6 +162,9 @@ class Site extends Model
         'custom_discount_ends_at' => 'datetime',
         'custom_discount_notified_at' => 'datetime',
         'status_reason_at' => 'datetime',
+        'writing_enabled' => 'boolean',
+        'writing_fee' => 'decimal:2',
+        'listing_writing_fee' => 'decimal:2',
     ];
 
     /**

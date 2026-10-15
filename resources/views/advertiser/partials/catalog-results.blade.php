@@ -372,6 +372,7 @@
                                 ])
                                 @include('advertiser.partials.catalog-site-tools')
                                 @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
+                                @include('advertiser.partials.catalog-publisher-reliability', ['site' => $site, 'variant' => 'chip'])
                             </div>
                         </div>
 
@@ -668,6 +669,8 @@
                                     placement="top" />
                             </p>
                             @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'compactClass' => ''])
+                            @include('advertiser.partials.catalog-publisher-reliability', ['site' => $site, 'variant' => 'details'])
+                            @include('advertiser.partials.catalog-writing-chip', ['site' => $site])
                         </div>
                     </div>
 

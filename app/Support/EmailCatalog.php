@@ -30,6 +30,7 @@ use App\Mail\DepositRequestSubmitted;
 use App\Mail\DisputeClawbackPublisher;
 use App\Mail\DisputeRefundAdvertiser;
 use App\Mail\GoogleTempPasswordMail;
+use App\Mail\LinkGuaranteeRestoreMail;
 use App\Mail\LiveUrlSubmitted;
 use App\Mail\ModificationRequested;
 use App\Mail\MonthlySpendingSummary;
@@ -51,6 +52,7 @@ use App\Mail\PublisherAcceptNudge;
 use App\Mail\PublisherAddSiteReminderMail;
 use App\Mail\PublisherPublishNudge;
 use App\Mail\RefundReceiptMail;
+use App\Mail\SavedSearchAlertMail;
 use App\Mail\SiteClaimOwnershipTransferred;
 use App\Mail\SiteClaimReviewed;
 use App\Mail\SiteClaimSubmitted;
@@ -74,6 +76,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
 use App\Models\ProblemReport;
+use App\Models\SavedSearch;
 use App\Models\Site;
 use App\Models\SiteClaim;
 use App\Models\User;
@@ -226,6 +229,20 @@ class EmailCatalog
                 'description' => 'Advertiser notified when the guest post goes live.',
                 'category' => 'Orders',
                 'mailable' => LiveUrlSubmitted::class,
+                'status' => 'active',
+            ],
+            'link_guarantee_restore' => [
+                'name' => 'Link Guarantee Restore',
+                'description' => 'Publisher notified when a monthly guarantee check cannot find the advertiser URL, with 7 days to restore it.',
+                'category' => 'Orders',
+                'mailable' => LinkGuaranteeRestoreMail::class,
+                'status' => 'active',
+            ],
+            'saved_search_alert' => [
+                'name' => 'Saved Search Alert',
+                'description' => 'Advertiser daily notice when new active catalog sites match a saved search.',
+                'category' => 'Catalog',
+                'mailable' => SavedSearchAlertMail::class,
                 'status' => 'active',
             ],
             'modification_requested' => [
@@ -694,6 +711,8 @@ class EmailCatalog
             'order rejected -' => 'order_rejected',
             'order approved by advertiser' => 'order_completed',
             'live url submitted' => 'live_url_submitted',
+            'restore the live link' => 'link_guarantee_restore',
+            'new sites match' => 'saved_search_alert',
             'modification requested for order' => 'modification_requested',
             'publisher requested a revised article' => 'content_revision_requested',
             'revised article ready' => 'content_revision_fulfilled',
@@ -818,6 +837,8 @@ class EmailCatalog
             'dispute_clawback_publisher' => new DisputeClawbackPublisher(self::sampleDispute(), $user, 100.0, 0.0),
             'dispute_refund_advertiser' => new DisputeRefundAdvertiser(self::sampleDispute(), $user, 115.0),
             'live_url_submitted' => new LiveUrlSubmitted($order, $item, $site, 'https://example.com/sample-live-url'),
+            'link_guarantee_restore' => new LinkGuaranteeRestoreMail($user, $order, $item, now()->addDays(7)),
+            'saved_search_alert' => new SavedSearchAlertMail($user, self::sampleSavedSearch(), collect([$site])),
             'modification_requested' => new ModificationRequested($order, 'Please update the anchor text.'),
             'content_revision_requested' => new ContentRevisionRequested($order, $item, $site, 'Please send a cleaner draft with the correct brand mentions.'),
             'content_revision_fulfilled' => new ContentRevisionFulfilled($order, $item, $site),
@@ -1039,6 +1060,20 @@ class EmailCatalog
         $site->setRelation('publisher', $user);
 
         return $site;
+    }
+
+    protected static function sampleSavedSearch(): SavedSearch
+    {
+        $search = new SavedSearch([
+            'name' => 'Sample DE tech DR 40+',
+            'query_json' => ['country' => 'de', 'dr_min' => '40'],
+            'notify' => true,
+        ]);
+        $search->id = self::PREVIEW_ID;
+        $search->exists = false;
+        $search->user_id = self::PREVIEW_ID;
+
+        return $search;
     }
 
     protected static function sampleSiteClaim(string $status = 'pending'): SiteClaim

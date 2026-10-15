@@ -28,6 +28,7 @@ use App\Mail\DepositRequestSubmitted;
 use App\Mail\DisputeClawbackPublisher;
 use App\Mail\DisputeRefundAdvertiser;
 use App\Mail\GoogleTempPasswordMail;
+use App\Mail\LinkGuaranteeRestoreMail;
 use App\Mail\LiveUrlSubmitted;
 use App\Mail\ModificationRequested;
 use App\Mail\MonthlySpendingSummary;
@@ -49,6 +50,7 @@ use App\Mail\PublisherAcceptNudge;
 use App\Mail\PublisherAddSiteReminderMail;
 use App\Mail\PublisherPublishNudge;
 use App\Mail\RefundReceiptMail;
+use App\Mail\SavedSearchAlertMail;
 use App\Mail\SiteClaimOwnershipTransferred;
 use App\Mail\SiteClaimReviewed;
 use App\Mail\SiteClaimSubmitted;
@@ -270,6 +272,20 @@ return [
             'audience' => 'advertiser',
             'preference' => 'order_emails',
             'mailable' => LiveUrlSubmitted::class,
+            'default_enabled' => true,
+        ],
+        'link_guarantee_restore' => [
+            'name' => 'Link Guarantee Restore',
+            'audience' => 'publisher',
+            'preference' => 'order_emails',
+            'mailable' => LinkGuaranteeRestoreMail::class,
+            'default_enabled' => true,
+        ],
+        'saved_search_alert' => [
+            'name' => 'Saved Search Alert',
+            'audience' => 'advertiser',
+            'preference' => null,
+            'mailable' => SavedSearchAlertMail::class,
             'default_enabled' => true,
         ],
         'modification_requested' => [

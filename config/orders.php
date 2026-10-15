@@ -45,4 +45,16 @@ return [
     */
     'live_url_down_window_days' => (int) env('ORDER_LIVE_URL_DOWN_WINDOW_DAYS', 90),
 
+    /*
+    | Optional 12-month link guarantee add-on. Advertiser pays a percent of
+    | the placement; publishers pay nothing. Monthly HTTP + href checks.
+    */
+    'link_guarantee' => [
+        'percent' => (float) env('ORDER_LINK_GUARANTEE_PERCENT', 10),
+        'months' => (int) env('ORDER_LINK_GUARANTEE_MONTHS', 12),
+        'restore_days' => (int) env('ORDER_LINK_GUARANTEE_RESTORE_DAYS', 7),
+        'check_interval_days' => (int) env('ORDER_LINK_GUARANTEE_CHECK_DAYS', 28),
+        'check_limit' => (int) env('ORDER_LINK_GUARANTEE_CHECK_LIMIT', 40),
+    ],
+
 ];

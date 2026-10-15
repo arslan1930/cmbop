@@ -47,7 +47,9 @@ use App\Services\ContentUpload\ScheduledOrderService;
 use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\LiveUrlHealthChecker;
+use App\Services\Marketplace\CheckoutAddOnService;
 use App\Services\Marketplace\CountryLanguagePairs;
+use App\Services\Marketplace\WritingFeeService;
 use App\Services\Mcp\SavedCartSync;
 use App\Services\OrderChatContactGuard;
 use App\Services\OrderPaymentService;
@@ -3078,6 +3080,7 @@ class CatalogController extends Controller
 
             return $item;
         })->all();
+        $cartItems = app(CheckoutAddOnService::class)->checkoutViewItems($cartItems);
 
         if (empty($cartItems)) {
             session()->forget(['cart', 'checkout_content_submission_id', 'checkout_schedule', GuestPostWizardController::SESSION_KEY]);
@@ -3201,7 +3204,7 @@ class CatalogController extends Controller
 
         try {
             $prunedCart = $this->cartPricing()->syncAdvertiserSessionCart(auth()->user());
-            $cart = $this->leftoverSessionCart();
+            $cart = app(CheckoutAddOnService::class)->applyRequestToCart($this->leftoverSessionCart(), $request);
 
             if (empty($cart)) {
                 if (($prunedCart['removed_owned'] ?? []) !== []) {
@@ -3941,12 +3944,14 @@ class CatalogController extends Controller
                         'sensitive_type' => $orderItem['sensitive_type'],
                         'additional_price' => $orderItem['additional_price'],
                         'paid_at' => now(),
-                    ], $this->scheduleOrderFields($schedule), $this->checkoutProjectFields((int) $userId))));
+                    ], $this->scheduleOrderFields($schedule), $this->checkoutProjectFields((int) $userId), app(CheckoutAddOnService::class)->orderColumns($orderItem))));
                     $item = OrderItem::create($schema->filterExistingColumns(
                         'order_items',
-                        $this->orderItemPayload($order->id, $site, $orderItem, $submission)
+                        $this->orderItemPayload($order->id, $site, $orderItem, $submission instanceof ContentSubmission ? $submission : null)
                     ));
-                    $this->attachSubmissionToOrder($submission, $order, $item);
+                    if ($submission instanceof ContentSubmission) {
+                        $this->attachSubmissionToOrder($submission, $order, $item);
+                    }
                     $created->push($order);
                 }
                 if ($created->isEmpty()) {
@@ -4645,13 +4650,15 @@ class CatalogController extends Controller
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
                     'paid_at' => now(),
-                ], $this->scheduleOrderFields($schedule), $this->checkoutProjectFields((int) $userId))));
+                ], $this->scheduleOrderFields($schedule), $this->checkoutProjectFields((int) $userId), app(CheckoutAddOnService::class)->orderColumns($orderItem))));
 
                 $item = OrderItem::create($schema->filterExistingColumns(
                     'order_items',
-                    $this->orderItemPayload($order->id, $site, $orderItem, $submission)
+                    $this->orderItemPayload($order->id, $site, $orderItem, $submission instanceof ContentSubmission ? $submission : null)
                 ));
-                $this->attachSubmissionToOrder($submission, $order, $item);
+                if ($submission instanceof ContentSubmission) {
+                    $this->attachSubmissionToOrder($submission, $order, $item);
+                }
 
                 $createdOrders[] = $order;
             }
@@ -4777,10 +4784,12 @@ class CatalogController extends Controller
                     'status' => $this->initialOrderStatus($schedule),
                     'sensitive_type' => $orderItem['sensitive_type'],
                     'additional_price' => $orderItem['additional_price'],
-                ], $this->scheduleOrderFields($schedule), $this->checkoutProjectFields((int) $userId)));
+                ], $this->scheduleOrderFields($schedule), $this->checkoutProjectFields((int) $userId), app(CheckoutAddOnService::class)->orderColumns($orderItem)));
 
-                $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission));
-                $this->attachSubmissionToOrder($submission, $order, $item);
+                $item = OrderItem::create($this->orderItemPayload($order->id, $site, $orderItem, $submission instanceof ContentSubmission ? $submission : null));
+                if ($submission instanceof ContentSubmission) {
+                    $this->attachSubmissionToOrder($submission, $order, $item);
+                }
 
                 $createdOrders[] = $order;
             }
@@ -5952,6 +5961,15 @@ class CatalogController extends Controller
         }
 
         if ($scanned === 0 && ($checkoutContent['lines'] ?? []) !== []) {
+            $publisherWrittenOnly = collect($checkoutContent['lines'])->every(function ($line) {
+                $orderItem = is_array($line['orderItem'] ?? null) ? $line['orderItem'] : [];
+
+                return CheckoutAddOnService::isPublisherWritten($orderItem);
+            });
+            if ($publisherWrittenOnly) {
+                return null;
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'A Content Library article no longer passes content policy. Edit it and try again.',
@@ -6882,7 +6900,11 @@ class CatalogController extends Controller
     private function resolveCheckoutContent(array $cart, ?array $contentSubmissions, array $scheduleInput, bool $allowReplaceableLeftover = false): array|JsonResponse
     {
         try {
-            $expandedOrders = $this->cartPricing()->expandCart($cart, auth()->id());
+            $expandedOrders = app(CheckoutAddOnService::class)->decorateExpandedOrders(
+                $this->cartPricing()->expandCart($cart, auth()->id()),
+                $cart,
+                request()
+            );
         } catch (\Throwable $e) {
             $message = UserFacingError::message($e, 'Some items in your cart are no longer available. Please review your cart.');
             $status = str_contains($e->getMessage(), 'own websites') ? 422 : 200;
@@ -6924,6 +6946,20 @@ class CatalogController extends Controller
                 ?? null;
 
             if (! $submissionId) {
+                if (CheckoutAddOnService::isPublisherWritten($orderItem)
+                    || CheckoutAddOnService::isPublisherWritten(is_array($cartLine) ? $cartLine : [])) {
+                    if (CheckoutAddOnService::isPublisherWritten($orderItem)
+                        && trim((string) ($orderItem['writing_target_url'] ?? '')) === '') {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Add a target URL for each publisher-written article.',
+                        ], 422);
+                    }
+                    $lines[] = ['orderItem' => $orderItem, 'submission' => null];
+
+                    continue;
+                }
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Select an approved article from your Content Library before placing this order.',
@@ -7015,6 +7051,10 @@ class CatalogController extends Controller
         foreach ($checkoutContent['lines'] as $index => $line) {
             $submission = $line['submission'] ?? null;
             if (! $submission instanceof ContentSubmission) {
+                if (CheckoutAddOnService::isPublisherWritten($line['orderItem'] ?? [])) {
+                    continue;
+                }
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Only approved Content Library articles can be ordered. Edit and resubmit articles that need correction.',
@@ -7229,24 +7269,28 @@ class CatalogController extends Controller
      * @param  array<string, mixed>  $orderItem
      * @return array<string, mixed>
      */
-    private function orderItemPayload(int $orderId, Site $site, array $orderItem, ContentSubmission $submission): array
+    private function orderItemPayload(int $orderId, Site $site, array $orderItem, ?ContentSubmission $submission = null): array
     {
-        return [
+        $addons = app(CheckoutAddOnService::class)->orderItemColumns($orderItem);
+
+        return array_merge([
             'order_id' => $orderId,
             'site_id' => $site->id,
             'site_name' => $site->site_name,
             'site_url' => $site->site_url,
             'price' => $orderItem['price'],
-            'content_link' => route('advertiser.content-submissions.download', $submission),
-            'content_submission_id' => $submission->id,
-            'content_disk' => $submission->disk,
-            'content_path' => $submission->path,
-            'content_original_name' => $submission->original_filename,
-            'content_mime' => $submission->mime,
-            'anchor_text' => $submission->anchor_text,
-            'target_url' => $submission->target_url,
-            'feature_image_url' => $submission->feature_image_url,
-            'moderation_status' => $submission->moderation_status,
+            'content_link' => $submission
+                ? route('advertiser.content-submissions.download', $submission)
+                : (CheckoutAddOnService::isPublisherWritten($orderItem) ? 'publisher-written' : null),
+            'content_submission_id' => $submission?->id,
+            'content_disk' => $submission?->disk,
+            'content_path' => $submission?->path,
+            'content_original_name' => $submission?->original_filename,
+            'content_mime' => $submission?->mime,
+            'anchor_text' => $submission?->anchor_text ?: ($orderItem['writing_anchor_text'] ?? null),
+            'target_url' => $submission?->target_url ?: ($orderItem['writing_target_url'] ?? null),
+            'feature_image_url' => $submission?->feature_image_url,
+            'moderation_status' => $submission?->moderation_status,
             'sensitive_type' => $orderItem['sensitive_type'],
             'additional_price' => $orderItem['additional_price'],
             'homepage_days' => $orderItem['homepage_days'] ?? null,
@@ -7257,7 +7301,7 @@ class CatalogController extends Controller
             'platform_fee_percent' => $orderItem['platform_fee_percent'] ?? null,
             'platform_fee_amount' => $orderItem['platform_fee_amount'] ?? null,
             ...OrderItem::fxSnapshotFromPricing($orderItem),
-        ];
+        ], $addons);
     }
 
     private function attachSubmissionToOrder(ContentSubmission $submission, Order $order, OrderItem $item): void
@@ -7522,6 +7566,13 @@ class CatalogController extends Controller
                 continue;
             }
 
+            $writingOffered = app(WritingFeeService::class)->writingOffered($site);
+            if (CheckoutAddOnService::isPublisherWritten($item) && $writingOffered) {
+                $payable[] = $item;
+
+                continue;
+            }
+
             $quantity = max(1, (int) ($item['quantity'] ?? 1));
             $lineReady = true;
             $resolvedIds = [];
@@ -7562,6 +7613,11 @@ class CatalogController extends Controller
             }
 
             if (! $lineReady || $resolvedIds === []) {
+                if ($writingOffered) {
+                    $payable[] = $item;
+
+                    continue;
+                }
                 $deferred[] = $item;
 
                 continue;
@@ -8053,7 +8109,11 @@ class CatalogController extends Controller
         }
 
         try {
-            $expanded = $this->cartPricing()->expandCart($payableCart, $userId);
+            $expanded = app(CheckoutAddOnService::class)->decorateExpandedOrders(
+                $this->cartPricing()->expandCart($payableCart, $userId),
+                $payableCart,
+                request()
+            );
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
