@@ -39,9 +39,11 @@ class SiteCatalogLabelHelpersTest extends TestCase
     public static function turnaroundProvider(): array
     {
         return [
-            ['24h', '24 hours'],
+            ['24h', '1 day'],
+            ['48h', '2 days'],
             ['3days', '3 days'],
             ['7days', '7 days'],
+            ['48 hours', '2 days'],
         ];
     }
 

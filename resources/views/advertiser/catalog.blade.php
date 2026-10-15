@@ -41,6 +41,7 @@
         /* Price chips: do not shrink into two clipped lines inside the pill. */
         .catalog-page .filter-presets[data-preset-group="price"]{display:flex;flex-wrap:wrap;gap:6px;max-width:100%}
         .catalog-page .filter-preset{flex:0 0 auto;width:auto;white-space:nowrap;padding:0 10px;height:24px;font-size:11px;font-weight:600}
+        .catalog-page .site-chip--sensitive{background:var(--brand-primary-bg,#e6f5f5)!important;color:var(--brand-primary,#1a585e)!important;border-color:var(--brand-primary-border,#b8e4e4)!important}
         .catalog-page .catalog-filter-actions #toggleMoreFiltersBtn,
         .catalog-page .catalog-filter-actions #catalogResetFilters,
         .catalog-page .catalog-live-apply-hint{font-family:inherit;font-size:11px;font-weight:600;height:24px;display:inline-flex;align-items:center;white-space:nowrap}
@@ -922,6 +923,10 @@ window.CatalogConfig = {
     queryKeys: @json(\App\Services\Catalog\CatalogUrlQuery::KEYS),
     publicationDurationLabels: @json(\App\Support\PublicationDuration::LABELS),
     defaultSort: @json(\App\Services\Catalog\CatalogUrlQuery::DEFAULT_SORT),
+    i18n: {
+        priceFrom: @json(__('messages.catalog_price_from')),
+        percentOff: @json(__('messages.catalog_percent_off'))
+    },
     // Phase 7 kill switch — false falls back to full page navigations.
     liveSearch: @json((bool) config('catalog.live_search.enabled', true)),
     routes: {

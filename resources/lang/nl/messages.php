@@ -886,4 +886,22 @@ return [
     'usd_bank_avoid_fees' => 'Want to avoid wire fees? Pay instantly by Card or PayPal instead.',
     'usd_bank_pay_card' => 'Card',
     'usd_bank_pay_paypal' => 'PayPal',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'vanaf',
+    'catalog_percent_off' => ':percent korting',
+    'catalog_bulk_when_buying' => '−:percent bij aankoop van :qty+',
+    'catalog_turnaround_one' => '1 dag',
+    'catalog_turnaround_many' => ':count dagen',
+    'catalog_sensitive_topics_from' => 'Gevoelige onderwerpen vanaf :price',
+    'catalog_sensitive_crypto' => 'Crypto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Nieuwe listing',
+    'catalog_new_listing_body' => 'Toegevoegd of goedgekeurd in de afgelopen 30 dagen — verse voorraad die de moeite waard is om vroeg te bekijken.',
+    'catalog_report_listing' => 'Listing melden',
+    'catalog_report_listing_body' => 'Meld een probleem met deze listing. Dit is geen waarschuwing over gevoelige onderwerpen.',
+    'catalog_report_listing_done' => 'U hebt deze listing gemeld',
+    'catalog_report_listing_done_body' => 'Open om uw melding te wijzigen of te wissen.',
 ];

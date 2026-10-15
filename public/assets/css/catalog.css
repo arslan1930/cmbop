@@ -639,6 +639,18 @@
     justify-content: inherit;
 }
 
+.catalog-price__from {
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    color: var(--brand-ink-muted, #697078);
+    line-height: 1;
+}
+
+.catalog-price__from[hidden] {
+    display: none !important;
+}
+
 .catalog-price__pay {
     font-size: 1.15rem;
     font-weight: 700;
@@ -2217,9 +2229,9 @@ a.bulk-deal-card__url:hover {
 }
 
 .site-chip--sensitive {
-    background: #fff7ed;
-    color: #c2410c;
-    border: 1px solid #fdba74;
+    background: var(--brand-primary-bg, #e6f5f5);
+    color: var(--brand-primary, #1a585e);
+    border: 1px solid var(--brand-primary-border, #b8e4e4);
 }
 
 .site-chip--social {

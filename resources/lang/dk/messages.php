@@ -64,4 +64,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'marketplace_catalog_note' => 'Det live katalog åbner efter login og forbliver engelsk. Landefilter = Danmark.',
     'meta_blog_title' => 'Blog om linkbuilding og digital PR | SEOLinkBuildings',
     'meta_blog_description' => 'Praktiske guides om gæsteindlæg, ankertekst, AEO/SEO og publisher-outreach fra SEOLinkBuildings.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'fra',
+    'catalog_percent_off' => ':percent rabat',
+    'catalog_bulk_when_buying' => '−:percent ved køb af :qty+',
+    'catalog_turnaround_one' => '1 dag',
+    'catalog_turnaround_many' => ':count dage',
+    'catalog_sensitive_topics_from' => 'Følsomme emner fra :price',
+    'catalog_sensitive_crypto' => 'Krypto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Ny listing',
+    'catalog_new_listing_body' => 'Tilføjet eller godkendt inden for de seneste 30 dage — frisk lager, der er værd at se tidligt.',
+    'catalog_report_listing' => 'Rapportér listing',
+    'catalog_report_listing_body' => 'Flag et problem med denne listing. Dette er ikke en advarsel om følsomme emner.',
+    'catalog_report_listing_done' => 'Du har rapporteret denne listing',
+    'catalog_report_listing_done_body' => 'Åbn for at opdatere eller rydde rapporten.',
 ]);

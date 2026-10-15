@@ -912,4 +912,22 @@ return [
     'usd_bank_avoid_fees' => 'Want to avoid wire fees? Pay instantly by Card or PayPal instead.',
     'usd_bank_pay_card' => 'Card',
     'usd_bank_pay_paypal' => 'PayPal',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'desde',
+    'catalog_percent_off' => ':percent de dto.',
+    'catalog_bulk_when_buying' => '−:percent al comprar :qty+',
+    'catalog_turnaround_one' => '1 día',
+    'catalog_turnaround_many' => ':count días',
+    'catalog_sensitive_topics_from' => 'Temas sensibles desde :price',
+    'catalog_sensitive_crypto' => 'Cripto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Nuevo listing',
+    'catalog_new_listing_body' => 'Añadido o aprobado en los últimos 30 días — inventario reciente que conviene revisar pronto.',
+    'catalog_report_listing' => 'Reportar listing',
+    'catalog_report_listing_body' => 'Marque un problema con este listing. No es una advertencia sobre temas sensibles.',
+    'catalog_report_listing_done' => 'Ha reportado este listing',
+    'catalog_report_listing_done_body' => 'Ábralo para actualizar o borrar su reporte.',
 ];

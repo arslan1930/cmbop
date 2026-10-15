@@ -4347,6 +4347,19 @@ function catalogVisibleFirst(nodes) {
     return list.find(function (el) { return el.offsetParent !== null; }) || list[0] || null;
 }
 
+/**
+ * Qty-1 catalog Buy control (table or card). Skip bulk-rail CTAs — they sit
+ * earlier in the DOM and have no data-discount-percent, so reading them would
+ * wipe the closed-row sale badge when Details syncs totals.
+ */
+function catalogRowBuyButton(siteId) {
+    const id = String(siteId);
+    return catalogVisibleFirst(document.querySelectorAll(
+        '.catalog-row-actions .buy-now[data-id="' + id + '"]:not([data-bulk-hint]), '
+        + '.catalog-card-buy .buy-now[data-id="' + id + '"]:not([data-bulk-hint])'
+    ));
+}
+
 function markCatalogSiteInCart(siteId) {
     const id = String(siteId);
     document.querySelectorAll('.buy-now[data-id="' + id + '"]').forEach(function (buy) {
@@ -4373,7 +4386,7 @@ function catalogDiscountPercentForSite(siteId) {
         if (Number.isFinite(fromGroup) && fromGroup > 0) return fromGroup;
     }
 
-    const buy = document.querySelector('.buy-now[data-id="' + id + '"]');
+    const buy = catalogRowBuyButton(id);
     if (buy && buy.dataset.discountPercent != null && buy.dataset.discountPercent !== '') {
         const fromBuy = parseFloat(buy.dataset.discountPercent);
         if (Number.isFinite(fromBuy) && fromBuy > 0) return fromBuy;
@@ -4396,7 +4409,7 @@ function catalogAdvertiserBasePrice(siteId) {
         if (Number.isFinite(fromGroup) && fromGroup > 0) return fromGroup;
     }
 
-    const buy = document.querySelector('.buy-now[data-id="' + id + '"]');
+    const buy = catalogRowBuyButton(id);
     if (buy && buy.dataset.basePrice != null && buy.dataset.basePrice !== '') {
         const fromBuy = parseFloat(buy.dataset.basePrice);
         if (Number.isFinite(fromBuy) && fromBuy > 0) return fromBuy;
@@ -4411,7 +4424,7 @@ function catalogAdvertiserBasePrice(siteId) {
  */
 function catalogPublisherPayoutFloor(siteId, additionalPrice) {
     const id = String(siteId);
-    const buy = document.querySelector('.buy-now[data-id="' + id + '"]');
+    const buy = catalogRowBuyButton(id);
     const group = catalogVisibleFirst(document.querySelectorAll(
         '.sensitive-prices-group[data-site-id="' + id + '"]'
     ));
@@ -4664,6 +4677,14 @@ function catalogFormatPercentLabel(percent) {
     return String(catalogRoundMoney(n)).replace(/\.0+$/, '');
 }
 
+function catalogOfferLabel(percent) {
+    const pct = catalogFormatPercentLabel(percent) + '%';
+    const tpl = (window.CatalogConfig && CatalogConfig.i18n && CatalogConfig.i18n.percentOff)
+        ? String(CatalogConfig.i18n.percentOff)
+        : ':percent off';
+    return tpl.replace(':percent', pct);
+}
+
 function updateBuyButtonPrice(siteId, basePrice, additionalPrice = 0, sensitiveType = null, discountPercent = 0, homepageFee = 0) {
     const id = String(siteId);
     const base = parseFloat(basePrice);
@@ -4680,7 +4701,7 @@ function updateBuyButtonPrice(siteId, basePrice, additionalPrice = 0, sensitiveT
     const totalPrice = catalogRoundMoney(articlePay + homeFee);
     const displayList = catalogRoundMoney(listTotal + homeFee);
     const effectivePct = catalogEffectiveDiscountPercent(listTotal, articlePay);
-    const offerLabel = effectivePct > 0 ? (catalogFormatPercentLabel(effectivePct) + '% off') : '';
+    const offerLabel = effectivePct > 0 ? catalogOfferLabel(effectivePct) : '';
 
     document.querySelectorAll('.buy-now[data-id="' + id + '"]').forEach(function (buyButton) {
         const price = catalogPriceDisplaysFor(buyButton);
