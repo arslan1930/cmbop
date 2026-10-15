@@ -43,10 +43,15 @@ class CatalogLanguageFilter
         }
 
         $hasLanguagesJson = Site::hasSitesColumn('languages');
+        $normColumn = Site::hasSitesColumn('language_norm');
 
-        return $query->where(function ($q) use ($normalized, $hasLanguagesJson) {
+        return $query->where(function ($q) use ($normalized, $hasLanguagesJson, $normColumn) {
             foreach ($normalized as $code) {
-                $q->orWhereRaw('LOWER(TRIM(language)) = ?', [$code]);
+                if ($normColumn) {
+                    $q->orWhere('language_norm', $code);
+                } else {
+                    $q->orWhereRaw('LOWER(TRIM(language)) = ?', [$code]);
+                }
                 if ($hasLanguagesJson) {
                     $q->orWhereJsonContains('languages', $code);
                 }

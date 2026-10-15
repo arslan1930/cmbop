@@ -8,6 +8,7 @@ use App\Models\SiteAnnouncement;
 use App\Models\User;
 use App\Models\WelcomeBonusClaim;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -73,27 +74,33 @@ class PromotionService
             }
 
             $audience = $audience ?: $this->resolveAudience();
+            $cacheKey = 'promotions.banners.v1.'.md5(($placement ?? 'any').'|'.$audience.'|'.now()->toDateString());
 
-            $query = AdBanner::query()
-                ->active()
-                ->forAudience($audience)
-                ->orderBy('priority')
-                ->orderByDesc('id');
+            /** @var Collection<int, AdBanner> $cached */
+            $cached = Cache::remember($cacheKey, 60, function () use ($placement, $audience) {
+                $query = AdBanner::query()
+                    ->active()
+                    ->forAudience($audience)
+                    ->orderBy('priority')
+                    ->orderByDesc('id');
 
-            if ($placement) {
-                $query->forPlacement($placement);
-            }
+                if ($placement) {
+                    $query->forPlacement($placement);
+                }
 
-            $all = $query->get()
-                ->filter(fn (AdBanner $banner) => $banner->isCurrentlyLive() && $banner->imageSrc())
-                ->values();
-            $limit = max(1, (int) config('promotions.banners_per_placement', 1));
-            $seed = crc32(($placement ?? 'any').'|'.now()->toDateString());
+                $all = $query->get()
+                    ->filter(fn (AdBanner $banner) => $banner->isCurrentlyLive() && $banner->imageSrc())
+                    ->values();
+                $limit = max(1, (int) config('promotions.banners_per_placement', 1));
+                $seed = crc32(($placement ?? 'any').'|'.now()->toDateString());
 
-            return $all->values()
-                ->sortBy(fn (AdBanner $banner) => crc32($seed.'|'.$banner->id))
-                ->take($limit)
-                ->values();
+                return $all->values()
+                    ->sortBy(fn (AdBanner $banner) => crc32($seed.'|'.$banner->id))
+                    ->take($limit)
+                    ->values();
+            });
+
+            return $cached;
         } catch (\Throwable $e) {
             Log::warning('Failed to load ad banners', ['error' => $e->getMessage()]);
 

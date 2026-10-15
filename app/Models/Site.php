@@ -2990,6 +2990,9 @@ class Site extends Model
         return 'This is your listing — you can’t order it.';
     }
 
+    /** @var array<string, array{owned: bool, list: float, publisher: float, sale: float|null, sale_percent: float|null, sale_percent_nominal: float|null}> */
+    private array $catalogPricesForViewerCache = [];
+
     /**
      * Prices painted on the advertiser catalog for this viewer.
      *
@@ -2999,6 +3002,19 @@ class Site extends Model
      * @return array{owned: bool, list: float, publisher: float, sale: float|null, sale_percent: float|null, sale_percent_nominal: float|null}
      */
     public function catalogPricesForViewer(?User $user): array
+    {
+        $cacheKey = (string) ($user?->getKey() ?? 'guest');
+        if (isset($this->catalogPricesForViewerCache[$cacheKey])) {
+            return $this->catalogPricesForViewerCache[$cacheKey];
+        }
+
+        return $this->catalogPricesForViewerCache[$cacheKey] = $this->computeCatalogPricesForViewer($user);
+    }
+
+    /**
+     * @return array{owned: bool, list: float, publisher: float, sale: float|null, sale_percent: float|null, sale_percent_nominal: float|null}
+     */
+    private function computeCatalogPricesForViewer(?User $user): array
     {
         try {
             $owned = $this->isOwnedBy($user);

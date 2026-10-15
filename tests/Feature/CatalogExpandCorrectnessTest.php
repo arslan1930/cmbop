@@ -502,7 +502,8 @@ class CatalogExpandCorrectnessTest extends TestCase
             ->getContent();
 
         $this->assertStringNotContainsString('readiness chips', $html);
-        $this->assertStringContainsString('the cart lists which sites still need an article', $html);
+        $this->assertStringContainsString('Each site needs its own approved article — upload or assign before you pay.', $html);
+        $this->assertStringNotContainsString('the cart lists which sites still need an article', $html);
         $this->assertStringContainsString('id="catalogCartBanner"', $html);
         $this->assertStringContainsString('catalog-buy-addon-hint', $html);
     }

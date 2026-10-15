@@ -48,9 +48,9 @@ class PlatformFeeServiceTest extends TestCase
     {
         $sql = $this->fees->advertiserBaseSqlExpression('price');
 
-        $this->assertStringContainsString('WHEN price >= 0 AND price <= 99.99 THEN ROUND(price * 1.15, 2)', $sql);
-        $this->assertStringContainsString('WHEN price >= 100 AND price <= 299.99 THEN ROUND(price * 1.13, 2)', $sql);
-        $this->assertStringContainsString('WHEN price >= 300 AND price <= 999.99 THEN ROUND(price * 1.12, 2)', $sql);
-        $this->assertStringContainsString('WHEN price >= 1000 THEN ROUND(price * 1.1, 2)', $sql);
+        $this->assertStringContainsString('WHEN price >= 0 AND price <= 99.99 THEN ROUND(price + ROUND(price * 15 / 100, 2), 2)', $sql);
+        $this->assertStringContainsString('WHEN price >= 100 AND price <= 299.99 THEN ROUND(price + ROUND(price * 13 / 100, 2), 2)', $sql);
+        $this->assertStringContainsString('WHEN price >= 300 AND price <= 999.99 THEN ROUND(price + ROUND(price * 12 / 100, 2), 2)', $sql);
+        $this->assertStringContainsString('WHEN price >= 1000 THEN ROUND(price + ROUND(price * 10 / 100, 2), 2)', $sql);
     }
 }
