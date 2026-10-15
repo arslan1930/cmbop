@@ -34,6 +34,7 @@ use App\Support\CatalogProblemReport;
 use App\Support\CommunityInbox;
 use App\Support\MarketingOpsQueues;
 use App\Support\MarketplacePicker;
+use App\Support\PublicationDuration;
 use App\Support\PublicStorageLink;
 use App\Support\SiteDescriptionRules;
 use App\Support\SiteImageUpload;
