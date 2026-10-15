@@ -22,6 +22,7 @@ Defined in `bootstrap/app.php` (not `app/Console/Kernel.php`):
 - `emails:send-digests` — weekly / monthly
 - `sites:send-new-sites-digest` — daily
 - `mail:drain-queue` — every minute (when no resident worker)
+- `backup:drive` — daily 03:00 Asia/Karachi (Google Drive; see [`BACKUPS.md`](BACKUPS.md))
 
 Verify with `php artisan schedule:list` — each command should appear once.
 

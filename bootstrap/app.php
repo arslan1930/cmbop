@@ -337,5 +337,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('emails:send-admin-signup-digest')
             ->everyFifteenMinutes()
             ->withoutOverlapping();
+
+        // Off-site Google Drive backup. 03:00 Asia/Karachi regardless of APP timezone (UTC).
+        $backup = $schedule->command('backup:drive')
+            ->dailyAt('03:00')
+            ->timezone('Asia/Karachi')
+            ->withoutOverlapping(180)
+            ->sendOutputTo(storage_path('logs/backup-drive.log'));
+        if (filled($adminEmail)) {
+            $backup->emailOutputOnFailure($adminEmail);
+        }
     })
     ->create();
