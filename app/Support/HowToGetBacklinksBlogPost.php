@@ -38,7 +38,7 @@ class HowToGetBacklinksBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'How to earn and evaluate backlinks: what makes a link useful, which tactics still work, and how paid placements differ from editorial links.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => ['Backlinks', 'Link building', 'Guest posts', 'Outreach', 'SEO'],
             'status' => 'published',
             'featured_image' => self::FEATURED_STORAGE,

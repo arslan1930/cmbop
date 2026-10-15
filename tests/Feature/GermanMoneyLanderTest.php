@@ -115,39 +115,9 @@ class GermanMoneyLanderTest extends TestCase
         }
 
         foreach ($prefixed as $locale) {
-            if (in_array($locale, ['de', 'ch'], true)) {
-                $this->get('/'.$locale.'/digital-pr')->assertOk();
-
-                continue;
-            }
-            if ($locale === 'at') {
-                $this->get('/at/digital-pr')->assertOk();
-
-                continue;
-            }
-            if ($locale === 'it') {
-                $this->get('/it/digital-pr')->assertOk();
-
-                continue;
-            }
-            if ($locale === 'pt') {
-                $this->get('/pt/digital-pr')->assertOk();
-
-                continue;
-            }
-            if ($locale === 'ro') {
-                $this->get('/ro/digital-pr')->assertOk();
-
-                continue;
-            }
-            if ($locale === 'es') {
-                $this->get('/es/digital-pr')->assertOk();
-
-                continue;
-            }
             if (class_exists(MoneyLanderCatalog::class)
-                && method_exists(MoneyLanderCatalog::class, 'nordicCeeLocales')
-                && in_array($locale, MoneyLanderCatalog::nordicCeeLocales(), true)) {
+                && method_exists(MoneyLanderCatalog::class, 'localeOwnsSegment')
+                && MoneyLanderCatalog::localeOwnsSegment($locale, 'digital-pr')) {
                 $this->get('/'.$locale.'/digital-pr')->assertOk();
 
                 continue;

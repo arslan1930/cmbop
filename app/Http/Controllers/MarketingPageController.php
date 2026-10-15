@@ -10,6 +10,7 @@ use App\Services\CuratedBlogWriter;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\AustrianMoneyLanders;
+use App\Support\BrandPerson;
 use App\Support\CountryLander;
 use App\Support\DutchMoneyLanders;
 use App\Support\GermanMoneyLanders;
@@ -39,6 +40,20 @@ class MarketingPageController extends Controller
     public function isItSafe()
     {
         return view('pages.is-it-safe');
+    }
+
+    public function author(string $slug)
+    {
+        abort_unless(class_exists(BrandPerson::class), 404);
+        $canonical = BrandPerson::slug();
+        if ($slug !== $canonical) {
+            $query = request()->getQueryString();
+            $target = '/author/'.$canonical;
+
+            return redirect()->to($query ? $target.'?'.$query : $target, 301);
+        }
+
+        return view('pages.author');
     }
 
     public function faq()

@@ -136,6 +136,58 @@ class FrenchMoneyLanders
     }
 
     /**
+     * @return array<string, string>
+     */
+    public static function ui(): array
+    {
+        return [
+            'cluster_title' => 'Pages de guest posts, backlinks et netlinking en France',
+        ];
+    }
+
+    public static function marketingUrl(string $englishKey): string
+    {
+        $maps = class_exists(LocalizedPublicPath::class) ? LocalizedPublicPath::map() : [];
+        $segment = $maps[self::LOCALE][$englishKey] ?? $englishKey;
+
+        return url('/'.self::LOCALE.'/'.$segment);
+    }
+
+    /**
+     * @return list<array{slug: string, label: string, url: string}>
+     */
+    public static function footerLinks(): array
+    {
+        return array_values(array_filter(
+            self::clusterLinks('home'),
+            static fn (array $item) => ! in_array($item['slug'], ['marche', 'tarifs'], true)
+        ));
+    }
+
+    /**
+     * @return array{h2: string, body: string, links: string}
+     */
+    public static function marketplaceCopy(): array
+    {
+        return [
+            'h2' => 'Catalogue de médias en France',
+            'body' => 'Liste publique des éditeurs dont le pays principal est la France : thématique, langue, DA/DR et prix en euros. Nous n’indexons pas chaque combinaison de filtres, et les villes (Paris, Lyon) n’ont pas d’URL dédiée. Le catalogue complet, avec les domaines, s’ouvre après inscription.',
+            'links' => '<a href="'.self::url('acheter-guest-post').'">Acheter un guest post en France</a> · <a href="'.self::url('acheter-backlinks').'">Acheter des backlinks</a> · <a href="'.self::marketingUrl('pricing').'">Prix d’un guest post</a> · <a href="'.url('/guest-posts-france').'">France inventory (English)</a>',
+        ];
+    }
+
+    /**
+     * @return array{h2: string, body: string}
+     */
+    public static function pricingCopy(): array
+    {
+        return [
+            'h2' => 'Combien coûte un guest post en France',
+            'body' => 'Nous ne publions pas de PDF tarifaire fixe et n’inventons pas de SIRET français : le prix est celui du site, en euros. Les montants à jour sont dans le <a href="'.self::marketingUrl('marketplace').'">catalogue France</a> après inscription. Le siège est à Londres (Teqno Ltd).',
+        ];
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
     public static function pages(): array

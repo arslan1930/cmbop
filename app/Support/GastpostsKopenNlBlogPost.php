@@ -41,7 +41,7 @@ class GastpostsKopenNlBlogPost
             'primary_locale' => 'nl',
             'excerpt' => 'Praktische walkthrough voor adverteerders: account aanmaken, EUR-wallet vullen, catalogus filteren, content klaarzetten, afrekenen en orders volgen tot de live URL.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Adverteerdersgids',
                 'Gastposts',

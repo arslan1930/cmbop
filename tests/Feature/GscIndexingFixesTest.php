@@ -165,8 +165,9 @@ class GscIndexingFixesTest extends TestCase
         $index = $this->get('/sitemap.xml')->assertOk()->getContent();
         $this->assertStringContainsString('sitemap-en.xml', $index);
         $this->assertStringContainsString('sitemap-pl.xml', $index);
+        $this->assertStringNotContainsString('sitemap-us.xml', $index);
         $this->assertSame(
-            count(PublicI18n::supported()),
+            substr_count($index, '<sitemap>'),
             substr_count($index, '<lastmod>')
         );
     }

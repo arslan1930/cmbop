@@ -142,6 +142,58 @@ class DutchMoneyLanders
     }
 
     /**
+     * @return array<string, string>
+     */
+    public static function ui(): array
+    {
+        return [
+            'cluster_title' => 'Pagina’s over gastblogs, backlinks en linkbuilding in Nederland',
+        ];
+    }
+
+    public static function marketingUrl(string $englishKey): string
+    {
+        $maps = class_exists(LocalizedPublicPath::class) ? LocalizedPublicPath::map() : [];
+        $segment = $maps[self::LOCALE][$englishKey] ?? $englishKey;
+
+        return url('/'.self::LOCALE.'/'.$segment);
+    }
+
+    /**
+     * @return list<array{slug: string, label: string, url: string}>
+     */
+    public static function footerLinks(): array
+    {
+        return array_values(array_filter(
+            self::clusterLinks('home'),
+            static fn (array $item) => ! in_array($item['slug'], ['marktplaats', 'prijzen'], true)
+        ));
+    }
+
+    /**
+     * @return array{h2: string, body: string, links: string}
+     */
+    public static function marketplaceCopy(): array
+    {
+        return [
+            'h2' => 'Catalogus van publishers in Nederland',
+            'body' => 'Dit is de openbare lijst van publishers met Nederland als hoofdland: niche, taal, DA/DR en prijs in euro. We indexeren geen filtercombinaties, en steden (Amsterdam, Rotterdam) hebben geen eigen URL. De volledige catalogus met domeinen opent na registratie.',
+            'links' => '<a href="'.self::url('gastblog-kopen').'">Gastblog kopen in Nederland</a> · <a href="'.self::url('backlinks-kopen').'">Backlinks kopen</a> · <a href="'.self::marketingUrl('pricing').'">Wat kost een gastblog</a> · <a href="'.url('/guest-posts-netherlands').'">Netherlands inventory (English)</a>',
+        ];
+    }
+
+    /**
+     * @return array{h2: string, body: string}
+     */
+    public static function pricingCopy(): array
+    {
+        return [
+            'h2' => 'Wat kost een gastblog in Nederland',
+            'body' => 'We publiceren geen vaste PDF-prijslijst en verzinnen geen KvK-toeslag: de prijs is die van de site, in euro. Actuele bedragen staan in het <a href="'.self::marketingUrl('marketplace').'">Nederlandse catalogus</a> na registratie. Het hoofdkantoor is in Londen (Teqno Ltd).',
+        ];
+    }
+
+    /**
      * @return array<string, array<string, mixed>>
      */
     public static function pages(): array

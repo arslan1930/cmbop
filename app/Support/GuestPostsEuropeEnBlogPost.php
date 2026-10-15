@@ -40,7 +40,7 @@ class GuestPostsEuropeEnBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'Europe is language markets, not one blob. How to pick publisher sites by country, niche, traffic, and content quality before you buy guest posts.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Buy guest posts',
                 'Guest posting Europe',

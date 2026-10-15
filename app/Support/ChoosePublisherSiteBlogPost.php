@@ -39,7 +39,7 @@ class ChoosePublisherSiteBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'A practical way to shortlist guest-post sites: read DR and DA without worshipping them, check traffic, and never skip niche fit.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Catalog',
                 'Domain Rating',

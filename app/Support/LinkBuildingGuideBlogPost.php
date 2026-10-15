@@ -38,7 +38,7 @@ class LinkBuildingGuideBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'A practical link-building strategy: how search engines treat links, which tactics are sustainable, how to measure a campaign, and what to skip.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => ['Link building', 'Backlinks', 'SEO strategy', 'Digital PR', 'Outreach'],
             'status' => 'published',
             'featured_image' => self::FEATURED_STORAGE,

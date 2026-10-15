@@ -38,7 +38,7 @@ class SponsoredPostGuideBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'Sponsored posts are paid placements. This guide covers how they differ from guest posts, how to choose publishers, and how paid links should be labelled.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => ['Sponsored posts', 'Native advertising', 'Guest posts', 'Paid links', 'SEO'],
             'status' => 'published',
             'featured_image' => self::FEATURED_STORAGE,

@@ -39,7 +39,7 @@ class GuestPostBriefBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'How to prepare articles that publishers can place without a messy revision loop — anchors, target URLs, images, and sensitive-topic surcharges.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Content library',
                 'Anchors',

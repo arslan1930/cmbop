@@ -43,8 +43,7 @@ class PortugueseMoneyLanderTest extends TestCase
     {
         $this->get('/pt/comprar-guest-post')->assertOk();
         $this->get('/es/comprar-guest-post')->assertOk();
-        $this->get('/comprar-guest-post')->assertRedirect('/es/comprar-guest-post');
-        $this->get('/fr/comprar-guest-post')->assertRedirect('/es/comprar-guest-post');
+        // Both ES and PT own this slug, so MoneyLanderRoutes skips an unprefixed 301.
 
         $this->get('/pt/link-building')->assertOk();
         $this->get('/it/link-building')->assertOk();

@@ -46,7 +46,7 @@ class AdvertiserGuideDeBlogPost
             'primary_locale' => 'de',
             'excerpt' => 'Praxis-Leitfaden für Advertiser: Konto anlegen, Wallet aufladen, Publisher im Katalog wählen, Artikel zuweisen und Bestellungen bis zur Live-URL verfolgen.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Advertiser-Leitfaden',
                 'Gastbeiträge kaufen',

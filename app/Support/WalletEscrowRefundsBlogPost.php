@@ -39,7 +39,7 @@ class WalletEscrowRefundsBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'How SEOLinkBuildings holds your euros, when publishers get paid, what the welcome bonus can (and cannot) do, and how refunds work.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Wallet',
                 'Escrow',

@@ -39,7 +39,7 @@ class GuestPostsUkUsBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'A practical UK vs US guest-post buying guide: audiences, .co.uk vs .com, topical fit, EUR wallet pricing, disclosure norms, and what to skip (PBNs, thin traffic).',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Guest posts',
                 'UK',

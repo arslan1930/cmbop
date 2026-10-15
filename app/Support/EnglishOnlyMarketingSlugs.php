@@ -16,7 +16,7 @@ class EnglishOnlyMarketingSlugs
      */
     public static function all(): array
     {
-        $slugs = ['guest-post-prices-europe', 'is-seolinkbuildings-safe'];
+        $slugs = ['guest-post-prices-europe', 'is-seolinkbuildings-safe', 'author'];
 
         try {
             if (

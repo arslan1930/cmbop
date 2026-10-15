@@ -38,7 +38,7 @@ class GuestPostingGuideBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'How guest posting actually works: find relevant hosts, pitch editors, write for their readers, and skip sites that exist only to sell a link.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => ['Guest posting', 'Guest blogging', 'Outreach', 'Backlinks', 'SEO'],
             'status' => 'published',
             'featured_image' => self::FEATURED_STORAGE,

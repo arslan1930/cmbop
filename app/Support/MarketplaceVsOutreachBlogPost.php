@@ -39,7 +39,7 @@ class MarketplaceVsOutreachBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'When to buy placements on a marketplace, when to pitch journalists yourself, and when a digital PR story is the better spend.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Marketplace',
                 'Outreach',

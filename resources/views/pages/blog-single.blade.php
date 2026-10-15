@@ -53,10 +53,17 @@
             : 'en-GB',
         'datePublished' => optional($blog->published_at)?->toIso8601String(),
         'dateModified' => optional($blog->updated_at)?->toIso8601String(),
-        'author' => [
-            '@type' => 'Person',
-            'name' => $blog->author ?: 'SEOLinkBuildings',
-        ],
+        'author' => (class_exists(\App\Support\BrandPerson::class)
+            && method_exists(\App\Support\BrandPerson::class, 'isFounderAlias')
+            && \App\Support\BrandPerson::isFounderAlias($blog->author)
+            && method_exists(\App\Support\BrandPerson::class, 'citation'))
+            ? \App\Support\BrandPerson::citation()
+            : [
+                '@type' => 'Person',
+                'name' => method_exists($blog, 'displayAuthor')
+                    ? $blog->displayAuthor()
+                    : ($blog->author ?: 'SEOLinkBuildings'),
+            ],
         'publisher' => [
             '@type' => 'Organization',
             'name' => 'SEOLinkBuildings',
@@ -134,8 +141,16 @@
             <!-- Post Meta Info -->
             <div class="d-flex justify-content-center align-items-center gap-4 flex-wrap" style="color: #666;">
                 <span>
-                    <i class="fa fa-user me-2" style="color: #5bc4c7;"></i> 
-                    <strong>{{ $blog->author }}</strong>
+                    <i class="fa fa-user me-2" style="color: #5bc4c7;"></i>
+                    @php
+                        $byline = method_exists($blog, 'displayAuthor') ? $blog->displayAuthor() : ($blog->author ?: 'SEOLinkBuildings');
+                        $authorHref = method_exists($blog, 'authorPageUrl') ? $blog->authorPageUrl() : null;
+                    @endphp
+                    @if(is_string($authorHref) && $authorHref !== '')
+                        <a href="{{ $authorHref }}" class="link-teal text-decoration-none"><strong>{{ $byline }}</strong></a>
+                    @else
+                        <strong>{{ $byline }}</strong>
+                    @endif
                 </span>
                 <span>
                     <i class="fa fa-calendar me-2" style="color: #5bc4c7;"></i> 

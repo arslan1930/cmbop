@@ -6,6 +6,7 @@ use App\Models\Blog;
 use App\Models\BlogTranslation;
 use App\Models\CuratedBlogTombstone;
 use App\Models\User;
+use App\Support\BrandPerson;
 use App\Support\PublicI18n;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -93,7 +94,13 @@ class CuratedBlogWriter
             $data['published_at'] = $existing->published_at ?? now();
             $data['created_by'] = $existing->created_by ?? $authorUserId;
             if ($existing->author) {
-                $data['author'] = $existing->author;
+                if (class_exists(BrandPerson::class)
+                    && method_exists(BrandPerson::class, 'isFounderAlias')
+                    && BrandPerson::isFounderAlias($existing->author)) {
+                    $data['author'] = BrandPerson::publicName();
+                } else {
+                    $data['author'] = $existing->author;
+                }
             }
             if ($existing->featured_image) {
                 $data['featured_image'] = $existing->featured_image;

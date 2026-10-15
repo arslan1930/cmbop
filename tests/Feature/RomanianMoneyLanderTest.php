@@ -118,7 +118,7 @@ class RomanianMoneyLanderTest extends TestCase
     {
         $this->assertSame(['ro'], RomanianMoneyLanders::copyRedirectLocales());
         $this->assertSame(['ro'], PublicI18n::moneyLanderLocales('cumpara-guest-post'));
-        $this->assertSame('ro', PublicI18n::moneyLanderXDefault('cumpara-guest-post'));
+        $this->assertSame('en', PublicI18n::moneyLanderXDefault('cumpara-guest-post'));
         $this->assertContains('ro', PublicI18n::moneyLanderLocales('link-building'));
         $this->assertContains('it', PublicI18n::moneyLanderLocales('link-building'));
         $this->assertSame('it', PublicI18n::moneyLanderXDefault('digital-pr'));

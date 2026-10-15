@@ -35,7 +35,7 @@ class PublicI18n
             }
         }
 
-        $slugs = ['guest-post-prices-europe', 'is-seolinkbuildings-safe'];
+        $slugs = ['guest-post-prices-europe', 'is-seolinkbuildings-safe', 'author'];
 
         try {
             if (
@@ -273,6 +273,15 @@ class PublicI18n
     public static function moneyLanderXDefault(string $slug): string
     {
         $locales = self::moneyLanderLocales($slug);
+        if (in_array(self::default(), $locales, true)) {
+            return self::default();
+        }
+        // A slug that exists in only one locale has no English twin at the
+        // same path. x-default must not point at itself — use the English
+        // country lander (or home) as the unmatched-language fallback.
+        if (count($locales) <= 1) {
+            return self::default();
+        }
         foreach (['it', 'de', 'at', 'pt', 'ro', 'dk', 'se', 'no', 'bg', 'ee', 'hu', 'pl'] as $preferred) {
             if (in_array($preferred, $locales, true)) {
                 return $preferred;
@@ -289,6 +298,47 @@ class PublicI18n
     }
 
     /**
+     * English URL path used when x-default cannot stay on the money slug.
+     */
+    public static function moneyLanderEnglishFallbackPath(string $slug): string
+    {
+        $locales = self::moneyLanderLocales($slug);
+        $owner = $locales[0] ?? self::default();
+
+        return self::englishCountryLanderPath($owner);
+    }
+
+    /**
+     * Unprefixed English country lander for a public locale, or home.
+     */
+    public static function englishCountryLanderPath(string $locale): string
+    {
+        $locale = strtolower(trim($locale));
+        $map = [
+            'de' => 'guest-posts-germany',
+            'at' => 'guest-posts-austria',
+            'ch' => 'guest-posts-switzerland',
+            'fr' => 'guest-posts-france',
+            'nl' => 'guest-posts-netherlands',
+            'es' => 'guest-posts-spain',
+            'it' => 'guest-posts-italy',
+            'pt' => 'guest-posts-portugal',
+            'ro' => 'guest-posts-romania',
+            'gr' => 'guest-posts-greece',
+            'dk' => 'guest-posts-denmark',
+            'se' => 'guest-posts-sweden',
+            'no' => 'guest-posts-norway',
+            'bg' => 'guest-posts-bulgaria',
+            'hu' => 'guest-posts-hungary',
+            'ee' => 'guest-posts-estonia',
+            'pl' => 'guest-posts-poland',
+            'us' => 'guest-posts-uk',
+        ];
+
+        return $map[$locale] ?? '';
+    }
+
+    /**
      * @return array<string, string>
      */
     public static function moneyLanderPathByLocale(string $slug): array
@@ -296,6 +346,10 @@ class PublicI18n
         $paths = [];
         foreach (self::moneyLanderLocales($slug) as $locale) {
             $paths[$locale] = trim($slug, '/');
+        }
+        $xDefault = self::moneyLanderXDefault($slug);
+        if ($xDefault === self::default() && ! isset($paths[$xDefault])) {
+            $paths[$xDefault] = self::moneyLanderEnglishFallbackPath($slug);
         }
 
         return $paths;
@@ -461,10 +515,10 @@ class PublicI18n
                 return in_array($first, self::englishOnlyMarketingSlugs(), true);
             }
         } catch (\Throwable) {
-            return in_array($first, ['guest-post-prices-europe', 'is-seolinkbuildings-safe'], true);
+            return in_array($first, ['guest-post-prices-europe', 'is-seolinkbuildings-safe', 'author'], true);
         }
 
-        return in_array($first, ['guest-post-prices-europe', 'is-seolinkbuildings-safe'], true);
+        return in_array($first, ['guest-post-prices-europe', 'is-seolinkbuildings-safe', 'author'], true);
     }
 
     /**
@@ -855,14 +909,21 @@ class PublicI18n
             $locales = [self::default()];
             $xDefaultLocale = self::default();
         }
-        if ($locales === null && $first !== ''
-            && method_exists(self::class, 'moneyLanderLocales')) {
+        if ($first !== '' && method_exists(self::class, 'moneyLanderLocales')) {
             $moneyLocales = self::moneyLanderLocales($first);
             if ($moneyLocales !== []) {
-                $locales = $moneyLocales;
-                $xDefaultLocale = method_exists(self::class, 'moneyLanderXDefault')
-                    ? self::moneyLanderXDefault($first)
-                    : ($moneyLocales[0] ?? self::default());
+                if ($locales === null) {
+                    $locales = $moneyLocales;
+                }
+                if ($xDefaultLocale === null && method_exists(self::class, 'moneyLanderXDefault')) {
+                    $xDefaultLocale = self::moneyLanderXDefault($first);
+                }
+                if (method_exists(self::class, 'moneyLanderPathByLocale')) {
+                    $pathByLocale = array_merge(
+                        self::moneyLanderPathByLocale($first),
+                        is_array($pathByLocale) ? $pathByLocale : []
+                    );
+                }
             }
         }
         if ($locales === null && $first !== ''

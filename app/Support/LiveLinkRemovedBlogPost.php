@@ -39,7 +39,7 @@ class LiveLinkRemovedBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'Completed does not mean abandoned. How to report a removed placement, what the 30-day window means, and what happens when a dispute is upheld.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Disputes',
                 'Link removal',

@@ -7,6 +7,7 @@ use App\Models\BlogTranslation;
 use App\Services\CuratedBlogSync;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Support\AustrianMoneyLanders;
+use App\Support\BrandPerson;
 use App\Support\CountryLander;
 use App\Support\DutchMoneyLanders;
 use App\Support\FrenchMoneyLanders;
@@ -100,6 +101,9 @@ class SitemapController extends Controller
         $lastmods = $this->sitemapIndexLastmods();
 
         foreach ($this->supportedLocales() as $locale) {
+            if (! $this->localeSitemapHasUrls($locale)) {
+                continue;
+            }
             $entry = [
                 'loc' => $base.'/sitemap-'.$locale.'.xml',
             ];
@@ -165,6 +169,11 @@ class SitemapController extends Controller
 
             $safePage = 'is-seolinkbuildings-safe';
             $urls[] = $this->urlEntry($safePage, $locale, 'monthly', '0.6', ['en'], ['en' => $safePage]);
+
+            if (class_exists(BrandPerson::class) && method_exists(BrandPerson::class, 'slug')) {
+                $authorPath = 'author/'.BrandPerson::slug();
+                $urls[] = $this->urlEntry($authorPath, $locale, 'monthly', '0.5', ['en'], ['en' => $authorPath]);
+            }
         }
 
         $translations = collect();
@@ -221,6 +230,43 @@ class SitemapController extends Controller
         $xml = view('sitemap', compact('urls'))->render();
 
         return $this->xmlResponse($xml);
+    }
+
+    /**
+     * Drop empty locale sitemaps from the index (US clones have no unique
+     * locs until copy differs). The per-locale URL still 200s with an empty
+     * urlset so an old GSC submission is not a 404.
+     */
+    private function localeSitemapHasUrls(string $locale): bool
+    {
+        if ($this->staticPagesForLocale($locale) !== []) {
+            return true;
+        }
+
+        $moneyClass = $this->moneyLanderClasses()[$locale] ?? null;
+        if (is_string($moneyClass) && method_exists($moneyClass, 'slugs')) {
+            try {
+                foreach ($moneyClass::slugs() as $slug) {
+                    if (is_string($slug) && $slug !== '') {
+                        return true;
+                    }
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        if ($locale === $this->defaultLocale()) {
+            return true;
+        }
+
+        try {
+            return BlogTranslation::query()
+                ->where('locale', $locale)
+                ->where('is_published', true)
+                ->exists();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
