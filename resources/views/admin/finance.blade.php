@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'Finance')
+
 @section('content')
 @php
     $d = $data;

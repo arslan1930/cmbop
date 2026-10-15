@@ -73,9 +73,9 @@
         $metricsLabel,
     ])));
 @endphp
-<div class="small text-muted staff-queue-markets" title="{{ $marketsTitle }}">
-    {{ $formatStaffList($countryList, true) }}
-    · {{ $formatStaffList($languageList, true) }}
+<div class="small text-muted staff-queue-markets" title="Country code · language code. {{ $marketsTitle }}">
+    Country {{ $formatStaffList($countryList, true) }}
+    · Lang {{ $formatStaffList($languageList, true) }}
     · {{ $formatStaffList($categoryList, false, 2) }}
     @if($linkLabel)
         · {{ $linkLabel }}

@@ -222,6 +222,30 @@ class CommunityInbox
         return self::DEFAULT_TAB;
     }
 
+    public static function includeTest(mixed $value): bool
+    {
+        return self::normalizeStale($value);
+    }
+
+    /**
+     * Hide users.is_test rows when that column exists (Hostinger may not have it yet).
+     *
+     * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
+     */
+    public static function constrainExcludeTestUsers($query, string $userColumn = 'user_id'): void
+    {
+        if (! class_exists(\App\Models\User::class) || ! \App\Models\User::hasUsersColumn('is_test')) {
+            return;
+        }
+
+        $query->where(function ($outer) use ($userColumn) {
+            $outer->whereNull($userColumn)
+                ->orWhereNotIn($userColumn, function ($sub) {
+                    $sub->select('id')->from('users')->where('is_test', 1);
+                });
+        });
+    }
+
     public static function statusBadgeClass(string $status): string
     {
         return match ($status) {

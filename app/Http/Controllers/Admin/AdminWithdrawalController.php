@@ -27,9 +27,22 @@ class AdminWithdrawalController extends Controller
     /**
      * Display withdrawals payout queue.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return view('admin.withdrawals');
+        $initialWithdrawals = null;
+        $initialStatistics = null;
+        try {
+            $initialWithdrawals = $this->getWithdrawalsData($request)->getData(true);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to bootstrap admin withdrawals: '.$e->getMessage());
+        }
+        try {
+            $initialStatistics = $this->getStatistics()->getData(true);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to bootstrap admin withdrawal stats: '.$e->getMessage());
+        }
+
+        return view('admin.withdrawals', compact('initialWithdrawals', 'initialStatistics'));
     }
 
     /**

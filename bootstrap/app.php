@@ -196,19 +196,30 @@ return Application::configure(basePath: dirname(__DIR__))
             $billingDoc = str_contains($request->path(), 'billing/invoices')
                 || str_contains($request->path(), 'billing/documents');
 
-            if (! $fromInvoice && ! ($billingDoc && $leaksModel)) {
+            if ($fromInvoice || ($billingDoc && $leaksModel)) {
+                if (class_exists(Invoice::class) && method_exists(Invoice::class, 'missingDocumentResponse')) {
+                    return Invoice::missingDocumentResponse($request);
+                }
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invoice not found.',
+                    ], 404);
+                }
+
                 return null;
             }
 
-            if (class_exists(Invoice::class) && method_exists(Invoice::class, 'missingDocumentResponse')) {
-                return Invoice::missingDocumentResponse($request);
-            }
+            if ($request->is('admin') || $request->is('admin/*')) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Not found.',
+                    ], 404);
+                }
 
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invoice not found.',
-                ], 404);
+                return response()->view('errors.admin-404', [], 404);
             }
 
             return null;

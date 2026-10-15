@@ -131,6 +131,8 @@ class DepositController extends Controller
                 ]);
             }
 
+            $deposit->setAttribute('payment_reference_label', $deposit->paymentReferenceLabel());
+
             return response()->json([
                 'success' => true,
                 'deposit' => $deposit,

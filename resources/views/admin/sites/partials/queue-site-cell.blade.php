@@ -147,8 +147,10 @@
             'reasonWhen' => $reasonWhen,
             'archived' => $archived,
         ])
+        <a href="{{ staff_route('sites.edit', $site->id) }}" class="small">Edit site</a>
         @if($catalogUrl)
-            <a href="{{ $catalogUrl }}" class="small" target="_blank" rel="noopener">View in catalog</a>
+            <span class="text-muted">·</span>
+            <a href="{{ $catalogUrl }}" class="small" target="_blank" rel="noopener" title="Search the advertiser catalog for this domain">Search catalog</a>
         @endif
     </div>
 </div>

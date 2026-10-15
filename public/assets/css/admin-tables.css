@@ -388,3 +388,7 @@
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+
+.withdrawals-mode-history .js-queue-open-only {
+  display: none !important;
+}

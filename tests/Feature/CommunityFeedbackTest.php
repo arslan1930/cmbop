@@ -442,6 +442,13 @@ class CommunityFeedbackTest extends TestCase
     public function test_problems_filter_omits_approved_and_tab_switch_drops_it(): void
     {
         $admin = $this->userWithRole('admin');
+        ProblemReport::create([
+            'name' => 'Filter Probe',
+            'email' => 'filter-probe@example.com',
+            'subject' => 'Keep problem filters visible',
+            'message' => 'Empty tabs hide the status dropdown.',
+            'status' => 'pending',
+        ]);
 
         $html = $this->actingAs($admin)
             ->get(route('admin.community.index', ['tab' => 'problems']))
@@ -602,7 +609,7 @@ class CommunityFeedbackTest extends TestCase
         $this->assertStringNotContainsString('Other News', $percent);
     }
 
-    public function test_community_without_tab_lands_on_the_busiest_pending_inbox(): void
+    public function test_community_without_tab_stays_on_problem_reports(): void
     {
         $admin = $this->userWithRole('admin');
         $owner = $this->userWithRole('publisher');
@@ -626,9 +633,10 @@ class CommunityFeedbackTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('Landing-tab claim proof unique string.', $html);
+        $this->assertStringNotContainsString('Landing-tab claim proof unique string.', $html);
         $this->assertStringContainsString('community-tab is-active', $html);
-        $this->assertMatchesRegularExpression('/tab=claims/', $html);
+        $this->assertStringContainsString('Problem reports', $html);
+        $this->assertDoesNotMatchRegularExpression('/community-tab is-active[^>]*>\\s*Site claims/', $html);
     }
 
     public function test_guest_problem_notifies_admins_and_writes_an_activity_log(): void

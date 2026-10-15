@@ -113,14 +113,8 @@ class OnDemandContactController extends Controller
         if ($sites === []) {
             $errors['site_url'] = 'Add at least one site name.';
         }
-        if ($emails === []) {
-            $errors['email'] = 'Add at least one email.';
-        }
-        if ($whatsapp === []) {
-            $errors['whatsapp'] = 'Add at least one WhatsApp contact.';
-        }
-        if ($via === []) {
-            $errors['contacted_via_email'] = 'Add at least one mail they contacted us on.';
+        if ($emails === [] && $whatsapp === [] && $via === []) {
+            $errors['email'] = 'Add at least one contact method: email, WhatsApp, or the inbox they wrote to.';
         }
 
         foreach ($emails as $email) {

@@ -1332,6 +1332,7 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':marketing'])
 Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMiddleware::class.':admin'])
     ->prefix('admin')->name('admin.')
     ->group(function () use ($registerStaffOpsRoutes) {
+        Route::redirect('/', '/admin/dashboard', 302);
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])
             ->name('dashboard');
         $registerStaffOpsRoutes();
@@ -1489,6 +1490,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->whereNumber('deposit');
 
         Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals');
+        Route::get('/withdrawals/history', function () {
+            return redirect()->route('admin.withdrawals', ['queue' => 'history']);
+        })->name('withdrawals.history');
         Route::get('/withdrawals/data', [AdminWithdrawalController::class, 'getWithdrawalsData'])->name('withdrawals.data');
         Route::get('/withdrawals/statistics', [AdminWithdrawalController::class, 'getStatistics'])->name('withdrawals.statistics');
         Route::get('/withdrawals/export', [AdminWithdrawalController::class, 'exportCsv'])->name('withdrawals.export');
@@ -1630,6 +1634,12 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::post('/orders/{id}/disputes', [AdminOrderDisputeController::class, 'open'])->name('orders.disputes.open');
         Route::post('/order-disputes/{id}/uphold', [AdminOrderDisputeController::class, 'uphold'])->name('orders.disputes.uphold');
         Route::post('/order-disputes/{id}/dismiss', [AdminOrderDisputeController::class, 'dismiss'])->name('orders.disputes.dismiss');
+
+        // Unmatched /admin/* must run auth so signed-in admins see the admin 404,
+        // not the public page that only offers Log in.
+        Route::any('{adminFallback}', function () {
+            abort(404);
+        })->where('adminFallback', '.*')->name('fallback');
     });
 
 // Public + authenticated feedback (report a problem / suggestion box).

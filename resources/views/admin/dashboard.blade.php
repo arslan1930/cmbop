@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'Dashboard')
+
 @section('content')
 <link href="{{ asset('assets/css/admin-dashboard.css') }}?v={{ @filemtime(public_path('assets/css/admin-dashboard.css')) ?: '1' }}" rel="stylesheet">
 <div class="container-fluid admin-dash">

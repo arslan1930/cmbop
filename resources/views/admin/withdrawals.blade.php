@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'Withdrawals')
+
 @section('content')
 @php
     $platformChargePercent = (float) config('billing.withdrawal_fee_percent', 0);
@@ -8,8 +10,8 @@
 
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
-            <h4 class="mb-1 fw-bold">Payout queue</h4>
-            <p class="text-muted mb-0 small">Pay publishers outside the app, then mark them paid here. Oldest requests first.</p>
+            <h4 class="mb-1 fw-bold" id="withdrawalsHeading">Payout queue</h4>
+            <p class="text-muted mb-0 small" id="withdrawalsSubtitle">Pay publishers outside the app, then mark them paid here. Oldest requests first.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a href="{{ route('admin.finance') }}" class="btn btn-sm btn-outline-secondary">
@@ -22,7 +24,7 @@
     </div>
 
     <!-- Stats -->
-    <div class="row g-3 mb-3" id="statsRow">
+    <div class="row g-3 mb-3 js-queue-open-only" id="statsRow">
         <div class="col-6 col-lg">
             <button type="button" class="card border-0 shadow-sm h-100 w-100 text-start queue-preset" data-queue="open" data-status="pending">
                 <div class="card-body py-3">
@@ -85,7 +87,7 @@
                 <div>
                     <label class="form-label" for="statusFilter">Status</label>
                     <select id="statusFilter" class="form-select">
-                        <option value="">Any in queue</option>
+                        <option value="" data-label-open="Any in queue" data-label-history="Any status">Any in queue</option>
                         <option value="pending">Pending</option>
                         <option value="processing">Processing</option>
                         <option value="completed">Completed / Paid</option>
@@ -134,10 +136,10 @@
                         <option value="oldest">Oldest first</option>
                         <option value="newest">Newest first</option>
                         <option value="amount">Net amount</option>
-                        <option value="waiting">Waiting days</option>
+                        <option value="waiting" class="js-queue-open-only">Waiting days</option>
                     </select>
                 </div>
-                <div>
+                <div class="js-queue-open-only" id="waitingFilterWrap">
                     <label class="form-label" for="waitingFilter">Waiting</label>
                     <select id="waitingFilter" class="form-select">
                         <option value="">Any</option>
@@ -199,7 +201,7 @@
                         </th>
                         <th class="admin-num-col">#</th>
                         <th>Publisher</th>
-                        <th class="admin-narrow-col">Waiting</th>
+                        <th class="admin-narrow-col js-queue-open-only">Waiting</th>
                         <th class="admin-narrow-col">Net pay</th>
                         <th class="admin-narrow-col">Method</th>
                         <th>Destination</th>
@@ -209,11 +211,10 @@
                     </tr>
                 </thead>
                 <tbody id="withdrawalsTable">
-                    <tr>
-                        <td colspan="10" class="text-center py-5">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
+                    <tr class="placeholder-glow">
+                        <td colspan="10" class="py-4">
+                            <span class="placeholder col-12"></span>
+                            <span class="visually-hidden">Loading withdrawals…</span>
                         </td>
                     </tr>
                 </tbody>
@@ -380,28 +381,55 @@ function filterParams() {
     return params;
 }
 
+function paintStatistics(s) {
+    if (!s) return;
+    $('#statPending').text(s.pending);
+    $('#statPendingAmount').text('€' + Number(s.pending_amount || 0).toFixed(2));
+    $('#statProcessing').text(s.processing);
+    $('#statProcessingAmount').text('€' + Number(s.processing_amount || 0).toFixed(2));
+    $('#statToPay').text('€' + Number(s.total_to_pay || 0).toFixed(2));
+    $('#statWeek').text(s.completed_this_week || 0);
+    $('#statWeekAmount').text('€' + Number(s.completed_this_week_amount || 0).toFixed(2));
+
+    const by = s.by_method || {};
+    const labels = { bank: 'Bank', paypal: 'PayPal', wise: 'Wise', crypto: 'Crypto' };
+    weekStart = s.week_start || weekStart;
+    weekEnd = s.week_end || weekEnd;
+    const parts = Object.keys(by).map(function(method) {
+        const row = by[method];
+        return `<button type="button" class="btn btn-link btn-sm p-0 me-2 mb-1 queue-preset" data-queue="open" data-method="${escapeHtml(method)}"><strong>${row.count}</strong> ${escapeHtml(labels[method] || method)} · €${Number(row.net_total).toFixed(0)}</button>`;
+    });
+    $('#statByMethod').html(parts.length ? parts.join('') : '<span class="text-muted">No open payouts</span>');
+}
+
 function loadStatistics() {
     $.getJSON(withdrawalsStatisticsUrl, function(response) {
         if (!response.success) return;
-        const s = response.data;
-        $('#statPending').text(s.pending);
-        $('#statPendingAmount').text('€' + Number(s.pending_amount || 0).toFixed(2));
-        $('#statProcessing').text(s.processing);
-        $('#statProcessingAmount').text('€' + Number(s.processing_amount || 0).toFixed(2));
-        $('#statToPay').text('€' + Number(s.total_to_pay || 0).toFixed(2));
-        $('#statWeek').text(s.completed_this_week || 0);
-        $('#statWeekAmount').text('€' + Number(s.completed_this_week_amount || 0).toFixed(2));
-
-        const by = s.by_method || {};
-        const labels = { bank: 'Bank', paypal: 'PayPal', wise: 'Wise', crypto: 'Crypto' };
-        weekStart = s.week_start || weekStart;
-        weekEnd = s.week_end || weekEnd;
-        const parts = Object.keys(by).map(function(method) {
-            const row = by[method];
-            return `<button type="button" class="btn btn-link btn-sm p-0 me-2 mb-1 queue-preset" data-queue="open" data-method="${escapeHtml(method)}"><strong>${row.count}</strong> ${escapeHtml(labels[method] || method)} · €${Number(row.net_total).toFixed(0)}</button>`;
-        });
-        $('#statByMethod').html(parts.length ? parts.join('') : '<span class="text-muted">No open payouts</span>');
+        paintStatistics(response.data);
     });
+}
+
+function syncQueueMode() {
+    const queue = $('#queueFilter').val() || 'open';
+    const history = queue === 'history';
+    document.body.classList.toggle('withdrawals-mode-history', history);
+    document.querySelectorAll('.js-queue-open-only').forEach(function (el) {
+        el.classList.toggle('d-none', history);
+    });
+    const statusOpt = document.querySelector('#statusFilter option[value=""]');
+    if (statusOpt) {
+        statusOpt.textContent = history
+            ? (statusOpt.dataset.labelHistory || 'Any status')
+            : (statusOpt.dataset.labelOpen || 'Any in queue');
+    }
+    const heading = document.getElementById('withdrawalsHeading');
+    const subtitle = document.getElementById('withdrawalsSubtitle');
+    if (heading) heading.textContent = history ? 'Payout history' : 'Payout queue';
+    if (subtitle) {
+        subtitle.textContent = history
+            ? 'Completed and cancelled payouts. Newest first.'
+            : 'Pay publishers outside the app, then mark them paid here. Oldest requests first.';
+    }
 }
 
 function syncFilterUrl() {
@@ -487,7 +515,7 @@ function renderWithdrawals(withdrawals) {
                         <small class="text-muted">${escapeHtml(w.user?.email || '')}</small>
                     </div>
                 </td>
-                <td>${waitingLabel(w.waiting_days)}</td>
+                <td class="js-queue-open-only">${waitingLabel(w.waiting_days)}</td>
                 <td>
                     <div class="fw-bold text-success">€${money(w.net_amount)}</div>
                     <small class="text-muted">gross €${money(w.amount)}</small>
@@ -533,6 +561,7 @@ function renderWithdrawals(withdrawals) {
 
     $('#withdrawalsTable').html(html);
     updateBatchBar();
+    syncQueueMode();
 }
 
 function updateBatchBar() {
@@ -963,9 +992,10 @@ $('#resetFiltersBtn').on('click', function() {
 });
 
 $('#queueFilter').on('change', function() {
+    syncQueueMode();
     if (this.dataset.themeSync === '1') return;
     financeClock = false;
-    if ($(this).val() === 'open') {
+    if ($(this).val() === 'open' || $(this).val() === 'history') {
         $('#statusFilter').val('');
         document.getElementById('statusFilter').dispatchEvent(new Event('change'));
     }
@@ -1024,7 +1054,23 @@ $(document).on('click', '.queue-preset', function () {
     loadWithdrawals(1);
 });
 
-loadStatistics();
-loadWithdrawals(1);
+const initialWithdrawals = @json($initialWithdrawals ?? null);
+const initialStatistics = @json($initialStatistics ?? null);
+syncQueueMode();
+if (initialStatistics && initialStatistics.success) {
+    paintStatistics(initialStatistics.data);
+} else {
+    loadStatistics();
+}
+if (initialWithdrawals && initialWithdrawals.success) {
+    renderWithdrawals(initialWithdrawals.data || []);
+    renderAdminPagination(initialWithdrawals.pagination || {}, {
+        links: '#paginationLinks',
+        label: 'withdrawals',
+        onNavigate: loadWithdrawals,
+    });
+} else {
+    loadWithdrawals(1);
+}
 </script>
 @endsection

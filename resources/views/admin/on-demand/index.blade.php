@@ -74,15 +74,15 @@
                                 @endforeach
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-primary ondemand-add" data-target="site_url">Add site</button>
-                            <div class="form-text">Stored as the site name only — no http or https. Press Enter to add another. Each name must be unique.</div>
+                            <div class="form-text">Required. Stored as the site name only — no http or https. Also add at least one contact method (email, WhatsApp, or the inbox they wrote to).</div>
                             @error('site_url')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Email <span class="req" aria-hidden="true">*</span></label>
+                            <label class="form-label fw-semibold">Email</label>
                             <div class="ondemand-repeat" data-name="email" data-type="email" data-placeholder="owner@example.com" data-max="255">
                                 @foreach($emailValues as $i => $value)
                                     <div class="input-group input-group-sm mb-2 ondemand-repeat-row">
-                                        <input type="email" name="email[]" class="form-control @error('email') is-invalid @enderror" value="{{ $value }}" maxlength="255" enterkeyhint="enter" title="Press Enter to add another email" @if($i === 0) required @endif>
+                                        <input type="email" name="email[]" class="form-control @error('email') is-invalid @enderror" value="{{ $value }}" maxlength="255" enterkeyhint="enter" title="Press Enter to add another email">
                                         <button type="button" class="btn btn-outline-secondary ondemand-remove" title="Remove" aria-label="Remove">&times;</button>
                                     </div>
                                 @endforeach
@@ -92,7 +92,7 @@
                             @error('email')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Contact (WhatsApp) <span class="req" aria-hidden="true">*</span></label>
+                            <label class="form-label fw-semibold">Contact (WhatsApp)</label>
                             <div class="ondemand-repeat" data-name="whatsapp" data-type="tel" data-placeholder="Number" data-max="80" data-phone="1">
                                 <template id="ondemandDialOptions">
                                     @foreach($callingCodes as $code)
@@ -127,7 +127,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <input type="tel" name="whatsapp[]" class="form-control form-control-sm @error('whatsapp') is-invalid @enderror" value="{{ $row['number'] }}" maxlength="80" placeholder="Number" inputmode="tel" enterkeyhint="enter" title="Press Enter to add another contact" @if($i === 0) required @endif>
+                                        <input type="tel" name="whatsapp[]" class="form-control form-control-sm @error('whatsapp') is-invalid @enderror" value="{{ $row['number'] }}" maxlength="80" placeholder="Number" inputmode="tel" enterkeyhint="enter" title="Press Enter to add another contact">
                                         <button type="button" class="btn btn-sm btn-outline-secondary ondemand-remove" title="Remove" aria-label="Remove">&times;</button>
                                     </div>
                                 @endforeach
@@ -137,11 +137,11 @@
                             @error('whatsapp')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">On which mail they contacted us <span class="req" aria-hidden="true">*</span></label>
+                            <label class="form-label fw-semibold">On which mail they contacted us</label>
                             <div class="ondemand-repeat" data-name="contacted_via_email" data-type="email" data-placeholder="" data-max="255">
                                 @foreach($viaValues as $i => $value)
                                     <div class="input-group input-group-sm mb-2 ondemand-repeat-row">
-                                        <input type="email" name="contacted_via_email[]" class="form-control @error('contacted_via_email') is-invalid @enderror" value="{{ $value }}" maxlength="255" enterkeyhint="enter" title="Press Enter to add another mail" @if($i === 0) required @endif>
+                                        <input type="email" name="contacted_via_email[]" class="form-control @error('contacted_via_email') is-invalid @enderror" value="{{ $value }}" maxlength="255" enterkeyhint="enter" title="Press Enter to add another mail">
                                         <button type="button" class="btn btn-outline-secondary ondemand-remove" title="Remove" aria-label="Remove">&times;</button>
                                     </div>
                                 @endforeach

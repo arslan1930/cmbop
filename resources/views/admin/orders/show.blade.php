@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@section('title', 'Order #'.($order->order_number ?: $order->id))
+
 @section('content')
 @php
     $order->setRelation('items', $order->items->sortBy('id')->values());
@@ -44,11 +46,14 @@
     $advertiserDossierUrl = $order->user ? route('admin.finance.user', $order->user) : null;
     $chargeCode = strtoupper(trim((string) ($order->charge_currency ?? '')));
     $showCharge = $chargeCode !== '' && $chargeCode !== 'EUR' && $order->charge_amount !== null;
+    $placementsMissing = \App\Support\AdvertiserOrderDetails::placementsMissing($order);
+    $completedAtDisplay = \App\Support\AdvertiserOrderDetails::completedAtDisplay($order);
+    $primaryOrderNumber = filled($order->order_number) ? (string) $order->order_number : (string) $order->id;
 @endphp
 <div class="container-fluid">
     @include('admin.partials.page-header', [
-        'title' => 'Order #' . $order->order_number,
-        'subtitle' => 'Stage can be corrected here · chat is read-only and payments use Order Payments',
+        'title' => 'Order #'.$primaryOrderNumber,
+        'subtitle' => 'Internal ID '.$order->id.(filled($order->reference_code) ? ' · Payment ref '.$order->reference_code : '').' · Stage can be corrected here · chat is read-only and payments use Order Payments',
         'actionUrl' => route('admin.orders.index'),
         'actionLabel' => 'All orders',
         'actionIcon' => 'fa-arrow-left',
@@ -112,10 +117,17 @@
                                 <div class="fw-semibold">
                                     @if($publisherAdminUrl)
                                         <a href="{{ $publisherAdminUrl }}" class="link-dark">{{ $publisher?->name }}</a>
+                                    @elseif($publisher)
+                                        {{ $publisher->name }}
+                                    @elseif($placementsMissing)
+                                        <span class="text-muted">Unknown — no line items</span>
                                     @else
-                                        {{ $publisher?->name ?? '—' }}
+                                        —
                                     @endif
                                 </div>
+                                @if($placementsMissing && ! $publisher)
+                                    <div class="small text-muted">Publisher is stored on placements, not on the order row.</div>
+                                @endif
                                 <div class="small text-muted">{{ $publisher?->email ?? '' }}</div>
                                 @if($publisher)
                                     <div class="small"><a href="{{ route('admin.finance.user', $publisher) }}">Finance dossier</a></div>
@@ -272,7 +284,13 @@
                                     </div>
                                 @endif
                             @empty
-                                <div class="text-muted">{{ \App\Support\AdvertiserOrderDetails::emptyItemsMessage($order) }}</div>
+                                <div class="alert alert-warning mb-0">
+                                    <div class="fw-semibold mb-1">No line items</div>
+                                    <div>{{ \App\Support\AdvertiserOrderDetails::emptyItemsMessage($order) }}</div>
+                                    @if($placementsMissing)
+                                        <div class="small mt-2">{{ \App\Support\AdvertiserOrderDetails::adminMissingPlacementsNote($order) }}</div>
+                                    @endif
+                                </div>
                             @endforelse
                         </div>
                     </div>
@@ -282,10 +300,23 @@
                         <div class="card-header bg-white border-0"><strong>Order details</strong></div>
                         <div class="card-body">
                             <div class="row g-3">
-                                <div class="col-md-3"><span class="text-muted small">Reference</span><div>{{ $order->reference_code ?: '—' }}</div></div>
+                                <div class="col-md-3"><span class="text-muted small">Order number</span><div class="fw-semibold">#{{ $primaryOrderNumber }}</div></div>
+                                <div class="col-md-3"><span class="text-muted small">Internal ID</span><div>{{ $order->id }}</div></div>
+                                <div class="col-md-3"><span class="text-muted small">Payment ref</span><div>{{ $order->reference_code ?: '—' }}</div></div>
                                 <div class="col-md-3"><span class="text-muted small">Created</span><div>{{ optional($order->created_at)->format('M j, Y g:i A') }}</div></div>
                                 <div class="col-md-3"><span class="text-muted small">Paid at</span><div>{{ optional($order->paid_at)->format('M j, Y g:i A') ?: '—' }}</div></div>
-                                <div class="col-md-3"><span class="text-muted small">Completed at</span><div>{{ optional($order->completed_at)->format('M j, Y g:i A') ?: '—' }}</div></div>
+                                <div class="col-md-3">
+                                    <span class="text-muted small">Completed at</span>
+                                    <div>
+                                        {{ optional($completedAtDisplay['at'])->format('M j, Y g:i A') ?: '—' }}
+                                        @if(!empty($completedAtDisplay['inferred']))
+                                            <div class="small text-muted">Estimated</div>
+                                        @endif
+                                    </div>
+                                    @if(!empty($completedAtDisplay['note']))
+                                        <div class="small text-muted">{{ $completedAtDisplay['note'] }}</div>
+                                    @endif
+                                </div>
                                 <div class="col-md-3"><span class="text-muted small">Subtotal / Tax / Total</span>
                                     <div>€{{ number_format((float) $order->subtotal, 2) }} · €{{ number_format((float) $order->tax, 2) }} · €{{ number_format((float) $order->total_amount, 2) }}</div>
                                 </div>
