@@ -66,7 +66,7 @@ class HowItWorksPageTest extends TestCase
             $html
         );
         $this->assertMatchesRegularExpression(
-            '/name="description"[^>]*content="[^"]*(ratings|completion|wallet|€20)/i',
+            '/name="description"[^>]*content="[^"]*(ratings|completion|wallet)/i',
             $html
         );
     }

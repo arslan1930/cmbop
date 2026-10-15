@@ -15,14 +15,16 @@ class WelcomeBonusCopyTest extends TestCase
     {
         app(WelcomeBonusService::class)->setEnabled(true);
 
+        $walletCopy = 'Top up by card (Stripe) or bank transfer where enabled. Site prices are clear before checkout.';
+
         $this->assertSame(
-            'Top up by card (Stripe) or bank transfer where enabled. New advertisers get €20 welcome credit (spend-only, not withdrawable). Site prices are clear before checkout.',
+            $walletCopy,
             WelcomeBonusCopy::message('how_page_adv_step_2_body', 'how_page_adv_step_2_body_off')
         );
 
         app(WelcomeBonusService::class)->setAmount(35);
         $this->assertSame(
-            'Top up by card (Stripe) or bank transfer where enabled. New advertisers get €35 welcome credit (spend-only, not withdrawable). Site prices are clear before checkout.',
+            $walletCopy,
             WelcomeBonusCopy::message('how_page_adv_step_2_body', 'how_page_adv_step_2_body_off')
         );
 
@@ -41,21 +43,16 @@ class WelcomeBonusCopyTest extends TestCase
     public function test_llms_txt_rewrites_the_grant_line(): void
     {
         $snapshot = "- New advertisers: €20 welcome credit for first orders (spend-only, not withdrawable).\n";
+        $offLine = "- New advertisers: promotional welcome credit is spend-only when granted; it is not always offered.\n";
 
         app(WelcomeBonusService::class)->setEnabled(true);
-        $this->assertSame($snapshot, WelcomeBonusCopy::applyToLlmsTxt($snapshot));
+        $this->assertSame($offLine, WelcomeBonusCopy::applyToLlmsTxt($snapshot));
 
         app(WelcomeBonusService::class)->setAmount(35);
-        $this->assertSame(
-            "- New advertisers: €35 welcome credit for first orders (spend-only, not withdrawable).\n",
-            WelcomeBonusCopy::applyToLlmsTxt($snapshot)
-        );
+        $this->assertSame($offLine, WelcomeBonusCopy::applyToLlmsTxt($snapshot));
 
         app(WelcomeBonusService::class)->setEnabled(false);
-        $this->assertSame(
-            "- New advertisers: promotional welcome credit is spend-only when granted; it is not always offered.\n",
-            WelcomeBonusCopy::applyToLlmsTxt($snapshot)
-        );
+        $this->assertSame($offLine, WelcomeBonusCopy::applyToLlmsTxt($snapshot));
     }
 
     public function test_scrub_removes_grant_promises_when_disabled(): void

@@ -44,7 +44,7 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'pricing_hero_from' => 'Publikacje na marketplace zaczynają się od',
     'pricing_cta_create' => 'Utwórz darmowe konto',
     'pricing_cta_browse' => 'Katalog po zalogowaniu',
-    'pricing_bonus_note' => 'Nowi reklamodawcy dostają 20 € kredytu powitalnego na pierwsze zamówienia (nie do wypłaty).',
+    'pricing_bonus_note' => 'Nowi reklamodawcy dostają kredyt powitalny na pierwsze zamówienia (nie do wypłaty).',
     'pricing_managed_title' => 'Wolisz prowadzony pakiet digital PR?',
     'pricing_managed_body' => 'Zespół może prowadzić outreach, jeśli chcesz dostawę bez samodzielnego wyboru każdej witryny.',
     'pricing_talk_sales' => 'Porozmawiaj ze sprzedażą',

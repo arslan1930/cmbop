@@ -536,7 +536,7 @@ Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/pt/`, `/it/`, `/us/`, `/pl/
 
 ## Pricing (snapshot)
 - Marketplace placements: priced per publisher listing; public pages state placements start from a low EUR amount (catalog after login).
-- New advertisers: €20 welcome credit for first orders (spend-only, not withdrawable).
+- New advertisers: promotional welcome credit is spend-only when granted; it is not always offered.
 - Managed Digital PR packages (monthly):
   - Starter: €499
   - Growth: €1,499

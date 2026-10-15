@@ -63,7 +63,7 @@ if (! function_exists('welcome_bonus_euro')) {
     {
         return class_exists(WelcomeBonusCopy::class) && method_exists(WelcomeBonusCopy::class, 'euro')
             ? WelcomeBonusCopy::euro()
-            : '20';
+            : '';
     }
 }
 
