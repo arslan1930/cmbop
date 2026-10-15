@@ -167,7 +167,7 @@ class RomanianMoneyLanders
                 'teaser_title' => 'Site-uri pentru guest post în România',
                 'teaser_subtitle' => 'Previzualizare mascată a listingurilor active din România. Domeniile se văd după înregistrare.',
                 'intro' => [
-                    'SEOLinkBuildings este un marketplace self-service, nu un pachet opac de guest posturi. Alegi site-ul — adesea .ro, adesea în română —, plătești în euro din portofel și ții briefingul, chatul și URL-ul live într-o singură comandă. Sediul este la Londra (Topurlz Ltd); nu inventăm un CUI românesc.',
+                    'SEOLinkBuildings este un marketplace self-service, nu un pachet opac de guest posturi. Alegi site-ul — adesea .ro, adesea în română —, plătești în euro din portofel și ții briefingul, chatul și URL-ul live într-o singură comandă. Sediul este la Londra (Teqno Ltd); nu inventăm un CUI românesc.',
                     '„Guest post România”, „guest post pe bloguri din România” și „guest posting sites Romania” sunt aceeași intenție: o publicație plătită pe un site care nu este al tău, cu reguli scrise de lungime, linkuri și termene.',
                 ],
                 'points' => [
@@ -398,7 +398,7 @@ class RomanianMoneyLanders
                     ],
                     [
                         'title' => 'Comandă și factură',
-                        'body' => 'Facturile pentru încărcări de portofel sau comenzi se descarcă din facturarea advertiserului, când produsul le emite. Datele firmei sunt cele din UK (Topurlz Ltd), pe <a href="/ro/despre-noi">Despre noi</a> — nu există o entitate românească inventată.',
+                        'body' => 'Facturile pentru încărcări de portofel sau comenzi se descarcă din facturarea advertiserului, când produsul le emite. Datele firmei sunt cele din UK (Teqno Ltd), pe <a href="/ro/despre-noi">Despre noi</a> — nu există o entitate românească inventată.',
                     ],
                     [
                         'title' => 'Panou pentru echipe SEO',

@@ -422,7 +422,7 @@ class AustrianMoneyLanders
                     ],
                     [
                         'title' => 'Auftrag und Rechnung',
-                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie in der Rechnungsübersicht des Advertisers herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Topurlz Ltd) unter Über uns.',
+                        'body' => 'Rechnungen zu Wallet-/Auftragsbelastungen laden Sie in der Rechnungsübersicht des Advertisers herunter, wenn das Produkt sie erzeugt. Firmendaten UK (Teqno Ltd) unter Über uns.',
                     ],
                     [
                         'title' => 'Plattform für SEO-Teams',

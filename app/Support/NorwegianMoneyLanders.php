@@ -108,7 +108,7 @@ class NorwegianMoneyLanders
     {
         return [
             'h2' => 'Hva koster et gjesteinnlegg i Norge',
-            'body' => 'Vi publiserer ikke en fast PDF-prisliste og dikter ikke opp et norsk org.nr-tillegg: prisen er nettstedets, i euro. «Hva koster et gjesteinnlegg», «linkbuilding-priser» og «pris backlinks» følger katalogreglene du velger. De nummererte pakkene ovenfor er styrte digital-PR-kampanjer, ikke en pose anonyme URL-er. Aktuelle beløp står i <a href="'.self::marketingUrl('marketplace').'">det norske kataloget</a> etter registrering. Hovedkontoret er i London (Topurlz Ltd).',
+            'body' => 'Vi publiserer ikke en fast PDF-prisliste og dikter ikke opp et norsk org.nr-tillegg: prisen er nettstedets, i euro. «Hva koster et gjesteinnlegg», «linkbuilding-priser» og «pris backlinks» følger katalogreglene du velger. De nummererte pakkene ovenfor er styrte digital-PR-kampanjer, ikke en pose anonyme URL-er. Aktuelle beløp står i <a href="'.self::marketingUrl('marketplace').'">det norske kataloget</a> etter registrering. Hovedkontoret er i London (Teqno Ltd).',
         ];
     }
 
@@ -142,7 +142,7 @@ class NorwegianMoneyLanders
                 'teaser_title' => 'Nettsteder til gjesteinnlegg i Norge',
                 'teaser_subtitle' => 'Maskert forhåndsvisning av aktive katalogregler i Norge. Domenene ser du etter registrering.',
                 'intro' => [
-                    'SEOLinkBuildings er en self-service-markedsplass, ikke en ugjennomsiktig pakke gjesteinnlegg. Du velger nettstedet — ofte .no, ofte på norsk — betaler i euro fra saldoen og holder briefing, chat og live-URL i samme ordre. Hovedkontoret er i London (Topurlz Ltd); vi dikter ikke opp et org.nr i Norge.',
+                    'SEOLinkBuildings er en self-service-markedsplass, ikke en ugjennomsiktig pakke gjesteinnlegg. Du velger nettstedet — ofte .no, ofte på norsk — betaler i euro fra saldoen og holder briefing, chat og live-URL i samme ordre. Hovedkontoret er i London (Teqno Ltd); vi dikter ikke opp et org.nr i Norge.',
                     '«Kjøp gjesteinnlegg», «gjesteinnlegg på norske blogger» og «kjøp guest post» er samme hensikt: en betalt publikasjon på et nettsted du ikke eier, med skrevne regler for lengde, lenker og levering.',
                 ],
                 'points' => [
@@ -369,7 +369,7 @@ class NorwegianMoneyLanders
                     ],
                     [
                         'title' => 'Ordre og faktura',
-                        'body' => 'Fakturaer for innskudd eller ordrer henter dere i annonsørfaktureringen, når produktet utsteder dem. Selskapsopplysningene er de britiske (Topurlz Ltd). Vi dikter ikke opp et norsk org.nr.',
+                        'body' => 'Fakturaer for innskudd eller ordrer henter dere i annonsørfaktureringen, når produktet utsteder dem. Selskapsopplysningene er de britiske (Teqno Ltd). Vi dikter ikke opp et norsk org.nr.',
                     ],
                     [
                         'title' => 'Arbeidsflate til SEO-team',

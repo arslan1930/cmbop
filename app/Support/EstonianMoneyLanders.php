@@ -107,7 +107,7 @@ class EstonianMoneyLanders
     {
         return [
             'h2' => 'Kui palju maksab külalispostitus Eestis',
-            'body' => 'Me ei avalda fikseeritud PDF-hinnakirja ega leiuta Eesti registrikoodi: hind on saidi oma, eurodes. «Külalispostituse hind», «linkbuilding hinnad» ja «backlinkide hind» järgivad kataloogiridu, mille teie valite. Ülal nummerdatud paketid on juhitud digital-PR kampaaniad, mitte kott anonüümseid URL-e. Kehtivad summad on <a href="'.self::marketingUrl('marketplace').'">Eesti kataloogis</a> pärast registreerimist. Peakontor on Londonis (Topurlz Ltd).',
+            'body' => 'Me ei avalda fikseeritud PDF-hinnakirja ega leiuta Eesti registrikoodi: hind on saidi oma, eurodes. «Külalispostituse hind», «linkbuilding hinnad» ja «backlinkide hind» järgivad kataloogiridu, mille teie valite. Ülal nummerdatud paketid on juhitud digital-PR kampaaniad, mitte kott anonüümseid URL-e. Kehtivad summad on <a href="'.self::marketingUrl('marketplace').'">Eesti kataloogis</a> pärast registreerimist. Peakontor on Londonis (Teqno Ltd).',
         ];
     }
 
@@ -141,7 +141,7 @@ class EstonianMoneyLanders
                 'teaser_title' => 'Saidid külalispostituseks Eestis',
                 'teaser_subtitle' => 'Varjatud eelvaade aktiivsetest Eesti kataloogiridadest. Domeene näete pärast registreerimist.',
                 'intro' => [
-                    'SEOLinkBuildings on self-service turg, mitte läbipaistmatu külalispostituste pakett. Teie valite saidi — sageli .ee, sageli eesti keeles — maksate eurodes saldost ning hoiate briefingu, vestluse ja live-URL-i samas tellimuses. Peakontor on Londonis (Topurlz Ltd); me ei leiuta Eesti registrikoodi.',
+                    'SEOLinkBuildings on self-service turg, mitte läbipaistmatu külalispostituste pakett. Teie valite saidi — sageli .ee, sageli eesti keeles — maksate eurodes saldost ning hoiate briefingu, vestluse ja live-URL-i samas tellimuses. Peakontor on Londonis (Teqno Ltd); me ei leiuta Eesti registrikoodi.',
                     '«Osta külalispostitus», «osta guest post» ja kohalik sünonüüm sponsorartikkel tähistavad sama kavatsust: tasuline publikatsioon saidil, mida teie ei oma, kirjalike reeglitega pikkuse, linkide ja tarne kohta.',
                 ],
                 'points' => [
@@ -368,7 +368,7 @@ class EstonianMoneyLanders
                     ],
                     [
                         'title' => 'Tellimus ja arve',
-                        'body' => 'Sissemaksete või tellimuste arved laadite reklaamija arveldusest, kui toode need väljastab. Äriandmed on briti (Topurlz Ltd). Me ei leiuta Eesti registrikoodi.',
+                        'body' => 'Sissemaksete või tellimuste arved laadite reklaamija arveldusest, kui toode need väljastab. Äriandmed on briti (Teqno Ltd). Me ei leiuta Eesti registrikoodi.',
                     ],
                     [
                         'title' => 'Töölaud SEO-tiimidele',

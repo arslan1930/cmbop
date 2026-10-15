@@ -108,7 +108,7 @@ class SwedishMoneyLanders
     {
         return [
             'h2' => 'Vad kostar ett gästinlägg i Sverige',
-            'body' => 'Vi publicerar ingen fast PDF-prislista och hittar inte på ett svenskt org.nr-påslag: priset är sajtens, i euro. «Vad kostar gästinlägg», «linkbuilding-priser» och «pris backlinks» följer de katalogregler du väljer. De numrerade paketen ovan är styrda digital-PR-kampanjer, inte en påse anonyma URL:er. Aktuella belopp står i <a href="'.self::marketingUrl('marketplace').'">den svenska katalogen</a> efter registrering. Huvudkontoret ligger i London (Topurlz Ltd).',
+            'body' => 'Vi publicerar ingen fast PDF-prislista och hittar inte på ett svenskt org.nr-påslag: priset är sajtens, i euro. «Vad kostar gästinlägg», «linkbuilding-priser» och «pris backlinks» följer de katalogregler du väljer. De numrerade paketen ovan är styrda digital-PR-kampanjer, inte en påse anonyma URL:er. Aktuella belopp står i <a href="'.self::marketingUrl('marketplace').'">den svenska katalogen</a> efter registrering. Huvudkontoret ligger i London (Teqno Ltd).',
         ];
     }
 
@@ -142,7 +142,7 @@ class SwedishMoneyLanders
                 'teaser_title' => 'Sajter för gästinlägg i Sverige',
                 'teaser_subtitle' => 'Maskerad förhandsvisning av aktiva katalogregler i Sverige. Domäner ser du efter registrering.',
                 'intro' => [
-                    'SEOLinkBuildings är en self-service-marknadsplats, inte ett ogenomskinligt paket gästinlägg. Du väljer sajten — ofta .se, ofta på svenska — betalar i euro från plånboken och håller briefing, chatt och live-URL i samma beställning. Huvudkontoret ligger i London (Topurlz Ltd); vi hittar inte på ett svenskt org.nr.',
+                    'SEOLinkBuildings är en self-service-marknadsplats, inte ett ogenomskinligt paket gästinlägg. Du väljer sajten — ofta .se, ofta på svenska — betalar i euro från plånboken och håller briefing, chatt och live-URL i samma beställning. Huvudkontoret ligger i London (Teqno Ltd); vi hittar inte på ett svenskt org.nr.',
                     '«Köp gästinlägg», «gästinlägg på bloggar» och «köp guest post» är samma avsikt: en betald publicering på en sajt du inte äger, med skrivna regler för längd, länkar och leverans.',
                 ],
                 'points' => [
@@ -369,7 +369,7 @@ class SwedishMoneyLanders
                     ],
                     [
                         'title' => 'Beställning och faktura',
-                        'body' => 'Fakturor för insättningar eller beställningar hämtar ni i annonsörfaktureringen när produkten ställer ut dem. Bolagsuppgifterna är de brittiska (Topurlz Ltd). Vi hittar inte på ett svenskt org.nr.',
+                        'body' => 'Fakturor för insättningar eller beställningar hämtar ni i annonsörfaktureringen när produkten ställer ut dem. Bolagsuppgifterna är de brittiska (Teqno Ltd). Vi hittar inte på ett svenskt org.nr.',
                     ],
                     [
                         'title' => 'Arbetsyta för SEO-team',

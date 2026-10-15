@@ -38,6 +38,6 @@ return [
 
     'testimonial_4_text' => 'Wir schätzen Chat und Review-Schritte — nach der Zahlung weiss jeder, was als Nächstes kommt.',
 
-    'about_page_faq_a_4' => 'SEOLinkBuildings wird von Topurlz Ltd betrieben, einem in Grossbritannien registrierten Unternehmen. Firmennummer und Adresse stehen auf dieser Seite und sind bei Companies House prüfbar.',
-    'about_page_company_body' => 'SEOLinkBuildings wird von Topurlz Ltd betrieben, einem in Grossbritannien registrierten Unternehmen. Wir vermitteln transparente Gastbeitrags- und Backlink-Placements.',
+    'about_page_faq_a_4' => 'SEOLinkBuildings wird von Teqno Ltd betrieben, einem in Grossbritannien registrierten Unternehmen. Firmennummer und Adresse stehen auf dieser Seite und sind bei Companies House prüfbar.',
+    'about_page_company_body' => 'SEOLinkBuildings wird von Teqno Ltd betrieben, einem in Grossbritannien registrierten Unternehmen. Wir vermitteln transparente Gastbeitrags- und Backlink-Placements.',
 ];
