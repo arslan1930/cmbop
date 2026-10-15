@@ -39,7 +39,7 @@ class ChoisirEditeurFrBlogPost
             'primary_locale' => 'fr',
             'excerpt' => 'Méthode simple pour sélectionner des sites guest post : lire DR et DA sans les adorer, vérifier le trafic, et ne jamais négliger niche, langue et pays (FR/BE).',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Catalogue',
                 'Domain Rating',

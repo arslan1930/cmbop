@@ -271,7 +271,7 @@ class PublicI18nTest extends TestCase
             ->assertSee('sitemap-de.xml', false)
             ->assertSee('sitemap-es.xml', false)
             ->assertSee('sitemap-it.xml', false)
-            ->assertSee('sitemap-us.xml', false)
+            ->assertDontSee('sitemap-us.xml', false)
             ->assertSee('sitemap-pl.xml', false);
 
         $this->get('/sitemap-de.xml')

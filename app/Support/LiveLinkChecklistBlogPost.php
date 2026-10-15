@@ -40,7 +40,7 @@ class LiveLinkChecklistBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'Your guest post is live — now what? A practical checklist for indexation, link attributes, anchors, and ranking follow-up after marketplace placements.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Live link checklist',
                 'Indexation',

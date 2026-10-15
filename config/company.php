@@ -19,6 +19,12 @@ return [
 
     'registration_no' => env('COMPANY_REGISTRATION_NO', '17392540'),
 
+    'founded' => env('COMPANY_FOUNDED', '2024'),
+
+    'founder_name' => env('COMPANY_FOUNDER_NAME', 'M. Arslan'),
+
+    'founder_slug' => env('COMPANY_FOUNDER_SLUG', 'm-arslan'),
+
     'address' => [
         'street' => '20 Wenlock Road',
         'locality' => 'London',

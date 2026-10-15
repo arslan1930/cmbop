@@ -37,7 +37,7 @@ class HowToPriceYourSiteBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'Set a base guest-post price advertisers will actually buy, then price crypto, CBD, forex, and trading add-ons without scaring off orders — or undercharging your risk.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Publisher tips',
                 'Pricing',

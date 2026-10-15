@@ -39,7 +39,7 @@ class FasterPublisherPayoutsBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'You get paid when placements are approved — not when you accept a task. How turnaround, clean live URLs, and revision hygiene unlock balance and withdrawals.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Publisher tips',
                 'Payouts',

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Models\Concerns\ToleratesMissingSchema;
 use App\Models\Concerns\ToleratesUnparseableDates;
+use App\Support\BrandPerson;
 use App\Support\PublicI18n;
 use App\Support\ThinBlogRedirects;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -227,6 +228,30 @@ class Blog extends Model
      * Absolute public URL for a listing card. US cards point at the English
      * canonical (/blog/{slug}), which is the URL that actually has the post.
      */
+    public function displayAuthor(): string
+    {
+        if (class_exists(BrandPerson::class)
+            && method_exists(BrandPerson::class, 'displayName')) {
+            return BrandPerson::displayName($this->author);
+        }
+
+        $author = trim((string) $this->author);
+
+        return $author !== '' ? $author : 'SEOLinkBuildings';
+    }
+
+    public function authorPageUrl(): ?string
+    {
+        if (! class_exists(BrandPerson::class)
+            || ! method_exists(BrandPerson::class, 'isFounderAlias')) {
+            return null;
+        }
+
+        return BrandPerson::isFounderAlias($this->author)
+            ? BrandPerson::url()
+            : null;
+    }
+
     public function listingUrl(): string
     {
         $locale = $this->getAttribute('resolved_locale');

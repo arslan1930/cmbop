@@ -304,6 +304,13 @@
             @if(is_string($legalName) && $legalName !== '')
             <li class="mb-2"><strong>{{ __('messages.about_page_legal_label') }}:</strong> {{ $legalName }}</li>
             @endif
+            @if(class_exists(\App\Support\BrandPerson::class))
+            <li class="mb-2">
+                <strong>{{ __('messages.about_page_founder_label') }}:</strong>
+                <a href="{{ \App\Support\BrandPerson::url() }}" class="link-teal">{{ \App\Support\BrandPerson::publicName() }}</a>
+            </li>
+            <li class="mb-2"><strong>{{ __('messages.about_page_founded_label') }}:</strong> {{ config('company.founded', '2024') }}</li>
+            @endif
             <li class="mb-2">
                 <strong>{{ __('messages.about_page_reg_label') }}:</strong>
                 {{ $registrationNo }}

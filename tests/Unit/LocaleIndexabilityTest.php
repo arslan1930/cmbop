@@ -54,6 +54,12 @@ class LocaleIndexabilityTest extends TestCase
         $this->assertTrue(LocaleIndexability::isIndexable('gr', ''));
         $this->assertFalse(LocaleIndexability::isIndexable('gr', 'marketplace'));
         $this->assertFalse(LocaleIndexability::isIndexable('gr', 'about'));
+
+        foreach (['bg', 'gr', 'hu', 'pt', 'no'] as $locale) {
+            $this->assertFalse(LocaleIndexability::isIndexable($locale, 'why-choose-us'), $locale.' why-choose-us');
+            $this->assertFalse(LocaleIndexability::isIndexable($locale, 'privacy-policy'), $locale.' privacy');
+            $this->assertFalse(LocaleIndexability::isIndexable($locale, 'faq'), $locale.' faq');
+        }
     }
 
     public function test_fully_translated_locales_keep_about_and_legal(): void

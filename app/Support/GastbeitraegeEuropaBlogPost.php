@@ -40,7 +40,7 @@ class GastbeitraegeEuropaBlogPost
             'primary_locale' => 'de',
             'excerpt' => 'Gastbeiträge in Europa kaufen ohne Blindflug: worauf Sie bei Publisher-Sites achten, welche Kennzahlen zählen und wie Sie Markt und Sprache richtig matchen.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Gastbeiträge kaufen',
                 'Guest Posting Europa',

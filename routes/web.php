@@ -101,6 +101,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\Marketing\CatalogTeaserService;
 use App\Support\AustrianMoneyLanders;
+use App\Support\BrandPerson;
 use App\Support\CountryLander;
 use App\Support\DutchMoneyLanders;
 use App\Support\EnglishOnlyMarketingSlugs;
@@ -330,6 +331,33 @@ Route::group([], function () use ($registerPublicMarketingRoutes, $registerEngli
 // Short legal aliases used in citations / the SEO workbook Pages tab.
 Route::get('/privacy', fn () => Redirect::to('/privacy-policy', 301));
 Route::get('/terms', fn () => Redirect::to('/terms-of-services', 301));
+Route::get('/contact-us', function () {
+    $query = request()->getQueryString();
+    $to = '/contact';
+
+    return Redirect::to($query ? $to.'?'.$query : $to, 301);
+});
+Route::get('/founder', function () {
+    $target = class_exists(BrandPerson::class)
+        ? BrandPerson::url()
+        : url('/author/m-arslan');
+    $path = parse_url($target, PHP_URL_PATH) ?: '/author/m-arslan';
+    $query = request()->getQueryString();
+
+    return Redirect::to($query ? $path.'?'.$query : $path, 301);
+});
+Route::get('/author', function () {
+    $target = class_exists(BrandPerson::class)
+        ? BrandPerson::url()
+        : url('/author/m-arslan');
+    $path = parse_url($target, PHP_URL_PATH) ?: '/author/m-arslan';
+    $query = request()->getQueryString();
+
+    return Redirect::to($query ? $path.'?'.$query : $path, 301);
+});
+Route::get('/author/{slug}', [MarketingPageController::class, 'author'])
+    ->where('slug', 'm-arslan|arslan-jason')
+    ->name('author.show');
 
 $unprefixedLegacy = class_exists(LocalizedPublicPath::class)
     ? LocalizedPublicPath::unprefixedLegacyRedirects()
@@ -361,7 +389,33 @@ foreach ($prefixedLocales as $locale) {
         });
     }
 
+    $authorCanonical = class_exists(BrandPerson::class)
+        ? (parse_url(BrandPerson::url(), PHP_URL_PATH) ?: '/author/m-arslan')
+        : '/author/m-arslan';
+
+    Route::get('/'.$locale.'/author', function () use ($authorCanonical) {
+        $query = request()->getQueryString();
+
+        return Redirect::to($query ? $authorCanonical.'?'.$query : $authorCanonical, 301);
+    });
+
+    Route::get('/'.$locale.'/author/{slug}', function (string $slug) {
+        $query = request()->getQueryString();
+        $target = '/author/'.$slug;
+
+        return Redirect::to($query ? $target.'?'.$query : $target, 301);
+    })->where('slug', 'm-arslan|arslan-jason');
+
+    Route::get('/'.$locale.'/founder', function () use ($authorCanonical) {
+        $query = request()->getQueryString();
+
+        return Redirect::to($query ? $authorCanonical.'?'.$query : $authorCanonical, 301);
+    });
+
     foreach ($englishOnlyMarketingSlugs as $slug) {
+        if ($slug === 'author' || $slug === 'founder') {
+            continue;
+        }
         Route::get('/'.$locale.'/'.$slug, function () use ($slug) {
             $query = request()->getQueryString();
             $target = '/'.$slug;
@@ -369,6 +423,15 @@ foreach ($prefixedLocales as $locale) {
             return Redirect::to($query ? $target.'?'.$query : $target, 301);
         });
     }
+
+    Route::get('/'.$locale.'/contact-us', function () use ($locale) {
+        $query = request()->getQueryString();
+        $target = class_exists(LocalizedPublicPath::class)
+            ? LocalizedPublicPath::publicPath('contact', $locale)
+            : '/'.$locale.'/contact';
+
+        return Redirect::to($query ? $target.'?'.$query : $target, 301);
+    });
 }
 
 $italianMoneySlugs = [];

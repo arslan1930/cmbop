@@ -197,8 +197,8 @@ class FrenchMoneyLanderTest extends TestCase
         $this->assertSame(['fr'], FrenchMoneyLanders::copyRedirectLocales());
         $this->assertSame(['fr'], PublicI18n::catalogTeaserCountries('fr'));
         $this->assertSame(['fr'], PublicI18n::moneyLanderLocales('acheter-guest-post'));
-        $this->assertSame('fr', PublicI18n::moneyLanderXDefault('acheter-guest-post'));
-        $this->assertSame('fr', PublicI18n::moneyLanderXDefault('netlinking'));
+        $this->assertSame('en', PublicI18n::moneyLanderXDefault('acheter-guest-post'));
+        $this->assertSame('en', PublicI18n::moneyLanderXDefault('netlinking'));
         $digitalPr = PublicI18n::moneyLanderLocales('digital-pr');
         foreach (['it', 'de', 'at', 'ch', 'es', 'pt', 'ro', 'fr', 'nl', 'dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl'] as $code) {
             $this->assertContains($code, $digitalPr, $code);

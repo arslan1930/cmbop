@@ -37,7 +37,7 @@ class UitgeversKiezenNlBlogPost
             'primary_locale' => 'nl',
             'excerpt' => 'Praktische shortlist voor gastpost-sites: DR en DA als filter gebruiken, verkeer checken, en niche plus taal/land (NL/BE) nooit overslaan.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Catalogus',
                 'Domain Rating',

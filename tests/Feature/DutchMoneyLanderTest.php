@@ -146,7 +146,7 @@ class DutchMoneyLanderTest extends TestCase
         $this->assertSame(['nl'], DutchMoneyLanders::copyRedirectLocales());
         $this->assertSame(['nl'], PublicI18n::catalogTeaserCountries('nl'));
         $this->assertSame(['nl'], PublicI18n::moneyLanderLocales('gastblog-kopen'));
-        $this->assertSame('nl', PublicI18n::moneyLanderXDefault('gastblog-kopen'));
+        $this->assertSame('en', PublicI18n::moneyLanderXDefault('gastblog-kopen'));
         $this->assertContains('nl', PublicI18n::moneyLanderLocales('linkbuilding'));
         $this->assertContains('de', PublicI18n::moneyLanderLocales('linkbuilding'));
         $this->assertSame('de', PublicI18n::moneyLanderXDefault('linkbuilding'));

@@ -40,7 +40,7 @@ class DofollowNofollowAnkertexteBlogPost
             'primary_locale' => 'de',
             'excerpt' => 'DoFollow, NoFollow & Ankertexte: was bei Marketplace-Links zählt – Attribute, natürlicher Anker-Mix und Check vor der Bestellung.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'DoFollow',
                 'NoFollow',

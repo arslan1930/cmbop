@@ -157,8 +157,17 @@
             <div class="col-lg-2 col-md-6">
                 <h5 class="mb-3">{{ __('messages.address') }}</h5>
                 <p class="small mb-0">{{ __('messages.address_description') }}</p>
+                @php
+                    $footerLegalName = class_exists(\App\Support\BrandOrganization::class)
+                        ? \App\Support\BrandOrganization::confirmedLegalName()
+                        : 'Teqno Ltd';
+                    $footerRegistrationNo = (string) config('billing.company.registration_no', config('company.registration_no', '17392540'));
+                @endphp
+                @if(is_string($footerLegalName) && $footerLegalName !== '')
+                    <p class="small mt-2 mb-0">{{ $footerLegalName }}</p>
+                @endif
                 <p class="small mt-2 mb-0">{{ __('messages.registered_address') }}</p>
-                <p class="small mt-2">{{ __('messages.company_number') }}: {{ config('billing.company.registration_no', '17392540') }}</p>
+                <p class="small mt-2">{{ __('messages.company_number') }}: {{ $footerRegistrationNo }}</p>
             </div>
 
         </div>

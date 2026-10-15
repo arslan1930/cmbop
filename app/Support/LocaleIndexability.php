@@ -237,12 +237,15 @@ class LocaleIndexability
             'faq' => 'faq_title',
             'how-it-works' => 'how_page_title',
             'become-a-publisher' => 'become_publisher_title',
-            'why-choose-us' => 'why_choose_title',
+            'why-choose-us' => 'why_choose_point_1_body',
             'contact' => 'contact_hero_title',
-            'privacy-policy' => 'privacy_policy',
-            'terms-of-services' => 'terms_of_service',
-            'cookie-policy' => 'cookie_policy',
-            'refund-policy' => 'refund_policy',
+            // Body/hero keys, not nav labels. Partial locales overlay
+            // privacy_policy / cookie_policy as chrome and would otherwise
+            // look unique while the legal body is still English.
+            'privacy-policy' => 'privacy_hero_title',
+            'terms-of-services' => 'terms_hero_title',
+            'cookie-policy' => 'cookie_title',
+            'refund-policy' => 'refund_title',
             default => null,
         };
     }

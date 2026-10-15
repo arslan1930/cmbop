@@ -31,7 +31,7 @@ class BacklinksAufbauenBlogPost
             'primary_locale' => 'de',
             'excerpt' => 'Backlinks aufbauen für DACH: so sichern Sie relevante Platzierungen, die Rankings bewegen – statt leerer Linkzahlen. Praxisleitfaden inkl. Prozess & FAQ.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Backlinks aufbauen',
                 'Linkbuilding Deutschland',

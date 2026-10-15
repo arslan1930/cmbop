@@ -265,7 +265,8 @@ class NordicCeeMoneyLanderTest extends TestCase
         $this->get('/wpis-goscinny')->assertRedirect('/pl/wpis-goscinny');
 
         $this->get('/digital-pr')->assertRedirect('/it/digital-pr');
-        $this->get('/fr/digital-pr')->assertRedirect('/it/digital-pr');
+        // France keeps an indexable local copy; the unprefixed slug stays Italian.
+        $this->get('/fr/digital-pr')->assertOk();
         foreach (['dk', 'se', 'no', 'bg', 'hu', 'ee', 'pl'] as $locale) {
             $this->get('/'.$locale.'/digital-pr')->assertOk();
             $this->get('/'.$locale.'/niche-edits')->assertOk();
@@ -340,7 +341,7 @@ class NordicCeeMoneyLanderTest extends TestCase
     {
         $this->assertSame(['dk'], DanishMoneyLanders::copyRedirectLocales());
         $this->assertSame(['dk'], PublicI18n::moneyLanderLocales('koeb-gaesteindlaeg'));
-        $this->assertSame('dk', PublicI18n::moneyLanderXDefault('koeb-gaesteindlaeg'));
+        $this->assertSame('en', PublicI18n::moneyLanderXDefault('koeb-gaesteindlaeg'));
         $this->assertSame(['hu'], PublicI18n::moneyLanderLocales('linkepites'));
         $this->assertContains('pl', PublicI18n::moneyLanderLocales('link-building'));
         $this->assertContains('it', PublicI18n::moneyLanderLocales('link-building'));

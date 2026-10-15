@@ -41,7 +41,7 @@ class AcheterGuestPostsFrBlogPost
             'primary_locale' => 'fr',
             'excerpt' => 'Parcours concret pour annonceurs : créer un compte, créditer le portefeuille EUR, filtrer le catalogue, préparer les articles, payer et suivre les commandes jusqu’à l’URL live.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Guide annonceur',
                 'Guest posts',

@@ -39,6 +39,13 @@ class BrandOrganization
             $node['description'] = $description;
             $node['slogan'] = $description;
         }
+        $founded = trim((string) config('company.founded', '2024'));
+        if ($founded !== '') {
+            $node['foundingDate'] = $founded;
+        }
+        if (class_exists(BrandPerson::class) && method_exists(BrandPerson::class, 'citation')) {
+            $node['founder'] = BrandPerson::citation();
+        }
 
         return array_merge($node, [
             'identifier' => $registrationNo,

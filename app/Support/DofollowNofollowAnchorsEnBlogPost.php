@@ -40,7 +40,7 @@ class DofollowNofollowAnchorsEnBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'What dofollow and nofollow mean in practice, how to mix anchor text naturally, and what to check before you buy marketplace links.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'DoFollow',
                 'NoFollow',

@@ -42,7 +42,7 @@ class PublisherPlatformGuideBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'How publishers list websites on SEOLinkBuildings, fulfil placement tasks, submit live URLs, and withdraw available balance.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Publisher guide',
                 'My Sites',

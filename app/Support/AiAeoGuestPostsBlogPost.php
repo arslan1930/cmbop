@@ -39,7 +39,7 @@ class AiAeoGuestPostsBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'Search is not only ten blue links anymore. How guest posts, brand mentions, and topical placements still feed Google — and the AI systems that quote the web.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'AEO',
                 'AI SEO',

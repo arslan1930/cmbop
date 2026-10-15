@@ -61,6 +61,8 @@ return [
         'guest-posts-poland',
         'guest-post-prices-europe',
         'is-seolinkbuildings-safe',
+        'author',
+        'founder',
         'comprare-guest-post',
         'articoli-sponsorizzati',
         'link-building',

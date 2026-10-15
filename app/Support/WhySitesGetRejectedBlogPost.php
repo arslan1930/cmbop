@@ -39,7 +39,7 @@ class WhySitesGetRejectedBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'What happens between Add Website and the advertiser catalog: verification, details, admin review, and the fixes that get a listing approved instead of removed.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Publisher tips',
                 'Site approval',

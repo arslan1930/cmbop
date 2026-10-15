@@ -42,7 +42,7 @@ class PublisherGuideDeBlogPost
             'primary_locale' => 'de',
             'excerpt' => 'So listen Publisher Websites auf SEOLinkBuildings, erfüllen Platzierungsaufträge, reichen Live-URLs ein und zahlen verfügbares Guthaben aus.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Publisher-Leitfaden',
                 'My Sites',

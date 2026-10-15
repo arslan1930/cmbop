@@ -46,7 +46,7 @@ class AdvertiserPlatformGuideBlogPost
             'primary_locale' => 'en',
             'excerpt' => 'A practical walkthrough for advertisers: create an account, fund your wallet, choose publishers in the catalog, assign articles, and track orders to live URL.',
             'content' => self::contentHtml(),
-            'author' => 'Arslan Jason',
+            'author' => 'M. Arslan',
             'tags' => [
                 'Advertiser guide',
                 'Guest posts',

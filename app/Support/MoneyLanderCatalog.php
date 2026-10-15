@@ -94,6 +94,21 @@ class MoneyLanderCatalog
     }
 
     /**
+     * Home / marketplace / pricing / footer chrome. FR and NL keep dedicated
+     * money-lander classes but were missing the shared cluster include that
+     * IT/DE/ES get from Blade blocks.
+     *
+     * @return list<string>
+     */
+    public static function chromeLocales(): array
+    {
+        return array_values(array_unique(array_merge(
+            ['fr', 'nl'],
+            self::nordicCeeLocales()
+        )));
+    }
+
+    /**
      * @return class-string|null
      */
     public static function classFor(string $locale): ?string
@@ -133,14 +148,17 @@ class MoneyLanderCatalog
     }
 
     /**
-     * Cluster / marketplace / pricing chrome for Nordic+CEE locales.
+     * Cluster / marketplace / pricing chrome for FR, NL, and Nordic+CEE locales.
      *
      * @return array<string, mixed>|null
      */
     public static function chrome(string $locale): ?array
     {
         $locale = strtolower(trim($locale));
-        if (! in_array($locale, self::nordicCeeLocales(), true)) {
+        $chromeLocales = method_exists(self::class, 'chromeLocales')
+            ? self::chromeLocales()
+            : self::nordicCeeLocales();
+        if (! in_array($locale, $chromeLocales, true)) {
             return null;
         }
 

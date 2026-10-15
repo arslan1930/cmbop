@@ -26,7 +26,7 @@ The indexable public pages and published blog posts are the sitemap. Account pag
 - Spanish: https://seolinkbuildings.com/sitemap-es.xml
 - Italian: https://seolinkbuildings.com/sitemap-it.xml
 - Portuguese: https://seolinkbuildings.com/sitemap-pt.xml
-- US English: https://seolinkbuildings.com/sitemap-us.xml
+- US English sitemap URL still responds (empty urlset) but is omitted from the sitemap index until /us has unique copy: https://seolinkbuildings.com/sitemap-us.xml
 - Austrian: https://seolinkbuildings.com/sitemap-at.xml
 - Swiss: https://seolinkbuildings.com/sitemap-ch.xml
 - Romanian: https://seolinkbuildings.com/sitemap-ro.xml
@@ -48,6 +48,7 @@ The indexable public pages and published blog posts are the sitemap. Account pag
 - [/why-choose-us](https://seolinkbuildings.com/why-choose-us)
 - [/become-a-publisher](https://seolinkbuildings.com/become-a-publisher)
 - [/about](https://seolinkbuildings.com/about)
+- [/author/m-arslan](https://seolinkbuildings.com/author/m-arslan)
 - [/faq](https://seolinkbuildings.com/faq)
 - [/contact](https://seolinkbuildings.com/contact)
 - [/blog](https://seolinkbuildings.com/blog)
@@ -547,6 +548,8 @@ Locale mirrors use `/de/`, `/fr/`, `/nl/`, `/es/`, `/pt/`, `/it/`, `/us/`, `/pl/
 - Operating company: Teqno Ltd
 - Company number on the site: 17392540. The public schema publishes legalName only when it is the exact Companies House spelling for that number.
 - Company number: 17392540
+- Founded: 2024
+- Founder (public name): M. Arslan — https://seolinkbuildings.com/author/m-arslan
 - Address: 20 Wenlock Road, London, England, N1 7GU
 - Support: support@seolinkbuildings.com
 - LinkedIn: [SEOLinkBuildings on LinkedIn](https://www.linkedin.com/company/seolinkbuildings)
