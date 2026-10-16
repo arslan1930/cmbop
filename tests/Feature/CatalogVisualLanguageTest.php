@@ -231,7 +231,8 @@ class CatalogVisualLanguageTest extends TestCase
 
         $this->assertStringContainsString('catalog-meta-chip', $html);
         $this->assertStringContainsString('DoFollow', $html);
-        $this->assertStringContainsString('>48 hours<', $html);
+        $this->assertStringContainsString('>2 days<', $html);
+        $this->assertStringNotContainsString('48 hours', $html);
 
         // The old prose lines added height to every row and read slowly.
         $this->assertStringNotContainsString('Max 03 DoFollow links</div>', $html);

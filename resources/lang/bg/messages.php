@@ -64,4 +64,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'marketplace_catalog_note' => 'Живият каталог се отваря след вход и остава на английски. Филтър за държава = България.',
     'meta_blog_title' => 'Блог за линк билдинг и дигитален PR | SEOLinkBuildings',
     'meta_blog_description' => 'Практически ръководства за гост публикации, анкери, AEO/SEO и outreach от екипа на SEOLinkBuildings.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'от',
+    'catalog_percent_off' => ':percent отстъпка',
+    'catalog_bulk_when_buying' => '−:percent при покупка на :qty+',
+    'catalog_turnaround_one' => '1 ден',
+    'catalog_turnaround_many' => ':count дни',
+    'catalog_sensitive_topics_from' => 'Чувствителни теми от :price',
+    'catalog_sensitive_crypto' => 'Крипто',
+    'catalog_sensitive_trading' => 'Трейдинг',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Форекс',
+    'catalog_new_listing' => 'Нов листинг',
+    'catalog_new_listing_body' => 'Добавен или одобрен през последните 30 дни — нова оферта, която си струва да видите рано.',
+    'catalog_report_listing' => 'Докладвай листинга',
+    'catalog_report_listing_body' => 'Сигнализирайте проблем с този листинг. Това не е предупреждение за чувствителни теми.',
+    'catalog_report_listing_done' => 'Докладвахте този листинг',
+    'catalog_report_listing_done_body' => 'Отворете, за да актуализирате или изчистите сигнала.',
 ]);

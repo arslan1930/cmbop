@@ -64,4 +64,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'marketplace_catalog_note' => 'Elav kataloog avaneb pärast sisselogimist ja jääb ingliskeelseks. Riigifilter = Eesti.',
     'meta_blog_title' => 'Linkide ehitamise ja digitaalse PR-i blogi | SEOLinkBuildings',
     'meta_blog_description' => 'Praktilised juhendid külalispostide, ankurteksti, AEO/SEO ja outreach’i kohta SEOLinkBuildingsilt.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'alates',
+    'catalog_percent_off' => ':percent soodustus',
+    'catalog_bulk_when_buying' => '−:percent :qty+ ostmisel',
+    'catalog_turnaround_one' => '1 päev',
+    'catalog_turnaround_many' => ':count päeva',
+    'catalog_sensitive_topics_from' => 'Tundlikud teemad alates :price',
+    'catalog_sensitive_crypto' => 'Krüpto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Uus listing',
+    'catalog_new_listing_body' => 'Lisatud või kinnitatud viimase 30 päeva jooksul — värske valik, mida tasub vara vaadata.',
+    'catalog_report_listing' => 'Teata listingust',
+    'catalog_report_listing_body' => 'Märgi selle listinguga seotud probleem. See ei ole hoiatus tundlike teemade kohta.',
+    'catalog_report_listing_done' => 'Teatasite sellest listingust',
+    'catalog_report_listing_done_body' => 'Ava, et teadet uuendada või eemaldada.',
 ]);

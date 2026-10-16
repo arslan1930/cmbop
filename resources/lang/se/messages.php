@@ -64,4 +64,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'marketplace_catalog_note' => 'Den live katalogen öppnas efter inloggning och förblir engelsk. Landsfilter = Sverige.',
     'meta_blog_title' => 'Blogg om länkbygge och digital PR | SEOLinkBuildings',
     'meta_blog_description' => 'Praktiska guider om gästinlägg, ankartext, AEO/SEO och publisher-outreach från SEOLinkBuildings.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'från',
+    'catalog_percent_off' => ':percent rabatt',
+    'catalog_bulk_when_buying' => '−:percent vid köp av :qty+',
+    'catalog_turnaround_one' => '1 dag',
+    'catalog_turnaround_many' => ':count dagar',
+    'catalog_sensitive_topics_from' => 'Känsliga ämnen från :price',
+    'catalog_sensitive_crypto' => 'Krypto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Ny listing',
+    'catalog_new_listing_body' => 'Tillagd eller godkänd de senaste 30 dagarna — färskt utbud värt att granska tidigt.',
+    'catalog_report_listing' => 'Rapportera listing',
+    'catalog_report_listing_body' => 'Flagga ett problem med den här listingen. Detta är inte en varning om känsliga ämnen.',
+    'catalog_report_listing_done' => 'Du har rapporterat den här listingen',
+    'catalog_report_listing_done_body' => 'Öppna för att uppdatera eller rensa rapporten.',
 ]);

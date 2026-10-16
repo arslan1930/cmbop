@@ -196,7 +196,8 @@ class CatalogBuyerFixesTest extends TestCase
         $this->assertSame('10.7%', $badge);
         $this->assertSame(15.0, (float) $site->custom_discount_percent);
         $this->assertStringContainsString('10.7% off', $html);
-        $this->assertStringContainsString('−10.7%', $html);
+        $this->assertStringNotContainsString('site-chip--sale', $html);
+        $this->assertStringNotContainsString('−10.7%', $html);
         $this->assertStringNotContainsString('15% off', $html);
         $this->assertStringNotContainsString('−15%', $html);
     }

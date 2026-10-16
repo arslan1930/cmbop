@@ -888,4 +888,22 @@ return [
     'usd_bank_avoid_fees' => 'Want to avoid wire fees? Pay instantly by Card or PayPal instead.',
     'usd_bank_pay_card' => 'Card',
     'usd_bank_pay_paypal' => 'PayPal',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'ab',
+    'catalog_percent_off' => ':percent Rabatt',
+    'catalog_bulk_when_buying' => '−:percent beim Kauf von :qty+',
+    'catalog_turnaround_one' => '1 Tag',
+    'catalog_turnaround_many' => ':count Tage',
+    'catalog_sensitive_topics_from' => 'Sensible Themen ab :price',
+    'catalog_sensitive_crypto' => 'Krypto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Neues Inserat',
+    'catalog_new_listing_body' => 'In den letzten 30 Tagen hinzugefügt oder freigegeben — frisches Inventar, das sich früh lohnt.',
+    'catalog_report_listing' => 'Inserat melden',
+    'catalog_report_listing_body' => 'Melden Sie ein Problem mit diesem Inserat. Dies ist keine Warnung zu sensiblen Themen.',
+    'catalog_report_listing_done' => 'Sie haben dieses Inserat gemeldet',
+    'catalog_report_listing_done_body' => 'Öffnen, um den Bericht zu aktualisieren oder zu löschen.',
 ];

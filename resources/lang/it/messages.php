@@ -914,4 +914,22 @@ return [
     'usd_bank_avoid_fees' => 'Want to avoid wire fees? Pay instantly by Card or PayPal instead.',
     'usd_bank_pay_card' => 'Card',
     'usd_bank_pay_paypal' => 'PayPal',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'da',
+    'catalog_percent_off' => ':percent di sconto',
+    'catalog_bulk_when_buying' => '−:percent acquistando :qty+',
+    'catalog_turnaround_one' => '1 giorno',
+    'catalog_turnaround_many' => ':count giorni',
+    'catalog_sensitive_topics_from' => 'Argomenti sensibili da :price',
+    'catalog_sensitive_crypto' => 'Crypto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Nuovo listing',
+    'catalog_new_listing_body' => 'Aggiunto o approvato negli ultimi 30 giorni — inventario fresco da rivedere presto.',
+    'catalog_report_listing' => 'Segnala listing',
+    'catalog_report_listing_body' => 'Segnala un problema con questo listing. Non è un avviso sui temi sensibili.',
+    'catalog_report_listing_done' => 'Hai segnalato questo listing',
+    'catalog_report_listing_done_body' => 'Apri per aggiornare o cancellare la segnalazione.',
 ];

@@ -163,6 +163,8 @@ class CatalogUiHardeningTest extends TestCase
         // the JS has to find them there rather than inside the button.
         $this->assertStringContainsString('function catalogPriceDisplaysFor(', $js);
         $this->assertStringContainsString(".closest('.catalog-card-buy, .catalog-row-actions')", $js);
+        $this->assertStringContainsString('function catalogRowBuyButton(', $js);
+        $this->assertStringContainsString(':not([data-bulk-hint])', $js);
 
         $this->makeSite([
             'custom_discount_percent' => 20,

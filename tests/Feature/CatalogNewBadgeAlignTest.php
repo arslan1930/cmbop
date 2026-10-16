@@ -79,24 +79,25 @@ class CatalogNewBadgeAlignTest extends TestCase
 
         $this->assertStringContainsString('catalog-site-title-row', $html);
         $this->assertStringContainsString('catalog-site-badges', $html);
-        $this->assertStringContainsString('catalog-site-deals', $html);
-        $this->assertStringContainsString('site-chip--sale', $html);
+        $this->assertStringNotContainsString('catalog-site-deals', $html);
+        $this->assertStringNotContainsString('site-chip--sale', $html);
+        $this->assertStringContainsString('catalog-price__offer', $html);
         $this->assertStringContainsString('site-chip--verified', $html);
         $this->assertStringContainsString('site-badge-new', $html);
         $this->assertStringContainsString('catalog-new-ribbon', $html);
         // Custom 15% beats bulk 10% — only the winning chip (no dual “stacked” look).
         $this->assertStringNotContainsString('site-chip--bulk', $html);
         $this->assertStringNotContainsString('Bulk −10%', $html);
+        $this->assertStringNotContainsString('catalog-bulk-note', $html);
 
-        // Sale/bulk live on the deals row; Verified stays with the name; NEW is the corner ribbon.
+        // Sale lives beside the price; Verified stays with the name; NEW is the corner ribbon.
         $this->assertMatchesRegularExpression(
-            '/catalog-new-ribbon[\s\S]*?catalog-site-title-row[\s\S]*?site-chip--verified[\s\S]*?catalog-site-deals[\s\S]*?site-chip--sale/',
+            '/catalog-new-ribbon[\s\S]*?catalog-site-title-row[\s\S]*?site-chip--verified[\s\S]*?catalog-price__offer/',
             $html
         );
 
         $css = (string) file_get_contents(public_path('assets/css/catalog.css'));
         $this->assertStringContainsString('.catalog-site-title-row', $css);
-        $this->assertStringContainsString('.catalog-site-deals', $css);
         $this->assertStringContainsString('flex-wrap: nowrap', $css);
     }
 
@@ -114,11 +115,12 @@ class CatalogNewBadgeAlignTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('site-chip--sale', $html);
-        $this->assertStringContainsString('−10%', $html);
+        $this->assertStringNotContainsString('site-chip--sale', $html);
+        $this->assertStringContainsString('10% off', $html);
         $this->assertStringContainsString('catalog-bulk-note', $html);
         // Pack floors at publisher payout → effective ~11.5%, not nominal 15%.
-        $this->assertStringContainsString('−11.5% on 3+', $html);
+        $this->assertStringContainsString('−11.5% when buying 3+', $html);
+        $this->assertStringNotContainsString('on 3+', $html);
         $this->assertStringNotContainsString('Bulk −15%', $html);
     }
 
@@ -135,11 +137,12 @@ class CatalogNewBadgeAlignTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('site-chip--sale', $html);
+        $this->assertStringNotContainsString('site-chip--sale', $html);
         // €113 list → €100 pay ⇒ effective 11.5%, not the nominal −20%.
-        $this->assertStringContainsString('−11.5%', $html);
+        $this->assertStringContainsString('11.5% off', $html);
         $this->assertStringNotContainsString('−20%', $html);
         $this->assertStringNotContainsString('site-chip--bulk', $html);
+        $this->assertStringNotContainsString('catalog-bulk-note', $html);
         $this->assertStringNotContainsString('Bulk −15%', $html);
     }
 

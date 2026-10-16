@@ -640,7 +640,8 @@ class Site extends Model
             return false;
         }
 
-        return $at instanceof \DateTimeInterface && $at->gt(now()->subDays($days));
+        // Match the new_badge SQL window: created_at >= now − 30 days.
+        return $at instanceof \DateTimeInterface && $at->gte(now()->subDays($days));
     }
 
     public function safeFeaturedUntil(): ?\DateTimeInterface
@@ -779,20 +780,16 @@ class Site extends Model
      */
     public function turnaroundLabel(?string $fallback = null): ?string
     {
-        $raw = trim((string) ($this->turnaround_time ?? ''));
-        if ($raw === '') {
+        $hours = $this->turnaroundHours();
+        if ($hours === null) {
             return $fallback;
         }
 
-        return match (strtolower($raw)) {
-            '24h' => '24 hours',
-            '48h' => '48 hours',
-            '3days', '3 days' => '3 days',
-            '5days', '5 days' => '5 days',
-            '7days', '7 days' => '7 days',
-            // Leftover Hostinger junk ("???", "not-json") is not a turnaround.
-            default => $this->turnaroundHours() !== null ? $raw : $fallback,
-        };
+        $days = max(1, (int) round($hours / 24));
+
+        return $days === 1
+            ? __('messages.catalog_turnaround_one')
+            : __('messages.catalog_turnaround_many', ['count' => $days]);
     }
 
     /**

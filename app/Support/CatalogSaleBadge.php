@@ -30,6 +30,62 @@ class CatalogSaleBadge
             return null;
         }
 
+        return self::formatPercent($percent);
+    }
+
+    public static function formatPercent(float $percent): string
+    {
         return rtrim(rtrim(number_format($percent, 1), '0'), '.').'%';
+    }
+
+    public static function offerText(float $list, float $displayed): ?string
+    {
+        $label = self::label($list, $displayed);
+        if ($label === null) {
+            return null;
+        }
+
+        return __('messages.catalog_percent_off', ['percent' => $label]);
+    }
+
+    /**
+     * Multi-buy copy only when pack savings beat the qty-1 sale (or there is no sale).
+     */
+    public static function bulkNote(?float $salePercent, ?float $bulkPercent, int $minQty = 3): ?string
+    {
+        if ($bulkPercent === null || $bulkPercent <= 0) {
+            return null;
+        }
+
+        if ($salePercent !== null && round($bulkPercent, 1) <= round($salePercent, 1)) {
+            return null;
+        }
+
+        return __('messages.catalog_bulk_when_buying', [
+            'percent' => self::formatPercent((float) $bulkPercent),
+            'qty' => max(2, $minQty),
+        ]);
+    }
+
+    /**
+     * Extra paid options that make the closed-row price a starting "from".
+     *
+     * @param  array<string, mixed>  $sensitivePrices
+     * @param  array<int, mixed>  $homepageOptions
+     */
+    public static function hasPaidAddons(array $sensitivePrices, array $homepageOptions = []): bool
+    {
+        foreach ($sensitivePrices as $amount) {
+            if (is_numeric($amount) && (float) $amount > 0) {
+                return true;
+            }
+        }
+        foreach ($homepageOptions as $fee) {
+            if (is_numeric($fee) && (float) $fee > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

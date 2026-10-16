@@ -64,4 +64,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'marketplace_catalog_note' => 'Az élő katalógus belépés után nyílik, és angol marad. Országszűrő = Magyarország.',
     'meta_blog_title' => 'Linképítés és digitális PR blog | SEOLinkBuildings',
     'meta_blog_description' => 'Gyakorlati útmutatók vendégposztról, horgonyszövegről, AEO/SEO-ról a SEOLinkBuildings csapatától.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'akár',
+    'catalog_percent_off' => ':percent kedvezmény',
+    'catalog_bulk_when_buying' => '−:percent :qty+ vásárlásakor',
+    'catalog_turnaround_one' => '1 nap',
+    'catalog_turnaround_many' => ':count nap',
+    'catalog_sensitive_topics_from' => 'Érzékeny témák :price-tól',
+    'catalog_sensitive_crypto' => 'Kripto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Új listing',
+    'catalog_new_listing_body' => 'Az elmúlt 30 napban hozzáadva vagy jóváhagyva — friss kínálat, amit érdemes korán megnézni.',
+    'catalog_report_listing' => 'Listing jelentése',
+    'catalog_report_listing_body' => 'Jelöljön egy problémát ezzel a listinggel. Ez nem figyelmeztetés érzékeny témákra.',
+    'catalog_report_listing_done' => 'Jelentette ezt a listinget',
+    'catalog_report_listing_done_body' => 'Nyissa meg a jelentés frissítéséhez vagy törléséhez.',
 ]);

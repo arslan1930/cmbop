@@ -64,4 +64,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'marketplace_catalog_note' => 'Det live kataloget åpnes etter innlogging og forblir engelsk. Landfilter = Norge.',
     'meta_blog_title' => 'Blogg om linkbuilding og digital PR | SEOLinkBuildings',
     'meta_blog_description' => 'Praktiske guider om gjesteinnlegg, ankertekst, AEO/SEO og publisher-outreach fra SEOLinkBuildings.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'fra',
+    'catalog_percent_off' => ':percent rabatt',
+    'catalog_bulk_when_buying' => '−:percent ved kjøp av :qty+',
+    'catalog_turnaround_one' => '1 dag',
+    'catalog_turnaround_many' => ':count dager',
+    'catalog_sensitive_topics_from' => 'Sensitive emner fra :price',
+    'catalog_sensitive_crypto' => 'Krypto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Ny listing',
+    'catalog_new_listing_body' => 'Lagt til eller godkjent de siste 30 dagene — ferskt utvalg verdt å se tidlig.',
+    'catalog_report_listing' => 'Rapporter listing',
+    'catalog_report_listing_body' => 'Flagg et problem med denne listingen. Dette er ikke en advarsel om sensitive emner.',
+    'catalog_report_listing_done' => 'Du har rapportert denne listingen',
+    'catalog_report_listing_done_body' => 'Åpne for å oppdatere eller fjerne rapporten.',
 ]);

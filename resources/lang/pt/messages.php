@@ -45,4 +45,22 @@ return array_replace(require __DIR__.'/../en/messages.php', [
     'pricing_page_subtitle' => 'Pague por publicação no marketplace ou escolha um pacote gerido de digital PR — em euros, sem tabela com IVA português inventado.',
     'pricing_hero_title' => 'Custo do guest post por publisher, não por pacote',
     'pricing_hero_lead' => 'Explore publishers de Portugal, escolha o preço em EUR que encaixe e pague com a carteira.',
+
+    // Advertiser catalog row copy
+    'catalog_price_from' => 'desde',
+    'catalog_percent_off' => ':percent de desconto',
+    'catalog_bulk_when_buying' => '−:percent ao comprar :qty+',
+    'catalog_turnaround_one' => '1 dia',
+    'catalog_turnaround_many' => ':count dias',
+    'catalog_sensitive_topics_from' => 'Temas sensíveis desde :price',
+    'catalog_sensitive_crypto' => 'Cripto',
+    'catalog_sensitive_trading' => 'Trading',
+    'catalog_sensitive_cbd' => 'CBD',
+    'catalog_sensitive_forex' => 'Forex',
+    'catalog_new_listing' => 'Novo listing',
+    'catalog_new_listing_body' => 'Adicionado ou aprovado nos últimos 30 dias — inventário recente que convém rever cedo.',
+    'catalog_report_listing' => 'Reportar listing',
+    'catalog_report_listing_body' => 'Sinalize um problema com este listing. Não é um aviso sobre temas sensíveis.',
+    'catalog_report_listing_done' => 'Reportou este listing',
+    'catalog_report_listing_done_body' => 'Abra para atualizar ou limpar o seu reporte.',
 ]);
