@@ -371,6 +371,7 @@
                                 'site' => $site,
                                 'urlId' => 'url-host-'.$site->id,
                             ])
+                            {{-- Chips wrap inside Site; do not nowrap across Category. --}}
                             <div class="catalog-site-tag-slot">
                                 @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
                                 @include('advertiser.partials.catalog-placement-chips', [
@@ -1078,6 +1079,7 @@
                         'urlId' => 'url-host-mobile-'.$site->id,
                         'urlClass' => 'text-truncate',
                     ])
+                    {{-- Same wrap class as the desktop Site column. --}}
                     <div class="catalog-site-tag-slot">
                         @include('advertiser.partials.catalog-tag-chip', ['site' => $site])
                         @include('advertiser.partials.catalog-placement-chips', [

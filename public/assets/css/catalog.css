@@ -2463,7 +2463,16 @@ a.bulk-deal-card__url:hover {
 
 .catalog-site-cell {
     position: relative;
+    /* Ribbon / zoom sit on the cell; chip overflow is clipped on the stack. */
     overflow: visible;
+    min-width: 0;
+}
+
+/* table-layout:fixed + visible table overflow: honor the 29% Site column so
+   Homepage / social / Sensitive chips cannot paint over Category. */
+.catalog-page .catalog-table td.catalog-site-cell {
+    max-width: 0;
+    min-width: 0;
 }
 
 /* Floating enlarge for Site Details / card expand previews (fine pointer). */
@@ -2529,6 +2538,7 @@ a.bulk-deal-card__url:hover {
     min-width: 0;
     width: 100%;
     max-width: 100%;
+    overflow: hidden;
 }
 
 /* The tile sits beside the stack rather than above it, so the domain, chips and
@@ -2690,9 +2700,31 @@ a.catalog-site-rooted-url.site-open-link::after {
     max-width: 100%;
 }
 
+/* Homepage + social + Sensitive + tools wrap inside Site — a nowrap row
+   overflowed into Category (“+N more”) at desktop widths. */
 .catalog-site-tag-slot {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
+    width: 100%;
+    overflow: hidden;
+}
+
+.catalog-site-tag-slot > * {
+    flex: 0 1 auto;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.catalog-site-tag-slot .site-chip {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.catalog-site-tag-slot .catalog-social-icons,
+.catalog-site-tag-slot .catalog-site-tools {
+    flex: 0 0 auto;
 }
 
 .catalog-site-tag-slot:empty {
