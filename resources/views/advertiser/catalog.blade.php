@@ -19,6 +19,12 @@
         /* Category clamps — must survive a stale CDN catalog.css (chips otherwise
            paint over Traffic/DR/DA while table overflow stays visible for sticky). */
         .catalog-page .catalog-table td.catalog-category-cell{overflow:hidden;max-width:0;min-width:0}
+        /* Site tag/icon/chip line wraps inside the Site column (stale CSS otherwise
+           keeps a nowrap row that paints over Category “+N more”). */
+        .catalog-page .catalog-table td.catalog-site-cell{max-width:0;min-width:0}
+        .catalog-page .catalog-site-stack{overflow:hidden;max-width:100%;min-width:0}
+        .catalog-page .catalog-site-tag-slot{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;max-width:100%;min-width:0;overflow:hidden}
+        .catalog-page .catalog-site-tag-slot .site-chip{max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis}
         .catalog-page .categories-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;max-width:100%;width:100%;margin:0 auto;overflow:hidden;min-width:0}
         .catalog-page .categories-column{display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;align-content:center;gap:4px;min-width:0;width:100%;max-width:100%;overflow:hidden}
         .catalog-page .category-badge{box-sizing:border-box;flex:0 1 auto;max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
