@@ -19,6 +19,7 @@ use App\Support\DisplayCurrencyPreference;
 use App\Support\HostingerMysqlHost;
 use App\Support\MarketingOpsQueues;
 use App\Support\OrderLifecycleMailSuppressor;
+use App\Support\PartnerDashboard;
 use App\Support\PublicStorageLink;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -210,6 +211,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Authenticated users hitting /login or /register go to their role dashboard.
         RedirectIfAuthenticated::redirectUsing(function () {
+            if (class_exists(PartnerDashboard::class) && PartnerDashboard::isPartnerHost(request())) {
+                return '/';
+            }
             $user = Auth::user();
             if ($user && method_exists($user, 'getDashboardRoute')) {
                 return $user->getDashboardRoute();

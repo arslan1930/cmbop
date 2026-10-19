@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\CountryHost;
+use App\Support\PartnerDashboard;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -24,6 +25,10 @@ class CanonicalHost
         }
 
         $host = strtolower((string) $request->getHost());
+        if (class_exists(PartnerDashboard::class)
+            && $host === PartnerDashboard::host()) {
+            return $next($request);
+        }
         // Hostinger already 301s HTTP and www in one hop. Only rewrite www if
         // it still reaches PHP — do not add an HTTP→HTTPS hop on the apex.
         if ($host === 'www.'.self::APEX) {

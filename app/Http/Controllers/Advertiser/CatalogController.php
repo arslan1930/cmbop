@@ -56,6 +56,7 @@ use App\Services\OrderPaymentService;
 use App\Services\Orders\ContentRevisionService;
 use App\Services\Orders\OrderClawbackService;
 use App\Services\Orders\OrderRefundService;
+use App\Services\Partners\PartnerAlertService;
 use App\Services\PaypalCheckoutService;
 use App\Services\PaypalPaymentNotifier;
 use App\Services\PlatformFeeService;
@@ -5160,6 +5161,10 @@ class CatalogController extends Controller
                 }
 
                 try {
+                    if (class_exists(PartnerAlertService::class)
+                        && app(PartnerAlertService::class)->sendNewOrderIfPartner($publisher, $site, $siteOrdersList)) {
+                        continue;
+                    }
                     Mail::to($publisher->email)->send(new SiteOwnerOrderNotification($site, $siteOrdersList));
                     Log::info('Order notification email sent to publisher', [
                         'site_id' => $site->id,
@@ -5308,6 +5313,10 @@ class CatalogController extends Controller
 
             foreach ($publishers as $publisher) {
                 try {
+                    if (class_exists(PartnerAlertService::class)
+                        && app(PartnerAlertService::class)->sendCorrectionIfPartner($publisher, $order, (string) $request->reason)) {
+                        continue;
+                    }
                     Mail::to($publisher->email)->send(new ModificationRequested($order, $request->reason));
                 } catch (\Throwable $e) {
                     Log::error('Failed to send email: '.$e->getMessage());

@@ -7,6 +7,7 @@ use App\Mail\PasswordChangedMail;
 use App\Models\User;
 use App\Models\UserConsent;
 use App\Services\Staff\PublisherOnboardingService;
+use App\Support\PartnerDashboard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,11 +23,14 @@ class StaffOnboardingPasswordController extends Controller
     public function show(Request $request, User $user): View|RedirectResponse
     {
         if (! $this->hashMatches($request, $user)) {
-            return redirect()->to(route('login', absolute: false))
-                ->with('error', $this->copy('publisher_onboard.link_invalid', 'This invite link is invalid. Ask your contact to resend it.'));
+            return $this->invalidInviteRedirect($request);
         }
 
-        return view('auth.staff-onboard-password', [
+        $view = $this->onPartnerHost($request)
+            ? 'partner.auth.set-password'
+            : 'auth.staff-onboard-password';
+
+        return view($view, [
             'user' => $user,
             'formAction' => $request->fullUrl(),
         ]);
@@ -35,8 +39,7 @@ class StaffOnboardingPasswordController extends Controller
     public function store(Request $request, User $user, PublisherOnboardingService $onboarding): RedirectResponse
     {
         if (! $this->hashMatches($request, $user)) {
-            return redirect()->to(route('login', absolute: false))
-                ->with('error', $this->copy('publisher_onboard.link_invalid', 'This invite link is invalid. Ask your contact to resend it.'));
+            return $this->invalidInviteRedirect($request);
         }
 
         $validator = Validator::make($request->all(), [
@@ -51,7 +54,7 @@ class StaffOnboardingPasswordController extends Controller
         }
 
         if (method_exists($user, 'isSuspended') && $user->isSuspended()) {
-            return redirect()->to(route('login', absolute: false))
+            return $this->invalidInviteRedirect($request)
                 ->with('error', $this->copy('login.suspended', 'This account has been suspended. Contact support if you think this is a mistake.'));
         }
 
@@ -103,6 +106,21 @@ class StaffOnboardingPasswordController extends Controller
             )
         );
 
+        if (method_exists($user, 'isSupplyPartner') && $user->isSupplyPartner()
+            && class_exists(PartnerDashboard::class)) {
+            if ($this->onPartnerHost($request)) {
+                $request->session()->put('partner_scope_level', 'full');
+
+                return redirect()->to(PartnerDashboard::url('/'));
+            }
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->to(PartnerDashboard::url('/login'))
+                ->with('success', 'Password saved. Sign in on the partner dashboard.');
+        }
+
         return redirect()->to(route('publisher.websites', ['status' => 'invites'], false));
     }
 
@@ -111,6 +129,21 @@ class StaffOnboardingPasswordController extends Controller
         $hash = (string) $request->query('hash', '');
 
         return hash_equals(sha1($user->getEmailForVerification()), $hash);
+    }
+
+    private function onPartnerHost(Request $request): bool
+    {
+        return class_exists(PartnerDashboard::class) && PartnerDashboard::isPartnerHost($request);
+    }
+
+    private function invalidInviteRedirect(Request $request): RedirectResponse
+    {
+        $target = $this->onPartnerHost($request)
+            ? PartnerDashboard::url('/login')
+            : route('login', absolute: false);
+
+        return redirect()->to($target)
+            ->with('error', $this->copy('publisher_onboard.link_invalid', 'This invite link is invalid. Ask your contact to resend it.'));
     }
 
     private function copy(string $key, string $fallback): string

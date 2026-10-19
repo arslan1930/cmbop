@@ -44,9 +44,12 @@ class PartnerConfidentiality
     public function scanText(string $text): array
     {
         $hits = [];
-        $lower = strtolower($text);
+        $visible = preg_replace('/<(script|style)\b[^>]*>.*?<\/\1>/is', ' ', $text) ?? $text;
+        $visible = preg_replace('/\s(?:style|class|id)="[^"]*"/i', ' ', $visible) ?? $visible;
+        $lower = strtolower(html_entity_decode(strip_tags($visible), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         foreach (self::FORBIDDEN_KEYS as $key) {
-            if (str_contains($lower, strtolower($key))) {
+            $needle = strtolower($key);
+            if (preg_match('/\b'.preg_quote($needle, '/').'\b/', $lower)) {
                 $hits[] = $key;
             }
         }

@@ -42,4 +42,27 @@ return [
     ],
 
     'contracting_entity' => 'Teqno LTD (17392540)',
+
+    /*
+    | Partner web dashboard (Appendix C.1 steps 1 and 5).
+    | Same Laravel app, own host. Point partners.seolinkbuildings.com at the
+    | main site's public directory. SESSION_DOMAIN must stay empty/null so
+    | cookies stay host-only and do not leak onto the apex.
+    */
+    'dashboard_domain' => strtolower((string) env('PARTNER_DASHBOARD_DOMAIN', 'partners.seolinkbuildings.com')),
+
+    'dashboard_path_prefix' => trim((string) env('PARTNER_DASHBOARD_PATH_PREFIX', 'partners'), '/'),
+
+    // null = on for local/testing only; true/false to force.
+    'dashboard_path_fallback' => env('PARTNER_DASHBOARD_PATH_FALLBACK'),
+
+    'dashboard_allow_all_publishers' => filter_var(env('PARTNER_DASHBOARD_ALLOW_ALL_PUBLISHERS', false), FILTER_VALIDATE_BOOLEAN),
+
+    'dashboard_action_link_hours' => max(1, (int) env('PARTNER_DASHBOARD_ACTION_LINK_HOURS', 72)),
+
+    'dashboard_email_change_hours' => max(1, (int) env('PARTNER_DASHBOARD_EMAIL_CHANGE_HOURS', 24)),
+
+    'dashboard_session_idle_minutes' => max(5, (int) env('PARTNER_DASHBOARD_SCOPED_IDLE_MINUTES', 30)),
+
+    'dashboard_session_max_minutes' => max(10, (int) env('PARTNER_DASHBOARD_SCOPED_MAX_MINUTES', 120)),
 ];

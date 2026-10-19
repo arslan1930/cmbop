@@ -22,12 +22,18 @@ class Partner extends Model
         'agreement_signed_at',
         'legal_name',
         'notes_internal',
+        'notification_preferences',
+        'security_review_at',
+        'one_click_links',
     ];
 
     protected $casts = [
         'trusted' => 'boolean',
         'agreement_signed' => 'boolean',
         'agreement_signed_at' => 'datetime',
+        'notification_preferences' => 'array',
+        'security_review_at' => 'datetime',
+        'one_click_links' => 'boolean',
     ];
 
     public function user(): BelongsTo
@@ -68,6 +74,43 @@ class Partner extends Model
         }
 
         return trim((string) ($this->user?->name ?: $this->user?->email ?: 'Partner #'.$this->id));
+    }
+
+    public function isLockedForSecurityReview(): bool
+    {
+        if (! Schema::hasColumn('partners', 'security_review_at')) {
+            return false;
+        }
+
+        return $this->security_review_at !== null;
+    }
+
+    public function wantsNotification(string $event): bool
+    {
+        if (in_array($event, ['payout_released', 'security'], true)) {
+            return true;
+        }
+        if (! Schema::hasColumn('partners', 'notification_preferences')) {
+            return true;
+        }
+        $prefs = $this->notification_preferences ?? [];
+        if (! array_key_exists($event, $prefs)) {
+            return true;
+        }
+
+        return (bool) $prefs[$event];
+    }
+
+    public function oneClickLinksEnabled(): bool
+    {
+        if (! Schema::hasColumn('partners', 'one_click_links')) {
+            return true;
+        }
+        if ($this->one_click_links === null) {
+            return true;
+        }
+
+        return (bool) $this->one_click_links;
     }
 
     public static function forUser(User $user): ?self

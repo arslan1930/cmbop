@@ -207,6 +207,13 @@ $nordicCeeOwnsSegment = static function (string $locale, string $segment): bool 
     return false;
 };
 
+// Partner dashboard domain (+ local/testing path fallback) must register first
+// so partners.seolinkbuildings.com/login is not captured by the marketing login.
+$partnerRoutes = __DIR__.'/partner.php';
+if (is_file($partnerRoutes)) {
+    require $partnerRoutes;
+}
+
 // Stacked locale cleanup: /nl/fr → /nl
 Route::get('/{locale}/{nested}', function ($locale, $nested) use ($prefixedLocales) {
     if (in_array($locale, $prefixedLocales, true) && in_array($nested, $prefixedLocales, true)) {

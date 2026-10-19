@@ -11,6 +11,7 @@ use App\Services\EmailNotificationService;
 use App\Services\Staff\PublisherOnboardingService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WelcomeBonusService;
+use App\Support\PartnerDashboard;
 use App\Support\SignupCountry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -99,6 +100,13 @@ class SocialiteController extends Controller
                 $this->activateStaffOnboarding($existingUser);
 
                 return $this->loginAndRedirect($existingUser);
+            }
+
+            if (class_exists(PartnerDashboard::class)
+                && PartnerDashboard::isPartnerHost(request())) {
+                return $this->loginRedirect(
+                    'This Google account is not a catalog partner. Sign in on the main site to create an account.'
+                );
             }
 
             if (! $email) {
@@ -426,6 +434,11 @@ class SocialiteController extends Controller
 
     private function loginRedirect(string $message): RedirectResponse
     {
+        if (class_exists(PartnerDashboard::class)
+            && PartnerDashboard::isPartnerHost(request())) {
+            return redirect()->to(PartnerDashboard::url('/login'))->with('error', $message);
+        }
+
         return redirect()->to(route('login', absolute: false))->with('error', $message);
     }
 
@@ -447,6 +460,22 @@ class SocialiteController extends Controller
         request()->session()->regenerate();
 
         $user->load('activeRoleRelation', 'roles');
+
+        if (class_exists(PartnerDashboard::class)
+            && PartnerDashboard::isPartnerHost(request())) {
+            if (! PartnerDashboard::userMayAccess($user)) {
+                Auth::logout();
+                request()->session()->invalidate();
+                request()->session()->regenerateToken();
+
+                return redirect()->to(PartnerDashboard::url('/login'))
+                    ->with('error', PartnerDashboard::denialMessage($user))
+                    ->with('main_site_url', PartnerDashboard::mainSiteUrl('login'));
+            }
+            request()->session()->put('partner_scope_level', 'full');
+
+            return redirect()->to(PartnerDashboard::url('/'));
+        }
 
         $destination = $this->staffInviteDestination($user) ?? $this->postLoginDestination($user);
 

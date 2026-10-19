@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Models\Site;
 use App\Models\User;
 use App\Support\EmailCatalog;
+use App\Support\PartnerDashboard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\URL;
@@ -89,17 +90,27 @@ class PublisherStaffOnboardingMail extends PlatformMailable
             return rtrim(app_public_url(), '/').'/onboard/password/preview-id/preview-hash';
         }
 
-        $relative = URL::temporarySignedRoute(
-            'publisher.onboard.password',
-            now()->addDays(self::expireDays()),
-            [
-                'user' => $user->getKey(),
-                'hash' => sha1($user->getEmailForVerification()),
-            ],
-            absolute: false
-        );
+        $isPartner = method_exists($user, 'isSupplyPartner') && $user->isSupplyPartner()
+            && class_exists(PartnerDashboard::class);
+        $origin = $isPartner
+            ? rtrim(PartnerDashboard::origin(), '/')
+            : rtrim(app_public_url(), '/');
+        $restore = rtrim((string) (request()?->getSchemeAndHttpHost() ?: config('app.url')), '/');
 
-        return rtrim(app_public_url(), '/').$relative;
+        URL::forceRootUrl($origin);
+        try {
+            return URL::temporarySignedRoute(
+                'publisher.onboard.password',
+                now()->addDays(self::expireDays()),
+                [
+                    'user' => $user->getKey(),
+                    'hash' => sha1($user->getEmailForVerification()),
+                ],
+                absolute: true
+            );
+        } finally {
+            URL::forceRootUrl($restore !== '' ? $restore : null);
+        }
     }
 
     private function setPasswordUrl(?User $user): string

@@ -2,7 +2,7 @@
 
 Staff hub at `/admin/partners`. A **catalog partner** is a normal SLB publisher account (same onboarding, My Sites, orders, withdrawals). Imported sites, once put live, become ordinary marketplace listings owned by that publisher. Teqno LTD (17392540) charges **no fees** to publishers or partners. Partners never see the SLB price, commission, margin, advertiser counts or order volumes.
 
-This ships Appendix C.1 steps 2–3 only (catalog import, admin selection, dual pricing). The partners subdomain dashboard, chat relay, new ledger, API keys/webhooks, payout modes and reseller API are **not** built.
+This ships Appendix C.1 steps 2–3 (catalog import, admin selection, dual pricing). The partner web dashboard is documented in [`docs/partner-dashboard.md`](partner-dashboard.md). Chat relay, new ledger, API keys/webhooks, payout modes and reseller API are **not** built.
 
 ## URLs
 

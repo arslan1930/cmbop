@@ -40,6 +40,12 @@ use App\Mail\OrderApprovedByAdvertiser;
 use App\Mail\OrderPaymentConfirmed;
 use App\Mail\OrderRejected;
 use App\Mail\OrderStatusChanged;
+use App\Mail\PartnerCorrectionMail;
+use App\Mail\PartnerEmailChangeCancelMail;
+use App\Mail\PartnerEmailChangeConfirmMail;
+use App\Mail\PartnerNewOrderMail;
+use App\Mail\PartnerPasswordResetMail;
+use App\Mail\PartnerPayoutReleasedMail;
 use App\Mail\PasswordChangedMail;
 use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentPendingMail;
@@ -345,6 +351,48 @@ return [
             'audience' => 'publisher',
             'preference' => 'order_emails',
             'mailable' => SiteOwnerOrderNotification::class,
+            'default_enabled' => true,
+        ],
+        'partner_new_order' => [
+            'name' => 'Partner: new order',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => PartnerNewOrderMail::class,
+            'default_enabled' => true,
+        ],
+        'partner_correction' => [
+            'name' => 'Partner: correction requested',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => PartnerCorrectionMail::class,
+            'default_enabled' => true,
+        ],
+        'partner_payout_released' => [
+            'name' => 'Partner: payout released',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => PartnerPayoutReleasedMail::class,
+            'default_enabled' => true,
+        ],
+        'partner_email_change_confirm' => [
+            'name' => 'Partner: confirm email change',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => PartnerEmailChangeConfirmMail::class,
+            'default_enabled' => true,
+        ],
+        'partner_email_change_cancel' => [
+            'name' => 'Partner: cancel email change',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => PartnerEmailChangeCancelMail::class,
+            'default_enabled' => true,
+        ],
+        'partner_password_reset' => [
+            'name' => 'Partner: password reset',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => PartnerPasswordResetMail::class,
             'default_enabled' => true,
         ],
         'site_status' => [

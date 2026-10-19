@@ -42,6 +42,12 @@ use App\Mail\OrderApprovedByAdvertiser;
 use App\Mail\OrderPaymentConfirmed;
 use App\Mail\OrderRejected;
 use App\Mail\OrderStatusChanged;
+use App\Mail\PartnerCorrectionMail;
+use App\Mail\PartnerEmailChangeCancelMail;
+use App\Mail\PartnerEmailChangeConfirmMail;
+use App\Mail\PartnerNewOrderMail;
+use App\Mail\PartnerPasswordResetMail;
+use App\Mail\PartnerPayoutReleasedMail;
 use App\Mail\PasswordChangedMail;
 use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentPendingMail;
@@ -76,6 +82,7 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
+use App\Models\PartnerEmailChangeRequest;
 use App\Models\ProblemReport;
 use App\Models\SavedSearch;
 use App\Models\Site;
@@ -195,6 +202,48 @@ class EmailCatalog
                 'description' => 'Publisher alert when a new paid order is assigned to their site.',
                 'category' => 'Publishers',
                 'mailable' => SiteOwnerOrderNotification::class,
+                'status' => 'active',
+            ],
+            'partner_new_order' => [
+                'name' => 'Partner: new order',
+                'description' => 'Catalog partner alert for a new order, with a one-click dashboard link. No SLB price or buyer identity.',
+                'category' => 'Partners',
+                'mailable' => PartnerNewOrderMail::class,
+                'status' => 'active',
+            ],
+            'partner_correction' => [
+                'name' => 'Partner: correction requested',
+                'description' => 'Catalog partner alert when a correction is requested.',
+                'category' => 'Partners',
+                'mailable' => PartnerCorrectionMail::class,
+                'status' => 'active',
+            ],
+            'partner_payout_released' => [
+                'name' => 'Partner: payout released',
+                'description' => 'Catalog partner alert when a withdrawal is marked paid. Requires full login.',
+                'category' => 'Partners',
+                'mailable' => PartnerPayoutReleasedMail::class,
+                'status' => 'active',
+            ],
+            'partner_email_change_confirm' => [
+                'name' => 'Partner: confirm email change',
+                'description' => 'Sent to the new address. The change applies only after confirmation.',
+                'category' => 'Partners',
+                'mailable' => PartnerEmailChangeConfirmMail::class,
+                'status' => 'active',
+            ],
+            'partner_email_change_cancel' => [
+                'name' => 'Partner: cancel email change',
+                'description' => 'Sent to the old address with a This wasn’t me link.',
+                'category' => 'Partners',
+                'mailable' => PartnerEmailChangeCancelMail::class,
+                'status' => 'active',
+            ],
+            'partner_password_reset' => [
+                'name' => 'Partner: password reset',
+                'description' => 'Password reset for the partners.seolinkbuildings.com dashboard.',
+                'category' => 'Partners',
+                'mailable' => PartnerPasswordResetMail::class,
                 'status' => 'active',
             ],
             'order_accepted' => [
@@ -714,6 +763,12 @@ class EmailCatalog
             'withdrawal request received' => 'withdrawal_requested_confirmation',
             'withdrawal request ' => 'withdrawal_status',
             'new order for your site' => 'publisher_new_order',
+            'new order ' => 'partner_new_order',
+            'correction requested for order' => 'partner_correction',
+            'payout released:' => 'partner_payout_released',
+            'confirm your new seolinkbuildings partner email' => 'partner_email_change_confirm',
+            'a partner email change was requested' => 'partner_email_change_cancel',
+            'reset your seolinkbuildings partner password' => 'partner_password_reset',
             'manual payment required' => 'admin_manual_payment',
             'order accepted -' => 'order_accepted',
             'order rejected -' => 'order_rejected',
@@ -842,6 +897,12 @@ class EmailCatalog
             'refund_receipt' => new RefundReceiptMail(self::sampleRefundDocument()),
             'order_completed' => new OrderApprovedByAdvertiser($order, $item, $site),
             'publisher_new_order' => new SiteOwnerOrderNotification($site, [$order]),
+            'partner_new_order' => new PartnerNewOrderMail($user, $item, rtrim(PartnerDashboard::origin(), '/').'/orders/'.$item->id),
+            'partner_correction' => new PartnerCorrectionMail($user, $item, 'Move the link into paragraph 2.', rtrim(PartnerDashboard::origin(), '/').'/orders/'.$item->id),
+            'partner_payout_released' => new PartnerPayoutReleasedMail($user, self::sampleWithdrawal()),
+            'partner_email_change_confirm' => new PartnerEmailChangeConfirmMail($user, self::samplePartnerEmailChange(), 'preview-confirm-token'),
+            'partner_email_change_cancel' => new PartnerEmailChangeCancelMail($user, self::samplePartnerEmailChange(), 'preview-cancel-token'),
+            'partner_password_reset' => new PartnerPasswordResetMail($user, 'preview-reset-token'),
             'order_accepted' => new OrderAccepted($order, $item, $site),
             'order_rejected' => new OrderRejected($order, $item, $site, 'Sample rejection reason for preview.'),
             'dispute_clawback_publisher' => new DisputeClawbackPublisher(self::sampleDispute(), $user, 100.0, 0.0),
@@ -1286,6 +1347,21 @@ class EmailCatalog
         $withdrawal->setRelation('user', $user);
 
         return $withdrawal;
+    }
+
+    protected static function samplePartnerEmailChange(): PartnerEmailChangeRequest
+    {
+        $user = self::sampleUser();
+        $change = new PartnerEmailChangeRequest([
+            'user_id' => $user->id,
+            'old_email' => $user->email,
+            'new_email' => 'new-partner@example.com',
+        ]);
+        $change->id = self::PREVIEW_ID;
+        $change->exists = false;
+        $change->setRelation('user', $user);
+
+        return $change;
     }
 
     protected static function sampleContentSubmission(): ContentSubmission
