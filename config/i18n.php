@@ -119,6 +119,7 @@ return [
         'register',
         'forgot-password',
         'reset-password',
+        'onboard',
         'email',
         'auth',
         'advertiser',

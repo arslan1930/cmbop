@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Mail\PasswordChangedMail;
+use App\Services\Staff\PublisherOnboardingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -55,6 +56,9 @@ class ResetPasswordController extends Controller
                     // Hashed cast hashes once — do not bcrypt here or login breaks.
                     $user->password = $password;
                     $user->save();
+                    if (method_exists($user, 'needsStaffPasswordSetup') && $user->needsStaffPasswordSetup()) {
+                        app(PublisherOnboardingService::class)->activate($user);
+                    }
                     if (class_exists(PasswordChangedMail::class) && method_exists(PasswordChangedMail::class, 'notify')) {
                         PasswordChangedMail::notify($user);
                     }

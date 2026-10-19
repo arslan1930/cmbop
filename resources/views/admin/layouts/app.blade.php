@@ -164,6 +164,9 @@
         <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
             <i class="fa fa-users"></i> <span>Users</span>
         </a>
+        <a href="{{ route('admin.publishers.onboardings') }}" class="{{ request()->routeIs('admin.publishers.*') ? 'active' : '' }}">
+            <i class="fa fa-user-plus"></i> <span>Add publisher</span>
+        </a>
         <a href="{{ route('admin.community.index') }}" class="{{ request()->routeIs('admin.community.*') ? 'active' : '' }}">
             <i class="fa fa-comments"></i>
             <span class="d-flex align-items-center w-100">

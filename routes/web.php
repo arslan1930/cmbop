@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\OrderDisputeController as AdminOrderDisputeController;
 use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
+use App\Http\Controllers\Admin\PublisherOnboardingController as AdminPublisherOnboardingController;
 use App\Http\Controllers\Admin\SiteController as AdminSiteController;
 use App\Http\Controllers\Admin\SiteEnrichmentController;
 use App\Http\Controllers\Admin\SiteRatingController;
@@ -63,6 +64,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\SocialiteController;
+use App\Http\Controllers\Auth\StaffOnboardingPasswordController;
 use App\Http\Controllers\BannerClickController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\ChatController;
@@ -1222,6 +1224,14 @@ Route::post('/reset-password', [ResetPasswordController::class, 'update'])
     ->middleware('throttle:password-update')
     ->name('password.update');
 
+// Staff-created publisher: signed set-password (also verifies the email).
+Route::get('/onboard/password/{user}', [StaffOnboardingPasswordController::class, 'show'])
+    ->middleware(['signed', 'throttle:20,1'])
+    ->name('publisher.onboard.password');
+Route::post('/onboard/password/{user}', [StaffOnboardingPasswordController::class, 'store'])
+    ->middleware(['signed', 'throttle:password-update'])
+    ->name('publisher.onboard.password.store');
+
 // Email verification notice — public so expired-link users can resend without signing in.
 Route::get('/email/verify', [EmailVerificationController::class, 'notice'])
     ->name('verification.notice');
@@ -1486,6 +1496,21 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('dashboard.stalled-orders');
         Route::post('/orders/items/{orderItem}/remind-publisher', [AdminStalledOrderController::class, 'remindPublisher'])
             ->name('orders.remind-publisher');
+
+        Route::get('/publishers/onboard', [AdminPublisherOnboardingController::class, 'create'])
+            ->name('publishers.onboard');
+        Route::post('/publishers/onboard', [AdminPublisherOnboardingController::class, 'store'])
+            ->name('publishers.onboard.store');
+        Route::get('/publishers/onboard/bulk', [AdminPublisherOnboardingController::class, 'createBulk'])
+            ->name('publishers.onboard.bulk');
+        Route::post('/publishers/onboard/bulk/preview', [AdminPublisherOnboardingController::class, 'previewBulk'])
+            ->name('publishers.onboard.bulk.preview');
+        Route::post('/publishers/onboard/bulk', [AdminPublisherOnboardingController::class, 'storeBulk'])
+            ->name('publishers.onboard.bulk.store');
+        Route::get('/publishers/onboardings', [AdminPublisherOnboardingController::class, 'index'])
+            ->name('publishers.onboardings');
+        Route::post('/users/{user}/resend-onboard', [AdminPublisherOnboardingController::class, 'resend'])
+            ->name('publishers.resend');
 
         Route::get('/users', [UserController::class, 'index'])
             ->name('users.index');

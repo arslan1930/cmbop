@@ -49,6 +49,7 @@ use App\Mail\PaypalPaymentNotCompleted;
 use App\Mail\PublisherAcceptNudge;
 use App\Mail\PublisherAddSiteReminderMail;
 use App\Mail\PublisherPublishNudge;
+use App\Mail\PublisherStaffOnboardingMail;
 use App\Mail\RefundReceiptMail;
 use App\Mail\SavedSearchAlertMail;
 use App\Mail\SiteClaimOwnershipTransferred;
@@ -451,6 +452,13 @@ return [
             'audience' => 'publisher',
             'preference' => null,
             'mailable' => AdminPublishedSiteNotification::class,
+            'default_enabled' => true,
+        ],
+        'publisher_staff_onboarding' => [
+            'name' => 'Publisher Staff Onboarding',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => PublisherStaffOnboardingMail::class,
             'default_enabled' => true,
         ],
         'admin_new_user' => [

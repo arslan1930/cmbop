@@ -51,6 +51,7 @@ use App\Mail\PaypalPaymentNotCompleted;
 use App\Mail\PublisherAcceptNudge;
 use App\Mail\PublisherAddSiteReminderMail;
 use App\Mail\PublisherPublishNudge;
+use App\Mail\PublisherStaffOnboardingMail;
 use App\Mail\RefundReceiptMail;
 use App\Mail\SavedSearchAlertMail;
 use App\Mail\SiteClaimOwnershipTransferred;
@@ -437,6 +438,13 @@ class EmailCatalog
                 'mailable' => AdminPublishedSiteNotification::class,
                 'status' => 'active',
             ],
+            'publisher_staff_onboarding' => [
+                'name' => 'Publisher Staff Onboarding',
+                'description' => 'Staff-created publisher: set-password link plus listings waiting in My Sites → Invites.',
+                'category' => 'Publishers',
+                'mailable' => PublisherStaffOnboardingMail::class,
+                'status' => 'active',
+            ],
             'audience_campaign' => [
                 'name' => 'Updates & Campaigns',
                 'description' => 'Admin-composed marketing / update email to a selected audience, with a signed marketing unsubscribe footer.',
@@ -725,6 +733,8 @@ class EmailCatalog
             'please review websites from your bulk request' => 'bulk_sites_publisher_review',
             'your sites were added to pending sites' => 'bulk_sites_seeded',
             'please accept a website we added' => 'admin_assigned_site',
+            'review websites we added for you' => 'publisher_staff_onboarding',
+            'set your password and review' => 'publisher_staff_onboarding',
             'a website is live on your account' => 'admin_published_site',
             'websites are live on your account' => 'admin_published_site',
             'your bulk website request was cancelled' => 'bulk_request_cancelled',
@@ -953,6 +963,13 @@ class EmailCatalog
             'bulk_sites_publisher_review' => new BulkSitesReadyForPublisherReview(self::sampleBulkSiteRequest(), 2, $user, ['example.com', 'sample-two.example']),
             'admin_assigned_site' => new AdminAssignedSiteNotification($site, $user),
             'admin_published_site' => new AdminPublishedSiteNotification($site, $user),
+            'publisher_staff_onboarding' => new PublisherStaffOnboardingMail(
+                tap($user, function (User $preview) {
+                    $preview->staff_created = true;
+                    $preview->staff_onboarded_at = null;
+                }),
+                [$site]
+            ),
             'audience_campaign' => new AudienceCampaignMail(self::sampleCampaign(), $user),
             'bulk_request_cancelled' => new BulkSiteRequestCancelled(self::sampleBulkSiteRequest(), $user, 'Sample cancellation reason for preview.'),
             'bulk_request_items_rejected' => new BulkSiteItemsRejected(

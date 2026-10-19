@@ -531,6 +531,7 @@ class PublicI18n
             'register',
             'forgot-password',
             'reset-password',
+            'onboard',
             'email',
             'auth',
         ], true);

@@ -196,6 +196,11 @@
             <a href="{{ staff_route('sites.create') }}" class="btn btn-sm btn-primary">
                 <i class="fa fa-plus me-1"></i> Add site for publisher
             </a>
+            @if(auth()->user()?->isAdmin())
+                <a href="{{ route('admin.publishers.onboard') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fa fa-user-plus me-1"></i> Add publisher
+                </a>
+            @endif
             <div class="dropdown">
                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     Actions

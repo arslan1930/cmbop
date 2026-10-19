@@ -52,6 +52,8 @@ class User extends Authenticatable implements MustVerifyEmail
      * - last_seen_at (RecordUserLastSeen)
      * - suspended_at / suspended_reason / suspended_by (Admin\UserController)
      * - is_test (Admin\UserController::updateTestFlag)
+     * - staff_created / staff_created_by / staff_invite_sent_at / staff_onboarded_at
+     *   (PublisherOnboardingService)
      */
 
     /**
@@ -92,6 +94,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'last_seen_at' => 'datetime',
         'suspended_at' => 'datetime',
         'is_test' => 'boolean',
+        'staff_created' => 'boolean',
+        'staff_invite_sent_at' => 'datetime',
+        'staff_onboarded_at' => 'datetime',
     ];
 
     public const ONLINE_WINDOW_SECONDS = 120;
@@ -489,6 +494,102 @@ class User extends Authenticatable implements MustVerifyEmail
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    public function isStaffCreated(): bool
+    {
+        if (! static::hasUsersColumn('staff_created')) {
+            return false;
+        }
+
+        try {
+            return (bool) $this->staff_created;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    public function isStaffOnboarded(): bool
+    {
+        if (! static::hasUsersColumn('staff_onboarded_at')) {
+            return $this->hasVerifiedEmail();
+        }
+
+        try {
+            return $this->staff_onboarded_at !== null;
+        } catch (\Throwable) {
+            return $this->hasVerifiedEmail();
+        }
+    }
+
+    public function staffOnboardingStatus(): ?string
+    {
+        if (! $this->isStaffCreated()) {
+            return null;
+        }
+
+        return $this->isStaffOnboarded() ? 'activated' : 'invited';
+    }
+
+    public function needsStaffPasswordSetup(): bool
+    {
+        return $this->isStaffCreated() && ! $this->isStaffOnboarded();
+    }
+
+    public function markStaffInviteSent(): void
+    {
+        if (! static::hasUsersColumn('staff_invite_sent_at')) {
+            return;
+        }
+
+        try {
+            $this->forceFill(['staff_invite_sent_at' => now()])->save();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    public function activateStaffOnboarding(): void
+    {
+        $attrs = static::existingAttributes([
+            'staff_onboarded_at' => $this->staff_onboarded_at ?? now(),
+            'email_verified_at' => $this->email_verified_at ?? now(),
+        ]);
+        if ($attrs === []) {
+            if (! $this->email_verified_at) {
+                $this->email_verified_at = now();
+                $this->save();
+            }
+
+            return;
+        }
+
+        $this->forceFill($attrs)->save();
+    }
+
+    public function hasPendingStaffInvites(): bool
+    {
+        try {
+            return $this->sites()
+                ->whereNull('publisher_accepted_at')
+                ->whereNotNull('assigned_by_user_id')
+                ->exists();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopeStaffCreated($query)
+    {
+        if (! static::hasUsersColumn('staff_created')) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->where('staff_created', 1);
     }
 
     /**
