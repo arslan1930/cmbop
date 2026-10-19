@@ -57,6 +57,9 @@ use App\Services\Orders\ContentRevisionService;
 use App\Services\Orders\OrderClawbackService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Partners\PartnerAlertService;
+use App\Services\Partners\PartnerChannel;
+use App\Services\Partners\PartnerCorrectionService;
+use App\Services\Partners\PartnerSettlement;
 use App\Services\PaypalCheckoutService;
 use App\Services\PaypalPaymentNotifier;
 use App\Services\PlatformFeeService;
@@ -5250,18 +5253,21 @@ class CatalogController extends Controller
 
             DB::beginTransaction();
 
-            // Update order status back to 'processing'
-            $order->update([
-                'status' => 'processing',
-            ]);
-
-            // Mark unpaid lines as modification requested AND RESET TIMER.
-            // Do not rewind a line that already paid the publisher.
+            $touchedPublisher = false;
+            $partnerOnly = true;
             foreach ($order->items as $item) {
                 if ($item->isPayoutComplete()) {
                     continue;
                 }
+                if (class_exists(PartnerChannel::class)
+                    && PartnerChannel::itemIsPartner($item)) {
+                    app(PartnerCorrectionService::class)
+                        ->buyerRequest($item, $reason, auth()->user());
 
+                    continue;
+                }
+                $partnerOnly = false;
+                $touchedPublisher = true;
                 $payload = [
                     'modification_requested' => 'yes',
                     'modification_requested_at' => now(),
@@ -5275,6 +5281,11 @@ class CatalogController extends Controller
                     $payload['completion_notes'] = $request->reason;
                 }
                 $item->update($payload);
+            }
+
+            // Partner corrections wait for admin relay; do not bounce the order yet.
+            if ($touchedPublisher || ! $partnerOnly) {
+                $order->update(['status' => 'processing']);
             }
 
             DB::commit();
@@ -5313,8 +5324,7 @@ class CatalogController extends Controller
 
             foreach ($publishers as $publisher) {
                 try {
-                    if (class_exists(PartnerAlertService::class)
-                        && app(PartnerAlertService::class)->sendCorrectionIfPartner($publisher, $order, (string) $request->reason)) {
+                    if ($publisher->isSupplyPartner()) {
                         continue;
                     }
                     Mail::to($publisher->email)->send(new ModificationRequested($order, $request->reason));
@@ -6601,6 +6611,11 @@ class CatalogController extends Controller
 
                 if ($site && $site->publisher_id) {
                     $publisher = User::find($site->publisher_id);
+
+                    if ($publisher && class_exists(PartnerSettlement::class)
+                        && app(PartnerSettlement::class)->settleOnApproval($orderItem)) {
+                        continue;
+                    }
 
                     if ($publisher && $publisherRoleId) {
                         $credit = $orderItem->cappedPublisherCredit();

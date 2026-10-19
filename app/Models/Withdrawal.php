@@ -35,6 +35,7 @@ class Withdrawal extends Model
         'cancelled_at',
         'admin_notes',
         'processed_at',
+        'partner_ledger_transaction_id',
     ];
 
     protected $casts = [

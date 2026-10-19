@@ -48,6 +48,7 @@ use App\Mail\PartnerEmailChangeConfirmMail;
 use App\Mail\PartnerNewOrderMail;
 use App\Mail\PartnerPasswordResetMail;
 use App\Mail\PartnerPayoutReleasedMail;
+use App\Mail\PartnerThreadMessageMail;
 use App\Mail\PasswordChangedMail;
 use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentPendingMail;
@@ -216,6 +217,13 @@ class EmailCatalog
                 'description' => 'Catalog partner alert when a correction is requested.',
                 'category' => 'Partners',
                 'mailable' => PartnerCorrectionMail::class,
+                'status' => 'active',
+            ],
+            'partner_thread_message' => [
+                'name' => 'Partner: order message',
+                'description' => 'Catalog partner alert when a relayed thread message arrives. One-click dashboard link. No buyer identity.',
+                'category' => 'Partners',
+                'mailable' => PartnerThreadMessageMail::class,
                 'status' => 'active',
             ],
             'partner_payout_released' => [
@@ -765,6 +773,7 @@ class EmailCatalog
             'new order for your site' => 'publisher_new_order',
             'new order ' => 'partner_new_order',
             'correction requested for order' => 'partner_correction',
+            'new message on order' => 'partner_thread_message',
             'payout released:' => 'partner_payout_released',
             'confirm your new seolinkbuildings partner email' => 'partner_email_change_confirm',
             'a partner email change was requested' => 'partner_email_change_cancel',
@@ -899,6 +908,7 @@ class EmailCatalog
             'publisher_new_order' => new SiteOwnerOrderNotification($site, [$order]),
             'partner_new_order' => new PartnerNewOrderMail($user, $item, rtrim(PartnerDashboard::origin(), '/').'/orders/'.$item->id),
             'partner_correction' => new PartnerCorrectionMail($user, $item, 'Move the link into paragraph 2.', rtrim(PartnerDashboard::origin(), '/').'/orders/'.$item->id),
+            'partner_thread_message' => new PartnerThreadMessageMail($user, $item, 'Please keep the live URL on the agreed domain.', rtrim(PartnerDashboard::origin(), '/').'/orders/'.$item->id),
             'partner_payout_released' => new PartnerPayoutReleasedMail($user, self::sampleWithdrawal()),
             'partner_email_change_confirm' => new PartnerEmailChangeConfirmMail($user, self::samplePartnerEmailChange(), 'preview-confirm-token'),
             'partner_email_change_cancel' => new PartnerEmailChangeCancelMail($user, self::samplePartnerEmailChange(), 'preview-cancel-token'),

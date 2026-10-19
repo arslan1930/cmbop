@@ -2,7 +2,7 @@
 
 Staff hub at `/admin/partners`. A **catalog partner** is a normal SLB publisher account (same onboarding, My Sites, orders, withdrawals). Imported sites, once put live, become ordinary marketplace listings owned by that publisher. Teqno LTD (17392540) charges **no fees** to publishers or partners. Partners never see the SLB price, commission, margin, advertiser counts or order volumes.
 
-This ships Appendix C.1 steps 2–3 (catalog import, admin selection, dual pricing). The partner web dashboard is documented in [`docs/partner-dashboard.md`](partner-dashboard.md). Chat relay, new ledger, API keys/webhooks, payout modes and reseller API are **not** built.
+This ships Appendix C.1 steps 2–4 and 6–11 (catalog import, selection, dual pricing, frozen order prices, thread relay, partner ledger, API keys/webhooks, auto-approve dry-run, pull adapter). The partner web dashboard is documented in [`docs/partner-dashboard.md`](partner-dashboard.md).
 
 ## URLs
 
@@ -15,12 +15,14 @@ This ships Appendix C.1 steps 2–3 (catalog import, admin selection, dual prici
 | Pricing rules + preview | `/admin/partners/pricing-rules`, `/admin/partners/pricing-rules/preview` |
 | Auto-approve rules + dry-run | `/admin/partners/auto-approve-rules` |
 | Partner rate-rise queue | `/admin/partners/rate-changes` |
+| Order thread relay / disputes | `/admin/partners/relay` |
+| Partner payouts / clawbacks | `/admin/partners/payouts` |
 | Existing onboard (tick Catalog partner) | `/admin/publishers/onboard` |
 
 ## Owner actions (Hostinger)
 
-1. Run `database/sql/add_partner_catalog_import.sql` in phpMyAdmin (starts with `USE u841082722_cmbop_db;`). Safe to re-run. Migrations are **not** auto-run.
-2. Cron already calls `schedule:run`. New daily jobs: `partners:refresh-fx` at 03:40, `partners:sync-feeds` at 04:00. No extra crontab line.
+1. Run `database/sql/add_partner_catalog_import.sql`, then `database/sql/add_partner_dashboard.sql`, then `database/sql/add_partner_full_channel.sql` in phpMyAdmin (each starts with `USE u841082722_cmbop_db;`). Safe to re-run. Migrations are **not** auto-run.
+2. Cron already calls `schedule:run`. Jobs: `partners:refresh-fx` 03:40, `partners:sync-feeds` 04:00, `partners:sync-api-pull` 04:05, `partners:deliver-webhooks` every minute, `partners:release-holds` hourly, `partners:monitor-links` every 6 hours, `partners:generate-statements` monthly. No extra crontab line.
 3. Optional env (all have defaults in `config/partners.php`):
 
 ```
@@ -32,6 +34,7 @@ PARTNER_RATE_INCREASE_LIMIT=4
 CZK_PER_EUR=25.0
 PLN_PER_EUR=4.30
 PARTNER_FX_ECB_URL=https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml
+PARTNER_API_RATE_PER_MINUTE=60
 ```
 
 No Redis. No new queue. Mail still uses `emails`.

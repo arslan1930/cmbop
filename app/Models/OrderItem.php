@@ -82,6 +82,19 @@ class OrderItem extends Model
         'content_source',
         'writing_fee',
         'listing_writing_fee',
+        'hold_until',
+        'keep_live_until',
+        'payout_mode_at_submission',
+        'first_submitted_at',
+        'partner_corrections_used',
+        'partner_dispute_status',
+        'partner_earnings_status',
+        'hold_released_at',
+        'link_alert',
+        'keep_live_terms_version',
+        'partner_awaiting_relay',
+        'partner_payout_eur',
+        'slb_price_eur_internal',
     ];
 
     protected $casts = [
@@ -103,6 +116,14 @@ class OrderItem extends Model
         'completed_at' => 'datetime',
         'live_url_submitted_at' => 'datetime',
         'live_url_checked_at' => 'datetime',
+        'hold_until' => 'datetime',
+        'keep_live_until' => 'datetime',
+        'first_submitted_at' => 'datetime',
+        'hold_released_at' => 'datetime',
+        'link_alert' => 'boolean',
+        'partner_awaiting_relay' => 'boolean',
+        'partner_payout_eur' => 'decimal:2',
+        'slb_price_eur_internal' => 'decimal:2',
         'live_url_check_ok' => 'boolean',
         'modification_requested_at' => 'datetime',
         'content_revision_requested_at' => 'datetime',
@@ -119,6 +140,10 @@ class OrderItem extends Model
         'stalled_notice_sent_at' => 'datetime',
         'writing_fee' => 'decimal:2',
         'listing_writing_fee' => 'decimal:2',
+    ];
+
+    protected $hidden = [
+        'slb_price_eur_internal',
     ];
 
     /**
@@ -1040,6 +1065,13 @@ class OrderItem extends Model
 
         // Must not have modification requested
         if ($this->isModificationRequested()) {
+            return false;
+        }
+
+        if (Schema::hasColumn('order_items', 'partner_awaiting_relay') && $this->partner_awaiting_relay) {
+            return false;
+        }
+        if ((string) ($this->partner_dispute_status ?? '') === 'open') {
             return false;
         }
 

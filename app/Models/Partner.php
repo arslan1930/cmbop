@@ -25,6 +25,13 @@ class Partner extends Model
         'notification_preferences',
         'security_review_at',
         'one_click_links',
+        'payout_mode',
+        'payout_mode_effective_from',
+        'payout_mode_requested',
+        'instant_exposure_cap_minor',
+        'keep_live_months',
+        'fulfilment_channel_default',
+        'public_id',
     ];
 
     protected $casts = [
@@ -34,6 +41,9 @@ class Partner extends Model
         'notification_preferences' => 'array',
         'security_review_at' => 'datetime',
         'one_click_links' => 'boolean',
+        'payout_mode_effective_from' => 'datetime',
+        'instant_exposure_cap_minor' => 'integer',
+        'keep_live_months' => 'integer',
     ];
 
     public function user(): BelongsTo

@@ -10,9 +10,11 @@ use App\Listeners\StampEmailLogFailedJobUuid;
 use App\Models\Blog;
 use App\Models\DepositRequest;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\User;
 use App\Services\CartPricingService;
 use App\Services\EmailNotificationService;
+use App\Services\Partners\PartnerPriceFreeze;
 use App\Services\Wallet\WelcomeBonusService;
 use App\Support\BillingCustomerMailSuppressor;
 use App\Support\DisplayCurrencyPreference;
@@ -140,6 +142,13 @@ class AppServiceProvider extends ServiceProvider
             $id = $request->user()?->getAuthIdentifier() ?: $request->ip();
 
             return Limit::perMinute(60)->by('mcp:'.$id);
+        });
+
+        RateLimiter::for('partner-api', function (Request $request) {
+            $id = $request->attributes->get('partner_api_key_id') ?: $request->ip();
+
+            return Limit::perMinute((int) config('partners.api_rate_per_minute', 60))
+                ->by('partner-api:'.$id);
         });
 
         RateLimiter::for('contact-form', function (Request $request) {
@@ -288,6 +297,17 @@ class AppServiceProvider extends ServiceProvider
             } catch (\Throwable $e) {
                 Log::warning('Order created billing hook failed', [
                     'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        });
+
+        OrderItem::created(function (OrderItem $item) {
+            try {
+                app(PartnerPriceFreeze::class)->freeze($item);
+            } catch (\Throwable $e) {
+                Log::warning('Partner price freeze on create failed', [
+                    'order_item_id' => $item->id,
                     'error' => $e->getMessage(),
                 ]);
             }

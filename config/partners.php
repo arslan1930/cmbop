@@ -65,4 +65,6 @@ return [
     'dashboard_session_idle_minutes' => max(5, (int) env('PARTNER_DASHBOARD_SCOPED_IDLE_MINUTES', 30)),
 
     'dashboard_session_max_minutes' => max(10, (int) env('PARTNER_DASHBOARD_SCOPED_MAX_MINUTES', 120)),
+
+    'api_rate_per_minute' => max(10, (int) env('PARTNER_API_RATE_PER_MINUTE', 60)),
 ];

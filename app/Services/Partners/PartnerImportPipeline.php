@@ -70,8 +70,34 @@ class PartnerImportPipeline
     }
 
     /**
-     * @param  array{actor?: ?User, skip_reachability?: bool, confirm_drop?: bool}  $options
+     * Pull-adapter entry: already-mapped CSV-like associative rows.
+     *
+     * @param  list<array<string, string>>  $rows
+     * @param  array{actor?: ?User, connection?: ?PartnerConnection, skip_reachability?: bool, confirm_drop?: bool}  $options
      */
+    public function importMappedFieldRows(Partner $partner, string $source, array $rows, array $options = []): PartnerImportJob
+    {
+        $job = PartnerImportJob::query()->create([
+            'partner_id' => $partner->id,
+            'connection_id' => ($options['connection'] ?? null)?->id,
+            'source' => $source,
+            'status' => PartnerImportJob::STATUS_RUNNING,
+            'started_at' => now(),
+            'actor_id' => ($options['actor'] ?? null)?->id,
+            'counts' => $this->emptyCounts(),
+        ]);
+        try {
+            $this->processRows($job, $partner, $rows, $options);
+        } catch (\Throwable $e) {
+            $job->status = PartnerImportJob::STATUS_FAILED;
+            $job->error = $e->getMessage();
+            $job->finished_at = now();
+            $job->save();
+        }
+
+        return $job->fresh() ?? $job;
+    }
+
     public function importFeed(Partner $partner, PartnerConnection $connection, array $options = []): PartnerImportJob
     {
         $options['connection'] = $connection;

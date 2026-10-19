@@ -14,6 +14,7 @@ use App\Models\Wallet;
 use App\Services\CheckoutSchemaService;
 use App\Services\InAppNotificationService;
 use App\Services\Orders\OrderRefundService;
+use App\Services\Partners\PartnerSettlement;
 use App\Services\Wallet\WalletLedgerService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -227,6 +228,9 @@ class AutoApproveOrders extends Command
                     continue;
                 }
 
+                $partnerSettled = class_exists(PartnerSettlement::class)
+                    && app(PartnerSettlement::class)->settleOnApproval($lockedItem);
+
                 $itemUpdate = [
                     'auto_approve_triggered' => true,
                     'auto_approve_at' => Carbon::now(),
@@ -257,7 +261,7 @@ class AutoApproveOrders extends Command
                     Site::refreshCompletedOrdersCount((int) $site->id);
                 }
 
-                if ($site && $site->publisher_id && $publisherRoleId) {
+                if ($site && $site->publisher_id && $publisherRoleId && ! $partnerSettled) {
                     $publisher = User::find($site->publisher_id);
 
                     if ($publisher) {

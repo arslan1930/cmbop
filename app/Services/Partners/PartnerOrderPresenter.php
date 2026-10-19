@@ -60,9 +60,13 @@ class PartnerOrderPresenter
             'live_url_submitted_at' => optional($item->live_url_submitted_at)?->toDayDateTimeString(),
             'can_accept' => $status === PartnerOrderStatus::PENDING,
             'can_reject' => in_array($status, [PartnerOrderStatus::PENDING, PartnerOrderStatus::IN_PROGRESS], true),
-            'can_submit' => in_array($status, [PartnerOrderStatus::IN_PROGRESS, PartnerOrderStatus::NEEDS_CORRECTION], true)
+            'hold_until' => optional($item->hold_until)?->toDayDateTimeString(),
+            'keep_live_until' => optional($item->keep_live_until)?->toDayDateTimeString(),
+            'earnings_status' => $item->partner_earnings_status,
+            'payout_mode' => $item->payout_mode_at_submission,
+            'can_submit' => in_array($status, [PartnerOrderStatus::IN_PROGRESS, PartnerOrderStatus::AWAITING_CORRECTION], true)
                 && ! $item->isContentRevisionRequested(),
-            'can_resubmit' => $status === PartnerOrderStatus::NEEDS_CORRECTION,
+            'can_resubmit' => $status === PartnerOrderStatus::AWAITING_CORRECTION,
             'timeline' => $this->timeline($item),
         ];
     }

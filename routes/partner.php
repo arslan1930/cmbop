@@ -50,6 +50,9 @@ $registerPartnerDashboard = static function (): void {
         Route::post('/orders/{order}/accept', [PartnerOrderController::class, 'accept'])->name('orders.accept');
         Route::post('/orders/{order}/reject', [PartnerOrderController::class, 'reject'])->name('orders.reject');
         Route::post('/orders/{order}/submit', [PartnerOrderController::class, 'submit'])->name('orders.submit');
+        Route::post('/orders/{order}/reply', [PartnerOrderController::class, 'reply'])->name('orders.reply');
+        Route::post('/orders/{order}/corrections/{correction}/decline', [PartnerOrderController::class, 'decline'])->name('orders.decline');
+        Route::get('/orders/{order}/attachments/{attachment}', [PartnerOrderController::class, 'attachment'])->name('orders.attachment');
         Route::post('/orders/{order}/fixed', [PartnerOrderController::class, 'markFixed'])->name('orders.fixed');
         Route::get('/sites', [PartnerSiteController::class, 'index'])->name('sites.index');
 
@@ -61,11 +64,16 @@ $registerPartnerDashboard = static function (): void {
             Route::post('/money/withdrawals/{id}/cancel', [PartnerMoneyController::class, 'cancel'])
                 ->middleware('throttle:10,1')
                 ->name('money.cancel');
+            Route::post('/money/instant', [PartnerMoneyController::class, 'requestInstant'])->name('money.instant');
             Route::get('/settings', [PartnerSettingsController::class, 'index'])->name('settings.index');
             Route::post('/settings/name', [PartnerSettingsController::class, 'updateName'])->name('settings.name');
             Route::post('/settings/password', [PartnerSettingsController::class, 'updatePassword'])->name('settings.password');
             Route::post('/settings/notifications', [PartnerSettingsController::class, 'updateNotifications'])->name('settings.notifications');
             Route::post('/settings/email', [PartnerSettingsController::class, 'requestEmailChange'])->name('settings.email');
+            Route::post('/settings/keys', [PartnerSettingsController::class, 'issueKey'])->name('settings.keys');
+            Route::post('/settings/keys/{key}/revoke', [PartnerSettingsController::class, 'revokeKey'])->name('settings.keys.revoke');
+            Route::post('/settings/webhooks', [PartnerSettingsController::class, 'saveWebhook'])->name('settings.webhooks');
+            Route::post('/settings/webhooks/{endpoint}/disable', [PartnerSettingsController::class, 'disableWebhook'])->name('settings.webhooks.disable');
         });
     });
 };

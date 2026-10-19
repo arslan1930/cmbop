@@ -88,8 +88,17 @@ class PartnerOrderQuery
         match ($status) {
             PartnerOrderStatus::REJECTED => $q->whereHas('order', fn (Builder $o) => $o->where('status', 'cancelled')),
             PartnerOrderStatus::COMPLETED => $q->whereHas('order', fn (Builder $o) => $o->where('status', 'completed')),
-            PartnerOrderStatus::NEEDS_CORRECTION => $hasMod
+            PartnerOrderStatus::DISPUTED => Schema::hasColumn('order_items', 'partner_dispute_status')
+                ? $q->where('order_items.partner_dispute_status', 'open')
+                : $q->whereRaw('0=1'),
+            PartnerOrderStatus::AWAITING_CORRECTION => $hasMod
                 ? $q->where('order_items.modification_requested', 'yes')
+                    ->where(function (Builder $d) {
+                        if (Schema::hasColumn('order_items', 'partner_dispute_status')) {
+                            $d->whereNull('order_items.partner_dispute_status')
+                                ->orWhere('order_items.partner_dispute_status', '!=', 'open');
+                        }
+                    })
                     ->whereHas('order', fn (Builder $o) => $o->whereNotIn('status', ['cancelled', 'completed']))
                 : $q->whereRaw('0=1'),
             PartnerOrderStatus::SUBMITTED => $q->whereHas('order', fn (Builder $o) => $o->where('status', 'review'))
