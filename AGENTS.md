@@ -122,6 +122,8 @@ Admin → Activity History (append-only ActivityLogger log):
 [`docs/admin-activity-logs.md`](docs/admin-activity-logs.md).
 Admin → Catalog Activity (hide-mode / copy-strike queue):
 [`docs/admin-catalog-activity.md`](docs/admin-catalog-activity.md).
+Admin → Partners (catalog import, selection, dual pricing):
+[`docs/admin-partners.md`](docs/admin-partners.md).
 Advertiser → API & MCP (remote Claude/Cursor connector):
 [`docs/advertiser-mcp.md`](docs/advertiser-mcp.md).
 
