@@ -47,11 +47,29 @@ class AdminPublisherOnboardingTest extends TestCase
 
     public function test_admin_can_open_onboarding_screens(): void
     {
-        $this->actingAs($this->admin)
+        $html = $this->actingAs($this->admin)
             ->get(route('admin.publishers.onboard'))
             ->assertOk()
             ->assertSee('Add publisher on their behalf', false)
-            ->assertSee('Invite to Accept', false);
+            ->assertSee('Invite to Accept', false)
+            ->getContent();
+
+        $this->assertStringContainsString('jquery-3.6.0.min.js', $html);
+        $this->assertStringContainsString('js/multi-select.js', $html);
+        $this->assertStringContainsString('initMultiSelect', $html);
+        $this->assertStringContainsString('id="categoryOptions"', $html);
+        $this->assertStringContainsString('multi-select-option', $html);
+        $this->assertStringContainsString('Search languages', $html);
+        $this->assertMatchesRegularExpression('/id="language"[^>]*data-admin-select-search="1"/s', $html);
+        $this->assertMatchesRegularExpression('/id="publisher_language"[^>]*data-admin-select-search="1"/s', $html);
+        $this->assertMatchesRegularExpression('/id="country"[^>]*data-admin-select-search="1"/s', $html);
+        $this->assertStringContainsString('name="email"', $html);
+        $this->assertStringContainsString('name="name"', $html);
+
+        $niche = (string) (Category::query()->where('name', 'Marketing, PR & Advertising')->value('name')
+            ?: Category::query()->orderBy('name')->value('name'));
+        $this->assertNotSame('', $niche);
+        $this->assertStringContainsString('data-value="'.e($niche).'"', $html);
 
         $this->actingAs($this->admin)
             ->get(route('admin.publishers.onboard.bulk'))
@@ -112,6 +130,7 @@ class AdminPublisherOnboardingTest extends TestCase
 
         $publisher = User::query()->where('email', 'new-publisher@example.com')->first();
         $this->assertNotNull($publisher);
+        $this->assertSame('Ada Publisher', $publisher->name);
         $this->assertTrue($publisher->isStaffCreated());
         $this->assertSame('invited', $publisher->staffOnboardingStatus());
         $this->assertFalse($publisher->hasVerifiedEmail());
@@ -123,6 +142,7 @@ class AdminPublisherOnboardingTest extends TestCase
         $this->assertTrue($site->isPendingPublisherAcceptance());
         $this->assertSame((int) $publisher->id, (int) $site->publisher_id);
         $this->assertEquals(120.0, (float) $site->price);
+        $this->assertStringContainsString($niche, (string) $site->category);
 
         Mail::assertQueued(PublisherStaffOnboardingMail::class, function (PublisherStaffOnboardingMail $mail) use ($publisher) {
             if (! $mail->hasTo($publisher->email)) {
@@ -230,6 +250,112 @@ class AdminPublisherOnboardingTest extends TestCase
             User::query()->where('email', 'google-link@example.com')->value('id')
         );
         $this->assertTrue($publisher->hasPendingStaffInvites());
+    }
+
+    public function test_onboarding_saves_selected_niches(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->market();
+        $second = (string) Category::query()->where('name', '!=', $niche)->orderBy('name')->value('name');
+        $this->assertNotSame('', $second);
+
+        $payload = $this->singlePayload($country, $language, $niche, 'niches@example.com', 'https://niches-site.example');
+        $payload['categories'] = $niche.'|'.$second;
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.publishers.onboard.store'), $payload)
+            ->assertRedirect(route('admin.publishers.onboardings'));
+
+        $site = Site::where('domain', 'niches-site.example')->first();
+        $this->assertNotNull($site);
+        $saved = array_values(array_filter(preg_split('/\|/', (string) $site->category) ?: []));
+        $this->assertEqualsCanonicalizing([$niche, $second], $saved);
+    }
+
+    public function test_site_url_with_stray_characters_is_rejected(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->market();
+
+        $invalidUrls = [
+            'https://test.com`',
+            'https://test.com"',
+            "https://test.com'",
+            'https://test.com/foo bar',
+        ];
+
+        foreach ($invalidUrls as $index => $url) {
+            $email = 'bad-url-'.$index.'@example.com';
+            $this->actingAs($this->admin)
+                ->from(route('admin.publishers.onboard'))
+                ->post(route('admin.publishers.onboard.store'), $this->singlePayload(
+                    $country,
+                    $language,
+                    $niche,
+                    $email,
+                    $url
+                ))
+                ->assertRedirect();
+
+            $this->assertNull(User::query()->where('email', $email)->first());
+            $this->assertNull(Site::query()->where('site_url', $url)->first());
+            $failures = session('bulk_row_errors');
+            $this->assertIsArray($failures);
+            $this->assertNotEmpty($failures);
+            $messages = implode(' ', array_merge(...array_map(
+                static fn ($failure) => $failure['errors'] ?? [],
+                $failures
+            )));
+            $this->assertStringContainsString('Invalid URL', $messages);
+        }
+
+        Mail::assertNothingQueued();
+    }
+
+    public function test_site_url_whitespace_is_trimmed_and_accepted(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->market();
+        $payload = $this->singlePayload($country, $language, $niche, 'trim-url@example.com', 'https://trim-url.example');
+        $payload['site_url'] = '  https://trim-url.example  ';
+        $payload['example_url'] = '  https://trim-url.example/sample  ';
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.publishers.onboard.store'), $payload)
+            ->assertRedirect(route('admin.publishers.onboardings'));
+
+        $site = Site::where('domain', 'trim-url.example')->first();
+        $this->assertNotNull($site);
+        $this->assertSame('https://trim-url.example', $site->site_url);
+        $this->assertSame('https://trim-url.example/sample', $site->example_url);
+        $this->assertSame('Onboard Pub', User::query()->where('email', 'trim-url@example.com')->value('name'));
+    }
+
+    public function test_bulk_dry_run_flags_invalid_site_url_characters(): void
+    {
+        Mail::fake();
+        [$country, $language, $niche] = $this->market();
+        $code = strtolower((string) $country->code);
+        $lang = strtolower((string) $language->code);
+        $description = str_repeat('Quality editorial site for guest posts. ', 4);
+        $rows = "bad-tick@example.com,Name,https://test.com`,80,{$code},{$lang},40,35,12000,Tick Site,https://test.com/sample,3days,permanent,dofollow,,{$niche},{$description}";
+
+        $this->actingAs($this->admin)
+            ->from(route('admin.publishers.onboard.bulk'))
+            ->post(route('admin.publishers.onboard.bulk.preview'), ['rows' => $rows])
+            ->assertRedirect();
+
+        $preview = session('onboard_preview');
+        $this->assertIsArray($preview);
+        $this->assertNotEmpty($preview['failures']);
+        $this->assertFalse($preview['can_commit'] ?? true);
+        $messages = implode(' ', array_merge(...array_map(
+            static fn ($failure) => $failure['errors'] ?? [],
+            $preview['failures']
+        )));
+        $this->assertStringContainsString('Invalid URL', $messages);
+        $this->assertNull(User::query()->where('email', 'bad-tick@example.com')->first());
+        Mail::assertNothingQueued();
     }
 
     public function test_bulk_dry_run_shows_row_errors_and_saves_nothing(): void

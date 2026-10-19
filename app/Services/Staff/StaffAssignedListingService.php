@@ -651,6 +651,9 @@ class StaffAssignedListingService
         if ($host === 'localhost' || ! str_contains($host, '.')) {
             return false;
         }
+        if (! $this->isDnsHostname($host)) {
+            return false;
+        }
 
         $labels = explode('.', $host);
         $tld = (string) end($labels);
@@ -668,6 +671,26 @@ class StaffAssignedListingService
         }
 
         return ! $allNumeric;
+    }
+
+    /**
+     * DNS hostname after IDN conversion: letters, digits, hyphens; no backticks/quotes.
+     */
+    private function isDnsHostname(string $host): bool
+    {
+        $host = strtolower(trim($host));
+        if ($host === '' || strlen($host) > 253) {
+            return false;
+        }
+        if (function_exists('idn_to_ascii') && ! filter_var($host, FILTER_VALIDATE_IP) && ! str_starts_with($host, '[')) {
+            $ascii = idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
+            if (! is_string($ascii) || $ascii === '') {
+                return false;
+            }
+            $host = strtolower($ascii);
+        }
+
+        return filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
     }
 
     private function normalizeSiteName(string $raw): string
@@ -708,10 +731,19 @@ class StaffAssignedListingService
         return [];
     }
 
+    /**
+     * Reject whitespace, quotes, backticks, and other characters that are not
+     * valid in an http(s) listing URL (after the value is trimmed).
+     */
+    private function containsForbiddenUrlCharacters(string $url): bool
+    {
+        return preg_match('/[\x00-\x1f\x7f\s`"\'<>\\\\]/u', $url) === 1;
+    }
+
     private function normalizeHttpUrl(string $url): string
     {
         $url = trim($url);
-        if ($url === '' || str_contains($url, "\0") || preg_match('/\s/u', $url) === 1) {
+        if ($url === '' || $this->containsForbiddenUrlCharacters($url)) {
             return '';
         }
 
@@ -742,7 +774,7 @@ class StaffAssignedListingService
         }
 
         $host = rtrim($parts['host'], '.');
-        if ($host === '') {
+        if ($host === '' || ! $this->isDnsHostname($host)) {
             return '';
         }
         if (function_exists('idn_to_ascii') && ! filter_var($host, FILTER_VALIDATE_IP) && ! str_starts_with($host, '[')) {

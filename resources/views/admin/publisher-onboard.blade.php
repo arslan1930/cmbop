@@ -49,7 +49,10 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="publisher_country">Country</label>
-                        <select id="publisher_country" name="country" class="form-select" data-admin-select-search="1">
+                        <select id="publisher_country" name="country" class="form-select"
+                                data-admin-select-search="1"
+                                data-admin-select-search-label="Search countries"
+                                data-admin-select-search-empty="No countries match">
                             <option value="">Optional…</option>
                             @foreach($countries as $country)
                                 <option value="{{ marketplace_option_code($country) }}" @selected(old_text('country') === marketplace_option_code($country))>{{ marketplace_option_name($country) }}</option>
@@ -58,7 +61,10 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" for="publisher_language">Language</label>
-                        <select id="publisher_language" name="language" class="form-select">
+                        <select id="publisher_language" name="language" class="form-select"
+                                data-admin-select-search="1"
+                                data-admin-select-search-label="Search languages"
+                                data-admin-select-search-empty="No languages match">
                             <option value="">Optional…</option>
                             @foreach($languages as $language)
                                 <option value="{{ marketplace_option_code($language) }}" @selected(old_text('language') === marketplace_option_code($language))>{{ marketplace_option_name($language, 'language') }}</option>
@@ -123,7 +129,10 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold" for="country">Site country</label>
-                            <select id="country" name="site_country" class="form-select" data-admin-select-search="1">
+                            <select id="country" name="site_country" class="form-select"
+                                    data-admin-select-search="1"
+                                    data-admin-select-search-label="Search countries"
+                                    data-admin-select-search-empty="No countries match">
                                 <option value="">Use publisher country…</option>
                                 @foreach($countries as $country)
                                     <option value="{{ marketplace_option_code($country) }}" @selected(old_text('site_country') === marketplace_option_code($country))>{{ marketplace_option_name($country) }}</option>
@@ -132,7 +141,10 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold" for="language">Site language</label>
-                            <select id="language" name="site_language" class="form-select">
+                            <select id="language" name="site_language" class="form-select"
+                                    data-admin-select-search="1"
+                                    data-admin-select-search-label="Search languages"
+                                    data-admin-select-search-empty="No languages match">
                                 <option value="">Use publisher language…</option>
                                 @foreach($languages as $language)
                                     <option value="{{ marketplace_option_code($language) }}" @selected(old_text('site_language') === marketplace_option_code($language))>{{ marketplace_option_name($language, 'language') }}</option>
@@ -143,21 +155,25 @@
                             <label class="form-label fw-semibold" for="categoryInput">Niches (max 7)</label>
                             <input type="hidden" name="categories" id="selectedCategories" value="{{ implode('|', $prefillNiches) }}">
                             <div class="multi-select-wrapper" id="categoryWrapper" data-multi-select="category">
-                                <div class="multi-select-input" id="categoryInput" role="button" tabindex="0">
+                                <div class="multi-select-input" id="categoryInput" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" aria-label="Select niches">
                                     <span class="multi-select-placeholder">Select niches (max 7)…</span>
                                 </div>
-                                <div class="multi-select-dropdown" id="categoryDropdown">
+                                <div class="multi-select-dropdown" id="categoryDropdown" role="listbox" aria-multiselectable="true">
                                     <div class="multi-select-search">
-                                        <input type="text" placeholder="Type to search niches…" id="categorySearch" autocomplete="off">
+                                        <input type="text" placeholder="Type to search niches…" id="categorySearch" autocomplete="off" aria-label="Search niches">
                                     </div>
                                     <div class="multi-select-options" id="categoryOptions">
                                         @foreach($categories as $categoryName)
-                                            <div class="multi-select-option" data-value="{{ $categoryName }}" data-label="{{ $categoryName }}">{{ $categoryName }}</div>
+                                            <div class="multi-select-option"
+                                                 role="option"
+                                                 data-value="{{ $categoryName }}"
+                                                 data-label="{{ $categoryName }}">{{ $categoryName }}</div>
                                         @endforeach
                                     </div>
-                                    <div class="multi-select-empty d-none" id="categoryEmpty">No categories found</div>
+                                    <div class="multi-select-empty d-none" id="categoryEmpty" role="status">No categories found</div>
                                 </div>
                             </div>
+                            <div class="form-text">Click to toggle; type to search; Enter adds the highlighted match. Max 7.</div>
                             @error('categories')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-md-4">
@@ -236,6 +252,7 @@
     </form>
 </div>
 <link href="{{ same_origin_asset('assets/css/multi-select.css') }}?v={{ @filemtime(public_path('assets/css/multi-select.css')) ?: '1' }}" rel="stylesheet">
+<script src="{{ same_origin_asset('assets/js/jquery-3.6.0.min.js') }}?v={{ @filemtime(public_path('assets/js/jquery-3.6.0.min.js')) ?: '1' }}"></script>
 <script src="{{ same_origin_asset('js/multi-select.js') }}?v={{ @filemtime(public_path('js/multi-select.js')) ?: '1' }}"></script>
 <script>
 (function () {
@@ -262,6 +279,74 @@
             placeholderText: 'Select niches (max 7)…',
         });
         if (ms && prefills.length) ms.setSelectedItems(prefills, prefills);
+    }
+
+    const form = document.getElementById('publisherOnboardForm');
+    const urlFields = ['site_url', 'example_url'];
+    const invalidUrlMessage = 'Enter a valid http or https URL with a hostname (no extra characters).';
+
+    function forbiddenUrlChars(value) {
+        return /[\u0000-\u001f\u007f\s`"\'<>\\]/.test(value);
+    }
+
+    function isValidHttpUrl(value) {
+        const raw = String(value || '').trim();
+        if (raw === '' || forbiddenUrlChars(raw)) {
+            return false;
+        }
+        let parsed;
+        try {
+            const candidate = /^(https?:)?\/\//i.test(raw) ? raw : 'https://' + raw;
+            parsed = new URL(candidate);
+        } catch (e) {
+            return false;
+        }
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return false;
+        }
+        const host = String(parsed.hostname || '').replace(/^\[|\]$/g, '');
+        return /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}$/i.test(host);
+    }
+
+    function validateUrlField(el) {
+        if (!el) return true;
+        el.value = String(el.value || '').trim();
+        const ok = el.value === '' || isValidHttpUrl(el.value);
+        el.setCustomValidity(ok ? '' : invalidUrlMessage);
+        el.classList.toggle('is-invalid', !ok && el.value !== '');
+        return ok;
+    }
+
+    urlFields.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', function () {
+            el.setCustomValidity('');
+            el.classList.remove('is-invalid');
+        });
+        el.addEventListener('blur', function () {
+            validateUrlField(el);
+        });
+    });
+
+    if (form) {
+        form.addEventListener('submit', function (event) {
+            const mode = (document.querySelector('input[name="mode"]:checked') || {}).value || 'single';
+            if (mode !== 'single') return;
+            let firstInvalid = null;
+            urlFields.forEach(function (id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (!validateUrlField(el) && !firstInvalid) {
+                    firstInvalid = el;
+                }
+            });
+            if (firstInvalid) {
+                event.preventDefault();
+                firstInvalid.reportValidity();
+                firstInvalid.focus();
+            }
+        });
     }
 })();
 </script>
