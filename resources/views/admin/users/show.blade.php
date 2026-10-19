@@ -59,6 +59,13 @@
         @if(! empty($user->google_id))
             <span class="badge text-bg-light border">Google sign-in</span>
         @endif
+        @if($user->isStaffCreated())
+            @if($user->staffOnboardingStatus() === 'activated')
+                <span class="badge text-bg-success">Staff onboarded · Activated</span>
+            @else
+                <span class="badge text-bg-warning text-dark">Staff onboarded · Invited</span>
+            @endif
+        @endif
     </div>
 
     <div class="row g-3 mb-3">
@@ -192,6 +199,14 @@
                                 <i class="fa fa-key me-1"></i> Send password reset
                             </button>
                         </form>
+                        @if($user->isStaffCreated() || $user->hasPendingStaffInvites())
+                            <form method="POST" action="{{ route('admin.publishers.resend', $user) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-primary w-100">
+                                    <i class="fa fa-paper-plane me-1"></i> Resend onboarding invite
+                                </button>
+                            </form>
+                        @endif
                         <button type="button" class="btn btn-sm btn-outline-secondary action-roles w-100" data-id="{{ $user->id }}">
                             <i class="fa fa-bullhorn me-1"></i> Marketing access
                         </button>

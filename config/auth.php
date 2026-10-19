@@ -128,4 +128,8 @@ return [
         'expire' => (int) env('AUTH_VERIFICATION_EXPIRE_MINUTES', 1440),
     ],
 
+    'staff_onboarding' => [
+        'expire_days' => (int) env('STAFF_ONBOARDING_EXPIRE_DAYS', 7),
+    ],
+
 ];

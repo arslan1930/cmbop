@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\UserConsent;
 use App\Models\Wallet;
 use App\Services\EmailNotificationService;
+use App\Services\Staff\PublisherOnboardingService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Services\Wallet\WelcomeBonusService;
 use App\Support\SignupCountry;
@@ -95,6 +96,7 @@ class SocialiteController extends Controller
                     $existingUser->email_verified_at = now();
                 }
                 $existingUser->save();
+                $this->activateStaffOnboarding($existingUser);
 
                 return $this->loginAndRedirect($existingUser);
             }
@@ -183,6 +185,7 @@ class SocialiteController extends Controller
         $existingUser = User::where('email', $pending['email'])->first();
         if ($existingUser) {
             $request->session()->forget(SignupCountry::GOOGLE_SESSION);
+            $this->activateStaffOnboarding($existingUser);
 
             return $this->loginAndRedirect($existingUser);
         }
@@ -445,7 +448,7 @@ class SocialiteController extends Controller
 
         $user->load('activeRoleRelation', 'roles');
 
-        $destination = $this->postLoginDestination($user);
+        $destination = $this->staffInviteDestination($user) ?? $this->postLoginDestination($user);
 
         // Keep Location host-relative when possible so a bad APP_URL cannot
         // send the browser to http://127.0.0.1 after a successful Google login.
@@ -460,6 +463,32 @@ class SocialiteController extends Controller
      * Prefer a safe intended URL; never bounce back to login/register/OAuth
      * or to a loopback host when the user is browsing elsewhere.
      */
+    private function activateStaffOnboarding(User $user): void
+    {
+        if (method_exists($user, 'needsStaffPasswordSetup') && $user->needsStaffPasswordSetup()) {
+            app(PublisherOnboardingService::class)->activate($user);
+        }
+    }
+
+    private function staffInviteDestination(User $user): ?string
+    {
+        if (! method_exists($user, 'hasPendingStaffInvites') || ! $user->hasPendingStaffInvites()) {
+            return null;
+        }
+
+        if (method_exists($user, 'isActiveRole') && ! $user->isActiveRole('publisher')) {
+            $publisherRole = Role::where('name', 'publisher')->first();
+            if ($publisherRole && $user->roles()->where('roles.id', $publisherRole->id)->exists()) {
+                $user->active_role_id = $publisherRole->id;
+                $user->save();
+            }
+        }
+
+        request()->session()->flash('prompt_payout_setup', true);
+
+        return route('publisher.websites', ['status' => 'invites'], false);
+    }
+
     private function postLoginDestination(User $user): string
     {
         $dashboard = method_exists($user, 'getDashboardRoute')

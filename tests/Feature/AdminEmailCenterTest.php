@@ -498,6 +498,7 @@ class AdminEmailCenterTest extends TestCase
             'bulk_sites_publisher_review',
             'admin_assigned_site',
             'admin_published_site',
+            'publisher_staff_onboarding',
             'audience_campaign',
             'bulk_request_cancelled',
             'bulk_request_items_rejected',
@@ -526,6 +527,7 @@ class AdminEmailCenterTest extends TestCase
             ->assertSee('Bulk Site Request Submitted', false)
             ->assertSee('Bulk Sites Seeded', false)
             ->assertSee('Admin Assigned Site', false)
+            ->assertSee('Publisher Staff Onboarding', false)
             ->assertSee('Updates & Campaigns')
             ->assertSee('Bulk Website Request Cancelled', false)
             ->assertSee('Bulk Request Sites Not Added', false);
@@ -559,6 +561,8 @@ class AdminEmailCenterTest extends TestCase
             'Your bulk sites are active' => 'bulk_sites_seeded',
             'Please review websites from your bulk request' => 'bulk_sites_publisher_review',
             'Please accept a website we added for you' => 'admin_assigned_site',
+            'Review websites we added for you on SEOLinkBuildings' => 'publisher_staff_onboarding',
+            'Set your password and review websites we added' => 'publisher_staff_onboarding',
             'A website is live on your account' => 'admin_published_site',
             'Websites are live on your account' => 'admin_published_site',
             'Your bulk website request was cancelled' => 'bulk_request_cancelled',

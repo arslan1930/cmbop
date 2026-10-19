@@ -692,6 +692,24 @@
 <div class="container-fluid">
     <h3 class="mb-4"><span id="formHeader">Add New Website</span></h3>
 
+    @if(session('prompt_payout_setup') || request()->boolean('prompt_payout'))
+        @php
+            $payoutReady = false;
+            try {
+                $payoutReady = app(\App\Services\Wallet\PayoutProfileService::class)->availableMethods(auth()->user()) !== [];
+            } catch (\Throwable) {
+                $payoutReady = false;
+            }
+        @endphp
+        @unless($payoutReady)
+            <div class="alert alert-info alert-dismissible fade show">
+                {{ __('messages.publisher_onboard_payout_banner') }}
+                <a href="{{ route('publisher.withdraw') }}" class="alert-link ms-1">{{ __('messages.publisher_onboard_payout_banner_cta') }}</a>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endunless
+    @endif
+
     @if($errors->any())
         <div class="alert alert-danger alert-dismissible fade show">
             <ul class="mb-0">

@@ -43,6 +43,11 @@ return [
         'throttled' => 'Too many verification emails. Please wait a minute and try again.',
     ],
 
+    'publisher_onboard' => [
+        'link_invalid' => 'This invite link is invalid. Ask your contact to resend it.',
+        'password_ready' => 'Password saved. Review the listings waiting for you, then add a payment method so we can pay you.',
+    ],
+
     'oauth' => [
         'unavailable' => 'Google sign-in is not available. Please use email and password.',
         'temporary' => 'Google sign-in is temporarily unavailable. Please try again or use email and password.',
