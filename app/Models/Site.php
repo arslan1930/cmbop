@@ -107,6 +107,12 @@ class Site extends Model
         'writing_enabled',
         'writing_fee',
         'listing_writing_fee',
+        'partner_id',
+        'partner_catalog_item_id',
+        'slb_price_publish_eur',
+        'slb_price_writing_eur',
+        'slb_price_sensitive_extra_eur',
+        'partner_rate_version',
     ];
 
     public const ONBOARDING_AWAITING_DETAILS = 'awaiting_details';
@@ -165,6 +171,21 @@ class Site extends Model
         'writing_enabled' => 'boolean',
         'writing_fee' => 'decimal:2',
         'listing_writing_fee' => 'decimal:2',
+        'slb_price_publish_eur' => 'decimal:2',
+        'slb_price_writing_eur' => 'decimal:2',
+        'slb_price_sensitive_extra_eur' => 'decimal:2',
+        'partner_rate_version' => 'integer',
+    ];
+
+    /**
+     * Partner retail (advertiser) prices. Never serialised to publisher JSON.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'slb_price_publish_eur',
+        'slb_price_writing_eur',
+        'slb_price_sensitive_extra_eur',
     ];
 
     /**
@@ -2770,6 +2791,29 @@ class Site extends Model
     /**
      * Publisher-entered article price (EUR catalog), ignoring any in-memory advertiser markup.
      */
+    /**
+     * Partner catalog listings sell at a stored SLB advertiser price, not the
+     * normal hidden-fee markup of sites.price (the partner rate).
+     */
+    public function usesPartnerRetailPrice(): bool
+    {
+        if (! static::hasSitesColumn('slb_price_publish_eur')) {
+            return false;
+        }
+        $stored = $this->getAttribute('slb_price_publish_eur');
+
+        return $stored !== null && $stored !== '' && (float) $stored > 0;
+    }
+
+    public function partnerCatalogItem()
+    {
+        if (! static::hasSitesColumn('partner_catalog_item_id')) {
+            return $this->belongsTo(PartnerCatalogItem::class, 'partner_catalog_item_id');
+        }
+
+        return $this->belongsTo(PartnerCatalogItem::class, 'partner_catalog_item_id');
+    }
+
     public function publisherBasePrice(): float
     {
         $raw = $this->getRawOriginal('price');

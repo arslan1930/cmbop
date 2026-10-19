@@ -26,8 +26,12 @@ class CatalogAdvertiserPriceFilter
     {
         $listing ??= $this->listing;
         $eurSql = $listing->buyerFacingEurSql('price');
+        $markup = $this->fees->advertiserBaseSqlExpression($eurSql);
+        if (Site::hasSitesColumn('slb_price_publish_eur')) {
+            return '(CASE WHEN slb_price_publish_eur IS NOT NULL AND slb_price_publish_eur > 0 THEN slb_price_publish_eur ELSE '.$markup.' END)';
+        }
 
-        return $this->fees->advertiserBaseSqlExpression($eurSql);
+        return $markup;
     }
 
     /**
@@ -171,6 +175,9 @@ class CatalogAdvertiserPriceFilter
             'custom_discount_ends_at',
             'bulk_discount_enabled',
             'bulk_discount_percent',
+            'slb_price_publish_eur',
+            'slb_price_sensitive_extra_eur',
+            'partner_catalog_item_id',
         ] as $column) {
             if (Schema::hasColumn('sites', $column)) {
                 $columns[] = $column;

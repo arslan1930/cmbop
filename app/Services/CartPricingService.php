@@ -76,11 +76,22 @@ class CartPricingService
         $withBuffer = $listing->appliesBuffer($listingCurrency, $buyerCurrency);
         $publisherPrice = $listing->toEuros($listingBase, $listingCurrency, false);
         $advertiserListingEuros = $listing->toEuros($listingBase, $listingCurrency, $withBuffer);
-        $feePercent = $this->fees->feePercentForBase($advertiserListingEuros);
-        $feeAmount = $this->fees->feeAmountForBase($advertiserListingEuros);
-        $base = $this->fees->advertiserBase($advertiserListingEuros);
         $listingAdditional = $this->resolveListingSensitiveAdditional($site, $sensitiveType);
         $additional = $listing->toEuros($listingAdditional, $listingCurrency, $withBuffer);
+        if ($site->usesPartnerRetailPrice()) {
+            $publisherPrice = $site->publisherBasePrice();
+            $base = round((float) $site->slb_price_publish_eur, 2);
+            $advertiserListingEuros = $base;
+            if ($sensitiveType && $site->slb_price_sensitive_extra_eur !== null && (float) $site->slb_price_sensitive_extra_eur > 0) {
+                $additional = round((float) $site->slb_price_sensitive_extra_eur, 2);
+            }
+            $feeAmount = max(0, round($base - $publisherPrice, 2));
+            $feePercent = $base > 0 ? round(($feeAmount / $base) * 100, 2) : 0;
+        } else {
+            $feePercent = $this->fees->feePercentForBase($advertiserListingEuros);
+            $feeAmount = $this->fees->feeAmountForBase($advertiserListingEuros);
+            $base = $this->fees->advertiserBase($advertiserListingEuros);
+        }
 
         // Canonicalize type to the key stored on the site (e.g. CBD not cbd).
         $canonicalType = null;

@@ -100,6 +100,10 @@
                         <input type="hidden" name="confirm" value="1">
                         <p class="small text-muted">Re-upload the same CSV if you used a file — paste is kept from the preview.</p>
                         <input type="file" name="csv_file" class="form-control mb-3" accept=".csv,text/csv">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="as_partner" id="as_partner_bulk" value="1">
+                            <label class="form-check-label" for="as_partner_bulk">Mark these publishers as catalog partners (Teqno LTD). No fees.</label>
+                        </div>
                         <button type="submit" class="btn btn-primary">Create publishers and send invites</button>
                     </form>
                 @endif
