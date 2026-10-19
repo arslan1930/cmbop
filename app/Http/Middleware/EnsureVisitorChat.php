@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\PartnerDashboard;
 use App\Support\VisitorChatEmbed;
 use Closure;
 use Illuminate\Http\Request;
@@ -23,6 +24,10 @@ class EnsureVisitorChat
         }
 
         if ($request->is('admin', 'admin/*', 'api/*', 'up')) {
+            return $response;
+        }
+        if (class_exists(PartnerDashboard::class)
+            && PartnerDashboard::isDashboardRequest($request)) {
             return $response;
         }
 

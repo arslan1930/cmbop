@@ -124,6 +124,8 @@ Admin → Catalog Activity (hide-mode / copy-strike queue):
 [`docs/admin-catalog-activity.md`](docs/admin-catalog-activity.md).
 Admin → Partners (catalog import, selection, dual pricing):
 [`docs/admin-partners.md`](docs/admin-partners.md).
+Partner dashboard (`partners.seolinkbuildings.com`, same Laravel app):
+[`docs/partner-dashboard.md`](docs/partner-dashboard.md).
 Advertiser → API & MCP (remote Claude/Cursor connector):
 [`docs/advertiser-mcp.md`](docs/advertiser-mcp.md).
 

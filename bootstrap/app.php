@@ -6,9 +6,11 @@ use App\Http\Middleware\AlignGeneratedUrlsWithRequest;
 use App\Http\Middleware\BlockSuspendedUsers;
 use App\Http\Middleware\CanonicalHost;
 use App\Http\Middleware\CompressTextResponse;
+use App\Http\Middleware\ConfigurePartnerDashboardSession;
 use App\Http\Middleware\DrainQueuedMail;
 use App\Http\Middleware\EnsureVisitorChat;
 use App\Http\Middleware\HealHostingerProduction;
+use App\Http\Middleware\PartnerDashboardHost;
 use App\Http\Middleware\RecordUserLastSeen;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
@@ -78,6 +80,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $loadAppClass('app/Support/CountryHost.php');
         if ($loadAppClass('app/Http/Middleware/CanonicalHost.php')) {
             $middleware->prependToGroup('web', CanonicalHost::class);
+        }
+        if ($loadAppClass('app/Http/Middleware/ConfigurePartnerDashboardSession.php')) {
+            $middleware->prependToGroup('web', ConfigurePartnerDashboardSession::class);
+        }
+        if ($loadAppClass('app/Http/Middleware/PartnerDashboardHost.php')) {
+            // Global so it runs before route `auth` (priority-sorted ahead of
+            // appended web middleware) and can send /advertiser/* to `/`.
+            $middleware->prepend(PartnerDashboardHost::class);
         }
         $webAppend = [];
         if ($loadAppClass('app/Http/Middleware/AlignGeneratedUrlsWithRequest.php')) {

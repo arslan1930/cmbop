@@ -481,6 +481,19 @@ class PartnerCatalogImportTest extends TestCase
         $this->assertStringNotContainsString('slb_price', $encoded);
         $this->assertStringNotContainsString('commission', strtolower($encoded));
         $this->assertStringNotContainsString('markup', strtolower($encoded));
+
+        foreach (['/', '/sites', '/money', '/settings'] as $path) {
+            $html = $this->actingAs($this->publisher)
+                ->get('http://partners.seolinkbuildings.com'.$path)
+                ->assertOk()
+                ->getContent();
+            $this->assertSame([], $scan->scanText($html), $path);
+            $this->assertSame([], $scan->scanAmounts($html, [$slb]), $path);
+            $this->assertStringNotContainsString('slb_price', $html);
+            $visible = strtolower(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $this->assertStringNotContainsString('commission', $visible);
+            $this->assertStringNotContainsString('markup', $visible);
+        }
     }
 
     public function test_partner_dashboard_cannot_overwrite_the_imported_rate(): void

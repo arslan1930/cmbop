@@ -15,6 +15,7 @@ use App\Models\WalletTransaction;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\Orders\OrderRefundService;
+use App\Services\Partners\PartnerAlertService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Support\PlatformCharge;
 use Illuminate\Database\QueryException;
@@ -3224,6 +3225,10 @@ class OrderPaymentService
                 }
 
                 try {
+                    if (class_exists(PartnerAlertService::class)
+                        && app(PartnerAlertService::class)->sendNewOrderIfPartner($publisher, $site, $siteData['orders'])) {
+                        continue;
+                    }
                     Mail::to($publisher->email)->send(
                         new SiteOwnerOrderNotification($site, $siteData['orders'])
                     );
