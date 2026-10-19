@@ -72,6 +72,12 @@
                         </select>
                         <div class="form-text">Used as the default site country/language when a pasted row leaves them blank.</div>
                     </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="as_partner" id="as_partner" value="1" @checked(old('as_partner'))>
+                            <label class="form-check-label" for="as_partner">Catalog partner (Teqno LTD supply partner). Same publisher account and withdrawals; imported sites go through Admin → Partners. No fees.</label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -7,6 +7,7 @@ use App\Models\BulkSiteRequest;
 use App\Models\Category;
 use App\Models\User;
 use App\Services\Marketplace\CountryLanguagePairs;
+use App\Services\Partners\PartnerAccountService;
 use App\Services\Staff\PublisherOnboardingService;
 use App\Services\Staff\StaffAssignedListingService;
 use App\Support\MarketplacePicker;
@@ -106,6 +107,7 @@ class PublisherOnboardingController extends Controller
         $publisher = $result['publishers'][0] ?? null;
         $count = count($result['sites']);
         $created = $publisher && in_array((int) $publisher->id, $result['created_user_ids'], true);
+        $this->markCatalogPartners($result['publishers'] ?? [], $request);
 
         return redirect()
             ->route('admin.publishers.onboardings')
@@ -200,6 +202,7 @@ class PublisherOnboardingController extends Controller
 
         $publisherCount = count($result['publishers']);
         $siteCount = count($result['sites']);
+        $this->markCatalogPartners($result['publishers'] ?? [], $request);
 
         return redirect()
             ->route('admin.publishers.onboardings')
@@ -359,5 +362,24 @@ class PublisherOnboardingController extends Controller
         }
 
         return $actions;
+    }
+
+    /**
+     * @param  list<User>  $publishers
+     */
+    private function markCatalogPartners(array $publishers, Request $request): void
+    {
+        if (! $request->boolean('as_partner') || $publishers === []) {
+            return;
+        }
+        $accounts = app(PartnerAccountService::class);
+        foreach ($publishers as $publisher) {
+            if ($publisher instanceof User) {
+                $accounts->mark($publisher, $request->user(), [
+                    'legal_name' => $publisher->name,
+                    'agreement_signed' => false,
+                ]);
+            }
+        }
     }
 }

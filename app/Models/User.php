@@ -706,6 +706,28 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Site::class, 'publisher_id');
     }
 
+    public function supplyPartner()
+    {
+        return $this->hasOne(Partner::class);
+    }
+
+    public function isSupplyPartner(): bool
+    {
+        try {
+            if (! Schema::hasTable('partners')) {
+                return false;
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+
+        if ($this->relationLoaded('supplyPartner')) {
+            return $this->supplyPartner !== null;
+        }
+
+        return Partner::query()->where('user_id', $this->id)->exists();
+    }
+
     /** Portfolio shown in site counts — archived listings stay out. */
     public function notArchivedSites()
     {

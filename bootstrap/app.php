@@ -308,6 +308,14 @@ return Application::configure(basePath: dirname(__DIR__))
             $enrichCommand->weeklyOn(2, '4:15'); // Tuesday
         }
 
+        // Partner catalog: ECB CZK/PLN rates, then nightly feed re-fetch
+        $schedule->command('partners:refresh-fx')
+            ->dailyAt('03:40')
+            ->withoutOverlapping();
+        $schedule->command('partners:sync-feeds')
+            ->dailyAt('04:00')
+            ->withoutOverlapping();
+
         // Refresh catalog EUR prices from listing amounts + live FX buffer
         $schedule->command('sites:refresh-eur-prices')
             ->dailyAt('04:50')

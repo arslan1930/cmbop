@@ -23,6 +23,12 @@ use App\Http\Controllers\Admin\LinkGuaranteeController as AdminLinkGuaranteeCont
 use App\Http\Controllers\Admin\OnDemandContactController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\OrderDisputeController as AdminOrderDisputeController;
+use App\Http\Controllers\Admin\PartnerAutoApproveRuleController as AdminPartnerAutoApproveRuleController;
+use App\Http\Controllers\Admin\PartnerCatalogController as AdminPartnerCatalogController;
+use App\Http\Controllers\Admin\PartnerController as AdminPartnerController;
+use App\Http\Controllers\Admin\PartnerImportController as AdminPartnerImportController;
+use App\Http\Controllers\Admin\PartnerPricingRuleController as AdminPartnerPricingRuleController;
+use App\Http\Controllers\Admin\PartnerRateChangeController as AdminPartnerRateChangeController;
 use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\PublisherOnboardingController as AdminPublisherOnboardingController;
@@ -1511,6 +1517,31 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('publishers.onboardings');
         Route::post('/users/{user}/resend-onboard', [AdminPublisherOnboardingController::class, 'resend'])
             ->name('publishers.resend');
+
+        Route::get('/partners', [AdminPartnerController::class, 'index'])->name('partners.index');
+        Route::post('/partners', [AdminPartnerController::class, 'store'])->name('partners.store');
+        Route::get('/partners/catalog', [AdminPartnerCatalogController::class, 'index'])->name('partners.catalog');
+        Route::post('/partners/catalog/bulk', [AdminPartnerCatalogController::class, 'bulk'])->name('partners.catalog.bulk');
+        Route::get('/partners/catalog/export', [AdminPartnerCatalogController::class, 'export'])->name('partners.catalog.export');
+        Route::get('/partners/imports', [AdminPartnerImportController::class, 'index'])->name('partners.imports');
+        Route::post('/partners/imports', [AdminPartnerImportController::class, 'store'])->name('partners.imports.store');
+        Route::get('/partners/imports/template', [AdminPartnerImportController::class, 'template'])->name('partners.imports.template');
+        Route::get('/partners/imports/{import}', [AdminPartnerImportController::class, 'show'])->name('partners.imports.show');
+        Route::post('/partners/imports/{import}/confirm-drop', [AdminPartnerImportController::class, 'confirmDrop'])->name('partners.imports.confirm-drop');
+        Route::get('/partners/pricing-rules', [AdminPartnerPricingRuleController::class, 'index'])->name('partners.pricing-rules.index');
+        Route::post('/partners/pricing-rules', [AdminPartnerPricingRuleController::class, 'store'])->name('partners.pricing-rules.store');
+        Route::post('/partners/pricing-rules/{pricing_rule}', [AdminPartnerPricingRuleController::class, 'update'])->name('partners.pricing-rules.update');
+        Route::get('/partners/pricing-rules/preview', [AdminPartnerPricingRuleController::class, 'preview'])->name('partners.pricing-rules.preview');
+        Route::get('/partners/auto-approve-rules', [AdminPartnerAutoApproveRuleController::class, 'index'])->name('partners.auto-approve-rules.index');
+        Route::post('/partners/auto-approve-rules', [AdminPartnerAutoApproveRuleController::class, 'store'])->name('partners.auto-approve-rules.store');
+        Route::post('/partners/auto-approve-rules/{auto_approve_rule}', [AdminPartnerAutoApproveRuleController::class, 'update'])->name('partners.auto-approve-rules.update');
+        Route::post('/partners/auto-approve-rules/{auto_approve_rule}/dry-run', [AdminPartnerAutoApproveRuleController::class, 'dryRun'])->name('partners.auto-approve-rules.dry-run');
+        Route::get('/partners/rate-changes', [AdminPartnerRateChangeController::class, 'index'])->name('partners.rate-changes.index');
+        Route::post('/partners/rate-changes/{rate_change}/approve', [AdminPartnerRateChangeController::class, 'approve'])->name('partners.rate-changes.approve');
+        Route::post('/partners/rate-changes/{rate_change}/decline', [AdminPartnerRateChangeController::class, 'decline'])->name('partners.rate-changes.decline');
+        Route::get('/partners/{partner}', [AdminPartnerController::class, 'show'])->name('partners.show');
+        Route::post('/partners/{partner}', [AdminPartnerController::class, 'update'])->name('partners.update');
+        Route::post('/partners/{partner}/sync-feed', [AdminPartnerImportController::class, 'syncFeed'])->name('partners.sync-feed');
 
         Route::get('/users', [UserController::class, 'index'])
             ->name('users.index');

@@ -1030,6 +1030,9 @@ class SiteController extends Controller
         try {
             DB::transaction(function () use ($site, $request, $cleanDescription, $categoriesArray, $primaryCategory, $countryCodes, $languageCodes, $needsRereview, $keepAsBulkDraft) {
                 $listingFields = $this->listingPersistencePayload($request, $countryCodes[0] ?? null, $site);
+                if ($site->usesPartnerRetailPrice()) {
+                    $listingFields = $this->retainPartnerListingPrices($site, $listingFields);
+                }
                 $sensitivePrices = $listingFields['sensitive_prices'];
                 $homepagePrices = $listingFields['homepage_placement_prices'];
                 $socialPromotion = $this->collectSocialPromotion($request);
@@ -1373,6 +1376,26 @@ class SiteController extends Controller
         }
 
         $request->merge(['sensitive' => $normalized]);
+    }
+
+    /**
+     * Partner catalog listings keep the imported partner rate. SLB price stays admin-only.
+     *
+     * @param  array<string, mixed>  $listingFields
+     * @return array<string, mixed>
+     */
+    private function retainPartnerListingPrices(Site $site, array $listingFields): array
+    {
+        $listingFields['price'] = $site->publisherBasePrice();
+        $listingFields['listing_price'] = $site->listingBaseAmount();
+        $listingFields['listing_currency'] = $site->listingCurrency();
+        $listingFields['listing_sensitive_prices'] = $site->listing_sensitive_prices;
+        $listingFields['sensitive_prices'] = $site->sensitive_prices;
+        $listingFields['writing_fee'] = $site->writing_fee;
+        $listingFields['listing_writing_fee'] = $site->listing_writing_fee;
+        $listingFields['writing_enabled'] = $site->writing_enabled;
+
+        return $listingFields;
     }
 
     /**
