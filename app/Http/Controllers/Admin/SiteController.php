@@ -28,6 +28,7 @@ use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
 use App\Services\SiteEnrichment\SiteEnrichmentService;
 use App\Services\SiteEnrichment\SiteMetricsAggregator;
+use App\Services\Staff\StaffAssignedListingService;
 use App\Support\AdminSites;
 use App\Support\CatalogHealthQueue;
 use App\Support\CatalogProblemReport;
@@ -3849,8 +3850,8 @@ class SiteController extends Controller
 
         $upload = $request->file('csv_file');
         $rawRows = $upload instanceof UploadedFile
-            ? $this->bulkInviteRowsFromCsv($upload)
-            : $this->bulkInviteRowsFromPaste((string) $request->input('rows', ''));
+            ? $this->staffAssignedListings()->rowsFromCsv($upload)
+            : $this->staffAssignedListings()->rowsFromPaste((string) $request->input('rows', ''));
 
         if (count($rawRows) > BulkSiteRequest::MAX_SITES_PER_REQUEST) {
             return back()->withErrors([
@@ -3869,7 +3870,7 @@ class SiteController extends Controller
         foreach ($rawRows as $index => $fields) {
             $line = (int) ($fields['_line'] ?? ($index + 1));
             unset($fields['_line']);
-            $checked = $this->validateBulkInviteRow($fields, $line, $allowedCountries, $allowedLanguages, $seen);
+            $checked = $this->staffAssignedListings()->validateRow($fields, $line, $allowedCountries, $allowedLanguages, $seen);
             if ($checked['errors'] !== []) {
                 $failures[] = $checked;
             } else {
@@ -3889,7 +3890,7 @@ class SiteController extends Controller
         try {
             DB::transaction(function () use ($ready, $publisherId, $publishMode, &$sites, &$bulk) {
                 foreach ($ready as $row) {
-                    $sites[] = $this->persistStaffInvite($row, $publisherId, $publishMode);
+                    $sites[] = $this->staffAssignedListings()->persistInvite($row, $publisherId, $publishMode);
                 }
                 $bulk = BulkSiteRequest::openForStaffInvites($publisherId, (int) auth()->id(), $sites);
             });
@@ -5469,6 +5470,11 @@ class SiteController extends Controller
                 );
             }
         }
+    }
+
+    private function staffAssignedListings(): StaffAssignedListingService
+    {
+        return app(StaffAssignedListingService::class);
     }
 
     /**
