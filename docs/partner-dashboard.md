@@ -44,10 +44,10 @@ Bearer key auth (`Authorization: Bearer slb_live_…` or `slb_test_…`). Partne
 
 | Area | Notes |
 |---|---|
-| Webhooks | `GET/POST /webhooks`, `GET/PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/test`. Create returns the `whsec_…` signing secret **once**. Payloads are HMAC-SHA256 (`SLB-Signature: v1=…` over `{timestamp}.{body}`). Dashboard Settings has the same **Send test event** button (`webhook.test`, `livemode: false`). |
+| Webhooks | `GET/POST /webhooks`, `GET/PATCH/DELETE /webhooks/{id}`, `POST /webhooks/{id}/test`. Create returns the `whsec_…` signing secret **once**. Each delivery sends the unix timestamp in `SLB-Webhook-Timestamp` and `SLB-Signature: v1=` + HMAC_SHA256(secret, timestamp + '.' + body). Dashboard Settings has the same **Send test event** button (`webhook.test`, `livemode: false`). |
 | Order events | `order.created` always fires (even if the partner turned off new-order email). `order.accepted` / `order.rejected` fire from the API and the dashboard. |
 | Complete | `POST /orders/{id}/complete` fetches the live page (HTTP 200–399), confirms the target URL is linked, and stores the real `rel` (dofollow / nofollow / sponsored / ugc) plus whether the anchor text matches. |
-| Test keys | `slb_test_` keys only see and act on sandbox data. `POST /sandbox/orders` (test keys only) creates a fake paid order for one of the partner’s own sites: no money, ledger, invoices, advertiser email, marketplace, or admin revenue. Live keys never see those rows. Sandbox accept / reject / complete fire webhooks with `"livemode": false`. |
+| Test keys | `slb_test_` keys only see and act on sandbox data. `POST /sandbox/orders` (test keys only) creates a fake paid order for one of the partner’s own sites: no money, ledger, invoices, advertiser email, marketplace, or admin revenue. Live keys never see those rows. Sandbox accept / reject / complete fire webhooks with `"livemode": false`. If `orders.is_sandbox` or `order_items.is_sandbox` is missing, sandbox endpoints and any test-key order path fail closed with HTTP 503 `{ "error": "sandbox_unavailable" }` — they never create or return a live order. |
 
 | Method | Path | Auth |
 |---|---|---|

@@ -119,7 +119,7 @@
 
     <div class="partner-card">
         <h2>Webhooks</h2>
-        <p class="partner-lead">Signed with HMAC-SHA256 header SLB-Signature (v1=…). Events include order.created, order.accepted, order.rejected, order.published, order.completed. Send a signed <code>webhook.test</code> event from here or <code>POST /api/partner/v1/webhooks/{id}/test</code>.</p>
+        <p class="partner-lead">Timestamp is in <code>SLB-Webhook-Timestamp</code>. Signature is <code>SLB-Signature: v1=</code> + HMAC_SHA256(secret, timestamp + '.' + body). Events include order.created, order.accepted, order.rejected, order.published, order.completed. Send a signed <code>webhook.test</code> event from here or <code>POST /api/partner/v1/webhooks/{id}/test</code>.</p>
         @if (session('webhook_secret'))
             <div class="partner-alert">Signing secret (once): <code>{{ session('webhook_secret') }}</code></div>
         @endif

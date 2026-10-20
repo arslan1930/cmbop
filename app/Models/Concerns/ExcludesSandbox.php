@@ -9,8 +9,13 @@ trait ExcludesSandbox
 {
     protected static ?bool $hasSandboxColumn = null;
 
+    protected static ?bool $forcedSandboxColumn = null;
+
     public static function hasSandboxColumn(): bool
     {
+        if (static::$forcedSandboxColumn !== null) {
+            return static::$forcedSandboxColumn;
+        }
         if (static::$hasSandboxColumn === true) {
             return true;
         }
@@ -24,6 +29,20 @@ trait ExcludesSandbox
         }
 
         return $exists;
+    }
+
+    public static function forceSandboxColumnCache(?bool $exists): void
+    {
+        static::$forcedSandboxColumn = $exists;
+        if ($exists === null) {
+            static::$hasSandboxColumn = null;
+        }
+    }
+
+    public static function forgetSandboxColumnCache(): void
+    {
+        static::$hasSandboxColumn = null;
+        static::$forcedSandboxColumn = null;
     }
 
     /**

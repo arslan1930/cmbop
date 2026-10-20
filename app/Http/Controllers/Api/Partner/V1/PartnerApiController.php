@@ -31,6 +31,7 @@ use App\Services\Partners\PartnerOrderStatus;
 use App\Services\Partners\PartnerRateChangeService;
 use App\Services\Partners\PartnerSandbox;
 use App\Services\Partners\PartnerSandboxOrderService;
+use App\Services\Partners\PartnerSandboxUnavailableException;
 use App\Services\Partners\PartnerThreadService;
 use App\Services\Partners\PartnerWithdrawalService;
 use Illuminate\Http\JsonResponse;
@@ -71,6 +72,9 @@ class PartnerApiController extends Controller
 
     public function ordersIndex(Request $request): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $page = $this->orders->paginate($request->user(), $request);
         $rows = [];
         foreach ($page->items() as $item) {
@@ -89,11 +93,18 @@ class PartnerApiController extends Controller
 
     public function ordersSummary(Request $request): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
+
         return response()->json(['data' => $this->orders->counts($request->user())]);
     }
 
     public function orderShow(Request $request, string $order): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
 
         return response()->json(['data' => $this->serializer->order($request->user(), $item)]);
@@ -101,6 +112,10 @@ class PartnerApiController extends Controller
 
     public function accept(Request $request, string $order): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
+
         return $this->remember($request, function () use ($request, $order) {
             $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
             if (PartnerSandbox::isSandboxItem($item)) {
@@ -119,6 +134,10 @@ class PartnerApiController extends Controller
 
     public function reject(Request $request, string $order): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
+
         return $this->remember($request, function () use ($request, $order) {
             $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
             if (PartnerSandbox::isSandboxItem($item)) {
@@ -142,6 +161,9 @@ class PartnerApiController extends Controller
 
     public function complete(Request $request, string $order): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $request->validate(['live_url' => 'required|url']);
 
         return $this->remember($request, function () use ($request, $order) {
@@ -168,6 +190,9 @@ class PartnerApiController extends Controller
 
     public function declineCorrection(Request $request, string $order, int $correction): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $request->validate(['reason' => 'required|string|min:10|max:2000']);
         $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
         $row = PartnerOrderCorrection::query()
@@ -185,6 +210,9 @@ class PartnerApiController extends Controller
 
     public function messages(Request $request, string $order): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
 
         return response()->json(['data' => $this->thread->partnerPayload($item)]);
@@ -192,6 +220,9 @@ class PartnerApiController extends Controller
 
     public function postMessage(Request $request, string $order): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $request->validate(['body' => 'required|string|max:5000']);
         $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
         $message = $this->thread->post($item, 'partner', $request->user()->id, (string) $request->input('body'));
@@ -208,6 +239,9 @@ class PartnerApiController extends Controller
 
     public function timeline(Request $request, string $order): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
         $payload = $this->serializer->order($request->user(), $item);
         $payload['messages'] = $this->thread->partnerPayload($item);
@@ -368,6 +402,9 @@ class PartnerApiController extends Controller
 
     public function earnings(Request $request): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $items = $this->orders->scopedItems($request->user())
             ->whereNotNull('partner_earnings_status')
             ->orderByDesc('order_items.id')
@@ -519,6 +556,9 @@ class PartnerApiController extends Controller
 
     public function restore(Request $request, string $order): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
         $url = (string) ($item->live_url ?: $request->input('live_url', ''));
         if ($url === '') {
@@ -535,6 +575,9 @@ class PartnerApiController extends Controller
 
     public function monitoring(Request $request, string $order): JsonResponse
     {
+        if ($blocked = $this->rejectSandboxWhenUnavailable($request)) {
+            return $blocked;
+        }
         $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
         $incidents = PartnerLinkIncident::query()
             ->where('order_item_id', $item->id)
@@ -555,6 +598,20 @@ class PartnerApiController extends Controller
                 'checks' => $incidents,
             ],
         ]);
+    }
+
+    private function rejectSandboxWhenUnavailable(Request $request): ?JsonResponse
+    {
+        if (! PartnerSandbox::currentIsTest($request)) {
+            return null;
+        }
+        try {
+            PartnerSandbox::assertAvailable();
+        } catch (PartnerSandboxUnavailableException $e) {
+            return $e->render();
+        }
+
+        return null;
     }
 
     private function rejectLiveMutationFromTestKey(Request $request, string $message = 'Test keys cannot change live catalog, rates, or payouts.'): ?JsonResponse
