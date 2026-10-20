@@ -146,6 +146,8 @@ class CatalogUxPolishTest extends TestCase
         $this->assertStringContainsString('aria-current="step"', $html);
         $this->assertStringContainsString('id="cartBadge"', $html);
         $this->assertStringContainsString('btn-suggest-website', $html);
+        $this->assertStringContainsString('Save search', $html);
+        $this->assertStringNotContainsString('Export CSV', $html);
 
         $barPos = strpos($html, 'catalog-results-bar');
         $suggestPos = strpos($html, 'btn-suggest-website');

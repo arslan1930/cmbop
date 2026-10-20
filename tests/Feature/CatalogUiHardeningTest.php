@@ -621,4 +621,30 @@ class CatalogUiHardeningTest extends TestCase
         $this->assertFileExists(public_path('assets/js/catalog.js'));
         $this->assertStringContainsString('assets/js/catalog.js', $this->catalogBlade());
     }
+
+    public function test_catalog_listing_omits_export_csv_button(): void
+    {
+        $this->makeSite();
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('Export CSV', $html);
+        $this->assertStringNotContainsString('fa-file-csv', $html);
+        $this->assertStringNotContainsString('/advertiser/catalog/export', $html);
+        $this->assertStringContainsString('Save search', $html);
+        $this->assertStringContainsString('Suggest a website', $html);
+        $this->assertStringContainsString('catalog-results-bar', $html);
+
+        $blade = $this->catalogBlade();
+        $this->assertStringNotContainsString('advertiser.catalog.export', $blade);
+        $this->assertStringNotContainsString('Export CSV', $blade);
+
+        $js = $this->catalogJs();
+        $this->assertStringNotContainsString('catalog.export', $js);
+        $this->assertStringNotContainsString('Export CSV', $js);
+        $this->assertStringNotContainsString('/catalog/export', $js);
+    }
 }
