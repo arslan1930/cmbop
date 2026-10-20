@@ -6,13 +6,26 @@
 <div class="container-fluid py-4">
     <h1 class="h4 mb-2">API &amp; MCP</h1>
     <p class="text-muted small mb-4">
-        Connect Claude, Cursor, or Claude Code to the live SEOLinkBuildings catalog.
+        Connect Claude, Cursor, or Claude Code to the live SEOLinkBuildings catalog,
+        or place prepaid wallet orders from an agency tool.
         Assistants can search publishers, save favorites or cart items, and read your orders and wallet.
-        Checkout still happens on
+        Card checkout stays on
         <a href="{{ route('advertiser.catalog') }}">Advertiser → Catalog</a>.
+        REST docs:
+        <a href="{{ $docsUrl ?? url('/api/docs/advertiser') }}">/api/docs/advertiser</a>.
         Account name and password stay on
         <a href="{{ route('profile') }}">Profile</a>.
     </p>
+
+    @if(!empty($webhookSecret))
+        <div class="alert alert-warning">
+            <strong>Copy this webhook secret now.</strong> It will not be shown again.
+            <div class="input-group mt-2">
+                <input type="text" class="form-control font-monospace" id="advertiserWebhookSecret" readonly value="{{ $webhookSecret }}">
+                <button type="button" class="btn btn-outline-secondary slb-copy-btn" data-copy-target="advertiserWebhookSecret">Copy</button>
+            </div>
+        </div>
+    @endif
 
     @if(!empty($plainToken))
         <div class="alert alert-warning" id="advertiserApiPlainTokenAlert">
@@ -98,8 +111,24 @@
                     <label class="form-label small" for="advertiserApiTokenName">Name</label>
                     <input type="text" name="name" id="advertiserApiTokenName" class="form-control form-control-sm" required maxlength="80" placeholder="Claude, Cursor, agency tool…">
                 </div>
+                <div class="col-sm-4 col-md-3">
+                    <label class="form-label small" for="advertiserApiTokenMode">Mode</label>
+                    <select name="mode" id="advertiserApiTokenMode" class="form-select form-select-sm">
+                        <option value="live">Live (wallet)</option>
+                        <option value="test">Test (sandbox, no debit)</option>
+                    </select>
+                </div>
                 <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-primary">Create key</button>
+                </div>
+                <div class="col-12">
+                    <p class="small text-muted mb-1">Scopes (leave all checked for ordering)</p>
+                    @foreach($scopes ?? [] as $scope)
+                        <label class="form-check form-check-inline small">
+                            <input class="form-check-input" type="checkbox" name="scopes[]" value="{{ $scope }}" checked>
+                            <span class="form-check-label font-monospace">{{ $scope }}</span>
+                        </label>
+                    @endforeach
                 </div>
             </form>
         </div>
@@ -117,6 +146,7 @@
                             <tr>
                                 <th>Name</th>
                                 <th>Prefix</th>
+                                <th>Mode</th>
                                 <th>Last used</th>
                                 <th></th>
                             </tr>
@@ -126,6 +156,7 @@
                                 <tr>
                                     <td>{{ $token->name }}</td>
                                     <td class="font-monospace">{{ $token->token_prefix }}…</td>
+                                    <td class="small">{{ $token->mode ?? 'live' }}{{ $token->revoked_at ? ' · revoked' : '' }}</td>
                                     <td class="small text-muted">{{ $token->last_used_at?->diffForHumans() ?? 'Never' }}</td>
                                     <td class="text-end">
                                         <form method="POST"
@@ -137,6 +168,66 @@
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h3 class="h6">Webhooks</h3>
+            <p class="small text-muted">Signed <code>SLB-Signature: v1=…</code> events for order.created / accepted / rejected / published / cancelled. Secret is shown once.</p>
+            <form method="POST" action="{{ route('advertiser.api.webhooks.store') }}" class="row g-2 align-items-end mb-3">
+                @csrf
+                <div class="col-md-6">
+                    <label class="form-label small" for="advertiserWebhookUrl">Endpoint URL</label>
+                    <input type="url" name="url" id="advertiserWebhookUrl" class="form-control form-control-sm" required maxlength="2000" placeholder="https://hooks.example/slb">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small" for="advertiserWebhookDescription">Label</label>
+                    <input type="text" name="description" id="advertiserWebhookDescription" class="form-control form-control-sm" maxlength="255" placeholder="Agency listener">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-primary">Add webhook</button>
+                </div>
+                <input type="hidden" name="events[]" value="*">
+            </form>
+            @if(empty($webhooks) || count($webhooks) === 0)
+                <p class="small text-muted mb-0">No webhook endpoints yet.</p>
+            @else
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>URL</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($webhooks as $hook)
+                                <tr>
+                                    <td class="small font-monospace">{{ $hook['url'] }}</td>
+                                    <td>{{ $hook['status'] }}</td>
+                                    <td class="text-end">
+                                        <form method="POST" action="{{ route('advertiser.api.webhooks.test', (int) str_replace('wh_', '', $hook['id'])) }}" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Send test</button>
+                                        </form>
+                                        <form method="POST" action="{{ route('advertiser.api.webhooks.destroy', (int) str_replace('wh_', '', $hook['id'])) }}" class="d-inline"
+                                              data-slb-confirm="Remove this webhook endpoint?"
+                                              data-slb-confirm-title="Remove webhook?"
+                                              data-slb-confirm-text="Remove"
+                                              data-slb-confirm-danger="1">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                                         </form>
                                     </td>
                                 </tr>

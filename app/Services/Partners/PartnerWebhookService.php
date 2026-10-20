@@ -6,6 +6,7 @@ use App\Models\Partner;
 use App\Models\PartnerWebhookDelivery;
 use App\Models\PartnerWebhookEndpoint;
 use App\Models\PartnerWebhookEvent;
+use App\Services\Api\WebhookSignature;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -210,7 +211,7 @@ class PartnerWebhookService
         $body = json_encode($event->payload, JSON_UNESCAPED_SLASHES);
         $timestamp = (string) time();
         $secret = $endpoint->plainSecret();
-        $signature = 'v1='.hash_hmac('sha256', $timestamp.'.'.$body, $secret);
+        $signature = WebhookSignature::sign($secret, $timestamp, $body);
         try {
             $response = Http::timeout(10)
                 ->withHeaders([
@@ -243,7 +244,7 @@ class PartnerWebhookService
 
     public function sign(string $secret, string $timestamp, string $body): string
     {
-        return 'v1='.hash_hmac('sha256', $timestamp.'.'.$body, $secret);
+        return WebhookSignature::sign($secret, $timestamp, $body);
     }
 
     private function scheduleRetry(PartnerWebhookDelivery $delivery, PartnerWebhookEndpoint $endpoint, string $error): void

@@ -14,6 +14,7 @@ use App\Models\OrderChatMessage;
 use App\Models\OrderItem;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\Advertiser\AdvertiserOrderWebhookBridge;
 use App\Services\CheckoutSchemaService;
 use App\Services\ContentUpload\ArticlePreviewHtml;
 use App\Services\InAppNotificationService;
@@ -558,6 +559,7 @@ class OrderController extends Controller
 
             app(InAppNotificationService::class)->notifyOrderAccepted($order, $orderItem, $site);
             $this->emitPartnerOrderWebhook($orderItem->fresh(), 'order.accepted');
+            $this->emitAdvertiserOrderWebhook($orderItem->fresh(), 'order.accepted');
 
             Log::info('Order accepted by publisher', [
                 'order_item_id' => $orderItem->id,
@@ -791,6 +793,7 @@ class OrderController extends Controller
             ]);
 
             $this->emitPartnerOrderWebhook($orderItem->fresh(), 'order.rejected');
+            $this->emitAdvertiserOrderWebhook($orderItem->fresh(), 'order.rejected');
 
             return response()->json([
                 'success' => true,
@@ -1060,6 +1063,8 @@ class OrderController extends Controller
                     ]);
                 }
             }
+
+            $this->emitAdvertiserOrderWebhook($orderItem->fresh(), 'order.published');
 
             Log::info('Live URL submitted by publisher', [
                 'order_item_id' => $orderItem->id,
@@ -1582,6 +1587,15 @@ class OrderController extends Controller
             ], ! PartnerSandbox::isSandboxItem($item));
         } catch (\Throwable) {
             // Partner webhook outbox is best-effort next to the publisher path.
+        }
+    }
+
+    private function emitAdvertiserOrderWebhook(OrderItem $item, string $type): void
+    {
+        try {
+            app(AdvertiserOrderWebhookBridge::class)->emitForItem($item, $type);
+        } catch (\Throwable) {
+            // Advertiser webhook outbox is best-effort next to the publisher path.
         }
     }
 }

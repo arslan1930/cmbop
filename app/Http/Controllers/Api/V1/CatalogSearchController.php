@@ -38,6 +38,7 @@ class CatalogSearchController extends Controller
             $prices = $site->catalogPricesForViewer($user);
 
             $rows[] = [
+                'id' => (int) $site->id,
                 'name' => $this->visibility->nameFor($user, $site),
                 'host' => $this->visibility->hostFor($user, $site),
                 'price' => [

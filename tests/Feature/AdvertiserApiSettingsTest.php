@@ -62,7 +62,8 @@ class AdvertiserApiSettingsTest extends TestCase
             ->assertOk()
             ->assertSee('API & MCP')
             ->assertSee(route('profile'))
-            ->assertSee('/api/mcp/customer');
+            ->assertSee('/api/mcp/customer')
+            ->assertSee('/api/docs/advertiser');
 
         $this->actingAs($this->advertiser)
             ->post(route('advertiser.api.store'), ['name' => 'Claude'])
@@ -79,7 +80,7 @@ class AdvertiserApiSettingsTest extends TestCase
             ->delete(route('advertiser.api.destroy', $token))
             ->assertRedirect(route('advertiser.api.index'));
 
-        $this->assertDatabaseMissing('advertiser_api_tokens', ['id' => $token->id]);
+        $this->assertNotNull($token->fresh()?->revoked_at);
     }
 
     public function test_publisher_cannot_open_advertiser_api_settings(): void

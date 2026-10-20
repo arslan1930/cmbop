@@ -12,6 +12,7 @@ use App\Models\DepositRequest;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
+use App\Services\Advertiser\AdvertiserOrderWebhookBridge;
 use App\Services\CartPricingService;
 use App\Services\EmailNotificationService;
 use App\Services\Partners\PartnerPriceFreeze;
@@ -149,6 +150,13 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute((int) config('partners.api_rate_per_minute', 60))
                 ->by('partner-api:'.$id);
+        });
+
+        RateLimiter::for('advertiser-api', function (Request $request) {
+            $id = $request->attributes->get('advertiser_api_key_id') ?: $request->ip();
+
+            return Limit::perMinute((int) config('advertiser_api.rate_per_minute', 60))
+                ->by('advertiser-api:'.$id);
         });
 
         RateLimiter::for('contact-form', function (Request $request) {
@@ -300,6 +308,17 @@ class AppServiceProvider extends ServiceProvider
                     'error' => $e->getMessage(),
                 ]);
             }
+
+            try {
+                if ((string) $order->payment_status === 'paid') {
+                    app(AdvertiserOrderWebhookBridge::class)->emitForOrder($order, 'order.created');
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Advertiser order.created webhook hook failed', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         });
 
         OrderItem::created(function (OrderItem $item) {
@@ -336,6 +355,17 @@ class AppServiceProvider extends ServiceProvider
                 app(SendTrustpilotReviewOnOrderCompleted::class)->handle($order);
             } catch (\Throwable $e) {
                 Log::warning('Trustpilot review hook failed', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            try {
+                if ($order->wasChanged('status') && (string) $order->status === 'cancelled') {
+                    app(AdvertiserOrderWebhookBridge::class)->emitForOrder($order, 'order.cancelled');
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Advertiser order.cancelled webhook hook failed', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
                 ]);
