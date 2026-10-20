@@ -91,7 +91,7 @@ class AdvertiserCatalogApiTest extends TestCase
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('sites.0.host', 'oslo-rentals.no')
             ->assertJsonPath('sites.0.price.currency', 'EUR')
-            ->assertJsonMissingPath('sites.0.id')
+            ->assertJsonPath('sites.0.id', $this->site->id)
             ->assertJsonMissingPath('hide_mode')
             ->assertJsonMissingPath('filters');
     }
@@ -100,7 +100,7 @@ class AdvertiserCatalogApiTest extends TestCase
     {
         $issued = AdvertiserApiToken::issue($this->advertiser, 'Hint');
 
-        $this->getJson('/api/v1/catalog?website=https://my-rentacar.no', [
+        $this->getJson('/api/v1/catalog?website=https://my-site.no', [
             'Authorization' => 'Bearer '.$issued['plain'],
         ])
             ->assertOk()

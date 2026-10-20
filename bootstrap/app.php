@@ -331,6 +331,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('partners:deliver-webhooks')
             ->everyMinute()
             ->withoutOverlapping();
+        $schedule->command('advertisers:deliver-webhooks')
+            ->everyMinute()
+            ->withoutOverlapping();
         $schedule->command('partners:release-holds')
             ->hourly()
             ->withoutOverlapping();

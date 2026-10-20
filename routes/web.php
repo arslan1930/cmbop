@@ -66,6 +66,7 @@ use App\Http\Controllers\Advertiser\SiteUrlRevealController;
 use App\Http\Controllers\Advertiser\SiteVisitController;
 use App\Http\Controllers\Advertiser\WebsiteSuggestionController;
 use App\Http\Controllers\AnnouncementClickController;
+use App\Http\Controllers\ApiDocs\AdvertiserApiDocsController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
@@ -338,6 +339,9 @@ $registerEnglishOnlyMarketingRoutes = function () {
     Route::get('/guest-post-prices-europe', [MarketingPageController::class, 'europePriceIndex'])
         ->name('guest-post-prices-europe');
 };
+
+Route::get('/api/docs/advertiser', [AdvertiserApiDocsController::class, 'show'])
+    ->name('api.docs.advertiser');
 
 // English (canonical, no prefix)
 Route::group([], function () use ($registerPublicMarketingRoutes, $registerEnglishOnlyMarketingRoutes) {
@@ -1877,6 +1881,15 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::delete('/api/tokens/{token}', [ApiSettingsController::class, 'destroy'])
             ->middleware('throttle:20,1')
             ->name('api.destroy');
+        Route::post('/api/webhooks', [ApiSettingsController::class, 'storeWebhook'])
+            ->middleware('throttle:10,1')
+            ->name('api.webhooks.store');
+        Route::delete('/api/webhooks/{webhook}', [ApiSettingsController::class, 'destroyWebhook'])
+            ->middleware('throttle:20,1')
+            ->name('api.webhooks.destroy');
+        Route::post('/api/webhooks/{webhook}/test', [ApiSettingsController::class, 'testWebhook'])
+            ->middleware('throttle:10,1')
+            ->name('api.webhooks.test');
 
         // Spending history chart
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');

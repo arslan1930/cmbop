@@ -51,28 +51,31 @@ class AdvertiserCatalogApiSurfaceTest extends TestCase
         $this->assertStringContainsString('/profile', $spec);
     }
 
-    public function test_phase_zero_lock_is_written_and_matches_v1_surface(): void
+    public function test_ordering_lock_is_written_and_matches_v1_surface(): void
     {
         $lock = file_get_contents(base_path('docs/advertiser-catalog-api.md'));
         $middleware = file_get_contents(base_path('app/Http/Middleware/AuthenticateAdvertiserCatalogApi.php'));
         $matcher = file_get_contents(base_path('app/Services/Catalog/CatalogPromotedSiteMatch.php'));
         $catalogApi = file_get_contents(base_path('app/Http/Controllers/Api/V1/CatalogSearchController.php'));
         $settings = file_get_contents(base_path('app/Http/Controllers/Advertiser/ApiSettingsController.php'));
+        $api = file_get_contents(base_path('routes/api.php'));
 
-        $this->assertStringContainsString('Phase 0 — locked product (v1)', $lock);
-        $this->assertStringContainsString('Search only', $lock);
+        $this->assertStringContainsString('Advertiser Catalog + Ordering API', $lock);
+        $this->assertStringContainsString('prepaid wallet', $lock);
         $this->assertStringContainsString('Advertiser → API', $lock);
         $this->assertStringContainsString('advertiser-mcp.md', $lock);
         $this->assertStringContainsString('hasRole(\'advertiser\')', $middleware);
-        $this->assertStringNotContainsString('api_token', $middleware);
+        $this->assertStringNotContainsString("input('api_token')", $middleware);
+        $this->assertStringNotContainsString('query(\'api_token\')', $middleware);
         $this->assertStringContainsString('email_verified_at', $middleware);
         $this->assertStringContainsString('isSuspended', $middleware);
         $this->assertStringContainsString('TLD + host keywords only — no crawl', $matcher);
-        $this->assertStringNotContainsString('Order', $catalogApi);
         $this->assertStringNotContainsString('identity_hidden', $catalogApi);
         $this->assertStringNotContainsString('publisher', strtolower($catalogApi));
-        $this->assertStringNotContainsString("'id'", $catalogApi);
+        $this->assertStringContainsString("'id'", $catalogApi);
         $this->assertStringContainsString('advertiser.api.index', $settings);
+        $this->assertStringContainsString("Route::post('/orders'", $api);
+        $this->assertStringContainsString('AdvertiserOrderController', $api);
     }
 
     public function test_api_settings_copy_hides_the_plain_key_without_refresh(): void

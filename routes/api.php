@@ -5,6 +5,10 @@ use App\Http\Controllers\Api\Partner\V1\PartnerSandboxController;
 use App\Http\Controllers\Api\Partner\V1\PartnerWebhookController;
 use App\Http\Controllers\Api\PaypalWebhookController;
 use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\V1\AdvertiserOrderController;
+use App\Http\Controllers\Api\V1\AdvertiserSiteController;
+use App\Http\Controllers\Api\V1\AdvertiserWalletController;
+use App\Http\Controllers\Api\V1\AdvertiserWebhookController;
 use App\Http\Controllers\Api\V1\CatalogSearchController;
 use App\Http\Middleware\AuthenticateAdvertiserCatalogApi;
 use App\Http\Middleware\AuthenticatePartnerApi;
@@ -24,11 +28,48 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::middleware(['throttle:30,1', AuthenticateAdvertiserCatalogApi::class, 'throttle:60,1'])
+Route::middleware([AuthenticateAdvertiserCatalogApi::class, 'throttle:advertiser-api'])
     ->prefix('v1')
     ->group(function () {
         Route::get('/catalog', [CatalogSearchController::class, 'index'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':catalog:read')
             ->name('api.v1.catalog');
+        Route::get('/sites/{id}', [AdvertiserSiteController::class, 'show'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':sites:read')
+            ->name('api.v1.sites.show');
+        Route::get('/wallet', [AdvertiserWalletController::class, 'show'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':wallet:read')
+            ->name('api.v1.wallet');
+        Route::get('/orders', [AdvertiserOrderController::class, 'index'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':orders:read')
+            ->name('api.v1.orders.index');
+        Route::post('/orders', [AdvertiserOrderController::class, 'store'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':orders:write')
+            ->name('api.v1.orders.store');
+        Route::get('/orders/{order}', [AdvertiserOrderController::class, 'show'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':orders:read')
+            ->name('api.v1.orders.show');
+        Route::post('/orders/{order}/cancel', [AdvertiserOrderController::class, 'cancel'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':orders:write')
+            ->name('api.v1.orders.cancel');
+        Route::get('/webhooks', [AdvertiserWebhookController::class, 'index'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':webhooks:write')
+            ->name('api.v1.webhooks.index');
+        Route::post('/webhooks', [AdvertiserWebhookController::class, 'store'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':webhooks:write')
+            ->name('api.v1.webhooks.store');
+        Route::get('/webhooks/{webhook}', [AdvertiserWebhookController::class, 'show'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':webhooks:write')
+            ->name('api.v1.webhooks.show');
+        Route::patch('/webhooks/{webhook}', [AdvertiserWebhookController::class, 'update'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':webhooks:write')
+            ->name('api.v1.webhooks.update');
+        Route::delete('/webhooks/{webhook}', [AdvertiserWebhookController::class, 'destroy'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':webhooks:write')
+            ->name('api.v1.webhooks.destroy');
+        Route::post('/webhooks/{webhook}/test', [AdvertiserWebhookController::class, 'test'])
+            ->middleware(AuthenticateAdvertiserCatalogApi::class.':webhooks:write')
+            ->name('api.v1.webhooks.test');
     });
 
 Route::prefix('partner/v1')

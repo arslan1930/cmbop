@@ -5,6 +5,7 @@ namespace App\Services\Partners;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Partner;
+use App\Services\Advertiser\AdvertiserOrderWebhookBridge;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
@@ -109,6 +110,11 @@ class PartnerCompleteService
             $this->webhooks->emit($partner, $mode === PartnerChannel::MODE_INSTANT ? 'earning.available' : 'order.published', [
                 'object' => app(PartnerApiSerializer::class)->order($partner->user, $fresh),
             ], ! $sandbox);
+            try {
+                app(AdvertiserOrderWebhookBridge::class)->emitForItem($fresh, 'order.published');
+            } catch (\Throwable) {
+                // Advertiser webhook outbox is best-effort.
+            }
 
             return [
                 'item' => $fresh,
