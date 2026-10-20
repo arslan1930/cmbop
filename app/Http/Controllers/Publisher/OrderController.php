@@ -21,6 +21,10 @@ use App\Services\LiveUrlHealthChecker;
 use App\Services\Orders\ContentRevisionService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Orders\ReviewHandoffService;
+use App\Services\Partners\PartnerApiSerializer;
+use App\Services\Partners\PartnerChannel;
+use App\Services\Partners\PartnerSandbox;
+use App\Services\Partners\PartnerWebhookService;
 use App\Support\ArticleDownload;
 use App\Support\OrderLifecycleMailSuppressor;
 use App\Support\PublisherNeedsAction;
@@ -116,8 +120,14 @@ class OrderController extends Controller
                 ->whereIn('site_id', $siteIds)
                 ->whereHas('order', function ($q) {
                     $q->where('payment_status', 'paid');
+                    if (Order::hasSandboxColumn()) {
+                        $q->notSandbox();
+                    }
                 })
                 ->orderBy('created_at', 'desc');
+            if (OrderItem::hasSandboxColumn()) {
+                $query->notSandbox();
+            }
 
             // Search filter
             $search = search_text($request->input('search'));
@@ -431,6 +441,12 @@ class OrderController extends Controller
 
         try {
             $orderItem = OrderItem::with('order')->findOrFail($id);
+            if (PartnerSandbox::isSandboxItem($orderItem)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sandbox orders must be managed with a test API key.',
+                ], 403);
+            }
 
             // Verify this order belongs to a site owned by the publisher
             $userId = auth()->id();
@@ -541,6 +557,7 @@ class OrderController extends Controller
             }
 
             app(InAppNotificationService::class)->notifyOrderAccepted($order, $orderItem, $site);
+            $this->emitPartnerOrderWebhook($orderItem->fresh(), 'order.accepted');
 
             Log::info('Order accepted by publisher', [
                 'order_item_id' => $orderItem->id,
@@ -616,6 +633,12 @@ class OrderController extends Controller
 
         try {
             $orderItem = OrderItem::with('order')->findOrFail($id);
+            if (PartnerSandbox::isSandboxItem($orderItem)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sandbox orders must be managed with a test API key.',
+                ], 403);
+            }
 
             // Verify this order belongs to a site owned by the publisher
             $userId = auth()->id();
@@ -766,6 +789,8 @@ class OrderController extends Controller
                 'payment_method' => $order->payment_method,
                 'refund_processed' => $refundProcessed,
             ]);
+
+            $this->emitPartnerOrderWebhook($orderItem->fresh(), 'order.rejected');
 
             return response()->json([
                 'success' => true,
@@ -1540,5 +1565,23 @@ class OrderController extends Controller
             'preview_html' => null,
             'detected_links' => $fallback,
         ];
+    }
+
+    private function emitPartnerOrderWebhook(OrderItem $item, string $type): void
+    {
+        try {
+            if (! PartnerChannel::itemIsPartner($item)) {
+                return;
+            }
+            $partner = PartnerChannel::partnerForItem($item);
+            if (! $partner || ! $partner->user) {
+                return;
+            }
+            app(PartnerWebhookService::class)->emit($partner, $type, [
+                'object' => app(PartnerApiSerializer::class)->order($partner->user, $item),
+            ], ! PartnerSandbox::isSandboxItem($item));
+        } catch (\Throwable) {
+            // Partner webhook outbox is best-effort next to the publisher path.
+        }
     }
 }

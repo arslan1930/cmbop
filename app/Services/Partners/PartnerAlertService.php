@@ -49,18 +49,21 @@ class PartnerAlertService
     public function notifyNewOrder(User $publisher, OrderItem $item): void
     {
         $partner = Partner::forUser($publisher);
-        if (! $partner || ! $partner->wantsNotification('new_order')) {
+        if (! $partner) {
             return;
         }
-        Mail::to($publisher->email)->send(new PartnerNewOrderMail(
-            $publisher,
-            $item,
-            $this->orderUrl($publisher, $item, $partner)
-        ));
+        $sandbox = PartnerSandbox::isSandboxItem($item);
+        if (! $sandbox && $partner->wantsNotification('new_order')) {
+            Mail::to($publisher->email)->send(new PartnerNewOrderMail(
+                $publisher,
+                $item,
+                $this->orderUrl($publisher, $item, $partner)
+            ));
+        }
         try {
             app(PartnerWebhookService::class)->emit($partner, 'order.created', [
                 'object' => app(PartnerApiSerializer::class)->order($publisher, $item),
-            ]);
+            ], ! $sandbox);
         } catch (\Throwable) {
             // Webhook outbox is best-effort next to email.
         }

@@ -43,6 +43,7 @@ use Database\Seeders\CategoriesTableSeeder;
 use Database\Seeders\CountriesTableSeeder;
 use Database\Seeders\LanguagesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
@@ -70,6 +71,23 @@ class PartnerFullChannelTest extends TestCase
     {
         parent::setUp();
         Mail::fake();
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+            if (str_contains($url, 'partner-api.example')) {
+                return null;
+            }
+            if (str_contains($url, 'bad-link')) {
+                return Http::response('not found', 404);
+            }
+            if (str_contains($url, 'hooks.example') || str_contains($url, 'webhook.example')) {
+                return Http::response('ok', 200);
+            }
+
+            return Http::response(
+                '<html><body><a href="https://shop.example/tools">garden tools</a></body></html>',
+                200
+            );
+        });
 
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $publisherRole = Role::firstOrCreate(['name' => 'publisher']);

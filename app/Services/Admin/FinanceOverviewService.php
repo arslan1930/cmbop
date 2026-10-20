@@ -371,7 +371,7 @@ class FinanceOverviewService
         $unpaidAmount = 0.0;
         $unpaidRows = [];
         try {
-            $pendingPayments = Order::query()->unpaidOps();
+            $pendingPayments = Order::query()->notSandbox()->unpaidOps();
             $unpaidCount = (clone $pendingPayments)->count();
             $unpaidAmount = (float) (clone $pendingPayments)->sum('total_amount');
             $unpaidRows = (clone $pendingPayments)
@@ -773,6 +773,7 @@ class FinanceOverviewService
         $features = 0;
         try {
             $external = Order::query()
+                ->notSandbox()
                 ->where('payment_status', 'paid')
                 ->whereIn('payment_method', array_merge($this->cardOrderMethods(), ['paypal']));
             if ($this->ordersHaveColumn('charge_currency')) {
@@ -1201,7 +1202,7 @@ class FinanceOverviewService
             $withdrawalFeeSum = (float) (clone $withdrawalFees)->sum('fee');
         }
 
-        $refundOrders = Order::where('payment_status', 'refunded');
+        $refundOrders = Order::query()->notSandbox()->where('payment_status', 'refunded');
         $this->applyRefundWindow($refundOrders, $start, $end);
         $failedRefundOrders = $this->failedExternalOrdersWithWalletReturn($start, $end);
         // When the last line is clawed the order flips to refunded and the
@@ -1496,6 +1497,9 @@ class FinanceOverviewService
      */
     private function constrainRecognizedCompleted($query): void
     {
+        if (method_exists($query, 'notSandbox')) {
+            $query->notSandbox();
+        }
         $query->whereIn('payment_status', ['paid', 'refunded'])
             ->where(function ($q) {
                 $q->where('status', 'completed');
@@ -1514,6 +1518,7 @@ class FinanceOverviewService
     private function sumExternalOrdersCollected(?Carbon $start, Carbon $end, array $methods): float
     {
         $query = Order::query()
+            ->notSandbox()
             ->whereIn('payment_method', $methods)
             ->whereIn('payment_status', ['paid', 'refunded']);
         $this->applyPaidWindow($query, $start, $end);
@@ -1545,6 +1550,7 @@ class FinanceOverviewService
         $morph = (new Order)->getMorphClass();
 
         return Order::query()
+            ->notSandbox()
             ->where('payment_status', 'failed')
             ->whereIn('payment_method', $methods)
             ->whereExists(function ($exists) use ($morph) {

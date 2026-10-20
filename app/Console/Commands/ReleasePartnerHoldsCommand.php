@@ -26,8 +26,11 @@ class ReleasePartnerHoldsCommand extends Command
             ->whereNotNull('hold_until')
             ->where('hold_until', '<=', now())
             ->orderBy('id')
-            ->limit((int) $this->option('limit'))
-            ->get();
+            ->limit((int) $this->option('limit'));
+        if (OrderItem::hasSandboxColumn()) {
+            $items->notSandbox();
+        }
+        $items = $items->get();
         $n = 0;
         foreach ($items as $item) {
             $partner = PartnerChannel::partnerForItem($item);

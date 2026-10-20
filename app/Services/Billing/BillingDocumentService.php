@@ -15,6 +15,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\InAppNotificationService;
+use App\Services\Partners\PartnerSandbox;
 use App\Support\BillingCustomerMailSuppressor;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -38,6 +39,9 @@ class BillingDocumentService
      */
     public function handlePaymentPaid(Order $order): ?Invoice
     {
+        if (PartnerSandbox::isSandboxOrder($order)) {
+            return null;
+        }
         $order->loadMissing(['user', 'items']);
 
         if (! $order->user) {

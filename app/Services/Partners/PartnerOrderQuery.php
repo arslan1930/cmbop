@@ -2,6 +2,7 @@
 
 namespace App\Services\Partners;
 
+use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -13,12 +14,19 @@ class PartnerOrderQuery
 {
     public function scopedItems(User $user): Builder
     {
+        $sandbox = PartnerSandbox::currentIsTest();
         $query = OrderItem::query()
             ->with(['order', 'site'])
             ->whereHas('site', fn (Builder $q) => $q->where('publisher_id', $user->id))
-            ->whereHas('order', function (Builder $q) {
+            ->whereHas('order', function (Builder $q) use ($sandbox) {
                 $q->where('payment_status', 'paid');
+                if (Order::hasSandboxColumn()) {
+                    $sandbox ? $q->sandboxOnly() : $q->notSandbox();
+                }
             });
+        if (OrderItem::hasSandboxColumn()) {
+            $sandbox ? $query->sandboxOnly() : $query->notSandbox();
+        }
 
         return $query;
     }

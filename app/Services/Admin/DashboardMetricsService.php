@@ -23,6 +23,7 @@ use App\Models\WebsiteSuggestion;
 use App\Models\Withdrawal;
 use App\Services\AudienceInventoryService;
 use App\Services\Billing\InvoiceRepairQueue;
+use App\Services\Partners\PartnerSandbox;
 use App\Services\PromotionService;
 use App\Services\Reminders\StalledOrderQueue;
 use App\Services\Wallet\ManualDepositApproveLink;
@@ -80,16 +81,16 @@ class DashboardMetricsService
      */
     private function withoutTestUsers($query, string $userColumn = 'user_id')
     {
-        if (! $this->excludingTestAccounts()) {
-            return $query;
+        if ($this->excludingTestAccounts()) {
+            $query = $query->whereNotExists(function ($inner) use ($userColumn) {
+                $inner->selectRaw('1')
+                    ->from('users as dashboard_test_users')
+                    ->whereColumn('dashboard_test_users.id', $userColumn)
+                    ->where('dashboard_test_users.is_test', 1);
+            });
         }
 
-        return $query->whereNotExists(function ($inner) use ($userColumn) {
-            $inner->selectRaw('1')
-                ->from('users as dashboard_test_users')
-                ->whereColumn('dashboard_test_users.id', $userColumn)
-                ->where('dashboard_test_users.is_test', 1);
-        });
+        return PartnerSandbox::exclude($query);
     }
 
     /**

@@ -73,6 +73,7 @@ $registerPartnerDashboard = static function (): void {
             Route::post('/settings/keys', [PartnerSettingsController::class, 'issueKey'])->name('settings.keys');
             Route::post('/settings/keys/{key}/revoke', [PartnerSettingsController::class, 'revokeKey'])->name('settings.keys.revoke');
             Route::post('/settings/webhooks', [PartnerSettingsController::class, 'saveWebhook'])->name('settings.webhooks');
+            Route::post('/settings/webhooks/{endpoint}/test', [PartnerSettingsController::class, 'testWebhook'])->name('settings.webhooks.test');
             Route::post('/settings/webhooks/{endpoint}/disable', [PartnerSettingsController::class, 'disableWebhook'])->name('settings.webhooks.disable');
         });
     });

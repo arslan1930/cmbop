@@ -4,6 +4,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ExcludesSandbox;
 use App\Models\Concerns\ToleratesUnparseableDates;
 use App\Support\ListingMoney;
 use Carbon\Carbon;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Schema;
 
 class OrderItem extends Model
 {
+    use ExcludesSandbox;
     use ToleratesUnparseableDates;
 
     /**
@@ -95,6 +97,10 @@ class OrderItem extends Model
         'partner_awaiting_relay',
         'partner_payout_eur',
         'slb_price_eur_internal',
+        'is_sandbox',
+        'live_url_href_found',
+        'live_url_rel',
+        'live_url_anchor_match',
     ];
 
     protected $casts = [
@@ -125,6 +131,9 @@ class OrderItem extends Model
         'partner_payout_eur' => 'decimal:2',
         'slb_price_eur_internal' => 'decimal:2',
         'live_url_check_ok' => 'boolean',
+        'is_sandbox' => 'boolean',
+        'live_url_href_found' => 'boolean',
+        'live_url_anchor_match' => 'boolean',
         'modification_requested_at' => 'datetime',
         'content_revision_requested_at' => 'datetime',
         'content_revision_resolved_at' => 'datetime',

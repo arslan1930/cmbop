@@ -14,7 +14,7 @@ class PartnerApiSerializer
     /**
      * @return array<string, mixed>
      */
-    public function me(Partner $partner): array
+    public function me(Partner $partner, bool $testMode = false): array
     {
         $keep = null;
         if (PartnerChannel::payoutMode($partner) === PartnerChannel::MODE_INSTANT) {
@@ -36,7 +36,8 @@ class PartnerApiSerializer
             'hold_days' => PartnerChannel::payoutMode($partner) === PartnerChannel::MODE_INSTANT ? 0 : 14,
             'payout_minimum' => ['amount' => 2000, 'currency' => 'EUR'],
             'contracting_entity' => 'Teqno LTD (17392540)',
-            'test_mode' => false,
+            'test_mode' => $testMode,
+            'livemode' => ! $testMode,
         ];
     }
 
@@ -69,6 +70,16 @@ class PartnerApiSerializer
                 'rel_required' => 'dofollow',
             ]],
             'live_url' => $base['live_url'],
+            'is_sandbox' => $item->isSandbox(),
+            'livemode' => ! $item->isSandbox(),
+            'link_check' => $item->live_url ? [
+                'status' => $item->live_url_check_ok ? 'ok' : 'failed',
+                'http_status' => $item->live_url_http_status,
+                'href_found' => (bool) $item->live_url_href_found,
+                'rel' => $item->live_url_rel,
+                'anchor_match' => (bool) $item->live_url_anchor_match,
+                'checked_at' => optional($item->live_url_checked_at)?->toIso8601String(),
+            ] : null,
             'submitted_at' => optional($item->live_url_submitted_at)?->toIso8601String(),
             'hold_until' => optional($item->hold_until)?->toIso8601String(),
             'keep_live_until' => optional($item->keep_live_until)?->toIso8601String(),

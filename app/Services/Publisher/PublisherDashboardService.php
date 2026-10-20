@@ -1188,6 +1188,14 @@ class PublisherDashboardService
             ->whereIn('order_items.site_id', $siteIds)
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->whereIn('orders.payment_status', ['paid', 'refunded']);
+        if (OrderItem::hasSandboxColumn()) {
+            $query->notSandbox();
+        }
+        if (Order::hasSandboxColumn()) {
+            $query->where(function ($q) {
+                $q->where('orders.is_sandbox', 0)->orWhereNull('orders.is_sandbox');
+            });
+        }
 
         return $query->where(function ($q) {
             $q->where('orders.status', 'completed');

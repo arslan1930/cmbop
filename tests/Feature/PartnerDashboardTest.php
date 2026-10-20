@@ -25,6 +25,8 @@ use App\Services\Partners\PartnerConfidentiality;
 use App\Services\Partners\PartnerEmailActionService;
 use App\Support\PartnerDashboard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -46,6 +48,16 @@ class PartnerDashboardTest extends TestCase
     {
         parent::setUp();
         Mail::fake();
+        Http::fake(function (Request $request) {
+            if (str_contains($request->url(), 'hooks.example')) {
+                return Http::response('ok', 200);
+            }
+
+            return Http::response(
+                '<html><body><a href="https://shop.example/tools">garden tools</a></body></html>',
+                200
+            );
+        });
 
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $publisherRole = Role::firstOrCreate(['name' => 'publisher']);

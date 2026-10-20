@@ -83,6 +83,9 @@ class AutoApproveOrders extends Command
             ->whereHas('order', function ($q) {
                 $q->where('status', 'review')
                     ->where('payment_status', 'paid');
+                if (Order::hasSandboxColumn()) {
+                    $q->notSandbox();
+                }
             });
 
         if (OrderItem::autoApproveRequiresLiveUrlOk() && Schema::hasColumn('order_items', 'live_url_check_ok')) {
@@ -90,6 +93,9 @@ class AutoApproveOrders extends Command
                 $q->whereNull('live_url_check_ok')
                     ->orWhere('live_url_check_ok', true);
             });
+        }
+        if (OrderItem::hasSandboxColumn()) {
+            $query->notSandbox();
         }
 
         $items = $query->limit(200)->get();
@@ -164,6 +170,9 @@ class AutoApproveOrders extends Command
             ->whereHas('order', function ($q) {
                 $q->where('status', 'review')
                     ->where('payment_status', 'paid');
+                if (Order::hasSandboxColumn()) {
+                    $q->notSandbox();
+                }
             });
 
         if (OrderItem::autoApproveRequiresLiveUrlOk() && Schema::hasColumn('order_items', 'live_url_check_ok')) {
@@ -171,6 +180,9 @@ class AutoApproveOrders extends Command
                 $q->whereNull('live_url_check_ok')
                     ->orWhere('live_url_check_ok', true);
             });
+        }
+        if (OrderItem::hasSandboxColumn()) {
+            $query->notSandbox();
         }
 
         $orderItems = $query->get();

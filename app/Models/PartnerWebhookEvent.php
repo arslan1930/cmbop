@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PartnerWebhookEvent extends Model
 {
-    protected $fillable = ['partner_id', 'public_id', 'type', 'payload'];
+    protected $fillable = ['partner_id', 'public_id', 'type', 'payload', 'livemode'];
 
-    protected $casts = ['payload' => 'array'];
+    protected $casts = ['payload' => 'array', 'livemode' => 'boolean'];
 
     public function partner(): BelongsTo
     {

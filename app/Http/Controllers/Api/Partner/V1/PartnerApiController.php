@@ -7,6 +7,7 @@ use App\Http\Controllers\Publisher\OrderController as PublisherOrderController;
 use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
+use App\Models\OrderItem;
 use App\Models\Partner;
 use App\Models\PartnerCatalogItem;
 use App\Models\PartnerIdempotencyKey;
@@ -28,6 +29,8 @@ use App\Services\Partners\PartnerLinkMonitorService;
 use App\Services\Partners\PartnerOrderQuery;
 use App\Services\Partners\PartnerOrderStatus;
 use App\Services\Partners\PartnerRateChangeService;
+use App\Services\Partners\PartnerSandbox;
+use App\Services\Partners\PartnerSandboxOrderService;
 use App\Services\Partners\PartnerThreadService;
 use App\Services\Partners\PartnerWithdrawalService;
 use Illuminate\Http\JsonResponse;
@@ -48,7 +51,7 @@ class PartnerApiController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->serializer->me($this->partner($request))]);
+        return response()->json(['data' => $this->serializer->me($this->partner($request), PartnerSandbox::currentIsTest($request))]);
     }
 
     public function meUpdate(Request $request): JsonResponse
@@ -100,6 +103,14 @@ class PartnerApiController extends Controller
     {
         return $this->remember($request, function () use ($request, $order) {
             $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
+            if (PartnerSandbox::isSandboxItem($item)) {
+                $fresh = app(PartnerSandboxOrderService::class)->accept($item, $this->partner($request));
+
+                return response()->json([
+                    'data' => $this->serializer->order($request->user(), $fresh),
+                    'status' => PartnerOrderStatus::fromItem($fresh) ?: 'accepted',
+                ]);
+            }
             $response = app(PublisherOrderController::class)->acceptOrder($request, $item->id);
 
             return $this->fromPublisher($request, $response, $item->id, 'accepted');
@@ -110,6 +121,19 @@ class PartnerApiController extends Controller
     {
         return $this->remember($request, function () use ($request, $order) {
             $item = $this->orders->findOwnOrFail($request->user(), $this->numericId($order));
+            if (PartnerSandbox::isSandboxItem($item)) {
+                $request->validate(['reason' => 'required|string|min:10']);
+                $fresh = app(PartnerSandboxOrderService::class)->reject(
+                    $item,
+                    $this->partner($request),
+                    (string) $request->input('reason')
+                );
+
+                return response()->json([
+                    'data' => $this->serializer->order($request->user(), $fresh),
+                    'status' => PartnerOrderStatus::fromItem($fresh) ?: 'rejected',
+                ]);
+            }
             $response = app(PublisherOrderController::class)->rejectOrder($request, $item->id);
 
             return $this->fromPublisher($request, $response, $item->id, 'rejected');
@@ -216,6 +240,9 @@ class PartnerApiController extends Controller
 
     public function siteUpdate(Request $request, string $site): JsonResponse
     {
+        if ($blocked = $this->rejectLiveMutationFromTestKey($request)) {
+            return $blocked;
+        }
         $item = $this->ownSite($request, $site);
         $data = $request->validate([
             'your_price.normal.amount' => 'nullable|integer|min:0',
@@ -247,6 +274,9 @@ class PartnerApiController extends Controller
 
     public function sitesBulk(Request $request): JsonResponse
     {
+        if ($blocked = $this->rejectLiveMutationFromTestKey($request)) {
+            return $blocked;
+        }
         $data = $request->validate([
             'sites' => 'required|array|min:1|max:500',
             'sites.*.site_url' => 'required|string',
@@ -280,6 +310,18 @@ class PartnerApiController extends Controller
     public function balance(Request $request): JsonResponse
     {
         $partner = $this->partner($request);
+        if (PartnerSandbox::currentIsTest($request)) {
+            return response()->json([
+                'data' => [
+                    'currency' => 'EUR',
+                    'pending' => 0,
+                    'available' => 0,
+                    'negative_carry' => 0,
+                    'payout_minimum' => 2000,
+                    'payout_mode' => PartnerChannel::payoutMode($partner),
+                ],
+            ]);
+        }
         $available = $this->ledger->availableMinor($partner);
 
         return response()->json([
@@ -349,11 +391,18 @@ class PartnerApiController extends Controller
 
     public function ledger(Request $request): JsonResponse
     {
+        if (PartnerSandbox::currentIsTest($request)) {
+            return response()->json(['data' => []]);
+        }
+
         return response()->json(['data' => $this->ledger->partnerLines($this->partner($request), 100)]);
     }
 
     public function statements(Request $request): JsonResponse
     {
+        if (PartnerSandbox::currentIsTest($request)) {
+            return response()->json(['data' => []]);
+        }
         $rows = PartnerStatement::query()
             ->where('partner_id', $this->partner($request)->id)
             ->orderByDesc('period')
@@ -370,6 +419,9 @@ class PartnerApiController extends Controller
 
     public function statementShow(Request $request, string $period): JsonResponse
     {
+        if (PartnerSandbox::currentIsTest($request)) {
+            abort(404);
+        }
         $row = PartnerStatement::query()
             ->where('partner_id', $this->partner($request)->id)
             ->where('period', $period)
@@ -390,6 +442,9 @@ class PartnerApiController extends Controller
 
     public function payouts(Request $request): JsonResponse
     {
+        if ($blocked = $this->rejectLiveMutationFromTestKey($request, 'Test keys cannot request payouts.')) {
+            return $blocked;
+        }
         $request->merge([
             'amount' => $request->input('amount')
                 ? round(((int) $request->input('amount')) / 100, 2)
@@ -502,6 +557,18 @@ class PartnerApiController extends Controller
         ]);
     }
 
+    private function rejectLiveMutationFromTestKey(Request $request, string $message = 'Test keys cannot change live catalog, rates, or payouts.'): ?JsonResponse
+    {
+        if (! PartnerSandbox::currentIsTest($request)) {
+            return null;
+        }
+
+        return response()->json([
+            'error' => 'test_mode',
+            'message' => $message,
+        ], 403);
+    }
+
     private function partner(Request $request): Partner
     {
         $partner = $request->attributes->get('partner');
@@ -540,7 +607,7 @@ class PartnerApiController extends Controller
                 'message' => (string) ($payload['message'] ?? 'Request failed'),
             ], $response->getStatusCode() >= 400 ? $response->getStatusCode() : 422);
         }
-        $item = $this->orders->findOwnOrFail($request->user(), $itemId);
+        $item = OrderItem::query()->with(['order', 'site'])->findOrFail($itemId);
 
         return response()->json([
             'data' => $this->serializer->order($request->user(), $item),
