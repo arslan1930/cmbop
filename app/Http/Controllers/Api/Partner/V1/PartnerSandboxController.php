@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Partner;
 use App\Models\PartnerApiKey;
 use App\Services\Partners\PartnerApiSerializer;
+use App\Services\Partners\PartnerSandbox;
 use App\Services\Partners\PartnerSandboxOrderService;
+use App\Services\Partners\PartnerSandboxUnavailableException;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +29,11 @@ class PartnerSandboxController extends Controller
                 'message' => 'POST /sandbox/orders is only available with slb_test_ keys.',
             ], 403);
         }
+        try {
+            PartnerSandbox::assertAvailable();
+        } catch (PartnerSandboxUnavailableException $e) {
+            return $e->render();
+        }
         $data = $request->validate([
             'site_id' => 'required|string',
             'anchor_text' => 'nullable|string|max:255',
@@ -34,6 +41,8 @@ class PartnerSandboxController extends Controller
         ]);
         try {
             $item = $this->sandbox->create($this->partner($request), (string) $data['site_id'], $data);
+        } catch (PartnerSandboxUnavailableException $e) {
+            return $e->render();
         } catch (QueryException $e) {
             throw $e;
         } catch (\RuntimeException $e) {

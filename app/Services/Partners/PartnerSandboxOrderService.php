@@ -8,7 +8,6 @@ use App\Models\Partner;
 use App\Models\PartnerCatalogItem;
 use App\Models\Site;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 class PartnerSandboxOrderService
@@ -25,13 +24,14 @@ class PartnerSandboxOrderService
      */
     public function create(Partner $partner, string $siteRef, array $attrs = []): OrderItem
     {
+        PartnerSandbox::assertAvailable();
         $site = $this->ownSite($partner, $siteRef);
         $anchor = trim((string) ($attrs['anchor_text'] ?? 'sandbox test link'));
         $target = trim((string) ($attrs['target_url'] ?? 'https://example.com/sandbox'));
 
         return DB::transaction(function () use ($partner, $site, $anchor, $target) {
             $userId = (int) $partner->user_id;
-            $orderPayload = [
+            $order = Order::query()->create([
                 'user_id' => $userId,
                 'order_number' => $this->sandboxOrderNumber(),
                 'reference_code' => 'SBX-'.strtoupper(substr(bin2hex(random_bytes(4)), 0, 8)),
@@ -42,14 +42,11 @@ class PartnerSandboxOrderService
                 'payment_status' => 'paid',
                 'status' => 'pending',
                 'paid_at' => now(),
-            ];
-            if (Schema::hasColumn('orders', 'is_sandbox')) {
-                $orderPayload['is_sandbox'] = true;
-            }
-            $order = Order::query()->create($orderPayload);
+                'is_sandbox' => true,
+            ]);
 
             $brief = $target !== '' ? $target : 'https://example.com/sandbox';
-            $itemPayload = [
+            $item = OrderItem::query()->create([
                 'order_id' => $order->id,
                 'site_id' => $site->id,
                 'site_name' => $site->site_name,
@@ -68,11 +65,8 @@ class PartnerSandboxOrderService
                 'publisher_status' => 'pending',
                 'partner_payout_eur' => 0,
                 'slb_price_eur_internal' => 0,
-            ];
-            if (Schema::hasColumn('order_items', 'is_sandbox')) {
-                $itemPayload['is_sandbox'] = true;
-            }
-            $item = OrderItem::query()->create($itemPayload);
+                'is_sandbox' => true,
+            ]);
             $this->freeze->freeze($item->fresh());
 
             $fresh = $item->fresh();
@@ -90,6 +84,7 @@ class PartnerSandboxOrderService
 
     public function accept(OrderItem $item, Partner $partner): OrderItem
     {
+        PartnerSandbox::assertAvailable();
         $this->assertSandbox($item);
 
         $fresh = DB::transaction(function () use ($item) {
@@ -120,6 +115,7 @@ class PartnerSandboxOrderService
 
     public function reject(OrderItem $item, Partner $partner, string $reason): OrderItem
     {
+        PartnerSandbox::assertAvailable();
         $this->assertSandbox($item);
 
         $fresh = DB::transaction(function () use ($item, $reason) {

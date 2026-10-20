@@ -15,6 +15,9 @@ class PartnerOrderQuery
     public function scopedItems(User $user): Builder
     {
         $sandbox = PartnerSandbox::currentIsTest();
+        if ($sandbox) {
+            PartnerSandbox::assertAvailable();
+        }
         $query = OrderItem::query()
             ->with(['order', 'site'])
             ->whereHas('site', fn (Builder $q) => $q->where('publisher_id', $user->id))

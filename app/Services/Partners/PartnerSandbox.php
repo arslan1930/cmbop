@@ -10,12 +10,53 @@ use Illuminate\Http\Request;
 
 class PartnerSandbox
 {
+    protected static ?bool $columnsReady = null;
+
     public static function currentIsTest(?Request $request = null): bool
     {
         $request ??= request();
         $key = $request->attributes->get('partner_api_key');
 
         return $key instanceof PartnerApiKey && $key->mode === 'test';
+    }
+
+    /**
+     * Sandbox isolation needs is_sandbox on both orders and order_items.
+     * True is cached for the process; false is re-checked so applying the
+     * SQL without a restart can recover. Tests may force either value.
+     */
+    public static function columnsReady(): bool
+    {
+        if (self::$columnsReady !== null) {
+            return self::$columnsReady;
+        }
+        $ready = Order::hasSandboxColumn() && OrderItem::hasSandboxColumn();
+        if ($ready) {
+            self::$columnsReady = true;
+        }
+
+        return $ready;
+    }
+
+    public static function assertAvailable(): void
+    {
+        if (! self::columnsReady()) {
+            throw new PartnerSandboxUnavailableException;
+        }
+    }
+
+    public static function forceColumnsReady(?bool $ready): void
+    {
+        self::$columnsReady = $ready;
+        Order::forceSandboxColumnCache($ready);
+        OrderItem::forceSandboxColumnCache($ready);
+    }
+
+    public static function forgetColumnCache(): void
+    {
+        self::$columnsReady = null;
+        Order::forgetSandboxColumnCache();
+        OrderItem::forgetSandboxColumnCache();
     }
 
     public static function isSandboxItem(?OrderItem $item): bool

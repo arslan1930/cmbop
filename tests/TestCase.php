@@ -3,6 +3,7 @@
 namespace Tests;
 
 use App\Models\Site;
+use App\Services\Partners\PartnerSandbox;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
@@ -11,5 +12,6 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         Site::forgetColumnCache();
+        PartnerSandbox::forgetColumnCache();
     }
 }

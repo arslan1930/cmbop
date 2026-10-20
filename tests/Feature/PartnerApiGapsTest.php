@@ -21,6 +21,9 @@ use App\Services\Partners\PartnerApiKeyService;
 use App\Services\Partners\PartnerCompleteService;
 use App\Services\Partners\PartnerLedgerService;
 use App\Services\Partners\PartnerLiveLinkChecker;
+use App\Services\Partners\PartnerSandbox;
+use App\Services\Partners\PartnerSandboxOrderService;
+use App\Services\Partners\PartnerSandboxUnavailableException;
 use App\Services\Partners\PartnerWebhookService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -378,6 +381,68 @@ class PartnerApiGapsTest extends TestCase
         $this->assertStringNotContainsString((string) $sandboxItem->order->order_number, $dash);
         $this->assertStringContainsString((string) $liveItem->order->order_number, $dash);
         $this->assertStringNotContainsString('127.50', $created->getContent());
+    }
+
+    public function test_sandbox_create_fails_closed_when_is_sandbox_columns_are_missing(): void
+    {
+        $testKey = app(PartnerApiKeyService::class)->issue($this->partner, 'test', PartnerApiKeyService::SCOPES, 'test', $this->admin);
+        $orderCount = Order::query()->count();
+        $itemCount = OrderItem::query()->count();
+        PartnerSandbox::forceColumnsReady(false);
+
+        $response = $this->withPartnerKey($testKey['plain'])->postJson('/api/partner/v1/sandbox/orders', [
+            'site_id' => 'site_'.$this->catalogItem->id,
+            'anchor_text' => 'garden tools',
+            'target_url' => 'https://shop.example/tools',
+        ]);
+        $response->assertStatus(503);
+        $response->assertJsonPath('error', 'sandbox_unavailable');
+        $this->assertSame($orderCount, Order::query()->count());
+        $this->assertSame($itemCount, OrderItem::query()->count());
+        $this->assertSame(0, Order::query()->where('payment_method', 'sandbox')->count());
+        $this->withPartnerKey($testKey['plain'])->getJson('/api/partner/v1/me')
+            ->assertOk()
+            ->assertJsonPath('data.test_mode', true);
+    }
+
+    public function test_test_key_order_paths_fail_closed_instead_of_returning_live_orders(): void
+    {
+        $testKey = app(PartnerApiKeyService::class)->issue($this->partner, 'test', PartnerApiKeyService::SCOPES, 'test', $this->admin);
+        $liveKey = app(PartnerApiKeyService::class)->issue($this->partner, 'live', PartnerApiKeyService::SCOPES, 'live', $this->admin);
+        $liveItem = $this->makeLiveItem();
+        PartnerSandbox::forceColumnsReady(false);
+
+        $this->withPartnerKey($testKey['plain'])->getJson('/api/partner/v1/orders')
+            ->assertStatus(503)
+            ->assertJsonPath('error', 'sandbox_unavailable');
+        $this->withPartnerKey($testKey['plain'])->getJson('/api/partner/v1/orders/summary')
+            ->assertStatus(503)
+            ->assertJsonPath('error', 'sandbox_unavailable');
+        $this->withPartnerKey($testKey['plain'])->getJson('/api/partner/v1/orders/'.$liveItem->id)
+            ->assertStatus(503)
+            ->assertJsonPath('error', 'sandbox_unavailable');
+        $this->withPartnerKey($testKey['plain'])->postJson('/api/partner/v1/orders/'.$liveItem->id.'/accept')
+            ->assertStatus(503)
+            ->assertJsonPath('error', 'sandbox_unavailable');
+
+        $liveList = $this->withPartnerKey($liveKey['plain'])->getJson('/api/partner/v1/orders');
+        $liveList->assertOk();
+        $this->assertSame(1, $liveList->json('meta.total'));
+        $this->assertSame('ord_'.$liveItem->id, $liveList->json('data.0.id'));
+    }
+
+    public function test_sandbox_service_never_inserts_when_columns_are_missing(): void
+    {
+        PartnerSandbox::forceColumnsReady(false);
+        $thrown = null;
+        try {
+            app(PartnerSandboxOrderService::class)->create($this->partner, 'site_'.$this->catalogItem->id);
+        } catch (PartnerSandboxUnavailableException $e) {
+            $thrown = $e;
+        }
+        $this->assertInstanceOf(PartnerSandboxUnavailableException::class, $thrown);
+        $this->assertSame(0, Order::query()->where('payment_method', 'sandbox')->count());
+        $this->assertSame(0, OrderItem::query()->where('site_id', $this->site->id)->where('publisher_status', 'pending')->where('price', 0)->count());
     }
 
     public function test_me_reflects_test_mode_for_test_keys(): void
