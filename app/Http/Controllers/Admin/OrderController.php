@@ -15,6 +15,7 @@ use App\Services\Billing\InvoiceRepairQueue;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Services\Orders\AdminOrderStatusOverride;
 use App\Services\Orders\OrderClawbackService;
+use App\Services\Partners\PartnerSandbox;
 use App\Services\Reminders\StalledOrderQueue;
 use App\Support\ArticleDownload;
 use App\Support\UserFacingError;
@@ -257,7 +258,7 @@ class OrderController extends Controller
      */
     private function ordersFilterQuery(Request $request, ?string &$dateError = null): Builder
     {
-        $query = Order::query();
+        $query = PartnerSandbox::exclude(Order::query());
         $this->constrainOrderSearch($query, search_text($request->input('search')));
 
         // "scheduled" is publication_mode (status stays pending). The status

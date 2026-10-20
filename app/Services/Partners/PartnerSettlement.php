@@ -19,11 +19,14 @@ class PartnerSettlement
         if (! $partner) {
             return false;
         }
+        $sandbox = PartnerSandbox::isSandboxItem($item);
         app(PartnerPriceFreeze::class)->freeze($item);
-        app(PartnerLedgerService::class)->onApproved($item->fresh(), $partner);
+        if (! $sandbox) {
+            app(PartnerLedgerService::class)->onApproved($item->fresh(), $partner);
+        }
         app(PartnerWebhookService::class)->emit($partner, 'order.completed', [
             'object' => app(PartnerApiSerializer::class)->order($partner->user ?: new User, $item->fresh()),
-        ]);
+        ], ! $sandbox);
 
         return true;
     }

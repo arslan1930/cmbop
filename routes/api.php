@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\Partner\V1\PartnerApiController;
+use App\Http\Controllers\Api\Partner\V1\PartnerSandboxController;
+use App\Http\Controllers\Api\Partner\V1\PartnerWebhookController;
 use App\Http\Controllers\Api\PaypalWebhookController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\V1\CatalogSearchController;
@@ -35,6 +37,13 @@ Route::prefix('partner/v1')
         Route::get('/me', [PartnerApiController::class, 'me']);
         Route::patch('/me', [PartnerApiController::class, 'meUpdate']);
         Route::get('/taxonomy', [PartnerApiController::class, 'taxonomy']);
+        Route::get('/webhooks', [PartnerWebhookController::class, 'index'])->middleware(AuthenticatePartnerApi::class.':webhooks:write');
+        Route::post('/webhooks', [PartnerWebhookController::class, 'store'])->middleware(AuthenticatePartnerApi::class.':webhooks:write');
+        Route::get('/webhooks/{webhook}', [PartnerWebhookController::class, 'show'])->middleware(AuthenticatePartnerApi::class.':webhooks:write');
+        Route::patch('/webhooks/{webhook}', [PartnerWebhookController::class, 'update'])->middleware(AuthenticatePartnerApi::class.':webhooks:write');
+        Route::delete('/webhooks/{webhook}', [PartnerWebhookController::class, 'destroy'])->middleware(AuthenticatePartnerApi::class.':webhooks:write');
+        Route::post('/webhooks/{webhook}/test', [PartnerWebhookController::class, 'test'])->middleware(AuthenticatePartnerApi::class.':webhooks:write');
+        Route::post('/sandbox/orders', [PartnerSandboxController::class, 'createOrder'])->middleware(AuthenticatePartnerApi::class.':orders:write');
         Route::get('/balance', [PartnerApiController::class, 'balance'])->middleware(AuthenticatePartnerApi::class.':balance:read');
         Route::get('/ledger', [PartnerApiController::class, 'ledger'])->middleware(AuthenticatePartnerApi::class.':balance:read');
         Route::get('/earnings', [PartnerApiController::class, 'earnings'])->middleware(AuthenticatePartnerApi::class.':balance:read');

@@ -119,7 +119,7 @@
 
     <div class="partner-card">
         <h2>Webhooks</h2>
-        <p class="partner-lead">Signed with HMAC-SHA256 header SLB-Signature (v1=…). Events include order.created, order.correction_requested, order.completed.</p>
+        <p class="partner-lead">Signed with HMAC-SHA256 header SLB-Signature (v1=…). Events include order.created, order.accepted, order.rejected, order.published, order.completed. Send a signed <code>webhook.test</code> event from here or <code>POST /api/partner/v1/webhooks/{id}/test</code>.</p>
         @if (session('webhook_secret'))
             <div class="partner-alert">Signing secret (once): <code>{{ session('webhook_secret') }}</code></div>
         @endif
@@ -132,7 +132,11 @@
                     <td data-label="Status">{{ $hook->status }}</td>
                     <td>
                         @if ($hook->status === 'enabled')
-                            <form method="post" action="{{ \App\Support\PartnerDashboard::route('settings.webhooks.disable', ['endpoint' => $hook->id]) }}">
+                            <form method="post" action="{{ \App\Support\PartnerDashboard::route('settings.webhooks.test', ['endpoint' => $hook->id]) }}" class="partner-inline-form">
+                                @csrf
+                                <button class="partner-btn secondary" type="submit">Send test event</button>
+                            </form>
+                            <form method="post" action="{{ \App\Support\PartnerDashboard::route('settings.webhooks.disable', ['endpoint' => $hook->id]) }}" class="partner-inline-form">
                                 @csrf
                                 <button class="partner-btn secondary" type="submit">Disable</button>
                             </form>

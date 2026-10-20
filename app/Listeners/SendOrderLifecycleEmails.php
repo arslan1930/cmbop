@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Models\Order;
 use App\Services\EmailNotificationService;
+use App\Services\Partners\PartnerSandbox;
 use App\Support\OrderLifecycleMailSuppressor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +26,9 @@ class SendOrderLifecycleEmails
 
     public function created(Order $order): void
     {
+        if (PartnerSandbox::isSandboxOrder($order)) {
+            return;
+        }
         $orderId = $order->id;
 
         $this->afterCommit(function () use ($orderId) {
@@ -77,6 +81,9 @@ class SendOrderLifecycleEmails
 
     public function updated(Order $order): void
     {
+        if (PartnerSandbox::isSandboxOrder($order)) {
+            return;
+        }
         if (! $order->wasChanged('status') && ! $order->wasChanged('payment_status')) {
             return;
         }

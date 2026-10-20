@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Models\Order;
 use App\Services\Billing\BillingDocumentService;
+use App\Services\Partners\PartnerSandbox;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -18,6 +19,9 @@ class HandleOrderBillingDocuments
 
     public function created(Order $order): void
     {
+        if (PartnerSandbox::isSandboxOrder($order)) {
+            return;
+        }
         $orderId = $order->id;
         $status = (string) $order->payment_status;
 
@@ -54,6 +58,9 @@ class HandleOrderBillingDocuments
 
     public function updated(Order $order): void
     {
+        if (PartnerSandbox::isSandboxOrder($order)) {
+            return;
+        }
         if (! $order->wasChanged('payment_status')) {
             return;
         }

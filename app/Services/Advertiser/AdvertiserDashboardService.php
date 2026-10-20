@@ -220,7 +220,7 @@ class AdvertiserDashboardService
      */
     public function orderStats(int $userId): array
     {
-        $base = Order::query()->where('user_id', $userId);
+        $base = Order::query()->where('user_id', $userId)->notSandbox();
 
         $needsReview = AdvertiserOrderStatus::constrainReviewReady(clone $base)->count();
         $reviewWaitingUrl = (clone $base)
@@ -270,6 +270,7 @@ class AdvertiserDashboardService
     {
         return Order::query()
             ->where('user_id', $userId)
+            ->notSandbox()
             ->with(['items' => function ($q) {
                 $cols = [
                     'id',

@@ -11,14 +11,13 @@ use App\Models\User;
 use App\Services\Partners\PartnerApiKeyService;
 use App\Services\Partners\PartnerEmailActionService;
 use App\Services\Partners\PartnerEmailChangeService;
+use App\Services\Partners\PartnerWebhookService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
@@ -163,7 +162,7 @@ class SettingsController extends Controller
         return back()->with('success', 'API key revoked.');
     }
 
-    public function saveWebhook(Request $request): RedirectResponse
+    public function saveWebhook(Request $request, PartnerWebhookService $webhooks): RedirectResponse
     {
         $partner = Partner::forUser($request->user());
         abort_unless($partner, 404);
@@ -172,18 +171,29 @@ class SettingsController extends Controller
             'events' => 'nullable|array',
             'events.*' => 'string|max:80',
         ]);
-        $secret = 'whsec_'.Str::lower(Str::random(32));
-        $endpoint = PartnerWebhookEndpoint::query()->create([
-            'partner_id' => $partner->id,
-            'url' => $data['url'],
-            'events' => $data['events'] ?? ['*'],
-            'secret_encrypted' => Crypt::encryptString($secret),
-            'status' => 'enabled',
-        ]);
+        try {
+            $created = $webhooks->createEndpoint($partner, $data['url'], $data['events'] ?? ['*']);
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('success', 'Webhook endpoint saved. Copy the signing secret now.')
-            ->with('webhook_secret', $secret)
-            ->with('webhook_id', $endpoint->id);
+            ->with('webhook_secret', $created['secret'])
+            ->with('webhook_id', $created['endpoint']->id);
+    }
+
+    public function testWebhook(Request $request, int $endpoint, PartnerWebhookService $webhooks): RedirectResponse
+    {
+        $partner = Partner::forUser($request->user());
+        abort_unless($partner, 404);
+        $row = PartnerWebhookEndpoint::query()->where('partner_id', $partner->id)->where('id', $endpoint)->firstOrFail();
+        if (! $row->isEnabled()) {
+            return back()->with('error', 'Enable the webhook before sending a test event.');
+        }
+        $event = $webhooks->sendTest($row);
+        $id = $event?->public_id ?: 'evt';
+
+        return back()->with('success', 'Sent a signed webhook.test event ('.$id.'). Check your endpoint for SLB-Signature: v1=…');
     }
 
     public function disableWebhook(Request $request, int $endpoint): RedirectResponse

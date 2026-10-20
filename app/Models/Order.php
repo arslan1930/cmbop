@@ -4,6 +4,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ExcludesSandbox;
 use App\Models\Concerns\ToleratesUnparseableDates;
 use App\Services\Marketplace\CheckoutAddOnService;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Schema;
 
 class Order extends Model
 {
+    use ExcludesSandbox;
     use ToleratesUnparseableDates;
 
     protected $fillable = [
@@ -55,6 +57,7 @@ class Order extends Model
         'link_guarantee_ends_at',
         'link_guarantee_restore_due_at',
         'link_guarantee_refunded_at',
+        'is_sandbox',
     ];
 
     protected $casts = [
@@ -78,6 +81,7 @@ class Order extends Model
         'link_guarantee_ends_at' => 'datetime',
         'link_guarantee_restore_due_at' => 'datetime',
         'link_guarantee_refunded_at' => 'datetime',
+        'is_sandbox' => 'boolean',
     ];
 
     public function isScheduled(): bool

@@ -20,7 +20,7 @@ class PartnerLedgerService
 {
     public function onSubmitted(OrderItem $item, Partner $partner, string $mode): void
     {
-        if (! PartnerChannel::tablesReady()) {
+        if (PartnerSandbox::isSandboxItem($item) || ! PartnerChannel::tablesReady()) {
             return;
         }
         $amount = $this->payoutMinor($item);
@@ -51,7 +51,7 @@ class PartnerLedgerService
 
     public function onApproved(OrderItem $item, Partner $partner): void
     {
-        if (! PartnerChannel::tablesReady()) {
+        if (PartnerSandbox::isSandboxItem($item) || ! PartnerChannel::tablesReady()) {
             return;
         }
         $amount = $this->payoutMinor($item);

@@ -31,8 +31,11 @@ class PartnerLinkMonitorService
             ->whereNotNull('keep_live_until')
             ->where('keep_live_until', '>', now())
             ->orderBy('id')
-            ->limit($limit)
-            ->get();
+            ->limit($limit);
+        if (OrderItem::hasSandboxColumn()) {
+            $items->notSandbox();
+        }
+        $items = $items->get();
         $checked = 0;
         foreach ($items as $item) {
             $this->checkItem($item);
