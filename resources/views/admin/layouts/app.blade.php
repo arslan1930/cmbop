@@ -167,8 +167,14 @@
         <a href="{{ route('admin.publishers.onboardings') }}" class="{{ request()->routeIs('admin.publishers.*') ? 'active' : '' }}">
             <i class="fa fa-user-plus"></i> <span>Add publisher</span>
         </a>
-        <a href="{{ route('admin.partners.index') }}" class="{{ request()->routeIs('admin.partners.*') ? 'active' : '' }}">
+        <a href="{{ route('admin.partners.index') }}" class="{{ request()->routeIs('admin.partners.*') && ! request()->routeIs('admin.partners.relay*') && ! request()->routeIs('admin.partners.payouts') ? 'active' : '' }}">
             <i class="fa fa-handshake"></i> <span>Partners</span>
+        </a>
+        <a href="{{ route('admin.partners.relay') }}" class="{{ request()->routeIs('admin.partners.relay*') ? 'active' : '' }}">
+            <i class="fa fa-comments"></i> <span>Partner relay</span>
+        </a>
+        <a href="{{ route('admin.partners.payouts') }}" class="{{ request()->routeIs('admin.partners.payouts') ? 'active' : '' }}">
+            <i class="fa fa-coins"></i> <span>Partner payouts</span>
         </a>
         <a href="{{ route('admin.community.index') }}" class="{{ request()->routeIs('admin.community.*') ? 'active' : '' }}">
             <i class="fa fa-comments"></i>

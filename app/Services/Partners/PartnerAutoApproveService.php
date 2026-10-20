@@ -53,16 +53,31 @@ class PartnerAutoApproveService
             $query->where('partner_id', $partner->id);
         }
         $ids = [];
-        $query->orderBy('id')->chunkById(200, function ($items) use ($rule, &$ids) {
+        $wouldLive = 0;
+        $wouldReview = 0;
+        $query->orderBy('id')->chunkById(200, function ($items) use ($rule, &$ids, &$wouldLive, &$wouldReview) {
             foreach ($items as $item) {
                 $owner = $item->partner;
                 if ($owner && $this->matches($rule, $item, $owner)) {
                     $ids[] = (int) $item->id;
+                    $hard = $this->hardBlockReason($item);
+                    $wantsLive = $rule->action === PartnerAutoApproveRule::ACTION_LIVE && $owner->trusted && $hard === null;
+                    if ($wantsLive) {
+                        $wouldLive++;
+                    } else {
+                        $wouldReview++;
+                    }
                 }
             }
         });
 
-        return ['count' => count($ids), 'ids' => $ids];
+        return [
+            'count' => count($ids),
+            'ids' => $ids,
+            'would_go_live' => $wouldLive,
+            'would_send_to_review' => $wouldReview,
+            'note' => 'go_live only applies to trusted partners; every other match is sent to review',
+        ];
     }
 
     public function firstMatch(PartnerCatalogItem $item, Partner $partner): ?PartnerAutoApproveRule

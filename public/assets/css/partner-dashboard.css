@@ -159,3 +159,9 @@
 .partner-card h2 { margin-top: 0; font-size: 1.1rem; }
 .partner-brand-gap { margin-bottom: 1rem; }
 .partner-follow-link { margin-top: 1rem; }
+.partner-thread { list-style: none; padding: 0; margin: 0 0 1rem; }
+.partner-thread-item { padding: .75rem 0; border-bottom: 1px solid var(--p-line); }
+.partner-thread-meta { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; color: var(--p-muted); font-size: .85rem; }
+.partner-thread-body { white-space: pre-wrap; margin-top: .35rem; }
+.partner-alert { background: #fff7e6; border: 1px solid #f1d39a; padding: .75rem 1rem; border-radius: .6rem; margin-bottom: 1rem; }
+.partner-alert.err { background: #fdecec; border-color: #f0b4b4; }

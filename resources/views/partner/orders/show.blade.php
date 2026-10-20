@@ -7,7 +7,7 @@
 
     @if ($order['correction_reason'] !== '')
         <div class="partner-alert err">
-            <strong>Correction requested</strong>
+            <strong>Awaiting correction</strong>
             <div>{{ $order['correction_reason'] }}</div>
         </div>
     @endif
@@ -20,6 +20,7 @@
             <dt>Site</dt><dd>{{ $order['site_domain'] }}</dd>
             <dt>Buyer</dt><dd>{{ $order['buyer_ref'] }}</dd>
             <dt>Your payout</dt><dd>{{ $order['your_payout_formatted'] }}</dd>
+            <dt>Earnings</dt><dd>{{ $order['earnings_status'] ?: '—' }}@if($order['hold_until']) · held until {{ $order['hold_until'] }}@endif</dd>
             <dt>Anchor</dt><dd>{{ $order['anchor_text'] ?: '—' }}</dd>
             <dt>Target URL</dt><dd>@if($order['target_url'])<a href="{{ $order['target_url'] }}" rel="noopener noreferrer">{{ $order['target_url'] }}</a>@else — @endif</dd>
             <dt>Brief / article</dt>
@@ -62,15 +63,52 @@
                     </label>
                     <button class="partner-btn" type="submit">{{ $order['can_resubmit'] ? 'Resubmit live URL' : 'Submit live URL' }}</button>
                 </form>
-                @if ($order['can_resubmit'] && $order['live_url'])
-                    <form method="post" action="{{ \App\Support\PartnerDashboard::route('orders.fixed', ['order' => $order['id']]) }}" class="partner-follow-link">
-                        @csrf
-                        <button class="partner-btn secondary" type="submit">I fixed it on the same URL</button>
-                    </form>
-                @endif
+            @endif
+            @if (!empty($openCorrection))
+                <form method="post" action="{{ \App\Support\PartnerDashboard::route('orders.decline', ['order' => $order['id'], 'correction' => $openCorrection->id]) }}" class="partner-form partner-follow-link">
+                    @csrf
+                    <label>Decline this correction (opens a dispute)
+                        <textarea name="reason" required minlength="10" placeholder="Why this change is not possible">{{ old('reason') }}</textarea>
+                    </label>
+                    <button class="partner-btn danger" type="submit">Decline correction</button>
+                </form>
             @endif
         </div>
     @endif
+
+    <div class="partner-card" id="thread">
+        <h2>Order thread</h2>
+        <p class="partner-lead">Messages go through SLB. Contact details are removed. Buyer identity is never shown.</p>
+        <ol class="partner-thread">
+            @forelse ($messages as $message)
+                <li class="partner-thread-item">
+                    <div class="partner-thread-meta">
+                        <strong>{{ $message['author_type'] }}</strong>
+                        <time>{{ $message['created_at'] }}</time>
+                        @if ($message['masked'])
+                            <span class="partner-badge">masked</span>
+                        @endif
+                    </div>
+                    <div class="partner-thread-body">{{ $message['body'] }}</div>
+                    @foreach ($message['attachments'] as $file)
+                        <div><a href="{{ \App\Support\PartnerDashboard::route('orders.attachment', ['order' => $order['id'], 'attachment' => $file['id']]) }}">{{ $file['filename'] }}</a></div>
+                    @endforeach
+                </li>
+            @empty
+                <li>No messages yet.</li>
+            @endforelse
+        </ol>
+        <form method="post" action="{{ \App\Support\PartnerDashboard::route('orders.reply', ['order' => $order['id']]) }}" enctype="multipart/form-data" class="partner-form">
+            @csrf
+            <label>Reply
+                <textarea name="body" required maxlength="5000">{{ old('body') }}</textarea>
+            </label>
+            <label>Attachment (optional)
+                <input type="file" name="attachment">
+            </label>
+            <button class="partner-btn" type="submit">Send</button>
+        </form>
+    </div>
 
     <div class="partner-card">
         <h2>Timeline</h2>

@@ -20,16 +20,22 @@ class PartnerOrderStatus
 
     public const REJECTED = 'rejected';
 
-    public const NEEDS_CORRECTION = 'needs_correction';
+    public const AWAITING_CORRECTION = 'awaiting_correction';
+
+    /** @deprecated Use AWAITING_CORRECTION */
+    public const NEEDS_CORRECTION = self::AWAITING_CORRECTION;
+
+    public const DISPUTED = 'disputed';
 
     /** @var list<string> */
     public const TILES = [
         self::PENDING,
         self::IN_PROGRESS,
         self::SUBMITTED,
+        self::AWAITING_CORRECTION,
+        self::DISPUTED,
         self::COMPLETED,
         self::REJECTED,
-        self::NEEDS_CORRECTION,
     ];
 
     public static function labels(): array
@@ -38,9 +44,10 @@ class PartnerOrderStatus
             self::PENDING => 'New / pending',
             self::IN_PROGRESS => 'In progress',
             self::SUBMITTED => 'Submitted',
+            self::AWAITING_CORRECTION => 'Awaiting correction',
+            self::DISPUTED => 'Disputed',
             self::COMPLETED => 'Completed',
             self::REJECTED => 'Rejected',
-            self::NEEDS_CORRECTION => 'Needs correction',
         ];
     }
 
@@ -52,11 +59,14 @@ class PartnerOrderStatus
         if ($orderStatus === 'cancelled') {
             return self::REJECTED;
         }
+        if ((string) ($item->partner_dispute_status ?? '') === 'open') {
+            return self::DISPUTED;
+        }
         if ($orderStatus === 'completed') {
             return self::COMPLETED;
         }
         if ($item->isModificationRequested()) {
-            return self::NEEDS_CORRECTION;
+            return self::AWAITING_CORRECTION;
         }
         if ($orderStatus === 'review') {
             return self::SUBMITTED;

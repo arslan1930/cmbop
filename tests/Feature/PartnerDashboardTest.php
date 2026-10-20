@@ -17,7 +17,6 @@ use App\Models\PartnerCatalogItem;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
-use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Services\LiveUrlHealthChecker;
 use App\Services\Partners\PartnerAccountService;
@@ -273,7 +272,7 @@ class PartnerDashboardTest extends TestCase
         $html = $home->getContent();
         $this->assertNoConfidentialLeak($html);
         $this->assertStringContainsString('New / pending', $html);
-        $this->assertStringContainsString('Needs correction', $html);
+        $this->assertStringContainsString('Awaiting correction', $html);
 
         $orders = $this->actingAs($this->partnerUser)->get($this->partnerUrl('/orders'));
         $orders->assertOk();
@@ -346,19 +345,11 @@ class PartnerDashboardTest extends TestCase
         $this->assertStringContainsString('€40.00', $html);
     }
 
-    public function test_money_page_uses_existing_wallet_rules(): void
+    public function test_money_page_uses_partner_ledger_not_wallet(): void
     {
-        $wallet = Wallet::create([
-            'user_id' => $this->partnerUser->id,
-            'role_id' => Wallet::publisherRoleId(),
-            'currency' => 'EUR',
-            'balance' => 50,
-            'reserved_balance' => 0,
-        ]);
-        $this->assertNotNull($wallet);
-
         $html = $this->actingAs($this->partnerUser)->get($this->partnerUrl('/money'))->assertOk()->getContent();
-        $this->assertStringContainsString('€50.00', $html);
+        $this->assertStringContainsString('Held', $html);
+        $this->assertStringContainsString('Available to withdraw', $html);
         $this->assertStringContainsString('No fees', $html);
         $this->assertStringContainsString('20.00', $html);
         $this->assertNoConfidentialLeak($html);

@@ -9,6 +9,7 @@ use App\Services\ActivityLogger;
 use App\Services\Billing\WithdrawalPayoutStatementService;
 use App\Services\InAppNotificationService;
 use App\Services\Partners\PartnerAlertService;
+use App\Services\Partners\PartnerWithdrawalService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -191,6 +192,12 @@ class ManualWithdrawalSettlementService
 
     protected function refundWallet(Withdrawal $withdrawal): void
     {
+        if (PartnerWithdrawalService::isPartnerLedger($withdrawal)) {
+            app(PartnerWithdrawalService::class)->refundToLedger($withdrawal);
+
+            return;
+        }
+
         $wallet = $withdrawal->resolveDebitedWallet(lockForUpdate: true);
         if (! $wallet) {
             throw ManualWithdrawalUnknownWalletException::forWithdrawal((int) $withdrawal->id);
@@ -238,7 +245,7 @@ class ManualWithdrawalSettlementService
     ): void {
         try {
             $user = $withdrawal->user;
-            if ($user?->email && $newStatus !== 'pending') {
+            if ($user?->email && $newStatus !== 'pending' && ! $user->isSupplyPartner()) {
                 Mail::to($user->email)->send(
                     new WithdrawalStatusUpdated($withdrawal, $oldStatus, $newStatus, $notes)
                 );

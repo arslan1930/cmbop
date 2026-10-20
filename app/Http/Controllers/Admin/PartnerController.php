@@ -52,7 +52,7 @@ class PartnerController extends Controller
 
     public function show(Partner $partner): View
     {
-        $partner->load(['user', 'feedConnection', 'catalogItems' => fn ($q) => $q->latest('id')->limit(20)]);
+        $partner->load(['user', 'feedConnection', 'connections', 'catalogItems' => fn ($q) => $q->latest('id')->limit(20)]);
         $publisherRole = Role::where('name', 'publisher')->first();
 
         return view('admin.partners.show', compact('partner', 'publisherRole'));

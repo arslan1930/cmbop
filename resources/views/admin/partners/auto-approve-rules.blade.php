@@ -13,7 +13,12 @@
     </div>
 
     @if($dryRun)
-        <div class="alert alert-info">Dry-run for <strong>{{ $dryRun['rule']->name }}</strong>: {{ $dryRun['count'] }} unused site(s) would match. IDs: {{ implode(', ', array_slice($dryRun['ids'], 0, 20)) }}{{ count($dryRun['ids']) > 20 ? '…' : '' }}</div>
+        <div class="alert alert-info">
+            Dry-run for <strong>{{ $dryRun['rule']->name }}</strong>: {{ $dryRun['count'] }} unused site(s) would match.
+            Would send to review: {{ $dryRun['would_send_to_review'] ?? $dryRun['count'] }}.
+            Would go live (trusted partners only): {{ $dryRun['would_go_live'] ?? 0 }}.
+            IDs: {{ implode(', ', array_slice($dryRun['ids'], 0, 20)) }}{{ count($dryRun['ids']) > 20 ? '…' : '' }}
+        </div>
     @endif
 
     <form method="POST" action="{{ route('admin.partners.auto-approve-rules.store') }}" class="card border-0 shadow-sm mb-4">

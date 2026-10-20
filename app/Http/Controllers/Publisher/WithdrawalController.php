@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Publisher;
 
 use App\Http\Controllers\Controller;
 use App\Mail\WithdrawalRequestedConfirmation;
+use App\Models\Partner;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Services\EmailNotificationService;
+use App\Services\Partners\PartnerWithdrawalService;
 use App\Services\Wallet\PayoutProfileService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Support\ListingMoney;
@@ -452,6 +454,20 @@ class WithdrawalController extends Controller
                     'success' => false,
                     'message' => 'Withdrawal request not found or cannot be cancelled',
                 ], 404);
+            }
+
+            if (class_exists(PartnerWithdrawalService::class)
+                && PartnerWithdrawalService::isPartnerLedger($withdrawal)) {
+                $partner = Partner::forUser($user);
+                if ($partner) {
+                    app(PartnerWithdrawalService::class)->cancel($withdrawal, $partner);
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Withdrawal request cancelled. Funds returned to available.',
+                    ]);
+                }
             }
 
             $wallet = $withdrawal->resolveDebitedWallet(lockForUpdate: true);

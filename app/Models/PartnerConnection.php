@@ -12,6 +12,8 @@ class PartnerConnection extends Model
 
     public const TYPE_FILE_UPLOAD = 'file_upload';
 
+    public const TYPE_API_PULL = 'api_pull';
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_PAUSED = 'paused';
@@ -29,12 +31,18 @@ class PartnerConnection extends Model
         'last_job_id',
         'fail_count',
         'field_mapping',
+        'api_base_url',
+        'auth_header_name',
+        'auth_key_encrypted',
+        'pagination',
+        'items_path',
     ];
 
     protected $casts = [
         'last_sync_at' => 'datetime',
         'field_mapping' => 'array',
         'fail_count' => 'integer',
+        'pagination' => 'array',
     ];
 
     public function partner(): BelongsTo

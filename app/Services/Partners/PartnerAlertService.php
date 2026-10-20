@@ -57,6 +57,13 @@ class PartnerAlertService
             $item,
             $this->orderUrl($publisher, $item, $partner)
         ));
+        try {
+            app(PartnerWebhookService::class)->emit($partner, 'order.created', [
+                'object' => app(PartnerApiSerializer::class)->order($publisher, $item),
+            ]);
+        } catch (\Throwable) {
+            // Webhook outbox is best-effort next to email.
+        }
     }
 
     public function notifyCorrection(User $publisher, OrderItem $item, string $reason): void

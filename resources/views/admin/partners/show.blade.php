@@ -52,6 +52,78 @@
         @csrf
         <button class="btn btn-outline-primary btn-sm" type="submit">Fetch feed now</button>
         <a class="btn btn-outline-secondary btn-sm" href="{{ route('admin.partners.catalog', ['partner_id' => $partner->id]) }}">Catalog items</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ route('admin.partners.payouts') }}">Payouts</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ route('admin.partners.relay') }}">Relay</a>
     </form>
+
+    @if (session('plain_api_key'))
+        <div class="alert alert-warning">Copy this API key now: <code>{{ session('plain_api_key') }}</code></div>
+    @endif
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h5>Payout mode</h5>
+            <p class="small text-muted mb-2">Current: {{ $partner->payout_mode ?: 'held' }}. Instant requires a stored keep-live acceptance.</p>
+            <form method="POST" action="{{ route('admin.partners.payout-mode', $partner) }}" class="row g-2">
+                @csrf
+                <div class="col-md-2">
+                    <select name="mode" class="form-select">
+                        <option value="held" @selected(($partner->payout_mode ?: 'held') === 'held')>held</option>
+                        <option value="instant" @selected($partner->payout_mode === 'instant')>instant</option>
+                    </select>
+                </div>
+                <div class="col-md-6"><input class="form-control" name="reason" required placeholder="Reason"></div>
+                <div class="col-md-2"><button class="btn btn-primary">Update mode</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h5>API keys</h5>
+            <form method="POST" action="{{ route('admin.partners.api-keys', $partner) }}" class="row g-2 mb-3">
+                @csrf
+                <div class="col-md-4"><input class="form-control" name="name" required placeholder="Key name"></div>
+                <div class="col-md-2">
+                    <select name="mode" class="form-select">
+                        <option value="live">live</option>
+                        <option value="test">test</option>
+                    </select>
+                </div>
+                <div class="col-md-2"><button class="btn btn-outline-primary">Issue key</button></div>
+            </form>
+            <p class="small text-muted">Keys are also manageable by the partner on the dashboard Settings page. Max two active.</p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h5>Pull adapter (partner API → import pipeline)</h5>
+            <form method="POST" action="{{ route('admin.partners.pull', $partner) }}" class="row g-2">
+                @csrf
+                <div class="col-md-6">
+                    <label class="form-label">API URL</label>
+                    <input class="form-control" name="api_base_url" value="{{ $partner->connections->firstWhere('type', 'api_pull')?->api_base_url }}" placeholder="https://api.example/v1/sites">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Auth header</label>
+                    <input class="form-control" name="auth_header_name" value="{{ $partner->connections->firstWhere('type', 'api_pull')?->auth_header_name ?: 'Authorization' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Auth key</label>
+                    <input class="form-control" name="auth_key" placeholder="leave blank to keep">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Items path</label>
+                    <input class="form-control" name="items_path" value="{{ $partner->connections->firstWhere('type', 'api_pull')?->items_path ?: 'data' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Page param</label>
+                    <input class="form-control" name="page_param" value="page">
+                </div>
+                <div class="col-12"><button class="btn btn-outline-primary">Save pull adapter</button></div>
+            </form>
+        </div>
+    </div>
 </div>
 @endsection

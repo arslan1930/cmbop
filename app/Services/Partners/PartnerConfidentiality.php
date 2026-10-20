@@ -27,6 +27,11 @@ class PartnerConfidentiality
         'advertiser_count',
         'order_volume',
         'suggested_slb_price',
+        'advertiser_eur_amount',
+        'slb_price_eur_internal',
+        'slb_revenue',
+        'buyer_email',
+        'advertiser_email',
     ];
 
     /**

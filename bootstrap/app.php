@@ -325,6 +325,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('partners:sync-feeds')
             ->dailyAt('04:00')
             ->withoutOverlapping();
+        $schedule->command('partners:sync-api-pull')
+            ->dailyAt('04:05')
+            ->withoutOverlapping();
+        $schedule->command('partners:deliver-webhooks')
+            ->everyMinute()
+            ->withoutOverlapping();
+        $schedule->command('partners:release-holds')
+            ->hourly()
+            ->withoutOverlapping();
+        $schedule->command('partners:monitor-links')
+            ->everySixHours()
+            ->withoutOverlapping();
+        $schedule->command('partners:generate-statements')
+            ->monthlyOn(1, '05:10')
+            ->withoutOverlapping();
 
         // Refresh catalog EUR prices from listing amounts + live FX buffer
         $schedule->command('sites:refresh-eur-prices')

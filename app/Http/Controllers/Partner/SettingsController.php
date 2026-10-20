@@ -5,18 +5,24 @@ namespace App\Http\Controllers\Partner;
 use App\Http\Controllers\Controller;
 use App\Mail\PasswordChangedMail;
 use App\Models\Partner;
+use App\Models\PartnerApiKey;
+use App\Models\PartnerWebhookEndpoint;
 use App\Models\User;
+use App\Services\Partners\PartnerApiKeyService;
 use App\Services\Partners\PartnerEmailActionService;
 use App\Services\Partners\PartnerEmailChangeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
+use RuntimeException;
 
 class SettingsController extends Controller
 {
@@ -31,6 +37,12 @@ class SettingsController extends Controller
             'prefs' => $partner?->notification_preferences ?? [],
             'oneClick' => $partner?->oneClickLinksEnabled() ?? true,
             'pendingEmail' => $this->pendingEmail($user),
+            'apiKeys' => $partner
+                ? PartnerApiKey::query()->where('partner_id', $partner->id)->orderByDesc('id')->get()
+                : collect(),
+            'webhooks' => $partner
+                ? PartnerWebhookEndpoint::query()->where('partner_id', $partner->id)->orderByDesc('id')->get()
+                : collect(),
         ]);
     }
 
@@ -76,6 +88,7 @@ class SettingsController extends Controller
         $prefs = [
             'new_order' => $request->boolean('new_order'),
             'correction' => $request->boolean('correction'),
+            'messages' => $request->boolean('messages'),
             'payout_released' => true,
             'security' => true,
         ];
@@ -120,5 +133,68 @@ class SettingsController extends Controller
             ->first();
 
         return $row->new_email ?? null;
+    }
+
+    public function issueKey(Request $request, PartnerApiKeyService $keys): RedirectResponse
+    {
+        $partner = Partner::forUser($request->user());
+        abort_unless($partner, 404);
+        $data = $request->validate([
+            'name' => 'required|string|max:120',
+            'mode' => 'required|in:live,test',
+        ]);
+        try {
+            $issued = $keys->issue($partner, $data['name'], PartnerApiKeyService::SCOPES, $data['mode'], $request->user());
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'API key created. Copy it now — it is shown only once.')
+            ->with('plain_api_key', $issued['plain']);
+    }
+
+    public function revokeKey(Request $request, int $key, PartnerApiKeyService $keys): RedirectResponse
+    {
+        $partner = Partner::forUser($request->user());
+        abort_unless($partner, 404);
+        $row = PartnerApiKey::query()->where('partner_id', $partner->id)->where('id', $key)->firstOrFail();
+        $keys->revoke($row);
+
+        return back()->with('success', 'API key revoked.');
+    }
+
+    public function saveWebhook(Request $request): RedirectResponse
+    {
+        $partner = Partner::forUser($request->user());
+        abort_unless($partner, 404);
+        $data = $request->validate([
+            'url' => 'required|url|max:2000',
+            'events' => 'nullable|array',
+            'events.*' => 'string|max:80',
+        ]);
+        $secret = 'whsec_'.Str::lower(Str::random(32));
+        $endpoint = PartnerWebhookEndpoint::query()->create([
+            'partner_id' => $partner->id,
+            'url' => $data['url'],
+            'events' => $data['events'] ?? ['*'],
+            'secret_encrypted' => Crypt::encryptString($secret),
+            'status' => 'enabled',
+        ]);
+
+        return back()->with('success', 'Webhook endpoint saved. Copy the signing secret now.')
+            ->with('webhook_secret', $secret)
+            ->with('webhook_id', $endpoint->id);
+    }
+
+    public function disableWebhook(Request $request, int $endpoint): RedirectResponse
+    {
+        $partner = Partner::forUser($request->user());
+        abort_unless($partner, 404);
+        $row = PartnerWebhookEndpoint::query()->where('partner_id', $partner->id)->where('id', $endpoint)->firstOrFail();
+        $row->status = 'disabled';
+        $row->disabled_at = now();
+        $row->save();
+
+        return back()->with('success', 'Webhook disabled.');
     }
 }

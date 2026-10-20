@@ -63,9 +63,94 @@
             <div class="stack">
                 <label><input type="checkbox" name="new_order" value="1" @checked(($prefs['new_order'] ?? true))> Email me about new orders</label>
                 <label><input type="checkbox" name="correction" value="1" @checked(($prefs['correction'] ?? true))> Email me about corrections</label>
+                <label><input type="checkbox" name="messages" value="1" @checked(($prefs['messages'] ?? true))> Email me about thread messages</label>
                 <label><input type="checkbox" name="one_click_links" value="1" @checked($oneClick)> Allow one-click order links in email</label>
                 <p class="partner-lead">Payout released and security emails always send.</p>
                 <button class="partner-btn" type="submit">Save notifications</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="partner-card">
+        <h2>API keys</h2>
+        <p class="partner-lead">At most two active keys. Keys are hashed; the secret is shown once.</p>
+        @if (session('plain_api_key'))
+            <div class="partner-alert">Copy this key now: <code>{{ session('plain_api_key') }}</code></div>
+        @endif
+        <table class="partner-table">
+            <thead><tr><th>Name</th><th>Prefix</th><th>Mode</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+            @forelse ($apiKeys as $key)
+                <tr>
+                    <td data-label="Name">{{ $key->name }}</td>
+                    <td data-label="Prefix"><code>{{ $key->prefix }}</code></td>
+                    <td data-label="Mode">{{ $key->mode }}</td>
+                    <td data-label="Status">{{ $key->revoked_at ? 'revoked' : 'active' }}</td>
+                    <td>
+                        @if (! $key->revoked_at)
+                            <form method="post" action="{{ \App\Support\PartnerDashboard::route('settings.keys.revoke', ['key' => $key->id]) }}">
+                                @csrf
+                                <button class="partner-btn secondary" type="submit">Revoke</button>
+                            </form>
+                        @endif
+                    </td>
+                </tr>
+            @empty
+                <tr><td colspan="5">No keys yet.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+        <form method="post" action="{{ \App\Support\PartnerDashboard::route('settings.keys') }}" class="partner-form">
+            @csrf
+            <div class="stack">
+                <label>Key name
+                    <input type="text" name="name" required maxlength="120" value="{{ old('name') }}">
+                </label>
+                <label>Mode
+                    <select name="mode">
+                        <option value="live">live</option>
+                        <option value="test">test</option>
+                    </select>
+                </label>
+                <button class="partner-btn" type="submit">Create API key</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="partner-card">
+        <h2>Webhooks</h2>
+        <p class="partner-lead">Signed with HMAC-SHA256 header SLB-Signature (v1=…). Events include order.created, order.correction_requested, order.completed.</p>
+        @if (session('webhook_secret'))
+            <div class="partner-alert">Signing secret (once): <code>{{ session('webhook_secret') }}</code></div>
+        @endif
+        <table class="partner-table">
+            <thead><tr><th>URL</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+            @forelse ($webhooks as $hook)
+                <tr>
+                    <td data-label="URL">{{ $hook->url }}</td>
+                    <td data-label="Status">{{ $hook->status }}</td>
+                    <td>
+                        @if ($hook->status === 'enabled')
+                            <form method="post" action="{{ \App\Support\PartnerDashboard::route('settings.webhooks.disable', ['endpoint' => $hook->id]) }}">
+                                @csrf
+                                <button class="partner-btn secondary" type="submit">Disable</button>
+                            </form>
+                        @endif
+                    </td>
+                </tr>
+            @empty
+                <tr><td colspan="3">No webhook URL yet.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+        <form method="post" action="{{ \App\Support\PartnerDashboard::route('settings.webhooks') }}" class="partner-form">
+            @csrf
+            <div class="stack">
+                <label>Endpoint URL
+                    <input type="url" name="url" required value="{{ old('url') }}" placeholder="https://">
+                </label>
+                <button class="partner-btn" type="submit">Save webhook</button>
             </div>
         </form>
     </div>

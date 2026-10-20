@@ -46,6 +46,7 @@ use App\Mail\PartnerEmailChangeConfirmMail;
 use App\Mail\PartnerNewOrderMail;
 use App\Mail\PartnerPasswordResetMail;
 use App\Mail\PartnerPayoutReleasedMail;
+use App\Mail\PartnerThreadMessageMail;
 use App\Mail\PasswordChangedMail;
 use App\Mail\PaymentFailedMail;
 use App\Mail\PaymentPendingMail;
@@ -365,6 +366,13 @@ return [
             'audience' => 'publisher',
             'preference' => null,
             'mailable' => PartnerCorrectionMail::class,
+            'default_enabled' => true,
+        ],
+        'partner_thread_message' => [
+            'name' => 'Partner: order message',
+            'audience' => 'publisher',
+            'preference' => null,
+            'mailable' => PartnerThreadMessageMail::class,
             'default_enabled' => true,
         ],
         'partner_payout_released' => [
