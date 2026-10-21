@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ContentSubmission;
 use App\Models\Site;
 use App\Services\CartPricingService;
+use App\Services\Marketplace\CheckoutAddOnService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
 use App\Support\MarketplacePicker;
@@ -220,7 +221,7 @@ class GuestPostWizardController extends Controller
         if (! $this->cartHasReadyLine($cart)) {
             return redirect()
                 ->route('advertiser.wizard.content')
-                ->with('error', 'Assign an approved article to at least one website before paying.');
+                ->with('error', 'Assign an approved article or choose writing on at least one website before paying.');
         }
 
         return redirect()->route('advertiser.checkout', ['wizard' => 1]);
@@ -359,6 +360,10 @@ class GuestPostWizardController extends Controller
      */
     private function lineFullyAssigned(array $line): bool
     {
+        if (CheckoutAddOnService::isWrittenSource($line)) {
+            return true;
+        }
+
         $qty = max(1, (int) ($line['quantity'] ?? 1));
         $ids = is_array($line['content_submission_ids'] ?? null) ? $line['content_submission_ids'] : [];
         for ($i = 0; $i < $qty; $i++) {
@@ -422,7 +427,7 @@ class GuestPostWizardController extends Controller
             if (! isset($line['price'])) {
                 $line['price'] = $site->price;
             }
-            $kept[] = $line;
+            $kept[] = app(CheckoutAddOnService::class)->decorateCartLine($line, $site);
         }
         $cart = $kept;
     }

@@ -323,7 +323,7 @@
     <div class="cart-header">
         <div>
             <p id="cartTitle" class="mb-0 cart-title">Your Cart</p>
-            <div id="cartHeaderMeta" class="small text-muted mt-1">Pay with wallet, card, or PayPal at checkout. Sites without an article stay in the cart.</div>
+            <div id="cartHeaderMeta" class="small text-muted mt-1">Pay with wallet, card, or PayPal at checkout. Sites without an article or writing order stay in the cart.</div>
         </div>
         <button id="closeCart" class="topbar-icon-btn" type="button" aria-label="Close cart">
             <i class="fa fa-times" aria-hidden="true"></i>
@@ -349,7 +349,7 @@
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
         <div id="cartProceedHint" class="small text-muted mt-2 d-none">
-            Assign an article to at least one website to checkout. Sites without articles stay in your cart.
+            Assign an article or choose writing on at least one website to checkout. Sites without articles stay in your cart.
         </div>
         <div class="cart-footer-links">
             <details class="cart-after-pay d-none" id="cartAfterPay">
@@ -646,6 +646,15 @@
                 ? changes.homepage_days
                 : cartHomepageParam(item),
         };
+        if (Object.prototype.hasOwnProperty.call(changes, 'content_source')) {
+            data.content_source = changes.content_source;
+        }
+        if (Object.prototype.hasOwnProperty.call(changes, 'writing_target_url')) {
+            data.writing_target_url = changes.writing_target_url;
+        }
+        if (Object.prototype.hasOwnProperty.call(changes, 'writing_anchor_text')) {
+            data.writing_anchor_text = changes.writing_anchor_text;
+        }
         $.ajax({
             url: @json(route('advertiser.cart.configure')),
             method: 'POST',
@@ -767,8 +776,31 @@
         return ids;
     }
 
+    function lineIsWritten(item) {
+        const source = String(item?.content_source || '').toLowerCase();
+        return source === 'publisher' || source === 'slb' || source === 'written';
+    }
+
+    function lineWritingFee(item) {
+        const fee = parseFloat(item?.writing_fee);
+        return Number.isFinite(fee) ? fee : 0;
+    }
+
+    function lineWritingFeeLabel(item) {
+        if (item?.writing_fee_label) return String(item.writing_fee_label);
+        const fee = lineWritingFee(item);
+        return slbFormatPay(fee > 0 ? fee : 35);
+    }
+
+    function linePayAmount(item) {
+        const qty = parseInt(item.quantity, 10) || 0;
+        const price = parseFloat(item.price) || 0;
+        const writing = lineIsWritten(item) ? lineWritingFee(item) : 0;
+        return (price + writing) * qty;
+    }
+
     function lineFullyAssigned(item) {
-        return lineContentIds(item).every((id) => id > 0);
+        return lineIsWritten(item) || lineContentIds(item).every((id) => id > 0);
     }
 
     function usedSubmissionIds(exceptKey, exceptCopyIndex) {
@@ -1086,7 +1118,7 @@
                 proceedHint.classList.add('d-none');
             }
             if (headerMeta) {
-                headerMeta.textContent = 'Pay sites that have an article. Others stay in the cart.';
+                headerMeta.textContent = 'Pay sites that have an article or a writing order. Others stay in the cart.';
             }
             if (totalLabel) {
                 totalLabel.textContent = 'Pay now';
@@ -1114,9 +1146,9 @@
             const readyCount = Math.max(0, cart.length - missing);
             const readyTotal = cart
                 .filter((item) => lineFullyAssigned(item))
-                .reduce((sum, item) => sum + ((parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0)), 0);
+                .reduce((sum, item) => sum + linePayAmount(item), 0);
             const missingSlots = cart.reduce((n, item) => (
-                n + lineContentIds(item).filter((id) => !id).length
+                n + (lineIsWritten(item) ? 0 : lineContentIds(item).filter((id) => !id).length)
             ), 0);
             const heldTotal = Math.max(0, cartTotal - readyTotal);
             if (totalsEl) {
@@ -1290,12 +1322,43 @@
                     }).join('')}</div>`
                     : '';
                 let articleBlock = '';
-                if (approvedArticles.length === 0 && placementIds.every((id) => !id)) {
+                const writingLabel = 'Have the article written (+' + lineWritingFeeLabel(item) + ')';
+                const writerNote = item.writing_offered
+                    ? 'Publisher writes this article.'
+                    : 'SEOLinkBuildings writes this article.';
+                const writingCta = `<button type="button" class="btn btn-sm btn-outline-primary cart-item-write-cta" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">${escapeHtml(writingLabel)}</button>`;
+                const writingBrief = `
+                    <div class="cart-writing-brief">
+                        <label class="visually-hidden" for="cart-write-target-${itemKeyAttr}">Target URL</label>
+                        <input type="url" class="form-control form-control-sm cart-writing-target" id="cart-write-target-${itemKeyAttr}" placeholder="Target URL (https://)" value="${escapeHtml(item.writing_target_url || '')}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">
+                        <label class="visually-hidden" for="cart-write-anchor-${itemKeyAttr}">Anchor text</label>
+                        <input type="text" class="form-control form-control-sm cart-writing-anchor mt-1" id="cart-write-anchor-${itemKeyAttr}" placeholder="Anchor text (optional)" maxlength="160" value="${escapeHtml(item.writing_anchor_text || '')}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">
+                        <div class="small text-muted mt-1">Editable at checkout.</div>
+                    </div>`;
+                if (lineIsWritten(item)) {
+                    articleBlock = `
+                        <div class="cart-item-article is-written">
+                            <div class="cart-item-order-label">
+                                <span class="cart-item-order-kicker">Writing order</span>
+                            </div>
+                            <div class="cart-item-article-empty">
+                                ${escapeHtml(writerNote)} ${escapeHtml(writingLabel)}.
+                            </div>
+                            ${writingBrief}
+                            <div class="cart-item-source-actions">
+                                <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">Upload article instead</a>
+                                <button type="button" class="cart-item-upload-link cart-choose-upload" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">Use my article</button>
+                            </div>
+                        </div>`;
+                } else if (approvedArticles.length === 0 && placementIds.every((id) => !id)) {
                     articleBlock = `
                         <div class="cart-item-article needs-document">
                             <div class="cart-item-article-empty">
-                                Each placement needs an approved article before you can pay.
-                                <a class="btn btn-sm btn-primary cart-item-upload-cta" href="${contentLibraryUploadUrl}">Upload article</a>
+                                Each placement needs an approved article or a writing order before you can pay.
+                                <div class="cart-item-source-actions">
+                                    <a class="btn btn-sm btn-primary cart-item-upload-cta" href="${contentLibraryUploadUrl}">Upload article</a>
+                                    ${writingCta}
+                                </div>
                             </div>
                         </div>`;
                 } else {
@@ -1343,6 +1406,7 @@
                             ? `<div class="cart-item-language-note" title="Preferred match is the same language as the site">${escapeHtml(item.language_note)}</div>`
                             : noMatchNote;
                         const uploadLink = `<a class="cart-item-upload-link" href="${contentLibraryUploadUrl}">${selectedId ? 'Upload another' : 'Upload new'}</a>`;
+                        const writeLink = selectedId ? '' : writingCta;
                         const articleSelect = cartThemeSelectMarkup(
                             selectId,
                             'cart-article-select',
@@ -1360,6 +1424,7 @@
                             <div class="cart-item-article-actions">
                                 ${uploadLink}
                             </div>
+                            ${writeLink ? `<div class="cart-item-source-actions">${writeLink}</div>` : ''}
                             ${emptyHint}
                         </div>`;
                     }).join('');
@@ -1404,7 +1469,7 @@
         if (payEl) {
             const payNow = cart.length === 0 ? 0 : cart
                 .filter((item) => lineFullyAssigned(item))
-                .reduce((sum, item) => sum + ((parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 0)), 0);
+                .reduce((sum, item) => sum + linePayAmount(item), 0);
             payEl.innerHTML = slbFormatPay(payNow);
         }
         syncCatalogCartBanner();
@@ -1647,11 +1712,56 @@
         configureCartLine(item, { sensitive_type: select.value || '' });
     });
 
+    function cartItemFromDataset(el) {
+        const id = parseInt(el.dataset.id, 10);
+        const sensitiveType = el.dataset.sensitiveType || null;
+        const homepageDays = Object.prototype.hasOwnProperty.call(el.dataset, 'homepageDays')
+            ? el.dataset.homepageDays
+            : null;
+        return cart.find((row) => {
+            if (articleId(row.id) !== id || (row.sensitive_type || null) !== sensitiveType) {
+                return false;
+            }
+            if (homepageDays === null) return true;
+            return cartHomepageParam(row) === String(homepageDays);
+        });
+    }
+
     document.getElementById('cartItemsContainer').addEventListener('click', function (e) {
         const upload = e.target.closest('.cart-item-upload-link, .cart-item-upload-cta');
         if (upload) {
             markReturnToCart();
         }
+        const writeBtn = e.target.closest('.cart-item-write-cta');
+        if (writeBtn) {
+            e.preventDefault();
+            const item = cartItemFromDataset(writeBtn);
+            if (!item) return;
+            configureCartLine(item, { content_source: 'written' });
+            return;
+        }
+        const uploadInstead = e.target.closest('.cart-choose-upload');
+        if (uploadInstead) {
+            e.preventDefault();
+            const item = cartItemFromDataset(uploadInstead);
+            if (!item) return;
+            configureCartLine(item, { content_source: 'buyer' });
+        }
+    });
+
+    document.getElementById('cartItemsContainer').addEventListener('change', function (e) {
+        const field = e.target.closest('.cart-writing-target, .cart-writing-anchor');
+        if (!field) return;
+        const item = cartItemFromDataset(field);
+        if (!item) return;
+        const card = field.closest('.cart-item-article');
+        const target = card?.querySelector('.cart-writing-target');
+        const anchor = card?.querySelector('.cart-writing-anchor');
+        configureCartLine(item, {
+            content_source: item.content_source || 'written',
+            writing_target_url: target ? target.value : '',
+            writing_anchor_text: anchor ? anchor.value : '',
+        });
     });
     
     // Cart item actions (event delegation)
@@ -1789,7 +1899,7 @@
         const readyCount = Math.max(0, cart.length - missing.length);
         if (readyCount === 0) {
             openCart();
-            showToast('Assign an approved article to at least one website before checkout.', 'error');
+            showToast('Assign an approved article or choose writing on at least one website before checkout.', 'error');
             return;
         }
         const wizardPay = @json(route('advertiser.wizard.pay'));

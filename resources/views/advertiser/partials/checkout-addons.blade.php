@@ -20,6 +20,9 @@
                 $writer = $item['writing_writer'] ?? ($publisherOffered ? 'publisher' : 'slb');
                 $guaranteeOffered = !empty($item['guarantee_offered']);
                 $payingNow = !empty($item['paying_now']);
+                $writtenSelected = \App\Services\Marketplace\CheckoutAddOnService::isWrittenSource($item);
+                $writingTarget = (string) ($item['writing_target_url'] ?? '');
+                $writingAnchor = (string) ($item['writing_anchor_text'] ?? '');
             @endphp
             <div class="border rounded p-3 mb-3 checkout-writing-line"
                  data-site-id="{{ $item['id'] }}"
@@ -35,7 +38,7 @@
                 <div class="form-check">
                     <input class="form-check-input checkout-content-source" type="radio"
                            name="content_source[{{ $item['id'] }}]" value="buyer"
-                           id="contentSourceBuyer{{ $item['id'] }}" checked>
+                           id="contentSourceBuyer{{ $item['id'] }}" @checked(!$writtenSelected)>
                     <label class="form-check-label" for="contentSourceBuyer{{ $item['id'] }}">
                         I supply the article
                         <span class="text-muted">(listing price)</span>
@@ -44,7 +47,7 @@
                 <div class="form-check">
                     <input class="form-check-input checkout-content-source" type="radio"
                            name="content_source[{{ $item['id'] }}]" value="written"
-                           id="contentSourceWritten{{ $item['id'] }}">
+                           id="contentSourceWritten{{ $item['id'] }}" @checked($writtenSelected)>
                     <label class="form-check-label" for="contentSourceWritten{{ $item['id'] }}">
                         @if($publisherOffered)
                             Publisher writes the article
@@ -59,17 +62,19 @@
                         @endif
                     </label>
                 </div>
-                <div class="checkout-writing-brief d-none mt-2">
+                <div class="checkout-writing-brief {{ $writtenSelected ? '' : 'd-none' }} mt-2">
                     <label class="form-label small" for="writingTarget{{ $item['id'] }}">Target URL for the written article</label>
                     <input type="url" class="form-control form-control-sm checkout-writing-target"
                            name="writing_brief[{{ $item['id'] }}][target_url]"
                            id="writingTarget{{ $item['id'] }}"
-                           placeholder="https://">
+                           placeholder="https://"
+                           value="{{ $writingTarget }}">
                     <label class="form-label small mt-2" for="writingAnchor{{ $item['id'] }}">Preferred anchor text (optional)</label>
                     <input type="text" class="form-control form-control-sm"
                            name="writing_brief[{{ $item['id'] }}][anchor_text]"
                            id="writingAnchor{{ $item['id'] }}"
-                           maxlength="160">
+                           maxlength="160"
+                           value="{{ $writingAnchor }}">
                 </div>
                 @if(!$guaranteeOffered)
                     <p class="small text-muted mb-0 mt-2">12-month link guarantee is not available — this listing’s publication period is shorter than 12 months.</p>

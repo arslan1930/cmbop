@@ -30,12 +30,19 @@
         <div class="col-md-12">
             <h1 class="mb-1 fw-semibold">Checkout</h1>
             <p class="text-muted mb-0">
-                Pay only for websites that are ready (approved article assigned). Others stay in your cart.
+                Pay only for websites that are ready (approved article assigned or writing chosen). Others stay in your cart.
             </p>
         </div>
     </div>
 
-    @if(($deferredCount ?? 0) > 0)
+    @if(!($payableReady ?? true))
+        <div class="alert alert-warning border mb-4" role="status">
+            <div class="fw-semibold mb-1">Nothing ready to pay yet</div>
+            <div class="small mb-0">
+                Assign an approved Content Library article or choose “have the article written” on at least one website, then place the order.
+            </div>
+        </div>
+    @elseif(($deferredCount ?? 0) > 0)
         <div class="alert alert-light border mb-4" role="status">
             <div class="fw-semibold mb-1">
                 <i class="fa fa-info-circle me-1"></i>
@@ -47,13 +54,6 @@
             <div class="small text-muted mb-0">
                 {{ (int) $deferredCount }} website{{ (int) $deferredCount === 1 ? '' : 's' }} without a ready article
                 will stay in your cart and will not be charged yet.
-            </div>
-        </div>
-    @elseif(!($payableReady ?? true))
-        <div class="alert alert-warning border mb-4" role="status">
-            <div class="fw-semibold mb-1">Nothing ready to pay yet</div>
-            <div class="small mb-0">
-                Assign an approved Content Library article to at least one website in your cart, then return to place the order.
             </div>
         </div>
     @endif
@@ -772,7 +772,7 @@
                                 <span id="subtotal">{{ format_money_pay($total) }}</span>
                             </div>
                             <div class="d-flex justify-content-between mb-2 d-none" id="writingFeeRow">
-                                <span class="text-muted">Publisher writing:</span>
+                                <span class="text-muted">Writing fee:</span>
                                 <span id="writingFeeAmount">€0.00</span>
                             </div>
                             <div class="d-flex justify-content-between mb-2 d-none" id="guaranteeFeeRow">
@@ -1458,6 +1458,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (target) target.required = written;
         });
         refreshBonusUi();
+        if (typeof syncPlaceOrderForModeration === 'function') {
+            syncPlaceOrderForModeration();
+        }
     }
 
     function bonusToApply() {
@@ -1651,7 +1654,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function contentReady() {
-        return @json((bool) ($payableReady ?? false));
+        if (@json((bool) ($payableReady ?? false))) {
+            return true;
+        }
+        let ready = false;
+        document.querySelectorAll('.checkout-writing-line').forEach(function (line) {
+            if (isLineChargedNow(line)) {
+                ready = true;
+            }
+        });
+        return ready;
     }
 
     function syncPlaceOrderForModeration() {

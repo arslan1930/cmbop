@@ -64,6 +64,8 @@
                         $line = $placement['line'];
                         $selectedId = $placement['selected_id'];
                         $copyIndex = $placement['copy_index'];
+                        $written = \App\Services\Marketplace\CheckoutAddOnService::isWrittenSource($line);
+                        $writingFeeLabel = $line['writing_fee_label'] ?? '';
                         $options = $approvedArticles->filter(function ($article) use ($usedIds, $selectedId) {
                             $id = (int) $article->id;
                             if ($id !== $selectedId && in_array($id, $usedIds, true)) {
@@ -78,6 +80,7 @@
                     <div class="card border-0 shadow-sm wizard-line"
                          data-site-id="{{ $line['id'] }}"
                          data-sensitive-type="{{ $line['sensitive_type'] ?? '' }}"
+                         data-homepage-days="{{ $line['homepage_days'] ?? 'none' }}"
                          data-copy-index="{{ $copyIndex }}">
                         <div class="card-body">
                             <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
@@ -91,13 +94,13 @@
                                         · {{ format_money($line['price'] ?? 0) }}
                                     </div>
                                 </div>
-                                <span class="badge {{ $selectedId ? 'text-bg-success' : 'text-bg-secondary' }} line-status">
-                                    {{ $selectedId ? 'Article assigned' : 'Needs article' }}
+                                <span class="badge {{ ($selectedId || $written) ? 'text-bg-success' : 'text-bg-secondary' }} line-status">
+                                    {{ $written ? 'Writing ordered' : ($selectedId ? 'Article assigned' : 'Needs article') }}
                                 </span>
                             </div>
 
                             <label class="form-label small">Approved article</label>
-                            <select class="form-select form-select-sm wizard-article-select mb-2">
+                            <select class="form-select form-select-sm wizard-article-select mb-2" @disabled($written)>
                                 <option value="">— Select approved article —</option>
                                 @forelse($options as $article)
                                     <option value="{{ $article->id }}" @selected($selectedId === (int) $article->id)>
@@ -108,7 +111,17 @@
                                     <option value="" disabled>No approved articles yet</option>
                                 @endforelse
                             </select>
-                            <div class="small text-muted line-feedback" aria-live="polite"></div>
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-sm btn-outline-secondary">Upload article</a>
+                                <button type="button" class="btn btn-sm {{ $written ? 'btn-primary' : 'btn-outline-primary' }} wizard-write-cta">
+                                    Have the article written{{ $writingFeeLabel !== '' ? ' (+'.$writingFeeLabel.')' : '' }}
+                                </button>
+                            </div>
+                            <div class="small text-muted line-feedback" aria-live="polite">
+                                @if($written)
+                                    Writing selected. Target URL and anchor can be edited at checkout.
+                                @endif
+                            </div>
                         </div>
                     </div>
                 @endforeach
@@ -125,7 +138,7 @@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="fw-semibold mb-1">Write for me</h6>
-                    <p class="small text-muted mb-0">Choose “have it written” at checkout. The publisher writes when they offer it; otherwise SEOLinkBuildings writes it. You approve the article before it is published.</p>
+                    <p class="small text-muted mb-0">Choose “Have the article written” on a placement. The publisher writes when they offer it; otherwise SEOLinkBuildings writes it at a flat €35. You approve the article before it is published.</p>
                 </div>
             </div>
             <div class="card border-0 shadow-sm">
@@ -136,7 +149,7 @@
                         @elseif($cartReady)
                             Ready lines can be paid now — unassigned sites stay in your cart.
                         @else
-                            Assign an approved article to at least one placement to continue.
+                            Assign an approved article or choose writing on at least one placement to continue.
                         @endif
                     </p>
                     <a href="{{ route('advertiser.wizard.pay') }}"
@@ -154,11 +167,18 @@
 <script>
 (function () {
     const assignUrl = @json(route('advertiser.cart.assign-article'));
+    const configureUrl = @json(route('advertiser.cart.configure'));
     const csrf = @json(csrf_token());
     const payBtn = document.getElementById('wizardContinuePay');
     const readyNote = document.getElementById('wizardReadyNote');
 
+    function lineIsWritten(row) {
+        const source = String(row?.content_source || '').toLowerCase();
+        return source === 'publisher' || source === 'slb' || source === 'written';
+    }
+
     function lineFullyAssigned(row) {
+        if (lineIsWritten(row)) return true;
         const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
         const raw = Array.isArray(row.content_submission_ids) ? row.content_submission_ids : [];
         for (let i = 0; i < qty; i++) {
@@ -188,7 +208,7 @@
             payBtn.classList.add('disabled');
             payBtn.setAttribute('aria-disabled', 'true');
             payBtn.setAttribute('tabindex', '-1');
-            if (readyNote) readyNote.textContent = 'Assign an approved article to at least one placement to continue.';
+            if (readyNote) readyNote.textContent = 'Assign an approved article or choose writing on at least one placement to continue.';
         }
     }
 
@@ -238,6 +258,44 @@
                 if (ready || submissionId) {
                     setTimeout(() => window.location.reload(), 400);
                 }
+            } catch (e) {
+                feedback.innerHTML = '<span class="text-danger">Network error</span>';
+            }
+        });
+    });
+
+    document.querySelectorAll('.wizard-write-cta').forEach((button) => {
+        button.addEventListener('click', async function () {
+            const card = this.closest('.wizard-line');
+            const feedback = card.querySelector('.line-feedback');
+            const status = card.querySelector('.line-status');
+            feedback.textContent = 'Saving…';
+            try {
+                const res = await fetch(configureUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: parseInt(card.getAttribute('data-site-id'), 10),
+                        sensitive_type: card.getAttribute('data-sensitive-type') || '',
+                        homepage_days: card.getAttribute('data-homepage-days') || 'none',
+                        content_source: 'written',
+                    }),
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    feedback.innerHTML = '<span class="text-danger">' + (data.error || data.message || 'Could not save') + '</span>';
+                    return;
+                }
+                if (status) {
+                    status.textContent = 'Writing ordered';
+                    status.className = 'badge text-bg-success line-status';
+                }
+                setReady(Array.isArray(data.cart) ? data.cart : []);
+                window.location.reload();
             } catch (e) {
                 feedback.innerHTML = '<span class="text-danger">Network error</span>';
             }

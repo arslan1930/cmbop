@@ -38,8 +38,11 @@ class CartDrawerDensityTest extends TestCase
         );
         $this->assertStringContainsString('itemKeyAttr', $layout);
         $this->assertStringContainsString('sensitiveAttr', $layout);
-        $this->assertStringContainsString('Assign an article to at least one website to checkout', $layout);
+        $this->assertStringContainsString('Assign an article or choose writing on at least one website to checkout', $layout);
         $this->assertStringContainsString('Sites without articles stay in your cart.', $layout);
+        $this->assertStringContainsString('Have the article written', $layout);
+        $this->assertStringContainsString('function lineIsWritten', $layout);
+        $this->assertStringContainsString('function linePayAmount', $layout);
         $this->assertStringNotContainsString('Assign a document to at least one website to checkout', $layout);
         $this->assertStringNotContainsString('Sites without documents stay in your cart.', $layout);
         $this->assertStringContainsString('1 article still needed', $layout);
@@ -49,7 +52,7 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('Pay now', $layout);
         $this->assertStringContainsString('In cart \' + slbFormatPay(cartTotal)', $layout);
         $this->assertStringContainsString('cart-checklist__status', $layout);
-        $this->assertStringContainsString('Pay sites that have an article. Others stay in the cart.', $layout);
+        $this->assertStringContainsString('Pay sites that have an article or a writing order. Others stay in the cart.', $layout);
         $this->assertStringNotContainsString('Assign a document to each website', $layout);
         $this->assertStringNotContainsString('Before Pay', $layout);
         $this->assertStringNotContainsString('Order document', $layout);
@@ -97,11 +100,11 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('slb_cart_drawer_seen', $layout);
         $this->assertStringContainsString('slb_open_cart_on_load', $layout);
         $this->assertStringContainsString('catalogSyncInCartButtons', $layout);
-        $this->assertStringContainsString('if (opts.openCart)', $layout);
+        $this->assertStringContainsString('if (opts.openCart || opts.bulk', $layout);
         $this->assertStringContainsString("url: '{{ route(\"advertiser.cart.get\") }}'", $layout);
         $this->assertStringContainsString("url: '{{ route(\"advertiser.cart.save\") }}'", $layout);
         $this->assertStringContainsString("'Accept': 'application/json'", $layout);
-        $this->assertStringContainsString('Could not refresh cart.', $layout);
+        $this->assertStringContainsString('Could not save your cart.', $layout);
     }
 
     public function test_cart_css_owns_checklist_and_compact_spacing(): void
@@ -123,6 +126,8 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('.cart-item-qty-label', $css);
         $this->assertStringContainsString('.cart-checklist__sites', $css);
         $this->assertStringContainsString('.cart-item-upload-cta', $css);
+        $this->assertStringContainsString('.cart-item-write-cta', $css);
+        $this->assertStringContainsString('.cart-item-source-actions', $css);
         $this->assertStringContainsString('.cart-item-article-empty a.btn', $css);
         $this->assertStringContainsString('color: #fff', $css);
         $this->assertStringContainsString('background-color: var(--brand-primary-deep, #123f42)', $css);
@@ -144,7 +149,7 @@ class CartDrawerDensityTest extends TestCase
             ->assertOk()
             ->assertSee('id="cartChecklist"', false)
             ->assertSee('id="checkoutFromCart"', false)
-            ->assertSee('Assign an article to at least one website to checkout', false)
+            ->assertSee('Assign an article or choose writing on at least one website to checkout', false)
             ->assertDontSee('Assign a document to at least one website to checkout', false)
             ->assertSee('buy-confidence', false)
             ->assertSee('What happens after you pay', false)

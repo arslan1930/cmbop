@@ -20,13 +20,13 @@
         @if($writingFeeLabel !== '')
             ({{ $writingFeeLabel }} writing fee)
         @endif
-        — choose at checkout.
+        — choose in the cart.
     @else
         SEOLinkBuildings can write the article
         @if($writingFeeLabel !== '')
             (flat {{ $writingFeeLabel }} writing fee, paid to SEOLinkBuildings)
         @endif
-        — choose at checkout.
+        — choose in the cart.
     @endif
 </p>
 @if($guaranteeOffered)
