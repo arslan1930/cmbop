@@ -176,7 +176,7 @@ class AdvertiserWebhookService
         return $payload;
     }
 
-    public function deliverDue(int $limit = 50): int
+    public function deliverDue(int $limit = 50, int $maxSeconds = 0): int
     {
         if (! Schema::hasTable('advertiser_webhook_deliveries')) {
             return 0;
@@ -190,8 +190,12 @@ class AdvertiserWebhookService
             ->orderBy('id')
             ->limit($limit)
             ->get();
+        $deadline = $maxSeconds > 0 ? microtime(true) + $maxSeconds : null;
         $done = 0;
         foreach ($rows as $row) {
+            if ($deadline !== null && microtime(true) >= $deadline) {
+                break;
+            }
             $this->attempt($row);
             $done++;
         }

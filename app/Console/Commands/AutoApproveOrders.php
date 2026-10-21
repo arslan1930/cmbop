@@ -185,7 +185,7 @@ class AutoApproveOrders extends Command
             $query->notSandbox();
         }
 
-        $orderItems = $query->get();
+        $orderItems = $query->limit(200)->get();
         $this->info('Found '.$orderItems->count().' order(s) ready for auto-approval');
 
         $approvedCount = 0;

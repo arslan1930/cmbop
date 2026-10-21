@@ -21,7 +21,7 @@ class GoogleDriveClient
 
     public function accessToken(): string
     {
-        $response = Http::asForm()->post((string) config('backup.google.token_url'), [
+        $response = Http::asForm()->timeout(20)->connectTimeout(10)->post((string) config('backup.google.token_url'), [
             'client_id' => config('backup.google.client_id'),
             'client_secret' => config('backup.google.client_secret'),
             'refresh_token' => config('backup.google.refresh_token'),
@@ -96,6 +96,8 @@ class GoogleDriveClient
                 }
                 $end = $offset + strlen($data) - 1;
                 $put = Http::withToken($token)
+                    ->timeout(60)
+                    ->connectTimeout(15)
                     ->withHeaders([
                         'Content-Length' => (string) strlen($data),
                         'Content-Range' => "bytes {$offset}-{$end}/{$size}",
