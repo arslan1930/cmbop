@@ -7,8 +7,9 @@ use App\Support\PublicationDuration;
 use Illuminate\Http\Request;
 
 /**
- * Checkout-only writing option + optional 12-month link guarantee.
- * Applied after CartPricingService expand so catalog.js / cart configure stay untouched.
+ * Advertiser writing option + optional 12-month link guarantee.
+ * Cart drawer / wizard persist the choice on the session line; checkout
+ * preselects it. Applied after CartPricingService expand for money.
  */
 class CheckoutAddOnService
 {
@@ -201,20 +202,69 @@ class CheckoutAddOnService
      */
     public function checkoutViewItems(array $cartItems): array
     {
-        return array_map(function (array $item) {
-            $site = Site::query()->find($item['id'] ?? 0);
-            $publisherOffered = $site instanceof Site && $this->writing->writingOffered($site);
-            $writer = $this->requestedWriter($site instanceof Site ? $site : null);
-            $fee = $site instanceof Site ? $this->advertiserWritingFeeForSource($site, $writer) : 0.0;
-            $item['writing_offered'] = $publisherOffered;
-            $item['slb_writing_offered'] = true;
-            $item['writing_writer'] = $writer;
-            $item['writing_fee'] = $fee;
-            $item['writing_fee_label'] = $fee > 0 ? format_money_pay($fee) : '';
-            $item['guarantee_offered'] = $this->siteQualifiesForGuarantee($site instanceof Site ? $site : null);
+        return array_map(fn (array $item) => $this->decorateCartLine($item), $cartItems);
+    }
 
-            return $item;
-        }, $cartItems);
+    /**
+     * Advertiser-facing writing metadata for a cart / checkout line.
+     * Never attaches partner rates, listing markup, or publisher payout.
+     *
+     * @param  array<string, mixed>  $line
+     * @return array<string, mixed>
+     */
+    public function decorateCartLine(array $line, ?Site $site = null): array
+    {
+        $site = $site instanceof Site ? $site : Site::query()->find($line['id'] ?? 0);
+        $publisherOffered = $site instanceof Site && $this->writing->writingOffered($site);
+        $writer = $this->requestedWriter($site instanceof Site ? $site : null);
+        $fee = $site instanceof Site
+            ? $this->advertiserWritingFeeForSource($site, $writer)
+            : WritingFeeService::SLB_FLAT_EUR;
+        $source = $this->normalizeRequestedSource(
+            (string) ($line['content_source'] ?? ''),
+            $site instanceof Site ? $site : null
+        );
+
+        $line['content_source'] = $source;
+        $line['writing_offered'] = $publisherOffered;
+        $line['slb_writing_offered'] = true;
+        $line['writing_writer'] = $writer;
+        $line['writing_fee'] = $fee;
+        $line['writing_fee_label'] = $fee > 0 ? format_money_pay($fee) : '';
+        $line['writing_target_url'] = trim((string) ($line['writing_target_url'] ?? ''));
+        $line['writing_anchor_text'] = trim((string) ($line['writing_anchor_text'] ?? ''));
+        $line['guarantee_offered'] = $this->siteQualifiesForGuarantee($site instanceof Site ? $site : null);
+
+        return $line;
+    }
+
+    /**
+     * Store the cart-drawer writing choice (publisher if they self-write, else SLB).
+     *
+     * @param  array<string, mixed>  $line
+     * @return array<string, mixed>
+     */
+    public function applyWritingChoiceToLine(
+        array $line,
+        ?Site $site,
+        string $rawSource,
+        ?string $targetUrl = null,
+        ?string $anchor = null
+    ): array {
+        $line['content_source'] = $this->normalizeRequestedSource($rawSource, $site);
+        if ($targetUrl !== null) {
+            $line['writing_target_url'] = trim($targetUrl);
+        }
+        if ($anchor !== null) {
+            $line['writing_anchor_text'] = trim($anchor);
+        }
+
+        return $this->decorateCartLine($line, $site);
+    }
+
+    public function normalizeSourceForSite(string $raw, ?Site $site): string
+    {
+        return $this->normalizeRequestedSource($raw, $site);
     }
 
     /**

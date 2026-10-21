@@ -174,6 +174,48 @@ class MarketplaceAddOnsTest extends TestCase
         $this->assertSame('', $order->linkGuaranteeTermsNote());
     }
 
+    public function test_decorate_cart_line_uses_publisher_fee_or_slb_flat(): void
+    {
+        $publisherSite = new Site([
+            'language' => 'en',
+            'writing_enabled' => true,
+            'writing_fee' => 40,
+            'listing_writing_fee' => 40,
+            'listing_currency' => 'EUR',
+            'price' => 100,
+            'publication_time' => 'permanent',
+        ]);
+        $publisherSite->exists = true;
+        $publisherSite->id = 21;
+
+        $slbSite = new Site([
+            'language' => 'de',
+            'writing_enabled' => false,
+            'writing_fee' => 25,
+            'listing_writing_fee' => 25,
+            'listing_currency' => 'EUR',
+            'price' => 100,
+            'publication_time' => 'permanent',
+        ]);
+        $slbSite->exists = true;
+        $slbSite->id = 22;
+
+        $addons = app(CheckoutAddOnService::class);
+        $publisher = $addons->decorateCartLine(['id' => 21, 'content_source' => WritingFeeService::SOURCE_WRITTEN], $publisherSite);
+        $slb = $addons->decorateCartLine(['id' => 22, 'content_source' => WritingFeeService::SOURCE_WRITTEN], $slbSite);
+
+        $this->assertSame(WritingFeeService::SOURCE_PUBLISHER, $publisher['content_source']);
+        $this->assertEquals(40.0, $publisher['writing_fee']);
+        $this->assertTrue($publisher['writing_offered']);
+        $this->assertArrayNotHasKey('listing_writing_fee', $publisher);
+        $this->assertArrayNotHasKey('publisher_price', $publisher);
+
+        $this->assertSame(WritingFeeService::SOURCE_SLB, $slb['content_source']);
+        $this->assertEquals(WritingFeeService::SLB_FLAT_EUR, $slb['writing_fee']);
+        $this->assertFalse($slb['writing_offered']);
+        $this->assertArrayNotHasKey('listing_writing_fee', $slb);
+    }
+
     public function test_link_guarantee_is_ignored_when_publication_period_is_short(): void
     {
         $site = new Site([

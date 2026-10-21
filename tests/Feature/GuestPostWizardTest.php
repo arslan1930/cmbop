@@ -204,7 +204,7 @@ class GuestPostWizardTest extends TestCase
             ->get(route('advertiser.wizard.content'))
             ->assertOk()
             ->assertSee('Write for me', false)
-            ->assertSee('Coming later', false)
+            ->assertSee('Have the article written', false)
             ->assertSee('Needs article', false)
             ->assertSee('at least one placement', false);
 

@@ -132,8 +132,8 @@ class OrderingUxPrinciplesTest extends TestCase
         $this->assertStringContainsString('id="cartScheduleHint"', $html);
         $this->assertStringContainsString('id="cartHeaderMeta"', $html);
         $this->assertStringContainsString('cartLinesMissingArticles', $html);
-        $this->assertStringContainsString('Assign an approved article to at least one website', $html);
-        $this->assertStringContainsString('Pay sites that have an article. Others stay in the cart.', $html);
+        $this->assertStringContainsString('Assign an approved article or choose writing on at least one website', $html);
+        $this->assertStringContainsString('Pay sites that have an article or a writing order. Others stay in the cart.', $html);
         $this->assertStringNotContainsString('Assign a document to each website', $html);
         $this->assertStringNotContainsString('Before Pay', $html);
         $this->assertStringContainsString('cart-keep-browsing', $html);

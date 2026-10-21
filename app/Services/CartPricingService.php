@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Site;
 use App\Models\User;
+use App\Services\Marketplace\WritingFeeService;
 use App\Support\ListingMoney;
 
 class CartPricingService
@@ -694,6 +695,9 @@ class CartPricingService
                 'content_submission_ids' => $slotIds,
                 'bulk_eligible' => $site->joinsBulkDiscount(),
                 'featured' => $site->isFeatured(),
+                'content_source' => $item['content_source'] ?? WritingFeeService::SOURCE_BUYER,
+                'writing_target_url' => trim((string) ($item['writing_target_url'] ?? '')),
+                'writing_anchor_text' => trim((string) ($item['writing_anchor_text'] ?? '')),
             ];
         }
 

@@ -1358,6 +1358,15 @@ class CatalogController extends Controller
         $line['domain'] = trim((string) ($site->domain ?: ''));
         [$line['homepage_options'], $line['sensitive_options']] = $this->cartLineChoiceOptions($site);
 
+        $addons = app(CheckoutAddOnService::class);
+        $line['content_source'] = $addons->normalizeSourceForSite(
+            (string) ($line['content_source'] ?? ''),
+            $site
+        );
+        $line['writing_target_url'] = trim((string) ($line['writing_target_url'] ?? ''));
+        $line['writing_anchor_text'] = trim((string) ($line['writing_anchor_text'] ?? ''));
+        $line = $addons->decorateCartLine($line, $site);
+
         return $this->applyCartLineContentIds($line, $this->cartLineContentIds($line));
     }
 
@@ -2318,6 +2327,15 @@ class CatalogController extends Controller
                 if (! array_key_exists('homepage_days', $row) && array_key_exists('homepage_days', $prev)) {
                     $row['homepage_days'] = $prev['homepage_days'];
                 }
+                if (search_text($row['content_source'] ?? '') === '' && search_text($prev['content_source'] ?? '') !== '') {
+                    $row['content_source'] = $prev['content_source'];
+                }
+                if (search_text($row['writing_target_url'] ?? '') === '' && search_text($prev['writing_target_url'] ?? '') !== '') {
+                    $row['writing_target_url'] = $prev['writing_target_url'];
+                }
+                if (search_text($row['writing_anchor_text'] ?? '') === '' && search_text($prev['writing_anchor_text'] ?? '') !== '') {
+                    $row['writing_anchor_text'] = $prev['writing_anchor_text'];
+                }
                 $merged[] = $this->normalizeCartLineForSite($site, $row);
             }
 
@@ -2491,10 +2509,9 @@ class CatalogController extends Controller
         $submission = $submission->fresh() ?? $submission;
 
         $ids[$copyIndex] = $submission->id;
-        $cart[$lineKey] = $this->normalizeCartLineForSite(
-            $site,
-            $this->applyCartLineContentIds($cart[$lineKey], $ids)
-        );
+        $assigned = $this->applyCartLineContentIds($cart[$lineKey], $ids);
+        $assigned['content_source'] = WritingFeeService::SOURCE_BUYER;
+        $cart[$lineKey] = $this->normalizeCartLineForSite($site, $assigned);
         $mismatchNote = ContentSubmission::languageMismatchLabel(
             (string) $submission->language,
             $site->languageCodes()
@@ -2966,6 +2983,23 @@ class CatalogController extends Controller
             $line = $cart[$fromKey];
             $line['sensitive_type'] = $newSensitive;
             $line['homepage_days'] = $resolved['days'];
+            if ($request->exists('content_source')
+                || $request->exists('writing_target_url')
+                || $request->exists('writing_anchor_text')) {
+                $line = app(CheckoutAddOnService::class)->applyWritingChoiceToLine(
+                    $line,
+                    $site,
+                    (string) $request->input('content_source', $line['content_source'] ?? WritingFeeService::SOURCE_BUYER),
+                    $request->exists('writing_target_url') ? (string) $request->input('writing_target_url') : null,
+                    $request->exists('writing_anchor_text') ? (string) $request->input('writing_anchor_text') : null
+                );
+                if (CheckoutAddOnService::isWrittenSource($line)) {
+                    $line = $this->applyCartLineContentIds(
+                        $line,
+                        array_fill(0, max(1, (int) ($line['quantity'] ?? 1)), 0)
+                    );
+                }
+            }
 
             $toKey = null;
             foreach ($cart as $key => $item) {

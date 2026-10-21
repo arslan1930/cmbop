@@ -443,6 +443,34 @@
   text-decoration: none;
 }
 
+.cart-item-source-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cart-item-write-cta {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.cart-item-article.is-written {
+  border-color: var(--brand-primary-border, #b8e4e4);
+  background: var(--brand-primary-bg, #e6f5f5);
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.cart-item-article.is-written .cart-item-article-empty {
+  color: var(--brand-ink, #1f2937);
+}
+
+.cart-writing-brief {
+  margin-top: 8px;
+}
+
 .cart-item-language-note {
   margin-top: .35rem;
   font-size: .72rem;
