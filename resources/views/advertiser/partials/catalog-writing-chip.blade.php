@@ -24,7 +24,7 @@
     @else
         SEOLinkBuildings can write the article
         @if($writingFeeLabel !== '')
-            ({{ $writingFeeLabel }} writing fee)
+            (flat {{ $writingFeeLabel }} writing fee, paid to SEOLinkBuildings)
         @endif
         — choose at checkout.
     @endif

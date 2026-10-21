@@ -15,6 +15,7 @@ use App\Models\WalletTransaction;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\ContentModeration\ContentModerationService;
 use App\Services\Marketplace\ArticleWritingService;
+use App\Services\Marketplace\CheckoutAddOnService;
 use App\Services\Marketplace\WritingFeeService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Partners\PartnerAlertService;
@@ -1933,6 +1934,7 @@ class OrderPaymentService
                         : json_encode($session),
                     'paid_at' => now(),
                     'project_id' => ((int) ($package['project_id'] ?? 0)) ?: null,
+                    ...app(CheckoutAddOnService::class)->orderColumns($line),
                 ]);
 
                 if ($order === null) {
@@ -1945,7 +1947,8 @@ class OrderPaymentService
                     'site_name' => $line['site_name'] ?? $site?->site_name,
                     'site_url' => $line['site_url'] ?? $site?->site_url,
                     'price' => $line['price'] ?? 0,
-                    'content_link' => $line['content_link'] ?? null,
+                    'content_link' => $line['content_link']
+                        ?? (CheckoutAddOnService::isWrittenSource($line) ? OrderItem::PENDING_WRITTEN_LINK : null),
                     'content_source' => $line['content_source'] ?? WritingFeeService::SOURCE_BUYER,
                     'content_submission_id' => $attachSubmission ? $submission->id : null,
                     'content_disk' => $attachSubmission ? $submission->disk : ($expectLibrary ? null : ($line['content_disk'] ?? null)),
@@ -1966,6 +1969,7 @@ class OrderPaymentService
                     'platform_fee_percent' => $line['platform_fee_percent'] ?? null,
                     'platform_fee_amount' => $line['platform_fee_amount'] ?? null,
                     ...OrderItem::fxSnapshotFromPricing($line),
+                    ...app(CheckoutAddOnService::class)->orderItemColumns($line),
                 ];
 
                 $item = OrderItem::create($schema->filterExistingColumns('order_items', $itemPayload));
@@ -2284,6 +2288,7 @@ class OrderPaymentService
                     'paypal_response' => $captured['raw'] ?? $captured,
                     'paid_at' => now(),
                     'project_id' => ((int) ($package['project_id'] ?? 0)) ?: null,
+                    ...app(CheckoutAddOnService::class)->orderColumns($line),
                 ]);
                 if ($order === null) {
                     continue;
@@ -2298,7 +2303,8 @@ class OrderPaymentService
                     'site_name' => $line['site_name'] ?? $site?->site_name,
                     'site_url' => $line['site_url'] ?? $site?->site_url,
                     'price' => $line['price'] ?? 0,
-                    'content_link' => $line['content_link'] ?? null,
+                    'content_link' => $line['content_link']
+                        ?? (CheckoutAddOnService::isWrittenSource($line) ? OrderItem::PENDING_WRITTEN_LINK : null),
                     'content_source' => $line['content_source'] ?? WritingFeeService::SOURCE_BUYER,
                     'content_submission_id' => $attachSubmission ? $submission->id : null,
                     'content_disk' => $attachSubmission ? $submission->disk : ($expectLibrary ? null : ($line['content_disk'] ?? null)),
@@ -2319,6 +2325,7 @@ class OrderPaymentService
                     'platform_fee_percent' => $line['platform_fee_percent'] ?? null,
                     'platform_fee_amount' => $line['platform_fee_amount'] ?? null,
                     ...OrderItem::fxSnapshotFromPricing($line),
+                    ...app(CheckoutAddOnService::class)->orderItemColumns($line),
                 ];
                 $item = OrderItem::create($schema->filterExistingColumns('order_items', $itemPayload));
                 app(ArticleWritingService::class)->initializePaidItem($item, $site instanceof Site ? $site : null);

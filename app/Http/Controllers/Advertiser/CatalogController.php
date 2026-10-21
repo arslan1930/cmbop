@@ -3616,13 +3616,15 @@ class CatalogController extends Controller
                 'platform_fee_percent' => $orderItem['platform_fee_percent'] ?? null,
                 'platform_fee_amount' => $orderItem['platform_fee_amount'] ?? null,
                 ...OrderItem::fxSnapshotFromPricing($orderItem),
+                ...app(CheckoutAddOnService::class)->orderColumns($orderItem),
+                ...app(CheckoutAddOnService::class)->orderItemColumns($orderItem),
                 'content_source' => $orderItem['content_source'] ?? WritingFeeService::SOURCE_BUYER,
                 'writing_target_url' => $orderItem['writing_target_url'] ?? null,
                 'writing_anchor_text' => $orderItem['writing_anchor_text'] ?? null,
                 'content_submission_id' => $submission instanceof ContentSubmission ? $submission->id : null,
                 'content_link' => $submission instanceof ContentSubmission
                     ? route('advertiser.content-submissions.download', $submission)
-                    : null,
+                    : (CheckoutAddOnService::isWrittenSource($orderItem) ? OrderItem::PENDING_WRITTEN_LINK : null),
                 'content_disk' => $submission instanceof ContentSubmission ? $submission->disk : null,
                 'content_path' => $submission instanceof ContentSubmission ? $submission->path : null,
                 'content_original_name' => $submission instanceof ContentSubmission ? $submission->original_filename : null,
@@ -6031,12 +6033,12 @@ class CatalogController extends Controller
         }
 
         if ($scanned === 0 && ($checkoutContent['lines'] ?? []) !== []) {
-            $publisherWrittenOnly = collect($checkoutContent['lines'])->every(function ($line) {
+            $writtenOnly = collect($checkoutContent['lines'])->every(function ($line) {
                 $orderItem = is_array($line['orderItem'] ?? null) ? $line['orderItem'] : [];
 
-                return CheckoutAddOnService::isPublisherWritten($orderItem);
+                return CheckoutAddOnService::isWrittenSource($orderItem);
             });
-            if ($publisherWrittenOnly) {
+            if ($writtenOnly) {
                 return null;
             }
 
@@ -7132,7 +7134,7 @@ class CatalogController extends Controller
         foreach ($checkoutContent['lines'] as $index => $line) {
             $submission = $line['submission'] ?? null;
             if (! $submission instanceof ContentSubmission) {
-                if (CheckoutAddOnService::isPublisherWritten($line['orderItem'] ?? [])) {
+                if (CheckoutAddOnService::isWrittenSource($line['orderItem'] ?? [])) {
                     continue;
                 }
 

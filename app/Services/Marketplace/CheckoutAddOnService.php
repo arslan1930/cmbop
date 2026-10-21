@@ -3,7 +3,6 @@
 namespace App\Services\Marketplace;
 
 use App\Models\Site;
-use App\Support\ListingMoney;
 use App\Support\PublicationDuration;
 use Illuminate\Http\Request;
 
@@ -129,12 +128,15 @@ class CheckoutAddOnService
 
         if ($site instanceof Site && self::isWrittenSource(['content_source' => $source])) {
             $fee = $this->advertiserWritingFeeForSource($site, $source);
-            $listingFee = $this->writing->resolvedListingWritingFee($site);
+            $slbWrites = $source === WritingFeeService::SOURCE_SLB;
+            $listingFee = $slbWrites ? 0.0 : $this->writing->resolvedListingWritingFee($site);
             $orderItem['content_source'] = $source;
             $orderItem['writing_fee'] = $fee;
             $orderItem['listing_writing_fee'] = $listingFee;
             $orderItem['price'] = round((float) $orderItem['price'] + $fee, 2);
-            $orderItem['publisher_amount'] = round((float) ($orderItem['publisher_amount'] ?? 0) + $listingFee, 2);
+            if (! $slbWrites) {
+                $orderItem['publisher_amount'] = round((float) ($orderItem['publisher_amount'] ?? 0) + $listingFee, 2);
+            }
             $orderItem['advertiser_eur_amount'] = $orderItem['price'];
         }
 
@@ -275,8 +277,8 @@ class CheckoutAddOnService
     }
 
     /**
-     * PR A keeps today’s fee formula for every written line, including SLB,
-     * so a writing-disabled listing is not free if this branch merges alone.
+     * Publisher self-write uses the listing fee. SEOLinkBuildings writing is a
+     * flat EUR 35 in every language and never lands on publisher_amount.
      */
     private function advertiserWritingFeeForSource(Site $site, string $source): float
     {
@@ -284,12 +286,7 @@ class CheckoutAddOnService
             return $this->writing->resolvedAdvertiserWritingFee($site);
         }
 
-        $listing = app(ListingMoney::class);
-        $listingCurrency = $site->listingCurrency();
-        $buyerCurrency = $listing->normalizeWallet($listing->buyerCurrency());
-        $withBuffer = $listing->appliesBuffer($listingCurrency, $buyerCurrency);
-
-        return round($listing->toEuros($this->writing->resolvedListingWritingFee($site), $listingCurrency, $withBuffer), 2);
+        return WritingFeeService::SLB_FLAT_EUR;
     }
 
     /**
