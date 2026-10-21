@@ -48,11 +48,14 @@
                     <label class="form-check-label" for="contentSourceWritten{{ $item['id'] }}">
                         @if($publisherOffered)
                             Publisher writes the article
+                            @if($fee > 0)
+                                <span class="text-muted">(+ {{ format_money_pay($fee) }} writing fee)</span>
+                            @endif
                         @else
                             SEOLinkBuildings writes the article
-                        @endif
-                        @if($fee > 0)
-                            <span class="text-muted">(+ {{ format_money_pay($fee) }} writing fee)</span>
+                            @if($fee > 0)
+                                <span class="text-muted">(+ {{ format_money_pay($fee) }} flat writing fee, paid to SEOLinkBuildings — not the publisher)</span>
+                            @endif
                         @endif
                     </label>
                 </div>

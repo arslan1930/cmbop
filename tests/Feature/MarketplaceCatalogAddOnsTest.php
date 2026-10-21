@@ -17,6 +17,8 @@ use App\Services\CartPricingService;
 use App\Services\Marketplace\LinkGuaranteeService;
 use App\Services\Marketplace\PublisherReliabilityService;
 use App\Services\Marketplace\WritingFeeService;
+use App\Services\OrderPaymentService;
+use App\Services\PaypalCheckoutService;
 use App\Support\EmailCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -251,6 +253,185 @@ class MarketplaceCatalogAddOnsTest extends TestCase
         $this->assertSame('https://advertiser.example/offer', $item->target_url);
         $this->assertSame('guest tools', $item->anchor_text);
         $this->assertGreaterThan((float) $item->writing_fee, (float) $item->price);
+    }
+
+    public function test_wallet_checkout_slb_writing_is_flat_and_off_publisher_payout(): void
+    {
+        $site = $this->makeSite('slb-write', 100, [
+            'writing_enabled' => false,
+            'writing_fee' => 25,
+            'listing_writing_fee' => 25,
+        ]);
+        $priced = app(CartPricingService::class)->priceForAdvertiser($site);
+        $placement = round((float) $priced['total'] + WritingFeeService::SLB_FLAT_EUR, 2);
+        $guarantee = round($placement * 0.10, 2);
+        $expected = round($placement + $guarantee, 2);
+        $publisherAmount = (float) ($priced['publisher_amount'] ?? $site->price);
+
+        $response = $this->actingAs($this->advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                ]],
+                'checkout_schedule' => ['mode' => 'immediate', 'timezone' => 'UTC'],
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'SLBWRITE1',
+                'publication_mode' => 'immediate',
+                'link_guarantee' => 1,
+                'content_source' => [$site->id => WritingFeeService::SOURCE_WRITTEN],
+                'writing_brief' => [$site->id => [
+                    'target_url' => 'https://advertiser.example/offer',
+                    'anchor_text' => 'guest tools',
+                ]],
+            ]);
+
+        $response->assertOk()->assertJson(['success' => true]);
+
+        $order = Order::query()->where('reference_code', 'SLBWRITE1')->firstOrFail();
+        $item = $order->items()->firstOrFail();
+
+        $this->assertSame(WritingFeeService::SOURCE_SLB, $item->content_source);
+        $this->assertEquals(WritingFeeService::SLB_FLAT_EUR, (float) $item->writing_fee);
+        $this->assertEquals(0.0, (float) ($item->listing_writing_fee ?? 0));
+        $this->assertEquals($publisherAmount, (float) $item->publisher_amount);
+        $this->assertEquals($expected, (float) $order->total_amount);
+        $this->assertTrue((bool) $order->link_guarantee);
+        $this->assertEquals($guarantee, (float) $order->link_guarantee_fee);
+    }
+
+    public function test_card_and_paypal_checkout_persist_addon_money_columns(): void
+    {
+        $site = $this->makeSite('card-addons');
+        $payments = app(OrderPaymentService::class);
+        $cardRef = 'CARD-ADDON-1';
+        $line = [
+            'site_id' => $site->id,
+            'site_name' => $site->site_name,
+            'site_url' => $site->site_url,
+            'price' => 162.80,
+            'sensitive_type' => null,
+            'additional_price' => 0,
+            'content_source' => WritingFeeService::SOURCE_SLB,
+            'writing_fee' => WritingFeeService::SLB_FLAT_EUR,
+            'listing_writing_fee' => 0,
+            'publisher_amount' => 100,
+            'advertiser_eur_amount' => 162.80,
+            'link_guarantee' => true,
+            'link_guarantee_fee' => 14.80,
+            'link_guarantee_covered_amount' => 148.00,
+            'content_link' => OrderItem::PENDING_WRITTEN_LINK,
+            'anchor_text' => 'guest tools',
+            'target_url' => 'https://advertiser.example/offer',
+        ];
+        $payments->storePendingCheckout($cardRef, [
+            'user_id' => $this->advertiser->id,
+            'order_total' => 162.80,
+            'amount_due' => 162.80,
+            'bonus_applied' => 0,
+            'schedule' => ['mode' => 'immediate', 'timezone' => 'UTC'],
+            'lines' => [$line],
+        ]);
+
+        $session = (object) [
+            'id' => 'cs_addon_money',
+            'object' => 'checkout.session',
+            'amount_total' => 16280,
+            'payment_intent' => 'pi_addon_money',
+            'metadata' => (object) [
+                'type' => 'order_payment',
+                'reference_code' => $cardRef,
+                'expected_amount' => '162.8',
+            ],
+        ];
+        $created = $payments->finalizeStripeFirstCheckout($cardRef, $session);
+        $this->assertCount(1, $created);
+        $cardOrder = $created->first();
+        $cardItem = $cardOrder->items()->firstOrFail();
+        $this->assertTrue((bool) $cardOrder->link_guarantee);
+        $this->assertEquals(14.80, (float) $cardOrder->link_guarantee_fee);
+        $this->assertEquals(148.00, (float) $cardOrder->link_guarantee_covered_amount);
+        $this->assertSame('pending', $cardOrder->link_guarantee_status);
+        $this->assertSame(WritingFeeService::SOURCE_SLB, $cardItem->content_source);
+        $this->assertEquals(WritingFeeService::SLB_FLAT_EUR, (float) $cardItem->writing_fee);
+        $this->assertEquals(0.0, (float) ($cardItem->listing_writing_fee ?? 0));
+        $this->assertEquals(100.0, (float) $cardItem->publisher_amount);
+
+        $paypalRef = 'PAYPAL-ADDON-1';
+        $payments->storePendingCheckout($paypalRef, [
+            'user_id' => $this->advertiser->id,
+            'order_total' => 162.80,
+            'amount_due' => 162.80,
+            'bonus_applied' => 0,
+            'schedule' => ['mode' => 'immediate', 'timezone' => 'UTC'],
+            'lines' => [$line],
+        ]);
+        $paypalCreated = $payments->finalizePaypalCheckout($paypalRef, [
+            'id' => 'PO-ADDON-1',
+            'capture_id' => 'CAP-ADDON-1',
+            'status' => 'COMPLETED',
+            'amount' => 162.80,
+            'currency' => 'EUR',
+            'custom' => [
+                'type' => PaypalCheckoutService::TYPE_ORDER_CHECKOUT,
+                'user_id' => (string) $this->advertiser->id,
+                'reference_code' => $paypalRef,
+            ],
+        ]);
+        $this->assertCount(1, $paypalCreated);
+        $paypalOrder = $paypalCreated->first();
+        $paypalItem = $paypalOrder->items()->firstOrFail();
+        $this->assertTrue((bool) $paypalOrder->link_guarantee);
+        $this->assertEquals(14.80, (float) $paypalOrder->link_guarantee_fee);
+        $this->assertSame(WritingFeeService::SOURCE_SLB, $paypalItem->content_source);
+        $this->assertEquals(WritingFeeService::SLB_FLAT_EUR, (float) $paypalItem->writing_fee);
+        $this->assertEquals(100.0, (float) $paypalItem->publisher_amount);
+    }
+
+    public function test_guarantee_clawback_on_slb_line_debits_placement_only(): void
+    {
+        $site = $this->makeSite('slb-clawback');
+        $publisherWallet = Wallet::create([
+            'user_id' => $this->publisher->id,
+            'role_id' => Wallet::publisherRoleId(),
+            'balance' => 125,
+            'reserved_balance' => 0,
+            'currency' => 'EUR',
+        ]);
+        $advertiserWallet = Wallet::query()
+            ->where('user_id', $this->advertiser->id)
+            ->where('role_id', Wallet::advertiserRoleId())
+            ->firstOrFail();
+
+        $order = $this->makePaidOrder($site, [
+            'link_guarantee' => true,
+            'link_guarantee_fee' => 15.0,
+            'link_guarantee_covered_amount' => 150,
+            'link_guarantee_status' => LinkGuaranteeService::STATUS_ACTIVE,
+            'link_guarantee_starts_at' => now()->subMonth(),
+            'link_guarantee_ends_at' => now()->addMonths(11),
+        ], [
+            'content_source' => WritingFeeService::SOURCE_SLB,
+            'writing_fee' => WritingFeeService::SLB_FLAT_EUR,
+            'listing_writing_fee' => 25,
+            'publisher_amount' => 125,
+            'price' => 150,
+        ]);
+
+        Http::fake([
+            'https://'.$site->domain.'/live-post' => Http::response('<html><body><p>gone</p></body></html>', 200),
+        ]);
+
+        app(LinkGuaranteeService::class)->runDueChecks(10);
+        $order->update(['link_guarantee_restore_due_at' => now()->subHour()]);
+        $second = app(LinkGuaranteeService::class)->runDueChecks(10);
+        $this->assertSame(1, $second['refunded']);
+
+        $this->assertEquals(2150.0, (float) $advertiserWallet->fresh()->balance);
+        $this->assertEquals(25.0, (float) $publisherWallet->fresh()->withdrawableBalance());
     }
 
     public function test_saved_search_can_be_listed_and_deleted(): void
@@ -504,11 +685,14 @@ class MarketplaceCatalogAddOnsTest extends TestCase
         $this->assertStringContainsString('at least 12 months or Permanent', $terms);
         $this->assertStringContainsString('not available on 6-month listings', $terms);
         $this->assertStringContainsString('SEOLinkBuildings', $terms);
+        $this->assertStringContainsString('flat €35', $terms);
+        $this->assertStringContainsString('placement amount only', $terms);
 
         $refund = $this->get(localized_url('refund-policy'))->assertOk()->getContent();
         $this->assertStringContainsString('Optional 12-month link guarantee', $refund);
         $this->assertStringContainsString('never on 6-month listings', $refund);
         $this->assertStringContainsString('SEOLinkBuildings', $refund);
+        $this->assertStringContainsString('placement amount only', $refund);
     }
 
     public function test_scheduler_commands_are_registered(): void

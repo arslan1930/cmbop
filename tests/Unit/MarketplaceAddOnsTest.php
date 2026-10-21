@@ -78,6 +78,44 @@ class MarketplaceAddOnsTest extends TestCase
         $this->assertSame('pending', $addons->orderColumns($decorated)['link_guarantee_status']);
     }
 
+    public function test_slb_writing_is_flat_and_stays_off_publisher_amount(): void
+    {
+        $site = new Site([
+            'language' => 'de',
+            'writing_enabled' => false,
+            'writing_fee' => 25,
+            'listing_writing_fee' => 25,
+            'listing_currency' => 'EUR',
+            'price' => 100,
+            'publication_time' => 'permanent',
+        ]);
+        $site->exists = true;
+        $site->id = 10;
+
+        $decorated = app(CheckoutAddOnService::class)->decorateOrderItem(
+            [
+                'id' => 10,
+                'site' => $site,
+                'price' => 113.0,
+                'publisher_amount' => 100.0,
+            ],
+            [
+                'id' => 10,
+                'content_source' => WritingFeeService::SOURCE_SLB,
+            ],
+            true
+        );
+
+        $this->assertSame(WritingFeeService::SOURCE_SLB, $decorated['content_source']);
+        $this->assertEquals(WritingFeeService::SLB_FLAT_EUR, $decorated['writing_fee']);
+        $this->assertEquals(0.0, $decorated['listing_writing_fee']);
+        $this->assertEquals(100.0, $decorated['publisher_amount']);
+        $this->assertTrue($decorated['link_guarantee']);
+        $this->assertEquals(148.0, $decorated['link_guarantee_covered_amount']);
+        $this->assertEquals(14.8, $decorated['link_guarantee_fee']);
+        $this->assertEquals(162.8, $decorated['price']);
+    }
+
     public function test_guarantee_terms_are_plain_and_not_exaggerated(): void
     {
         $text = app(CheckoutAddOnService::class)->termsText();

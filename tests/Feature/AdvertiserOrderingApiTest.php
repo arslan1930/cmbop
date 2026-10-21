@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Services\Advertiser\AdvertiserApiKeyService;
 use App\Services\Advertiser\AdvertiserWebhookService;
+use App\Services\Marketplace\WritingFeeService;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -205,6 +206,34 @@ class AdvertiserOrderingApiTest extends TestCase
         ], ['Idempotency-Key' => 'ord-write'])
             ->assertCreated()
             ->assertJsonPath('data.writing', true);
+    }
+
+    public function test_slb_writing_charges_flat_fee_and_keeps_publisher_payout(): void
+    {
+        $this->site->forceFill([
+            'writing_enabled' => false,
+            'publication_time' => 'permanent',
+        ])->save();
+
+        $issued = $this->issueLive();
+        $before = (float) Wallet::query()->where('user_id', $this->advertiser->id)->value('balance');
+        $response = $this->withKey($issued['plain'])->postJson('/api/v1/orders', [
+            'site_id' => $this->site->id,
+            'anchor' => 'garden tools',
+            'target_url' => 'https://example.com/tools',
+            'writing' => true,
+        ], ['Idempotency-Key' => 'ord-slb-write']);
+
+        $response->assertCreated()->assertJsonPath('data.writing', true);
+        $order = Order::query()->find($response->json('data.id'));
+        $this->assertNotNull($order);
+        $item = $order->items()->firstOrFail();
+        $this->assertSame(WritingFeeService::SOURCE_SLB, $item->content_source);
+        $this->assertEquals(WritingFeeService::SLB_FLAT_EUR, (float) $item->writing_fee);
+        $this->assertEquals(0.0, (float) ($item->listing_writing_fee ?? 0));
+        $this->assertGreaterThan((float) $item->publisher_amount, (float) $order->total_amount);
+        $after = (float) Wallet::query()->where('user_id', $this->advertiser->id)->value('balance');
+        $this->assertEqualsWithDelta($before - (float) $order->total_amount, $after, 0.011);
     }
 
     public function test_link_guarantee_is_rejected_when_publication_period_is_short(): void

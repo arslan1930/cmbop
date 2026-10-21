@@ -46,7 +46,7 @@
             </tbody>
         </table>
     </div>
-    <p>Price is always calculated server-side from the current advertiser EUR price (plus the writing fee when you request publisher writing). Partner rates, markup, and publisher identity are never returned.</p>
+    <p>Price is always calculated server-side from the current advertiser EUR price (plus the listing writing fee when the publisher writes, or a flat €35 SEOLinkBuildings writing fee otherwise). The SLB writing fee is never added to a publisher or partner payout. Partner rates, markup, and publisher identity are never returned.</p>
 
     <h2 class="h5 mt-4" style="color:#1a585e;">Examples</h2>
     <p class="small text-muted mb-1">Search the catalog</p>
@@ -64,7 +64,7 @@
   -H "Content-Type: application/json" \
   -d '{"site_id":123,"anchor":"garden tools","target_url":"https://example.com/tools","content":"&lt;p&gt;Article HTML&lt;/p&gt;","content_format":"html"}' \
   "{{ $baseUrl }}/api/v1/orders"</pre>
-    <p class="small text-muted mb-1">Have the article written (publisher if they offer it, otherwise SEOLinkBuildings). Optional <code>link_guarantee</code> is accepted only when the site’s publication period is at least 12 months or permanent.</p>
+    <p class="small text-muted mb-1">Have the article written (publisher if they offer it, otherwise SEOLinkBuildings at a flat €35). Optional <code>link_guarantee</code> is accepted only when the site’s publication period is at least 12 months or permanent. A guarantee refund debits the publisher the placement only — never the SLB writing fee.</p>
     <pre class="small bg-light border rounded p-3">curl -sS -X POST -H "Authorization: Bearer slb_live_…" \
   -H "Idempotency-Key: $(uuidgen)" \
   -H "Content-Type: application/json" \

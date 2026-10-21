@@ -307,6 +307,10 @@ class LinkGuaranteeService
             ? $item->cappedPublisherCredit()
             : ['amount' => (float) ($item->publisher_amount ?? 0), 'currency' => 'EUR'];
         $targetPayout = round((float) ($credit['amount'] ?? 0), 2);
+        if (($item->content_source ?? '') === WritingFeeService::SOURCE_SLB) {
+            $slbWritingOnPublisher = round((float) ($item->listing_writing_fee ?? 0), 2);
+            $targetPayout = round(max(0, $targetPayout - $slbWritingOnPublisher), 2);
+        }
 
         if ($publisherId && $publisherRoleId && $targetPayout > 0) {
             $publisherWallet = Wallet::lockOrCreateForRole((int) $publisherId, (int) $publisherRoleId, $credit['currency'] ?? 'EUR');
