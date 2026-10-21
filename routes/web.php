@@ -1191,6 +1191,13 @@ Route::post('/support/chat', [VisitorSupportChatController::class, 'store'])
     ->middleware('throttle:20,1')
     ->name('support.chat');
 
+// GET /cron/orders-auto-approve/{key} was removed (ac6f8d49): the secret sat
+// in access logs / Referer. Replacement is `php artisan orders:auto-approve`
+// (already every 15 minutes via schedule:run). Do not add a second hourly
+// HTTP cron for auto-approve. Hosts without CLI cron should POST /cron/run
+// with X-Cron-Key instead — that runs the whole scheduler, including
+// orders:auto-approve.
+//
 // Whole scheduler for hosts that cannot run `php artisan schedule:run` every
 // minute. POST /cron/run with header X-Cron-Key. The secret must not be in the
 // path: access logs and Referer would keep a copy, and this run completes

@@ -11,7 +11,7 @@ Live on `/api/v1`. Hostinger: run `database/sql/add_advertiser_ordering_api.sql`
 5. **Keys** — Create / copy-once / revoke under **Advertiser → API & MCP** (`/advertiser/api`). Live (`slb_live_…`) and test (`slb_test_…`) keys. Menu is a link only; the secret is not in the dropdown.
 6. **Profile** — Name and password stay on `/profile` (shared for every role). That page is not moved under `/advertiser` or `/publisher`.
 7. **Gate** — Every advertiser can open API in v1.
-8. **Stack** — Same Laravel app. No Redis. Queues run via `schedule:run` (`advertisers:deliver-webhooks`). Public docs: `/api/docs/advertiser`.
+8. **Stack** — Same Laravel app. No Redis. Queues run via `schedule:run` (`advertisers:deliver-webhooks --max-seconds=40`). Public docs: `/api/docs/advertiser`.
 
 ## Endpoints
 

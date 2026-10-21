@@ -22,7 +22,7 @@ This ships Appendix C.1 steps 2–4 and 6–11 (catalog import, selection, dual 
 ## Owner actions (Hostinger)
 
 1. Run `database/sql/add_partner_catalog_import.sql`, then `database/sql/add_partner_dashboard.sql`, then `database/sql/add_partner_full_channel.sql`, then `database/sql/add_partner_api_gaps.sql` in phpMyAdmin (each starts with `USE u841082722_cmbop_db;`). Safe to re-run. Migrations are **not** auto-run.
-2. Cron already calls `schedule:run`. Jobs: `partners:refresh-fx` 03:40, `partners:sync-feeds` 04:00, `partners:sync-api-pull` 04:05, `partners:deliver-webhooks` every minute, `partners:release-holds` hourly, `partners:monitor-links` every 6 hours, `partners:generate-statements` monthly. No extra crontab line.
+2. Cron already calls `schedule:run`. Jobs: `partners:refresh-fx` 03:40, `partners:sync-feeds` 04:00, `partners:sync-api-pull` 04:05, `partners:deliver-webhooks --max-seconds=40` every minute, `partners:release-holds` hourly, `partners:monitor-links` every 6 hours, `partners:generate-statements` monthly. Each job is `withoutOverlapping()` + `onOneServer()`. No extra crontab line.
 3. Optional env (all have defaults in `config/partners.php`):
 
 ```

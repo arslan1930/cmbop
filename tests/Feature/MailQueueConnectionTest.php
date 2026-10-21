@@ -51,6 +51,9 @@ class MailQueueConnectionTest extends TestCase
 
         $this->assertNotNull($scheduled, 'mail:drain-queue must be scheduled.');
         $this->assertSame('* * * * *', $scheduled->expression);
+        $this->assertTrue($scheduled->withoutOverlapping);
+        $this->assertFalse($scheduled->runInBackground);
+        $this->assertStringContainsString('--max-time=40', (string) $scheduled->command);
     }
 
     public function test_drain_is_a_no_op_when_mail_is_sent_synchronously(): void

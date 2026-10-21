@@ -19,7 +19,8 @@ class AuthAndMoneyHardeningTest extends TestCase
 
         $this->get('/cron/orders-auto-approve/'.str_repeat('a', 40))->assertNotFound();
         $this->get('/cron/run/'.str_repeat('a', 40))->assertNotFound();
-        $this->get('/cron/run')->assertNotFound();
+        // POST /cron/run exists; GET must not run the scheduler.
+        $this->get('/cron/run')->assertMethodNotAllowed();
     }
 
     public function test_cron_post_without_header_is_rejected(): void

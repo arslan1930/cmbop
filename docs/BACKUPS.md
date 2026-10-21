@@ -17,8 +17,18 @@ PKT.
 hPanel → Advanced → Cron Jobs → add:
 
 ```
-* * * * * cd /home/u841082722/domains/seolinkbuildings.com/public_html && php artisan schedule:run >> /dev/null 2>&1
+* * * * * flock -n /tmp/laravel-schedule.lock -c 'cd /home/u841082722/domains/seolinkbuildings.com/public_html && php artisan schedule:run' >> /dev/null 2>&1
 ```
+
+`flock -n` is required on Hostinger Business (120 PHP-process cap): if last
+minute’s `schedule:run` is still delivering webhooks or draining mail, skip this
+tick instead of stacking another artisan process.
+
+Delete any leftover hourly HTTP cron that hits
+`/cron/orders-auto-approve/<token>` — that route was removed. Auto-approve now
+runs from this same `schedule:run` (`php artisan orders:auto-approve` every 15
+minutes). Do not add a second crontab line for auto-approve, and do not also
+POST `/cron/run` if this CLI cron is already running.
 
 If the Laravel root is one level above `public/` (document root = `public_html/public`), `cd` that parent instead.
 
