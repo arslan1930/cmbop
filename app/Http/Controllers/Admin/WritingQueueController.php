@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
+use App\Models\WritingSetting;
+use App\Services\ActivityLogger;
 use App\Services\Marketplace\ArticleWritingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,25 @@ class WritingQueueController extends Controller
         return view('admin.writing-queue.index', [
             'items' => $items,
             'status' => $status,
+            'turnaroundText' => WritingSetting::turnaroundText(),
         ]);
+    }
+
+    public function updateTurnaround(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'turnaround_text' => ['required', 'string', 'max:80'],
+        ]);
+        $text = trim($data['turnaround_text']);
+        WritingSetting::setTurnaroundText($text);
+        ActivityLogger::tryLog(
+            'writing.turnaround_changed',
+            ($request->user()?->name ?? 'Admin').' set writing turnaround to '.$text,
+            null,
+            ['turnaround_text' => $text]
+        );
+
+        return back()->with('success', 'Cart writing turnaround updated to “'.$text.'”.');
     }
 
     public function show(OrderItem $orderItem): View

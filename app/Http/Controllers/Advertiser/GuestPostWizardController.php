@@ -192,6 +192,7 @@ class GuestPostWizardController extends Controller
             'languageCountryMap' => $languageCountryMap,
             'cartReady' => $this->cartHasReadyLine($cart),
             'cartFullyAssigned' => $this->cartFullyAssigned($cart),
+            'articleCopy' => app(CheckoutAddOnService::class)->cartArticleCopy(),
         ]);
     }
 

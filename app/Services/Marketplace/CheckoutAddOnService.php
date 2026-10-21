@@ -3,6 +3,7 @@
 namespace App\Services\Marketplace;
 
 use App\Models\Site;
+use App\Models\WritingSetting;
 use App\Support\PublicationDuration;
 use Illuminate\Http\Request;
 
@@ -231,11 +232,40 @@ class CheckoutAddOnService
         $line['writing_writer'] = $writer;
         $line['writing_fee'] = $fee;
         $line['writing_fee_label'] = $fee > 0 ? format_money_pay($fee) : '';
+        $unit = (float) ($line['price'] ?? 0);
+        $line['writing_total'] = round($unit + $fee, 2);
+        $line['writing_total_label'] = format_money_pay($line['writing_total']);
         $line['writing_target_url'] = trim((string) ($line['writing_target_url'] ?? ''));
         $line['writing_anchor_text'] = trim((string) ($line['writing_anchor_text'] ?? ''));
         $line['guarantee_offered'] = $this->siteQualifiesForGuarantee($site instanceof Site ? $site : null);
+        $line['article_choice'] = $this->resolvedArticleChoice($line, $source);
 
         return $line;
+    }
+
+    /**
+     * Advertiser cart copy. Never includes partner rates, markup, or word counts.
+     *
+     * @return array<string, string>
+     */
+    public function cartArticleCopy(): array
+    {
+        $turnaround = WritingSetting::turnaroundText();
+
+        return [
+            'heading' => "Choose how you'll get the article",
+            'write_label' => 'Have the article written',
+            'upload_label' => 'Upload article',
+            'write_help' => 'Written by the SEOLinkBuildings team (or the publisher, if they write for this site) in the site\'s language and sent to you for approval before publishing.',
+            'turnaround' => $turnaround,
+            'turnaround_label' => 'Typical turnaround: '.$turnaround,
+            'with_writing' => 'With writing:',
+            'write_all' => 'Have all articles written',
+            'guarantee_note' => '12-month link guarantee available at checkout',
+            'proceed_hint' => 'Choose an article option above to continue',
+            'write_steps' => 'We write → you approve → publisher publishes',
+            'upload_steps' => 'You upload → we approve → publisher publishes',
+        ];
     }
 
     /**
@@ -252,6 +282,7 @@ class CheckoutAddOnService
         ?string $anchor = null
     ): array {
         $line['content_source'] = $this->normalizeRequestedSource($rawSource, $site);
+        $line['article_choice'] = self::isWrittenSource($line) ? 'written' : 'upload';
         if ($targetUrl !== null) {
             $line['writing_target_url'] = trim($targetUrl);
         }
@@ -330,6 +361,30 @@ class CheckoutAddOnService
      * Publisher self-write uses the listing fee. SEOLinkBuildings writing is a
      * flat EUR 35 in every language and never lands on publisher_amount.
      */
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private function resolvedArticleChoice(array $line, string $source): string
+    {
+        if (self::isWrittenSource(['content_source' => $source])) {
+            return 'written';
+        }
+
+        $ids = is_array($line['content_submission_ids'] ?? null) ? $line['content_submission_ids'] : [];
+        foreach ($ids as $id) {
+            if ((int) $id > 0) {
+                return 'upload';
+            }
+        }
+        if ((int) ($line['content_submission_id'] ?? 0) > 0) {
+            return 'upload';
+        }
+
+        $choice = strtolower(trim((string) ($line['article_choice'] ?? '')));
+
+        return $choice === 'upload' ? 'upload' : '';
+    }
+
     private function advertiserWritingFeeForSource(Site $site, string $source): float
     {
         if ($source === WritingFeeService::SOURCE_PUBLISHER && $this->writing->writingOffered($site)) {

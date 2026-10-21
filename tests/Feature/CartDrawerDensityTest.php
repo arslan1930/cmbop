@@ -38,25 +38,28 @@ class CartDrawerDensityTest extends TestCase
         );
         $this->assertStringContainsString('itemKeyAttr', $layout);
         $this->assertStringContainsString('sensitiveAttr', $layout);
-        $this->assertStringContainsString('Assign an article or choose writing on at least one website to checkout', $layout);
-        $this->assertStringContainsString('Sites without articles stay in your cart.', $layout);
-        $this->assertStringContainsString('Have the article written', $layout);
+        $this->assertStringContainsString('Choose an article option above to continue', $layout);
+        $this->assertStringContainsString("Choose how you'll get the article", $layout);
+        $this->assertStringContainsString('cartArticleCopy.write_label', $layout);
         $this->assertStringContainsString('function lineIsWritten', $layout);
         $this->assertStringContainsString('function linePayAmount', $layout);
+        $this->assertStringContainsString('function lineWithWritingLabel', $layout);
+        $this->assertStringContainsString('cart-choice-option', $layout);
+        $this->assertStringContainsString('id="cartWriteAll"', $layout);
         $this->assertStringNotContainsString('Assign a document to at least one website to checkout', $layout);
         $this->assertStringNotContainsString('Sites without documents stay in your cart.', $layout);
-        $this->assertStringContainsString('1 article still needed', $layout);
+        $this->assertStringNotContainsString('1 article still needed', $layout);
         $this->assertStringContainsString('itemKey.replace', $layout);
         $this->assertStringNotContainsString('1 site needs an article', $layout);
         $this->assertStringContainsString('id="cartTotalLabel"', $layout);
         $this->assertStringContainsString('Pay now', $layout);
         $this->assertStringContainsString('In cart \' + slbFormatPay(cartTotal)', $layout);
         $this->assertStringContainsString('cart-checklist__status', $layout);
-        $this->assertStringContainsString('Pay sites that have an article or a writing order. Others stay in the cart.', $layout);
+        $this->assertStringContainsString("Choose how you'll get the article. Pay with wallet, card, or PayPal at checkout.", $layout);
         $this->assertStringNotContainsString('Assign a document to each website', $layout);
         $this->assertStringNotContainsString('Before Pay', $layout);
         $this->assertStringNotContainsString('Order document', $layout);
-        $this->assertStringContainsString('Upload article', $layout);
+        $this->assertStringContainsString('cartArticleCopy.upload_label', $layout);
         $this->assertStringContainsString('Upload another', $layout);
         $this->assertStringContainsString('function articleTitleLooksLikeId', $layout);
         $this->assertStringContainsString('function articlePickerLabel', $layout);
@@ -127,6 +130,11 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('.cart-checklist__sites', $css);
         $this->assertStringContainsString('.cart-item-upload-cta', $css);
         $this->assertStringContainsString('.cart-item-write-cta', $css);
+        $this->assertStringContainsString('.cart-choice-option', $css);
+        $this->assertStringContainsString('.cart-choice-option.is-selected', $css);
+        $this->assertStringContainsString('.cart-item-with-writing', $css);
+        $this->assertStringContainsString('.cart-item-steps', $css);
+        $this->assertStringContainsString('.cart-write-all', $css);
         $this->assertStringContainsString('.cart-item-source-actions', $css);
         $this->assertStringContainsString('.cart-item-article-empty a.btn', $css);
         $this->assertStringContainsString('color: #fff', $css);
@@ -149,8 +157,10 @@ class CartDrawerDensityTest extends TestCase
             ->assertOk()
             ->assertSee('id="cartChecklist"', false)
             ->assertSee('id="checkoutFromCart"', false)
-            ->assertSee('Assign an article or choose writing on at least one website to checkout', false)
+            ->assertSee('Choose an article option above to continue', false)
+            ->assertSee("Choose how you'll get the article", false)
             ->assertDontSee('Assign a document to at least one website to checkout', false)
+            ->assertDontSee('1 article still needed', false)
             ->assertSee('buy-confidence', false)
             ->assertSee('What happens after you pay', false)
             ->assertDontSee('Assign a document to each website', false)
