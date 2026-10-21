@@ -41,9 +41,11 @@ use App\Http\Controllers\Admin\StalledOrderController as AdminStalledOrderContro
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WelcomeBonusSettingController as AdminWelcomeBonusSettingController;
 use App\Http\Controllers\Admin\WithdrawalMarkPaidConfirmController;
+use App\Http\Controllers\Admin\WritingQueueController as AdminWritingQueueController;
 use App\Http\Controllers\Advertiser\AddFundsController;
 use App\Http\Controllers\Advertiser\AnalyticsController;
 use App\Http\Controllers\Advertiser\ApiSettingsController;
+use App\Http\Controllers\Advertiser\ArticleApprovalController as AdvertiserArticleApprovalController;
 use App\Http\Controllers\Advertiser\BillingController as AdvertiserBillingController;
 use App\Http\Controllers\Advertiser\CatalogController;
 use App\Http\Controllers\Advertiser\CatalogCopyTrackController;
@@ -1490,6 +1492,16 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
 
         Route::get('/link-guarantees', [AdminLinkGuaranteeController::class, 'index'])
             ->name('link-guarantees.index');
+        Route::get('/writing-queue', [AdminWritingQueueController::class, 'index'])
+            ->name('writing-queue.index');
+        Route::get('/writing-queue/{orderItem}', [AdminWritingQueueController::class, 'show'])
+            ->name('writing-queue.show');
+        Route::post('/writing-queue/{orderItem}/assign', [AdminWritingQueueController::class, 'assign'])
+            ->name('writing-queue.assign');
+        Route::post('/writing-queue/{orderItem}/upload', [AdminWritingQueueController::class, 'upload'])
+            ->name('writing-queue.upload');
+        Route::get('/writing-queue/{orderItem}/download', [AdminWritingQueueController::class, 'download'])
+            ->name('writing-queue.download');
         Route::get('/catalog-activity', [AdminCatalogActivityController::class, 'index'])
             ->name('catalog-activity');
         Route::get('/catalog-activity/{user}', [AdminCatalogActivityController::class, 'show'])
@@ -2158,6 +2170,12 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
 
         // Order actions
         Route::post('/orders/{id}/approve', [CatalogController::class, 'approveOrder'])->name('orders.approve');
+        Route::post('/order-items/{orderItem}/approve-article', [AdvertiserArticleApprovalController::class, 'approve'])
+            ->name('articles.approve');
+        Route::post('/order-items/{orderItem}/revise-article', [AdvertiserArticleApprovalController::class, 'revise'])
+            ->name('articles.revise');
+        Route::get('/order-items/{orderItem}/article', [AdvertiserArticleApprovalController::class, 'download'])
+            ->name('articles.download');
         Route::post('/orders/{id}/request-modification', [CatalogController::class, 'requestModification'])->name('order.modification');
         Route::post('/orders/{id}/fulfill-content-revision', [CatalogController::class, 'fulfillContentRevision'])
             ->middleware('throttle:20,1')

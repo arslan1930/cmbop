@@ -14,6 +14,8 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\ContentModeration\ContentModerationService;
+use App\Services\Marketplace\ArticleWritingService;
+use App\Services\Marketplace\WritingFeeService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Partners\PartnerAlertService;
 use App\Services\Wallet\WalletLedgerService;
@@ -1944,6 +1946,7 @@ class OrderPaymentService
                     'site_url' => $line['site_url'] ?? $site?->site_url,
                     'price' => $line['price'] ?? 0,
                     'content_link' => $line['content_link'] ?? null,
+                    'content_source' => $line['content_source'] ?? WritingFeeService::SOURCE_BUYER,
                     'content_submission_id' => $attachSubmission ? $submission->id : null,
                     'content_disk' => $attachSubmission ? $submission->disk : ($expectLibrary ? null : ($line['content_disk'] ?? null)),
                     'content_path' => $attachSubmission ? $submission->path : ($expectLibrary ? null : ($line['content_path'] ?? null)),
@@ -1966,6 +1969,7 @@ class OrderPaymentService
                 ];
 
                 $item = OrderItem::create($schema->filterExistingColumns('order_items', $itemPayload));
+                app(ArticleWritingService::class)->initializePaidItem($item, $site instanceof Site ? $site : null);
 
                 if ($articleTaken || $articleUnready) {
                     $reason = $articleTaken
@@ -2295,6 +2299,7 @@ class OrderPaymentService
                     'site_url' => $line['site_url'] ?? $site?->site_url,
                     'price' => $line['price'] ?? 0,
                     'content_link' => $line['content_link'] ?? null,
+                    'content_source' => $line['content_source'] ?? WritingFeeService::SOURCE_BUYER,
                     'content_submission_id' => $attachSubmission ? $submission->id : null,
                     'content_disk' => $attachSubmission ? $submission->disk : ($expectLibrary ? null : ($line['content_disk'] ?? null)),
                     'content_path' => $attachSubmission ? $submission->path : ($expectLibrary ? null : ($line['content_path'] ?? null)),
@@ -2316,6 +2321,7 @@ class OrderPaymentService
                     ...OrderItem::fxSnapshotFromPricing($line),
                 ];
                 $item = OrderItem::create($schema->filterExistingColumns('order_items', $itemPayload));
+                app(ArticleWritingService::class)->initializePaidItem($item, $site instanceof Site ? $site : null);
 
                 if ($articleTaken || $articleUnready) {
                     $reason = $articleTaken

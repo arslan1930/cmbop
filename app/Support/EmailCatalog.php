@@ -10,6 +10,9 @@ use App\Mail\AdminPublishedSiteNotification;
 use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
+use App\Mail\ArticleApprovedForPublishMail;
+use App\Mail\ArticleReadyForApprovalMail;
+use App\Mail\ArticleRevisionRequestedMail;
 use App\Mail\AudienceCampaignMail;
 use App\Mail\AutoApproveReminderMail;
 use App\Mail\BulkSiteItemsRejected;
@@ -75,6 +78,7 @@ use App\Mail\WelcomeEmail;
 use App\Mail\WithdrawalRequestedConfirmation;
 use App\Mail\WithdrawalRequestNotification;
 use App\Mail\WithdrawalStatusUpdated;
+use App\Mail\WritingDeadlineReminderMail;
 use App\Models\BulkSiteRequest;
 use App\Models\ContentSubmission;
 use App\Models\DepositRequest;
@@ -294,6 +298,34 @@ class EmailCatalog
                 'description' => 'Publisher notified when a monthly guarantee check cannot find the advertiser URL, with 7 days to restore it.',
                 'category' => 'Orders',
                 'mailable' => LinkGuaranteeRestoreMail::class,
+                'status' => 'active',
+            ],
+            'article_ready_for_approval' => [
+                'name' => 'Article Ready For Approval',
+                'description' => 'Advertiser notified when a written article is ready to approve or revise.',
+                'category' => 'Orders',
+                'mailable' => ArticleReadyForApprovalMail::class,
+                'status' => 'active',
+            ],
+            'article_approved_for_publish' => [
+                'name' => 'Article Approved For Publish',
+                'description' => 'Publisher notified when an approved written article is ready to publish.',
+                'category' => 'Orders',
+                'mailable' => ArticleApprovedForPublishMail::class,
+                'status' => 'active',
+            ],
+            'article_revision_requested' => [
+                'name' => 'Article Revision Requested',
+                'description' => 'Writer notified when the advertiser requests one free revision.',
+                'category' => 'Orders',
+                'mailable' => ArticleRevisionRequestedMail::class,
+                'status' => 'active',
+            ],
+            'writing_deadline_reminder' => [
+                'name' => 'Writing Deadline Reminder',
+                'description' => 'Staff notified when an SLB writing deadline is near.',
+                'category' => 'Orders',
+                'mailable' => WritingDeadlineReminderMail::class,
                 'status' => 'active',
             ],
             'saved_search_alert' => [
@@ -784,6 +816,10 @@ class EmailCatalog
             'order approved by advertiser' => 'order_completed',
             'live url submitted' => 'live_url_submitted',
             'restore the live link' => 'link_guarantee_restore',
+            'article ready for approval' => 'article_ready_for_approval',
+            'article ready to publish' => 'article_approved_for_publish',
+            'revision requested — order' => 'article_revision_requested',
+            'writing deadline soon' => 'writing_deadline_reminder',
             'new sites match' => 'saved_search_alert',
             'modification requested for order' => 'modification_requested',
             'publisher requested a revised article' => 'content_revision_requested',
@@ -919,6 +955,10 @@ class EmailCatalog
             'dispute_refund_advertiser' => new DisputeRefundAdvertiser(self::sampleDispute(), $user, 115.0),
             'live_url_submitted' => new LiveUrlSubmitted($order, $item, $site, 'https://example.com/sample-live-url'),
             'link_guarantee_restore' => new LinkGuaranteeRestoreMail($user, $order, $item, now()->addDays(7)),
+            'article_ready_for_approval' => new ArticleReadyForApprovalMail($user, $order, $item),
+            'article_approved_for_publish' => new ArticleApprovedForPublishMail($user, $order, $item),
+            'article_revision_requested' => new ArticleRevisionRequestedMail($user, $order, $item, 'Please tighten the introduction.'),
+            'writing_deadline_reminder' => new WritingDeadlineReminderMail($user, $order, $item),
             'saved_search_alert' => new SavedSearchAlertMail($user, self::sampleSavedSearch(), collect([$site])),
             'modification_requested' => new ModificationRequested($order, 'Please update the anchor text.'),
             'content_revision_requested' => new ContentRevisionRequested($order, $item, $site, 'Please send a cleaner draft with the correct brand mentions.'),

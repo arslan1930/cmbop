@@ -64,7 +64,7 @@
   -H "Content-Type: application/json" \
   -d '{"site_id":123,"anchor":"garden tools","target_url":"https://example.com/tools","content":"&lt;p&gt;Article HTML&lt;/p&gt;","content_format":"html"}' \
   "{{ $baseUrl }}/api/v1/orders"</pre>
-    <p class="small text-muted mb-1">Publisher writing (when the listing offers it)</p>
+    <p class="small text-muted mb-1">Have the article written (publisher if they offer it, otherwise SEOLinkBuildings). Optional <code>link_guarantee</code> is accepted only when the site’s publication period is at least 12 months or permanent.</p>
     <pre class="small bg-light border rounded p-3">curl -sS -X POST -H "Authorization: Bearer slb_live_…" \
   -H "Idempotency-Key: $(uuidgen)" \
   -H "Content-Type: application/json" \
@@ -82,7 +82,7 @@
         <li><code>402</code> <code>insufficient_funds</code> — wallet spendable is below the server-calculated price</li>
         <li><code>404</code> <code>not_found</code> — unknown site or another advertiser’s order</li>
         <li><code>409</code> <code>idempotency_conflict</code> — same Idempotency-Key, different body</li>
-        <li><code>422</code> validation / <code>cannot_cancel</code> / <code>writing_not_offered</code></li>
+        <li><code>422</code> validation / <code>cannot_cancel</code> / <code>guarantee_not_offered</code></li>
         <li><code>429</code> rate limited (no Redis; per-key minute cap)</li>
         <li><code>503</code> <code>sandbox_unavailable</code> — test key while <code>is_sandbox</code> columns are missing (fail closed)</li>
     </ul>

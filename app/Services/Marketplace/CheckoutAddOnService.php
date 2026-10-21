@@ -3,6 +3,8 @@
 namespace App\Services\Marketplace;
 
 use App\Models\Site;
+use App\Support\ListingMoney;
+use App\Support\PublicationDuration;
 use Illuminate\Http\Request;
 
 /**
@@ -28,16 +30,15 @@ class CheckoutAddOnService
                 continue;
             }
             $id = (int) ($item['id'] ?? 0);
-            $source = is_array($sources)
+            $site = $id > 0 ? Site::query()->find($id) : null;
+            $raw = is_array($sources)
                 ? (string) ($sources[$id] ?? $sources[(string) $id] ?? self::sourceFromItem($item))
                 : self::sourceFromItem($item);
-            $source = $source === WritingFeeService::SOURCE_PUBLISHER
-                ? WritingFeeService::SOURCE_PUBLISHER
-                : WritingFeeService::SOURCE_BUYER;
+            $source = $this->normalizeRequestedSource($raw, $site instanceof Site ? $site : null);
 
             $item['content_source'] = $source;
-            $item['link_guarantee'] = $guarantee;
-            if ($source === WritingFeeService::SOURCE_PUBLISHER && is_array($briefs)) {
+            $item['link_guarantee'] = $guarantee && $this->siteQualifiesForGuarantee($site instanceof Site ? $site : null);
+            if (self::isWrittenSource($item) && is_array($briefs)) {
                 $brief = $briefs[$id] ?? $briefs[(string) $id] ?? [];
                 $item['writing_target_url'] = is_array($brief) ? trim((string) ($brief['target_url'] ?? '')) : '';
                 $item['writing_anchor_text'] = is_array($brief) ? trim((string) ($brief['anchor_text'] ?? '')) : '';
@@ -49,11 +50,44 @@ class CheckoutAddOnService
     }
 
     /**
+     * Publisher self-write when they offer it; otherwise SEOLinkBuildings writes.
+     */
+    public function requestedWriter(?Site $site): string
+    {
+        if ($site instanceof Site && $this->writing->writingOffered($site)) {
+            return WritingFeeService::SOURCE_PUBLISHER;
+        }
+
+        return WritingFeeService::SOURCE_SLB;
+    }
+
+    public function siteQualifiesForGuarantee(?Site $site): bool
+    {
+        if (! $site instanceof Site) {
+            return false;
+        }
+
+        return PublicationDuration::qualifiesForLinkGuarantee($site->publication_time);
+    }
+
+    /**
      * @param  array<string, mixed>  $item
      */
     public static function isPublisherWritten(array $item): bool
     {
         return ($item['content_source'] ?? '') === WritingFeeService::SOURCE_PUBLISHER;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    public static function isWrittenSource(array $item): bool
+    {
+        return in_array((string) ($item['content_source'] ?? ''), [
+            WritingFeeService::SOURCE_PUBLISHER,
+            WritingFeeService::SOURCE_SLB,
+            WritingFeeService::SOURCE_WRITTEN,
+        ], true);
     }
 
     /**
@@ -82,9 +116,10 @@ class CheckoutAddOnService
     public function decorateOrderItem(array $orderItem, ?array $cartLine, bool $linkGuarantee, ?Request $request = null): array
     {
         $site = $orderItem['site'] ?? null;
-        $source = $cartLine['content_source']
+        $raw = $cartLine['content_source']
             ?? $orderItem['content_source']
             ?? WritingFeeService::SOURCE_BUYER;
+        $source = $this->normalizeRequestedSource((string) $raw, $site instanceof Site ? $site : null);
 
         $orderItem['content_source'] = WritingFeeService::SOURCE_BUYER;
         $orderItem['writing_fee'] = 0.0;
@@ -92,13 +127,10 @@ class CheckoutAddOnService
         $orderItem['writing_target_url'] = trim((string) ($cartLine['writing_target_url'] ?? $orderItem['writing_target_url'] ?? ''));
         $orderItem['writing_anchor_text'] = trim((string) ($cartLine['writing_anchor_text'] ?? $orderItem['writing_anchor_text'] ?? ''));
 
-        if ($site instanceof Site
-            && $source === WritingFeeService::SOURCE_PUBLISHER
-            && $this->writing->writingOffered($site)
-        ) {
-            $fee = $this->writing->resolvedAdvertiserWritingFee($site);
+        if ($site instanceof Site && self::isWrittenSource(['content_source' => $source])) {
+            $fee = $this->advertiserWritingFeeForSource($site, $source);
             $listingFee = $this->writing->resolvedListingWritingFee($site);
-            $orderItem['content_source'] = WritingFeeService::SOURCE_PUBLISHER;
+            $orderItem['content_source'] = $source;
             $orderItem['writing_fee'] = $fee;
             $orderItem['listing_writing_fee'] = $listingFee;
             $orderItem['price'] = round((float) $orderItem['price'] + $fee, 2);
@@ -110,8 +142,9 @@ class CheckoutAddOnService
         $orderItem['link_guarantee'] = false;
         $orderItem['link_guarantee_fee'] = 0.0;
         $orderItem['link_guarantee_covered_amount'] = 0.0;
+        $orderItem['link_guarantee_offered'] = $this->siteQualifiesForGuarantee($site instanceof Site ? $site : null);
 
-        if ($linkGuarantee && $placement > 0) {
+        if ($linkGuarantee && $placement > 0 && $orderItem['link_guarantee_offered']) {
             $percent = max(0, (float) config('orders.link_guarantee.percent', 10));
             $fee = round($placement * ($percent / 100), 2);
             $orderItem['link_guarantee'] = true;
@@ -168,14 +201,32 @@ class CheckoutAddOnService
     {
         return array_map(function (array $item) {
             $site = Site::query()->find($item['id'] ?? 0);
-            $offered = $site instanceof Site && $this->writing->writingOffered($site);
-            $fee = $offered && $site ? $this->writing->resolvedAdvertiserWritingFee($site) : 0.0;
-            $item['writing_offered'] = $offered;
+            $publisherOffered = $site instanceof Site && $this->writing->writingOffered($site);
+            $writer = $this->requestedWriter($site instanceof Site ? $site : null);
+            $fee = $site instanceof Site ? $this->advertiserWritingFeeForSource($site, $writer) : 0.0;
+            $item['writing_offered'] = $publisherOffered;
+            $item['slb_writing_offered'] = true;
+            $item['writing_writer'] = $writer;
             $item['writing_fee'] = $fee;
             $item['writing_fee_label'] = $fee > 0 ? format_money_pay($fee) : '';
+            $item['guarantee_offered'] = $this->siteQualifiesForGuarantee($site instanceof Site ? $site : null);
 
             return $item;
         }, $cartItems);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $cartItems
+     */
+    public function anyLineQualifiesForGuarantee(array $cartItems): bool
+    {
+        foreach ($cartItems as $item) {
+            if (! empty($item['guarantee_offered'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function guaranteePercent(): float
@@ -189,7 +240,12 @@ class CheckoutAddOnService
         $days = (int) config('orders.link_guarantee.restore_days', 7);
         $percent = rtrim(rtrim(number_format($this->guaranteePercent(), 2), '0'), '.');
 
-        return 'Optional '.$months.'-month link guarantee. Once a month we fetch the live URL and check that your target URL still appears as a hyperlink. If it is missing, the publisher has '.$days.' days to restore it. If it is not restored, we refund the guaranteed placement amount to your wallet. The guarantee fee is '.$percent.'% of the placement total and is paid by you — publishers pay nothing. This is not a ranking, traffic, or indexation promise.';
+        return 'Optional '.$months.'-month link guarantee from SEOLinkBuildings. Available only on listings whose publication period is at least 12 months or Permanent — not on 6-month listings. Once a month we fetch the live URL and check that your target URL still appears as a hyperlink. If it is missing, we ask for restore within '.$days.' days. If it is not restored, we refund the guaranteed placement amount to your wallet. This is SEOLinkBuildings’ promise, not the publisher’s. The guarantee fee is '.$percent.'% of the placement total and is paid by you — publishers pay nothing. This is not a ranking, traffic, or indexation promise.';
+    }
+
+    public function eligibilityHelpText(): string
+    {
+        return 'The 12-month link guarantee is only offered on sites that stay live for at least 12 months or permanently.';
     }
 
     /**
@@ -197,9 +253,43 @@ class CheckoutAddOnService
      */
     private static function sourceFromItem(array $item): string
     {
-        return ($item['content_source'] ?? '') === WritingFeeService::SOURCE_PUBLISHER
-            ? WritingFeeService::SOURCE_PUBLISHER
+        $source = (string) ($item['content_source'] ?? '');
+
+        return self::isWrittenSource(['content_source' => $source])
+            ? $source
             : WritingFeeService::SOURCE_BUYER;
+    }
+
+    private function normalizeRequestedSource(string $raw, ?Site $site): string
+    {
+        $raw = strtolower(trim($raw));
+        if (in_array($raw, [
+            WritingFeeService::SOURCE_PUBLISHER,
+            WritingFeeService::SOURCE_SLB,
+            WritingFeeService::SOURCE_WRITTEN,
+        ], true)) {
+            return $this->requestedWriter($site);
+        }
+
+        return WritingFeeService::SOURCE_BUYER;
+    }
+
+    /**
+     * PR A keeps today’s fee formula for every written line, including SLB,
+     * so a writing-disabled listing is not free if this branch merges alone.
+     */
+    private function advertiserWritingFeeForSource(Site $site, string $source): float
+    {
+        if ($source === WritingFeeService::SOURCE_PUBLISHER && $this->writing->writingOffered($site)) {
+            return $this->writing->resolvedAdvertiserWritingFee($site);
+        }
+
+        $listing = app(ListingMoney::class);
+        $listingCurrency = $site->listingCurrency();
+        $buyerCurrency = $listing->normalizeWallet($listing->buyerCurrency());
+        $withBuffer = $listing->appliesBuffer($listingCurrency, $buyerCurrency);
+
+        return round($listing->toEuros($this->writing->resolvedListingWritingFee($site), $listingCurrency, $withBuffer), 2);
     }
 
     /**

@@ -126,4 +126,19 @@ class PublicationDuration
 
         return self::CATALOG_LABELS[$normalized];
     }
+
+    /**
+     * 12-month link guarantee is only sold on listings that stay live at least a year.
+     */
+    public static function qualifiesForLinkGuarantee(?string $value): bool
+    {
+        $normalized = self::normalize($value);
+
+        return in_array($normalized, [
+            self::ONE_YEAR,
+            self::TWO_YEARS,
+            self::THREE_YEARS,
+            self::PERMANENT,
+        ], true);
+    }
 }

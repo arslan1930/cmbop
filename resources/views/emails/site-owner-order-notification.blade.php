@@ -8,7 +8,7 @@ A new order has been placed for your site {{ $site->site_name }}.
 
 Order Numbers: {{ $orderNumbers }}
 Order Count: {{ $orderCount }} item(s)
-Total Amount: €{{ number_format($totalAmount, 2) }}
+Your payout: €{{ number_format($publisherPayout ?? 0, 2) }}
 
 @component('mail::button', ['url' => $tasksUrl ?? rtrim(app_public_url(), '/').route('publisher.tasks', [], false)])
 View Your Tasks

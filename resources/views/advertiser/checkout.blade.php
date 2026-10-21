@@ -1386,23 +1386,51 @@ document.addEventListener('DOMContentLoaded', function() {
     const grandTotalEl = document.getElementById('grandTotal');
     const walletAmountDueEl = document.getElementById('walletAmountDue');
 
+    function isWrittenSelected(line) {
+        const written = line.querySelector('input.checkout-content-source[value="written"], input.checkout-content-source[value="publisher"], input.checkout-content-source[value="slb"]');
+        return !!(written && written.checked);
+    }
+    function isLineChargedNow(line) {
+        return line.getAttribute('data-paying-now') === '1' || isWrittenSelected(line);
+    }
     function writingFeeTotal() {
         let extra = 0;
         document.querySelectorAll('.checkout-writing-line').forEach(function (line) {
-            const publisher = line.querySelector('input.checkout-content-source[value="publisher"]');
-            if (publisher && publisher.checked) {
+            if (isWrittenSelected(line)) {
                 extra += parseFloat(line.getAttribute('data-writing-fee') || '0') || 0;
             }
         });
         return Math.round(extra * 100) / 100;
     }
+    function deferredBaseTotal() {
+        let extra = 0;
+        document.querySelectorAll('.checkout-writing-line').forEach(function (line) {
+            if (line.getAttribute('data-paying-now') !== '1' && isWrittenSelected(line)) {
+                extra += parseFloat(line.getAttribute('data-base-total') || '0') || 0;
+            }
+        });
+        return Math.round(extra * 100) / 100;
+    }
     function placementTotal() {
-        return Math.round((baseTotalAmount + writingFeeTotal()) * 100) / 100;
+        return Math.round((baseTotalAmount + deferredBaseTotal() + writingFeeTotal()) * 100) / 100;
+    }
+    function eligibleGuaranteeBase() {
+        let total = 0;
+        document.querySelectorAll('.checkout-writing-line').forEach(function (line) {
+            if (line.getAttribute('data-guarantee-offered') !== '1' || !isLineChargedNow(line)) {
+                return;
+            }
+            total += parseFloat(line.getAttribute('data-base-total') || '0') || 0;
+            if (isWrittenSelected(line)) {
+                total += parseFloat(line.getAttribute('data-writing-fee') || '0') || 0;
+            }
+        });
+        return Math.round(total * 100) / 100;
     }
     function guaranteeFee() {
         const box = document.getElementById('linkGuarantee');
         if (!box || !box.checked) return 0;
-        return Math.round(placementTotal() * (guaranteePercent / 100) * 100) / 100;
+        return Math.round(eligibleGuaranteeBase() * (guaranteePercent / 100) * 100) / 100;
     }
     function refreshAddOnTotals() {
         totalAmount = Math.round((placementTotal() + guaranteeFee()) * 100) / 100;
@@ -1424,10 +1452,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (sub) sub.textContent = moneyFmt(placementTotal());
         document.querySelectorAll('.checkout-writing-line').forEach(function (line) {
             const brief = line.querySelector('.checkout-writing-brief');
-            const publisher = line.querySelector('input.checkout-content-source[value="publisher"]');
-            if (brief) brief.classList.toggle('d-none', !(publisher && publisher.checked));
+            const written = isWrittenSelected(line);
+            if (brief) brief.classList.toggle('d-none', !written);
             const target = line.querySelector('.checkout-writing-target');
-            if (target) target.required = !!(publisher && publisher.checked);
+            if (target) target.required = written;
         });
         refreshBonusUi();
     }

@@ -19,6 +19,7 @@ use App\Services\CheckoutSchemaService;
 use App\Services\ContentUpload\ArticlePreviewHtml;
 use App\Services\InAppNotificationService;
 use App\Services\LiveUrlHealthChecker;
+use App\Services\Marketplace\WritingFeeService;
 use App\Services\Orders\ContentRevisionService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Orders\ReviewHandoffService;
@@ -124,6 +125,11 @@ class OrderController extends Controller
                     if (Order::hasSandboxColumn()) {
                         $q->notSandbox();
                     }
+                })
+                ->where(function ($q) {
+                    $q->where('content_source', '!=', WritingFeeService::SOURCE_SLB)
+                        ->orWhereNull('content_source')
+                        ->orWhereIn('writing_status', ['article_approved', 'released_to_publisher']);
                 })
                 ->orderBy('created_at', 'desc');
             if (OrderItem::hasSandboxColumn()) {
@@ -243,7 +249,6 @@ class OrderController extends Controller
                         'payment_method' => $item->order->payment_method,
                         'payment_status' => $item->order->payment_status,
                         'reference_code' => $item->order->reference_code,
-                        'total_amount' => (float) $item->order->total_amount,
                         'has_open_content_revision' => $ordersWithOpenContentRevision->has($item->order_id),
                         'publication_mode' => $item->order->publication_mode,
                         'scheduled_publish_at' => optional($item->order->scheduled_publish_at)?->toIso8601String(),

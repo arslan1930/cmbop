@@ -7,6 +7,7 @@ use App\Models\OrderItem;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\Catalog\SiteUrlVisibility;
+use App\Services\Marketplace\CheckoutAddOnService;
 use App\Services\Marketplace\WritingFeeService;
 use App\Services\Mcp\MarketplaceListing;
 use App\Support\SiteDescriptionRules;
@@ -17,6 +18,7 @@ class AdvertiserApiSerializer
         private MarketplaceListing $listing,
         private SiteUrlVisibility $visibility,
         private WritingFeeService $writing,
+        private CheckoutAddOnService $addons,
     ) {}
 
     /**
@@ -29,7 +31,10 @@ class AdvertiserApiSerializer
         $sale = $prices['sale'] !== null ? round((float) $prices['sale'], 2) : null;
         $list = round((float) $prices['list'], 2);
         $writingOffered = $this->writing->writingOffered($site);
-        $writingFee = $writingOffered ? $this->writing->resolvedAdvertiserWritingFee($site) : 0.0;
+        $writer = $this->addons->requestedWriter($site);
+        $decorated = $this->addons->checkoutViewItems([['id' => $site->id]])[0] ?? [];
+        $writingFee = (float) ($decorated['writing_fee'] ?? 0);
+        $guaranteeOffered = $this->addons->siteQualifiesForGuarantee($site);
 
         return [
             'id' => (int) $site->id,
@@ -54,9 +59,20 @@ class AdvertiserApiSerializer
             'publication_time' => (string) ($site->publication_time ?? ''),
             'publication_duration' => $site->publicationDurationLabel() ?? '',
             'writing' => [
-                'offered' => $writingOffered,
-                'fee_eur' => $writingOffered ? round($writingFee, 2) : 0.0,
+                'offered' => true,
+                'publisher_offered' => $writingOffered,
+                'slb_offered' => true,
+                'writer' => $writer,
+                'fee_eur' => round($writingFee, 2),
                 'currency' => 'EUR',
+            ],
+            'link_guarantee' => [
+                'offered' => $guaranteeOffered,
+                'percent' => $this->addons->guaranteePercent(),
+                'months' => (int) config('orders.link_guarantee.months', 12),
+                'note' => $guaranteeOffered
+                    ? 'Optional 12-month link guarantee from SEOLinkBuildings.'
+                    : 'Not offered: publication period must be at least 12 months or permanent.',
             ],
             'rules' => [
                 'description' => SiteDescriptionRules::forTextarea((string) ($site->description ?? '')),
@@ -97,7 +113,10 @@ class AdvertiserApiSerializer
             'site' => $this->siteSummary($user, $item),
             'anchor' => (string) ($item?->anchor_text ?? ''),
             'target_url' => (string) ($item?->target_url ?? ''),
-            'writing' => $item !== null && ($item->content_source ?? '') === WritingFeeService::SOURCE_PUBLISHER,
+            'writing' => $item !== null && in_array((string) ($item->content_source ?? ''), [
+                WritingFeeService::SOURCE_PUBLISHER,
+                WritingFeeService::SOURCE_SLB,
+            ], true),
             'live_url' => $this->liveUrl($item),
             'link_check' => $this->linkCheck($item),
             'publisher_status' => (string) ($item?->publisher_status ?? ''),

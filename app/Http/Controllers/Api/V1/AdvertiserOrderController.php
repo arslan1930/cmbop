@@ -70,6 +70,7 @@ class AdvertiserOrderController extends Controller
                 'content' => 'nullable|string|max:200000',
                 'content_format' => 'nullable|in:html,markdown',
                 'writing' => 'nullable|boolean',
+                'link_guarantee' => 'nullable|boolean',
             ]);
 
             try {
@@ -147,7 +148,8 @@ class AdvertiserOrderController extends Controller
         $map = [
             'site_not_found' => [404, 'not_found', 'No live listing matched that site_id.'],
             'writing_not_offered' => [422, 'writing_not_offered', 'This listing does not offer publisher writing.'],
-            'content_or_writing_required' => [422, 'validation_error', 'Send content (HTML or markdown) or writing=true when the site offers writing.'],
+            'guarantee_not_offered' => [422, 'guarantee_not_offered', 'The 12-month link guarantee is only available on listings whose publication period is at least 12 months or permanent.'],
+            'content_or_writing_required' => [422, 'validation_error', 'Send content (HTML or markdown) or writing=true.'],
             'anchor_and_target_required' => [422, 'validation_error', 'anchor and target_url are required.'],
             'target_url_https_required' => [422, 'validation_error', 'target_url must be an https URL.'],
             'wallet_unavailable' => [503, 'wallet_unavailable', 'The advertiser wallet is temporarily unavailable.'],

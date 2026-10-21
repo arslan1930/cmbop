@@ -126,7 +126,9 @@ class AdvertiserOrderingApiTest extends TestCase
             ->assertJsonPath('data.id', $this->site->id)
             ->assertJsonPath('data.price.currency', 'EUR')
             ->assertJsonPath('data.turnaround', '7 days')
-            ->assertJsonPath('data.writing.offered', true);
+            ->assertJsonPath('data.writing.offered', true)
+            ->assertJsonPath('data.writing.slb_offered', true)
+            ->assertJsonPath('data.link_guarantee.offered', false);
         $this->assertNotEmpty($response->json('data.rules.description'));
         $this->assertBuyerSafe($response->getContent());
         $this->assertGreaterThan(0, (float) $response->json('data.price_eur'));
@@ -203,6 +205,22 @@ class AdvertiserOrderingApiTest extends TestCase
         ], ['Idempotency-Key' => 'ord-write'])
             ->assertCreated()
             ->assertJsonPath('data.writing', true);
+    }
+
+    public function test_link_guarantee_is_rejected_when_publication_period_is_short(): void
+    {
+        $issued = $this->issueLive();
+        $this->withKey($issued['plain'])->postJson('/api/v1/orders', [
+            'site_id' => $this->site->id,
+            'anchor' => 'garden tools',
+            'target_url' => 'https://example.com/tools',
+            'content' => '<p>Article</p>',
+            'link_guarantee' => true,
+        ], ['Idempotency-Key' => 'ord-guarantee'])
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'guarantee_not_offered');
+
+        $this->assertSame(0, Order::query()->where('user_id', $this->advertiser->id)->count());
     }
 
     public function test_idempotency_replays_and_conflicts(): void

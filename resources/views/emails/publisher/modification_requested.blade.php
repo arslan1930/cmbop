@@ -12,7 +12,6 @@ The advertiser has requested modifications for Order #{{ $order->order_number }}
 ## Order Details:
 - Order Number: {{ $order->order_number }}
 - Reference Code: {{ $order->reference_code }}
-- Total Amount: €{{ number_format($order->total_amount, 2) }}
 - Status: Processing (awaiting your updates)
 
 ## Next Steps:

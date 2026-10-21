@@ -57,6 +57,7 @@ class Order extends Model
         'link_guarantee_ends_at',
         'link_guarantee_restore_due_at',
         'link_guarantee_refunded_at',
+        'link_guarantee_publisher_choice',
         'is_sandbox',
     ];
 

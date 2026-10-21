@@ -162,7 +162,8 @@ class CheckoutReadySitesOnlyTest extends TestCase
             ->get(route('advertiser.checkout'))
             ->assertOk()
             ->assertSee($pendingSite->site_name, false)
-            ->assertDontSee($unverified->site_name, false);
+            ->assertDontSee('site-summary-name mb-0">'.$unverified->site_name, false)
+            ->assertDontSee('content_source['.$unverified->id.']', false);
 
         $this->assertCount(1, session('cart', []));
         $this->assertSame($pendingSite->id, (int) session('cart')[0]['id']);
@@ -196,7 +197,8 @@ class CheckoutReadySitesOnlyTest extends TestCase
             ->get(route('advertiser.checkout'))
             ->assertOk()
             ->assertSee($pendingSite->site_name, false)
-            ->assertDontSee('Broken line', false);
+            ->assertDontSee('site-summary-name mb-0">Broken line', false)
+            ->assertDontSee('content_source[0]', false);
 
         $this->assertCount(1, session('cart', []));
         $this->assertSame($pendingSite->id, (int) session('cart')[0]['id']);

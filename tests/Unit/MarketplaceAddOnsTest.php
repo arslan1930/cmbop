@@ -9,6 +9,7 @@ use App\Services\Marketplace\LinkPresenceChecker;
 use App\Services\Marketplace\PublisherReliabilityService;
 use App\Services\Marketplace\WritingFeeService;
 use App\Support\EmailCatalog;
+use App\Support\PublicationDuration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -46,6 +47,7 @@ class MarketplaceAddOnsTest extends TestCase
             'listing_writing_fee' => 25,
             'listing_currency' => 'EUR',
             'price' => 100,
+            'publication_time' => 'permanent',
         ]);
         $site->exists = true;
         $site->id = 9;
@@ -85,6 +87,9 @@ class MarketplaceAddOnsTest extends TestCase
         $this->assertStringContainsString('refund', $text);
         $this->assertStringContainsString('publishers pay nothing', strtolower($text));
         $this->assertStringContainsString('not a ranking', $text);
+        $this->assertStringContainsString('seolinkbuildings', strtolower($text));
+        $this->assertStringContainsString('6-month', strtolower($text));
+        $this->assertStringContainsString('permanent', strtolower($text));
         $this->assertStringNotContainsString('casino', strtolower($text));
     }
 
@@ -131,6 +136,51 @@ class MarketplaceAddOnsTest extends TestCase
         $this->assertSame('', $order->linkGuaranteeTermsNote());
     }
 
+    public function test_link_guarantee_is_ignored_when_publication_period_is_short(): void
+    {
+        $site = new Site([
+            'language' => 'en',
+            'writing_enabled' => true,
+            'writing_fee' => 25,
+            'listing_writing_fee' => 25,
+            'listing_currency' => 'EUR',
+            'price' => 100,
+            'publication_time' => '6months',
+        ]);
+        $site->exists = true;
+        $site->id = 11;
+
+        $decorated = app(CheckoutAddOnService::class)->decorateOrderItem(
+            [
+                'id' => 11,
+                'site' => $site,
+                'price' => 113.0,
+                'publisher_amount' => 100.0,
+            ],
+            [
+                'id' => 11,
+                'content_source' => WritingFeeService::SOURCE_BUYER,
+            ],
+            true
+        );
+
+        $this->assertFalse($decorated['link_guarantee']);
+        $this->assertEquals(0.0, $decorated['link_guarantee_fee']);
+        $this->assertEquals(113.0, $decorated['price']);
+        $this->assertFalse($decorated['link_guarantee_offered']);
+    }
+
+    public function test_publication_duration_qualifies_for_link_guarantee(): void
+    {
+        $this->assertFalse(PublicationDuration::qualifiesForLinkGuarantee('6months'));
+        $this->assertFalse(PublicationDuration::qualifiesForLinkGuarantee('7 days'));
+        $this->assertFalse(PublicationDuration::qualifiesForLinkGuarantee(null));
+        $this->assertTrue(PublicationDuration::qualifiesForLinkGuarantee('1year'));
+        $this->assertTrue(PublicationDuration::qualifiesForLinkGuarantee('2years'));
+        $this->assertTrue(PublicationDuration::qualifiesForLinkGuarantee('3years'));
+        $this->assertTrue(PublicationDuration::qualifiesForLinkGuarantee('permanent'));
+    }
+
     public function test_hostinger_sql_is_guarded_and_targets_production_schema(): void
     {
         $sql = file_get_contents(base_path('database/sql/add_marketplace_catalog_addons.sql'));
@@ -144,5 +194,11 @@ class MarketplaceAddOnsTest extends TestCase
         $this->assertStringContainsString('publisher_reliability_stats', $sql);
         $this->assertStringContainsString('writing_fee', $sql);
         $this->assertStringContainsString('link_guarantee', $sql);
+
+        $workflow = file_get_contents(base_path('database/sql/add_article_writing_workflow.sql'));
+        $this->assertIsString($workflow);
+        $this->assertStringStartsWith('USE u841082722_cmbop_db;', trim($workflow));
+        $this->assertStringContainsString('writing_status', $workflow);
+        $this->assertStringContainsString('link_guarantee_publisher_choice', $workflow);
     }
 }

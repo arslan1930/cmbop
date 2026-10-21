@@ -47,6 +47,7 @@ use App\Services\ContentUpload\ScheduledOrderService;
 use App\Services\EmailNotificationService;
 use App\Services\InAppNotificationService;
 use App\Services\LiveUrlHealthChecker;
+use App\Services\Marketplace\ArticleWritingService;
 use App\Services\Marketplace\CheckoutAddOnService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\WritingFeeService;
@@ -3106,9 +3107,15 @@ class CatalogController extends Controller
 
             return [$key => true];
         })->all();
-        $cartItems = collect($cartItems)->map(function (array $item) use ($payableSiteKeys) {
+        $deferredSiteKeys = collect($deferredCart)->mapWithKeys(function ($row) {
+            $key = $this->cartIdentityKey($row);
+
+            return [$key => true];
+        })->all();
+        $cartItems = collect($cartItems)->map(function (array $item) use ($payableSiteKeys, $deferredSiteKeys) {
             $key = $this->cartIdentityKey($item);
             $item['paying_now'] = isset($payableSiteKeys[$key]);
+            $item['stays_in_cart'] = isset($deferredSiteKeys[$key]);
 
             return $item;
         })->all();
@@ -3327,7 +3334,7 @@ class CatalogController extends Controller
             if ($preview['payable'] === []) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No websites are ready for checkout yet. Assign an approved article to at least one site, then pay.',
+                    'message' => 'No websites are ready for checkout yet. Assign an approved article or choose writing on at least one site, then pay.',
                 ], 422);
             }
 
@@ -3378,7 +3385,7 @@ class CatalogController extends Controller
             if ($payableCart === []) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No websites are ready for checkout yet. Assign an approved article to at least one site, then pay.',
+                    'message' => 'No websites are ready for checkout yet. Assign an approved article or choose writing on at least one site, then pay.',
                 ], 422);
             }
 
@@ -3584,7 +3591,11 @@ class CatalogController extends Controller
             $orderItem = $line['orderItem'] ?? [];
             $submission = $line['submission'] ?? null;
             $site = is_array($orderItem) ? ($orderItem['site'] ?? null) : null;
-            if (! $site instanceof Site || ! $submission instanceof ContentSubmission) {
+            if (! $site instanceof Site) {
+                continue;
+            }
+            $written = is_array($orderItem) && CheckoutAddOnService::isWrittenSource($orderItem);
+            if (! $written && ! $submission instanceof ContentSubmission) {
                 continue;
             }
             if ((int) $site->publisher_id === (int) $userId) {
@@ -3605,16 +3616,25 @@ class CatalogController extends Controller
                 'platform_fee_percent' => $orderItem['platform_fee_percent'] ?? null,
                 'platform_fee_amount' => $orderItem['platform_fee_amount'] ?? null,
                 ...OrderItem::fxSnapshotFromPricing($orderItem),
-                'content_submission_id' => $submission->id,
-                'content_link' => route('advertiser.content-submissions.download', $submission),
-                'content_disk' => $submission->disk,
-                'content_path' => $submission->path,
-                'content_original_name' => $submission->original_filename,
-                'content_mime' => $submission->mime,
-                'anchor_text' => $submission->anchor_text,
-                'target_url' => $submission->target_url,
-                'feature_image_url' => $submission->feature_image_url,
-                'moderation_status' => $submission->moderation_status,
+                'content_source' => $orderItem['content_source'] ?? WritingFeeService::SOURCE_BUYER,
+                'writing_target_url' => $orderItem['writing_target_url'] ?? null,
+                'writing_anchor_text' => $orderItem['writing_anchor_text'] ?? null,
+                'content_submission_id' => $submission instanceof ContentSubmission ? $submission->id : null,
+                'content_link' => $submission instanceof ContentSubmission
+                    ? route('advertiser.content-submissions.download', $submission)
+                    : null,
+                'content_disk' => $submission instanceof ContentSubmission ? $submission->disk : null,
+                'content_path' => $submission instanceof ContentSubmission ? $submission->path : null,
+                'content_original_name' => $submission instanceof ContentSubmission ? $submission->original_filename : null,
+                'content_mime' => $submission instanceof ContentSubmission ? $submission->mime : null,
+                'anchor_text' => $submission instanceof ContentSubmission
+                    ? $submission->anchor_text
+                    : ($orderItem['writing_anchor_text'] ?? null),
+                'target_url' => $submission instanceof ContentSubmission
+                    ? $submission->target_url
+                    : ($orderItem['writing_target_url'] ?? null),
+                'feature_image_url' => $submission instanceof ContentSubmission ? $submission->feature_image_url : null,
+                'moderation_status' => $submission instanceof ContentSubmission ? $submission->moderation_status : null,
             ];
         }
 
@@ -3984,6 +4004,7 @@ class CatalogController extends Controller
                     if ($submission instanceof ContentSubmission) {
                         $this->attachSubmissionToOrder($submission, $order, $item);
                     }
+                    app(ArticleWritingService::class)->initializePaidItem($item, $site instanceof Site ? $site : null);
                     $created->push($order);
                 }
                 if ($created->isEmpty()) {
@@ -4691,6 +4712,7 @@ class CatalogController extends Controller
                 if ($submission instanceof ContentSubmission) {
                     $this->attachSubmissionToOrder($submission, $order, $item);
                 }
+                app(ArticleWritingService::class)->initializePaidItem($item, $site instanceof Site ? $site : null);
 
                 $createdOrders[] = $order;
             }
@@ -4822,6 +4844,7 @@ class CatalogController extends Controller
                 if ($submission instanceof ContentSubmission) {
                     $this->attachSubmissionToOrder($submission, $order, $item);
                 }
+                app(ArticleWritingService::class)->initializePaidItem($item, $site instanceof Site ? $site : null);
 
                 $createdOrders[] = $order;
             }
@@ -6998,13 +7021,19 @@ class CatalogController extends Controller
                 ?? null;
 
             if (! $submissionId) {
-                if (CheckoutAddOnService::isPublisherWritten($orderItem)
-                    || CheckoutAddOnService::isPublisherWritten(is_array($cartLine) ? $cartLine : [])) {
-                    if (CheckoutAddOnService::isPublisherWritten($orderItem)
-                        && trim((string) ($orderItem['writing_target_url'] ?? '')) === '') {
+                if (CheckoutAddOnService::isWrittenSource($orderItem)
+                    || CheckoutAddOnService::isWrittenSource(is_array($cartLine) ? $cartLine : [])) {
+                    $target = trim((string) ($orderItem['writing_target_url'] ?? ''));
+                    if ($target === '') {
                         return response()->json([
                             'success' => false,
-                            'message' => 'Add a target URL for each publisher-written article.',
+                            'message' => 'Add a target URL for each written article.',
+                        ], 422);
+                    }
+                    if (! preg_match('#^https://#i', $target)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'The writing target URL must start with https://.',
                         ], 422);
                     }
                     $lines[] = ['orderItem' => $orderItem, 'submission' => null];
@@ -7333,7 +7362,7 @@ class CatalogController extends Controller
             'price' => $orderItem['price'],
             'content_link' => $submission
                 ? route('advertiser.content-submissions.download', $submission)
-                : (CheckoutAddOnService::isPublisherWritten($orderItem) ? 'publisher-written' : null),
+                : (CheckoutAddOnService::isWrittenSource($orderItem) ? OrderItem::PENDING_WRITTEN_LINK : null),
             'content_submission_id' => $submission?->id,
             'content_disk' => $submission?->disk,
             'content_path' => $submission?->path,
@@ -7618,8 +7647,7 @@ class CatalogController extends Controller
                 continue;
             }
 
-            $writingOffered = app(WritingFeeService::class)->writingOffered($site);
-            if (CheckoutAddOnService::isPublisherWritten($item) && $writingOffered) {
+            if (CheckoutAddOnService::isWrittenSource($item)) {
                 $payable[] = $item;
 
                 continue;
@@ -7665,11 +7693,6 @@ class CatalogController extends Controller
             }
 
             if (! $lineReady || $resolvedIds === []) {
-                if ($writingOffered) {
-                    $payable[] = $item;
-
-                    continue;
-                }
                 $deferred[] = $item;
 
                 continue;

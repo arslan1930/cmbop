@@ -80,7 +80,7 @@ class MarketplaceCatalogAddOnsTest extends TestCase
             'languages' => ['en'],
             'category' => 'marketing',
             'price' => $price,
-            'publication_time' => '7 days',
+            'publication_time' => 'permanent',
             'link_type' => 'dofollow',
             'description' => 'Marketplace add-on listing.',
             'verified' => true,
@@ -152,7 +152,58 @@ class MarketplaceCatalogAddOnsTest extends TestCase
         $this->assertStringContainsString('12-month link guarantee', $html);
         $this->assertStringContainsString('7 days', $html);
         $this->assertStringContainsString('not a ranking', $html);
+        $this->assertStringContainsString('12 months or permanent', strtolower($html));
         $this->assertStringNotContainsString('casino', strtolower($html));
+    }
+
+    public function test_checkout_hides_guarantee_when_publication_period_is_short(): void
+    {
+        $site = $this->makeSite('six-month', 100, ['publication_time' => '6months']);
+        $sub = $this->createApprovedSubmission($this->advertiser, null, 0, 'short', 'https://advertiser.example/short');
+
+        $html = $this->actingAs($this->advertiser)
+            ->withSession(['cart' => [[
+                'id' => $site->id,
+                'name' => $site->site_name,
+                'quantity' => 1,
+                'content_submission_id' => $sub->id,
+            ]]])
+            ->get(route('advertiser.checkout'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('id="linkGuarantee"', $html);
+        $this->assertStringContainsString('publication period is shorter than 12 months', $html);
+    }
+
+    public function test_wallet_checkout_ignores_guarantee_on_six_month_listing(): void
+    {
+        $site = $this->makeSite('no-guarantee', 100, ['publication_time' => '6months']);
+        $sub = $this->createApprovedSubmission($this->advertiser, null, 0, 'noguarantee', 'https://advertiser.example/noguarantee');
+
+        $response = $this->actingAs($this->advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 1,
+                    'content_submission_id' => $sub->id,
+                ]],
+                'checkout_schedule' => ['mode' => 'immediate', 'timezone' => 'UTC'],
+            ])
+            ->postJson(route('advertiser.checkout.process'), [
+                'payment_method' => 'wallet',
+                'reference_code' => 'NOG1',
+                'publication_mode' => 'immediate',
+                'link_guarantee' => 1,
+                'content_source' => [$site->id => WritingFeeService::SOURCE_BUYER],
+            ]);
+
+        $response->assertOk()->assertJson(['success' => true]);
+
+        $order = Order::query()->where('reference_code', 'NOG1')->firstOrFail();
+        $this->assertFalse((bool) $order->link_guarantee);
+        $this->assertEquals(0.0, (float) $order->link_guarantee_fee);
     }
 
     public function test_wallet_checkout_charges_writing_fee_and_guarantee(): void
@@ -438,10 +489,26 @@ class MarketplaceCatalogAddOnsTest extends TestCase
     {
         $this->assertArrayHasKey('link_guarantee_restore', EmailCatalog::all());
         $this->assertArrayHasKey('saved_search_alert', EmailCatalog::all());
+        $this->assertArrayHasKey('article_ready_for_approval', EmailCatalog::all());
         $this->assertArrayHasKey('link_guarantee_restore', config('email_notifications.types'));
         $this->assertArrayHasKey('saved_search_alert', config('email_notifications.types'));
         $this->assertNotNull(EmailCatalog::makeMailable('link_guarantee_restore'));
         $this->assertNotNull(EmailCatalog::makeMailable('saved_search_alert'));
+        $this->assertNotNull(EmailCatalog::makeMailable('article_ready_for_approval'));
+    }
+
+    public function test_terms_and_refund_pages_state_guarantee_eligibility(): void
+    {
+        $terms = $this->get(localized_url('terms-of-services'))->assertOk()->getContent();
+        $this->assertStringContainsString('Optional 12-month link guarantee', $terms);
+        $this->assertStringContainsString('at least 12 months or Permanent', $terms);
+        $this->assertStringContainsString('not available on 6-month listings', $terms);
+        $this->assertStringContainsString('SEOLinkBuildings', $terms);
+
+        $refund = $this->get(localized_url('refund-policy'))->assertOk()->getContent();
+        $this->assertStringContainsString('Optional 12-month link guarantee', $refund);
+        $this->assertStringContainsString('never on 6-month listings', $refund);
+        $this->assertStringContainsString('SEOLinkBuildings', $refund);
     }
 
     public function test_scheduler_commands_are_registered(): void
