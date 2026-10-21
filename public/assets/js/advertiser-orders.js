@@ -347,7 +347,7 @@ function bootAdvertiserOrdersPage() {
     loadOrdStatistics();
     setInterval(function () {
         if (!document.hidden) loadOrdStatistics();
-    }, 30000);
+    }, 60000);
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden) loadOrdStatistics();
     });

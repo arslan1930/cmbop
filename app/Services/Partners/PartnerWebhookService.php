@@ -174,7 +174,7 @@ class PartnerWebhookService
         return $payload;
     }
 
-    public function deliverDue(int $limit = 50): int
+    public function deliverDue(int $limit = 50, int $maxSeconds = 0): int
     {
         if (! Schema::hasTable('partner_webhook_deliveries')) {
             return 0;
@@ -188,8 +188,12 @@ class PartnerWebhookService
             ->orderBy('id')
             ->limit($limit)
             ->get();
+        $deadline = $maxSeconds > 0 ? microtime(true) + $maxSeconds : null;
         $done = 0;
         foreach ($rows as $row) {
+            if ($deadline !== null && microtime(true) >= $deadline) {
+                break;
+            }
             $this->attempt($row);
             $done++;
         }

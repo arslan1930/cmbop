@@ -344,6 +344,7 @@
     try { localStorage.removeItem('layoutDarkMode'); } catch (e) {}
 
     function refreshHeaderAlerts() {
+        if (document.hidden) return;
         fetch('{{ route("chat.unread-summary") }}', {
             headers: { 'Accept': 'application/json' },
             credentials: 'same-origin'
@@ -378,7 +379,7 @@
         .catch(() => {});
     }
     refreshHeaderAlerts();
-    setInterval(refreshHeaderAlerts, 45000);
+    setInterval(refreshHeaderAlerts, 60000);
     window.refreshHeaderAlerts = refreshHeaderAlerts;
 </script>
 <script src="{{ asset('js/role-switch.js') }}?v={{ @filemtime(public_path('js/role-switch.js')) ?: '1' }}"></script>

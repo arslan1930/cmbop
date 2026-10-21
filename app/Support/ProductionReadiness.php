@@ -437,7 +437,7 @@ class ProductionReadiness
             self::SEVERITY_WARN,
             'Confirm the scheduler is running',
             'CRON_SECRET is empty. Page views do not run the scheduler. Auto-approve, nudges, and mail:drain-queue need a system cron or HTTP cron.',
-            'Add `* * * * * php artisan schedule:run`, or set CRON_SECRET (≥ 32 chars) and POST /cron/run with X-Cron-Key. See docs/ops-mail-reminders.md.'
+            'Add `* * * * * flock -n /tmp/laravel-schedule.lock -c \'cd /path/to/app && php artisan schedule:run\'`, or set CRON_SECRET (≥ 32 chars) and POST /cron/run with X-Cron-Key (not both). See docs/ops-mail-reminders.md.'
         );
     }
 

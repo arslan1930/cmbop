@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
 class DrainMailQueue extends Command
 {
     protected $signature = 'mail:drain-queue
-                            {--max-time=55 : Seconds to keep working before exiting}
+                            {--max-time=40 : Seconds to keep working before exiting}
                             {--tries=3 : Attempts per job before it is marked failed}';
 
     protected $description = 'Deliver queued platform mail on hosts without a resident queue worker';

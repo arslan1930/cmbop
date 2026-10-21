@@ -258,11 +258,21 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withSchedule(function (Schedule $schedule) {
+        // Hostinger shared hosting caps PHP processes (120). Mutex every event
+        // so a slow feed sync / webhook burst / mail drain cannot stack a new
+        // php artisan process every minute. onOneServer() also covers the
+        // case where both CLI schedule:run and POST /cron/run fire.
+        $mutex = static function ($event, int $expiresMinutes = 1440) {
+            return $event->withoutOverlapping($expiresMinutes)->onOneServer();
+        };
+
         // Auto-approve window (default 72h / 3 days) — every 15 minutes
-        $event = $schedule->command('orders:auto-approve')
-            ->everyFifteenMinutes()
-            ->withoutOverlapping()
-            ->sendOutputTo(storage_path('logs/auto-approve.log'));
+        $event = $mutex(
+            $schedule->command('orders:auto-approve')
+                ->everyFifteenMinutes()
+                ->sendOutputTo(storage_path('logs/auto-approve.log')),
+            20
+        );
 
         $adminEmail = config('mail.admin_email');
         if (filled($adminEmail)) {
@@ -270,47 +280,36 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         // Email digests (respect user preferences + admin toggles inside mailables)
-        $schedule->command('emails:send-digests --type=weekly')->weeklyOn(1, '8:00');
-        $schedule->command('emails:send-digests --type=monthly')->monthlyOn(1, '8:15');
+        $mutex($schedule->command('emails:send-digests --type=weekly')->weeklyOn(1, '8:00'), 180);
+        $mutex($schedule->command('emails:send-digests --type=monthly')->monthlyOn(1, '8:15'), 180);
 
         // Publishers who registered but never listed a site: day 3 + day 7 nudges
-        $schedule->command('emails:send-publisher-add-site-reminders')
-            ->dailyAt('09:15')
-            ->withoutOverlapping();
+        $mutex($schedule->command('emails:send-publisher-add-site-reminders')->dailyAt('09:15'));
 
         // Advertisers who registered but never funded a wallet: day 7 + day 14 nudges
-        $schedule->command('emails:send-deposit-reminders')
-            ->dailyAt('09:30')
-            ->withoutOverlapping();
+        $mutex($schedule->command('emails:send-deposit-reminders')->dailyAt('09:30'));
 
         // Order reminder cadences. Hourly rather than daily so a stage that comes
         // due at 12h or 36h fires near its mark instead of drifting to the next
         // morning; each command advances an item by at most one stage per run.
-        $schedule->command('orders:nudge-publishers')
-            ->hourly()
-            ->withoutOverlapping();
-
-        $schedule->command('orders:nudge-advertisers')
-            ->hourly()
-            ->withoutOverlapping();
+        $mutex($schedule->command('orders:nudge-publishers')->hourly(), 90);
+        $mutex($schedule->command('orders:nudge-advertisers')->hourly(), 90);
 
         // New and discounted listings for advertisers who have bought before.
         // Daily run, per-recipient 15-day clock inside the command.
-        $schedule->command('sites:send-new-sites-digest')
-            ->dailyAt('10:15')
-            ->withoutOverlapping();
+        $mutex($schedule->command('sites:send-new-sites-digest')->dailyAt('10:15'));
 
         // Content upload: release scheduled orders + 24h reminders; purge expired files
-        $schedule->command('orders:release-scheduled')
-            ->everyFiveMinutes()
-            ->withoutOverlapping();
-        $schedule->command('content:purge-expired')->dailyAt('03:30');
+        $mutex($schedule->command('orders:release-scheduled')->everyFiveMinutes(), 10);
+        $mutex($schedule->command('content:purge-expired')->dailyAt('03:30'));
 
         // Publisher catalog enrichment (metrics + screenshots) — non-blocking scheduled refresh
         $enrichFreq = config('site_enrichment.refresh_frequency', 'weekly');
-        $enrichCommand = $schedule->command('sites:enrich --stale')
-            ->withoutOverlapping()
-            ->sendOutputTo(storage_path('logs/site-enrichment.log'));
+        $enrichCommand = $mutex(
+            $schedule->command('sites:enrich --stale')
+                ->sendOutputTo(storage_path('logs/site-enrichment.log')),
+            180
+        );
 
         if ($enrichFreq === 'daily') {
             $enrichCommand->dailyAt('04:15');
@@ -319,79 +318,49 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         // Partner catalog: ECB CZK/PLN rates, then nightly feed re-fetch
-        $schedule->command('partners:refresh-fx')
-            ->dailyAt('03:40')
-            ->withoutOverlapping();
-        $schedule->command('partners:sync-feeds')
-            ->dailyAt('04:00')
-            ->withoutOverlapping();
-        $schedule->command('partners:sync-api-pull')
-            ->dailyAt('04:05')
-            ->withoutOverlapping();
-        $schedule->command('partners:deliver-webhooks')
-            ->everyMinute()
-            ->withoutOverlapping();
-        $schedule->command('advertisers:deliver-webhooks')
-            ->everyMinute()
-            ->withoutOverlapping();
-        $schedule->command('partners:release-holds')
-            ->hourly()
-            ->withoutOverlapping();
-        $schedule->command('partners:monitor-links')
-            ->everySixHours()
-            ->withoutOverlapping();
-        $schedule->command('partners:generate-statements')
-            ->monthlyOn(1, '05:10')
-            ->withoutOverlapping();
+        $mutex($schedule->command('partners:refresh-fx')->dailyAt('03:40'));
+        $mutex($schedule->command('partners:sync-feeds')->dailyAt('04:00'), 180);
+        $mutex($schedule->command('partners:sync-api-pull')->dailyAt('04:05'), 180);
+        $mutex($schedule->command('partners:deliver-webhooks --limit=50 --max-seconds=40')->everyMinute(), 10);
+        $mutex($schedule->command('advertisers:deliver-webhooks --limit=50 --max-seconds=40')->everyMinute(), 10);
+        $mutex($schedule->command('partners:release-holds')->hourly(), 90);
+        $mutex($schedule->command('partners:monitor-links')->everySixHours(), 180);
+        $mutex($schedule->command('partners:generate-statements')->monthlyOn(1, '05:10'), 180);
 
         // Refresh catalog EUR prices from listing amounts + live FX buffer
-        $schedule->command('sites:refresh-eur-prices')
-            ->dailyAt('04:50')
-            ->withoutOverlapping();
+        $mutex($schedule->command('sites:refresh-eur-prices')->dailyAt('04:50'));
 
         // Notify publishers when timed site discounts expire
-        $schedule->command('sites:notify-expired-discounts')
-            ->hourly()
-            ->withoutOverlapping();
+        $mutex($schedule->command('sites:notify-expired-discounts')->hourly(), 90);
 
         // Auto-complete file verification when publishers uploaded the txt but forgot to click Check
-        $schedule->command('sites:recheck-file-verification --limit=100')
-            ->dailyAt('05:10')
-            ->withoutOverlapping();
+        $mutex($schedule->command('sites:recheck-file-verification --limit=100')->dailyAt('05:10'));
 
-        $schedule->command('orders:recheck-completed-live-urls --limit='.(int) config('orders.live_url_recheck_limit', 40))
-            ->dailyAt('05:40')
-            ->withoutOverlapping();
+        $mutex($schedule->command('orders:recheck-completed-live-urls --limit='.(int) config('orders.live_url_recheck_limit', 40))->dailyAt('05:40'));
 
-        $schedule->command('orders:check-link-guarantees --limit='.(int) config('orders.link_guarantee.check_limit', 40))
-            ->dailyAt('06:10')
-            ->withoutOverlapping();
+        $mutex($schedule->command('orders:check-link-guarantees --limit='.(int) config('orders.link_guarantee.check_limit', 40))->dailyAt('06:10'));
 
-        $schedule->command('publishers:refresh-reliability-stats')
-            ->dailyAt('03:45')
-            ->withoutOverlapping();
+        $mutex($schedule->command('publishers:refresh-reliability-stats')->dailyAt('03:45'));
 
-        $schedule->command('emails:send-saved-search-alerts')
-            ->dailyAt('10:30')
-            ->withoutOverlapping();
+        $mutex($schedule->command('emails:send-saved-search-alerts')->dailyAt('10:30'));
 
         // Queued mail sits on the "emails" queue until a worker consumes it. Hosts
         // that only offer cron have no resident worker, so drain the backlog here.
-        $schedule->command('mail:drain-queue')
-            ->everyMinute()
-            ->withoutOverlapping(5)
-            ->runInBackground();
+        // Foreground (no runInBackground): a forked queue:work is another PHP
+        // process on the 120-process Hostinger cap, and a 5-minute mutex let a
+        // hung SMTP job start a second drain.
+        $mutex($schedule->command('mail:drain-queue --max-time=40')->everyMinute(), 10);
 
-        $schedule->command('emails:send-admin-signup-digest')
-            ->everyFifteenMinutes()
-            ->withoutOverlapping();
+        $mutex($schedule->command('emails:send-admin-signup-digest')->everyFifteenMinutes(), 20);
 
         // Off-site Google Drive backup. 03:00 Asia/Karachi regardless of APP timezone (UTC).
-        $backup = $schedule->command('backup:drive')
-            ->dailyAt('03:00')
-            ->timezone('Asia/Karachi')
-            ->withoutOverlapping(180)
-            ->sendOutputTo(storage_path('logs/backup-drive.log'));
+        $backup = $mutex(
+            $schedule->command('backup:drive')
+                ->dailyAt('03:00')
+                ->timezone('Asia/Karachi')
+                ->sendOutputTo(storage_path('logs/backup-drive.log')),
+            180
+        );
         if (filled($adminEmail)) {
             $backup->emailOutputOnFailure($adminEmail);
         }

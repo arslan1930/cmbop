@@ -780,6 +780,7 @@ class PaypalCheckoutService
         return Http::acceptJson()->withOptions([
             'force_ip_resolve' => 'v4',
             'connect_timeout' => 8,
+            'timeout' => 20,
         ]);
     }
 

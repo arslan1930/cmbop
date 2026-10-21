@@ -5,7 +5,7 @@
 (function (window, document) {
   'use strict';
 
-  var POLL_MS = 8000;
+  var POLL_MS = 30000;
 
   function csrfToken() {
     var meta = document.querySelector('meta[name="csrf-token"]');
@@ -142,6 +142,9 @@
     var self = this;
     this.stopPoll();
     this.pollTimer = setInterval(function () {
+      if (document.hidden) {
+        return;
+      }
       if (self.currentOrderId) {
         self.load(true);
       }

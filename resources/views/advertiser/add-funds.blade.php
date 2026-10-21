@@ -1411,11 +1411,12 @@
         renderWithdrawFields($('#withdrawMethod').val() || 'bank');
 
         setInterval(function () {
+            if (document.hidden) return;
             loadTransactions(currentPage || 1, { silent: true });
             document.querySelectorAll('.af-activity-time[data-iso]').forEach(function (el) {
                 el.textContent = relativeTime(el.getAttribute('data-iso'));
             });
-        }, 30000);
+        }, 60000);
 
         $('#historyFilters').on('submit', function (e) {
             e.preventDefault();
