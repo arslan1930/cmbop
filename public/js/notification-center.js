@@ -131,7 +131,12 @@
 
     this.bind();
     this.refreshCount();
-    this.pollTimer = setInterval(() => this.refreshCount(true), 45000);
+    this.pollTimer = setInterval(() => {
+      if (document.hidden) {
+        return;
+      }
+      this.refreshCount(true);
+    }, 60000);
   }
 
   NotificationCenter.prototype.bind = function () {

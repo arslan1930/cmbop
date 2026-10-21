@@ -5,7 +5,7 @@
 (function (window, document) {
   'use strict';
 
-  var POLL_MS = 8000;
+  var POLL_MS = 30000;
   var instances = {};
 
   function csrfToken() {

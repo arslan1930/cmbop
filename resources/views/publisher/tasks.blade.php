@@ -451,11 +451,12 @@ $(document).ready(function() {
         $('html, body').animate({ scrollTop: $('#tasksTableBody').offset().top - 120 }, 'fast');
     });
     
-    // Auto-refresh every 30 seconds
+    // Auto-refresh every 60 seconds (skip hidden tabs — Hostinger process cap)
     refreshInterval = setInterval(function() {
+        if (document.hidden) return;
         loadTasks(currentPage, true); // silent refresh
         loadStatistics();
-    }, 30000);
+    }, 60000);
 
     (function initTasksLiveSearch() {
         var input = document.getElementById('searchInput');
