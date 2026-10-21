@@ -26,11 +26,14 @@ class SiteOwnerOrderNotification extends PlatformMailable
 
     public function build()
     {
-        $totalAmount = 0;
+        $publisherPayout = 0;
         $orderNumbers = [];
 
         foreach ($this->orders as $order) {
-            $totalAmount += $order->total_amount;
+            $order->loadMissing('items');
+            foreach ($order->items as $item) {
+                $publisherPayout += $item->publisherPayoutAmount();
+            }
             $orderNumbers[] = $order->order_number;
         }
 
@@ -53,7 +56,7 @@ class SiteOwnerOrderNotification extends PlatformMailable
             ->with([
                 'site' => $this->site,
                 'orders' => $this->orders,
-                'totalAmount' => $totalAmount,
+                'publisherPayout' => $publisherPayout,
                 'orderNumbers' => implode(', ', $orderNumbers),
                 'orderCount' => count($this->orders),
                 'publisherName' => $publisherName,

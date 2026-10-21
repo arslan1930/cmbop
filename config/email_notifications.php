@@ -8,6 +8,9 @@ use App\Mail\AdminPublishedSiteNotification;
 use App\Mail\AdminStalledOrderAlert;
 use App\Mail\AdvertiserOrderStalledNotice;
 use App\Mail\AdvertiserReviewNudge;
+use App\Mail\ArticleApprovedForPublishMail;
+use App\Mail\ArticleReadyForApprovalMail;
+use App\Mail\ArticleRevisionRequestedMail;
 use App\Mail\AudienceCampaignMail;
 use App\Mail\AutoApproveReminderMail;
 use App\Mail\BulkSiteItemsRejected;
@@ -73,6 +76,7 @@ use App\Mail\WelcomeEmail;
 use App\Mail\WithdrawalRequestedConfirmation;
 use App\Mail\WithdrawalRequestNotification;
 use App\Mail\WithdrawalStatusUpdated;
+use App\Mail\WritingDeadlineReminderMail;
 
 /**
  * Central registry for platform email notifications.
@@ -287,6 +291,34 @@ return [
             'audience' => 'publisher',
             'preference' => 'order_emails',
             'mailable' => LinkGuaranteeRestoreMail::class,
+            'default_enabled' => true,
+        ],
+        'article_ready_for_approval' => [
+            'name' => 'Article Ready For Approval',
+            'audience' => 'advertiser',
+            'preference' => 'order_emails',
+            'mailable' => ArticleReadyForApprovalMail::class,
+            'default_enabled' => true,
+        ],
+        'article_approved_for_publish' => [
+            'name' => 'Article Approved For Publish',
+            'audience' => 'publisher',
+            'preference' => 'order_emails',
+            'mailable' => ArticleApprovedForPublishMail::class,
+            'default_enabled' => true,
+        ],
+        'article_revision_requested' => [
+            'name' => 'Article Revision Requested',
+            'audience' => 'publisher',
+            'preference' => 'order_emails',
+            'mailable' => ArticleRevisionRequestedMail::class,
+            'default_enabled' => true,
+        ],
+        'writing_deadline_reminder' => [
+            'name' => 'Writing Deadline Reminder',
+            'audience' => 'admin',
+            'preference' => null,
+            'mailable' => WritingDeadlineReminderMail::class,
             'default_enabled' => true,
         ],
         'saved_search_alert' => [

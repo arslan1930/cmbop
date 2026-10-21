@@ -4,7 +4,7 @@
 <div class="container-fluid">
     @include('admin.partials.page-header', [
         'title' => 'Link guarantees',
-        'subtitle' => '12-month optional add-on. Monthly HTTP + href checks; 7-day restore window; wallet refund of the guaranteed placement.',
+        'subtitle' => '12-month optional add-on, only on listings that stay live 12 months or permanently. Monthly HTTP + href checks; 7-day restore window; SEOLinkBuildings refunds the guaranteed placement.',
     ])
 
     <form method="GET" action="{{ route('admin.link-guarantees.index') }}" class="d-flex flex-wrap gap-2 mb-3">

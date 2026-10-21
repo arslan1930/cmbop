@@ -122,13 +122,10 @@
                     <i class="fa fa-upload me-1"></i> Upload in Content Library
                 </a>
             </div>
-            <div class="card border-0 shadow-sm mb-3" style="opacity:.85;">
+            <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="fw-semibold mb-1">Write for me</h6>
-                    <p class="small text-muted mb-2">Publisher or platform writing — coming later.</p>
-                    <button type="button" class="btn btn-sm btn-outline-secondary w-100" disabled title="Coming later">
-                        Coming later
-                    </button>
+                    <p class="small text-muted mb-0">Choose “have it written” at checkout. The publisher writes when they offer it; otherwise SEOLinkBuildings writes it. You approve the article before it is published.</p>
                 </div>
             </div>
             <div class="card border-0 shadow-sm">

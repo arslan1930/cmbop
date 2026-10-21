@@ -95,6 +95,7 @@ class CheckoutSchemaService
         $this->addColumn('orders', 'link_guarantee_ends_at', 'timestamp NULL');
         $this->addColumn('orders', 'link_guarantee_restore_due_at', 'timestamp NULL');
         $this->addColumn('orders', 'link_guarantee_refunded_at', 'timestamp NULL');
+        $this->addColumn('orders', 'link_guarantee_publisher_choice', 'varchar(32) NULL');
         $this->addIndexIfMissing('orders', 'project_id');
         $this->addIndexIfMissing('orders', 'paypal_order_id');
         $this->addUniqueIfMissing('orders', 'paypal_capture_id');
@@ -153,6 +154,15 @@ class CheckoutSchemaService
         $this->addColumn('order_items', 'content_source', "varchar(20) NOT NULL DEFAULT 'buyer'");
         $this->addColumn('order_items', 'writing_fee', 'decimal(10,2) NOT NULL DEFAULT 0');
         $this->addColumn('order_items', 'listing_writing_fee', 'decimal(12,2) NULL');
+        $this->addColumn('order_items', 'writing_status', 'varchar(32) NULL');
+        $this->addColumn('order_items', 'writing_assignee_id', 'bigint unsigned NULL');
+        $this->addColumn('order_items', 'writing_deadline_at', 'timestamp NULL');
+        $this->addColumn('order_items', 'writing_brief_notes', 'text NULL');
+        $this->addColumn('order_items', 'writing_language', 'varchar(16) NULL');
+        $this->addColumn('order_items', 'article_revision_used', 'tinyint unsigned NOT NULL DEFAULT 0');
+        $this->addColumn('order_items', 'article_submitted_at', 'timestamp NULL');
+        $this->addColumn('order_items', 'article_approved_at', 'timestamp NULL');
+        $this->addColumn('order_items', 'writing_reminder_sent_at', 'timestamp NULL');
     }
 
     private function ensureCheckoutIntentsTable(): void

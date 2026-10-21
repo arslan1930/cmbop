@@ -13,9 +13,15 @@ class WritingFeeService
 
     public const SOURCE_PUBLISHER = 'publisher';
 
+    public const SOURCE_SLB = 'slb';
+
+    public const SOURCE_WRITTEN = 'written';
+
     public const DEFAULT_EN_EUR = 25.0;
 
     public const DEFAULT_OTHER_EUR = 35.0;
+
+    public const SLB_FLAT_EUR = 35.0;
 
     public function defaultEurosForLanguage(?string $language): float
     {

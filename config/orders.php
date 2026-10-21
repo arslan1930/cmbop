@@ -49,6 +49,10 @@ return [
     | Optional 12-month link guarantee add-on. Advertiser pays a percent of
     | the placement; publishers pay nothing. Monthly HTTP + href checks.
     */
+    'writing' => [
+        'deadline_days' => (int) env('ORDER_WRITING_DEADLINE_DAYS', 5),
+    ],
+
     'link_guarantee' => [
         'percent' => (float) env('ORDER_LINK_GUARANTEE_PERCENT', 10),
         'months' => (int) env('ORDER_LINK_GUARANTEE_MONTHS', 12),

@@ -202,6 +202,17 @@
         </p>
     </div>
 
+    <!-- ===== 11b. OPTIONAL 12-MONTH LINK GUARANTEE ===== -->
+    <div class="mb-4 p-4 p-md-5 rounded-4 shadow-sm" style="background:white; border:1px solid #eef0f3;">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div class="terms-num" style="background:linear-gradient(135deg,#0f766e,#14b8a6);">11b</div>
+            <h2 class="fw-bold mb-0" style="color:#1a1a2e; font-size:1.4rem;">{{ __('messages.section_link_guarantee_title') }}</h2>
+        </div>
+        <p class="mb-0" style="color:#555; line-height:1.7;">
+            {{ __('messages.section_link_guarantee_text') }}
+        </p>
+    </div>
+
 
     <!-- ===== 12. CHANGES TO TERMS ===== -->
     <div class="mb-4 p-4 p-md-5 rounded-4 shadow-sm" style="background:white; border:1px solid #eef0f3;">

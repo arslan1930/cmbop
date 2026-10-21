@@ -24,6 +24,9 @@ class OrderItem extends Model
      */
     public const PLATFORM_MARKUP_RATE = 1.15;
 
+    /** Stored when a written article has no file yet (content_link is NOT NULL on SQLite). */
+    public const PENDING_WRITTEN_LINK = 'awaiting-article';
+
     protected $fillable = [
         'order_id',
         'site_id',
@@ -84,6 +87,15 @@ class OrderItem extends Model
         'content_source',
         'writing_fee',
         'listing_writing_fee',
+        'writing_status',
+        'writing_assignee_id',
+        'writing_deadline_at',
+        'writing_brief_notes',
+        'writing_language',
+        'article_revision_used',
+        'article_submitted_at',
+        'article_approved_at',
+        'writing_reminder_sent_at',
         'hold_until',
         'keep_live_until',
         'payout_mode_at_submission',
@@ -149,6 +161,11 @@ class OrderItem extends Model
         'stalled_notice_sent_at' => 'datetime',
         'writing_fee' => 'decimal:2',
         'listing_writing_fee' => 'decimal:2',
+        'writing_deadline_at' => 'datetime',
+        'article_submitted_at' => 'datetime',
+        'article_approved_at' => 'datetime',
+        'writing_reminder_sent_at' => 'datetime',
+        'article_revision_used' => 'integer',
     ];
 
     protected $hidden = [
@@ -321,6 +338,11 @@ class OrderItem extends Model
         return $this->belongsTo(Site::class);
     }
 
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'writing_assignee_id');
+    }
+
     public function contentSubmission(): BelongsTo
     {
         return $this->belongsTo(ContentSubmission::class);
@@ -353,7 +375,12 @@ class OrderItem extends Model
             return null;
         }
 
-        return filled($this->content_link) ? (string) $this->content_link : null;
+        $link = trim((string) ($this->content_link ?: ''));
+        if ($link === '' || in_array($link, [self::PENDING_WRITTEN_LINK, 'publisher-written'], true)) {
+            return null;
+        }
+
+        return $link;
     }
 
     /**

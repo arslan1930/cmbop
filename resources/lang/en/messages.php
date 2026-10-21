@@ -381,6 +381,8 @@ return [
     'refund_section_8_body' => 'When a link-removal dispute is upheld, the related publisher payout is clawed back from their publisher wallet. If those funds were already withdrawn, a debt is recorded and further withdrawals stay blocked until settled. Publishers set their own site prices; payout mechanics are described on Become a publisher.',
     'refund_section_9_title' => 'Wallet deposits and unused balance',
     'refund_section_9_body' => 'Advertiser wallet top-ups are intended to pay for marketplace placements. Unused paid balance is spendable credit in your account; it is not a guaranteed cash-out or automatic Stripe/bank refund. Promotional bonus cannot be withdrawn. Case-by-case deposit questions can be raised via Contact or support email — we do not promise automatic card refunds of unused top-ups.',
+    'refund_section_10_title' => 'Optional 12-month link guarantee',
+    'refund_section_10_body' => 'The optional 12-month link guarantee is SEOLinkBuildings’ promise, not the publisher’s. It is sold only on listings whose publication period is at least 12 months or Permanent — never on 6-month listings. Checkout, the advertiser API, and the catalog hide or reject the add-on when a site does not qualify. After a completed guaranteed placement, we check the live URL about once a month. If the target URL is missing as a hyperlink, we ask for restore within 7 days. If it is not restored, we refund the guaranteed placement amount to the advertiser wallet. This is not a ranking, traffic, or indexation promise.',
     'refund_faq_title' => 'Refund FAQ',
     'refund_faq_q_1' => 'Do refunds go back to my card?',
     'refund_faq_a_1' => 'Wallet and card order refunds, and upheld wallet/card disputes, return as wallet credit you can spend on another placement. PayPal checkout refunds — including upheld PayPal disputes — return to the PayPal account that paid. They are not automatic cash refunds to your card or bank.',
@@ -836,6 +838,8 @@ return [
     // Section 11
     'section_post_completion_title' => 'Post-completion placements',
     'section_post_completion_text' => 'Publishers must keep completed placements live as agreed. If a completed article or link is removed, advertisers may report it within the stated window. When we uphold such a dispute, we may refund the advertiser, claw back the publisher payout from their wallet, and if funds were already withdrawn, record a debt that blocks further withdrawals until resolved.',
+    'section_link_guarantee_title' => 'Optional 12-month link guarantee',
+    'section_link_guarantee_text' => 'Advertisers may buy an optional 12-month link guarantee add-on at checkout, through the advertiser API, or when a catalog listing offers it. SEOLinkBuildings — not the publisher — makes this promise. The add-on is offered only on listings whose publication period is at least 12 months or Permanent. It is not available on 6-month listings; checkout, the API, and the catalog hide or reject it there. Once a month we fetch the live URL and check that the advertiser’s target URL still appears as a hyperlink. If it is missing we ask for restore within 7 days. If it is not restored, we refund the guaranteed placement amount to the advertiser’s wallet. This is not a ranking, traffic, or indexation promise. The guarantee fee is paid by the advertiser; publishers pay nothing.',
     'section11_title' => 'Changes to Terms',
     'section11_text' => 'We may update these Terms at any time. Continued use of the Website means acceptance of the updated Terms.',
 

@@ -15,6 +15,7 @@ use App\Services\CartPricingService;
 use App\Services\CheckoutSchemaService;
 use App\Services\ContentUpload\ScheduledOrderService;
 use App\Services\InAppNotificationService;
+use App\Services\Marketplace\ArticleWritingService;
 use App\Services\Marketplace\CheckoutAddOnService;
 use App\Services\Marketplace\WritingFeeService;
 use App\Services\Mcp\MarketplaceListing;
@@ -43,7 +44,7 @@ class AdvertiserApiOrderService
     ) {}
 
     /**
-     * @param  array{site_id: int, anchor: string, target_url: string, content?: ?string, content_format?: string, writing?: bool}  $input
+     * @param  array{site_id: int, anchor: string, target_url: string, content?: ?string, content_format?: string, writing?: bool, link_guarantee?: bool}  $input
      */
     public function create(User $user, array $input, bool $sandbox): Order
     {
@@ -55,17 +56,18 @@ class AdvertiserApiOrderService
         $anchor = trim((string) ($input['anchor'] ?? ''));
         $target = trim((string) ($input['target_url'] ?? ''));
         $wantWriting = (bool) ($input['writing'] ?? false);
+        $wantGuarantee = (bool) ($input['link_guarantee'] ?? false);
         $content = trim((string) ($input['content'] ?? ''));
         $format = strtolower((string) ($input['content_format'] ?? 'html'));
         if (! in_array($format, ['html', 'markdown'], true)) {
             $format = 'html';
         }
 
-        if ($wantWriting) {
-            if (! $this->writing->writingOffered($site)) {
-                throw new RuntimeException('writing_not_offered');
-            }
-        } elseif ($content === '') {
+        if ($wantGuarantee && ! $this->addons->siteQualifiesForGuarantee($site)) {
+            throw new RuntimeException('guarantee_not_offered');
+        }
+
+        if (! $wantWriting && $content === '') {
             throw new RuntimeException('content_or_writing_required');
         }
 
@@ -77,10 +79,10 @@ class AdvertiserApiOrderService
         }
 
         if ($sandbox) {
-            return $this->createSandbox($user, $site, $anchor, $target, $wantWriting, $content, $format);
+            return $this->createSandbox($user, $site, $anchor, $target, $wantWriting, $wantGuarantee, $content, $format);
         }
 
-        return $this->createLive($user, $site, $anchor, $target, $wantWriting, $content, $format);
+        return $this->createLive($user, $site, $anchor, $target, $wantWriting, $wantGuarantee, $content, $format);
     }
 
     public function cancel(User $user, Order $order, bool $sandbox): Order
@@ -140,10 +142,11 @@ class AdvertiserApiOrderService
         string $anchor,
         string $target,
         bool $wantWriting,
+        bool $wantGuarantee,
         string $content,
         string $format,
     ): Order {
-        $line = $this->priceLine($user, $site, $wantWriting, $anchor, $target);
+        $line = $this->priceLine($user, $site, $wantWriting, $wantGuarantee, $anchor, $target);
         $total = round((float) $line['price'], 2);
         $reference = 'API-'.strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
         $submission = null;
@@ -192,6 +195,7 @@ class AdvertiserApiOrderService
                 'order_items',
                 $this->itemPayload($order->id, $site, $line, $submission, $anchor, $target)
             ));
+            app(ArticleWritingService::class)->initializePaidItem($item, $site);
 
             if ($submission instanceof ContentSubmission) {
                 $submission->forceFill([
@@ -240,13 +244,14 @@ class AdvertiserApiOrderService
         string $anchor,
         string $target,
         bool $wantWriting,
+        bool $wantGuarantee,
         string $content,
         string $format,
     ): Order {
         if (! AdvertiserSandbox::schemaReady()) {
             throw new RuntimeException('sandbox_unavailable');
         }
-        $line = $this->priceLine($user, $site, $wantWriting, $anchor, $target);
+        $line = $this->priceLine($user, $site, $wantWriting, $wantGuarantee, $anchor, $target);
         $submission = null;
         if (! $wantWriting && $content !== '') {
             $submission = $this->articles->createFromText($user, $site, $content, $anchor, $target, $format);
@@ -291,7 +296,7 @@ class AdvertiserApiOrderService
     /**
      * @return array<string, mixed>
      */
-    private function priceLine(User $user, Site $site, bool $wantWriting, string $anchor, string $target): array
+    private function priceLine(User $user, Site $site, bool $wantWriting, bool $wantGuarantee, string $anchor, string $target): array
     {
         $expanded = $this->pricing->expandCart([
             ['id' => $site->id, 'name' => $site->site_name, 'quantity' => 1],
@@ -299,12 +304,12 @@ class AdvertiserApiOrderService
         $orderItem = $expanded[0];
         $cartLine = [
             'id' => $site->id,
-            'content_source' => $wantWriting ? WritingFeeService::SOURCE_PUBLISHER : WritingFeeService::SOURCE_BUYER,
+            'content_source' => $wantWriting ? $this->addons->requestedWriter($site) : WritingFeeService::SOURCE_BUYER,
             'writing_anchor_text' => $anchor,
             'writing_target_url' => $target,
         ];
 
-        return $this->addons->decorateOrderItem($orderItem, $cartLine, false);
+        return $this->addons->decorateOrderItem($orderItem, $cartLine, $wantGuarantee);
     }
 
     /**
@@ -329,7 +334,7 @@ class AdvertiserApiOrderService
             'price' => $orderItem['price'],
             'content_link' => $submission
                 ? 'api-article'
-                : (CheckoutAddOnService::isPublisherWritten($orderItem) ? 'publisher-written' : null),
+                : (CheckoutAddOnService::isWrittenSource($orderItem) ? OrderItem::PENDING_WRITTEN_LINK : null),
             'content_submission_id' => $submission?->id,
             'content_disk' => $submission?->disk,
             'content_path' => $submission?->path,

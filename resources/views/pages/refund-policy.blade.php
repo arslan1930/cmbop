@@ -65,7 +65,7 @@
 
     <p class="text-muted small mb-4">{{ __('messages.refund_last_updated_label') }}: {{ __('messages.refund_last_updated_display') }}</p>
 
-    @foreach(range(1, 9) as $i)
+    @foreach(range(1, 10) as $i)
         <section class="mb-4" aria-labelledby="refund-section-{{ $i }}">
             <h2 id="refund-section-{{ $i }}" class="h5 mt-4" style="color:#1a585e;">{{ $i === 2
                 ? welcome_bonus_message('refund_section_2_title', 'refund_section_2_title_off')
