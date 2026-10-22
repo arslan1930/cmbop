@@ -955,7 +955,8 @@ window.CatalogConfig = {
         hideUrl: @json(route('advertiser.catalog.hide-url', ['site' => '__SITE__'])),
         copyTrack: @json(route('advertiser.catalog.copy-track')),
         suggest: @json(route('advertiser.catalog.suggest')),
-        catalog: @json(route('advertiser.catalog'))
+        catalog: @json(route('advertiser.catalog')),
+        cartAdd: @json(route('advertiser.cart.add'))
     }
 };
 </script>
