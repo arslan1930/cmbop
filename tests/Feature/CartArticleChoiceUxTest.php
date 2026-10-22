@@ -80,9 +80,20 @@ class CartArticleChoiceUxTest extends TestCase
         $this->assertSame('We write → you approve → publisher publishes', $copy['write_steps']);
         $this->assertSame('You upload → we approve → publisher publishes', $copy['upload_steps']);
         $this->assertSame('2–3 working days', $copy['turnaround']);
+        $this->assertSame('Choose for', $copy['choose_for']);
+        $this->assertSame('Writing, turnaround, and next steps', $copy['explainer_title']);
         $this->assertStringContainsString('SEOLinkBuildings team', $copy['write_help']);
         $this->assertStringContainsString('sent to you for approval', $copy['write_help']);
         $this->assertStringNotContainsString('word', strtolower($copy['write_help']));
+        $this->assertStringContainsString('.docx', $copy['upload_help']);
+        $this->assertStringContainsString('10 MB', $copy['upload_help']);
+        $this->assertStringContainsString('One article per site', $copy['upload_help']);
+        $this->assertStringContainsString('hyperlink', $copy['upload_help']);
+        $this->assertStringContainsString('12-month and permanent', $copy['guarantee_tooltip']);
+        $this->assertStringContainsString('monthly', $copy['guarantee_tooltip']);
+        $this->assertStringContainsString('7 days', $copy['guarantee_tooltip']);
+        $this->assertStringContainsString('10%', $copy['guarantee_tooltip']);
+        $this->assertSame('10%', $copy['guarantee_percent_label']);
         $this->assertStringNotContainsString('partner', strtolower(implode(' ', $copy)));
         $this->assertStringNotContainsString('markup', strtolower(implode(' ', $copy)));
         $this->assertStringNotContainsString('listing_writing_fee', implode(' ', $copy));
@@ -111,6 +122,13 @@ class CartArticleChoiceUxTest extends TestCase
         );
         $this->assertNotSame('', (string) $line['writing_total_label']);
         $this->assertTrue((bool) $line['guarantee_offered']);
+        $this->assertEquals(10.0, (float) $line['guarantee_percent']);
+        $this->assertEquals(
+            round((float) $line['price'] * 0.10, 2),
+            (float) $line['guarantee_fee']
+        );
+        $this->assertGreaterThan(0, (float) $line['guarantee_fee']);
+        $this->assertNotSame('', (string) $line['guarantee_fee_label']);
         $this->assertSame('', (string) ($line['article_choice'] ?? ''));
         $this->assertArrayNotHasKey('listing_writing_fee', $line);
         $this->assertArrayNotHasKey('publisher_price', $line);
@@ -131,6 +149,8 @@ class CartArticleChoiceUxTest extends TestCase
             ->json('cart.0');
 
         $this->assertFalse((bool) $line['guarantee_offered']);
+        $this->assertEquals(0.0, (float) $line['guarantee_fee']);
+        $this->assertSame('', (string) ($line['guarantee_fee_label'] ?? ''));
     }
 
     public function test_bulk_write_orders_writing_on_unready_lines_only(): void
@@ -223,11 +243,20 @@ class CartArticleChoiceUxTest extends TestCase
         $this->assertStringContainsString("Choose how you'll get the article", $html);
         $this->assertStringContainsString('Have the article written', $html);
         $this->assertStringContainsString('Upload article', $html);
-        $this->assertStringContainsString('With writing:', $html);
+        $this->assertStringContainsString('Writing, turnaround, and next steps', $html);
         $this->assertStringContainsString('We write → you approve → publisher publishes', $html);
         $this->assertStringContainsString('12-month link guarantee available at checkout', $html);
         $this->assertStringContainsString('Choose an article option above to continue', $html);
         $this->assertStringContainsString('Typical turnaround: 2–3 working days', $html);
+        $this->assertStringContainsString('Microsoft Word (.docx) only', $html);
+        $this->assertStringContainsString('Projected total', $html);
+        $this->assertStringContainsString('0 of 1 site ready', $html);
+        $this->assertStringContainsString('Choose for 1 site', $html);
+        $this->assertStringContainsString('cart-item-breakdown', $html);
+        $this->assertStringContainsString('fa-pen', $html);
+        $this->assertStringContainsString('fa-upload', $html);
+        $this->assertStringContainsString('id="wizardProceedHint"', $html);
+        $this->assertSame(1, substr_count($html, 'Typical turnaround: 2–3 working days'));
         $this->assertStringNotContainsString('1 article still needed', $html);
         $this->assertStringNotContainsString('partner_rate', $html);
         $this->assertStringNotContainsString('listing_writing_fee', $html);
@@ -237,6 +266,50 @@ class CartArticleChoiceUxTest extends TestCase
         $this->assertNotFalse($writePos);
         $this->assertNotFalse($uploadPos);
         $this->assertLessThan($uploadPos, $writePos);
+    }
+
+    public function test_wizard_bulk_write_button_shows_fee_times_unready_lines(): void
+    {
+        $first = $this->makeSite('wizard-bulk-a');
+        $second = $this->makeSite('wizard-bulk-b', [
+            'domain' => 'wizard-bulk-b.example',
+            'site_url' => 'https://wizard-bulk-b.example',
+        ]);
+
+        $html = $this->actingAs($this->advertiser)
+            ->withSession([
+                GuestPostWizardController::SESSION_KEY => [
+                    'language' => 'en',
+                    'categories' => [],
+                ],
+                'cart' => [
+                    [
+                        'id' => $first->id,
+                        'name' => $first->site_name,
+                        'price' => 100,
+                        'quantity' => 1,
+                        'language' => 'en',
+                        'country' => 'us',
+                    ],
+                    [
+                        'id' => $second->id,
+                        'name' => $second->site_name,
+                        'price' => 100,
+                        'quantity' => 1,
+                        'language' => 'en',
+                        'country' => 'us',
+                    ],
+                ],
+            ])
+            ->get(route('advertiser.wizard.content'))
+            ->assertOk()
+            ->getContent();
+
+        $fee = WritingFeeService::SLB_FLAT_EUR * 2;
+        $this->assertStringContainsString('Have all articles written (+'.format_money_pay($fee).')', $html);
+        $this->assertStringContainsString('0 of 2 sites ready', $html);
+        $this->assertStringContainsString('Choose for 2 sites', $html);
+        $this->assertStringNotContainsString('partner_rate', $html);
     }
 
     public function test_hostinger_sql_creates_writing_settings(): void

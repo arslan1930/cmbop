@@ -239,9 +239,15 @@ class CheckoutAddOnService
         $line['writing_target_url'] = trim((string) ($line['writing_target_url'] ?? ''));
         $line['writing_anchor_text'] = trim((string) ($line['writing_anchor_text'] ?? ''));
         $line['guarantee_offered'] = $this->siteQualifiesForGuarantee($site instanceof Site ? $site : null);
-        $line['writing_turnaround_text'] = $this->writingTurnaroundText();
-        $line['writing_explainer'] = $this->writingExplainer();
-        $line['writing_guarantee_note'] = $this->writingGuaranteeNote();
+        $percent = $this->guaranteePercent();
+        $line['guarantee_percent'] = $percent;
+        $line['guarantee_fee'] = ($line['guarantee_offered'] && $unit > 0)
+            ? round($unit * ($percent / 100), 2)
+            : 0.0;
+        $line['guarantee_fee_label'] = $line['guarantee_fee'] > 0
+            ? format_money_pay($line['guarantee_fee'])
+            : '';
+        $line['article_choice'] = $this->resolvedArticleChoice($line, $source);
 
         return $line;
     }
@@ -302,20 +308,32 @@ class CheckoutAddOnService
     public function cartArticleCopy(): array
     {
         $turnaround = WritingSetting::turnaroundText();
+        $percent = rtrim(rtrim(number_format($this->guaranteePercent(), 2), '0'), '.');
 
         return [
             'heading' => "Choose how you'll get the article",
+            'explainer_title' => 'Writing, turnaround, and next steps',
             'write_label' => 'Have the article written',
             'upload_label' => 'Upload article',
             'write_help' => 'Written by the SEOLinkBuildings team (or the publisher, if they write for this site) in the site\'s language and sent to you for approval before publishing.',
+            'upload_help' => $this->uploadHelpText(),
             'turnaround' => $turnaround,
             'turnaround_label' => 'Typical turnaround: '.$turnaround,
             'with_writing' => 'With writing:',
             'write_all' => 'Have all articles written',
             'guarantee_note' => '12-month link guarantee available at checkout',
+            'guarantee_tooltip' => $this->guaranteeTooltipText(),
+            'guarantee_percent_label' => $percent.'%',
             'proceed_hint' => 'Choose an article option above to continue',
+            'choose_for' => 'Choose for',
+            'progress_ready' => 'sites ready',
             'write_steps' => 'We write → you approve → publisher publishes',
             'upload_steps' => 'You upload → we approve → publisher publishes',
+            'breakdown_placement' => 'Placement',
+            'breakdown_writing' => 'Writing',
+            'breakdown_guarantee' => 'Guarantee',
+            'clear_confirm_title' => 'Clear cart?',
+            'clear_confirm_text' => 'Remove every website from this cart. Assigned articles stay in Content Library.',
         ];
     }
 
@@ -380,6 +398,28 @@ class CheckoutAddOnService
     public function eligibilityHelpText(): string
     {
         return 'The 12-month link guarantee is only offered on sites that stay live for at least 12 months or permanently.';
+    }
+
+    /**
+     * Short advertiser tooltip. Same facts as termsText(); never invents a price.
+     */
+    public function guaranteeTooltipText(): string
+    {
+        $days = (int) config('orders.link_guarantee.restore_days', 7);
+        $percent = rtrim(rtrim(number_format($this->guaranteePercent(), 2), '0'), '.');
+
+        return 'Offered on 12-month and permanent listings only. We check the live URL monthly. If the target URL is missing as a hyperlink, we ask for restore within '.$days.' days or refund the guaranteed placement. Fee: '.$percent.'% of the placement, paid at checkout.';
+    }
+
+    /**
+     * Upload card blurb from the live Content Library validation rules.
+     */
+    public function uploadHelpText(): string
+    {
+        $ext = strtolower((string) config('content_upload.preferred_extension', 'docx'));
+        $maxMb = max(1, (int) round(((int) config('content_upload.max_kilobytes', 10240)) / 1024));
+
+        return 'Microsoft Word (.'.$ext.') only, max '.$maxMb.' MB. One article per site. Include your live hyperlink in the document.';
     }
 
     /**
