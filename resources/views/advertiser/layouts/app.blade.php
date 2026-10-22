@@ -331,6 +331,12 @@
     </div>
     <div class="cart-body">
         <div id="cartChecklist" class="cart-checklist d-none" aria-live="polite"></div>
+        <details id="cartArticleExplainer" class="cart-explainer d-none">
+            <summary id="cartExplainerTitle">Writing, turnaround, and next steps</summary>
+            <p id="cartExplainerHelp" class="cart-explainer__help"></p>
+            <p id="cartExplainerTurnaround" class="cart-explainer__meta"></p>
+            <p id="cartExplainerSteps" class="cart-explainer__steps"></p>
+        </details>
         <button type="button" id="cartWriteAll" class="cart-write-all">Have all articles written</button>
         <div id="cartItemsContainer">
             <div class="text-center text-muted">Your cart is empty</div>
@@ -340,7 +346,7 @@
         <div id="cartReadyNote" class="cart-ready-note d-none"></div>
         <div id="cartTotals" class="cart-totals d-none">
             <div class="cart-totals__pay">
-                <span id="cartTotalLabel">Pay now</span>
+                <span id="cartTotalLabel">Projected total</span>
                 <strong id="cartTotalAmount">€0.00</strong>
             </div>
             <div id="cartHeldNote" class="cart-totals__held d-none"></div>
@@ -349,9 +355,9 @@
         <button id="checkoutFromCart" class="btn btn-primary w-100 d-none" type="button" disabled>
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
-        <div id="cartProceedHint" class="small text-muted mt-2 d-none">
+        <button type="button" id="cartProceedHint" class="cart-proceed-hint d-none">
             Choose an article option above to continue
-        </div>
+        </button>
         <div class="cart-footer-links">
             <details class="cart-after-pay d-none" id="cartAfterPay">
                 <summary>What happens after you pay</summary>
@@ -360,6 +366,8 @@
             <button id="keepBrowsingCatalog" class="cart-keep-browsing" type="button">
                 Keep browsing
             </button>
+        </div>
+        <div class="cart-footer-clear">
             <button id="clearCart" class="cart-clear" type="button">
                 Clear cart
             </button>
@@ -814,6 +822,61 @@
         return (price + writing) * qty;
     }
 
+    function lineProjectedAmount(item) {
+        return linePayAmount(item);
+    }
+
+    function lineGuaranteeFee(item) {
+        const fee = parseFloat(item?.guarantee_fee);
+        if (Number.isFinite(fee) && fee > 0) return fee;
+        const percent = parseFloat(item?.guarantee_percent);
+        const price = parseFloat(item?.price) || 0;
+        if (item?.guarantee_offered && Number.isFinite(percent) && percent > 0 && price > 0) {
+            return Math.round(price * (percent / 100) * 100) / 100;
+        }
+        return 0;
+    }
+
+    function lineWritingQtyLabel(item) {
+        const fee = lineWritingFee(item);
+        const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+        const unit = lineWritingFeeLabel(item);
+        if (qty > 1 && fee > 0) {
+            return unit + ' × ' + qty + ' = ' + slbFormatPay(fee * qty);
+        }
+        return unit;
+    }
+
+    function unreadyWritingCost(items) {
+        return (items || cart).reduce((sum, item) => {
+            if (lineFullyAssigned(item)) return sum;
+            const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+            return sum + (lineWritingFee(item) * qty);
+        }, 0);
+    }
+
+    function sitesReadyLabel(readyCount, total) {
+        return readyCount + ' of ' + total + ' site' + (total === 1 ? '' : 's') + ' ready';
+    }
+
+    function scrollToFirstUnreadyCartItem() {
+        const body = document.querySelector('#cartSidebar .cart-body');
+        const item = document.querySelector('#cartItemsContainer .cart-item.is-unready');
+        if (!item) return;
+        item.classList.add('is-highlighted');
+        if (body) {
+            const top = item.offsetTop - 8;
+            if (typeof body.scrollTo === 'function') {
+                body.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            } else {
+                body.scrollTop = Math.max(0, top);
+            }
+        } else {
+            item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        window.setTimeout(() => item.classList.remove('is-highlighted'), 1600);
+    }
+
     function lineFullyAssigned(item) {
         return lineIsWritten(item) || lineContentIds(item).every((id) => id > 0);
     }
@@ -1105,9 +1168,14 @@
         const scheduleHint = document.getElementById('cartScheduleHint');
         const afterPay = document.getElementById('cartAfterPay');
         const writeAllBtn = document.getElementById('cartWriteAll');
+        const explainer = document.getElementById('cartArticleExplainer');
         const clearBtn = document.getElementById('clearCart');
+        const clearWrap = document.querySelector('.cart-footer-clear');
         if (clearBtn) {
             clearBtn.classList.toggle('d-none', cart.length === 0);
+        }
+        if (clearWrap) {
+            clearWrap.classList.toggle('d-none', cart.length === 0);
         }
         if (cart.length === 0) {
             container.innerHTML = `
@@ -1129,6 +1197,8 @@
             if (proceedBtn) {
                 proceedBtn.disabled = true;
                 proceedBtn.classList.add('d-none');
+                proceedBtn.classList.remove('is-waiting');
+                proceedBtn.removeAttribute('aria-disabled');
             }
             if (proceedHint) {
                 proceedHint.classList.add('d-none');
@@ -1136,11 +1206,15 @@
             if (writeAllBtn) {
                 writeAllBtn.classList.remove('is-visible');
             }
+            if (explainer) {
+                explainer.classList.add('d-none');
+                explainer.open = false;
+            }
             if (headerMeta) {
-                headerMeta.textContent = 'Choose how you\'ll get the article. Pay with wallet, card, or PayPal at checkout.';
+                headerMeta.textContent = 'Pay with wallet, card, or PayPal at checkout.';
             }
             if (totalLabel) {
-                totalLabel.textContent = 'Pay now';
+                totalLabel.textContent = 'Projected total';
             }
             if (heldNote) {
                 heldNote.classList.add('d-none');
@@ -1169,48 +1243,59 @@
             const missingSlots = cart.reduce((n, item) => (
                 n + (lineIsWritten(item) ? 0 : lineContentIds(item).filter((id) => !id).length)
             ), 0);
-            const heldTotal = Math.max(0, cartTotal - readyTotal);
+            const projectedTotal = cart.reduce((sum, item) => sum + lineProjectedAmount(item), 0);
+            const writeAllCost = unreadyWritingCost(missingLines);
+            const progressLabel = sitesReadyLabel(readyCount, cart.length);
             if (totalsEl) {
                 totalsEl.classList.remove('d-none');
             }
-            const cartStatus = missing === 0
-                ? (readyCount + ' ready')
-                : (readyCount === 0
-                    ? cartArticleCopy.heading
-                    : (readyCount + ' ready · ' + cartArticleCopy.heading.toLowerCase()));
             if (headerMeta) {
-                headerMeta.textContent = cartStatus;
+                headerMeta.textContent = progressLabel;
+            }
+            if (explainer) {
+                const title = document.getElementById('cartExplainerTitle');
+                const help = document.getElementById('cartExplainerHelp');
+                const turnaround = document.getElementById('cartExplainerTurnaround');
+                const steps = document.getElementById('cartExplainerSteps');
+                if (title) title.textContent = cartArticleCopy.explainer_title || cartArticleCopy.heading;
+                if (help) help.textContent = cartArticleCopy.write_help;
+                if (turnaround) turnaround.textContent = cartArticleCopy.turnaround_label;
+                if (steps) steps.textContent = cartArticleCopy.write_steps;
+                explainer.classList.remove('d-none');
+                if (!explainer.dataset.userToggled) {
+                    explainer.open = missing > 0;
+                }
             }
             if (writeAllBtn) {
-                writeAllBtn.textContent = cartArticleCopy.write_all;
+                writeAllBtn.textContent = writeAllCost > 0
+                    ? (cartArticleCopy.write_all + ' (+' + slbFormatPay(writeAllCost) + ')')
+                    : cartArticleCopy.write_all;
                 writeAllBtn.classList.toggle('is-visible', missing >= 2);
             }
             if (checklistEl) {
-                if (missing === 0) {
-                    checklistEl.classList.add('d-none');
-                    checklistEl.innerHTML = '';
-                } else {
-                    const status = cartStatus;
-                    const siteList = missingLines.map((item) => '<li>' + escapeHtml(item.name || 'Website') + '</li>').join('');
-                    checklistEl.innerHTML = '<div class="cart-checklist__status">' + escapeHtml(status) + '</div>'
-                        + (siteList ? '<ul class="cart-checklist__sites">' + siteList + '</ul>' : '');
-                    checklistEl.classList.remove('d-none');
-                }
                 checklistEl.classList.add('d-none');
+                checklistEl.innerHTML = '';
             }
             if (readyNote) {
-                // Header already says “N ready to pay”; do not repeat it in the footer.
                 readyNote.classList.add('d-none');
                 readyNote.textContent = '';
             }
             if (proceedBtn) {
-                // Checkout only for sites that are ready and need payment.
                 proceedBtn.classList.remove('d-none');
-                proceedBtn.disabled = readyCount === 0;
-                if (readyCount > 0 && missing > 0) {
-                    proceedBtn.innerHTML = '<i class="fa fa-credit-card"></i> Checkout ' + readyCount + ' ready site' + (readyCount === 1 ? '' : 's');
+                proceedBtn.classList.toggle('is-waiting', readyCount === 0);
+                if (readyCount === 0) {
+                    proceedBtn.disabled = false;
+                    proceedBtn.setAttribute('aria-disabled', 'true');
+                    proceedBtn.innerHTML = escapeHtml(cartArticleCopy.choose_for || 'Choose for')
+                        + ' ' + missing + ' site' + (missing === 1 ? '' : 's');
                 } else {
-                    proceedBtn.innerHTML = '<i class="fa fa-credit-card"></i> Proceed to Checkout';
+                    proceedBtn.disabled = false;
+                    proceedBtn.removeAttribute('aria-disabled');
+                    if (missing > 0) {
+                        proceedBtn.innerHTML = '<i class="fa fa-credit-card"></i> Checkout ' + readyCount + ' ready site' + (readyCount === 1 ? '' : 's');
+                    } else {
+                        proceedBtn.innerHTML = '<i class="fa fa-credit-card"></i> Proceed to Checkout';
+                    }
                 }
             }
             if (proceedHint) {
@@ -1218,7 +1303,7 @@
                 proceedHint.classList.toggle('d-none', readyCount > 0);
             }
             if (totalLabel) {
-                totalLabel.textContent = readyCount > 0 && missing === 0 ? 'Total' : 'Pay now';
+                totalLabel.textContent = missing === 0 ? 'Total' : 'Projected total';
             }
             if (scheduleHint) {
                 if (cartSchedule && cartSchedule.label) {
@@ -1236,17 +1321,8 @@
                 }
             }
             if (heldNote) {
-                if (readyCount === 0) {
-                    heldNote.classList.remove('d-none');
-                    heldNote.textContent = 'In cart ' + slbFormatPay(cartTotal);
-                } else if (missing > 0) {
-                    heldNote.classList.remove('d-none');
-                    heldNote.textContent = missing + ' site' + (missing === 1 ? '' : 's')
-                        + ' stay' + (missing === 1 ? 's' : '') + ' in cart (' + slbFormatPay(heldTotal) + ')';
-                } else {
-                    heldNote.classList.add('d-none');
-                    heldNote.textContent = '';
-                }
+                heldNote.classList.remove('d-none');
+                heldNote.textContent = progressLabel;
             }
             if (afterPay) {
                 afterPay.classList.toggle('d-none', readyCount === 0);
@@ -1281,7 +1357,8 @@
                 const identityMeta = [siteDomain, metricBits.join(' · ')].filter(Boolean).join(' · ');
                 const placementIds = lineContentIds(item);
                 const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
-                const unitPrice = (parseFloat(item.price) || 0) + (lineIsWritten(item) ? lineWritingFee(item) : 0);
+                const placementPrice = parseFloat(item.price) || 0;
+                const unitPrice = placementPrice + (lineIsWritten(item) ? lineWritingFee(item) : 0);
                 const priceLabel = qty > 1 ? (slbFormatPay(unitPrice) + ' × ' + qty) : slbFormatPay(unitPrice);
                 const homepageOptions = Array.isArray(item.homepage_options) ? item.homepage_options : [];
                 const sensitiveOptions = Array.isArray(item.sensitive_options) ? item.sensitive_options : [];
@@ -1336,18 +1413,23 @@
                     instagram: 'fa-instagram',
                     x: 'fa-x-twitter',
                 };
+                const socialNames = socialList.map((c) => c === 'x' ? 'X' : (c.charAt(0).toUpperCase() + c.slice(1)));
                 const socialDisplay = socialList.length
-                    ? `<div class="cart-item-social" aria-label="${escapeHtml(socialList.map((c) => c === 'x' ? 'X' : (c.charAt(0).toUpperCase() + c.slice(1))).join(', '))}">${socialList.map((c) => {
-                        const icon = socialIcon[c];
-                        const name = c === 'x' ? 'X' : (c.charAt(0).toUpperCase() + c.slice(1));
-                        return icon
-                            ? `<i class="fa-brands ${icon}" title="${escapeHtml(name)}" aria-hidden="true"></i>`
-                            : '';
-                    }).join('')}</div>`
+                    ? `<div class="cart-item-social" title="Social promotion: ${escapeHtml(socialNames.join(', '))} included">
+                        <span class="cart-item-social__label">Social</span>
+                        ${socialList.map((c) => {
+                            const icon = socialIcon[c];
+                            const name = c === 'x' ? 'X' : (c.charAt(0).toUpperCase() + c.slice(1));
+                            return icon
+                                ? `<i class="fa-brands ${icon}" title="${escapeHtml(name)}" aria-hidden="true"></i><span class="cart-item-social__name">${escapeHtml(name)}</span>`
+                                : `<span class="cart-item-social__name">${escapeHtml(name)}</span>`;
+                        }).join('')}
+                      </div>`
                     : '';
                 const written = lineIsWritten(item);
                 const choseUpload = lineChoseUpload(item) || (!written && placementIds.some((id) => id > 0));
-                const writingLabel = cartArticleCopy.write_label + ' (+' + lineWritingFeeLabel(item) + ')';
+                const writingQtyLabel = lineWritingQtyLabel(item);
+                const writingLabel = cartArticleCopy.write_label + ' (+' + writingQtyLabel + ')';
                 const writingBrief = written ? `
                     <div class="cart-writing-brief">
                         <label class="visually-hidden" for="cart-write-target-${itemKeyAttr}">Target URL</label>
@@ -1418,32 +1500,49 @@
                         </div>`;
                 }).join('') : '';
                 const articleState = written ? 'is-written' : (choseUpload ? 'is-assigned' : 'needs-choice');
-                const withWritingQty = qty > 1
-                    ? (cartArticleCopy.with_writing + ' ' + lineWithWritingLabel(item) + ' × ' + qty)
-                    : (cartArticleCopy.with_writing + ' ' + lineWithWritingLabel(item));
-                const steps = written || !choseUpload
-                    ? cartArticleCopy.write_steps
-                    : cartArticleCopy.upload_steps;
+                const guaranteeFee = lineGuaranteeFee(item);
+                const guaranteeFeeLabel = item.guarantee_fee_label || (guaranteeFee > 0 ? slbFormatPay(guaranteeFee) : '');
+                const guaranteeTip = escapeHtml(cartArticleCopy.guarantee_tooltip || '');
                 const guaranteeNote = item.guarantee_offered
-                    ? `<div class="cart-item-guarantee">${escapeHtml(cartArticleCopy.guarantee_note)}</div>`
+                    ? `<div class="cart-item-guarantee">
+                        <button type="button" class="cart-tip" aria-expanded="false" aria-controls="cart-guarantee-tip-${itemKeyAttr}">
+                            ${escapeHtml(cartArticleCopy.guarantee_note)}
+                            ${guaranteeFeeLabel ? ' · ' + escapeHtml(guaranteeFeeLabel) : ''}
+                        </button>
+                        <p id="cart-guarantee-tip-${itemKeyAttr}" class="cart-tip__body" hidden>${guaranteeTip}</p>
+                       </div>`
                     : '';
+                const writingBreakdown = written
+                    ? slbFormatPay(lineWritingFee(item) * qty)
+                    : ('+' + writingQtyLabel);
+                const placementBreakdown = qty > 1
+                    ? (slbFormatPay(placementPrice) + ' × ' + qty)
+                    : slbFormatPay(placementPrice);
+                const breakdown = `
+                    <dl class="cart-item-breakdown">
+                        <div><dt>${escapeHtml(cartArticleCopy.breakdown_placement || 'Placement')}</dt><dd>${escapeHtml(placementBreakdown)}</dd></div>
+                        <div><dt>${escapeHtml(cartArticleCopy.breakdown_writing || 'Writing')}</dt><dd>${escapeHtml(writingBreakdown)}</dd></div>
+                        <div><dt>${escapeHtml(cartArticleCopy.breakdown_guarantee || 'Guarantee')}</dt><dd>${item.guarantee_offered
+                            ? escapeHtml((guaranteeFeeLabel || cartArticleCopy.guarantee_percent_label || '') + ' at checkout')
+                            : 'Not offered'}</dd></div>
+                    </dl>`;
                 const articleBlock = `
                     <div class="cart-item-article ${articleState}">
-                        <div class="cart-item-choice-heading">${escapeHtml(cartArticleCopy.heading)}</div>
-                        ${written ? '' : `<div class="cart-item-with-writing">${escapeHtml(withWritingQty)}</div>`}
-                        <div class="cart-choice-options">
-                            <button type="button" class="cart-choice-option cart-item-write-cta${written ? ' is-selected' : ''}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-pressed="${written ? 'true' : 'false'}">
-                                <span class="cart-choice-option__title">${escapeHtml(writingLabel)}</span>
-                                <span class="cart-choice-option__help">${escapeHtml(cartArticleCopy.write_help)}</span>
-                                <span class="cart-choice-option__turnaround">${escapeHtml(cartArticleCopy.turnaround_label)}</span>
+                        <div class="cart-choice-options" role="radiogroup" aria-label="${escapeHtml(cartArticleCopy.heading)}">
+                            <button type="button" class="cart-choice-option cart-item-write-cta${written ? ' is-selected' : ''}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" role="radio" aria-checked="${written ? 'true' : 'false'}">
+                                <span class="cart-choice-option__icon" aria-hidden="true"><i class="fa-solid fa-pen"></i></span>
+                                <span class="cart-choice-option__title">${escapeHtml(cartArticleCopy.write_label)}</span>
+                                <span class="cart-choice-option__fee">+${escapeHtml(writingQtyLabel)}</span>
                             </button>
-                            <button type="button" class="cart-choice-option cart-choose-upload${choseUpload ? ' is-selected' : ''}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-pressed="${choseUpload ? 'true' : 'false'}">
+                            <button type="button" class="cart-choice-option cart-choose-upload${choseUpload ? ' is-selected' : ''}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" role="radio" aria-checked="${choseUpload ? 'true' : 'false'}">
+                                <span class="cart-choice-option__icon" aria-hidden="true"><i class="fa-solid fa-upload"></i></span>
                                 <span class="cart-choice-option__title">${escapeHtml(cartArticleCopy.upload_label)}</span>
+                                <span class="cart-choice-option__help">${escapeHtml(cartArticleCopy.upload_help || '')}</span>
                             </button>
                         </div>
                         ${writingBrief}
                         ${uploadPickers}
-                        <div class="cart-item-steps">${escapeHtml(steps)}</div>
+                        ${breakdown}
                         ${guaranteeNote}
                     </div>`;
                 const minBulk = parseInt(item.bulk_min_qty, 10) || 3;
@@ -1454,22 +1553,24 @@
                     ? `<div class="cart-item-options">${homepageDisplay}${sensitiveDisplay}${socialDisplay}</div>`
                     : '';
                 html += `
-                    <div class="cart-item" data-key="${itemKeyAttr}">
+                    <div class="cart-item${articleState === 'needs-choice' ? ' is-unready' : ''}" data-key="${itemKeyAttr}">
                         <div class="cart-item-head">
                             <div class="cart-item-name">${escapeHtml(siteName)}</div>
                             <div class="cart-item-price">${priceLabel}</div>
                             <button type="button" class="cart-item-remove" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Remove ${escapeHtml(siteName)} from cart">Remove<i class="fa-solid fa-trash" aria-hidden="true"></i></button>
                         </div>
                         ${identityMeta ? `<div class="cart-item-meta">${escapeHtml(identityMeta)}</div>` : ''}
-                        <div class="cart-item-quantity" role="group" aria-label="Placements">
-                            <span class="cart-item-qty-label visually-hidden">Placements</span>
-                            <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Decrease placements" title="Placements — each needs its own article" ${qty <= minQty ? 'disabled' : ''}>
-                                <i class="fa fa-minus" aria-hidden="true"></i>
-                            </button>
-                            <span class="quantity-number" aria-label="Placements ${item.quantity}">${item.quantity}</span>
-                            <button type="button" class="increase-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Increase placements — each needs its own article" title="Placements — each needs its own article">
-                                <i class="fa fa-plus" aria-hidden="true"></i>
-                            </button>
+                        <div class="cart-item-toolbar">
+                            <div class="cart-item-quantity" role="group" aria-label="Placements">
+                                <span class="cart-item-qty-label">Placements</span>
+                                <button type="button" class="decrease-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Decrease placements" title="Placements — each needs its own article. Writing fee is multiplied." ${qty <= minQty ? 'disabled' : ''}>
+                                    <i class="fa fa-minus" aria-hidden="true"></i>
+                                </button>
+                                <span class="quantity-number" aria-label="Placements ${item.quantity}">${item.quantity}</span>
+                                <button type="button" class="increase-qty" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-label="Increase placements — each needs its own article. Writing fee is multiplied." title="Placements — each needs its own article. Writing fee is multiplied.">
+                                    <i class="fa fa-plus" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </div>
                         ${optionRow}
                         <div class="cart-item-article-row">
@@ -1484,10 +1585,9 @@
         
         const payEl = document.getElementById('cartTotalAmount');
         if (payEl) {
-            const payNow = cart.length === 0 ? 0 : cart
-                .filter((item) => lineFullyAssigned(item))
-                .reduce((sum, item) => sum + linePayAmount(item), 0);
-            payEl.innerHTML = slbFormatPay(payNow);
+            const projected = cart.length === 0 ? 0 : cart
+                .reduce((sum, item) => sum + lineProjectedAmount(item), 0);
+            payEl.innerHTML = slbFormatPay(projected);
         }
         syncCatalogCartBanner();
         if (typeof window.catalogSyncInCartButtons === 'function') {
@@ -1667,6 +1767,25 @@
             e.preventDefault();
             first.focus();
         }
+    });
+
+    document.getElementById('cartArticleExplainer')?.addEventListener('toggle', function () {
+        this.dataset.userToggled = '1';
+    });
+
+    document.getElementById('cartProceedHint')?.addEventListener('click', function () {
+        scrollToFirstUnreadyCartItem();
+    });
+
+    document.getElementById('cartItemsContainer')?.addEventListener('click', function (e) {
+        const tip = e.target.closest('.cart-tip');
+        if (!tip) return;
+        e.preventDefault();
+        const body = document.getElementById(tip.getAttribute('aria-controls') || '');
+        if (!body) return;
+        const open = body.hasAttribute('hidden');
+        body.toggleAttribute('hidden', !open);
+        tip.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
 
     document.getElementById('keepBrowsingCatalog')?.addEventListener('click', function () {
@@ -1945,7 +2064,7 @@
         const readyCount = Math.max(0, cart.length - missing.length);
         if (readyCount === 0) {
             openCart();
-            showToast('Assign an approved article or choose writing on at least one website before checkout.', 'error');
+            scrollToFirstUnreadyCartItem();
             return;
         }
         const wizardPay = @json(route('advertiser.wizard.pay'));

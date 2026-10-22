@@ -37,12 +37,28 @@
         }
     }
     $unreadyCount = 0;
+    $writeAllCost = 0.0;
+    $readyCount = 0;
+    $projectedTotal = 0.0;
     foreach ($placements as $placement) {
         $line = $placement['line'];
         $written = \App\Services\Marketplace\CheckoutAddOnService::isWrittenSource($line);
-        if (! $written && (int) $placement['selected_id'] <= 0) {
+        $ready = $written || (int) $placement['selected_id'] > 0;
+        if ($ready) {
+            $readyCount++;
+        } else {
             $unreadyCount++;
+            $writeAllCost += (float) ($line['writing_fee'] ?? 0);
         }
+        $projectedTotal += (float) ($line['price'] ?? 0);
+        if ($written) {
+            $projectedTotal += (float) ($line['writing_fee'] ?? 0);
+        }
+    }
+    $siteCount = count($cart);
+    $progressLabel = $readyCount.' of '.count($placements).' '.((count($placements) === 1) ? 'site' : 'sites').' ready';
+    if (count($placements) !== $siteCount) {
+        $progressLabel = $readyCount.' of '.count($placements).' placements ready';
     }
 @endphp
 <div class="container-fluid">
@@ -67,8 +83,16 @@
 
     <div class="row g-4">
         <div class="col-lg-8">
+            <details class="cart-explainer mb-3" @if($unreadyCount > 0) open @endif>
+                <summary>{{ $articleCopy['explainer_title'] }}</summary>
+                <p class="cart-explainer__help">{{ $articleCopy['write_help'] }}</p>
+                <p class="cart-explainer__meta">{{ $articleCopy['turnaround_label'] }}</p>
+                <p class="cart-explainer__steps">{{ $articleCopy['write_steps'] }}</p>
+            </details>
             @if($unreadyCount >= 2)
-                <button type="button" class="cart-write-all is-visible mb-3" id="wizardWriteAll">{{ $articleCopy['write_all'] }}</button>
+                <button type="button" class="cart-write-all is-visible mb-3" id="wizardWriteAll">
+                    {{ $articleCopy['write_all'] }}{{ $writeAllCost > 0 ? ' (+'.format_money_pay($writeAllCost).')' : '' }}
+                </button>
             @endif
             <div class="d-flex flex-column gap-3" id="wizardContentLines">
                 @foreach($placements as $placement)
@@ -79,7 +103,11 @@
                         $written = \App\Services\Marketplace\CheckoutAddOnService::isWrittenSource($line);
                         $choseUpload = ! $written && (($line['article_choice'] ?? '') === 'upload' || $selectedId > 0);
                         $writingFeeLabel = $line['writing_fee_label'] ?? '';
-                        $writingTotalLabel = $line['writing_total_label'] ?? '';
+                        $writingFee = (float) ($line['writing_fee'] ?? 0);
+                        $qty = max(1, (int) $placement['qty']);
+                        $writingQtyLabel = ($qty > 1 && $copyIndex === 0 && $writingFee > 0 && $writingFeeLabel !== '')
+                            ? ($writingFeeLabel.' × '.$qty.' = '.format_money_pay($writingFee * $qty))
+                            : $writingFeeLabel;
                         $options = $approvedArticles->filter(function ($article) use ($usedIds, $selectedId) {
                             $id = (int) $article->id;
                             if ($id !== $selectedId && in_array($id, $usedIds, true)) {
@@ -90,46 +118,41 @@
                         $placementLabel = $placement['qty'] > 1
                             ? ($line['name'] ?? ('Site #'.$line['id'])).' — placement '.($copyIndex + 1).' of '.$placement['qty']
                             : ($line['name'] ?? ('Site #'.$line['id']));
+                        $guaranteeFeeLabel = $line['guarantee_fee_label'] ?? '';
+                        $unready = ! $written && $selectedId <= 0;
                     @endphp
-                    <div class="card border-0 shadow-sm wizard-line"
+                    <div class="card wizard-line{{ $unready ? ' is-unready' : '' }}"
                          data-site-id="{{ $line['id'] }}"
                          data-sensitive-type="{{ $line['sensitive_type'] ?? '' }}"
                          data-homepage-days="{{ $line['homepage_days'] ?? 'none' }}"
-                         data-copy-index="{{ $copyIndex }}">
+                         data-copy-index="{{ $copyIndex }}"
+                         data-writing-fee="{{ $writingFee }}">
                         <div class="card-body">
                             <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
                                 <div>
-                                    <div class="fw-semibold">{{ $placementLabel }}</div>
+                                    <div class="cart-item-name">{{ $placementLabel }}</div>
                                     <div class="small text-muted">
                                         {{ strtoupper((string) ($line['language'] ?? '—')) }}
                                         @if(!empty($line['country']))
                                             · preferred {{ strtoupper($line['country']) }}
                                         @endif
-                                        · {{ format_money($line['price'] ?? 0) }}
                                     </div>
-                                    @unless($written)
-                                        <div class="cart-item-with-writing">
-                                            {{ $articleCopy['with_writing'] }}
-                                            {{ $writingTotalLabel !== '' ? $writingTotalLabel : format_money_pay(($line['price'] ?? 0) + ($line['writing_fee'] ?? 0)) }}
-                                        </div>
-                                    @endunless
                                 </div>
-                                <span class="badge {{ ($selectedId || $written) ? 'text-bg-success' : 'text-bg-secondary' }} line-status">
-                                    {{ $written ? 'Writing ordered' : ($selectedId ? 'Article assigned' : $articleCopy['heading']) }}
-                                </span>
+                                <div class="cart-item-price">{{ format_money_pay($line['price'] ?? 0) }}</div>
                             </div>
 
-                            <div class="cart-item-choice-heading">{{ $articleCopy['heading'] }}</div>
-                            <div class="cart-choice-options mb-2">
-                                <button type="button" class="cart-choice-option wizard-write-cta{{ $written ? ' is-selected' : '' }}" aria-pressed="{{ $written ? 'true' : 'false' }}">
-                                    <span class="cart-choice-option__title">
-                                        {{ $articleCopy['write_label'] }}{{ $writingFeeLabel !== '' ? ' (+'.$writingFeeLabel.')' : '' }}
-                                    </span>
-                                    <span class="cart-choice-option__help">{{ $articleCopy['write_help'] }}</span>
-                                    <span class="cart-choice-option__turnaround">{{ $articleCopy['turnaround_label'] }}</span>
+                            <div class="cart-choice-options mb-2" role="radiogroup" aria-label="{{ $articleCopy['heading'] }}">
+                                <button type="button" class="cart-choice-option wizard-write-cta{{ $written ? ' is-selected' : '' }}" role="radio" aria-checked="{{ $written ? 'true' : 'false' }}">
+                                    <span class="cart-choice-option__icon" aria-hidden="true"><i class="fa-solid fa-pen"></i></span>
+                                    <span class="cart-choice-option__title">{{ $articleCopy['write_label'] }}</span>
+                                    @if($writingFeeLabel !== '')
+                                        <span class="cart-choice-option__fee">+{{ $writingQtyLabel !== '' ? $writingQtyLabel : $writingFeeLabel }}</span>
+                                    @endif
                                 </button>
-                                <button type="button" class="cart-choice-option wizard-upload-cta{{ $choseUpload ? ' is-selected' : '' }}" aria-pressed="{{ $choseUpload ? 'true' : 'false' }}">
+                                <button type="button" class="cart-choice-option wizard-upload-cta{{ $choseUpload ? ' is-selected' : '' }}" role="radio" aria-checked="{{ $choseUpload ? 'true' : 'false' }}">
+                                    <span class="cart-choice-option__icon" aria-hidden="true"><i class="fa-solid fa-upload"></i></span>
                                     <span class="cart-choice-option__title">{{ $articleCopy['upload_label'] }}</span>
+                                    <span class="cart-choice-option__help">{{ $articleCopy['upload_help'] }}</span>
                                 </button>
                             </div>
 
@@ -149,9 +172,36 @@
                                 <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="cart-item-upload-link cart-item-upload-cta">{{ $articleCopy['upload_label'] }}</a>
                             </div>
 
-                            <div class="cart-item-steps">{{ $written || ! $choseUpload ? $articleCopy['write_steps'] : $articleCopy['upload_steps'] }}</div>
+                            <dl class="cart-item-breakdown">
+                                <div>
+                                    <dt>{{ $articleCopy['breakdown_placement'] }}</dt>
+                                    <dd>{{ format_money_pay($line['price'] ?? 0) }}</dd>
+                                </div>
+                                <div>
+                                    <dt>{{ $articleCopy['breakdown_writing'] }}</dt>
+                                    <dd>{{ $written ? format_money_pay($writingFee) : ($writingFeeLabel !== '' ? '+'.$writingFeeLabel : '—') }}</dd>
+                                </div>
+                                <div>
+                                    <dt>{{ $articleCopy['breakdown_guarantee'] }}</dt>
+                                    <dd>
+                                        @if(!empty($line['guarantee_offered']))
+                                            {{ $guaranteeFeeLabel !== '' ? $guaranteeFeeLabel.' at checkout' : ($articleCopy['guarantee_percent_label'].' at checkout') }}
+                                        @else
+                                            Not offered
+                                        @endif
+                                    </dd>
+                                </div>
+                            </dl>
                             @if(!empty($line['guarantee_offered']))
-                                <div class="cart-item-guarantee">{{ $articleCopy['guarantee_note'] }}</div>
+                                <div class="cart-item-guarantee">
+                                    <button type="button" class="cart-tip wizard-guarantee-tip" aria-expanded="false">
+                                        {{ $articleCopy['guarantee_note'] }}
+                                        @if($guaranteeFeeLabel !== '')
+                                            · {{ $guaranteeFeeLabel }}
+                                        @endif
+                                    </button>
+                                    <p class="cart-tip__body d-none">{{ $articleCopy['guarantee_tooltip'] }}</p>
+                                </div>
                             @endif
                             <div class="small text-muted line-feedback" aria-live="polite">
                                 @if($written)
@@ -166,6 +216,13 @@
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
+                    <div class="cart-totals mb-3">
+                        <div class="cart-totals__pay">
+                            <span>Projected total</span>
+                            <strong id="wizardProjectedTotal">{{ format_money_pay($projectedTotal) }}</strong>
+                        </div>
+                        <div class="cart-totals__held" id="wizardProgress">{{ $progressLabel }}</div>
+                    </div>
                     <p class="small text-muted mb-3" id="wizardReadyNote">
                         @if($cartFullyAssigned)
                             Every placement has an article. Continue to pay.
@@ -177,12 +234,16 @@
                     </p>
                     <a href="{{ route('advertiser.wizard.pay') }}"
                        id="wizardContinuePay"
-                       class="btn btn-primary w-100 {{ $cartReady ? '' : 'disabled' }}"
-                       @if(!$cartReady) aria-disabled="true" tabindex="-1" @endif>
-                        Continue to pay <i class="fa fa-arrow-right ms-1"></i>
+                       class="btn btn-primary w-100{{ $cartReady ? '' : ' is-waiting' }}"
+                       @if(!$cartReady) aria-disabled="true" @endif>
+                        @if($cartReady)
+                            Continue to pay <i class="fa fa-arrow-right ms-1"></i>
+                        @else
+                            {{ $articleCopy['choose_for'] }} {{ $unreadyCount }} {{ $unreadyCount === 1 ? 'site' : 'sites' }}
+                        @endif
                     </a>
                     @unless($cartReady)
-                        <p class="small text-muted mt-2 mb-0" id="wizardProceedHint">{{ $articleCopy['proceed_hint'] }}</p>
+                        <button type="button" class="cart-proceed-hint mt-2" id="wizardProceedHint">{{ $articleCopy['proceed_hint'] }}</button>
                     @endunless
                 </div>
             </div>
@@ -200,6 +261,7 @@
     const payBtn = document.getElementById('wizardContinuePay');
     const readyNote = document.getElementById('wizardReadyNote');
     const proceedHint = document.getElementById('wizardProceedHint');
+    const progressEl = document.getElementById('wizardProgress');
 
     function lineIsWritten(row) {
         const source = String(row?.content_source || '').toLowerCase();
@@ -217,17 +279,29 @@
         return true;
     }
 
+    function scrollToFirstUnready() {
+        const card = document.querySelector('.wizard-line.is-unready');
+        if (!card) return;
+        card.classList.add('is-highlighted');
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => card.classList.remove('is-highlighted'), 1600);
+    }
+
     function setReady(cart) {
         if (!payBtn) return;
         const lines = Array.isArray(cart) ? cart : [];
         const readyCount = lines.filter(lineFullyAssigned).length;
         const missing = Math.max(0, lines.length - readyCount);
         const ready = readyCount > 0;
+        if (progressEl) {
+            progressEl.textContent = readyCount + ' of ' + lines.length + ' site' + (lines.length === 1 ? '' : 's') + ' ready';
+        }
 
         if (ready) {
-            payBtn.classList.remove('disabled');
+            payBtn.classList.remove('disabled', 'is-waiting');
             payBtn.removeAttribute('aria-disabled');
             payBtn.removeAttribute('tabindex');
+            payBtn.innerHTML = 'Continue to pay <i class="fa fa-arrow-right ms-1"></i>';
             if (readyNote) {
                 readyNote.textContent = missing === 0
                     ? 'Every placement has an article. Continue to pay.'
@@ -235,9 +309,10 @@
             }
             if (proceedHint) proceedHint.classList.add('d-none');
         } else {
-            payBtn.classList.add('disabled');
+            payBtn.classList.add('is-waiting');
+            payBtn.classList.remove('disabled');
             payBtn.setAttribute('aria-disabled', 'true');
-            payBtn.setAttribute('tabindex', '-1');
+            payBtn.innerHTML = (copy.choose_for || 'Choose for') + ' ' + missing + ' site' + (missing === 1 ? '' : 's');
             if (readyNote) readyNote.textContent = copy.proceed_hint;
             if (proceedHint) {
                 proceedHint.textContent = copy.proceed_hint;
@@ -246,11 +321,28 @@
         }
     }
 
+    payBtn?.addEventListener('click', function (event) {
+        if (this.getAttribute('aria-disabled') === 'true') {
+            event.preventDefault();
+            scrollToFirstUnready();
+        }
+    });
+    proceedHint?.addEventListener('click', scrollToFirstUnready);
+
+    document.querySelectorAll('.wizard-guarantee-tip').forEach((button) => {
+        button.addEventListener('click', function () {
+            const body = this.parentElement?.querySelector('.cart-tip__body');
+            if (!body) return;
+            const open = body.classList.contains('d-none');
+            body.classList.toggle('d-none', !open);
+            this.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+    });
+
     document.querySelectorAll('.wizard-article-select').forEach((select) => {
         select.addEventListener('change', async function () {
             const card = this.closest('.wizard-line');
             const feedback = card.querySelector('.line-feedback');
-            const status = card.querySelector('.line-status');
             const siteId = card.getAttribute('data-site-id');
             const sensitiveType = card.getAttribute('data-sensitive-type') || '';
             const copyIndex = parseInt(card.getAttribute('data-copy-index') || '0', 10) || 0;
@@ -278,17 +370,10 @@
                     return;
                 }
                 feedback.innerHTML = '<span class="text-success">' + (data.message || 'Saved') + '</span>';
-                if (submissionId) {
-                    status.textContent = 'Article assigned';
-                    status.className = 'badge text-bg-success line-status';
-                } else {
-                    status.textContent = copy.heading;
-                    status.className = 'badge text-bg-secondary line-status';
-                }
+                card.classList.toggle('is-unready', !submissionId);
                 const cart = Array.isArray(data.cart) ? data.cart : [];
-                const ready = cart.some(lineFullyAssigned);
                 setReady(cart);
-                if (ready || submissionId) {
+                if (cart.some(lineFullyAssigned) || submissionId) {
                     setTimeout(() => window.location.reload(), 400);
                 }
             } catch (e) {
@@ -301,7 +386,6 @@
         button.addEventListener('click', async function () {
             const card = this.closest('.wizard-line');
             const feedback = card.querySelector('.line-feedback');
-            const status = card.querySelector('.line-status');
             feedback.textContent = 'Saving…';
             try {
                 const res = await fetch(configureUrl, {
@@ -323,10 +407,7 @@
                     feedback.innerHTML = '<span class="text-danger">' + (data.error || data.message || 'Could not save') + '</span>';
                     return;
                 }
-                if (status) {
-                    status.textContent = 'Writing ordered';
-                    status.className = 'badge text-bg-success line-status';
-                }
+                card.classList.remove('is-unready');
                 setReady(Array.isArray(data.cart) ? data.cart : []);
                 window.location.reload();
             } catch (e) {
@@ -340,7 +421,6 @@
             const card = this.closest('.wizard-line');
             const panel = card.querySelector('.wizard-upload-panel');
             const feedback = card.querySelector('.line-feedback');
-            const status = card.querySelector('.line-status');
             feedback.textContent = 'Saving…';
             try {
                 const res = await fetch(configureUrl, {
@@ -363,15 +443,11 @@
                     return;
                 }
                 this.classList.add('is-selected');
-                this.setAttribute('aria-pressed', 'true');
+                this.setAttribute('aria-checked', 'true');
                 card.querySelector('.wizard-write-cta')?.classList.remove('is-selected');
+                card.querySelector('.wizard-write-cta')?.setAttribute('aria-checked', 'false');
                 if (panel) panel.classList.remove('d-none');
-                if (status && !card.querySelector('.wizard-article-select')?.value) {
-                    status.textContent = copy.heading;
-                    status.className = 'badge text-bg-secondary line-status';
-                }
-                const steps = card.querySelector('.cart-item-steps');
-                if (steps) steps.textContent = copy.upload_steps;
+                card.classList.add('is-unready');
                 feedback.textContent = '';
                 setReady(Array.isArray(data.cart) ? data.cart : []);
             } catch (e) {
