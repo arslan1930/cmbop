@@ -2073,7 +2073,7 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::post('/cart/remove', [CatalogController::class, 'removeFromCart'])->name('cart.remove');
         Route::post('/cart/update', [CatalogController::class, 'updateCartQuantity'])->name('cart.update');
         Route::post('/cart/configure', [CatalogController::class, 'configureCartLine'])->name('cart.configure');
-        Route::post('/cart/write-unready', [CatalogController::class, 'writeUnreadyCartLines'])->name('cart.write-unready');
+        Route::post('/cart/write-all', [CatalogController::class, 'writeAllUnreadyCartLines'])->name('cart.write-all');
         Route::post('/cart/clear', [CatalogController::class, 'clearCart'])->name('cart.clear');
 
         // Checkout routes

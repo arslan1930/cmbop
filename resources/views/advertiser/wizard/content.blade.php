@@ -19,6 +19,24 @@
     }
     $usedIds = array_values(array_unique($usedIds));
 
+    $unreadyLines = 0;
+    foreach ($cart as $row) {
+        if (\App\Services\Marketplace\CheckoutAddOnService::isWrittenSource($row)) {
+            continue;
+        }
+        $ids = is_array($row['content_submission_ids'] ?? null) ? $row['content_submission_ids'] : [];
+        $hasArticle = (int) ($row['content_submission_id'] ?? 0) > 0;
+        foreach ($ids as $id) {
+            if ((int) $id > 0) {
+                $hasArticle = true;
+                break;
+            }
+        }
+        if (! $hasArticle) {
+            $unreadyLines++;
+        }
+    }
+
     $placements = [];
     foreach ($cart as $line) {
         $qty = max(1, (int) ($line['quantity'] ?? 1));
@@ -50,7 +68,7 @@
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
             <div>
                 <h1>Place a guest post</h1>
-                <p class="muted">Step 3 — {{ $articleCopy['heading'] }}. One uploaded article can be published on one site only.</p>
+                <p class="muted">Step 3 — Choose how you'll get the article for each placement. One uploaded article can be published on one site only.</p>
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <a href="{{ route('advertiser.wizard.publishers') }}" class="btn btn-sm btn-outline-secondary">Back to publishers</a>
@@ -77,9 +95,8 @@
                         $selectedId = $placement['selected_id'];
                         $copyIndex = $placement['copy_index'];
                         $written = \App\Services\Marketplace\CheckoutAddOnService::isWrittenSource($line);
-                        $choseUpload = ! $written && (($line['article_choice'] ?? '') === 'upload' || $selectedId > 0);
-                        $writingFeeLabel = $line['writing_fee_label'] ?? '';
-                        $writingTotalLabel = $line['writing_total_label'] ?? '';
+                        $writingFee = (float) ($line['writing_fee'] ?? 0);
+                        $withWritingLabel = format_money_pay(((float) ($line['price'] ?? 0)) + $writingFee);
                         $options = $approvedArticles->filter(function ($article) use ($usedIds, $selectedId) {
                             $id = (int) $article->id;
                             if ($id !== $selectedId && in_array($id, $usedIds, true)) {
@@ -115,55 +132,66 @@
                                     @endunless
                                 </div>
                                 <span class="badge {{ ($selectedId || $written) ? 'text-bg-success' : 'text-bg-secondary' }} line-status">
-                                    {{ $written ? 'Writing ordered' : ($selectedId ? 'Article assigned' : $articleCopy['heading']) }}
+                                    {{ $written ? 'Writing ordered' : ($selectedId ? 'Article assigned' : 'Choose an option') }}
                                 </span>
                             </div>
 
-                            <div class="cart-item-choice-heading">{{ $articleCopy['heading'] }}</div>
-                            <div class="cart-choice-options mb-2">
-                                <button type="button" class="cart-choice-option wizard-write-cta{{ $written ? ' is-selected' : '' }}" aria-pressed="{{ $written ? 'true' : 'false' }}">
-                                    <span class="cart-choice-option__title">
-                                        {{ $articleCopy['write_label'] }}{{ $writingFeeLabel !== '' ? ' (+'.$writingFeeLabel.')' : '' }}
-                                    </span>
-                                    <span class="cart-choice-option__help">{{ $articleCopy['write_help'] }}</span>
-                                    <span class="cart-choice-option__turnaround">{{ $articleCopy['turnaround_label'] }}</span>
+                            <div class="cart-item-order-label mb-2">
+                                <span class="cart-item-order-kicker">Choose how you'll get the article</span>
+                            </div>
+                            <div class="cart-source-choices mb-3" role="radiogroup" aria-label="Choose how you'll get the article">
+                                <button type="button" class="cart-source-card wizard-write-cta{{ $written ? ' is-selected' : '' }}" aria-pressed="{{ $written ? 'true' : 'false' }}">
+                                    <span class="cart-source-card__title">Have the article written</span>
+                                    <span class="cart-source-card__price">With writing: {{ $withWritingLabel }}</span>
+                                    <span class="cart-source-card__explainer">{{ $writingExplainer }}</span>
+                                    <span class="cart-source-card__turnaround">Typical turnaround: {{ $writingTurnaroundText }}</span>
                                 </button>
-                                <button type="button" class="cart-choice-option wizard-upload-cta{{ $choseUpload ? ' is-selected' : '' }}" aria-pressed="{{ $choseUpload ? 'true' : 'false' }}">
-                                    <span class="cart-choice-option__title">{{ $articleCopy['upload_label'] }}</span>
+                                <button type="button" class="cart-source-card wizard-upload-cta{{ $selectedId ? ' is-selected' : '' }}" aria-pressed="{{ $selectedId ? 'true' : 'false' }}">
+                                    <span class="cart-source-card__title">Upload article</span>
+                                    <span class="cart-source-card__price">Use your own approved article</span>
                                 </button>
                             </div>
 
-                            <div class="wizard-upload-panel {{ $choseUpload ? '' : 'd-none' }}">
-                                <label class="form-label small">Approved article</label>
-                                <select class="form-select form-select-sm wizard-article-select mb-2" @disabled($written)>
-                                    <option value="">— Select approved article —</option>
-                                    @forelse($options as $article)
-                                        <option value="{{ $article->id }}" @selected($selectedId === (int) $article->id)>
-                                            {{ $article->title ?: $article->original_filename }}
-                                            ({{ strtoupper($article->language) }}{{ $article->country ? '/'.strtoupper($article->country) : '' }})
-                                        </option>
-                                    @empty
-                                        <option value="" disabled>No approved articles yet</option>
-                                    @endforelse
-                                </select>
-                                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="cart-item-upload-link cart-item-upload-cta">{{ $articleCopy['upload_label'] }}</a>
-                            </div>
-
-                            <div class="cart-item-steps">{{ $written || ! $choseUpload ? $articleCopy['write_steps'] : $articleCopy['upload_steps'] }}</div>
-                            @if(!empty($line['guarantee_offered']))
-                                <div class="cart-item-guarantee">{{ $articleCopy['guarantee_note'] }}</div>
-                            @endif
+                            <label class="form-label small wizard-article-label">Approved article</label>
+                            <select class="form-select form-select-sm wizard-article-select mb-2" @disabled($written)>
+                                <option value="">— Select approved article —</option>
+                                @forelse($options as $article)
+                                    <option value="{{ $article->id }}" @selected($selectedId === (int) $article->id)>
+                                        {{ $article->title ?: $article->original_filename }}
+                                        ({{ strtoupper($article->language) }}{{ $article->country ? '/'.strtoupper($article->country) : '' }})
+                                    </option>
+                                @empty
+                                    <option value="" disabled>No approved articles yet</option>
+                                @endforelse
+                            </select>
                             <div class="small text-muted line-feedback" aria-live="polite">
                                 @if($written)
                                     Writing selected. Target URL and anchor can be edited at checkout.
                                 @endif
                             </div>
+                            @if(!empty($line['guarantee_offered']))
+                                <p class="cart-guarantee-note mb-0">{{ $writingGuaranteeNote }}</p>
+                            @endif
+                            <p class="cart-source-steps mb-0">{{ $written ? $writingStepsWrite : ($selectedId ? $writingStepsUpload : $writingStepsWrite) }}</p>
                         </div>
                     </div>
                 @endforeach
             </div>
         </div>
         <div class="col-lg-4">
+            <div class="upload-zone mb-3">
+                <h6 class="upload-zone-title">Upload article</h6>
+                <p class="upload-zone-copy">Need a new .docx? Upload in Content Library (country first, then language), wait for approval, then assign it here.</p>
+                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-upload w-100">
+                    <i class="fa fa-upload me-1"></i> Upload in Content Library
+                </a>
+            </div>
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold mb-1">How it works</h6>
+                    <p class="cart-source-steps mb-0" id="wizardSourceSteps">{{ $writingStepsWrite }}</p>
+                </div>
+            </div>
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <p class="small text-muted mb-3" id="wizardReadyNote">
@@ -172,18 +200,21 @@
                         @elseif($cartReady)
                             Ready lines can be paid now — unassigned sites stay in your cart.
                         @else
-                            {{ $articleCopy['proceed_hint'] }}
+                            Choose an article option above to continue
                         @endif
                     </p>
+                    @if($unreadyLines >= 2)
+                        <button type="button" class="btn btn-outline-primary w-100 mb-2" id="wizardWriteAll">Have all articles written</button>
+                    @endif
                     <a href="{{ route('advertiser.wizard.pay') }}"
                        id="wizardContinuePay"
                        class="btn btn-primary w-100 {{ $cartReady ? '' : 'disabled' }}"
                        @if(!$cartReady) aria-disabled="true" tabindex="-1" @endif>
                         Continue to pay <i class="fa fa-arrow-right ms-1"></i>
                     </a>
-                    @unless($cartReady)
-                        <p class="small text-muted mt-2 mb-0" id="wizardProceedHint">{{ $articleCopy['proceed_hint'] }}</p>
-                    @endunless
+                    @if(!$cartReady)
+                        <p class="small text-muted mt-2 mb-0" id="wizardProceedHint">Choose an article option above to continue</p>
+                    @endif
                 </div>
             </div>
         </div>
@@ -194,12 +225,16 @@
 (function () {
     const assignUrl = @json(route('advertiser.cart.assign-article'));
     const configureUrl = @json(route('advertiser.cart.configure'));
-    const writeAllUrl = @json(route('advertiser.cart.write-unready'));
+    const writeAllUrl = @json(route('advertiser.cart.write-all'));
+    const libraryUrl = @json(route('advertiser.content-library', ['upload' => 1]));
     const csrf = @json(csrf_token());
     const copy = @json($articleCopy);
     const payBtn = document.getElementById('wizardContinuePay');
     const readyNote = document.getElementById('wizardReadyNote');
     const proceedHint = document.getElementById('wizardProceedHint');
+    const stepsEl = document.getElementById('wizardSourceSteps');
+    const stepsWrite = @json($writingStepsWrite);
+    const stepsUpload = @json($writingStepsUpload);
 
     function lineIsWritten(row) {
         const source = String(row?.content_source || '').toLowerCase();
@@ -238,11 +273,13 @@
             payBtn.classList.add('disabled');
             payBtn.setAttribute('aria-disabled', 'true');
             payBtn.setAttribute('tabindex', '-1');
-            if (readyNote) readyNote.textContent = copy.proceed_hint;
-            if (proceedHint) {
-                proceedHint.textContent = copy.proceed_hint;
-                proceedHint.classList.remove('d-none');
-            }
+            if (readyNote) readyNote.textContent = 'Choose an article option above to continue';
+            if (proceedHint) proceedHint.classList.remove('d-none');
+        }
+        if (stepsEl) {
+            const anyWritten = lines.some(lineIsWritten);
+            const anyUpload = lines.some((row) => !lineIsWritten(row) && lineFullyAssigned(row));
+            stepsEl.textContent = (anyUpload && !anyWritten) ? stepsUpload : stepsWrite;
         }
     }
 
@@ -282,7 +319,7 @@
                     status.textContent = 'Article assigned';
                     status.className = 'badge text-bg-success line-status';
                 } else {
-                    status.textContent = copy.heading;
+                    status.textContent = 'Choose an option';
                     status.className = 'badge text-bg-secondary line-status';
                 }
                 const cart = Array.isArray(data.cart) ? data.cart : [];
@@ -295,6 +332,69 @@
                 feedback.innerHTML = '<span class="text-danger">Network error</span>';
             }
         });
+    });
+
+    document.querySelectorAll('.wizard-upload-cta').forEach((button) => {
+        button.addEventListener('click', async function () {
+            const card = this.closest('.wizard-line');
+            const select = card.querySelector('.wizard-article-select');
+            const feedback = card.querySelector('.line-feedback');
+            if (card.querySelector('.wizard-write-cta.is-selected')) {
+                feedback.textContent = 'Saving…';
+                try {
+                    const res = await fetch(configureUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf,
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            id: parseInt(card.getAttribute('data-site-id'), 10),
+                            sensitive_type: card.getAttribute('data-sensitive-type') || '',
+                            homepage_days: card.getAttribute('data-homepage-days') || 'none',
+                            content_source: 'buyer',
+                        }),
+                    });
+                    const data = await res.json();
+                    if (!data.success) {
+                        feedback.innerHTML = '<span class="text-danger">' + (data.error || data.message || 'Could not save') + '</span>';
+                        return;
+                    }
+                } catch (e) {
+                    feedback.innerHTML = '<span class="text-danger">Network error</span>';
+                    return;
+                }
+            }
+            if (select && select.options.length > 1) {
+                select.focus();
+                return;
+            }
+            window.location.href = libraryUrl;
+        });
+    });
+
+    document.getElementById('wizardWriteAll')?.addEventListener('click', async function () {
+        this.disabled = true;
+        try {
+            const res = await fetch(writeAllUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({}),
+            });
+            const data = await res.json();
+            if (!data.success) {
+                this.disabled = false;
+                return;
+            }
+            window.location.reload();
+        } catch (e) {
+            this.disabled = false;
+        }
     });
 
     document.querySelectorAll('.wizard-write-cta').forEach((button) => {

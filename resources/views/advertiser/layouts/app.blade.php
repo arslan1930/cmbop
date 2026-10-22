@@ -331,7 +331,7 @@
     </div>
     <div class="cart-body">
         <div id="cartChecklist" class="cart-checklist d-none" aria-live="polite"></div>
-        <button type="button" id="cartWriteAll" class="cart-write-all">Have all articles written</button>
+        <p id="cartSourceSteps" class="cart-source-steps d-none">We write → you approve → publisher publishes</p>
         <div id="cartItemsContainer">
             <div class="text-center text-muted">Your cart is empty</div>
         </div>
@@ -346,6 +346,9 @@
             <div id="cartHeldNote" class="cart-totals__held d-none"></div>
         </div>
         <div id="cartScheduleHint" class="cart-schedule-hint d-none" hidden></div>
+        <button id="cartWriteAll" class="btn btn-sm btn-outline-primary w-100 cart-write-all d-none mb-2" type="button">
+            Have all articles written
+        </button>
         <button id="checkoutFromCart" class="btn btn-primary w-100 d-none" type="button" disabled>
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
@@ -542,6 +545,16 @@
     let approvedArticles = [];
     let requireSameLanguage = false;
     let cartSchedule = null;
+    let writingExplainer = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingExplainer())
+        || "Written by the SEOLinkBuildings team (or the publisher, if they write for this site) in the site's language and sent to you for approval before publishing.";
+    let writingTurnaroundText = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingTurnaroundText())
+        || '2–3 working days';
+    let writingGuaranteeNote = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingGuaranteeNote())
+        || '12-month link guarantee available at checkout';
+    let writingStepsWrite = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingStepsWrite())
+        || 'We write → you approve → publisher publishes';
+    let writingStepsUpload = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingStepsUpload())
+        || 'You upload → you assign → publisher publishes';
     let contentLibraryUploadUrl = @json(route('advertiser.content-library', ['upload' => 1]));
     let catalogUrl = @json(route('advertiser.catalog'));
     let cartArticleCopy = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->cartArticleCopy());
@@ -583,9 +596,11 @@
         if (data?.content_library_url) {
             contentLibraryUploadUrl = data.content_library_url;
         }
-        if (data?.article_copy && typeof data.article_copy === 'object') {
-            cartArticleCopy = Object.assign({}, cartArticleCopy, data.article_copy);
-        }
+        if (data?.writing_explainer) writingExplainer = String(data.writing_explainer);
+        if (data?.writing_turnaround_text) writingTurnaroundText = String(data.writing_turnaround_text);
+        if (data?.writing_guarantee_note) writingGuaranteeNote = String(data.writing_guarantee_note);
+        if (data?.writing_steps_write) writingStepsWrite = String(data.writing_steps_write);
+        if (data?.writing_steps_upload) writingStepsUpload = String(data.writing_steps_upload);
         if (window.__slbMoney) {
             const pageCurrency = String(window.__slbMoney.currency || 'EUR').toUpperCase();
             const fxCurrency = String(data?.fx?.currency || '').toUpperCase();
@@ -814,8 +829,32 @@
         return (price + writing) * qty;
     }
 
+    function lineWithWritingAmount(item) {
+        const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+        const price = parseFloat(item.price) || 0;
+        return (price + lineWritingFee(item)) * qty;
+    }
+
+    function lineHasAssignedArticle(item) {
+        return lineContentIds(item).some((id) => id > 0);
+    }
+
+    function lineLacksArticle(item) {
+        return !lineIsWritten(item) && !lineHasAssignedArticle(item);
+    }
+
     function lineFullyAssigned(item) {
         return lineIsWritten(item) || lineContentIds(item).every((id) => id > 0);
+    }
+
+    function lineWritingCopy(item) {
+        return {
+            explainer: String(item?.writing_explainer || writingExplainer),
+            turnaround: String(item?.writing_turnaround_text || writingTurnaroundText),
+            guarantee: String(item?.writing_guarantee_note || writingGuaranteeNote),
+            stepsWrite: String(item?.writing_steps_write || writingStepsWrite),
+            stepsUpload: String(item?.writing_steps_upload || writingStepsUpload),
+        };
     }
 
     function usedSubmissionIds(exceptKey, exceptCopyIndex) {
@@ -1105,6 +1144,7 @@
         const scheduleHint = document.getElementById('cartScheduleHint');
         const afterPay = document.getElementById('cartAfterPay');
         const writeAllBtn = document.getElementById('cartWriteAll');
+        const stepsEl = document.getElementById('cartSourceSteps');
         const clearBtn = document.getElementById('clearCart');
         if (clearBtn) {
             clearBtn.classList.toggle('d-none', cart.length === 0);
@@ -1138,6 +1178,13 @@
             }
             if (headerMeta) {
                 headerMeta.textContent = 'Choose how you\'ll get the article. Pay with wallet, card, or PayPal at checkout.';
+            }
+            if (writeAllBtn) {
+                writeAllBtn.classList.add('d-none');
+            }
+            if (stepsEl) {
+                stepsEl.classList.add('d-none');
+                stepsEl.textContent = writingStepsWrite;
             }
             if (totalLabel) {
                 totalLabel.textContent = 'Pay now';
@@ -1176,14 +1223,20 @@
             const cartStatus = missing === 0
                 ? (readyCount + ' ready')
                 : (readyCount === 0
-                    ? cartArticleCopy.heading
-                    : (readyCount + ' ready · ' + cartArticleCopy.heading.toLowerCase()));
+                    ? 'Choose how you\'ll get the article'
+                    : (readyCount + ' ready · choose how you\'ll get the article'));
             if (headerMeta) {
                 headerMeta.textContent = cartStatus;
             }
             if (writeAllBtn) {
-                writeAllBtn.textContent = cartArticleCopy.write_all;
-                writeAllBtn.classList.toggle('is-visible', missing >= 2);
+                const lackArticle = cart.filter(lineLacksArticle).length;
+                writeAllBtn.classList.toggle('d-none', lackArticle < 2);
+            }
+            if (stepsEl) {
+                const anyWritten = cart.some(lineIsWritten);
+                const anyUpload = cart.some((item) => !lineIsWritten(item) && lineHasAssignedArticle(item));
+                stepsEl.textContent = (anyUpload && !anyWritten) ? writingStepsUpload : writingStepsWrite;
+                stepsEl.classList.remove('d-none');
             }
             if (checklistEl) {
                 if (missing === 0) {
@@ -1345,9 +1398,13 @@
                             : '';
                     }).join('')}</div>`
                     : '';
+                const copy = lineWritingCopy(item);
                 const written = lineIsWritten(item);
-                const choseUpload = lineChoseUpload(item) || (!written && placementIds.some((id) => id > 0));
-                const writingLabel = cartArticleCopy.write_label + ' (+' + lineWritingFeeLabel(item) + ')';
+                const assigned = !written && lineHasAssignedArticle(item);
+                const articleState = written ? 'is-written' : (assigned ? 'is-assigned' : 'needs-choice');
+                const writingSelected = written ? ' is-selected' : '';
+                const uploadSelected = assigned ? ' is-selected' : '';
+                const withWritingLabel = 'With writing: ' + slbFormatPay(lineWithWritingAmount(item));
                 const writingBrief = written ? `
                     <div class="cart-writing-brief">
                         <label class="visually-hidden" for="cart-write-target-${itemKeyAttr}">Target URL</label>
@@ -1356,15 +1413,12 @@
                         <input type="text" class="form-control form-control-sm cart-writing-anchor mt-1" id="cart-write-anchor-${itemKeyAttr}" placeholder="Anchor text (optional)" maxlength="160" value="${escapeHtml(item.writing_anchor_text || '')}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">
                         <div class="small text-muted mt-1">Editable at checkout.</div>
                     </div>` : '';
-                const uploadPickers = choseUpload ? placementIds.map((selectedId, copyIndex) => {
+                const pickerMarkup = written ? '' : placementIds.map((selectedId, copyIndex) => {
                     const options = articlesForCartPlacement(item, copyIndex);
                     const siteLangs = siteLanguageCodes(item);
                     const siteLangLabel = siteLanguageLabel(item);
                     const matching = options.filter((article) => articleFitsSiteLanguages(article, siteLangs));
                     const other = options.filter((article) => !articleFitsSiteLanguages(article, siteLangs));
-                    const slotKicker = placementIds.length > 1
-                        ? `Article ${copyIndex + 1} of ${placementIds.length}`
-                        : 'Article';
                     const selectId = 'cart-doc-' + itemKey.replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + copyIndex;
                     const chooseLabel = placementIds.length > 1
                         ? ('Choose article ' + (copyIndex + 1) + ' of ' + placementIds.length)
@@ -1390,7 +1444,7 @@
                         articleOptions.push({ value: String(selectedId), label: 'Assigned article', selected: true });
                     }
                     const emptyHint = options.length === 0 && !selectedId
-                        ? `<div class="cart-item-article-empty mt-1">Need an article? <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">${escapeHtml(cartArticleCopy.upload_label)}</a></div>`
+                        ? `<div class="cart-item-article-empty mt-1">Need another article? <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">Upload article</a></div>`
                         : '';
                     const noMatchNote = (!requireSameLanguage && !selectedId && matching.length === 0 && other.length > 0)
                         ? `<div class="cart-item-language-note">This site is ${escapeHtml(siteLangLabel || 'unknown')}. None of your articles match — you can still assign one.</div>`
@@ -1398,7 +1452,7 @@
                     const langNote = (selectedId && item.language_note)
                         ? `<div class="cart-item-language-note" title="Preferred match is the same language as the site">${escapeHtml(item.language_note)}</div>`
                         : noMatchNote;
-                    const uploadLink = `<a class="cart-item-upload-link cart-item-upload-cta" href="${contentLibraryUploadUrl}">${selectedId ? 'Upload another' : cartArticleCopy.upload_label}</a>`;
+                    const uploadLink = `<a class="cart-item-upload-link" href="${contentLibraryUploadUrl}">${selectedId ? 'Upload another' : 'Upload new'}</a>`;
                     const articleSelect = cartThemeSelectMarkup(
                         selectId,
                         'cart-article-select',
@@ -1407,44 +1461,34 @@
                         'Article for ' + siteName + (siteLangLabel ? ' · site ' + siteLangLabel : '')
                     );
                     return `
-                        <div class="cart-item-upload-slot">
-                            <div class="cart-item-order-label">
-                                <span class="cart-item-order-kicker">${escapeHtml(slotKicker)}</span>
-                            </div>
+                        <div class="cart-item-article-picker">
                             ${articleSelect}
                             ${langNote}
                             <div class="cart-item-article-actions">${uploadLink}</div>
                             ${emptyHint}
                         </div>`;
-                }).join('') : '';
-                const articleState = written ? 'is-written' : (choseUpload ? 'is-assigned' : 'needs-choice');
-                const withWritingQty = qty > 1
-                    ? (cartArticleCopy.with_writing + ' ' + lineWithWritingLabel(item) + ' × ' + qty)
-                    : (cartArticleCopy.with_writing + ' ' + lineWithWritingLabel(item));
-                const steps = written || !choseUpload
-                    ? cartArticleCopy.write_steps
-                    : cartArticleCopy.upload_steps;
-                const guaranteeNote = item.guarantee_offered
-                    ? `<div class="cart-item-guarantee">${escapeHtml(cartArticleCopy.guarantee_note)}</div>`
-                    : '';
+                }).join('');
                 const articleBlock = `
                     <div class="cart-item-article ${articleState}">
-                        <div class="cart-item-choice-heading">${escapeHtml(cartArticleCopy.heading)}</div>
-                        ${written ? '' : `<div class="cart-item-with-writing">${escapeHtml(withWritingQty)}</div>`}
-                        <div class="cart-choice-options">
-                            <button type="button" class="cart-choice-option cart-item-write-cta${written ? ' is-selected' : ''}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-pressed="${written ? 'true' : 'false'}">
-                                <span class="cart-choice-option__title">${escapeHtml(writingLabel)}</span>
-                                <span class="cart-choice-option__help">${escapeHtml(cartArticleCopy.write_help)}</span>
-                                <span class="cart-choice-option__turnaround">${escapeHtml(cartArticleCopy.turnaround_label)}</span>
+                        <div class="cart-item-order-label">
+                            <span class="cart-item-order-kicker">Choose how you'll get the article</span>
+                        </div>
+                        <div class="cart-source-choices" role="radiogroup" aria-label="Choose how you'll get the article">
+                            <button type="button" class="cart-source-card cart-item-write-cta${writingSelected}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-pressed="${written ? 'true' : 'false'}">
+                                <span class="cart-source-card__title">Have the article written</span>
+                                <span class="cart-source-card__price">${escapeHtml(withWritingLabel)}</span>
+                                <span class="cart-source-card__explainer">${escapeHtml(copy.explainer)}</span>
+                                <span class="cart-source-card__turnaround">Typical turnaround: ${escapeHtml(copy.turnaround)}</span>
                             </button>
-                            <button type="button" class="cart-choice-option cart-choose-upload${choseUpload ? ' is-selected' : ''}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-pressed="${choseUpload ? 'true' : 'false'}">
-                                <span class="cart-choice-option__title">${escapeHtml(cartArticleCopy.upload_label)}</span>
+                            <button type="button" class="cart-source-card cart-choose-upload cart-item-upload-cta${uploadSelected}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-pressed="${assigned ? 'true' : 'false'}">
+                                <span class="cart-source-card__title">Upload article</span>
+                                <span class="cart-source-card__price">Use your own approved article</span>
                             </button>
                         </div>
                         ${writingBrief}
-                        ${uploadPickers}
-                        <div class="cart-item-steps">${escapeHtml(steps)}</div>
-                        ${guaranteeNote}
+                        ${pickerMarkup}
+                        ${item.guarantee_offered ? `<p class="cart-guarantee-note">${escapeHtml(copy.guarantee)}</p>` : ''}
+                        <p class="cart-source-steps">${escapeHtml(written ? copy.stepsWrite : (assigned ? copy.stepsUpload : copy.stepsWrite))}</p>
                     </div>`;
                 const minBulk = parseInt(item.bulk_min_qty, 10) || 3;
                 const isBulkPack = !!item.bulk_pack || (!!item.bulk_eligible && qty >= minBulk);
@@ -1762,38 +1806,40 @@
             e.preventDefault();
             const item = cartItemFromDataset(uploadInstead);
             if (!item) return;
-            configureCartLine(item, { content_source: 'buyer' });
+            if (lineIsWritten(item)) {
+                configureCartLine(item, { content_source: 'buyer' });
+            }
+            if (approvedArticles.length === 0) {
+                markReturnToCart();
+                window.location.href = contentLibraryUploadUrl;
+            }
         }
     });
 
-    const cartWriteAll = document.getElementById('cartWriteAll');
-    if (cartWriteAll && !cartWriteAll.dataset.bound) {
-        cartWriteAll.dataset.bound = '1';
-        cartWriteAll.addEventListener('click', function () {
-            $.ajax({
-                url: @json(route('advertiser.cart.write-unready')),
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json'
-                },
-                success: function (payload) {
-                    if (!payload.success) {
-                        showToast(payload.error || 'Could not order writing.', 'error');
-                        loadCart();
-                        return;
-                    }
-                    applyCartPayload(payload);
-                    updateCartDisplay();
-                },
-                error: function (xhr) {
-                    const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not order writing.';
-                    showToast(msg, 'error');
+    document.getElementById('cartWriteAll')?.addEventListener('click', function () {
+        $.ajax({
+            url: @json(route('advertiser.cart.write-all')),
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            success: function (payload) {
+                if (!payload.success) {
+                    showToast(payload.error || 'Could not order writing.', 'error');
                     loadCart();
+                    return;
                 }
-            });
+                applyCartPayload(payload);
+                updateCartDisplay();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not order writing.';
+                showToast(msg, 'error');
+                loadCart();
+            }
         });
-    }
+    });
 
     document.getElementById('cartItemsContainer').addEventListener('change', function (e) {
         const field = e.target.closest('.cart-writing-target, .cart-writing-anchor');
@@ -1945,7 +1991,7 @@
         const readyCount = Math.max(0, cart.length - missing.length);
         if (readyCount === 0) {
             openCart();
-            showToast('Assign an approved article or choose writing on at least one website before checkout.', 'error');
+            showToast('Choose an article option above to continue', 'error');
             return;
         }
         const wizardPay = @json(route('advertiser.wizard.pay'));

@@ -203,10 +203,14 @@ class GuestPostWizardTest extends TestCase
             ])
             ->get(route('advertiser.wizard.content'))
             ->assertOk()
-            ->assertSee("Choose how you'll get the article", false)
+            ->assertSee('Choose how you\'ll get the article', false)
             ->assertSee('Have the article written', false)
-            ->assertSee('Upload article', false)
-            ->assertSee('Choose an article option above to continue', false);
+            ->assertSee('With writing:', false)
+            ->assertSee('Choose an option', false)
+            ->assertSee('Choose an article option above to continue', false)
+            ->assertSee('We write → you approve → publisher publishes', false)
+            ->assertDontSee('Needs article', false)
+            ->assertDontSee('Write for me', false);
 
         $html->assertSee('disabled', false);
 
