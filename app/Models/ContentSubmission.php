@@ -2683,7 +2683,7 @@ class ContentSubmission extends Model
     {
         $owner = $this->relatedOwnerOrder();
 
-        return $owner instanceof Order && $owner->status !== 'cancelled';
+        return $owner instanceof Order && $this->orderLooksLikeActiveClaim($owner);
     }
 
     /**

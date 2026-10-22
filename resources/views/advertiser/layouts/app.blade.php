@@ -562,6 +562,7 @@
     }
     
     let approvedArticles = [];
+    let occupiedSites = {};
     let requireSameLanguage = false;
     let cartSchedule = null;
     let writingExplainer = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingExplainer())
@@ -610,6 +611,10 @@
         cart = Array.isArray(data?.cart) ? data.cart : [];
         window.advertiserCart = cart;
         approvedArticles = Array.isArray(data?.approved_articles) ? data.approved_articles : [];
+        occupiedSites = (data?.occupied_sites && typeof data.occupied_sites === 'object')
+            ? data.occupied_sites
+            : {};
+        window.catalogOccupiedSites = occupiedSites;
         requireSameLanguage = !!data?.require_same_language;
         cartSchedule = data?.schedule && data.schedule.mode === 'scheduled' ? data.schedule : null;
         if (data?.content_library_url) {
@@ -635,6 +640,9 @@
         );
         if (typeof window.catalogSyncInCartButtons === 'function') {
             window.catalogSyncInCartButtons(cart);
+        }
+        if (typeof window.catalogSyncOccupiedSigns === 'function') {
+            window.catalogSyncOccupiedSigns(occupiedSites);
         }
         syncCatalogCartBanner();
     }
@@ -1485,7 +1493,7 @@
                         <input type="text" class="form-control form-control-sm cart-writing-anchor mt-1" id="cart-write-anchor-${itemKeyAttr}" placeholder="Anchor text (optional)" maxlength="160" value="${escapeHtml(item.writing_anchor_text || '')}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">
                         <div class="small text-muted mt-1">Editable at checkout.</div>
                     </div>` : '';
-                const pickerMarkup = written ? '' : placementIds.map((selectedId, copyIndex) => {
+                const uploadPickers = written ? '' : placementIds.map((selectedId, copyIndex) => {
                     const options = articlesForCartPlacement(item, copyIndex);
                     const siteLangs = siteLanguageCodes(item);
                     const siteLangLabel = siteLanguageLabel(item);
@@ -1593,6 +1601,10 @@
                 const optionRow = (homepageDisplay || sensitiveDisplay || socialDisplay)
                     ? `<div class="cart-item-options">${homepageDisplay}${sensitiveDisplay}${socialDisplay}</div>`
                     : '';
+                const occupancy = occupiedSites[item.id] || occupiedSites[String(item.id)] || null;
+                const existingArticleSign = occupancy
+                    ? `<p class="cart-existing-article"><span>You already have an article for this site</span> <a href="${escapeHtml(occupancy.url || contentLibraryUploadUrl)}">View article</a></p>`
+                    : '';
                 html += `
                     <div class="cart-item${articleState === 'needs-choice' ? ' is-unready' : ''}" data-key="${itemKeyAttr}">
                         <div class="cart-item-head">
@@ -1614,6 +1626,7 @@
                             </div>
                         </div>
                         ${optionRow}
+                        ${existingArticleSign}
                         <div class="cart-item-article-row">
                             <div class="cart-item-articles">${articleBlock}</div>
                         </div>
@@ -1641,6 +1654,9 @@
         syncCatalogCartBanner();
         if (typeof window.catalogSyncInCartButtons === 'function') {
             window.catalogSyncInCartButtons(cart);
+        }
+        if (typeof window.catalogSyncOccupiedSigns === 'function') {
+            window.catalogSyncOccupiedSigns(occupiedSites);
         }
     }
     

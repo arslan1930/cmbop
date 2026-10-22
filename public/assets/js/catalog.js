@@ -4730,6 +4730,28 @@ window.catalogSyncInCartButtons = function catalogSyncInCartButtons(cartItems) {
     if (typeof window.catalogSyncBuyAddonHints === 'function') {
         window.catalogSyncBuyAddonHints();
     }
+    if (typeof window.catalogSyncOccupiedSigns === 'function') {
+        window.catalogSyncOccupiedSigns(window.catalogOccupiedSites || {});
+    }
+};
+
+window.catalogSyncOccupiedSigns = function catalogSyncOccupiedSigns(occupied) {
+    const map = occupied && typeof occupied === 'object' ? occupied : {};
+    document.querySelectorAll('.catalog-existing-article').forEach(function (el) {
+        const siteId = String(el.getAttribute('data-site-id') || '');
+        const occupancy = map[siteId] || map[Number(siteId)] || null;
+        const link = el.querySelector('a');
+        if (occupancy && occupancy.url) {
+            el.hidden = false;
+            el.setAttribute('data-occupied', '1');
+            if (link) {
+                link.setAttribute('href', occupancy.url);
+            }
+        } else if (el.getAttribute('data-occupied') !== '1') {
+            el.hidden = true;
+            el.setAttribute('data-occupied', '0');
+        }
+    });
 };
 
 // Update UI for favorites and blacklist (quiet icon actions)
