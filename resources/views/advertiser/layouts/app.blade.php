@@ -1479,7 +1479,7 @@
                         <input type="text" class="form-control form-control-sm cart-writing-anchor mt-1" id="cart-write-anchor-${itemKeyAttr}" placeholder="Anchor text (optional)" maxlength="160" value="${escapeHtml(item.writing_anchor_text || '')}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">
                         <div class="small text-muted mt-1">Editable at checkout.</div>
                     </div>` : '';
-                const pickerMarkup = written ? '' : placementIds.map((selectedId, copyIndex) => {
+                const uploadPickers = written ? '' : placementIds.map((selectedId, copyIndex) => {
                     const options = articlesForCartPlacement(item, copyIndex);
                     const siteLangs = siteLanguageCodes(item);
                     const siteLangLabel = siteLanguageLabel(item);
@@ -1533,7 +1533,7 @@
                             <div class="cart-item-article-actions">${uploadLink}</div>
                             ${emptyHint}
                         </div>`;
-                }).join('') : '';
+                }).join('');
                 const articleState = written ? 'is-written' : (choseUpload ? 'is-assigned' : 'needs-choice');
                 const guaranteeFee = lineGuaranteeFee(item);
                 const guaranteeFeeLabel = item.guarantee_fee_label || (guaranteeFee > 0 ? slbFormatPay(guaranteeFee) : '');

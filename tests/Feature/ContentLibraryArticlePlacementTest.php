@@ -519,6 +519,22 @@ class ContentLibraryArticlePlacementTest extends TestCase
             ->assertJsonPath('occupied_sites.'.$site->id.'.submission_id', $article->id);
     }
 
+    public function test_cart_drawer_script_parses_and_includes_reverse_sign(): void
+    {
+        $layout = (string) file_get_contents(resource_path('views/advertiser/layouts/app.blade.php'));
+        $this->assertStringContainsString('const uploadPickers', $layout);
+        $this->assertStringContainsString('cart-existing-article', $layout);
+        $this->assertStringNotContainsString("}).join('') : '';", $layout);
+
+        $html = $this->actingAs($this->advertiser())
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('window.openCart = openCart', $html);
+        $this->assertStringContainsString('You already have an article for this site', $html);
+    }
+
     public function test_advisory_scores_still_orderable_when_in_cart(): void
     {
         $advertiser = $this->advertiser();
