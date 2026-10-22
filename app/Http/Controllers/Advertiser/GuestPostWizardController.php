@@ -182,6 +182,8 @@ class GuestPostWizardController extends Controller
                 ->with('error', UserFacingError::message($e, 'Unable to load articles for this step.'));
         }
 
+        $addons = app(CheckoutAddOnService::class);
+
         return view('advertiser.wizard.content', [
             'step' => 3,
             'state' => $state,
@@ -192,6 +194,11 @@ class GuestPostWizardController extends Controller
             'languageCountryMap' => $languageCountryMap,
             'cartReady' => $this->cartHasReadyLine($cart),
             'cartFullyAssigned' => $this->cartFullyAssigned($cart),
+            'writingExplainer' => $addons->writingExplainer(),
+            'writingTurnaroundText' => $addons->writingTurnaroundText(),
+            'writingGuaranteeNote' => $addons->writingGuaranteeNote(),
+            'writingStepsWrite' => $addons->writingStepsWrite(),
+            'writingStepsUpload' => $addons->writingStepsUpload(),
         ]);
     }
 

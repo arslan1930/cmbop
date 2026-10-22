@@ -214,6 +214,9 @@ class MarketplaceAddOnsTest extends TestCase
         $this->assertEquals(WritingFeeService::SLB_FLAT_EUR, $slb['writing_fee']);
         $this->assertFalse($slb['writing_offered']);
         $this->assertArrayNotHasKey('listing_writing_fee', $slb);
+        $this->assertSame('2–3 working days', $slb['writing_turnaround_text']);
+        $this->assertTrue($slb['guarantee_offered']);
+        $this->assertSame('12-month link guarantee available at checkout', $slb['writing_guarantee_note']);
     }
 
     public function test_link_guarantee_is_ignored_when_publication_period_is_short(): void

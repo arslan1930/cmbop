@@ -1494,6 +1494,8 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
             ->name('link-guarantees.index');
         Route::get('/writing-queue', [AdminWritingQueueController::class, 'index'])
             ->name('writing-queue.index');
+        Route::post('/writing-queue/turnaround', [AdminWritingQueueController::class, 'updateTurnaround'])
+            ->name('writing-queue.turnaround');
         Route::get('/writing-queue/{orderItem}', [AdminWritingQueueController::class, 'show'])
             ->name('writing-queue.show');
         Route::post('/writing-queue/{orderItem}/assign', [AdminWritingQueueController::class, 'assign'])
@@ -2071,6 +2073,7 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::post('/cart/remove', [CatalogController::class, 'removeFromCart'])->name('cart.remove');
         Route::post('/cart/update', [CatalogController::class, 'updateCartQuantity'])->name('cart.update');
         Route::post('/cart/configure', [CatalogController::class, 'configureCartLine'])->name('cart.configure');
+        Route::post('/cart/write-all', [CatalogController::class, 'writeAllUnreadyCartLines'])->name('cart.write-all');
         Route::post('/cart/clear', [CatalogController::class, 'clearCart'])->name('cart.clear');
 
         // Checkout routes

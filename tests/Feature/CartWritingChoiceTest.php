@@ -296,4 +296,102 @@ class CartWritingChoiceTest extends TestCase
         $this->assertSame($sub->id, (int) $line['content_submission_id']);
         $this->assertFalse(CheckoutAddOnService::isWrittenSource($line));
     }
+
+    public function test_cart_payload_includes_writing_copy_and_guarantee_flag(): void
+    {
+        $site = $this->makeSite('copy-flag');
+
+        $line = $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.add'), [
+                'id' => $site->id,
+                'homepage_days' => 'none',
+            ])
+            ->assertOk()
+            ->assertJsonPath('writing_turnaround_text', '2–3 working days')
+            ->assertJsonPath('writing_guarantee_note', '12-month link guarantee available at checkout')
+            ->json('cart.0');
+
+        $this->assertTrue((bool) $line['guarantee_offered']);
+        $this->assertSame('2–3 working days', $line['writing_turnaround_text']);
+        $this->assertStringContainsString('Written by the SEOLinkBuildings team', (string) $line['writing_explainer']);
+        $this->assertStringNotContainsString('word count', strtolower((string) $line['writing_explainer']));
+        $this->assertDoesNotMatchRegularExpression('/\d+\s*words?/i', (string) $line['writing_explainer']);
+        $this->assertArrayNotHasKey('listing_writing_fee', $line);
+        $this->assertArrayNotHasKey('partner_rate', $line);
+    }
+
+    public function test_write_all_applies_writing_only_to_lines_without_articles(): void
+    {
+        $first = $this->makeSite('bulk-one');
+        $second = $this->makeSite('bulk-two', [
+            'domain' => 'bulk-two.example',
+            'site_url' => 'https://bulk-two.example',
+            'site_name' => 'Write Cart bulk-two',
+        ]);
+        $kept = $this->makeSite('bulk-keep', [
+            'domain' => 'bulk-keep.example',
+            'site_url' => 'https://bulk-keep.example',
+            'site_name' => 'Write Cart bulk-keep',
+        ]);
+        $sub = $this->createApprovedSubmission($this->advertiser, null);
+
+        foreach ([$first, $second, $kept] as $site) {
+            $this->actingAs($this->advertiser)
+                ->postJson(route('advertiser.cart.add'), [
+                    'id' => $site->id,
+                    'homepage_days' => 'none',
+                ])
+                ->assertOk();
+        }
+
+        $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.assign-article'), [
+                'id' => $kept->id,
+                'sensitive_type' => '',
+                'homepage_days' => 'none',
+                'content_submission_id' => $sub->id,
+            ])
+            ->assertOk();
+
+        $payload = $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.write-all'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json();
+
+        $byId = collect($payload['cart'])->keyBy(fn ($row) => (int) $row['id']);
+        $this->assertTrue(CheckoutAddOnService::isWrittenSource($byId[$first->id]));
+        $this->assertTrue(CheckoutAddOnService::isWrittenSource($byId[$second->id]));
+        $this->assertSame(WritingFeeService::SOURCE_BUYER, $byId[$kept->id]['content_source']);
+        $this->assertSame($sub->id, (int) $byId[$kept->id]['content_submission_id']);
+        $this->assertArrayNotHasKey('listing_writing_fee', $byId[$first->id]);
+    }
+
+    public function test_admin_can_override_writing_turnaround_text(): void
+    {
+        $adminRole = Role::where('name', 'admin')->firstOrFail();
+        $admin = User::factory()->create([
+            'email_verified_at' => now(),
+            'active_role_id' => $adminRole->id,
+        ]);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->actingAs($admin)
+            ->post(route('admin.writing-queue.turnaround'), [
+                'turnaround_text' => '4 working days',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('4 working days', app(CheckoutAddOnService::class)->writingTurnaroundText());
+
+        $site = $this->makeSite('turnaround-live');
+        $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.add'), [
+                'id' => $site->id,
+                'homepage_days' => 'none',
+            ])
+            ->assertOk()
+            ->assertJsonPath('writing_turnaround_text', '4 working days')
+            ->assertJsonPath('cart.0.writing_turnaround_text', '4 working days');
+    }
 }
