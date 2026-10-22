@@ -51,6 +51,7 @@ return [
     */
     'writing' => [
         'deadline_days' => (int) env('ORDER_WRITING_DEADLINE_DAYS', 5),
+        'turnaround_text' => (string) env('ORDER_WRITING_TURNAROUND_TEXT', '2–3 working days'),
     ],
 
     'link_guarantee' => [

@@ -1463,6 +1463,7 @@ class CatalogController extends Controller
             'removed_inactive_count' => 0,
             'removed_owned' => [],
             'removed_owned_count' => 0,
+            'article_copy' => app(CheckoutAddOnService::class)->cartArticleCopy(),
         ]);
     }
 
@@ -1777,6 +1778,7 @@ class CatalogController extends Controller
             'require_same_language' => $requireSame,
             'schedule' => $this->checkoutScheduleClientHint(),
             'fx' => app(CartDisplayFx::class)->syncWithCart($cart),
+            'article_copy' => app(CheckoutAddOnService::class)->cartArticleCopy(),
         ]);
     }
 
@@ -2511,6 +2513,7 @@ class CatalogController extends Controller
         $ids[$copyIndex] = $submission->id;
         $assigned = $this->applyCartLineContentIds($cart[$lineKey], $ids);
         $assigned['content_source'] = WritingFeeService::SOURCE_BUYER;
+        $assigned['article_choice'] = 'upload';
         $cart[$lineKey] = $this->normalizeCartLineForSite($site, $assigned);
         $mismatchNote = ContentSubmission::languageMismatchLabel(
             (string) $submission->language,
@@ -3064,6 +3067,75 @@ class CatalogController extends Controller
                 'message' => $message,
             ], 500);
         }
+    }
+
+    /**
+     * Choose writing on every cart line that still lacks an article.
+     */
+    public function writeUnreadyCartLines(Request $request)
+    {
+        try {
+            $cart = $this->leftoverSessionCart();
+            $addons = app(CheckoutAddOnService::class);
+            $changed = 0;
+
+            foreach ($cart as $i => $line) {
+                if (! is_array($line) || $this->cartLineIsReady($line)) {
+                    continue;
+                }
+
+                $site = Site::query()->catalogVisible()->where('id', (int) ($line['id'] ?? 0))->first();
+                if (! $site) {
+                    continue;
+                }
+
+                $written = $addons->applyWritingChoiceToLine(
+                    $line,
+                    $site,
+                    WritingFeeService::SOURCE_WRITTEN
+                );
+                $written = $this->applyCartLineContentIds(
+                    $written,
+                    array_fill(0, max(1, (int) ($written['quantity'] ?? 1)), 0)
+                );
+                $cart[$i] = $this->normalizeCartLineForSite($site, $written);
+                $changed++;
+            }
+
+            $this->putCatalogVisibleCart(array_values($cart));
+
+            return response()->json(array_merge([
+                'success' => true,
+                'written_count' => $changed,
+            ], $this->cartPayloadForClient()));
+        } catch (\Throwable $e) {
+            Log::error('Error writing unready cart lines: '.$e->getMessage());
+            $message = UserFacingError::message($e, 'Could not order writing for those sites. Please try again.');
+
+            return response()->json([
+                'success' => false,
+                'error' => $message,
+                'message' => $message,
+            ], 500);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private function cartLineIsReady(array $line): bool
+    {
+        if (CheckoutAddOnService::isWrittenSource($line)) {
+            return true;
+        }
+
+        foreach ($this->cartLineContentIds($line) as $id) {
+            if ((int) $id <= 0) {
+                return false;
+            }
+        }
+
+        return $this->cartLineContentIds($line) !== [];
     }
 
     /**

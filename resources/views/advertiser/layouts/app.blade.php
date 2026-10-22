@@ -323,7 +323,7 @@
     <div class="cart-header">
         <div>
             <p id="cartTitle" class="mb-0 cart-title">Your Cart</p>
-            <div id="cartHeaderMeta" class="small text-muted mt-1">Pay with wallet, card, or PayPal at checkout. Sites without an article or writing order stay in the cart.</div>
+            <div id="cartHeaderMeta" class="small text-muted mt-1">Choose how you'll get the article. Pay with wallet, card, or PayPal at checkout.</div>
         </div>
         <button id="closeCart" class="topbar-icon-btn" type="button" aria-label="Close cart">
             <i class="fa fa-times" aria-hidden="true"></i>
@@ -331,6 +331,7 @@
     </div>
     <div class="cart-body">
         <div id="cartChecklist" class="cart-checklist d-none" aria-live="polite"></div>
+        <button type="button" id="cartWriteAll" class="cart-write-all">Have all articles written</button>
         <div id="cartItemsContainer">
             <div class="text-center text-muted">Your cart is empty</div>
         </div>
@@ -349,7 +350,7 @@
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
         <div id="cartProceedHint" class="small text-muted mt-2 d-none">
-            Assign an article or choose writing on at least one website to checkout. Sites without articles stay in your cart.
+            Choose an article option above to continue
         </div>
         <div class="cart-footer-links">
             <details class="cart-after-pay d-none" id="cartAfterPay">
@@ -543,6 +544,7 @@
     let cartSchedule = null;
     let contentLibraryUploadUrl = @json(route('advertiser.content-library', ['upload' => 1]));
     let catalogUrl = @json(route('advertiser.catalog'));
+    let cartArticleCopy = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->cartArticleCopy());
     const catalogPath = @json(parse_url(route('advertiser.catalog'), PHP_URL_PATH) ?: '/advertiser/catalog');
 
     function slbCatalogReturn() {
@@ -580,6 +582,9 @@
         cartSchedule = data?.schedule && data.schedule.mode === 'scheduled' ? data.schedule : null;
         if (data?.content_library_url) {
             contentLibraryUploadUrl = data.content_library_url;
+        }
+        if (data?.article_copy && typeof data.article_copy === 'object') {
+            cartArticleCopy = Object.assign({}, cartArticleCopy, data.article_copy);
         }
         if (window.__slbMoney) {
             const pageCurrency = String(window.__slbMoney.currency || 'EUR').toUpperCase();
@@ -790,6 +795,16 @@
         if (item?.writing_fee_label) return String(item.writing_fee_label);
         const fee = lineWritingFee(item);
         return slbFormatPay(fee > 0 ? fee : 35);
+    }
+
+    function lineWithWritingLabel(item) {
+        if (item?.writing_total_label) return String(item.writing_total_label);
+        const price = parseFloat(item?.price) || 0;
+        return slbFormatPay(price + lineWritingFee(item));
+    }
+
+    function lineChoseUpload(item) {
+        return String(item?.article_choice || '').toLowerCase() === 'upload' && !lineIsWritten(item);
     }
 
     function linePayAmount(item) {
@@ -1089,6 +1104,7 @@
         const totalsEl = document.getElementById('cartTotals');
         const scheduleHint = document.getElementById('cartScheduleHint');
         const afterPay = document.getElementById('cartAfterPay');
+        const writeAllBtn = document.getElementById('cartWriteAll');
         const clearBtn = document.getElementById('clearCart');
         if (clearBtn) {
             clearBtn.classList.toggle('d-none', cart.length === 0);
@@ -1117,8 +1133,11 @@
             if (proceedHint) {
                 proceedHint.classList.add('d-none');
             }
+            if (writeAllBtn) {
+                writeAllBtn.classList.remove('is-visible');
+            }
             if (headerMeta) {
-                headerMeta.textContent = 'Pay sites that have an article or a writing order. Others stay in the cart.';
+                headerMeta.textContent = 'Choose how you\'ll get the article. Pay with wallet, card, or PayPal at checkout.';
             }
             if (totalLabel) {
                 totalLabel.textContent = 'Pay now';
@@ -1157,10 +1176,14 @@
             const cartStatus = missing === 0
                 ? (readyCount + ' ready')
                 : (readyCount === 0
-                    ? (missingSlots === 1 ? '1 article still needed' : missingSlots + ' articles still needed')
-                    : (readyCount + ' ready · ' + missingSlots + ' article' + (missingSlots === 1 ? '' : 's') + ' still needed'));
+                    ? cartArticleCopy.heading
+                    : (readyCount + ' ready · ' + cartArticleCopy.heading.toLowerCase()));
             if (headerMeta) {
                 headerMeta.textContent = cartStatus;
+            }
+            if (writeAllBtn) {
+                writeAllBtn.textContent = cartArticleCopy.write_all;
+                writeAllBtn.classList.toggle('is-visible', missing >= 2);
             }
             if (checklistEl) {
                 if (missing === 0) {
@@ -1191,6 +1214,7 @@
                 }
             }
             if (proceedHint) {
+                proceedHint.textContent = cartArticleCopy.proceed_hint;
                 proceedHint.classList.toggle('d-none', readyCount > 0);
             }
             if (totalLabel) {
@@ -1257,7 +1281,7 @@
                 const identityMeta = [siteDomain, metricBits.join(' · ')].filter(Boolean).join(' · ');
                 const placementIds = lineContentIds(item);
                 const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
-                const unitPrice = (parseFloat(item.price) || 0).toFixed(2);
+                const unitPrice = (parseFloat(item.price) || 0) + (lineIsWritten(item) ? lineWritingFee(item) : 0);
                 const priceLabel = qty > 1 ? (slbFormatPay(unitPrice) + ' × ' + qty) : slbFormatPay(unitPrice);
                 const homepageOptions = Array.isArray(item.homepage_options) ? item.homepage_options : [];
                 const sensitiveOptions = Array.isArray(item.sensitive_options) ? item.sensitive_options : [];
@@ -1321,114 +1345,107 @@
                             : '';
                     }).join('')}</div>`
                     : '';
-                let articleBlock = '';
-                const writingLabel = 'Have the article written (+' + lineWritingFeeLabel(item) + ')';
-                const writerNote = item.writing_offered
-                    ? 'Publisher writes this article.'
-                    : 'SEOLinkBuildings writes this article.';
-                const writingCta = `<button type="button" class="btn btn-sm btn-outline-primary cart-item-write-cta" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">${escapeHtml(writingLabel)}</button>`;
-                const writingBrief = `
+                const written = lineIsWritten(item);
+                const choseUpload = lineChoseUpload(item) || (!written && placementIds.some((id) => id > 0));
+                const writingLabel = cartArticleCopy.write_label + ' (+' + lineWritingFeeLabel(item) + ')';
+                const writingBrief = written ? `
                     <div class="cart-writing-brief">
                         <label class="visually-hidden" for="cart-write-target-${itemKeyAttr}">Target URL</label>
                         <input type="url" class="form-control form-control-sm cart-writing-target" id="cart-write-target-${itemKeyAttr}" placeholder="Target URL (https://)" value="${escapeHtml(item.writing_target_url || '')}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">
                         <label class="visually-hidden" for="cart-write-anchor-${itemKeyAttr}">Anchor text</label>
                         <input type="text" class="form-control form-control-sm cart-writing-anchor mt-1" id="cart-write-anchor-${itemKeyAttr}" placeholder="Anchor text (optional)" maxlength="160" value="${escapeHtml(item.writing_anchor_text || '')}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">
                         <div class="small text-muted mt-1">Editable at checkout.</div>
-                    </div>`;
-                if (lineIsWritten(item)) {
-                    articleBlock = `
-                        <div class="cart-item-article is-written">
-                            <div class="cart-item-order-label">
-                                <span class="cart-item-order-kicker">Writing order</span>
-                            </div>
-                            <div class="cart-item-article-empty">
-                                ${escapeHtml(writerNote)} ${escapeHtml(writingLabel)}.
-                            </div>
-                            ${writingBrief}
-                            <div class="cart-item-source-actions">
-                                <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">Upload article instead</a>
-                                <button type="button" class="cart-item-upload-link cart-choose-upload" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">Use my article</button>
-                            </div>
-                        </div>`;
-                } else if (approvedArticles.length === 0 && placementIds.every((id) => !id)) {
-                    articleBlock = `
-                        <div class="cart-item-article needs-document">
-                            <div class="cart-item-article-empty">
-                                Each placement needs an approved article or a writing order before you can pay.
-                                <div class="cart-item-source-actions">
-                                    <a class="btn btn-sm btn-primary cart-item-upload-cta" href="${contentLibraryUploadUrl}">Upload article</a>
-                                    ${writingCta}
-                                </div>
-                            </div>
-                        </div>`;
-                } else {
-                    articleBlock = placementIds.map((selectedId, copyIndex) => {
-                        const options = articlesForCartPlacement(item, copyIndex);
-                        const siteLangs = siteLanguageCodes(item);
-                        const siteLangLabel = siteLanguageLabel(item);
-                        const matching = options.filter((article) => articleFitsSiteLanguages(article, siteLangs));
-                        const other = options.filter((article) => !articleFitsSiteLanguages(article, siteLangs));
-                        const slotLabel = placementIds.length > 1
-                            ? `Article ${copyIndex + 1} of ${placementIds.length}`
-                            : 'Article';
-                        const slotKicker = slotLabel;
-                        const selectId = 'cart-doc-' + itemKey.replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + copyIndex;
-                        const chooseLabel = placementIds.length > 1
-                            ? ('Choose article ' + (copyIndex + 1) + ' of ' + placementIds.length)
-                            : 'Choose article';
-                        const articleOptions = [{ value: '', label: chooseLabel, selected: !selectedId }];
-                        const pushArticle = (article) => {
-                            const optionId = articleId(article.id);
-                            articleOptions.push({
-                                value: String(optionId),
-                                label: articlePickerLabel(article),
-                                selected: optionId === Number(selectedId),
-                            });
-                        };
-                        if (matching.length > 0 && other.length > 0 && !requireSameLanguage) {
-                            articleOptions.push({ group: true, label: 'Matches this site' });
-                            matching.forEach(pushArticle);
-                            articleOptions.push({ group: true, label: 'Other languages' });
-                            other.forEach(pushArticle);
-                        } else {
-                            options.forEach(pushArticle);
-                        }
-                        if (selectedId && !options.some((a) => articleId(a.id) === Number(selectedId))) {
-                            articleOptions.push({ value: String(selectedId), label: 'Assigned article', selected: true });
-                        }
-                        const emptyHint = options.length === 0 && !selectedId
-                            ? `<div class="cart-item-article-empty mt-1">Need another article? <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">Upload article</a></div>`
-                            : '';
-                        const noMatchNote = (!requireSameLanguage && !selectedId && matching.length === 0 && other.length > 0)
-                            ? `<div class="cart-item-language-note">This site is ${escapeHtml(siteLangLabel || 'unknown')}. None of your articles match — you can still assign one.</div>`
-                            : '';
-                        const langNote = (selectedId && item.language_note)
-                            ? `<div class="cart-item-language-note" title="Preferred match is the same language as the site">${escapeHtml(item.language_note)}</div>`
-                            : noMatchNote;
-                        const uploadLink = `<a class="cart-item-upload-link" href="${contentLibraryUploadUrl}">${selectedId ? 'Upload another' : 'Upload new'}</a>`;
-                        const writeLink = selectedId ? '' : writingCta;
-                        const articleSelect = cartThemeSelectMarkup(
-                            selectId,
-                            'cart-article-select',
-                            'data-id="' + item.id + '" data-sensitive-type="' + sensitiveAttr + '" data-homepage-days="' + cartHomepageParam(item) + '" data-copy-index="' + copyIndex + '" data-prev-value="' + (selectedId || '') + '"',
-                            articleOptions,
-                            'Article for ' + siteName + (siteLangLabel ? ' · site ' + siteLangLabel : '')
-                        );
-                        return `
-                        <div class="cart-item-article ${selectedId ? 'is-assigned' : 'needs-document'}">
+                    </div>` : '';
+                const uploadPickers = choseUpload ? placementIds.map((selectedId, copyIndex) => {
+                    const options = articlesForCartPlacement(item, copyIndex);
+                    const siteLangs = siteLanguageCodes(item);
+                    const siteLangLabel = siteLanguageLabel(item);
+                    const matching = options.filter((article) => articleFitsSiteLanguages(article, siteLangs));
+                    const other = options.filter((article) => !articleFitsSiteLanguages(article, siteLangs));
+                    const slotKicker = placementIds.length > 1
+                        ? `Article ${copyIndex + 1} of ${placementIds.length}`
+                        : 'Article';
+                    const selectId = 'cart-doc-' + itemKey.replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + copyIndex;
+                    const chooseLabel = placementIds.length > 1
+                        ? ('Choose article ' + (copyIndex + 1) + ' of ' + placementIds.length)
+                        : 'Choose article';
+                    const articleOptions = [{ value: '', label: chooseLabel, selected: !selectedId }];
+                    const pushArticle = (article) => {
+                        const optionId = articleId(article.id);
+                        articleOptions.push({
+                            value: String(optionId),
+                            label: articlePickerLabel(article),
+                            selected: optionId === Number(selectedId),
+                        });
+                    };
+                    if (matching.length > 0 && other.length > 0 && !requireSameLanguage) {
+                        articleOptions.push({ group: true, label: 'Matches this site' });
+                        matching.forEach(pushArticle);
+                        articleOptions.push({ group: true, label: 'Other languages' });
+                        other.forEach(pushArticle);
+                    } else {
+                        options.forEach(pushArticle);
+                    }
+                    if (selectedId && !options.some((a) => articleId(a.id) === Number(selectedId))) {
+                        articleOptions.push({ value: String(selectedId), label: 'Assigned article', selected: true });
+                    }
+                    const emptyHint = options.length === 0 && !selectedId
+                        ? `<div class="cart-item-article-empty mt-1">Need an article? <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">${escapeHtml(cartArticleCopy.upload_label)}</a></div>`
+                        : '';
+                    const noMatchNote = (!requireSameLanguage && !selectedId && matching.length === 0 && other.length > 0)
+                        ? `<div class="cart-item-language-note">This site is ${escapeHtml(siteLangLabel || 'unknown')}. None of your articles match — you can still assign one.</div>`
+                        : '';
+                    const langNote = (selectedId && item.language_note)
+                        ? `<div class="cart-item-language-note" title="Preferred match is the same language as the site">${escapeHtml(item.language_note)}</div>`
+                        : noMatchNote;
+                    const uploadLink = `<a class="cart-item-upload-link cart-item-upload-cta" href="${contentLibraryUploadUrl}">${selectedId ? 'Upload another' : cartArticleCopy.upload_label}</a>`;
+                    const articleSelect = cartThemeSelectMarkup(
+                        selectId,
+                        'cart-article-select',
+                        'data-id="' + item.id + '" data-sensitive-type="' + sensitiveAttr + '" data-homepage-days="' + cartHomepageParam(item) + '" data-copy-index="' + copyIndex + '" data-prev-value="' + (selectedId || '') + '"',
+                        articleOptions,
+                        'Article for ' + siteName + (siteLangLabel ? ' · site ' + siteLangLabel : '')
+                    );
+                    return `
+                        <div class="cart-item-upload-slot">
                             <div class="cart-item-order-label">
                                 <span class="cart-item-order-kicker">${escapeHtml(slotKicker)}</span>
                             </div>
                             ${articleSelect}
                             ${langNote}
-                            <div class="cart-item-article-actions">
-                                ${uploadLink}
-                            </div>
-                            ${writeLink ? `<div class="cart-item-source-actions">${writeLink}</div>` : ''}
+                            <div class="cart-item-article-actions">${uploadLink}</div>
                             ${emptyHint}
                         </div>`;
-                    }).join('');
-                }
+                }).join('') : '';
+                const articleState = written ? 'is-written' : (choseUpload ? 'is-assigned' : 'needs-choice');
+                const withWritingQty = qty > 1
+                    ? (cartArticleCopy.with_writing + ' ' + lineWithWritingLabel(item) + ' × ' + qty)
+                    : (cartArticleCopy.with_writing + ' ' + lineWithWritingLabel(item));
+                const steps = written || !choseUpload
+                    ? cartArticleCopy.write_steps
+                    : cartArticleCopy.upload_steps;
+                const guaranteeNote = item.guarantee_offered
+                    ? `<div class="cart-item-guarantee">${escapeHtml(cartArticleCopy.guarantee_note)}</div>`
+                    : '';
+                const articleBlock = `
+                    <div class="cart-item-article ${articleState}">
+                        <div class="cart-item-choice-heading">${escapeHtml(cartArticleCopy.heading)}</div>
+                        ${written ? '' : `<div class="cart-item-with-writing">${escapeHtml(withWritingQty)}</div>`}
+                        <div class="cart-choice-options">
+                            <button type="button" class="cart-choice-option cart-item-write-cta${written ? ' is-selected' : ''}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-pressed="${written ? 'true' : 'false'}">
+                                <span class="cart-choice-option__title">${escapeHtml(writingLabel)}</span>
+                                <span class="cart-choice-option__help">${escapeHtml(cartArticleCopy.write_help)}</span>
+                                <span class="cart-choice-option__turnaround">${escapeHtml(cartArticleCopy.turnaround_label)}</span>
+                            </button>
+                            <button type="button" class="cart-choice-option cart-choose-upload${choseUpload ? ' is-selected' : ''}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}" aria-pressed="${choseUpload ? 'true' : 'false'}">
+                                <span class="cart-choice-option__title">${escapeHtml(cartArticleCopy.upload_label)}</span>
+                            </button>
+                        </div>
+                        ${writingBrief}
+                        ${uploadPickers}
+                        <div class="cart-item-steps">${escapeHtml(steps)}</div>
+                        ${guaranteeNote}
+                    </div>`;
                 const minBulk = parseInt(item.bulk_min_qty, 10) || 3;
                 const isBulkPack = !!item.bulk_pack || (!!item.bulk_eligible && qty >= minBulk);
                 const minQty = isBulkPack ? minBulk : 1;
@@ -1748,6 +1765,35 @@
             configureCartLine(item, { content_source: 'buyer' });
         }
     });
+
+    const cartWriteAll = document.getElementById('cartWriteAll');
+    if (cartWriteAll && !cartWriteAll.dataset.bound) {
+        cartWriteAll.dataset.bound = '1';
+        cartWriteAll.addEventListener('click', function () {
+            $.ajax({
+                url: @json(route('advertiser.cart.write-unready')),
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                success: function (payload) {
+                    if (!payload.success) {
+                        showToast(payload.error || 'Could not order writing.', 'error');
+                        loadCart();
+                        return;
+                    }
+                    applyCartPayload(payload);
+                    updateCartDisplay();
+                },
+                error: function (xhr) {
+                    const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not order writing.';
+                    showToast(msg, 'error');
+                    loadCart();
+                }
+            });
+        });
+    }
 
     document.getElementById('cartItemsContainer').addEventListener('change', function (e) {
         const field = e.target.closest('.cart-writing-target, .cart-writing-anchor');

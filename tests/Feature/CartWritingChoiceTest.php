@@ -162,6 +162,7 @@ class CartWritingChoiceTest extends TestCase
 
         $this->assertTrue(CheckoutAddOnService::isWrittenSource($line));
         $this->assertSame(WritingFeeService::SOURCE_SLB, $line['content_source']);
+        $this->assertSame('written', $line['article_choice']);
         $this->assertSame('https://advertiser.example/offer', $line['writing_target_url']);
         $this->assertSame('guest post', $line['writing_anchor_text']);
         $this->assertEquals(WritingFeeService::SLB_FLAT_EUR, (float) $line['writing_fee']);
