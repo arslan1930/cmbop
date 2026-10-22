@@ -1453,6 +1453,30 @@ body:has(.catalog-page) {
     color: var(--brand-ink-muted, #697078);
 }
 
+.catalog-existing-article {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .2rem .45rem;
+    margin: .4rem 0 0;
+    max-width: 100%;
+    font-size: .75rem;
+    line-height: 1.35;
+    color: #1e4a6b;
+    background: #e8f1f8;
+    border: 1px solid #c5d8e8;
+    border-radius: 8px;
+    padding: .3rem .55rem;
+}
+.catalog-existing-article a {
+    font-weight: 600;
+    color: #16555a;
+    text-underline-offset: 2px;
+}
+.catalog-mobile-card .catalog-existing-article {
+    margin-top: .5rem;
+}
+
 .catalog-card-buy .catalog-buy-addon-hint {
     max-width: 100%;
 }

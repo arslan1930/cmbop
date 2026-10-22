@@ -8,6 +8,7 @@ use App\Models\OrderItemDispute;
 use App\Models\User;
 use App\Services\Advertiser\ContentLibraryDuplicator;
 use App\Services\Advertiser\ContentLibrarySearchQuery;
+use App\Services\Advertiser\LibraryArticlePlacement;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\Marketplace\LanguageCountryMap;
@@ -36,6 +37,7 @@ class ContentLibraryController extends Controller
         private CountryLanguagePairs $countryLanguagePairs,
         private ContentLibrarySearchQuery $librarySearch,
         private ContentLibraryDuplicator $duplicator,
+        private LibraryArticlePlacement $articlePlacement,
     ) {}
 
     public function index(Request $request)
@@ -86,14 +88,10 @@ class ContentLibraryController extends Controller
             $status = 'approved';
         }
 
-        if (! in_array($availability, ['all', 'available', 'evaluating', 'in_progress', 'published', 'completed', 'expired', 'archived', 'needs_fix', 'ordered'], true)) {
+        if (! in_array($availability, ['all', 'available', 'evaluating', 'in_progress', 'published', 'completed', 'expired', 'archived', 'needs_fix', 'ordered', 'in_cart'], true)) {
             $availability = 'available';
         }
 
-        // Backward-compatible aliases from earlier UI.
-        if ($availability === 'ordered') {
-            $availability = 'in_progress';
-        }
         // UI label is "Completed"; internal availability key remains "published".
         if ($availability === 'completed') {
             $availability = 'published';
@@ -123,10 +121,14 @@ class ContentLibraryController extends Controller
 
         // Needs corrections / expired / archived chips must not keep the default
         // status=approved filter (that would hide rejected rows).
-        if (in_array($availability, ['needs_fix', 'expired', 'archived', 'in_progress', 'published', 'evaluating'], true)
+        if (in_array($availability, ['needs_fix', 'expired', 'archived', 'in_progress', 'published', 'evaluating', 'in_cart', 'ordered'], true)
             && ! $request->has('status')) {
             $status = 'all';
         }
+
+        $sessionCart = session()->get('cart', []);
+        $sessionCart = is_array($sessionCart) ? $sessionCart : [];
+        $cartArticleIds = $this->articlePlacement->cartArticleIds($sessionCart);
 
         $page = (int) scalar_text($request->query('page', 1));
         if ($page < 1) {
@@ -172,8 +174,14 @@ class ContentLibraryController extends Controller
                     $query->checkoutReady();
                 } elseif ($availability === 'evaluating') {
                     $query->evaluatingInLibrary();
-                } elseif ($availability === 'in_progress') {
+                } elseif ($availability === 'in_progress' || $availability === 'ordered') {
                     $query->inProgressInLibrary();
+                } elseif ($availability === 'in_cart') {
+                    if ($cartArticleIds === []) {
+                        $query->whereRaw('0 = 1');
+                    } else {
+                        $query->whereIn('id', $cartArticleIds);
+                    }
                 } elseif ($availability === 'expired') {
                     $query->expiredUnused();
                 } elseif ($availability === 'needs_fix') {
@@ -259,11 +267,21 @@ class ContentLibraryController extends Controller
                 + (int) ($statusTotals[ContentSubmission::STATUS_ERROR] ?? 0),
         ];
 
+        $inCartCount = 0;
+        if ($cartArticleIds !== []) {
+            $inCartCount = (int) $this->safeLibraryQuery(
+                fn () => (clone $countScope)->whereIn('id', $cartArticleIds)->count(),
+                0,
+            );
+        }
+
         $availabilityCounts = [
             'all' => (int) $this->safeLibraryQuery(fn () => (clone $countScope)->count(), 0),
             'available' => (int) $this->safeLibraryQuery(fn () => (clone $countScope)->checkoutReady()->count(), 0),
             'evaluating' => (int) $this->safeLibraryQuery(fn () => (clone $countScope)->evaluatingInLibrary()->count(), 0),
             'in_progress' => (int) $this->safeLibraryQuery(fn () => (clone $countScope)->inProgressInLibrary()->count(), 0),
+            'ordered' => (int) $this->safeLibraryQuery(fn () => (clone $countScope)->inProgressInLibrary()->count(), 0),
+            'in_cart' => $inCartCount,
             'completed' => (int) $this->safeLibraryQuery(fn () => (clone $countScope)->withCurrentLivePlacement()->count(), 0),
             'expired' => (int) $this->safeLibraryQuery(fn () => (clone $countScope)->expiredUnused()->count(), 0),
             'needs_fix' => (int) $this->safeLibraryQuery(fn () => (clone $countScope)->needsLibraryFix()->count(), 0),
@@ -284,6 +302,22 @@ class ContentLibraryController extends Controller
 
         // UI filter key: "completed" covers internal "published".
         $availabilityUi = $availability === 'published' ? 'completed' : $availability;
+
+        $articlePlacements = [];
+        try {
+            foreach ($submissions as $row) {
+                if (! $row instanceof ContentSubmission) {
+                    continue;
+                }
+                $placement = $this->articlePlacement->placementFor($row, $sessionCart);
+                if (is_array($placement)) {
+                    $articlePlacements[$row->id] = $placement;
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            $articlePlacements = [];
+        }
 
         $nearExpiryDays = 7;
         $nearExpiryCount = (int) $this->safeLibraryQuery(
@@ -325,6 +359,8 @@ class ContentLibraryController extends Controller
             'groupedByCountry' => $groupedByCountry,
             'moderationCounts' => $moderationCounts,
             'availabilityCounts' => $availabilityCounts,
+            'articlePlacements' => $articlePlacements,
+            'staleCartDays' => $this->articlePlacement->staleCartDays(),
             'nearExpiryCount' => $nearExpiryCount,
             'nearExpiryDays' => $nearExpiryDays,
             'retentionMonths' => (int) ($cfg['retention_months'] ?? 6),
@@ -674,6 +710,27 @@ class ContentLibraryController extends Controller
             return redirect()
                 ->route('advertiser.orders')
                 ->with('error', ContentSubmission::PAID_ORDER_CLAIM_MESSAGE);
+        }
+
+        $sessionCart = session()->get('cart', []);
+        $sessionCart = is_array($sessionCart) ? $sessionCart : [];
+        $placement = $this->articlePlacement->placementFor($submission, $sessionCart);
+        if (is_array($placement) && ($placement['state'] ?? '') === LibraryArticlePlacement::STATE_IN_CART) {
+            return redirect()
+                ->route('advertiser.checkout')
+                ->with(
+                    'success',
+                    'This article is already in your cart for '.($placement['site_name'] ?? 'a site').'. Finish payment to place the order.'
+                );
+        }
+        if (is_array($placement)
+            && ($placement['state'] ?? '') === LibraryArticlePlacement::STATE_ORDERED
+            && empty($placement['replaceable'])
+            && ! $submission->canOrderFromLibrary()
+            && ! $submission->canReplaceUnpaidLeftover()) {
+            return redirect()
+                ->route('advertiser.orders')
+                ->with('error', $placement['lock_message'] ?? LibraryArticlePlacement::LOCK_MESSAGE);
         }
 
         if (! $submission->isContentReadyForOrder()) {

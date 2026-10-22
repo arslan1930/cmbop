@@ -29,6 +29,7 @@ use App\Models\WalletTransaction;
 use App\Services\ActivityLogger;
 use App\Services\Advertiser\AdvertiserOrderSearchQuery;
 use App\Services\Advertiser\AdvertiserProjectCheckout;
+use App\Services\Advertiser\LibraryArticlePlacement;
 use App\Services\Advertiser\SpendBudgetService;
 use App\Services\CartPricingService;
 use App\Services\Catalog\CatalogAdvertiserPriceFilter;
@@ -1198,6 +1199,16 @@ class CatalogController extends Controller
         for ($i = 0; $i < $qty; $i++) {
             $normalized[$i] = max(0, (int) ($ids[$i] ?? 0));
         }
+        $previous = [];
+        if (! empty($line['content_submission_ids']) && is_array($line['content_submission_ids'])) {
+            foreach ($line['content_submission_ids'] as $i => $id) {
+                $previous[(int) $i] = (int) $id;
+            }
+        }
+        if ((! isset($previous[0]) || $previous[0] <= 0) && ! empty($line['content_submission_id'])) {
+            $previous[0] = (int) $line['content_submission_id'];
+        }
+
         $line['quantity'] = $qty;
         $line['content_submission_ids'] = $normalized;
         if (($normalized[0] ?? 0) > 0) {
@@ -1205,6 +1216,19 @@ class CatalogController extends Controller
         } else {
             unset($line['content_submission_id']);
         }
+
+        $assignedAt = is_array($line['content_assigned_at'] ?? null) ? $line['content_assigned_at'] : [];
+        $now = now()->toIso8601String();
+        foreach ($normalized as $i => $id) {
+            if ($id > 0) {
+                if ((int) ($previous[$i] ?? 0) !== $id || empty($assignedAt[$i])) {
+                    $assignedAt[$i] = $now;
+                }
+            } else {
+                unset($assignedAt[$i]);
+            }
+        }
+        $line['content_assigned_at'] = $assignedAt;
 
         return $line;
     }
@@ -1581,6 +1605,51 @@ class CatalogController extends Controller
         return false;
     }
 
+    private function articlePlacement(): LibraryArticlePlacement
+    {
+        return app(LibraryArticlePlacement::class);
+    }
+
+    /**
+     * @param  array<int, mixed>  $cart
+     */
+    private function cartSiteName(array $cart, ?int $siteId): ?string
+    {
+        if ($siteId === null || $siteId <= 0) {
+            return null;
+        }
+        foreach ($cart as $line) {
+            if (is_array($line) && (int) ($line['id'] ?? 0) === $siteId) {
+                $name = trim((string) ($line['name'] ?? ''));
+                if ($name !== '') {
+                    return $name;
+                }
+            }
+        }
+        try {
+            $site = Site::query()->find($siteId);
+
+            return $site?->site_name;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<int, mixed>  $cart
+     * @return array<int, array<string, mixed>>
+     */
+    private function occupiedSitesPayload(array $cart): array
+    {
+        try {
+            return $this->articlePlacement()->occupiedSites((int) auth()->id(), $cart);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
     /**
      * Drop session cart lines whose sites are missing, not catalog-visible, or owned by the shopper.
      *
@@ -1795,6 +1864,7 @@ class CatalogController extends Controller
             'schedule' => $this->checkoutScheduleClientHint(),
             'fx' => app(CartDisplayFx::class)->syncWithCart($cart),
             'article_copy' => app(CheckoutAddOnService::class)->cartArticleCopy(),
+            'occupied_sites' => $this->occupiedSitesPayload($cart),
         ]);
     }
 
@@ -2485,10 +2555,15 @@ class CatalogController extends Controller
             ], 422);
         }
 
-        if ($this->cartUsesSubmissionId($cart, $submissionId, $lineKey, $copyIndex)) {
+        if ($this->cartUsesSubmissionId($cart, $submissionId, $lineKey, $copyIndex)
+            || $this->articlePlacement()->isLockedToAnotherSite($submission, $cart, $siteId, $copyIndex)) {
+            $lockedSiteId = $this->articlePlacement()->lockedSiteId($submission, $cart, $copyIndex);
+            $lockedName = $this->cartSiteName($cart, $lockedSiteId);
+
             return response()->json([
                 'success' => false,
-                'error' => 'That article is already assigned to another placement in your cart. Each article can only be published on one site.',
+                'error' => $this->articlePlacement()->lockMessage($lockedName),
+                'message' => $this->articlePlacement()->lockMessage($lockedName),
             ], 422);
         }
 
@@ -2602,6 +2677,7 @@ class CatalogController extends Controller
             $cart = $this->leftoverSessionCart();
             $attachArticleId = null;
             $librarySubmission = null;
+            $libraryLockMessage = null;
 
             if (session('ordering_from_library') && session('checkout_content_submission_id')) {
                 $sessionArticleId = (int) session('checkout_content_submission_id');
@@ -2629,7 +2705,8 @@ class CatalogController extends Controller
                         ], 422);
                     }
 
-                    $alreadyAssigned = $this->cartUsesSubmissionId($cart, (int) $librarySubmission->id);
+                    $alreadyAssigned = $this->cartUsesSubmissionId($cart, (int) $librarySubmission->id)
+                        || $this->articlePlacement()->isLockedToAnotherSite($librarySubmission, $cart, (int) $id);
                     $existingLineKey = null;
                     foreach ($cart as $key => $item) {
                         if ($this->cartLineMatches($item, (int) $id, $sensitiveType, $resolvedHomepageDays)) {
@@ -2639,6 +2716,13 @@ class CatalogController extends Controller
                     }
                     $slotEmpty = $existingLineKey === null
                         || (($this->cartLineContentIds($cart[$existingLineKey])[0] ?? 0) <= 0);
+                    $libraryLockMessage = null;
+                    if ($alreadyAssigned) {
+                        $lockedSiteId = $this->articlePlacement()->lockedSiteId($librarySubmission, $cart);
+                        $libraryLockMessage = $this->articlePlacement()->lockMessage(
+                            $this->cartSiteName($cart, $lockedSiteId)
+                        );
+                    }
 
                     if (! $alreadyAssigned && $slotEmpty) {
                         if (! app(OrderPaymentService::class)->replaceUnpaidLeftoversIfStillOrderable(
@@ -2811,6 +2895,8 @@ class CatalogController extends Controller
                 if ($attachNote) {
                     $message .= ' Note: '.$attachNote.' (preferred match is same language).';
                 }
+            } elseif ($libraryLockMessage) {
+                $message = $libraryLockMessage;
             } elseif ($nextQty > 1) {
                 $message = 'Added '.$nextQty.' article placements. Attach a separate Content Library document for each before checkout.';
             } else {
@@ -2822,6 +2908,7 @@ class CatalogController extends Controller
                 'cart_count' => $cartCount,
                 'cart_total' => $cartTotal,
                 'message' => $message,
+                'article_locked' => $libraryLockMessage !== null,
             ], $this->cartPayloadForClient()));
         } catch (\InvalidArgumentException $e) {
             $message = UserFacingError::message($e, 'This site could not be added to your cart.');
@@ -7172,7 +7259,7 @@ class CatalogController extends Controller
             if (isset($seen[$submissionId])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Each Content Library article can only be ordered on one website.',
+                    'message' => LibraryArticlePlacement::LOCK_MESSAGE,
                 ], 422);
             }
 
@@ -7193,6 +7280,15 @@ class CatalogController extends Controller
                     'success' => false,
                     'message' => $submission?->libraryFixSummary()
                         ?: 'Only approved Content Library articles can be ordered. Edit and resubmit articles that need correction.',
+                ], 422);
+            }
+
+            if ($this->articlePlacement()->isLockedToAnotherSite($submission, $cart, (int) $site->id, $copyIndex)) {
+                $lockedSiteId = $this->articlePlacement()->lockedSiteId($submission, $cart, $copyIndex);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $this->articlePlacement()->lockMessage($this->cartSiteName($cart, $lockedSiteId)),
                 ], 422);
             }
 

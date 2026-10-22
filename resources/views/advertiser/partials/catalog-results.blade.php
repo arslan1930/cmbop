@@ -99,6 +99,16 @@
         report($e);
         $cartSiteIds = [];
     }
+    $occupiedSites = $occupiedSites ?? [];
+    if ($occupiedSites === []) {
+        try {
+            $occupiedSites = app(\App\Services\Advertiser\LibraryArticlePlacement::class)
+                ->occupiedSites((int) auth()->id(), $catalogCartLines ?? []);
+        } catch (\Throwable $e) {
+            report($e);
+            $occupiedSites = [];
+        }
+    }
 @endphp
             <div class="card border-0 shadow-sm catalog-results-card" id="catalogResults" aria-live="polite"
                  tabindex="-1"
@@ -389,6 +399,10 @@
                                 @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                                 @include('advertiser.partials.catalog-publisher-reliability', ['site' => $site, 'variant' => 'chip'])
                             </div>
+                            @include('advertiser.partials.catalog-existing-article-sign', [
+                                'site' => $site,
+                                'occupiedSites' => $occupiedSites,
+                            ])
                         </div>
 
                         @php
@@ -1096,6 +1110,10 @@
                         @include('advertiser.partials.catalog-site-tools')
                         @include('advertiser.partials.catalog-site-trust', ['site' => $site, 'variant' => 'chip'])
                     </div>
+                    @include('advertiser.partials.catalog-existing-article-sign', [
+                        'site' => $site,
+                        'occupiedSites' => $occupiedSites,
+                    ])
                     @php
                         $catalogDeals = [
                             'sale_percent' => null,

@@ -16,4 +16,11 @@ return [
     | posts to the existing single-file chunked endpoint.
     */
     'multi_upload_limit' => max(1, min(20, (int) env('LIBRARY_MULTI_UPLOAD_LIMIT', 10))),
+
+    /*
+    | Unpaid cart lines older than this many days show an in-app
+    | "Still in your cart — finish payment?" hint on the library row.
+    | There is no abandoned-cart email; reuse would need a new campaign.
+    */
+    'stale_cart_days' => max(1, (int) env('LIBRARY_STALE_CART_DAYS', 3)),
 ];
