@@ -59,10 +59,10 @@
   display: block;
   padding: 14px;
   margin-bottom: 16px;
-  border: 1px solid var(--border-default, #d5dee6);
+  border: 1px solid #c5d4d8;
   border-radius: 14px;
-  background: var(--surface-2, #f7fafb);
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+  background: #eef4f5;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.05);
 }
 
 .cart-item-info { flex: 1; min-width: 0; }
@@ -1067,9 +1067,9 @@ body.cart-open .slb-toast-stack {
 }
 
 .wizard-line {
-  border: 1px solid var(--border-default, #d5dee6) !important;
-  background: var(--surface-2, #f7fafb);
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+  border: 1px solid #c5d4d8 !important;
+  background: #eef4f5;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.05);
 }
 
 .wizard-line .card-body {
