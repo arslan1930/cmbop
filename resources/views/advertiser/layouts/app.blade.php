@@ -352,6 +352,9 @@
             <div id="cartHeldNote" class="cart-totals__held d-none"></div>
         </div>
         <div id="cartScheduleHint" class="cart-schedule-hint d-none" hidden></div>
+        <button id="cartWriteAll" class="btn btn-sm btn-outline-primary w-100 cart-write-all d-none mb-2" type="button">
+            Have all articles written
+        </button>
         <button id="checkoutFromCart" class="btn btn-primary w-100 d-none" type="button" disabled>
             <i class="fa fa-credit-card"></i> Proceed to Checkout
         </button>
@@ -550,6 +553,16 @@
     let approvedArticles = [];
     let requireSameLanguage = false;
     let cartSchedule = null;
+    let writingExplainer = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingExplainer())
+        || "Written by the SEOLinkBuildings team (or the publisher, if they write for this site) in the site's language and sent to you for approval before publishing.";
+    let writingTurnaroundText = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingTurnaroundText())
+        || '2–3 working days';
+    let writingGuaranteeNote = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingGuaranteeNote())
+        || '12-month link guarantee available at checkout';
+    let writingStepsWrite = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingStepsWrite())
+        || 'We write → you approve → publisher publishes';
+    let writingStepsUpload = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingStepsUpload())
+        || 'You upload → you assign → publisher publishes';
     let contentLibraryUploadUrl = @json(route('advertiser.content-library', ['upload' => 1]));
     let catalogUrl = @json(route('advertiser.catalog'));
     let cartArticleCopy = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->cartArticleCopy());
@@ -591,9 +604,11 @@
         if (data?.content_library_url) {
             contentLibraryUploadUrl = data.content_library_url;
         }
-        if (data?.article_copy && typeof data.article_copy === 'object') {
-            cartArticleCopy = Object.assign({}, cartArticleCopy, data.article_copy);
-        }
+        if (data?.writing_explainer) writingExplainer = String(data.writing_explainer);
+        if (data?.writing_turnaround_text) writingTurnaroundText = String(data.writing_turnaround_text);
+        if (data?.writing_guarantee_note) writingGuaranteeNote = String(data.writing_guarantee_note);
+        if (data?.writing_steps_write) writingStepsWrite = String(data.writing_steps_write);
+        if (data?.writing_steps_upload) writingStepsUpload = String(data.writing_steps_upload);
         if (window.__slbMoney) {
             const pageCurrency = String(window.__slbMoney.currency || 'EUR').toUpperCase();
             const fxCurrency = String(data?.fx?.currency || '').toUpperCase();
@@ -879,6 +894,16 @@
 
     function lineFullyAssigned(item) {
         return lineIsWritten(item) || lineContentIds(item).every((id) => id > 0);
+    }
+
+    function lineWritingCopy(item) {
+        return {
+            explainer: String(item?.writing_explainer || writingExplainer),
+            turnaround: String(item?.writing_turnaround_text || writingTurnaroundText),
+            guarantee: String(item?.writing_guarantee_note || writingGuaranteeNote),
+            stepsWrite: String(item?.writing_steps_write || writingStepsWrite),
+            stepsUpload: String(item?.writing_steps_upload || writingStepsUpload),
+        };
     }
 
     function usedSubmissionIds(exceptKey, exceptCopyIndex) {
@@ -1213,6 +1238,13 @@
             if (headerMeta) {
                 headerMeta.textContent = 'Pay with wallet, card, or PayPal at checkout.';
             }
+            if (writeAllBtn) {
+                writeAllBtn.classList.add('d-none');
+            }
+            if (stepsEl) {
+                stepsEl.classList.add('d-none');
+                stepsEl.textContent = writingStepsWrite;
+            }
             if (totalLabel) {
                 totalLabel.textContent = 'Projected total';
             }
@@ -1426,6 +1458,7 @@
                         }).join('')}
                       </div>`
                     : '';
+                const copy = lineWritingCopy(item);
                 const written = lineIsWritten(item);
                 const choseUpload = lineChoseUpload(item) || (!written && placementIds.some((id) => id > 0));
                 const writingQtyLabel = lineWritingQtyLabel(item);
@@ -1438,15 +1471,12 @@
                         <input type="text" class="form-control form-control-sm cart-writing-anchor mt-1" id="cart-write-anchor-${itemKeyAttr}" placeholder="Anchor text (optional)" maxlength="160" value="${escapeHtml(item.writing_anchor_text || '')}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">
                         <div class="small text-muted mt-1">Editable at checkout.</div>
                     </div>` : '';
-                const uploadPickers = choseUpload ? placementIds.map((selectedId, copyIndex) => {
+                const pickerMarkup = written ? '' : placementIds.map((selectedId, copyIndex) => {
                     const options = articlesForCartPlacement(item, copyIndex);
                     const siteLangs = siteLanguageCodes(item);
                     const siteLangLabel = siteLanguageLabel(item);
                     const matching = options.filter((article) => articleFitsSiteLanguages(article, siteLangs));
                     const other = options.filter((article) => !articleFitsSiteLanguages(article, siteLangs));
-                    const slotKicker = placementIds.length > 1
-                        ? `Article ${copyIndex + 1} of ${placementIds.length}`
-                        : 'Article';
                     const selectId = 'cart-doc-' + itemKey.replace(/[^a-zA-Z0-9_-]/g, '-') + '-' + copyIndex;
                     const chooseLabel = placementIds.length > 1
                         ? ('Choose article ' + (copyIndex + 1) + ' of ' + placementIds.length)
@@ -1472,7 +1502,7 @@
                         articleOptions.push({ value: String(selectedId), label: 'Assigned article', selected: true });
                     }
                     const emptyHint = options.length === 0 && !selectedId
-                        ? `<div class="cart-item-article-empty mt-1">Need an article? <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">${escapeHtml(cartArticleCopy.upload_label)}</a></div>`
+                        ? `<div class="cart-item-article-empty mt-1">Need another article? <a class="cart-item-upload-link cart-item-upload-link--primary" href="${contentLibraryUploadUrl}">Upload article</a></div>`
                         : '';
                     const noMatchNote = (!requireSameLanguage && !selectedId && matching.length === 0 && other.length > 0)
                         ? `<div class="cart-item-language-note">This site is ${escapeHtml(siteLangLabel || 'unknown')}. None of your articles match — you can still assign one.</div>`
@@ -1480,7 +1510,7 @@
                     const langNote = (selectedId && item.language_note)
                         ? `<div class="cart-item-language-note" title="Preferred match is the same language as the site">${escapeHtml(item.language_note)}</div>`
                         : noMatchNote;
-                    const uploadLink = `<a class="cart-item-upload-link cart-item-upload-cta" href="${contentLibraryUploadUrl}">${selectedId ? 'Upload another' : cartArticleCopy.upload_label}</a>`;
+                    const uploadLink = `<a class="cart-item-upload-link" href="${contentLibraryUploadUrl}">${selectedId ? 'Upload another' : 'Upload new'}</a>`;
                     const articleSelect = cartThemeSelectMarkup(
                         selectId,
                         'cart-article-select',
@@ -1489,10 +1519,7 @@
                         'Article for ' + siteName + (siteLangLabel ? ' · site ' + siteLangLabel : '')
                     );
                     return `
-                        <div class="cart-item-upload-slot">
-                            <div class="cart-item-order-label">
-                                <span class="cart-item-order-kicker">${escapeHtml(slotKicker)}</span>
-                            </div>
+                        <div class="cart-item-article-picker">
                             ${articleSelect}
                             ${langNote}
                             <div class="cart-item-article-actions">${uploadLink}</div>
@@ -1881,38 +1908,40 @@
             e.preventDefault();
             const item = cartItemFromDataset(uploadInstead);
             if (!item) return;
-            configureCartLine(item, { content_source: 'buyer' });
+            if (lineIsWritten(item)) {
+                configureCartLine(item, { content_source: 'buyer' });
+            }
+            if (approvedArticles.length === 0) {
+                markReturnToCart();
+                window.location.href = contentLibraryUploadUrl;
+            }
         }
     });
 
-    const cartWriteAll = document.getElementById('cartWriteAll');
-    if (cartWriteAll && !cartWriteAll.dataset.bound) {
-        cartWriteAll.dataset.bound = '1';
-        cartWriteAll.addEventListener('click', function () {
-            $.ajax({
-                url: @json(route('advertiser.cart.write-unready')),
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json'
-                },
-                success: function (payload) {
-                    if (!payload.success) {
-                        showToast(payload.error || 'Could not order writing.', 'error');
-                        loadCart();
-                        return;
-                    }
-                    applyCartPayload(payload);
-                    updateCartDisplay();
-                },
-                error: function (xhr) {
-                    const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not order writing.';
-                    showToast(msg, 'error');
+    document.getElementById('cartWriteAll')?.addEventListener('click', function () {
+        $.ajax({
+            url: @json(route('advertiser.cart.write-all')),
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            success: function (payload) {
+                if (!payload.success) {
+                    showToast(payload.error || 'Could not order writing.', 'error');
                     loadCart();
+                    return;
                 }
-            });
+                applyCartPayload(payload);
+                updateCartDisplay();
+            },
+            error: function (xhr) {
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Could not order writing.';
+                showToast(msg, 'error');
+                loadCart();
+            }
         });
-    }
+    });
 
     document.getElementById('cartItemsContainer').addEventListener('change', function (e) {
         const field = e.target.closest('.cart-writing-target, .cart-writing-anchor');

@@ -2,6 +2,7 @@
 
 namespace App\Services\Marketplace;
 
+use App\Models\FeatureOfferSetting;
 use App\Models\Site;
 use App\Models\WritingSetting;
 use App\Support\PublicationDuration;
@@ -249,6 +250,54 @@ class CheckoutAddOnService
         $line['article_choice'] = $this->resolvedArticleChoice($line, $source);
 
         return $line;
+    }
+
+    public function writingTurnaroundText(): string
+    {
+        return FeatureOfferSetting::writingTurnaroundText();
+    }
+
+    public function writingExplainer(): string
+    {
+        $text = trim((string) config(
+            'orders.writing.explainer',
+            "Written by the SEOLinkBuildings team (or the publisher, if they write for this site) in the site's language and sent to you for approval before publishing."
+        ));
+
+        return $text !== ''
+            ? $text
+            : "Written by the SEOLinkBuildings team (or the publisher, if they write for this site) in the site's language and sent to you for approval before publishing.";
+    }
+
+    public function writingGuaranteeNote(): string
+    {
+        return '12-month link guarantee available at checkout';
+    }
+
+    public function writingStepsWrite(): string
+    {
+        return 'We write → you approve → publisher publishes';
+    }
+
+    public function writingStepsUpload(): string
+    {
+        return 'You upload → you assign → publisher publishes';
+    }
+
+    /**
+     * Advertiser-facing writing copy shared by the cart drawer and wizard.
+     *
+     * @return array{explainer: string, turnaround_text: string, guarantee_note: string, steps_write: string, steps_upload: string}
+     */
+    public function writingChoiceCopy(): array
+    {
+        return [
+            'explainer' => $this->writingExplainer(),
+            'turnaround_text' => $this->writingTurnaroundText(),
+            'guarantee_note' => $this->writingGuaranteeNote(),
+            'steps_write' => $this->writingStepsWrite(),
+            'steps_upload' => $this->writingStepsUpload(),
+        ];
     }
 
     /**

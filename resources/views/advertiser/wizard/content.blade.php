@@ -19,6 +19,24 @@
     }
     $usedIds = array_values(array_unique($usedIds));
 
+    $unreadyLines = 0;
+    foreach ($cart as $row) {
+        if (\App\Services\Marketplace\CheckoutAddOnService::isWrittenSource($row)) {
+            continue;
+        }
+        $ids = is_array($row['content_submission_ids'] ?? null) ? $row['content_submission_ids'] : [];
+        $hasArticle = (int) ($row['content_submission_id'] ?? 0) > 0;
+        foreach ($ids as $id) {
+            if ((int) $id > 0) {
+                $hasArticle = true;
+                break;
+            }
+        }
+        if (! $hasArticle) {
+            $unreadyLines++;
+        }
+    }
+
     $placements = [];
     foreach ($cart as $line) {
         $qty = max(1, (int) ($line['quantity'] ?? 1));
@@ -66,7 +84,7 @@
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
             <div>
                 <h1>Place a guest post</h1>
-                <p class="muted">Step 3 — {{ $articleCopy['heading'] }}. One uploaded article can be published on one site only.</p>
+                <p class="muted">Step 3 — Choose how you'll get the article for each placement. One uploaded article can be published on one site only.</p>
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <a href="{{ route('advertiser.wizard.publishers') }}" class="btn btn-sm btn-outline-secondary">Back to publishers</a>
@@ -208,12 +226,29 @@
                                     Writing selected. Target URL and anchor can be edited at checkout.
                                 @endif
                             </div>
+                            @if(!empty($line['guarantee_offered']))
+                                <p class="cart-guarantee-note mb-0">{{ $writingGuaranteeNote }}</p>
+                            @endif
+                            <p class="cart-source-steps mb-0">{{ $written ? $writingStepsWrite : ($selectedId ? $writingStepsUpload : $writingStepsWrite) }}</p>
                         </div>
                     </div>
                 @endforeach
             </div>
         </div>
         <div class="col-lg-4">
+            <div class="upload-zone mb-3">
+                <h6 class="upload-zone-title">Upload article</h6>
+                <p class="upload-zone-copy">Need a new .docx? Upload in Content Library (country first, then language), wait for approval, then assign it here.</p>
+                <a href="{{ route('advertiser.content-library', ['upload' => 1]) }}" class="btn btn-upload w-100">
+                    <i class="fa fa-upload me-1"></i> Upload in Content Library
+                </a>
+            </div>
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold mb-1">How it works</h6>
+                    <p class="cart-source-steps mb-0" id="wizardSourceSteps">{{ $writingStepsWrite }}</p>
+                </div>
+            </div>
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <div class="cart-totals mb-3">
@@ -229,9 +264,12 @@
                         @elseif($cartReady)
                             Ready lines can be paid now — unassigned sites stay in your cart.
                         @else
-                            {{ $articleCopy['proceed_hint'] }}
+                            Choose an article option above to continue
                         @endif
                     </p>
+                    @if($unreadyLines >= 2)
+                        <button type="button" class="btn btn-outline-primary w-100 mb-2" id="wizardWriteAll">Have all articles written</button>
+                    @endif
                     <a href="{{ route('advertiser.wizard.pay') }}"
                        id="wizardContinuePay"
                        class="btn btn-primary w-100{{ $cartReady ? '' : ' is-waiting' }}"
@@ -255,7 +293,8 @@
 (function () {
     const assignUrl = @json(route('advertiser.cart.assign-article'));
     const configureUrl = @json(route('advertiser.cart.configure'));
-    const writeAllUrl = @json(route('advertiser.cart.write-unready'));
+    const writeAllUrl = @json(route('advertiser.cart.write-all'));
+    const libraryUrl = @json(route('advertiser.content-library', ['upload' => 1]));
     const csrf = @json(csrf_token());
     const copy = @json($articleCopy);
     const payBtn = document.getElementById('wizardContinuePay');
@@ -380,6 +419,69 @@
                 feedback.innerHTML = '<span class="text-danger">Network error</span>';
             }
         });
+    });
+
+    document.querySelectorAll('.wizard-upload-cta').forEach((button) => {
+        button.addEventListener('click', async function () {
+            const card = this.closest('.wizard-line');
+            const select = card.querySelector('.wizard-article-select');
+            const feedback = card.querySelector('.line-feedback');
+            if (card.querySelector('.wizard-write-cta.is-selected')) {
+                feedback.textContent = 'Saving…';
+                try {
+                    const res = await fetch(configureUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf,
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            id: parseInt(card.getAttribute('data-site-id'), 10),
+                            sensitive_type: card.getAttribute('data-sensitive-type') || '',
+                            homepage_days: card.getAttribute('data-homepage-days') || 'none',
+                            content_source: 'buyer',
+                        }),
+                    });
+                    const data = await res.json();
+                    if (!data.success) {
+                        feedback.innerHTML = '<span class="text-danger">' + (data.error || data.message || 'Could not save') + '</span>';
+                        return;
+                    }
+                } catch (e) {
+                    feedback.innerHTML = '<span class="text-danger">Network error</span>';
+                    return;
+                }
+            }
+            if (select && select.options.length > 1) {
+                select.focus();
+                return;
+            }
+            window.location.href = libraryUrl;
+        });
+    });
+
+    document.getElementById('wizardWriteAll')?.addEventListener('click', async function () {
+        this.disabled = true;
+        try {
+            const res = await fetch(writeAllUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({}),
+            });
+            const data = await res.json();
+            if (!data.success) {
+                this.disabled = false;
+                return;
+            }
+            window.location.reload();
+        } catch (e) {
+            this.disabled = false;
+        }
     });
 
     document.querySelectorAll('.wizard-write-cta').forEach((button) => {

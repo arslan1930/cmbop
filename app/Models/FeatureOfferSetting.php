@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Schema;
 
 class FeatureOfferSetting extends Model
 {
+    public const KEY_WRITING_TURNAROUND = 'writing_turnaround';
+
     protected $fillable = ['key', 'value'];
 
     protected $casts = [
@@ -115,5 +117,66 @@ class FeatureOfferSetting extends Model
             $row->value = $value;
             $row->save();
         }
+    }
+
+    public static function writingTurnaroundText(): string
+    {
+        $fallback = trim((string) config('orders.writing.turnaround_text', '2–3 working days'));
+        $stored = trim((string) (self::settingValue(self::KEY_WRITING_TURNAROUND)['text'] ?? ''));
+
+        return $stored !== '' ? $stored : ($fallback !== '' ? $fallback : '2–3 working days');
+    }
+
+    public static function saveWritingTurnaroundText(string $text): string
+    {
+        $text = trim($text);
+        if ($text === '') {
+            $text = trim((string) config('orders.writing.turnaround_text', '2–3 working days'));
+        }
+        $text = mb_substr($text, 0, 80);
+        self::putSettingValue(self::KEY_WRITING_TURNAROUND, ['text' => $text]);
+
+        return $text;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function settingValue(string $key): array
+    {
+        self::ensureTable();
+        if (! Schema::hasTable((new static)->getTable())) {
+            return [];
+        }
+
+        try {
+            $row = static::query()->where('key', $key)->orderBy('id')->first();
+            $value = $row?->value;
+
+            return is_array($value) ? $value : [];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     */
+    public static function putSettingValue(string $key, array $value): void
+    {
+        self::ensureTable();
+        if (! Schema::hasTable((new static)->getTable())) {
+            return;
+        }
+
+        $row = static::query()->where('key', $key)->orderBy('id')->first();
+        if ($row === null) {
+            static::query()->create(['key' => $key, 'value' => $value]);
+
+            return;
+        }
+
+        $row->value = $value;
+        $row->save();
     }
 }

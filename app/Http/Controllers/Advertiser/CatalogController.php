@@ -1455,7 +1455,7 @@ class CatalogController extends Controller
      */
     private function emptyCartClientPayload(): array
     {
-        return array_merge($this->cartCountMeta([]), [
+        return array_merge($this->cartCountMeta([]), $this->writingChoiceClientCopy(), [
             'cart' => [],
             'cart_total' => 0,
             'approved_articles' => [],
@@ -1465,6 +1465,22 @@ class CatalogController extends Controller
             'removed_owned_count' => 0,
             'article_copy' => app(CheckoutAddOnService::class)->cartArticleCopy(),
         ]);
+    }
+
+    /**
+     * @return array{writing_explainer: string, writing_turnaround_text: string, writing_guarantee_note: string, writing_steps_write: string, writing_steps_upload: string}
+     */
+    private function writingChoiceClientCopy(): array
+    {
+        $copy = app(CheckoutAddOnService::class)->writingChoiceCopy();
+
+        return [
+            'writing_explainer' => $copy['explainer'],
+            'writing_turnaround_text' => $copy['turnaround_text'],
+            'writing_guarantee_note' => $copy['guarantee_note'],
+            'writing_steps_write' => $copy['steps_write'],
+            'writing_steps_upload' => $copy['steps_upload'],
+        ];
     }
 
     /**
@@ -1764,7 +1780,7 @@ class CatalogController extends Controller
             $cart
         )), 2);
 
-        return array_merge($this->cartCountMeta($cart), [
+        return array_merge($this->cartCountMeta($cart), $this->writingChoiceClientCopy(), [
             'cart' => $cart,
             'cart_total' => $cartTotal,
             'approved_articles' => $articles,
@@ -3070,46 +3086,44 @@ class CatalogController extends Controller
     }
 
     /**
-     * Choose writing on every cart line that still lacks an article.
+     * Apply writing to every cart line that still lacks an article.
      */
-    public function writeUnreadyCartLines(Request $request)
+    public function writeAllUnreadyCartLines(Request $request)
     {
         try {
             $cart = $this->leftoverSessionCart();
             $addons = app(CheckoutAddOnService::class);
-            $changed = 0;
+            $siteIds = collect($cart)->pluck('id')->filter()->unique()->values();
+            $sites = $siteIds->isEmpty()
+                ? collect()
+                : Site::query()->catalogVisible()->whereIn('id', $siteIds)->get()->keyBy('id');
 
             foreach ($cart as $i => $line) {
-                if (! is_array($line) || $this->cartLineIsReady($line)) {
+                if (! is_array($line) || $this->cartLineHasArticleOrWriting($line)) {
                     continue;
                 }
-
-                $site = Site::query()->catalogVisible()->where('id', (int) ($line['id'] ?? 0))->first();
-                if (! $site) {
+                $site = $sites->get((int) ($line['id'] ?? 0));
+                if (! $site instanceof Site) {
                     continue;
                 }
-
-                $written = $addons->applyWritingChoiceToLine(
+                $line = $addons->applyWritingChoiceToLine(
                     $line,
                     $site,
                     WritingFeeService::SOURCE_WRITTEN
                 );
-                $written = $this->applyCartLineContentIds(
-                    $written,
-                    array_fill(0, max(1, (int) ($written['quantity'] ?? 1)), 0)
+                $line = $this->applyCartLineContentIds(
+                    $line,
+                    array_fill(0, max(1, (int) ($line['quantity'] ?? 1)), 0)
                 );
-                $cart[$i] = $this->normalizeCartLineForSite($site, $written);
-                $changed++;
+                $cart[$i] = $this->normalizeCartLineForSite($site, $line);
             }
 
             $this->putCatalogVisibleCart(array_values($cart));
 
-            return response()->json(array_merge([
-                'success' => true,
-                'written_count' => $changed,
-            ], $this->cartPayloadForClient()));
+            return $this->jsonSuccessfulCartPayload();
         } catch (\Throwable $e) {
-            Log::error('Error writing unready cart lines: '.$e->getMessage());
+            Log::error('Error writing all unready cart lines: '.$e->getMessage());
+
             $message = UserFacingError::message($e, 'Could not order writing for those sites. Please try again.');
 
             return response()->json([
@@ -3123,19 +3137,19 @@ class CatalogController extends Controller
     /**
      * @param  array<string, mixed>  $line
      */
-    private function cartLineIsReady(array $line): bool
+    private function cartLineHasArticleOrWriting(array $line): bool
     {
         if (CheckoutAddOnService::isWrittenSource($line)) {
             return true;
         }
 
-        foreach ($this->cartLineContentIds($line) as $id) {
-            if ((int) $id <= 0) {
-                return false;
+        foreach ($this->cartLineContentIds($line) as $submissionId) {
+            if ((int) $submissionId > 0) {
+                return true;
             }
         }
 
-        return $this->cartLineContentIds($line) !== [];
+        return false;
     }
 
     /**

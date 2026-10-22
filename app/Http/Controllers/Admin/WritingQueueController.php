@@ -3,17 +3,22 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\FeatureOfferSetting;
 use App\Models\OrderItem;
 use App\Models\WritingSetting;
 use App\Services\ActivityLogger;
 use App\Services\Marketplace\ArticleWritingService;
+use App\Services\Marketplace\CheckoutAddOnService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class WritingQueueController extends Controller
 {
-    public function __construct(private ArticleWritingService $writing) {}
+    public function __construct(
+        private ArticleWritingService $writing,
+        private CheckoutAddOnService $addons,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -25,25 +30,18 @@ class WritingQueueController extends Controller
         return view('admin.writing-queue.index', [
             'items' => $items,
             'status' => $status,
-            'turnaroundText' => WritingSetting::turnaroundText(),
+            'writingTurnaroundText' => $this->addons->writingTurnaroundText(),
         ]);
     }
 
     public function updateTurnaround(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'turnaround_text' => ['required', 'string', 'max:80'],
+            'turnaround_text' => 'required|string|max:80',
         ]);
-        $text = trim($data['turnaround_text']);
-        WritingSetting::setTurnaroundText($text);
-        ActivityLogger::tryLog(
-            'writing.turnaround_changed',
-            ($request->user()?->name ?? 'Admin').' set writing turnaround to '.$text,
-            null,
-            ['turnaround_text' => $text]
-        );
+        FeatureOfferSetting::saveWritingTurnaroundText($data['turnaround_text']);
 
-        return back()->with('success', 'Cart writing turnaround updated to “'.$text.'”.');
+        return back()->with('success', 'Advertiser writing turnaround text saved.');
     }
 
     public function show(OrderItem $orderItem): View

@@ -51,7 +51,8 @@ return [
     */
     'writing' => [
         'deadline_days' => (int) env('ORDER_WRITING_DEADLINE_DAYS', 5),
-        'turnaround_text' => (string) env('ORDER_WRITING_TURNAROUND_TEXT', '2–3 working days'),
+        'turnaround_text' => env('ORDER_WRITING_TURNAROUND_TEXT', '2–3 working days'),
+        'explainer' => "Written by the SEOLinkBuildings team (or the publisher, if they write for this site) in the site's language and sent to you for approval before publishing.",
     ],
 
     'link_guarantee' => [
