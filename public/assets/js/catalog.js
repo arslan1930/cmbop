@@ -3168,8 +3168,8 @@ const CatalogLive = (function () {
         syncSuggestButtons(params);
         if (typeof updateButtonStates === 'function') updateButtonStates();
         if (typeof syncDefaultHomepagePrices === 'function') syncDefaultHomepagePrices();
-        if (typeof window.catalogSyncInCartButtons === 'function') {
-            window.catalogSyncInCartButtons(window.advertiserCart || []);
+        if (typeof window.catalogSyncInCartButtons === 'function' && Array.isArray(window.advertiserCart)) {
+            window.catalogSyncInCartButtons(window.advertiserCart);
         }
         if (typeof initCatalogExpandPreviewZoom === 'function') {
             initCatalogExpandPreviewZoom(card || document.getElementById('catalogResults'));
@@ -4139,9 +4139,133 @@ function catalogToast(message, type = 'success', options) {
     console.warn(message);
 }
 
-// Cart mutations live on window.addToCart from the advertiser layout.
-// Do not declare a top-level function addToCart / updateCartBadge — classic
-// scripts hoist those onto window and recurse until the Buy button crashes.
+// Cart mutations live on window.addToCart (advertiser-cart.js, then the
+// layout may replace it). Do not declare a top-level function addToCart /
+// updateCartBadge — classic scripts hoist those onto window and recurse
+// until the Buy button crashes.
+
+function catalogCartCsrf() {
+    if (window.CatalogConfig && CatalogConfig.csrfToken) {
+        return String(CatalogConfig.csrfToken);
+    }
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? String(meta.getAttribute('content') || '') : '';
+}
+
+function catalogCartAddUrl() {
+    if (window.CatalogConfig && CatalogConfig.routes && CatalogConfig.routes.cartAdd) {
+        return String(CatalogConfig.routes.cartAdd);
+    }
+    const el = document.getElementById('advertiser-cart-config');
+    if (el) {
+        try {
+            const parsed = JSON.parse(el.textContent || '{}');
+            if (parsed && parsed.addUrl) return String(parsed.addUrl);
+        } catch (e) { /* use default */ }
+    }
+    return '/advertiser/cart/add';
+}
+
+function catalogOpenCart() {
+    if (typeof window.openCart === 'function') {
+        try {
+            return window.openCart();
+        } catch (e) { /* fall through to DOM */ }
+    }
+    if (typeof window.__slbBootstrapOpenCart === 'function') {
+        return window.__slbBootstrapOpenCart();
+    }
+    const sidebar = document.getElementById('cartSidebar');
+    const overlay = document.getElementById('cartOverlay');
+    if (!sidebar) return false;
+    sidebar.classList.add('open');
+    if (overlay) overlay.classList.add('show');
+    document.body.classList.add('cart-open');
+    sidebar.setAttribute('aria-hidden', 'false');
+    return true;
+}
+
+function catalogFallbackAddToCart(id, name, price, sensitiveType, additionalPrice, basePrice, options) {
+    if (typeof window.__slbBootstrapAddToCart === 'function') {
+        return window.__slbBootstrapAddToCart(id, name, price, sensitiveType, additionalPrice, basePrice, options);
+    }
+    const opts = options && typeof options === 'object' ? options : {};
+    const token = catalogCartCsrf();
+    if (!token) {
+        catalogToast('Cart is not ready. Refresh the page and try again.', 'error');
+        return Promise.resolve({ ok: false, error: 'csrf' });
+    }
+    const body = new URLSearchParams();
+    body.set('id', String(id));
+    body.set('sensitive_type', sensitiveType || '');
+    if (Object.prototype.hasOwnProperty.call(opts, 'homepage_days')) {
+        body.set('homepage_days', opts.homepage_days == null || opts.homepage_days === ''
+            ? 'none'
+            : String(opts.homepage_days));
+    }
+    if (opts.bulk) {
+        body.set('bulk', '1');
+    }
+    const qty = parseInt(opts.quantity, 10);
+    if (Number.isFinite(qty) && qty > 0) {
+        body.set('quantity', String(qty));
+    }
+    return fetch(catalogCartAddUrl(), {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': token,
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: body.toString()
+    }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+            if (!res.ok || !data.success) {
+                catalogToast(data.error || data.message || 'Could not add to cart.', 'error');
+                return { ok: false, error: data.error || 'add' };
+            }
+            if (typeof window.__slbOnCartPayload === 'function') {
+                window.__slbOnCartPayload(data);
+            } else {
+                window.advertiserCart = Array.isArray(data.cart) ? data.cart : [];
+                if (typeof window.catalogSyncInCartButtons === 'function') {
+                    window.catalogSyncInCartButtons(window.advertiserCart);
+                }
+            }
+            if (opts.openCart || opts.bulk) {
+                catalogOpenCart();
+            }
+            return { ok: true, data: data };
+        });
+    }).catch(function () {
+        catalogToast('Could not add to cart.', 'error');
+        return { ok: false, error: 'network' };
+    });
+}
+
+function catalogEnsureAddToCart(id, name, price, sensitiveType, additionalPrice, basePrice, options) {
+    const args = [id, name, price, sensitiveType, additionalPrice, basePrice, options];
+    if (typeof window.addToCart === 'function') {
+        return Promise.resolve(window.addToCart.apply(window, args));
+    }
+    return new Promise(function (resolve) {
+        let tries = 0;
+        const timer = setInterval(function () {
+            tries += 1;
+            if (typeof window.addToCart === 'function') {
+                clearInterval(timer);
+                resolve(Promise.resolve(window.addToCart.apply(window, args)));
+                return;
+            }
+            if (tries >= 20) {
+                clearInterval(timer);
+                resolve(catalogFallbackAddToCart.apply(null, args));
+            }
+        }, 25);
+    });
+}
 
 function catalogPrefersReducedMotion() {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -4583,15 +4707,21 @@ window.catalogSyncInCartButtons = function catalogSyncInCartButtons(cartItems) {
     });
     document.querySelectorAll('.buy-now').forEach(function (btn) {
         if (!btn.dataset.defaultHtml) {
-            btn.dataset.defaultHtml = btn.innerHTML;
+            if (btn.classList.contains('is-in-cart') || btn.dataset.inCart === '1') {
+                btn.dataset.defaultHtml = '<i class="fa-solid fa-cart-plus" aria-hidden="true"></i> <span>Add to cart</span>';
+            } else {
+                btn.dataset.defaultHtml = btn.innerHTML;
+            }
         }
         const inCart = !!ids[String(btn.dataset.id)];
         btn.classList.toggle('is-in-cart', inCart);
         if (inCart) {
+            btn.dataset.inCart = '1';
             btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> <span>In cart</span>';
             btn.setAttribute('aria-label', catalogBuyAriaLabel(btn));
             btn.title = 'Already in cart — open to assign an article or change options';
         } else if (btn.dataset.busy !== '1') {
+            delete btn.dataset.inCart;
             btn.innerHTML = btn.dataset.defaultHtml;
             btn.setAttribute('aria-label', catalogBuyAriaLabel(btn));
             btn.removeAttribute('title');
@@ -5035,8 +5165,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof window.catalogSyncBuyAddonHints === 'function') {
         window.catalogSyncBuyAddonHints();
     }
-    if (typeof window.catalogSyncInCartButtons === 'function') {
-        window.catalogSyncInCartButtons(window.advertiserCart || []);
+    if (typeof window.catalogSyncInCartButtons === 'function' && Array.isArray(window.advertiserCart)) {
+        window.catalogSyncInCartButtons(window.advertiserCart);
     }
 
     // Sensitive topic + homepage radios: delegate so late/expanded markup still works.
@@ -5596,9 +5726,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (button.classList.contains('is-in-cart')) {
             e.preventDefault();
             e.stopPropagation();
-            if (typeof window.openCart === 'function') {
-                window.openCart();
-            }
+            catalogOpenCart();
             return;
         }
         e.preventDefault();
@@ -5616,9 +5744,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if ((button.classList.contains('is-in-cart') || button.dataset.inCart === '1')
             && button.dataset.bulkHint !== '1'
             && !button.hasAttribute('data-bulk-hint')) {
-            if (typeof window.openCart === 'function') {
-                window.openCart();
-            }
+            catalogOpenCart();
             return;
         }
 
@@ -5644,11 +5770,6 @@ document.addEventListener('DOMContentLoaded', function() {
             );
         const finalPrice = catalogRoundMoney(Number(articlePrice) + (homepage.price || 0));
 
-        if (typeof window.addToCart !== 'function') {
-            catalogToast('Cart is not ready. Refresh the page and try again.', 'error');
-            return;
-        }
-
         const cartOptions = {
             quiet: true,
             flyOrigin: button
@@ -5671,7 +5792,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.dataset.busy = '1';
         btn.disabled = true;
 
-        Promise.resolve(window.addToCart(id, name, finalPrice, sensitiveType, additionalPrice, basePrice, cartOptions))
+        catalogEnsureAddToCart(id, name, finalPrice, sensitiveType, additionalPrice, basePrice, cartOptions)
             .then(function (result) {
                 if (result && result.ok === false) return;
                 btn.classList.add('is-added');

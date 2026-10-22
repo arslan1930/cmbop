@@ -29,6 +29,13 @@
         'url' => url()->current(),
     ])
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script type="application/json" id="advertiser-cart-config">@json([
+        'addUrl' => route('advertiser.cart.add'),
+        'csrf' => csrf_token(),
+    ])</script>
+    {{-- No defer: Buy buttons in catalog.js need window.addToCart even if the
+         large drawer script below fails to parse or throws during init. --}}
+    <script src="{{ asset('assets/js/advertiser-cart.js') }}?v={{ @filemtime(public_path('assets/js/advertiser-cart.js')) ?: '1' }}"></script>
     @include('components.favicon')
     @include('partials.shell-wordmark-preload')
 
@@ -534,6 +541,10 @@
 
     // Cart Functionality with Sensitive Price Support
     let cart = [];
+    window.__slbOnCartPayload = function (data) {
+        applyCartPayload(data);
+        updateCartDisplay();
+    };
     
     // Generate unique key for cart item (site + sensitive + homepage days)
     function getCartItemKey(item) {
@@ -1203,7 +1214,8 @@
             clearWrap.classList.toggle('d-none', cart.length === 0);
         }
         if (cart.length === 0) {
-            container.innerHTML = `
+            if (container) {
+                container.innerHTML = `
                 <div class="text-center text-muted px-2">
                     <p class="mb-2">Your cart is empty.</p>
                     <p class="small mb-0">
@@ -1211,6 +1223,7 @@
                         or <a href="${contentLibraryUploadUrl}">upload an article</a> in Content Library first.
                     </p>
                 </div>`;
+            }
             if (readyNote) {
                 readyNote.classList.add('d-none');
                 readyNote.textContent = '';
@@ -1361,6 +1374,7 @@
             }
             
             listedCart.forEach((item) => {
+                try {
                 const itemKey = getCartItemKey(item);
                 const itemKeyAttr = escapeHtml(itemKey);
                 const sensitiveAttr = escapeHtml(item.sensitive_type || '');
@@ -1525,7 +1539,7 @@
                             <div class="cart-item-article-actions">${uploadLink}</div>
                             ${emptyHint}
                         </div>`;
-                }).join('') : '';
+                }).join('');
                 const articleState = written ? 'is-written' : (choseUpload ? 'is-assigned' : 'needs-choice');
                 const guaranteeFee = lineGuaranteeFee(item);
                 const guaranteeFeeLabel = item.guarantee_fee_label || (guaranteeFee > 0 ? slbFormatPay(guaranteeFee) : '');
@@ -1568,7 +1582,7 @@
                             </button>
                         </div>
                         ${writingBrief}
-                        ${uploadPickers}
+                        ${pickerMarkup}
                         ${breakdown}
                         ${guaranteeNote}
                     </div>`;
@@ -1605,9 +1619,17 @@
                         </div>
                     </div>
                 `;
+                } catch (err) {
+                    console.error('Could not render cart line', err);
+                    html += '<div class="cart-item is-unready"><div class="cart-item-name">'
+                        + escapeHtml(item && item.name ? item.name : 'Website')
+                        + '</div><p class="small text-muted mb-0">Could not show this site. Refresh the page.</p></div>';
+                }
             });
-            container.innerHTML = html;
-            bindCartThemeSelects(container);
+            if (container) {
+                container.innerHTML = html;
+                bindCartThemeSelects(container);
+            }
         }
         
         const payEl = document.getElementById('cartTotalAmount');
@@ -1746,19 +1768,27 @@
 
     function openCart() {
         cartLastFocus = document.activeElement;
+        if (!cartSidebar) {
+            if (typeof window.__slbBootstrapOpenCart === 'function') {
+                return window.__slbBootstrapOpenCart();
+            }
+            return false;
+        }
         cartSidebar.classList.add('open');
-        cartOverlay.classList.add('show');
+        if (cartOverlay) cartOverlay.classList.add('show');
         document.body.classList.add('cart-open');
         cartSidebar.setAttribute('aria-hidden', 'false');
         try { sessionStorage.setItem('slb_cart_drawer_seen', '1'); } catch (_) {}
-        updateCartDisplay();
+        try { updateCartDisplay(); } catch (_) {}
         (closeCartBtn || getCartFocusable()[0])?.focus();
+        return true;
     }
     window.openCart = openCart;
 
     function closeCart() {
+        if (!cartSidebar) return;
         cartSidebar.classList.remove('open');
-        cartOverlay.classList.remove('show');
+        if (cartOverlay) cartOverlay.classList.remove('show');
         document.body.classList.remove('cart-open');
         cartSidebar.setAttribute('aria-hidden', 'true');
         const restore = cartLastFocus && document.contains(cartLastFocus)
@@ -1768,12 +1798,12 @@
         cartLastFocus = null;
     }
 
-    toggleCartBtn.addEventListener('click', openCart);
-    closeCartBtn.addEventListener('click', closeCart);
-    cartOverlay.addEventListener('click', closeCart);
+    toggleCartBtn?.addEventListener('click', openCart);
+    closeCartBtn?.addEventListener('click', closeCart);
+    cartOverlay?.addEventListener('click', closeCart);
 
     document.addEventListener('keydown', function (e) {
-        if (!cartSidebar.classList.contains('open')) return;
+        if (!cartSidebar || !cartSidebar.classList.contains('open')) return;
         if (e.key === 'Escape') {
             e.preventDefault();
             closeCart();
@@ -1852,7 +1882,7 @@
         });
     });
 
-    document.getElementById('cartItemsContainer').addEventListener('change', function (e) {
+    document.getElementById('cartItemsContainer')?.addEventListener('change', function (e) {
         const select = e.target.closest('.cart-homepage-select, .cart-sensitive-select');
         if (!select) return;
         const id = parseInt(select.dataset.id, 10);
@@ -1890,7 +1920,7 @@
         });
     }
 
-    document.getElementById('cartItemsContainer').addEventListener('click', function (e) {
+    document.getElementById('cartItemsContainer')?.addEventListener('click', function (e) {
         const upload = e.target.closest('.cart-item-upload-link, .cart-item-upload-cta');
         if (upload) {
             markReturnToCart();
@@ -1943,7 +1973,7 @@
         });
     });
 
-    document.getElementById('cartItemsContainer').addEventListener('change', function (e) {
+    document.getElementById('cartItemsContainer')?.addEventListener('change', function (e) {
         const field = e.target.closest('.cart-writing-target, .cart-writing-anchor');
         if (!field) return;
         const item = cartItemFromDataset(field);
@@ -1959,7 +1989,7 @@
     });
     
     // Cart item actions (event delegation)
-    document.getElementById('cartItemsContainer').addEventListener('click', function(e) {
+    document.getElementById('cartItemsContainer')?.addEventListener('click', function(e) {
         const target = e.target;
         const btn = target.closest('.decrease-qty, .increase-qty, .cart-item-remove');
         if (!btn || btn.disabled) return;
@@ -2018,7 +2048,7 @@
         updateCartDisplay();
     });
 
-    document.getElementById('cartItemsContainer').addEventListener('change', function(e) {
+    document.getElementById('cartItemsContainer')?.addEventListener('change', function(e) {
         const select = e.target.closest('.cart-article-select');
         if (!select) return;
         const id = parseInt(select.dataset.id, 10);
@@ -2084,7 +2114,7 @@
     });
     
     // Checkout from cart — pay only ready sites; incomplete lines stay in the cart
-    document.getElementById('checkoutFromCart').addEventListener('click', function() {
+    document.getElementById('checkoutFromCart')?.addEventListener('click', function() {
         if (cart.length === 0) {
             showToast('Your cart is empty!', 'error');
             return;
