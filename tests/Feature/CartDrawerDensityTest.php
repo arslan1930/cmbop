@@ -63,7 +63,7 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringNotContainsString('Assign a document to each website', $layout);
         $this->assertStringNotContainsString('Before Pay', $layout);
         $this->assertStringNotContainsString('Order document', $layout);
-        $this->assertStringContainsString('Upload article', $layout);
+        $this->assertStringContainsString('cartArticleCopy.upload_label', $layout);
         $this->assertStringContainsString('Upload another', $layout);
         $this->assertStringContainsString('function articleTitleLooksLikeId', $layout);
         $this->assertStringContainsString('function articlePickerLabel', $layout);
@@ -162,6 +162,7 @@ class CartDrawerDensityTest extends TestCase
             ->assertSee('id="checkoutFromCart"', false)
             ->assertSee('Choose an article option above to continue', false)
             ->assertDontSee('Assign a document to at least one website to checkout', false)
+            ->assertDontSee('1 article still needed', false)
             ->assertSee('buy-confidence', false)
             ->assertSee('What happens after you pay', false)
             ->assertDontSee('Assign a document to each website', false)

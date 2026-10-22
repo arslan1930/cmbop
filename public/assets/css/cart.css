@@ -565,7 +565,7 @@
   margin-top: .35rem;
   font-size: .72rem;
   font-weight: 600;
-  color: #b45309;
+  color: var(--brand-ink-muted, #697078);
   line-height: 1.35;
 }
 
@@ -861,4 +861,112 @@ body.cart-open .slb-toast-stack {
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--brand-ink-muted, #697078);
+}
+
+.cart-write-all {
+  display: none;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--brand-primary-border, #b8e4e4);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--brand-primary, #1a585e);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.cart-write-all.is-visible {
+  display: block;
+}
+
+.cart-item-choice-heading {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--brand-ink, #1f2937);
+  margin-bottom: 6px;
+}
+
+.cart-item-with-writing {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand-ink-muted, #697078);
+  margin: 0 0 8px;
+}
+
+.cart-choice-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cart-choice-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default, #e2e8f0);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--brand-ink, #1f2937);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cart-choice-option:hover,
+.cart-choice-option:focus {
+  border-color: var(--brand-primary-soft, #3faeb2);
+  color: var(--brand-ink, #1f2937);
+  text-decoration: none;
+}
+
+.cart-choice-option.is-selected {
+  border-color: var(--brand-primary, #1a585e);
+  background: var(--brand-primary-bg, #e6f5f5);
+  box-shadow: inset 3px 0 0 var(--brand-primary, #1a585e);
+}
+
+.cart-choice-option__title {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.cart-choice-option__help,
+.cart-choice-option__turnaround {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--brand-ink-muted, #697078);
+  line-height: 1.4;
+}
+
+.cart-item-steps {
+  margin-top: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--brand-ink-muted, #697078);
+}
+
+.cart-item-guarantee {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--brand-ink-muted, #697078);
+}
+
+.cart-item-article.is-written,
+.cart-item-article.is-assigned,
+.cart-item-article.needs-choice {
+  padding: 8px 0 0;
+}
+
+@media (max-width: 768px) {
+  .cart-choice-option {
+    padding: 12px;
+  }
+
+  .cart-choice-option__title {
+    font-size: 0.88rem;
+  }
 }

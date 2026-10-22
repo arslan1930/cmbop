@@ -1463,6 +1463,7 @@ class CatalogController extends Controller
             'removed_inactive_count' => 0,
             'removed_owned' => [],
             'removed_owned_count' => 0,
+            'article_copy' => app(CheckoutAddOnService::class)->cartArticleCopy(),
         ]);
     }
 
@@ -1793,6 +1794,7 @@ class CatalogController extends Controller
             'require_same_language' => $requireSame,
             'schedule' => $this->checkoutScheduleClientHint(),
             'fx' => app(CartDisplayFx::class)->syncWithCart($cart),
+            'article_copy' => app(CheckoutAddOnService::class)->cartArticleCopy(),
         ]);
     }
 
@@ -2527,6 +2529,7 @@ class CatalogController extends Controller
         $ids[$copyIndex] = $submission->id;
         $assigned = $this->applyCartLineContentIds($cart[$lineKey], $ids);
         $assigned['content_source'] = WritingFeeService::SOURCE_BUYER;
+        $assigned['article_choice'] = 'upload';
         $cart[$lineKey] = $this->normalizeCartLineForSite($site, $assigned);
         $mismatchNote = ContentSubmission::languageMismatchLabel(
             (string) $submission->language,

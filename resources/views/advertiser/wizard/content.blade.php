@@ -4,6 +4,7 @@
 
 @section('content')
 @php
+    $articleCopy = $articleCopy ?? app(\App\Services\Marketplace\CheckoutAddOnService::class)->cartArticleCopy();
     $usedIds = [];
     foreach ($cart as $row) {
         $ids = is_array($row['content_submission_ids'] ?? null) ? $row['content_submission_ids'] : [];
@@ -53,6 +54,14 @@
             ];
         }
     }
+    $unreadyCount = 0;
+    foreach ($placements as $placement) {
+        $line = $placement['line'];
+        $written = \App\Services\Marketplace\CheckoutAddOnService::isWrittenSource($line);
+        if (! $written && (int) $placement['selected_id'] <= 0) {
+            $unreadyCount++;
+        }
+    }
 @endphp
 <div class="container-fluid">
     <div class="wizard-chrome">
@@ -76,6 +85,9 @@
 
     <div class="row g-4">
         <div class="col-lg-8">
+            @if($unreadyCount >= 2)
+                <button type="button" class="cart-write-all is-visible mb-3" id="wizardWriteAll">{{ $articleCopy['write_all'] }}</button>
+            @endif
             <div class="d-flex flex-column gap-3" id="wizardContentLines">
                 @foreach($placements as $placement)
                     @php
@@ -112,6 +124,12 @@
                                         @endif
                                         · {{ format_money($line['price'] ?? 0) }}
                                     </div>
+                                    @unless($written)
+                                        <div class="cart-item-with-writing">
+                                            {{ $articleCopy['with_writing'] }}
+                                            {{ $writingTotalLabel !== '' ? $writingTotalLabel : format_money_pay(($line['price'] ?? 0) + ($line['writing_fee'] ?? 0)) }}
+                                        </div>
+                                    @endunless
                                 </div>
                                 <span class="badge {{ ($selectedId || $written) ? 'text-bg-success' : 'text-bg-secondary' }} line-status">
                                     {{ $written ? 'Writing ordered' : ($selectedId ? 'Article assigned' : 'Choose an option') }}
@@ -210,6 +228,7 @@
     const writeAllUrl = @json(route('advertiser.cart.write-all'));
     const libraryUrl = @json(route('advertiser.content-library', ['upload' => 1]));
     const csrf = @json(csrf_token());
+    const copy = @json($articleCopy);
     const payBtn = document.getElementById('wizardContinuePay');
     const readyNote = document.getElementById('wizardReadyNote');
     const proceedHint = document.getElementById('wizardProceedHint');
@@ -306,7 +325,6 @@
                 const cart = Array.isArray(data.cart) ? data.cart : [];
                 const ready = cart.some(lineFullyAssigned);
                 setReady(cart);
-                // Reload so option availability stays unique across placements.
                 if (ready || submissionId) {
                     setTimeout(() => window.location.reload(), 400);
                 }
@@ -416,6 +434,75 @@
             }
         });
     });
+
+    document.querySelectorAll('.wizard-upload-cta').forEach((button) => {
+        button.addEventListener('click', async function () {
+            const card = this.closest('.wizard-line');
+            const panel = card.querySelector('.wizard-upload-panel');
+            const feedback = card.querySelector('.line-feedback');
+            const status = card.querySelector('.line-status');
+            feedback.textContent = 'Saving…';
+            try {
+                const res = await fetch(configureUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: parseInt(card.getAttribute('data-site-id'), 10),
+                        sensitive_type: card.getAttribute('data-sensitive-type') || '',
+                        homepage_days: card.getAttribute('data-homepage-days') || 'none',
+                        content_source: 'buyer',
+                    }),
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    feedback.innerHTML = '<span class="text-danger">' + (data.error || data.message || 'Could not save') + '</span>';
+                    return;
+                }
+                this.classList.add('is-selected');
+                this.setAttribute('aria-pressed', 'true');
+                card.querySelector('.wizard-write-cta')?.classList.remove('is-selected');
+                if (panel) panel.classList.remove('d-none');
+                if (status && !card.querySelector('.wizard-article-select')?.value) {
+                    status.textContent = copy.heading;
+                    status.className = 'badge text-bg-secondary line-status';
+                }
+                const steps = card.querySelector('.cart-item-steps');
+                if (steps) steps.textContent = copy.upload_steps;
+                feedback.textContent = '';
+                setReady(Array.isArray(data.cart) ? data.cart : []);
+            } catch (e) {
+                feedback.innerHTML = '<span class="text-danger">Network error</span>';
+            }
+        });
+    });
+
+    const writeAll = document.getElementById('wizardWriteAll');
+    if (writeAll) {
+        writeAll.addEventListener('click', async function () {
+            writeAll.disabled = true;
+            try {
+                const res = await fetch(writeAllUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'Accept': 'application/json',
+                    },
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    writeAll.disabled = false;
+                    return;
+                }
+                window.location.reload();
+            } catch (e) {
+                writeAll.disabled = false;
+            }
+        });
+    }
 })();
 </script>
 @endsection

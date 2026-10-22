@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\FeatureOfferSetting;
 use App\Models\OrderItem;
+use App\Models\WritingSetting;
+use App\Services\ActivityLogger;
 use App\Services\Marketplace\ArticleWritingService;
 use App\Services\Marketplace\CheckoutAddOnService;
 use Illuminate\Http\RedirectResponse;

@@ -557,6 +557,7 @@
         || 'You upload → you assign → publisher publishes';
     let contentLibraryUploadUrl = @json(route('advertiser.content-library', ['upload' => 1]));
     let catalogUrl = @json(route('advertiser.catalog'));
+    let cartArticleCopy = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->cartArticleCopy());
     const catalogPath = @json(parse_url(route('advertiser.catalog'), PHP_URL_PATH) ?: '/advertiser/catalog');
 
     function slbCatalogReturn() {
@@ -809,6 +810,16 @@
         if (item?.writing_fee_label) return String(item.writing_fee_label);
         const fee = lineWritingFee(item);
         return slbFormatPay(fee > 0 ? fee : 35);
+    }
+
+    function lineWithWritingLabel(item) {
+        if (item?.writing_total_label) return String(item.writing_total_label);
+        const price = parseFloat(item?.price) || 0;
+        return slbFormatPay(price + lineWritingFee(item));
+    }
+
+    function lineChoseUpload(item) {
+        return String(item?.article_choice || '').toLowerCase() === 'upload' && !lineIsWritten(item);
     }
 
     function linePayAmount(item) {
@@ -1162,6 +1173,9 @@
             if (proceedHint) {
                 proceedHint.classList.add('d-none');
             }
+            if (writeAllBtn) {
+                writeAllBtn.classList.remove('is-visible');
+            }
             if (headerMeta) {
                 headerMeta.textContent = 'Choose how you\'ll get the article. Pay with wallet, card, or PayPal at checkout.';
             }
@@ -1253,6 +1267,7 @@
                 }
             }
             if (proceedHint) {
+                proceedHint.textContent = cartArticleCopy.proceed_hint;
                 proceedHint.classList.toggle('d-none', readyCount > 0);
             }
             if (totalLabel) {
@@ -1319,7 +1334,7 @@
                 const identityMeta = [siteDomain, metricBits.join(' · ')].filter(Boolean).join(' · ');
                 const placementIds = lineContentIds(item);
                 const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
-                const unitPrice = (parseFloat(item.price) || 0).toFixed(2);
+                const unitPrice = (parseFloat(item.price) || 0) + (lineIsWritten(item) ? lineWritingFee(item) : 0);
                 const priceLabel = qty > 1 ? (slbFormatPay(unitPrice) + ' × ' + qty) : slbFormatPay(unitPrice);
                 const homepageOptions = Array.isArray(item.homepage_options) ? item.homepage_options : [];
                 const sensitiveOptions = Array.isArray(item.sensitive_options) ? item.sensitive_options : [];
