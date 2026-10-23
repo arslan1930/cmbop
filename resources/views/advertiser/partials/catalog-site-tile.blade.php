@@ -22,8 +22,9 @@
     )) : [];
     $openDetailsId = trim((string) ($openDetailsId ?? ''));
     $masked = (bool) ($masked ?? false);
+    $initialsFallback = (bool) ($initialsFallback ?? false);
     $fallbackSrc = asset('assets/img/catalog-site-fallback.svg').'?v='.((string) (@filemtime(public_path('assets/img/catalog-site-fallback.svg')) ?: '1'));
-    if (! $masked) {
+    if (! $masked && ! $initialsFallback) {
         $faviconChain[] = $fallbackSrc;
         $faviconChain = array_values(array_unique($faviconChain));
         if ($faviconUrl === '') {
@@ -127,6 +128,10 @@
                  decoding="async"
                  class="catalog-tile__fallback-img">
         </span>
+        <span class="catalog-tile__initials"
+              title="Initials from the site host — not a country code"
+              aria-hidden="true"
+              hidden>{{ $initials }}</span>
     </span>
 @else
     <span class="{{ $tileClass }}"

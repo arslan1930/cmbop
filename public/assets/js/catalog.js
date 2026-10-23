@@ -218,6 +218,15 @@ function initCatalogExpandPreviewZoom(root) {
 function catalogBuyAriaLabel(btn, extra) {
     const name = (btn && btn.dataset && btn.dataset.name) || 'this site';
     const inCart = !!(btn && (btn.classList.contains('is-in-cart') || btn.dataset.inCart === '1'));
+    const isBulk = !!(btn && (btn.dataset.bulkHint === '1' || btn.hasAttribute('data-bulk-hint')));
+    if (isBulk) {
+        const packQty = parseInt(btn.dataset.bulkQty, 10);
+        const qty = Number.isFinite(packQty) && packQty > 0 ? packQty : 3;
+        if (inCart) {
+            return 'In cart — open cart, ' + name + ' ' + qty + '-article pack is already in your cart';
+        }
+        return 'Add ' + name + ' ' + qty + '-article pack to cart';
+    }
     if (inCart) {
         return 'In cart — open cart, ' + name + ' is already in your cart';
     }
@@ -588,6 +597,7 @@ window.addEventListener('pageshow', function (e) {
 /* ------------------------------------------------------------ bulk deal rail */
 
 const BULK_RAIL_COLLAPSED_KEY = 'catalog.bulkDeals.collapsed';
+let lastBulkSort = 'discount';
 
 /** Clears autoplay/search timers from the previous rail instance (live refresh). */
 let bulkRailTeardown = null;
@@ -628,12 +638,13 @@ function bulkRailWriteCollapsed(collapsed) {
 }
 
 /**
- * Paged bulk offers (6 per batch) with a smooth R→L slide (translateX).
+ * Paged bulk offers (6 per wrapping 2-row page) with a smooth R→L slide.
  *
  * ← / → and numbered buttons move between pages; a slow autoplay advances
  * when the section is idle. Hover/focus (and deal search) pause autoplay.
  * Trackpad / pointer horizontal swipe flips pages the same way.
  * Search matches the visible host / listing name only — never a hidden domain.
+ * Sort (discount / price / DR) is client-side on the painted cards.
  */
 function initBulkDealRail() {
     // Stop timers from a previous instance before binding a new section.
@@ -653,7 +664,15 @@ function initBulkDealRail() {
     const toggleLabel = section.querySelector('[data-bulk-toggle-label]');
     const searchInput = document.getElementById('catalogSearchInput')
         || section.querySelector('[data-bulk-search]');
+    const sortSelect = section.querySelector('[data-bulk-sort]');
     if (!track) return;
+
+    if (sortSelect && lastBulkSort) {
+        const allowed = { discount: 1, price: 1, dr: 1 };
+        if (allowed[lastBulkSort] && sortSelect.value !== lastBulkSort) {
+            sortSelect.value = lastBulkSort;
+        }
+    }
 
     // Ensure viewport wrapper exists (live fragment or older markup without it).
     let viewport = section.querySelector('[data-bulk-viewport]');
@@ -668,7 +687,43 @@ function initBulkDealRail() {
     }
 
     const pageSize = Math.max(1, parseInt(section.getAttribute('data-bulk-page-size') || '6', 10) || 6);
-    const allCards = Array.prototype.slice.call(section.querySelectorAll('[data-bulk-card]'));
+    let allCards = Array.prototype.slice.call(section.querySelectorAll('[data-bulk-card]'));
+
+    function currentBulkSort() {
+        const fromSelect = sortSelect ? String(sortSelect.value || '').trim() : '';
+        const fromSection = String(section.getAttribute('data-bulk-sort') || '').trim();
+        const mode = fromSelect || lastBulkSort || fromSection || 'discount';
+        if (mode === 'price' || mode === 'dr' || mode === 'discount') {
+            lastBulkSort = mode;
+            return mode;
+        }
+        lastBulkSort = 'discount';
+        return 'discount';
+    }
+
+    function cardSortValue(card, mode) {
+        if (mode === 'price') {
+            return parseFloat(card.getAttribute('data-bulk-price') || '0') || 0;
+        }
+        if (mode === 'dr') {
+            return -(parseInt(card.getAttribute('data-bulk-dr') || '0', 10) || 0);
+        }
+        return -(parseFloat(card.getAttribute('data-bulk-discount') || '0') || 0);
+    }
+
+    function sortBulkCards(cards) {
+        const mode = currentBulkSort();
+        return cards.slice().sort(function (a, b) {
+            const delta = cardSortValue(a, mode) - cardSortValue(b, mode);
+            if (delta !== 0) return delta;
+            const aDr = -(parseInt(a.getAttribute('data-bulk-dr') || '0', 10) || 0);
+            const bDr = -(parseInt(b.getAttribute('data-bulk-dr') || '0', 10) || 0);
+            if (aDr !== bDr) return aDr - bDr;
+            return 0;
+        });
+    }
+
+    allCards = sortBulkCards(allCards);
     const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const AUTOPLAY_MS = 7000;
     const SLIDE_MS = 560;
@@ -1037,6 +1092,48 @@ function initBulkDealRail() {
         });
     }
 
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function () {
+            lastBulkSort = currentBulkSort();
+            section.setAttribute('data-bulk-sort', lastBulkSort);
+            allCards = sortBulkCards(allCards);
+            applySearch(searchQuery());
+        });
+    }
+
+    section.addEventListener('click', function (e) {
+        const view = e.target.closest('[data-bulk-view-site]');
+        if (!view) return;
+        e.preventDefault();
+        const siteId = String(view.getAttribute('data-bulk-view-site') || '');
+        const host = String(view.getAttribute('data-bulk-view-search') || '').trim();
+        const searchEl = document.getElementById('catalogSearchInput');
+        if (searchEl && host) {
+            searchEl.value = host;
+            searchEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const arrow = siteId ? document.getElementById('arrow-' + siteId) : null;
+        if (arrow) {
+            arrow.click();
+            const row = document.querySelector('.site-row[data-id="' + siteId + '"]');
+            if (row && typeof row.scrollIntoView === 'function') {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+        const cardToggle = siteId
+            ? document.querySelector('.catalog-mobile-card[data-id="' + siteId + '"] .catalog-card-details-toggle')
+            : null;
+        if (cardToggle) {
+            cardToggle.click();
+            return;
+        }
+        const href = view.getAttribute('href');
+        if (href && !(searchEl && host)) {
+            window.location.assign(href);
+        }
+    });
+
     function applyCollapsed(collapsed) {
         section.classList.toggle('is-collapsed', collapsed);
         if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
@@ -1060,6 +1157,9 @@ function initBulkDealRail() {
     setVisibleCards(allCards, { reusePanels: true });
     applyCollapsed(bulkRailReadCollapsed());
     startAutoplay();
+    if (typeof window.catalogSyncInCartButtons === 'function' && Array.isArray(window.advertiserCart)) {
+        window.catalogSyncInCartButtons(window.advertiserCart);
+    }
 
     window.revealBulkDealForSite = function (siteId) {
         const id = String(siteId || '');
@@ -4706,8 +4806,13 @@ window.catalogSyncInCartButtons = function catalogSyncInCartButtons(cartItems) {
         }
     });
     document.querySelectorAll('.buy-now').forEach(function (btn) {
+        const isBulk = btn.dataset.bulkHint === '1' || btn.hasAttribute('data-bulk-hint');
         if (!btn.dataset.defaultHtml) {
-            if (btn.classList.contains('is-in-cart') || btn.dataset.inCart === '1') {
+            if (isBulk && (btn.classList.contains('is-in-cart') || btn.dataset.inCart === '1')) {
+                const packQty = parseInt(btn.dataset.bulkQty, 10);
+                const qty = Number.isFinite(packQty) && packQty > 0 ? packQty : 3;
+                btn.dataset.defaultHtml = 'Add ' + qty + ' to cart';
+            } else if (btn.classList.contains('is-in-cart') || btn.dataset.inCart === '1') {
                 btn.dataset.defaultHtml = '<i class="fa-solid fa-cart-plus" aria-hidden="true"></i> <span>Add to cart</span>';
             } else {
                 btn.dataset.defaultHtml = btn.innerHTML;
@@ -4717,7 +4822,9 @@ window.catalogSyncInCartButtons = function catalogSyncInCartButtons(cartItems) {
         btn.classList.toggle('is-in-cart', inCart);
         if (inCart) {
             btn.dataset.inCart = '1';
-            btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> <span>In cart</span>';
+            btn.innerHTML = isBulk
+                ? 'In cart ✓'
+                : '<i class="fa-solid fa-check" aria-hidden="true"></i> <span>In cart</span>';
             btn.setAttribute('aria-label', catalogBuyAriaLabel(btn));
             btn.title = 'Already in cart — open to assign an article or change options';
         } else if (btn.dataset.busy !== '1') {

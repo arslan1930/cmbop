@@ -608,6 +608,7 @@ class CatalogController extends Controller
             ->view('advertiser.partials.catalog-bulk-deals', [
                 'bulkDeals' => $bulkDeals,
                 'urlVisibility' => $urlVisibility,
+                'cart' => $this->leftoverSessionCart(),
             ])
             ->header('Cache-Control', 'no-store, private');
     }
@@ -729,7 +730,39 @@ class CatalogController extends Controller
             }
         }
 
-        return $bulkDeals;
+        return $this->sortBulkDealCollection($bulkDeals, $this->bulkDealSortMode($request));
+    }
+
+    /**
+     * Strip sort: discount | price | dr. Collection-only — no extra SQL.
+     */
+    private function bulkDealSortMode(Request $request): string
+    {
+        $sort = strtolower(trim((string) $request->input('bulk_sort', 'discount')));
+
+        return in_array($sort, ['discount', 'price', 'dr'], true) ? $sort : 'discount';
+    }
+
+    /**
+     * @param  Collection<int, Site>  $bulkDeals
+     * @return Collection<int, Site>
+     */
+    private function sortBulkDealCollection($bulkDeals, string $sort)
+    {
+        return $bulkDeals
+            ->sortBy(function (Site $site) use ($sort) {
+                $discount = (float) ($site->bulk_pack_discount_percent ?? 0);
+                $price = (float) ($site->bulk_pack_now_total ?? 0);
+                $dr = (int) ($site->dr ?? 0);
+                $id = (int) $site->id;
+
+                return match ($sort) {
+                    'price' => [$price, -$discount, -$dr, $id],
+                    'dr' => [-$dr, -$discount, $id],
+                    default => [-$discount, -$dr, $id],
+                };
+            })
+            ->values();
     }
 
     /**
