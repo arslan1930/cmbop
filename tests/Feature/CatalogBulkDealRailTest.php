@@ -13,10 +13,9 @@ use Tests\TestCase;
 
 /**
  * Bulk discount deals sit under the Spendable banner (above the Catalog
- * heading) in fixed batches of six with a centered page pager
- * (← 1 2 3 → + Page X of Y), a smooth R→L translateX slideshow, trackpad/pointer
- * swipe between pages, and a site search beside Hide — not a wrapping grid
- * or a horizontal scrollbar rail.
+ * heading) in fixed batches of six as a wrapping 2-row grid (3×2 desktop)
+ * with a centered page pager (← 1 2 3 → + Page X of Y). No horizontal
+ * scrollbar and no half-cards.
  */
 class CatalogBulkDealRailTest extends TestCase
 {
@@ -112,8 +111,12 @@ class CatalogBulkDealRailTest extends TestCase
 
         $html = $this->catalogHtml();
 
-        $this->assertStringContainsString('catalog-bulk-count">7<', $html);
+        $this->assertStringContainsString('catalog-bulk-count">7 deals<', $html);
         $this->assertStringContainsString('Use the catalog search above to filter deals too.', $html);
+        $this->assertStringContainsString('data-bulk-sort', $html);
+        $this->assertStringContainsString('Biggest discount', $html);
+        $this->assertStringContainsString('Lowest price', $html);
+        $this->assertStringContainsString('Highest DR', $html);
         $this->assertStringContainsString('id="catalogSearchInput"', $html);
         $this->assertStringNotContainsString('id="bulkDealSearch"', $html);
         $this->assertStringContainsString('data-bulk-toggle', $html);
@@ -128,22 +131,22 @@ class CatalogBulkDealRailTest extends TestCase
 
         $html = $this->catalogHtml();
 
-        // Visible line is the clean host. Native title lives only on the URL
-        // (data-no-tip so glass-tip cannot cover the name or badge).
+        // One visible domain line, with a native title for the full URL.
         $this->assertStringContainsString('bulk-deal-card__name', $html);
         $this->assertStringContainsString('>bulk-deal-1.example<', $html);
         $this->assertMatchesRegularExpression(
-            '/bulk-deal-card__url[^>]*data-no-tip[^>]*title="https:\/\/bulk-deal-1\.example"/',
+            '/bulk-deal-card__name[^>]*data-no-tip[^>]*title="https:\/\/bulk-deal-1\.example"/',
             $html
         );
-        $this->assertDoesNotMatchRegularExpression(
-            '/bulk-deal-card__name[^>]*title=/',
-            $html
-        );
+        $this->assertSame(1, substr_count($html, '>bulk-deal-1.example<'));
         $this->assertStringContainsString('https://bulk-deal-1.example', $html);
         $this->assertStringContainsString('Bulk Deal Site 1', $html);
-        $this->assertStringContainsString('bulk-deal-card__url', $html);
         $this->assertStringContainsString('rel="noopener nofollow"', $html);
+        $this->assertStringContainsString('View site', $html);
+        $this->assertStringContainsString('data-bulk-view-site', $html);
+        $this->assertStringContainsString('3 articles', $html);
+        $this->assertStringContainsString(' each', $html);
+        $this->assertStringContainsString('btn-primary buy-now bulk-deal-card__cta', $html);
         $this->assertStringNotContainsString('class="bulk-deal-card__tld"', $html);
         $this->assertStringContainsString('data-bulk-deal-card', $html);
         $this->assertStringContainsString('data-bulk-remember="catalog.bulkDeals.collapsed"', $html);
@@ -224,7 +227,7 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertSame(12 * $rails, substr_count($html, 'bulk-deal-card__cta'));
 
         $this->assertMatchesRegularExpression(
-            '/\.catalog-bulk-page-panel \{[^}]*grid-template-columns: repeat\(6,/s',
+            '/\.catalog-bulk-page-panel \{[^}]*grid-template-columns: repeat\(3,/s',
             $css
         );
         $this->assertMatchesRegularExpression(
@@ -321,6 +324,11 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertStringContainsString('function initBulkDealRail(', $js);
         $this->assertStringContainsString("'catalog.bulkDeals.collapsed'", $js);
         $this->assertStringContainsString('data-bulk-page-size', $js);
+        $this->assertStringContainsString('data-bulk-sort', $js);
+        $this->assertStringContainsString('sortBulkCards', $js);
+        $this->assertStringContainsString('lastBulkSort', $js);
+        $this->assertStringContainsString('data-bulk-view-site', $js);
+        $this->assertStringContainsString('In cart ✓', $js);
         $this->assertStringContainsString('Page ', $js);
         $this->assertStringContainsString('of ', $js);
         $this->assertStringContainsString('AUTOPLAY_MS', $js);
@@ -369,12 +377,12 @@ class CatalogBulkDealRailTest extends TestCase
         $html = $this->catalogHtml();
 
         $this->assertMatchesRegularExpression(
-            '/bulk-deal-card__url[^>]*>www-bulk\.example</',
+            '/bulk-deal-card__name[^>]*>www-bulk\.example</',
             $html
         );
         $this->assertStringContainsString('https://www.www-bulk.example', $html);
         $this->assertDoesNotMatchRegularExpression(
-            '/bulk-deal-card__url[^>]*>https?:\/\//',
+            '/bulk-deal-card__name[^>]*>https?:\/\//',
             $html
         );
     }
@@ -413,7 +421,8 @@ class CatalogBulkDealRailTest extends TestCase
         $midPos = strpos($html, 'data-bulk-host="mid-dr-deal.example"');
         $this->assertNotFalse($highPos);
         $this->assertNotFalse($midPos);
-        $this->assertLessThan($midPos, $highPos);
+        // Default sort is biggest discount (mid 12% before high 10%).
+        $this->assertLessThan($highPos, $midPos);
         $this->assertStringContainsString('and save', $html);
         $this->assertStringContainsString('on these live deals.', $html);
         $this->assertStringNotContainsString('save 10–80%', $html);
@@ -501,18 +510,15 @@ class CatalogBulkDealRailTest extends TestCase
                 'bulk-deal-16.example',
             ], $hosts[1] ?? []);
 
-            preg_match_all(
-                '/data-bulk-page-panel[\s\S]*?(?=data-bulk-page-panel|$)/',
-                $markup,
-                $panels
-            );
-            $this->assertCount(3, $panels[0] ?? []);
-            $this->assertSame(6, substr_count($panels[0][0], 'data-bulk-deal-card'));
-            $this->assertSame(6, substr_count($panels[0][1], 'data-bulk-deal-card'));
-            $this->assertSame(2, substr_count($panels[0][2], 'data-bulk-deal-card'));
-            $this->assertStringContainsString('data-bulk-host="top-rail.example"', $panels[0][0]);
-            $this->assertStringContainsString('data-bulk-host="bulk-deal-9.example"', $panels[0][1]);
-            $this->assertStringContainsString('data-bulk-host="bulk-deal-15.example"', $panels[0][2]);
+            $panels = preg_split('/data-bulk-page-panel/', $markup);
+            array_shift($panels);
+            $this->assertCount(3, $panels);
+            $this->assertSame(6, substr_count($panels[0], 'data-bulk-deal-card'));
+            $this->assertSame(6, substr_count($panels[1], 'data-bulk-deal-card'));
+            $this->assertSame(2, substr_count($panels[2], 'data-bulk-deal-card'));
+            $this->assertStringContainsString('data-bulk-host="top-rail.example"', $panels[0]);
+            $this->assertStringContainsString('data-bulk-host="bulk-deal-9.example"', $panels[1]);
+            $this->assertStringContainsString('data-bulk-host="bulk-deal-15.example"', $panels[2]);
         }
     }
 
@@ -610,11 +616,12 @@ class CatalogBulkDealRailTest extends TestCase
 
         $html = $this->catalogHtml();
 
-        // Pack “now” floors at publisher payout; badge shows effective ~11.5%, not nominal 20/15.
-        $this->assertMatchesRegularExpression('/bulk-deal-card__pct[\s\S]*?Sale −11\.5%/', $html);
+        // Pack “now” floors at publisher payout; badge shows rounded effective %, not nominal 20/15.
+        $this->assertMatchesRegularExpression('/bulk-deal-card__pct[\s\S]*?Sale −12%/', $html);
         $this->assertStringNotContainsString('Sale −20%', $html);
         $this->assertStringNotContainsString('Bulk −15%', $html);
         $this->assertStringContainsString('Site sale applies on this pack', $html);
+        $this->assertStringContainsString('Save ', $html);
     }
 
     public function test_rail_badge_keeps_bulk_percent_when_bulk_beats_custom(): void
@@ -629,13 +636,134 @@ class CatalogBulkDealRailTest extends TestCase
 
         $html = $this->catalogHtml();
 
-        // Pack floors to the same €100 “now”; badge is effective, not nominal −15%.
+        // Pack floors to the same €100 “now”; badge is rounded effective, not nominal −15%.
         $this->assertMatchesRegularExpression(
-            '/bulk-deal-card__pct[\s\S]*?−11\.5%/',
+            '/bulk-deal-card__pct[\s\S]*?−12%/',
             $html
         );
         $this->assertStringNotContainsString('Sale −10%', $html);
         $this->assertStringNotContainsString('Sale −15%', $html);
         $this->assertStringNotContainsString('Sale −11.5%', $html);
+    }
+
+    public function test_deal_cards_show_existing_stats_and_skip_missing_ones(): void
+    {
+        $this->makeBulkSite(1, [
+            'site_name' => 'Stats Deal',
+            'site_url' => 'https://stats-deal.example',
+            'domain' => 'stats-deal.example',
+            'traffic' => 25000,
+            'country' => 'de',
+            'countries' => ['de'],
+            'language' => 'de',
+            'languages' => ['de'],
+            'link_type' => 'dofollow',
+        ]);
+        $this->makeBulkSite(2, [
+            'site_name' => 'Sparse Deal',
+            'site_url' => 'https://sparse-deal.example',
+            'domain' => 'sparse-deal.example',
+            'traffic' => 0,
+            'country' => '',
+            'countries' => [],
+            'language' => '',
+            'languages' => [],
+            'link_type' => 'nofollow',
+        ]);
+
+        $html = $this->catalogHtml();
+
+        $this->assertMatchesRegularExpression(
+            '/data-bulk-host="stats-deal\.example"[\s\S]*?Traffic <strong>25K<\/strong>/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/data-bulk-host="stats-deal\.example"[\s\S]*?DoFollow/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/data-bulk-host="stats-deal\.example"[\s\S]*?German/',
+            $html
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/data-bulk-host="sparse-deal\.example"[\s\S]{0,1800}?Traffic /',
+            $html
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/data-bulk-host="sparse-deal\.example"[\s\S]{0,1800}?DoFollow/',
+            $html
+        );
+        $this->assertStringNotContainsString('bulk-deal-card__expiry', $html);
+    }
+
+    public function test_sale_deal_shows_expiry_only_when_an_end_date_exists(): void
+    {
+        $this->makeBulkSite(1, [
+            'site_name' => 'Expiring Sale Deal',
+            'site_url' => 'https://expiring-sale.example',
+            'domain' => 'expiring-sale.example',
+            'bulk_discount_percent' => 10,
+            'custom_discount_percent' => 20,
+            'custom_discount_starts_at' => now()->subDay(),
+            'custom_discount_ends_at' => now()->addDays(4),
+        ]);
+
+        $html = $this->catalogHtml();
+
+        $this->assertStringContainsString('bulk-deal-card__expiry', $html);
+        $this->assertStringContainsString('Ends ', $html);
+    }
+
+    public function test_deal_cta_is_in_cart_when_the_site_is_already_in_session_cart(): void
+    {
+        $site = $this->makeBulkSite(1);
+
+        $html = (string) $this->actingAs($this->advertiser)
+            ->withSession([
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'quantity' => 3,
+                    'bulk_pack' => true,
+                ]],
+            ])
+            ->get(route('advertiser.catalog'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/bulk-deal-card__cta is-in-cart[^>]*>[\s\S]*?In cart ✓/',
+            $html
+        );
+        $this->assertStringContainsString('data-in-cart="1"', $html);
+    }
+
+    public function test_bulk_sort_query_orders_lowest_pack_price_first(): void
+    {
+        $this->makeBulkSite(1, [
+            'site_name' => 'Dear Pack',
+            'site_url' => 'https://dear-pack.example',
+            'domain' => 'dear-pack.example',
+            'price' => 200,
+            'dr' => 40,
+            'bulk_discount_percent' => 10,
+        ]);
+        $this->makeBulkSite(2, [
+            'site_name' => 'Cheap Pack',
+            'site_url' => 'https://cheap-pack.example',
+            'domain' => 'cheap-pack.example',
+            'price' => 80,
+            'dr' => 20,
+            'bulk_discount_percent' => 10,
+        ]);
+
+        $html = $this->catalogHtml(['bulk_sort' => 'price']);
+
+        $cheapPos = strpos($html, 'data-bulk-host="cheap-pack.example"');
+        $dearPos = strpos($html, 'data-bulk-host="dear-pack.example"');
+        $this->assertNotFalse($cheapPos);
+        $this->assertNotFalse($dearPos);
+        $this->assertLessThan($dearPos, $cheapPos);
+        $this->assertStringContainsString('option value="price" selected', $html);
     }
 }
