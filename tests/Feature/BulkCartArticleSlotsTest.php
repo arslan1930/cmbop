@@ -288,4 +288,83 @@ class BulkCartArticleSlotsTest extends TestCase
         $this->assertStringContainsString('€300.00', $html);
         $this->assertStringNotContainsString('€288.15', $html);
     }
+
+    public function test_cart_drawer_renders_pack_domain_and_three_article_slots(): void
+    {
+        $site = $this->makeBulkSite();
+
+        $payload = $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.add'), [
+                'id' => $site->id,
+                'bulk' => 1,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json();
+
+        $line = $payload['cart'][0];
+        $this->assertSame('bulk-pack.example', $line['domain']);
+        $this->assertSame(3, (int) $line['quantity']);
+        $this->assertTrue((bool) $line['bulk_pack']);
+        $this->assertSame([0, 0, 0], array_values($line['content_submission_ids'] ?? []));
+        $this->assertArrayHasKey('article_copy', $payload);
+        $this->assertSame('Choose an article option above to continue', $payload['article_copy']['proceed_hint'] ?? null);
+
+        $layout = (string) file_get_contents(resource_path('views/advertiser/layouts/app.blade.php'));
+        $this->assertStringContainsString('const pickerMarkup = written ? \'\' : placementIds.map', $layout);
+        $this->assertStringContainsString('${pickerMarkup}', $layout);
+        $this->assertStringNotContainsString('${uploadPickers}', $layout);
+        $this->assertStringContainsString('data-cart-retry-line', $layout);
+        $this->assertStringContainsString('Use Retry to load article choices for this pack.', $layout);
+        $this->assertStringNotContainsString('Could not show this site. Refresh the page.', $layout);
+        $this->assertStringContainsString("const siteName = siteDomain || item.name || 'Website'", $layout);
+    }
+
+    public function test_assigned_pack_articles_reach_checkout_pay(): void
+    {
+        $site = $this->makeBulkSite();
+        $a = $this->createApprovedSubmission($this->advertiser, null, 0, 'one', 'https://example.com/1');
+        $b = $this->createApprovedSubmission($this->advertiser, null, 1, 'two', 'https://example.com/2');
+        $c = $this->createApprovedSubmission($this->advertiser, null, 2, 'three', 'https://example.com/3');
+        $a->update(['title' => 'Pack Slot One']);
+        $b->update(['title' => 'Pack Slot Two']);
+        $c->update(['title' => 'Pack Slot Three']);
+
+        $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.add'), [
+                'id' => $site->id,
+                'bulk' => 1,
+            ])
+            ->assertOk();
+
+        $saved = $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.save'), [
+                'cart' => [[
+                    'id' => $site->id,
+                    'quantity' => 3,
+                    'bulk_pack' => true,
+                    'article_choice' => 'upload',
+                    'content_submission_ids' => [$a->id, $b->id, $c->id],
+                ]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('cart.0');
+
+        $this->assertSame(
+            [$a->id, $b->id, $c->id],
+            array_values(array_map('intval', $saved['content_submission_ids'] ?? []))
+        );
+
+        $html = $this->actingAs($this->advertiser)
+            ->get(route('advertiser.checkout'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Pack Slot One', $html);
+        $this->assertStringContainsString('Pack Slot Two', $html);
+        $this->assertStringContainsString('Pack Slot Three', $html);
+        $this->assertStringContainsString('Pay now', $html);
+        $this->assertStringContainsString('bulk-pack.example', $html);
+    }
 }

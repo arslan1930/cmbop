@@ -83,6 +83,11 @@ body.role-shell-advertiser:has(.catalog-page) {
   );
 }
 
+/* Keep the help FAB off the catalog filter row / Reset control. */
+body.role-shell-advertiser:has(.catalog-page) .help-fab {
+  bottom: calc(22px + var(--slb-live-chat-footer-offset, 72px));
+}
+
 body.role-shell-advertiser { --role-accent: #1a585e; }
 body.role-shell-publisher { --role-accent: #c45c26; }
 body.role-shell-admin { --role-accent: #1a585e; }

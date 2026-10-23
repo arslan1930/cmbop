@@ -286,6 +286,8 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertStringContainsString('.bulk-deal-card__dofollow', $css);
         $this->assertStringContainsString('.bulk-deal-card__each', $css);
         $this->assertStringContainsString('.bulk-deal-card__best', $css);
+        $this->assertStringContainsString('min-height: 1.05em', $css);
+        $this->assertStringContainsString('.bulk-deal-card__flag-code', $css);
         $this->assertStringContainsString('width: 32px', $css);
         $this->assertMatchesRegularExpression(
             '/\.catalog-bulk-section \.bulk-deal-card__cta\.btn[\s\S]*?height: 30px/s',
@@ -351,6 +353,7 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertStringContainsString('lastBulkSort', $js);
         $this->assertStringContainsString('data-bulk-view-site', $js);
         $this->assertStringContainsString('function markBestDeals(', $js);
+        $this->assertStringContainsString('winners.length !== 1', $js);
         $this->assertStringContainsString('data-bulk-toggle-icon', $js);
         $this->assertStringContainsString('Hide deals', $js);
         $this->assertStringContainsString('Show deals', $js);
@@ -720,7 +723,8 @@ class CatalogBulkDealRailTest extends TestCase
             '/data-bulk-host="sparse-deal\.example"[\s\S]{0,1800}?DoFollow/',
             $html
         );
-        $this->assertStringNotContainsString('bulk-deal-card__expiry', $html);
+        $this->assertStringContainsString('bulk-deal-card__expiry', $html);
+        $this->assertStringNotContainsString('Ends ', $html);
     }
 
     public function test_sale_deal_shows_expiry_only_when_an_end_date_exists(): void
@@ -792,6 +796,31 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertNotFalse($dearPos);
         $this->assertLessThan($dearPos, $cheapPos);
         $this->assertStringContainsString('option value="price" selected', $html);
+    }
+
+    public function test_tied_saves_do_not_get_a_best_deal_tag(): void
+    {
+        $this->makeBulkSite(1, [
+            'site_name' => 'Tie Save A',
+            'site_url' => 'https://tie-a.example',
+            'domain' => 'tie-a.example',
+            'price' => 100,
+            'dr' => 30,
+            'bulk_discount_percent' => 10,
+        ]);
+        $this->makeBulkSite(2, [
+            'site_name' => 'Tie Save B',
+            'site_url' => 'https://tie-b.example',
+            'domain' => 'tie-b.example',
+            'price' => 100,
+            'dr' => 40,
+            'bulk_discount_percent' => 10,
+        ]);
+
+        $html = $this->catalogHtml();
+
+        $this->assertStringNotContainsString('is-best-deal', $html);
+        $this->assertStringNotContainsString('bulk-deal-card__best', $html);
     }
 
     public function test_each_page_marks_only_the_highest_save_as_best_deal(): void

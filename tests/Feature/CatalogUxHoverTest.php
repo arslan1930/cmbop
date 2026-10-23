@@ -154,7 +154,7 @@ class CatalogUxHoverTest extends TestCase
         $formCss = (string) file_get_contents(public_path('assets/css/form-system.css'));
         $this->assertStringContainsString('.catalog-page.is-live-search .catalog-js-fallback-submit', $css);
         $this->assertMatchesRegularExpression(
-            '/\.catalog-page \.filter-presets\[data-preset-group="price"\] \{[^}]*flex-wrap:\s*wrap/s',
+            '/\.catalog-page \.filter-presets\[data-preset-group="price"\] \{[^}]*flex-wrap:\s*nowrap/s',
             $css
         );
         $this->assertMatchesRegularExpression(

@@ -158,6 +158,8 @@ class CartDrawerDensityTest extends TestCase
         $this->assertStringContainsString('width: min(420px, 94vw)', $css);
         $this->assertStringContainsString('max-height: 100vh', $css);
         $this->assertStringContainsString('max-height: 100dvh', $css);
+        $this->assertStringContainsString('bottom: 0', $css);
+        $this->assertStringContainsString('body.cart-open', $css);
         $this->assertStringContainsString('flex: 1 1 auto', $css);
         $this->assertStringContainsString('flex-shrink: 0', $css);
         $this->assertDoesNotMatchRegularExpression('/^\s*height:\s*100vh;/m', $css);

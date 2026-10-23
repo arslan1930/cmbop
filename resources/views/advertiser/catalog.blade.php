@@ -46,7 +46,7 @@
             transform:none!important
         }
         /* Price chips: do not shrink into two clipped lines inside the pill. */
-        .catalog-page .filter-presets[data-preset-group="price"]{display:flex;flex-wrap:wrap;gap:6px;max-width:100%}
+        .catalog-page .filter-presets[data-preset-group="price"]{display:flex;flex-wrap:nowrap;gap:6px;max-width:100%;overflow-x:auto}
         .catalog-page .filter-preset{flex:0 0 auto;width:auto;white-space:nowrap;padding:0 10px;height:24px;font-size:11px;font-weight:600}
         .catalog-page .site-chip--sensitive{background:var(--brand-primary-bg,#e6f5f5)!important;color:var(--brand-primary,#1a585e)!important;border-color:var(--brand-primary-border,#b8e4e4)!important}
         .catalog-page .catalog-filter-actions #toggleMoreFiltersBtn,

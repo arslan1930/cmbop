@@ -625,6 +625,9 @@
         if (data?.writing_guarantee_note) writingGuaranteeNote = String(data.writing_guarantee_note);
         if (data?.writing_steps_write) writingStepsWrite = String(data.writing_steps_write);
         if (data?.writing_steps_upload) writingStepsUpload = String(data.writing_steps_upload);
+        if (data?.article_copy && typeof data.article_copy === 'object') {
+            cartArticleCopy = Object.assign({}, cartArticleCopy, data.article_copy);
+        }
         if (window.__slbMoney) {
             const pageCurrency = String(window.__slbMoney.currency || 'EUR').toUpperCase();
             const fxCurrency = String(data?.fx?.currency || '').toUpperCase();
@@ -839,10 +842,14 @@
         return slbFormatPay(fee > 0 ? fee : 35);
     }
 
+    function lineWithWritingAmount(item) {
+        const price = parseFloat(item?.price) || 0;
+        return price + lineWritingFee(item);
+    }
+
     function lineWithWritingLabel(item) {
         if (item?.writing_total_label) return String(item.writing_total_label);
-        const price = parseFloat(item?.price) || 0;
-        return slbFormatPay(price + lineWritingFee(item));
+        return slbFormatPay(lineWithWritingAmount(item));
     }
 
     function lineChoseUpload(item) {
@@ -1262,10 +1269,6 @@
             if (writeAllBtn) {
                 writeAllBtn.classList.add('d-none');
             }
-            if (stepsEl) {
-                stepsEl.classList.add('d-none');
-                stepsEl.textContent = writingStepsWrite;
-            }
             if (totalLabel) {
                 totalLabel.textContent = 'Projected total';
             }
@@ -1310,12 +1313,20 @@
                 const help = document.getElementById('cartExplainerHelp');
                 const turnaround = document.getElementById('cartExplainerTurnaround');
                 const steps = document.getElementById('cartExplainerSteps');
-                if (title) title.textContent = cartArticleCopy.explainer_title || cartArticleCopy.heading;
-                if (help) help.textContent = cartArticleCopy.write_help;
-                if (turnaround) turnaround.textContent = cartArticleCopy.turnaround_label;
-                if (steps) steps.textContent = cartArticleCopy.write_steps;
-                explainer.classList.remove('d-none');
-                if (!explainer.dataset.userToggled) {
+                const helpText = String(cartArticleCopy.write_help || writingExplainer || '').trim();
+                const turnText = String(cartArticleCopy.turnaround_label || (writingTurnaroundText
+                    ? ('Typical turnaround: ' + writingTurnaroundText)
+                    : '')).trim();
+                const stepsText = String(cartArticleCopy.write_steps || writingStepsWrite || '').trim();
+                if (title) title.textContent = cartArticleCopy.explainer_title || cartArticleCopy.heading || 'Writing, turnaround, and next steps';
+                if (help) help.textContent = helpText;
+                if (turnaround) turnaround.textContent = turnText;
+                if (steps) steps.textContent = stepsText;
+                const hasCopy = !!(helpText || turnText || stepsText);
+                explainer.classList.toggle('d-none', !hasCopy);
+                if (!hasCopy) {
+                    explainer.open = false;
+                } else if (!explainer.dataset.userToggled) {
                     explainer.open = missing > 0;
                 }
             }
@@ -1386,10 +1397,9 @@
                 const itemKey = getCartItemKey(item);
                 const itemKeyAttr = escapeHtml(itemKey);
                 const sensitiveAttr = escapeHtml(item.sensitive_type || '');
-                const siteName = item.name || 'Website';
                 const siteDomain = String(item.domain || '').trim()
                     || (function () {
-                        const raw = String(item.url || '').trim();
+                        const raw = String(item.url || item.site_url || '').trim();
                         if (!raw) return '';
                         try {
                             return new URL(raw.includes('://') ? raw : ('https://' + raw)).hostname.replace(/^www\./, '');
@@ -1397,6 +1407,7 @@
                             return raw.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                         }
                     })();
+                const siteName = siteDomain || item.name || 'Website';
                 const daLabel = (item.da !== null && item.da !== undefined && item.da !== '' && Number(item.da) !== 0) ? String(item.da) : '';
                 const drLabel = (item.dr !== null && item.dr !== undefined && item.dr !== '' && Number(item.dr) !== 0) ? String(item.dr) : '';
                 const metricBits = [];
@@ -1408,7 +1419,7 @@
                     if (country) metricBits.push(country);
                     if (language) metricBits.push(language);
                 }
-                const identityMeta = [siteDomain, metricBits.join(' · ')].filter(Boolean).join(' · ');
+                const identityMeta = metricBits.join(' · ');
                 const placementIds = lineContentIds(item);
                 const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
                 const placementPrice = parseFloat(item.price) || 0;
@@ -1493,7 +1504,7 @@
                         <input type="text" class="form-control form-control-sm cart-writing-anchor mt-1" id="cart-write-anchor-${itemKeyAttr}" placeholder="Anchor text (optional)" maxlength="160" value="${escapeHtml(item.writing_anchor_text || '')}" data-id="${item.id}" data-sensitive-type="${sensitiveAttr}" data-homepage-days="${cartHomepageParam(item)}">
                         <div class="small text-muted mt-1">Editable at checkout.</div>
                     </div>` : '';
-                const uploadPickers = written ? '' : placementIds.map((selectedId, copyIndex) => {
+                const pickerMarkup = written ? '' : placementIds.map((selectedId, copyIndex) => {
                     const options = articlesForCartPlacement(item, copyIndex);
                     const siteLangs = siteLanguageCodes(item);
                     const siteLangLabel = siteLanguageLabel(item);
@@ -1634,9 +1645,19 @@
                 `;
                 } catch (err) {
                     console.error('Could not render cart line', err);
-                    html += '<div class="cart-item is-unready"><div class="cart-item-name">'
-                        + escapeHtml(item && item.name ? item.name : 'Website')
-                        + '</div><p class="small text-muted mb-0">Could not show this site. Refresh the page.</p></div>';
+                    const fallbackName = (function () {
+                        const domain = String(item && item.domain ? item.domain : '').trim();
+                        if (domain) return domain;
+                        const raw = String(item && (item.url || item.site_url) ? (item.url || item.site_url) : '').trim();
+                        if (!raw) return item && item.name ? String(item.name) : 'Website';
+                        return raw.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] || String(item.name || 'Website');
+                    })();
+                    html += '<div class="cart-item is-unready" data-cart-line-error>'
+                        + '<div class="cart-item-name">' + escapeHtml(fallbackName) + '</div>'
+                        + '<p class="small mb-2">Could not show this site.</p>'
+                        + '<button type="button" class="btn btn-sm btn-outline-primary" data-cart-retry-line>Retry</button>'
+                        + '<p class="small text-muted mb-0 mt-2">Use Retry to load article choices for this pack.</p>'
+                        + '</div>';
                 }
             });
             if (container) {
@@ -2007,6 +2028,11 @@
     // Cart item actions (event delegation)
     document.getElementById('cartItemsContainer')?.addEventListener('click', function(e) {
         const target = e.target;
+        if (target.closest('[data-cart-retry-line]')) {
+            e.preventDefault();
+            updateCartDisplay();
+            return;
+        }
         const btn = target.closest('.decrease-qty, .increase-qty, .cart-item-remove');
         if (!btn || btn.disabled) return;
         
