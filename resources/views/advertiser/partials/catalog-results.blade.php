@@ -526,7 +526,12 @@
                         }
                     @endphp
                     <div class="catalog-country">
-                        <span class="catalog-country__flag" aria-hidden="true">{!! getCountryFlag($countryCode) !!}</span>
+                        @php $countryFlag = $countryCode ? getCountryFlag($countryCode) : ''; @endphp
+                        @if($countryFlag !== '')
+                            <span class="catalog-country__flag" aria-hidden="true">{!! $countryFlag !!}</span>
+                        @elseif($countryCode)
+                            <span class="catalog-country__code">{{ strtoupper($countryCode) }}</span>
+                        @endif
                         <span class="catalog-country__name text-muted small"@if($countryName !== '') title="{{ $countryName }}"@endif>{{ $countryName }}</span>
                     </div>
                 </td>

@@ -10,6 +10,16 @@
  * shell's --shell-z-dropdown layer instead of sliding under the topbar.
  */
 
+.catalog-page .wizard-chrome {
+    scroll-margin-top: var(--shell-topbar-offset, 84px);
+}
+
+.catalog-page .wizard-chrome__title {
+    overflow: visible;
+    line-height: 1.3;
+    padding-top: 2px;
+}
+
 .catalog-page .catalog-plain-action {
     display: inline-flex;
     align-items: center;
@@ -91,10 +101,11 @@
 
 .catalog-page .filter-presets[data-preset-group="price"] {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 6px;
     margin-top: 6px;
     max-width: 100%;
+    overflow-x: auto;
 }
 
 .catalog-page .filter-presets[data-preset-group="price"] .filter-preset {
@@ -106,6 +117,18 @@
 
 .catalog-page .catalog-filter-actions {
     align-items: center;
+    flex-wrap: wrap;
+    row-gap: 6px;
+    min-width: 0;
+    padding-right: 8px;
+}
+
+.catalog-page .catalog-filter-actions #catalogResetFilters,
+.catalog-page #catalogResetFilters {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 .catalog-page .catalog-filter-actions #toggleMoreFiltersBtn,
@@ -2368,8 +2391,39 @@ a.bulk-deal-card__url:hover {
 }
 
 .bulk-deal-card__expiry {
+    min-height: 1.05em;
+    margin: 0;
     font-size: 0.6875rem;
+    line-height: 1.05em;
     color: var(--brand-ink-muted, #697078);
+}
+
+.bulk-deal-card__flag,
+.catalog-country__flag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.15em;
+    font-family: "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    line-height: 1;
+}
+
+.bulk-deal-card__flag {
+    font-size: 14px;
+}
+
+.catalog-page .catalog-country__flag {
+    font-size: 22px;
+}
+
+.bulk-deal-card__flag-code,
+.catalog-country__code {
+    display: inline-block;
+    min-width: 1.4em;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #334155;
 }
 
 /* Outline pack CTA — shorter than a default btn-sm, fills on hover. */
@@ -2407,6 +2461,12 @@ a.bulk-deal-card__url:hover {
     .catalog-bulk-rail:not(.is-enhanced),
     .catalog-bulk-rail:not(.is-enhanced) > [data-bulk-page-panel] {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .catalog-page .filter-presets[data-preset-group="price"] {
+        flex-wrap: wrap;
     }
 }
 

@@ -868,30 +868,33 @@ function initBulkDealRail() {
         markBestDeals();
     }
 
-    /** One “Best deal” tag per painted page — highest save, then discount %. */
+    /** One “Best deal” tag only when a page has a strictly highest Save €. */
     function markBestDeals() {
         Array.prototype.forEach.call(
             track.querySelectorAll('[data-bulk-page-panel]'),
             function (panel) {
                 const cards = Array.prototype.slice.call(panel.querySelectorAll('[data-bulk-card]'));
-                let winner = null;
                 let bestSave = -1;
-                let bestPct = -1;
                 cards.forEach(function (card) {
                     card.classList.remove('is-best-deal');
                     const existing = card.querySelector('.bulk-deal-card__best');
                     if (existing) existing.remove();
-                    const save = parseFloat(card.getAttribute('data-bulk-save') || '0') || 0;
-                    const pct = parseFloat(card.getAttribute('data-bulk-discount') || '0') || 0;
-                    if (save > bestSave || (save === bestSave && pct > bestPct)) {
+                    const save = Math.round((parseFloat(card.getAttribute('data-bulk-save') || '0') || 0) * 100) / 100;
+                    if (save > bestSave) {
                         bestSave = save;
-                        bestPct = pct;
-                        winner = card;
                     }
                 });
-                if (!winner || bestSave <= 0) {
+                if (bestSave <= 0) {
                     return;
                 }
+                const winners = cards.filter(function (card) {
+                    const save = Math.round((parseFloat(card.getAttribute('data-bulk-save') || '0') || 0) * 100) / 100;
+                    return save === bestSave;
+                });
+                if (winners.length !== 1) {
+                    return;
+                }
+                const winner = winners[0];
                 winner.classList.add('is-best-deal');
                 const identity = winner.querySelector('.bulk-deal-card__identity');
                 if (identity && !identity.querySelector('.bulk-deal-card__best')) {

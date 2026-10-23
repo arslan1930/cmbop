@@ -100,17 +100,22 @@
                     @php
                         $pageBestSiteId = null;
                         $pageBestSave = -1.0;
-                        $pageBestPct = -1.0;
+                        $pageBestCount = 0;
                         foreach ($pageDeals as $pageDeal) {
                             $pageList = (float) ($pageDeal->bulk_pack_list_total ?? 0);
                             $pageAfter = (float) ($pageDeal->bulk_pack_now_total ?? $pageList);
                             $pageSave = max(0, round($pageList - $pageAfter, 2));
-                            $pagePct = (float) ($pageDeal->bulk_pack_discount_percent ?? $pageDeal->bulk_discount_percent ?? 0);
-                            if ($pageSave > $pageBestSave || ($pageSave === $pageBestSave && $pagePct > $pageBestPct)) {
+                            if ($pageSave > $pageBestSave) {
                                 $pageBestSave = $pageSave;
-                                $pageBestPct = $pagePct;
+                                $pageBestCount = 1;
                                 $pageBestSiteId = (int) $pageDeal->id;
+                            } elseif ($pageSave === $pageBestSave && $pageSave > 0) {
+                                $pageBestCount++;
+                                $pageBestSiteId = null;
                             }
+                        }
+                        if ($pageBestCount !== 1 || $pageBestSave <= 0) {
+                            $pageBestSiteId = null;
                         }
                     @endphp
                     @foreach($pageDeals as $deal)
@@ -235,7 +240,12 @@
                                 @endif
                                 @if($dealCountryCode)
                                     <span class="bulk-deal-card__chip bulk-deal-card__market" title="{{ $dealCountryName !== '' ? $dealCountryName : strtoupper($dealCountryCode) }}">
-                                        <span class="bulk-deal-card__flag" aria-hidden="true">{!! getCountryFlag($dealCountryCode) !!}</span>
+                                        @php $dealFlag = getCountryFlag($dealCountryCode); @endphp
+                                        @if($dealFlag !== '')
+                                            <span class="bulk-deal-card__flag" aria-hidden="true">{!! $dealFlag !!}</span>
+                                        @else
+                                            <span class="bulk-deal-card__flag-code">{{ strtoupper($dealCountryCode) }}</span>
+                                        @endif
                                         @if($dealLanguageLabel !== '')
                                             <span>{{ $dealLanguageLabel }}</span>
                                         @endif
@@ -268,9 +278,7 @@
                                 <span class="bulk-deal-card__qty">{{ $qtyExample }} articles · <span class="bulk-deal-card__each">{{ format_money($unitAfter) }} each</span></span>
                             </div>
 
-                            @if($dealExpiresAt)
-                                <p class="bulk-deal-card__expiry mb-0">Ends {{ $dealExpiresAt->timezone(config('app.timezone'))->format('M j, Y') }}</p>
-                            @endif
+                            <p class="bulk-deal-card__expiry mb-0">@if($dealExpiresAt)Ends {{ $dealExpiresAt->timezone(config('app.timezone'))->format('M j, Y') }}@else&nbsp;@endif</p>
 
                             <button type="button" class="btn btn-sm btn-outline-primary buy-now bulk-deal-card__cta{{ $dealInCart ? ' is-in-cart' : '' }}"
                                     data-id="{{ $deal->id }}"

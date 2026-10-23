@@ -4,10 +4,11 @@
 .cart-sidebar {
   position: fixed;
   top: 0;
+  bottom: 0;
   right: -420px;
   width: min(420px, 94vw);
-  /* Hug one-item carts; scroll the body when the list is taller than the viewport.
-     100vh first so older engines ignore 100dvh; dvh avoids mobile browser-chrome clip. */
+  /* Stretch top→bottom so a short pack line does not float over the grid.
+     Keep height:auto (tests forbid a bare height:100vh) and cap with max-height. */
   height: auto;
   max-height: 100vh;
   max-height: 100dvh;
@@ -779,6 +780,10 @@
 .overlay.show,
 .cart-overlay.show {
   display: block;
+}
+
+body.cart-open {
+  overflow: hidden;
 }
 
 @media (max-width: 768px) {
