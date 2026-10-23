@@ -15,6 +15,7 @@ use App\Mail\AudienceCampaignMail;
 use App\Mail\AutoApproveReminderMail;
 use App\Mail\BulkSiteItemsRejected;
 use App\Mail\BulkSiteRequestCancelled;
+use App\Mail\BulkSiteRequestPublisherReminder;
 use App\Mail\BulkSiteRequestSubmitted;
 use App\Mail\BulkSitesReadyForPublisherReview;
 use App\Mail\BulkSitesSeededNotification;
@@ -526,6 +527,13 @@ return [
             'audience' => 'publisher',
             'preference' => null,
             'mailable' => BulkSitesReadyForPublisherReview::class,
+            'default_enabled' => true,
+        ],
+        'bulk_request_publisher_reminder' => [
+            'name' => 'Bulk Request Publisher Reminder',
+            'audience' => 'publisher',
+            'preference' => 'system_updates',
+            'mailable' => BulkSiteRequestPublisherReminder::class,
             'default_enabled' => true,
         ],
         'admin_assigned_site' => [

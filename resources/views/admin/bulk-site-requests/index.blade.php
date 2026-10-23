@@ -6,22 +6,39 @@
     $q = $q ?? '';
     $mine = ! empty($mine);
     $sort = $sort ?? '';
+    $handlerFilter = $handlerFilter ?? '';
+    $slaAmberDays = (int) ($slaAmberDays ?? 3);
+    $slaRedDays = (int) ($slaRedDays ?? 7);
+    $lastReminded = $lastReminded ?? [];
+    $staffAssignees = $staffAssignees ?? collect();
+    $handlerCounts = $handlerCounts ?? [];
     $listQuery = array_filter([
         'q' => $q !== '' ? $q : null,
         'status' => $selectedStatus !== \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER ? $selectedStatus : null,
         'mine' => $mine ? 1 : null,
-        'sort' => in_array($sort, ['newest', 'pending'], true)
+        'handler' => (! $mine && $handlerFilter !== '') ? $handlerFilter : null,
+        'sort' => in_array($sort, ['newest', 'pending', 'pending_asc', 'est', 'est_desc', 'sites', 'sites_desc'], true)
             || ($sort === 'oldest' && $selectedStatus !== \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER)
             ? $sort
             : null,
     ], static fn ($value) => $value !== null && $value !== '');
+    $sortUrl = function (string $next) use ($listQuery) {
+        $query = $listQuery;
+        $query['sort'] = $next;
+
+        return staff_route('bulk-site-requests.index', $query);
+    };
+    $waitingSortNext = $sort === 'oldest' ? 'newest' : 'oldest';
+    $pendingSortNext = $sort === 'pending' ? 'pending_asc' : 'pending';
+    $estSortNext = $sort === 'est_desc' ? 'est' : 'est_desc';
+    $sitesSortNext = $sort === 'sites_desc' ? 'sites' : 'sites_desc';
     $strip = [
         [
             'key' => 'you',
             'label' => 'Waiting on you',
             'count' => (int) ($waitingOnYouCount ?? 0),
             'url' => staff_route('bulk-site-requests.index', array_filter(['q' => $q !== '' ? $q : null])),
-            'hint' => 'URL + price rows you can fill and Done.',
+            'hint' => 'URL + price rows you can fill and Done, or sites withdrawn from review that still need Publish ready.',
             'active' => $selectedStatus === \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER,
         ],
         [
@@ -29,8 +46,16 @@
             'label' => 'Waiting on publisher',
             'count' => (int) ($waitingOnPublisherCount ?? 0),
             'url' => staff_route('bulk-site-requests.index', array_filter(['status' => \App\Support\MarketingOpsQueues::FILTER_WAITING_PUBLISHER, 'q' => $q !== '' ? $q : null])),
-            'hint' => 'Drafts still with the publisher, including staff-added invites waiting on Accept. Not staff work yet.',
+            'hint' => 'Drafts still with the publisher, including staff-added invites waiting on Accept.',
             'active' => $selectedStatus === \App\Support\MarketingOpsQueues::FILTER_WAITING_PUBLISHER,
+        ],
+        [
+            'key' => 'overdue',
+            'label' => 'Overdue',
+            'count' => (int) ($overdueCount ?? 0),
+            'url' => staff_route('bulk-site-requests.index', array_filter(['status' => \App\Support\MarketingOpsQueues::FILTER_OVERDUE, 'q' => $q !== '' ? $q : null])),
+            'hint' => 'Open batches older than '.$slaRedDays.' days. Age pills turn red at this target.',
+            'active' => $selectedStatus === \App\Support\MarketingOpsQueues::FILTER_OVERDUE,
         ],
         [
             'key' => 'open',
@@ -68,27 +93,41 @@
     if ($mine) {
         $chipLabels['mine'] = 'Mine';
     }
+    if (! $mine && $handlerFilter !== '') {
+        $chipLabels['handler'] = $handlerFilter === 'unclaimed'
+            ? 'Unclaimed'
+            : ('Handler: '.($staffAssignees->firstWhere('id', (int) $handlerFilter)?->name ?? '#'.$handlerFilter));
+    }
     if (($listQuery['sort'] ?? '') !== '') {
         $chipLabels['sort'] = 'Sort: '.$sort;
     }
+    $badgeClass = function (string $tone): string {
+        return match ($tone) {
+            'marketer' => 'bulk-status-badge bulk-status-badge--marketer',
+            'publisher' => 'bulk-status-badge bulk-status-badge--publisher',
+            'staff' => 'bulk-status-badge bulk-status-badge--staff',
+            'finished' => 'bulk-status-badge bulk-status-badge--finished',
+            'cancelled' => 'bulk-status-badge bulk-status-badge--cancelled',
+            default => 'bulk-status-badge bulk-status-badge--neutral',
+        };
+    };
 @endphp
-<div class="container-fluid">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-        <div>
-            <h3 class="mb-1">Bulk site requests</h3>
-            <p class="text-muted small mb-0">
-                Publishers submit <strong>URL + price</strong>. On Done, <strong>Publish now</strong> puts the filled sites live (active, not verified). <strong>Send for review</strong> lets the publisher Accept (goes live) or Edit (then you Activate). Finished requests leave Waiting on you.
-            </p>
-        </div>
-        <a href="{{ staff_route('bulk-site-requests.index') }}" class="badge text-bg-secondary align-self-center text-decoration-none" data-bulk-waiting-on-you>
-            {{ $waitingOnYouCount }} waiting on you
-        </a>
+<div class="container-fluid bulk-request-index">
+    <div class="mb-3">
+        <h3 class="mb-1">Bulk site requests</h3>
+        <p class="text-muted small mb-0" data-bulk-index-help>
+            Publishers send a list of URLs with prices. You fill the listing details, then either
+            <strong>Publish ready</strong> (live, not verified) or <strong>Send for review</strong>
+            (publisher Accepts to go live, or Edits for you to Activate).
+            Age pills turn amber after {{ $slaAmberDays }} days and red after {{ $slaRedDays }} days.
+            Automatic publisher reminders stay off unless an admin enables them in config.
+        </p>
     </div>
 
     <div class="staff-sites-strip mb-3" aria-label="Bulk request queues">
         @foreach($strip as $cell)
             <a href="{{ $cell['url'] }}"
-               class="staff-sites-strip__cell {{ $cell['active'] ? 'is-active' : '' }}"
+               class="staff-sites-strip__cell {{ $cell['active'] ? 'is-active' : '' }}{{ (int) $cell['count'] === 0 ? ' is-zero' : '' }}"
                @if($cell['active']) aria-current="page" @endif>
                 <span class="staff-sites-strip__count">{{ number_format($cell['count']) }}</span>
                 <span class="staff-sites-strip__label">{{ $cell['label'] }}</span>
@@ -97,6 +136,28 @@
     </div>
     @if($activeStrip)
         <p class="small text-muted mb-3">{{ $activeStrip['hint'] }}</p>
+    @endif
+
+    @if($handlerCounts !== [])
+        <div class="bulk-handler-counts mb-3" aria-label="Open requests by handler">
+            @foreach($handlerCounts as $row)
+                @php
+                    $handlerKey = $row['id'] === null ? 'unclaimed' : (string) $row['id'];
+                    $handlerActive = ! $mine && $handlerFilter === $handlerKey;
+                    $handlerUrl = staff_route('bulk-site-requests.index', array_filter([
+                        'q' => $q !== '' ? $q : null,
+                        'status' => $selectedStatus !== \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER ? $selectedStatus : null,
+                        'handler' => $handlerActive ? null : $handlerKey,
+                    ]));
+                @endphp
+                <a href="{{ $handlerUrl }}"
+                   class="bulk-handler-count{{ $handlerActive ? ' is-active' : '' }}"
+                   @if($handlerActive) aria-current="page" @endif>
+                    {{ $row['name'] }}
+                    <span>{{ number_format($row['count']) }}</span>
+                </a>
+            @endforeach
+        </div>
     @endif
 
     @if($chipLabels !== [])
@@ -112,16 +173,18 @@
         </div>
     @endif
 
-    <form method="GET" class="admin-deposits-filters staff-site-filters mb-3 d-flex flex-wrap align-items-end gap-2" data-bulk-index-filters>
+    <form method="GET" action="{{ staff_route('bulk-site-requests.index') }}" class="admin-deposits-filters staff-site-filters mb-3 d-flex flex-wrap align-items-end gap-2" data-bulk-index-filters>
         <div>
             <x-slb-search-field
                 name="q"
                 id="bulkRequestSearch"
                 :value="$q"
-                placeholder="Request #, publisher, email, or domain"
+                placeholder="Request #, publisher, or domain"
                 label="Search"
                 label-class="form-label"
                 input-class="form-control"
+                mode="form-live"
+                title="Results update as you type. Two characters or Enter."
             />
         </div>
         <div>
@@ -129,6 +192,7 @@
             <select name="status" id="bulkRequestStatus" class="form-select">
                 <option value="{{ \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER }}" @selected($selectedStatus === \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER)>Waiting on you</option>
                 <option value="{{ \App\Support\MarketingOpsQueues::FILTER_WAITING_PUBLISHER }}" @selected($selectedStatus === \App\Support\MarketingOpsQueues::FILTER_WAITING_PUBLISHER)>Waiting on publisher</option>
+                <option value="{{ \App\Support\MarketingOpsQueues::FILTER_OVERDUE }}" @selected($selectedStatus === \App\Support\MarketingOpsQueues::FILTER_OVERDUE)>Overdue</option>
                 <option value="all" @selected($selectedStatus === 'all')>All open</option>
                 @foreach(['requested','sheet_sent','seeded'] as $s)
                     <option value="{{ $s }}" @selected($selectedStatus === $s)>{{ \App\Models\BulkSiteRequest::statusLabelFor($s) }}</option>
@@ -143,114 +207,228 @@
                 <option value="oldest" @selected($sort === 'oldest')>Oldest waiting</option>
                 <option value="newest" @selected($sort === 'newest')>Newest</option>
                 <option value="pending" @selected($sort === 'pending')>Most pending rows</option>
+                <option value="pending_asc" @selected($sort === 'pending_asc')>Fewest pending rows</option>
+                <option value="est_desc" @selected($sort === 'est_desc')>Highest estimate</option>
+                <option value="est" @selected($sort === 'est')>Lowest estimate</option>
+                <option value="sites_desc" @selected($sort === 'sites_desc')>Most sites</option>
+                <option value="sites" @selected($sort === 'sites')>Fewest sites</option>
             </select>
         </div>
-        <label class="form-check small mb-1">
-            <input class="form-check-input" type="checkbox" name="mine" value="1" @checked($mine)>
+        <input type="hidden" name="mine" value="{{ $mine ? '1' : '' }}" data-bulk-mine-input>
+        @if(! $mine && $handlerFilter !== '')
+            <input type="hidden" name="handler" value="{{ $handlerFilter }}">
+        @endif
+        <button type="button"
+                class="btn btn-sm {{ $mine ? 'btn-primary' : 'btn-outline-secondary' }}"
+                data-bulk-mine-toggle
+                aria-pressed="{{ $mine ? 'true' : 'false' }}">
             Mine
-        </label>
+        </button>
         <button type="submit" class="btn btn-primary">Search</button>
         @if(!empty($filtersActive))
             <a href="{{ staff_route('bulk-site-requests.index') }}" class="btn btn-outline-secondary">Reset</a>
         @endif
     </form>
 
-    <form method="POST" action="{{ staff_route('bulk-site-requests.bulk-claim') }}" id="adminBulkRequestsClaimForm">
-    @csrf
-    <div class="d-flex flex-wrap gap-2 mb-2">
-        <button type="submit" class="btn btn-sm btn-outline-primary"
+    <div class="d-flex flex-wrap gap-2 mb-2 align-items-center" data-bulk-toolbar>
+        <button type="submit" form="adminBulkRequestsClaimForm" class="btn btn-sm btn-outline-primary"
                 data-slb-confirm="Claim selected bulk requests?"
                 data-slb-confirm-title="Claim requests?"
                 data-slb-confirm-text="Claim">Claim selected</button>
-        <span class="small text-muted align-self-center">Assigns the handler to you. Cancelled rows are skipped.</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-open-assign>Assign selected…</button>
+        <button type="submit" form="adminBulkRequestsRemindForm" class="btn btn-sm btn-outline-secondary"
+                data-slb-confirm="Send a reminder email to the publisher on each selected row that is waiting on them?"
+                data-slb-confirm-title="Remind publishers?"
+                data-slb-confirm-text="Remind">Remind selected</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" data-bulk-open-cancel>Cancel selected…</button>
+        <a href="{{ staff_route('bulk-site-requests.index', $listQuery + ['export' => 'csv']) }}" class="btn btn-sm btn-outline-secondary">Export CSV</a>
+        <span class="small text-muted">Select rows for bulk actions. Cancelled rows are skipped. CSV has no prices.</span>
     </div>
+
+    <form method="POST" action="{{ staff_route('bulk-site-requests.bulk-assign') }}" id="adminBulkRequestsAssignForm" class="d-none" data-bulk-assign-form>
+        @csrf
+        <div class="d-flex flex-wrap gap-2 mb-2 align-items-end">
+            <div>
+                <label class="form-label" for="bulkAssignHandler">Assign selected to</label>
+                <select name="handled_by" id="bulkAssignHandler" class="form-select form-select-sm">
+                    <option value="">Unclaimed</option>
+                    @foreach($staffAssignees as $staff)
+                        <option value="{{ $staff->id }}" @selected((int) $staff->id === (int) auth()->id())>{{ $staff->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary"
+                    data-slb-confirm="Assign the selected requests to this person?"
+                    data-slb-confirm-title="Assign requests?"
+                    data-slb-confirm-text="Assign">Assign</button>
+        </div>
+    </form>
+
+    <form method="POST" action="{{ staff_route('bulk-site-requests.bulk-cancel') }}" id="adminBulkRequestsCancelForm" class="d-none" data-bulk-cancel-form>
+        @csrf
+        <div class="d-flex flex-wrap gap-2 mb-2 align-items-end">
+            <div class="flex-grow-1" style="min-width:16rem;">
+                <label class="form-label" for="bulkCancelReason">Cancel reason (publisher is emailed)</label>
+                <input type="text" name="reason" id="bulkCancelReason" class="form-control form-control-sm" minlength="10" maxlength="1000" placeholder="At least 10 characters">
+            </div>
+            <button type="submit" class="btn btn-sm btn-danger"
+                    data-slb-confirm="Cancel the selected requests? The publisher is notified and history is kept."
+                    data-slb-confirm-title="Cancel requests?"
+                    data-slb-confirm-text="Cancel">Cancel selected</button>
+        </div>
+    </form>
+
+    <form method="POST" action="{{ staff_route('bulk-site-requests.bulk-claim') }}" id="adminBulkRequestsClaimForm">
+        @csrf
+    </form>
+    <form method="POST" action="{{ staff_route('bulk-site-requests.bulk-remind') }}" id="adminBulkRequestsRemindForm">
+        @csrf
+    </form>
+
     <div class="card border-0 shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle admin-table-fit staff-queue-table bulk-request-index-table">
                 <thead>
                     <tr>
                         <th class="admin-num-col"><input type="checkbox" class="form-check-input" id="adminBulkRequestsSelectAll" aria-label="Select all"></th>
-                        <th>#</th>
+                        <th>Req #</th>
                         <th>Publisher</th>
-                        <th>Est.</th>
-                        <th>Status</th>
-                        <th>Sites</th>
-                        <th>Pending to add</th>
+                        <th>
+                            <a href="{{ $sortUrl($estSortNext) }}" class="bulk-sort-link{{ in_array($sort, ['est', 'est_desc'], true) ? ' is-active' : '' }}">Est.</a>
+                        </th>
+                        <th class="bulk-status-col">Status</th>
+                        <th>
+                            <a href="{{ $sortUrl($sitesSortNext) }}" class="bulk-sort-link{{ in_array($sort, ['sites', 'sites_desc'], true) ? ' is-active' : '' }}">Sites</a>
+                        </th>
+                        <th>
+                            <a href="{{ $sortUrl($pendingSortNext) }}" class="bulk-sort-link{{ in_array($sort, ['pending', 'pending_asc'], true) ? ' is-active' : '' }}">Pending to add</a>
+                        </th>
                         <th class="d-none d-lg-table-cell">Awaiting details</th>
                         <th class="d-none d-lg-table-cell">Ready</th>
-                        <th>Waiting</th>
+                        <th>
+                            <a href="{{ $sortUrl($waitingSortNext) }}" class="bulk-sort-link{{ in_array($sort, ['oldest', 'newest'], true) ? ' is-active' : '' }}">Waiting</a>
+                        </th>
                         <th>Handler</th>
-                        <th></th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($requests as $req)
                         @php
-                            $listedAt = $req->created_at;
-                            $listedDays = $listedAt instanceof \DateTimeInterface
-                                ? (int) \Illuminate\Support\Carbon::parse($listedAt)->diffInDays(now())
-                                : null;
-                            $listedClass = 'text-muted';
-                            if ($listedDays !== null && $listedDays >= 21) {
-                                $listedClass = 'text-danger fw-semibold';
-                            } elseif ($listedDays !== null && $listedDays >= 7) {
-                                $listedClass = 'text-warning fw-semibold';
-                            }
-                            $waitingPublisher = ((int) ($req->awaiting_details_count ?? 0)
-                                + (int) ($req->reviewing_count ?? 0)
-                                + (int) ($req->pending_accept_count ?? 0)) > 0;
-                            $staffAssignedCount = (int) ($req->staff_assigned_count ?? 0);
+                            $listedDays = $req->ageDays();
+                            $slaTone = $req->slaTone();
+                            $blockTip = $req->blocksNewBulkTooltip();
+                            $staffAssignedCount = $req->cachedStaffAssignedCount();
+                            $remindedAt = $lastReminded[$req->id] ?? null;
+                            $progress = $req->progressCounts();
+                            $progressPct = $progress['total'] > 0
+                                ? (int) round(100 * $progress['done'] / $progress['total'])
+                                : 0;
                         @endphp
                         <tr>
                             <td>
                                 @if(! $req->isCancelled())
-                                    <input type="checkbox" class="form-check-input js-bulk-request-claim" name="ids[]" value="{{ $req->id }}">
+                                    <input type="checkbox" class="form-check-input js-bulk-request-row" name="ids[]" value="{{ $req->id }}" form="adminBulkRequestsClaimForm">
                                 @endif
                             </td>
-                            <td>{{ $req->id }}</td>
+                            <td>
+                                <a href="{{ staff_route('bulk-site-requests.show', $req) }}" class="fw-semibold text-decoration-none">#{{ $req->id }}</a>
+                            </td>
                             <td>
                                 @if(auth()->user()?->isAdmin() && $req->publisher)
                                     <a href="{{ route('admin.users.show', $req->publisher) }}" class="fw-semibold text-decoration-none">{{ $req->publisher->name }}</a>
                                 @else
                                     <div class="fw-semibold">{{ $req->publisher?->name ?? '—' }}</div>
                                 @endif
-                                <div class="small text-muted">{{ $req->publisher?->email ?? '' }}</div>
-                                @if($req->blocksPublisherNewBulk())
-                                    <span class="badge text-bg-warning text-dark">Blocks new bulk</span>
+                                @if($req->publisher?->email)
+                                    <div class="bulk-publisher-email">{{ $req->publisher->email }}</div>
+                                @endif
+                                @if($blockTip)
+                                    <span class="badge text-bg-warning text-dark mt-1"
+                                          title="{{ $blockTip['reason'] }} {{ $blockTip['clears'] }}"
+                                          data-bs-toggle="tooltip"
+                                          data-bs-title="{{ $blockTip['reason'] }} {{ $blockTip['clears'] }}">Blocks new bulk</span>
                                 @endif
                                 @if($staffAssignedCount > 0)
                                     <div class="small text-muted mt-1">Staff added {{ $staffAssignedCount }} {{ \Illuminate\Support\Str::plural('site', $staffAssignedCount) }}</div>
                                 @endif
                             </td>
                             <td>{{ $req->estimated_count ?? '—' }}</td>
-                            <td>
-                                <span class="badge text-bg-light border">{{ $req->statusLabel() }}</span>
-                                @if($staffAssignedCount > 0)
-                                    <span class="badge text-bg-info ms-1">Staff batch</span>
-                                @endif
+                            <td class="bulk-status-col">
+                                <div class="d-flex flex-column align-items-start gap-1">
+                                    <span class="{{ $badgeClass($req->statusBadgeTone()) }}">{{ $req->nextStepText() }}</span>
+                                    @if($req->waitingOnPublisherSites())
+                                        <span class="bulk-status-badge bulk-status-badge--publisher">Sites: waiting</span>
+                                    @endif
+                                    @if($staffAssignedCount > 0)
+                                        <span class="bulk-status-badge bulk-status-badge--staff">Staff batch</span>
+                                    @endif
+                                </div>
                             </td>
-                            <td>{{ $req->sites_count }}</td>
+                            <td>
+                                <div>{{ $req->sites_count }}</div>
+                                <div class="bulk-progress" title="{{ $progress['done'] }} of {{ $progress['total'] }} done">
+                                    <div class="bulk-progress__bar" style="width: {{ $progressPct }}%"></div>
+                                </div>
+                                <div class="bulk-progress__label">{{ $progress['done'] }}/{{ $progress['total'] }}</div>
+                            </td>
                             <td>{{ $req->pending_items_count }}</td>
-                            <td class="d-none d-lg-table-cell">{{ (int) ($req->awaiting_details_count ?? 0) }}</td>
+                            <td class="d-none d-lg-table-cell">{{ $req->cachedAwaitingDetailsCount() }}</td>
                             <td class="d-none d-lg-table-cell">{{ (int) ($req->ready_count ?? 0) }}</td>
-                            <td class="small">
+                            <td>
                                 @if($listedDays === null)
                                     <span class="text-muted">—</span>
                                 @else
-                                    <span class="{{ $listedClass }}" title="{{ \Illuminate\Support\Carbon::parse($listedAt)->timezone(config('app.timezone'))->format('M j, Y') }}">{{ $listedDays === 0 ? 'Today' : $listedDays.'d' }}</span>
+                                    <span class="bulk-age-pill bulk-age-pill--{{ $slaTone }}"
+                                          title="{{ \Illuminate\Support\Carbon::parse($req->created_at)->timezone(config('app.timezone'))->format('M j, Y') }}">
+                                        {{ $listedDays === 0 ? 'Today' : $listedDays.'d' }}
+                                    </span>
                                 @endif
                             </td>
-                            <td class="small">{{ $req->handler?->name ?? 'Unclaimed' }}</td>
-                            <td class="text-end text-nowrap">
-                                @if(! $req->isCancelled() && (int) ($req->handled_by ?? 0) !== (int) auth()->id())
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary"
-                                            formaction="{{ staff_route('bulk-site-requests.claim', $req->id) }}"
-                                            formnovalidate>Claim</button>
-                                @endif
-                                <a href="{{ staff_route('bulk-site-requests.show', $req) }}" class="btn btn-sm btn-outline-primary">Open</a>
-                                @if($waitingPublisher)
-                                    <a href="{{ staff_route('sites.index', array_filter(['waiting_on_publisher' => 1, 'q' => $req->publisher?->email])) }}" class="btn btn-sm btn-outline-secondary">Sites: waiting</a>
-                                @endif
+                            <td class="small">
+                                <form method="POST" action="{{ staff_route('bulk-site-requests.assign', $req->id) }}" class="bulk-assign-row">
+                                    @csrf
+                                    <label class="visually-hidden" for="bulkAssignRow{{ $req->id }}">Assign request #{{ $req->id }}</label>
+                                    <select name="handled_by"
+                                            id="bulkAssignRow{{ $req->id }}"
+                                            class="form-select form-select-sm"
+                                            @disabled($req->isCancelled())
+                                            onchange="this.form.requestSubmit()">
+                                        <option value="" @selected(! $req->handled_by)>Unclaimed</option>
+                                        @foreach($staffAssignees as $staff)
+                                            <option value="{{ $staff->id }}" @selected((int) $req->handled_by === (int) $staff->id)>{{ $staff->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </form>
+                            </td>
+                            <td class="text-end">
+                                <div class="bulk-row-actions">
+                                    @if($req->canPublishReady())
+                                        <form method="POST" action="{{ staff_route('bulk-site-requests.publish-now', $req->id) }}">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-success"
+                                                    data-slb-confirm="Publish the ready sites on this request now? They go live unverified."
+                                                    data-slb-confirm-title="Publish ready sites?"
+                                                    data-slb-confirm-text="Publish ready">Publish ready</button>
+                                        </form>
+                                    @endif
+                                    @if($req->canSendForReview())
+                                        <a href="{{ staff_route('bulk-site-requests.show', $req) }}#done" class="btn btn-sm btn-outline-primary">Send for review</a>
+                                    @endif
+                                    @if($req->canRemindPublisher())
+                                        <form method="POST" action="{{ staff_route('bulk-site-requests.remind', $req->id) }}">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                                    data-slb-confirm="Send a reminder to the publisher?"
+                                                    data-slb-confirm-title="Remind publisher?"
+                                                    data-slb-confirm-text="Remind">Remind</button>
+                                        </form>
+                                        @if($remindedAt)
+                                            <div class="bulk-last-reminded">Last reminded {{ $remindedAt->timezone(config('app.timezone'))->format('M j') }}</div>
+                                        @endif
+                                    @endif
+                                    <a href="{{ staff_route('bulk-site-requests.show', $req) }}" class="btn btn-sm btn-outline-primary">Open</a>
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -261,6 +439,8 @@
                                     <a href="{{ staff_route('bulk-site-requests.index') }}" class="btn btn-outline-secondary">Reset filter</a>
                                 @elseif($selectedStatus === \App\Support\MarketingOpsQueues::FILTER_NEEDS_MARKETER)
                                     Nothing waiting on you.
+                                @elseif($selectedStatus === \App\Support\MarketingOpsQueues::FILTER_OVERDUE)
+                                    No overdue batches.
                                 @elseif($selectedStatus === \App\Models\BulkSiteRequest::STATUS_COMPLETED)
                                     No finished batches.
                                 @elseif($selectedStatus === \App\Models\BulkSiteRequest::STATUS_CANCELLED)
@@ -275,15 +455,71 @@
             </table>
         </div>
     </div>
-    </form>
 
     <div class="mt-3">{{ $requests->links() }}</div>
 </div>
 <script>
-document.getElementById('adminBulkRequestsSelectAll')?.addEventListener('change', function () {
-    document.querySelectorAll('.js-bulk-request-claim').forEach(function (box) {
-        box.checked = this.checked;
-    }, this);
-});
+(function () {
+    var selectAll = document.getElementById('adminBulkRequestsSelectAll');
+    var rowBoxes = function () {
+        return Array.prototype.slice.call(document.querySelectorAll('.js-bulk-request-row'));
+    };
+    var syncHiddenIds = function (form) {
+        if (!form) return;
+        form.querySelectorAll('input[name="ids[]"][data-bulk-cloned]').forEach(function (el) {
+            el.remove();
+        });
+        rowBoxes().forEach(function (box) {
+            if (!box.checked) return;
+            var hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'ids[]';
+            hidden.value = box.value;
+            hidden.setAttribute('data-bulk-cloned', '1');
+            form.appendChild(hidden);
+        });
+    };
+
+    selectAll && selectAll.addEventListener('change', function () {
+        rowBoxes().forEach(function (box) {
+            box.checked = selectAll.checked;
+        });
+    });
+
+    ['adminBulkRequestsClaimForm', 'adminBulkRequestsRemindForm', 'adminBulkRequestsAssignForm', 'adminBulkRequestsCancelForm'].forEach(function (id) {
+        var form = document.getElementById(id);
+        form && form.addEventListener('submit', function () {
+            syncHiddenIds(form);
+        });
+    });
+
+    var mineInput = document.querySelector('[data-bulk-mine-input]');
+    var mineToggle = document.querySelector('[data-bulk-mine-toggle]');
+    var filterForm = document.querySelector('[data-bulk-index-filters]');
+    mineToggle && mineToggle.addEventListener('click', function () {
+        if (!mineInput || !filterForm) return;
+        var on = mineInput.value === '1';
+        mineInput.value = on ? '' : '1';
+        if (typeof filterForm.requestSubmit === 'function') filterForm.requestSubmit();
+        else filterForm.submit();
+    });
+
+    var assignForm = document.querySelector('[data-bulk-assign-form]');
+    var cancelForm = document.querySelector('[data-bulk-cancel-form]');
+    document.querySelector('[data-bulk-open-assign]')?.addEventListener('click', function () {
+        assignForm && assignForm.classList.toggle('d-none');
+        cancelForm && cancelForm.classList.add('d-none');
+    });
+    document.querySelector('[data-bulk-open-cancel]')?.addEventListener('click', function () {
+        cancelForm && cancelForm.classList.toggle('d-none');
+        assignForm && assignForm.classList.add('d-none');
+    });
+
+    if (window.bootstrap) {
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+            try { new window.bootstrap.Tooltip(el); } catch (err) {}
+        });
+    }
+})();
 </script>
 @endsection

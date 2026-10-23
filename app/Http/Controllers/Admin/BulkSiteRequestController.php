@@ -13,12 +13,14 @@ use App\Models\Category;
 use App\Models\Country;
 use App\Models\Language;
 use App\Models\Site;
+use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\InAppNotificationService;
 use App\Services\Marketplace\CountryLanguagePairs;
 use App\Services\SiteClaimTransferService;
 use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
+use App\Services\Staff\BulkPublisherReminderService;
 use App\Support\MarketingOpsQueues;
 use App\Support\MarketplacePicker;
 use App\Support\PublicationDuration;
@@ -51,6 +53,7 @@ class BulkSiteRequestController extends Controller
         }
         $q = search_text($request->input('q'));
         $mine = $request->boolean('mine');
+        $handlerFilter = $this->bulkIndexHandlerFilter($request->input('handler'));
         $implicitWaiting = $rawStatus === '';
         $selectedStatus = $implicitWaiting
             ? MarketingOpsQueues::FILTER_NEEDS_MARKETER
@@ -59,29 +62,16 @@ class BulkSiteRequestController extends Controller
 
         $waitingOnYouCount = 0;
         $waitingOnPublisherCount = 0;
+        $overdueCount = 0;
         $allOpenCount = 0;
         $finishedCount = 0;
         $cancelledCount = 0;
+        $lastReminded = [];
+        $staffAssignees = collect();
+        $handlerCounts = [];
 
         try {
-            $withCount = [
-                'sites' => fn ($sites) => $sites->notArchived(),
-                'items as pending_items_count' => fn ($items) => $items->whereNull('site_id'),
-            ];
-            if (Site::hasSitesColumn('onboarding_status')) {
-                $withCount['sites as awaiting_details_count'] = fn ($sites) => $sites->notArchived()
-                    ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS);
-                $withCount['sites as reviewing_count'] = fn ($sites) => $sites->notArchived()
-                    ->where('onboarding_status', Site::ONBOARDING_DETAILS_COMPLETE);
-                $withCount['sites as ready_count'] = fn ($sites) => $sites->notArchived()
-                    ->where('onboarding_status', Site::ONBOARDING_READY_FOR_REVIEW);
-            }
-            if (Site::hasSitesColumn('publisher_accepted_at') && Site::hasSitesColumn('assigned_by_user_id')) {
-                $withCount['sites as pending_accept_count'] = fn ($sites) => $sites->notArchived()
-                    ->pendingPublisherAcceptance();
-                $withCount['sites as staff_assigned_count'] = fn ($sites) => $sites->notArchived()
-                    ->whereNotNull('assigned_by_user_id');
-            }
+            $withCount = $this->bulkIndexWithCounts();
 
             $this->healUnfinishedCompletedBulkRequests();
 
@@ -91,14 +81,19 @@ class BulkSiteRequestController extends Controller
 
             $this->applyBulkIndexVisible($query, $selectedStatus);
             $this->applyBulkIndexSearch($query, $q);
-            if ($mine) {
-                $query->where('handled_by', auth()->id());
-            }
+            $this->applyBulkIndexHandler($query, $mine, $handlerFilter);
             $this->applyBulkIndexSort($query, $sort);
 
+            if (search_text($request->input('export')) === 'csv') {
+                return $this->exportIndexCsv($query->clone()->limit(500)->get());
+            }
+
             $requests = $query->paginate(20)->withQueryString();
+            $lastReminded = app(BulkPublisherReminderService::class)
+                ->lastRemindedMap($requests->getCollection()->modelKeys());
             $waitingOnYouCount = MarketingOpsQueues::bulkWaitingOnMarketerCount();
             $waitingOnPublisherCount = MarketingOpsQueues::bulkWaitingOnPublisherCount();
+            $overdueCount = MarketingOpsQueues::bulkOverdueCount();
             $allOpenCount = BulkSiteRequest::query()
                 ->where(fn ($open) => MarketingOpsQueues::constrainOpenBulk($open))
                 ->count();
@@ -109,6 +104,8 @@ class BulkSiteRequestController extends Controller
             $cancelledCount = BulkSiteRequest::query()
                 ->where('status', BulkSiteRequest::STATUS_CANCELLED)
                 ->count();
+            $staffAssignees = $this->staffAssignees();
+            $handlerCounts = $this->openHandlerCounts($staffAssignees);
         } catch (\Throwable $e) {
             report($e);
             session()->flash(
@@ -124,6 +121,7 @@ class BulkSiteRequestController extends Controller
 
         $filtersActive = $q !== ''
             || $mine
+            || $handlerFilter !== ''
             || $request->filled('sort')
             || ($rawStatus !== '' && $rawStatus !== MarketingOpsQueues::FILTER_NEEDS_MARKETER);
 
@@ -132,13 +130,20 @@ class BulkSiteRequestController extends Controller
             'status' => $selectedStatus,
             'q' => $q,
             'mine' => $mine,
+            'handlerFilter' => $handlerFilter,
             'sort' => $sort,
             'filtersActive' => $filtersActive,
             'waitingOnYouCount' => $waitingOnYouCount,
             'waitingOnPublisherCount' => $waitingOnPublisherCount,
+            'overdueCount' => $overdueCount,
             'allOpenCount' => $allOpenCount,
             'finishedCount' => $finishedCount,
             'cancelledCount' => $cancelledCount,
+            'lastReminded' => $lastReminded,
+            'staffAssignees' => $staffAssignees,
+            'handlerCounts' => $handlerCounts,
+            'slaAmberDays' => max(1, (int) config('bulk_site_requests.sla.amber_days', 3)),
+            'slaRedDays' => max(1, (int) config('bulk_site_requests.sla.red_days', 7)),
         ]);
     }
 
@@ -222,7 +227,10 @@ class BulkSiteRequestController extends Controller
     private function bulkIndexSortKey(mixed $sort, string $status): string
     {
         $value = is_string($sort) ? trim($sort) : '';
-        if (in_array($value, ['oldest', 'newest', 'pending'], true)) {
+        if (in_array($value, [
+            'oldest', 'newest', 'pending', 'pending_asc',
+            'est', 'est_desc', 'sites', 'sites_desc',
+        ], true)) {
             return $value;
         }
 
@@ -234,18 +242,209 @@ class BulkSiteRequestController extends Controller
      */
     private function applyBulkIndexSort($query, string $sort): void
     {
-        if ($sort === 'pending') {
-            $query->orderByDesc('pending_items_count')->orderBy('id');
+        match ($sort) {
+            'pending' => $query->orderByDesc('pending_items_count')->orderBy('id'),
+            'pending_asc' => $query->orderBy('pending_items_count')->orderBy('id'),
+            'est' => $query->orderBy('estimated_count')->orderBy('id'),
+            'est_desc' => $query->orderByDesc('estimated_count')->orderBy('id'),
+            'sites' => $query->orderBy('sites_count')->orderBy('id'),
+            'sites_desc' => $query->orderByDesc('sites_count')->orderBy('id'),
+            'newest' => $query->latest('created_at')->orderByDesc('id'),
+            default => $query->oldest('created_at')->orderBy('id'),
+        };
+    }
+
+    /**
+     * @return array<string, callable>
+     */
+    private function bulkIndexWithCounts(): array
+    {
+        $withCount = [
+            'sites' => fn ($sites) => $sites->notArchived(),
+            'items as pending_items_count' => fn ($items) => $items->whereNull('site_id'),
+        ];
+        if (Site::hasSitesColumn('onboarding_status')) {
+            $withCount['sites as awaiting_details_count'] = fn ($sites) => $sites->notArchived()
+                ->where('onboarding_status', Site::ONBOARDING_AWAITING_DETAILS);
+            $withCount['sites as reviewing_count'] = fn ($sites) => $sites->notArchived()
+                ->where('onboarding_status', Site::ONBOARDING_DETAILS_COMPLETE);
+            $withCount['sites as ready_count'] = fn ($sites) => $sites->notArchived()
+                ->where('onboarding_status', Site::ONBOARDING_READY_FOR_REVIEW);
+            $withCount['sites as ready_to_publish_count'] = function ($sites) {
+                $sites->notArchived();
+                BulkSiteRequest::constrainSitesReadyToPublishNow($sites);
+            };
+        }
+        if (Site::hasSitesColumn('publisher_accepted_at') && Site::hasSitesColumn('assigned_by_user_id')) {
+            $withCount['sites as pending_accept_count'] = fn ($sites) => $sites->notArchived()
+                ->pendingPublisherAcceptance();
+            $withCount['sites as staff_assigned_count'] = fn ($sites) => $sites->notArchived()
+                ->whereNotNull('assigned_by_user_id');
+        }
+
+        return $withCount;
+    }
+
+    private function bulkIndexHandlerFilter(mixed $raw): string
+    {
+        $value = strtolower(trim(search_text($raw)));
+        if ($value === 'unclaimed' || $value === '0') {
+            return 'unclaimed';
+        }
+        if (ctype_digit($value) && (int) $value > 0) {
+            return $value;
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  Builder<BulkSiteRequest>  $query
+     */
+    private function applyBulkIndexHandler($query, bool $mine, string $handlerFilter): void
+    {
+        if ($mine) {
+            $query->where('handled_by', auth()->id());
 
             return;
         }
-        if ($sort === 'newest') {
-            $query->latest('created_at')->orderByDesc('id');
+        if ($handlerFilter === 'unclaimed') {
+            $query->whereNull('handled_by');
 
             return;
         }
+        if ($handlerFilter !== '') {
+            $query->where('handled_by', (int) $handlerFilter);
+        }
+    }
 
-        $query->oldest('created_at')->orderBy('id');
+    /**
+     * @return Collection<int, User>
+     */
+    private function staffAssignees()
+    {
+        return User::query()
+            ->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['admin', 'marketing']))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, User>  $staff
+     * @return list<array{id: int|null, name: string, count: int}>
+     */
+    private function openHandlerCounts($staff): array
+    {
+        $counts = BulkSiteRequest::query()
+            ->where(fn ($open) => MarketingOpsQueues::constrainOpenBulk($open))
+            ->selectRaw('handled_by, COUNT(*) as aggregate')
+            ->groupBy('handled_by')
+            ->pluck('aggregate', 'handled_by');
+
+        $rows = [];
+        $unclaimed = (int) ($counts[null] ?? $counts[''] ?? 0);
+        $rows[] = [
+            'id' => null,
+            'name' => 'Unclaimed',
+            'count' => $unclaimed,
+        ];
+        foreach ($staff as $user) {
+            $rows[] = [
+                'id' => (int) $user->id,
+                'name' => (string) $user->name,
+                'count' => (int) ($counts[$user->id] ?? 0),
+            ];
+        }
+
+        usort($rows, static function (array $a, array $b): int {
+            if ($a['id'] === null) {
+                return -1;
+            }
+            if ($b['id'] === null) {
+                return 1;
+            }
+
+            return $b['count'] <=> $a['count'] ?: strcasecmp($a['name'], $b['name']);
+        });
+
+        return $rows;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, BulkSiteRequest>  $rows
+     */
+    private function exportIndexCsv($rows)
+    {
+        $filename = 'bulk-site-requests-'.now()->format('Y-m-d').'.csv';
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'no-store',
+        ];
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, [
+                'Req #',
+                'Publisher',
+                'Publisher email',
+                'Next step',
+                'Status',
+                'Est.',
+                'Sites',
+                'Pending',
+                'Age days',
+                'SLA',
+                'Handler',
+                'Last reminded',
+                'Blocks new bulk',
+            ]);
+            $reminded = app(BulkPublisherReminderService::class)
+                ->lastRemindedMap($rows->modelKeys());
+            foreach ($rows as $req) {
+                if (! $req instanceof BulkSiteRequest) {
+                    continue;
+                }
+                $last = $reminded[(int) $req->id] ?? null;
+                fputcsv($out, [
+                    $req->id,
+                    $req->publisher?->name ?? '',
+                    $req->publisher?->email ?? '',
+                    $req->nextStepText(),
+                    $req->statusLabel(),
+                    $req->estimated_count ?? '',
+                    $req->sitesCountCached(),
+                    $req->cachedPendingItemsCount(),
+                    $req->ageDays() ?? '',
+                    $req->slaTone(),
+                    $req->handler?->name ?? 'Unclaimed',
+                    $last?->timezone(config('app.timezone'))->format('Y-m-d'),
+                    $req->blocksPublisherNewBulk() ? 'yes' : 'no',
+                ]);
+            }
+            fclose($out);
+        }, $filename, $headers);
+    }
+
+    private function validatedStaffId(mixed $raw): ?int
+    {
+        if ($raw === null || $raw === '' || $raw === '0') {
+            return null;
+        }
+        $id = (int) $raw;
+        if ($id < 1) {
+            return null;
+        }
+        $exists = User::query()
+            ->whereKey($id)
+            ->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['admin', 'marketing']))
+            ->exists();
+
+        return $exists ? $id : null;
     }
 
     /**
@@ -501,6 +700,167 @@ class BulkSiteRequestController extends Controller
             'success',
             'Claimed '.$claimed.' request(s).'.($skipped > 0 ? ' Skipped '.$skipped.'.' : '')
         );
+    }
+
+    public function assign(Request $request, int $id)
+    {
+        $handlerId = $this->validatedStaffId($request->input('handled_by'));
+        $bulkRequest = BulkSiteRequest::findOrFail($id);
+        if ($bulkRequest->isCancelled()) {
+            return back()->with('error', 'Cannot assign a cancelled request.');
+        }
+
+        $from = (int) ($bulkRequest->handled_by ?? 0);
+        $to = (int) ($handlerId ?? 0);
+        if ($from === $to) {
+            return back()->with('success', 'Handler unchanged.');
+        }
+
+        $bulkRequest->forceFill(['handled_by' => $handlerId])->save();
+        $label = $handlerId
+            ? (User::query()->find($handlerId)?->name ?? 'staff')
+            : 'Unclaimed';
+
+        ActivityLogger::tryLog(
+            'bulk_request.assigned',
+            (auth()->user()->name ?? 'Staff').' assigned bulk request #'.$bulkRequest->id.' to '.$label,
+            $bulkRequest,
+            [
+                'bulk_site_request_id' => $bulkRequest->id,
+                'publisher_id' => $bulkRequest->publisher_id,
+                'handled_by' => $handlerId,
+            ],
+            'Bulk request #'.$bulkRequest->id
+        );
+
+        return back()->with('success', $handlerId ? 'Assigned to '.$label.'.' : 'Handler cleared.');
+    }
+
+    public function bulkAssign(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer'],
+            'handled_by' => ['nullable'],
+        ]);
+        $handlerId = $this->validatedStaffId($data['handled_by'] ?? null);
+        $ids = array_values(array_unique(array_map('intval', $data['ids'])));
+        $assigned = 0;
+        $skipped = 0;
+        $label = $handlerId
+            ? (User::query()->find($handlerId)?->name ?? 'staff')
+            : 'Unclaimed';
+
+        foreach (BulkSiteRequest::query()->whereIn('id', $ids)->limit(100)->get() as $bulkRequest) {
+            if ($bulkRequest->isCancelled()) {
+                $skipped++;
+
+                continue;
+            }
+            if ((int) ($bulkRequest->handled_by ?? 0) === (int) ($handlerId ?? 0)) {
+                $skipped++;
+
+                continue;
+            }
+
+            $bulkRequest->forceFill(['handled_by' => $handlerId])->save();
+            $assigned++;
+            ActivityLogger::tryLog(
+                'bulk_request.assigned',
+                (auth()->user()->name ?? 'Staff').' assigned bulk request #'.$bulkRequest->id.' to '.$label,
+                $bulkRequest,
+                [
+                    'bulk_site_request_id' => $bulkRequest->id,
+                    'publisher_id' => $bulkRequest->publisher_id,
+                    'handled_by' => $handlerId,
+                    'bulk' => true,
+                ],
+                'Bulk request #'.$bulkRequest->id
+            );
+        }
+
+        return back()->with(
+            'success',
+            'Assigned '.$assigned.' request(s) to '.$label.'.'.($skipped > 0 ? ' Skipped '.$skipped.'.' : '')
+        );
+    }
+
+    public function remind(int $id)
+    {
+        $bulkRequest = BulkSiteRequest::with('publisher')->findOrFail($id);
+        $result = app(BulkPublisherReminderService::class)->remind($bulkRequest, auth()->user());
+
+        return back()->with(
+            $result === 'sent' ? 'success' : 'error',
+            match ($result) {
+                'sent' => 'Reminder sent to the publisher.',
+                'error' => 'The reminder could not be sent. Try again.',
+                default => 'This request is not waiting on the publisher.',
+            }
+        );
+    }
+
+    public function bulkRemind(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer'],
+        ]);
+        $ids = array_values(array_unique(array_map('intval', $data['ids'])));
+        $rows = BulkSiteRequest::query()
+            ->with('publisher')
+            ->whereIn('id', $ids)
+            ->limit(100)
+            ->get();
+        $result = app(BulkPublisherReminderService::class)->remindMany($rows, auth()->user());
+
+        return back()->with(
+            $result['sent'] > 0 ? 'success' : 'error',
+            'Reminded '.$result['sent'].' publisher(s).'
+                .($result['skipped'] > 0 ? ' Skipped '.$result['skipped'].'.' : '')
+                .($result['errors'] > 0 ? ' '.$result['errors'].' failed.' : '')
+        );
+    }
+
+    public function bulkCancel(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:50'],
+            'ids.*' => ['integer'],
+            'reason' => ['required', 'string', 'min:10', 'max:1000'],
+        ]);
+        $reason = trim($data['reason']);
+        $cancelled = 0;
+        $skipped = 0;
+        $errors = [];
+
+        foreach (array_values(array_unique(array_map('intval', $data['ids']))) as $id) {
+            $inner = $request->duplicate();
+            $inner->merge(['reason' => $reason]);
+            $inner->setUserResolver(fn () => $request->user());
+            $response = $this->cancel($inner, $id);
+            $flash = session('success');
+            if (is_string($flash) && str_contains($flash, 'cancelled')) {
+                $cancelled++;
+                session()->forget('success');
+            } else {
+                $skipped++;
+                $error = session('error');
+                if (is_string($error) && $error !== '') {
+                    $errors[] = '#'.$id.': '.$error;
+                    session()->forget('error');
+                }
+            }
+            unset($response);
+        }
+
+        $message = 'Cancelled '.$cancelled.' request(s).'
+            .($skipped > 0 ? ' Skipped '.$skipped.'.' : '');
+        if ($errors !== []) {
+            $message .= ' '.implode(' ', array_slice($errors, 0, 3));
+        }
+
+        return back()->with($cancelled > 0 ? 'success' : 'error', $message);
     }
 
     public function cancel(Request $request, int $id)

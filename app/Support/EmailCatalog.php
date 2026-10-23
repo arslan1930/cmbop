@@ -17,6 +17,7 @@ use App\Mail\AudienceCampaignMail;
 use App\Mail\AutoApproveReminderMail;
 use App\Mail\BulkSiteItemsRejected;
 use App\Mail\BulkSiteRequestCancelled;
+use App\Mail\BulkSiteRequestPublisherReminder;
 use App\Mail\BulkSiteRequestSubmitted;
 use App\Mail\BulkSitesReadyForPublisherReview;
 use App\Mail\BulkSitesSeededNotification;
@@ -513,6 +514,13 @@ class EmailCatalog
                 'mailable' => BulkSitesReadyForPublisherReview::class,
                 'status' => 'active',
             ],
+            'bulk_request_publisher_reminder' => [
+                'name' => 'Bulk Request Publisher Reminder',
+                'description' => 'Manual or scheduled nudge when a bulk request is still waiting on the publisher.',
+                'category' => 'Publishers',
+                'mailable' => BulkSiteRequestPublisherReminder::class,
+                'status' => 'active',
+            ],
             'admin_assigned_site' => [
                 'name' => 'Admin Assigned Site — Accept Listing',
                 'description' => 'Publisher asked to accept a website staff added for them.',
@@ -831,6 +839,7 @@ class EmailCatalog
             'bulk site request from' => 'bulk_site_request_submitted',
             'your bulk sites are active' => 'bulk_sites_seeded',
             'please review websites from your bulk request' => 'bulk_sites_publisher_review',
+            'reminder: websites from your bulk request still need you' => 'bulk_request_publisher_reminder',
             'your sites were added to pending sites' => 'bulk_sites_seeded',
             'please accept a website we added' => 'admin_assigned_site',
             'review websites we added for you' => 'publisher_staff_onboarding',
@@ -1072,6 +1081,7 @@ class EmailCatalog
             ),
             'bulk_sites_seeded' => new BulkSitesSeededNotification(self::sampleBulkSiteRequest(), 3, $user, ['example.com', 'sample-two.example']),
             'bulk_sites_publisher_review' => new BulkSitesReadyForPublisherReview(self::sampleBulkSiteRequest(), 2, $user, ['example.com', 'sample-two.example']),
+            'bulk_request_publisher_reminder' => new BulkSiteRequestPublisherReminder(self::sampleBulkSiteRequest(), $user),
             'admin_assigned_site' => new AdminAssignedSiteNotification($site, $user),
             'admin_published_site' => new AdminPublishedSiteNotification($site, $user),
             'publisher_staff_onboarding' => new PublisherStaffOnboardingMail(

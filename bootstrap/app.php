@@ -294,6 +294,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // morning; each command advances an item by at most one stage per run.
         $mutex($schedule->command('orders:nudge-publishers')->hourly(), 90);
         $mutex($schedule->command('orders:nudge-advertisers')->hourly(), 90);
+        // Bulk publisher reminders. The command no-ops unless
+        // BULK_PUBLISHER_REMINDER_AUTO=true.
+        $mutex($schedule->command('bulk:remind-publishers')->dailyAt('10:45'));
 
         // New and discounted listings for advertisers who have bought before.
         // Daily run, per-recipient 15-day clock inside the command.
