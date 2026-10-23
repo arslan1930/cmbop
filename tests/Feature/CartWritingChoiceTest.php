@@ -309,7 +309,7 @@ class CartWritingChoiceTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('writing_turnaround_text', '2–3 working days')
-            ->assertJsonPath('writing_guarantee_note', '12-month link guarantee available at checkout')
+            ->assertJsonPath('writing_guarantee_note', 'Optional: add a 12-month link guarantee at checkout')
             ->json('cart.0');
 
         $this->assertTrue((bool) $line['guarantee_offered']);
