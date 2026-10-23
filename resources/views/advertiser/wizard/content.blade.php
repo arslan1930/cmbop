@@ -137,6 +137,9 @@
                             ? ($line['name'] ?? ('Site #'.$line['id'])).' — placement '.($copyIndex + 1).' of '.$placement['qty']
                             : ($line['name'] ?? ('Site #'.$line['id']));
                         $guaranteeFeeLabel = $line['guarantee_fee_label'] ?? '';
+                        $guaranteeOptionalText = ! empty($line['guarantee_offered'])
+                            ? app(\App\Services\Marketplace\CheckoutAddOnService::class)->guaranteeOptionalText($guaranteeFeeLabel)
+                            : '';
                         $unready = ! $written && $selectedId <= 0;
                     @endphp
                     <div class="card wizard-line{{ $unready ? ' is-unready' : '' }}"
@@ -199,24 +202,17 @@
                                     <dt>{{ $articleCopy['breakdown_writing'] }}</dt>
                                     <dd>{{ $written ? format_money_pay($writingFee) : ($writingFeeLabel !== '' ? '+'.$writingFeeLabel : '—') }}</dd>
                                 </div>
+                                @if($guaranteeOptionalText !== '')
                                 <div>
-                                    <dt>{{ $articleCopy['breakdown_guarantee'] }}</dt>
-                                    <dd>
-                                        @if(!empty($line['guarantee_offered']))
-                                            {{ $guaranteeFeeLabel !== '' ? $guaranteeFeeLabel.' at checkout' : ($articleCopy['guarantee_percent_label'].' at checkout') }}
-                                        @else
-                                            Not offered
-                                        @endif
-                                    </dd>
+                                    <dt>{{ $articleCopy['breakdown_guarantee'] ?? $articleCopy['guarantee_optional_label'] ?? 'Optional add-on' }}</dt>
+                                    <dd>{{ $guaranteeOptionalText }}</dd>
                                 </div>
+                                @endif
                             </dl>
-                            @if(!empty($line['guarantee_offered']))
+                            @if($guaranteeOptionalText !== '')
                                 <div class="cart-item-guarantee">
                                     <button type="button" class="cart-tip wizard-guarantee-tip" aria-expanded="false">
-                                        {{ $articleCopy['guarantee_note'] }}
-                                        @if($guaranteeFeeLabel !== '')
-                                            · {{ $guaranteeFeeLabel }}
-                                        @endif
+                                        {{ $guaranteeOptionalText }}
                                     </button>
                                     <p class="cart-tip__body d-none">{{ $articleCopy['guarantee_tooltip'] }}</p>
                                 </div>
@@ -226,8 +222,8 @@
                                     Writing selected. Target URL and anchor can be edited at checkout.
                                 @endif
                             </div>
-                            @if(!empty($line['guarantee_offered']))
-                                <p class="cart-guarantee-note mb-0">{{ $writingGuaranteeNote }}</p>
+                            @if($guaranteeOptionalText !== '')
+                                <p class="cart-guarantee-note mb-0">{{ $guaranteeOptionalText }}</p>
                             @endif
                             <p class="cart-source-steps mb-0">{{ $written ? $writingStepsWrite : ($selectedId ? $writingStepsUpload : $writingStepsWrite) }}</p>
                         </div>

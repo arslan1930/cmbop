@@ -75,7 +75,13 @@ class CartArticleChoiceUxTest extends TestCase
         $this->assertSame('Have the article written', $copy['write_label']);
         $this->assertSame('Upload article', $copy['upload_label']);
         $this->assertSame('Have all articles written', $copy['write_all']);
-        $this->assertSame('12-month link guarantee available at checkout', $copy['guarantee_note']);
+        $this->assertSame('Optional: add a 12-month link guarantee at checkout', $copy['guarantee_note']);
+        $this->assertSame('Optional add-on', $copy['guarantee_optional_label']);
+        $this->assertSame('Optional add-on', $copy['breakdown_guarantee']);
+        $this->assertSame(
+            'Optional: add a 12-month link guarantee at checkout (+€12.00)',
+            app(CheckoutAddOnService::class)->guaranteeOptionalText('€12.00')
+        );
         $this->assertSame('Choose an article option above to continue', $copy['proceed_hint']);
         $this->assertSame('We write → you approve → publisher publishes', $copy['write_steps']);
         $this->assertSame('You upload → we approve → publisher publishes', $copy['upload_steps']);
@@ -129,6 +135,10 @@ class CartArticleChoiceUxTest extends TestCase
         );
         $this->assertGreaterThan(0, (float) $line['guarantee_fee']);
         $this->assertNotSame('', (string) $line['guarantee_fee_label']);
+        $this->assertSame(
+            'Optional: add a 12-month link guarantee at checkout (+'.$line['guarantee_fee_label'].')',
+            $line['writing_guarantee_note']
+        );
         $this->assertSame('', (string) ($line['article_choice'] ?? ''));
         $this->assertArrayNotHasKey('listing_writing_fee', $line);
         $this->assertArrayNotHasKey('publisher_price', $line);
@@ -151,6 +161,7 @@ class CartArticleChoiceUxTest extends TestCase
         $this->assertFalse((bool) $line['guarantee_offered']);
         $this->assertEquals(0.0, (float) $line['guarantee_fee']);
         $this->assertSame('', (string) ($line['guarantee_fee_label'] ?? ''));
+        $this->assertSame('', (string) ($line['writing_guarantee_note'] ?? ''));
     }
 
     public function test_bulk_write_orders_writing_on_unready_lines_only(): void
@@ -245,7 +256,13 @@ class CartArticleChoiceUxTest extends TestCase
         $this->assertStringContainsString('Upload article', $html);
         $this->assertStringContainsString('Writing, turnaround, and next steps', $html);
         $this->assertStringContainsString('We write → you approve → publisher publishes', $html);
-        $this->assertStringContainsString('12-month link guarantee available at checkout', $html);
+        $this->assertStringContainsString('Optional: add a 12-month link guarantee at checkout', $html);
+        $this->assertStringContainsString('Optional add-on', $html);
+        $this->assertStringContainsString('Optional: add a 12-month link guarantee at checkout (+€10.00)', $html);
+        $this->assertStringContainsString('€100.00', $html);
+        $this->assertStringNotContainsString('€110.00', $html);
+        $this->assertStringNotContainsString('12-month link guarantee available at checkout ·', $html);
+        $this->assertDoesNotMatchRegularExpression('/Guarantee\s+€[\d.]+ at checkout/', $html);
         $this->assertStringContainsString('Choose an article option above to continue', $html);
         $this->assertStringContainsString('Typical turnaround: 2–3 working days', $html);
         $this->assertStringContainsString('Microsoft Word (.docx) only', $html);
@@ -266,6 +283,46 @@ class CartArticleChoiceUxTest extends TestCase
         $this->assertNotFalse($writePos);
         $this->assertNotFalse($uploadPos);
         $this->assertLessThan($uploadPos, $writePos);
+    }
+
+    public function test_wizard_hides_guarantee_copy_for_short_listings(): void
+    {
+        $site = $this->makeSite('wizard-short', ['publication_time' => '6months']);
+
+        $html = $this->actingAs($this->advertiser)
+            ->withSession([
+                GuestPostWizardController::SESSION_KEY => [
+                    'language' => 'en',
+                    'categories' => [],
+                ],
+                'cart' => [[
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'price' => 100,
+                    'quantity' => 1,
+                    'language' => 'en',
+                    'country' => 'us',
+                ]],
+            ])
+            ->get(route('advertiser.wizard.content'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('at checkout (+', $html);
+        $this->assertDoesNotMatchRegularExpression('/Guarantee\s+€[\d.]+ at checkout/', $html);
+        $this->assertStringContainsString('€100.00', $html);
+        $this->assertStringNotContainsString('€110.00', $html);
+    }
+
+    public function test_cart_drawer_script_keeps_guarantee_out_of_totals(): void
+    {
+        $layout = (string) file_get_contents(resource_path('views/advertiser/layouts/app.blade.php'));
+
+        $this->assertStringContainsString('function lineGuaranteeOptionalText', $layout);
+        $this->assertStringContainsString('Optional: add a 12-month link guarantee at checkout', $layout);
+        $this->assertStringContainsString('return (price + writing) * qty;', $layout);
+        $this->assertStringNotContainsString("guaranteeFeeLabel ? ' · ' + escapeHtml(guaranteeFeeLabel)", $layout);
+        $this->assertStringNotContainsString(" + ' at checkout'", $layout);
     }
 
     public function test_wizard_bulk_write_button_shows_fee_times_unready_lines(): void

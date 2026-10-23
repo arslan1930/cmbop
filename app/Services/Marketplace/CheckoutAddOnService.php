@@ -247,6 +247,9 @@ class CheckoutAddOnService
         $line['guarantee_fee_label'] = $line['guarantee_fee'] > 0
             ? format_money_pay($line['guarantee_fee'])
             : '';
+        $line['writing_guarantee_note'] = $line['guarantee_offered']
+            ? $this->guaranteeOptionalText($line['guarantee_fee_label'])
+            : '';
         $line['article_choice'] = $this->resolvedArticleChoice($line, $source);
 
         return $line;
@@ -271,7 +274,23 @@ class CheckoutAddOnService
 
     public function writingGuaranteeNote(): string
     {
-        return '12-month link guarantee available at checkout';
+        return 'Optional: add a 12-month link guarantee at checkout';
+    }
+
+    public function guaranteeOptionalLabel(): string
+    {
+        return 'Optional add-on';
+    }
+
+    public function guaranteeOptionalText(?string $feeLabel = null): string
+    {
+        $base = $this->writingGuaranteeNote();
+        $fee = trim((string) $feeLabel);
+        if ($fee === '') {
+            return $base;
+        }
+
+        return $base.' (+'.ltrim($fee, '+').')';
     }
 
     public function writingStepsWrite(): string
@@ -321,7 +340,8 @@ class CheckoutAddOnService
             'turnaround_label' => 'Typical turnaround: '.$turnaround,
             'with_writing' => 'With writing:',
             'write_all' => 'Have all articles written',
-            'guarantee_note' => '12-month link guarantee available at checkout',
+            'guarantee_note' => $this->writingGuaranteeNote(),
+            'guarantee_optional_label' => $this->guaranteeOptionalLabel(),
             'guarantee_tooltip' => $this->guaranteeTooltipText(),
             'guarantee_percent_label' => $percent.'%',
             'proceed_hint' => 'Choose an article option above to continue',
@@ -331,7 +351,7 @@ class CheckoutAddOnService
             'upload_steps' => 'You upload → we approve → publisher publishes',
             'breakdown_placement' => 'Placement',
             'breakdown_writing' => 'Writing',
-            'breakdown_guarantee' => 'Guarantee',
+            'breakdown_guarantee' => $this->guaranteeOptionalLabel(),
             'clear_confirm_title' => 'Clear cart?',
             'clear_confirm_text' => 'Remove every website from this cart. Assigned articles stay in Content Library.',
         ];

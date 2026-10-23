@@ -570,7 +570,7 @@
     let writingTurnaroundText = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingTurnaroundText())
         || '2–3 working days';
     let writingGuaranteeNote = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingGuaranteeNote())
-        || '12-month link guarantee available at checkout';
+        || 'Optional: add a 12-month link guarantee at checkout';
     let writingStepsWrite = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingStepsWrite())
         || 'We write → you approve → publisher publishes';
     let writingStepsUpload = @json(app(\App\Services\Marketplace\CheckoutAddOnService::class)->writingStepsUpload())
@@ -876,6 +876,19 @@
             return Math.round(price * (percent / 100) * 100) / 100;
         }
         return 0;
+    }
+
+    function lineGuaranteeOptionalText(item) {
+        const base = String(
+            item?.writing_guarantee_note
+            || cartArticleCopy.guarantee_note
+            || writingGuaranteeNote
+            || 'Optional: add a 12-month link guarantee at checkout'
+        ).replace(/\s+\(\+[^)]+\)\s*$/, '').trim();
+        const fee = lineGuaranteeFee(item);
+        const feeLabel = String(item?.guarantee_fee_label || (fee > 0 ? slbFormatPay(fee) : '')).trim();
+        if (!feeLabel) return base;
+        return base + ' (+' + feeLabel.replace(/^\+/, '') + ')';
     }
 
     function lineWritingQtyLabel(item) {
@@ -1560,14 +1573,12 @@
                         </div>`;
                 }).join('');
                 const articleState = written ? 'is-written' : (choseUpload ? 'is-assigned' : 'needs-choice');
-                const guaranteeFee = lineGuaranteeFee(item);
-                const guaranteeFeeLabel = item.guarantee_fee_label || (guaranteeFee > 0 ? slbFormatPay(guaranteeFee) : '');
                 const guaranteeTip = escapeHtml(cartArticleCopy.guarantee_tooltip || '');
+                const guaranteeOptionalText = item.guarantee_offered ? lineGuaranteeOptionalText(item) : '';
                 const guaranteeNote = item.guarantee_offered
                     ? `<div class="cart-item-guarantee">
                         <button type="button" class="cart-tip" aria-expanded="false" aria-controls="cart-guarantee-tip-${itemKeyAttr}">
-                            ${escapeHtml(cartArticleCopy.guarantee_note)}
-                            ${guaranteeFeeLabel ? ' · ' + escapeHtml(guaranteeFeeLabel) : ''}
+                            ${escapeHtml(guaranteeOptionalText)}
                         </button>
                         <p id="cart-guarantee-tip-${itemKeyAttr}" class="cart-tip__body" hidden>${guaranteeTip}</p>
                        </div>`
@@ -1578,13 +1589,14 @@
                 const placementBreakdown = qty > 1
                     ? (slbFormatPay(placementPrice) + ' × ' + qty)
                     : slbFormatPay(placementPrice);
+                const guaranteeBreakdown = item.guarantee_offered && guaranteeOptionalText
+                    ? `<div><dt>${escapeHtml(cartArticleCopy.breakdown_guarantee || cartArticleCopy.guarantee_optional_label || 'Optional add-on')}</dt><dd>${escapeHtml(guaranteeOptionalText)}</dd></div>`
+                    : '';
                 const breakdown = `
                     <dl class="cart-item-breakdown">
                         <div><dt>${escapeHtml(cartArticleCopy.breakdown_placement || 'Placement')}</dt><dd>${escapeHtml(placementBreakdown)}</dd></div>
                         <div><dt>${escapeHtml(cartArticleCopy.breakdown_writing || 'Writing')}</dt><dd>${escapeHtml(writingBreakdown)}</dd></div>
-                        <div><dt>${escapeHtml(cartArticleCopy.breakdown_guarantee || 'Guarantee')}</dt><dd>${item.guarantee_offered
-                            ? escapeHtml((guaranteeFeeLabel || cartArticleCopy.guarantee_percent_label || '') + ' at checkout')
-                            : 'Not offered'}</dd></div>
+                        ${guaranteeBreakdown}
                     </dl>`;
                 const articleBlock = `
                     <div class="cart-item-article ${articleState}">
