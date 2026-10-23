@@ -20,6 +20,8 @@ class ActivityActionLabelTest extends TestCase
     public function test_bulk_request_claim_has_a_friendly_label(): void
     {
         $this->assertSame('Claimed bulk request', activity_action_label('bulk_request.claimed'));
+        $this->assertSame('Assigned bulk request', activity_action_label('bulk_request.assigned'));
+        $this->assertSame('Reminded publisher on bulk request', activity_action_label('bulk_request.publisher_reminded'));
     }
 
     public function test_unknown_action_keys_are_humanized(): void

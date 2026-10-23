@@ -1356,6 +1356,12 @@ $registerStaffOpsRoutes = function () {
         ->name('bulk-site-requests.index');
     Route::post('/bulk-site-requests/bulk-claim', [AdminBulkSiteRequestController::class, 'bulkClaim'])
         ->name('bulk-site-requests.bulk-claim');
+    Route::post('/bulk-site-requests/bulk-assign', [AdminBulkSiteRequestController::class, 'bulkAssign'])
+        ->name('bulk-site-requests.bulk-assign');
+    Route::post('/bulk-site-requests/bulk-remind', [AdminBulkSiteRequestController::class, 'bulkRemind'])
+        ->name('bulk-site-requests.bulk-remind');
+    Route::post('/bulk-site-requests/bulk-cancel', [AdminBulkSiteRequestController::class, 'bulkCancel'])
+        ->name('bulk-site-requests.bulk-cancel');
     Route::get('/bulk-site-requests/{id}', [AdminBulkSiteRequestController::class, 'show'])
         ->name('bulk-site-requests.show');
     Route::post('/bulk-site-requests/{id}/sheet-sent', [AdminBulkSiteRequestController::class, 'markSheetSent'])
@@ -1364,6 +1370,10 @@ $registerStaffOpsRoutes = function () {
         ->name('bulk-site-requests.notes');
     Route::post('/bulk-site-requests/{id}/claim', [AdminBulkSiteRequestController::class, 'claim'])
         ->name('bulk-site-requests.claim');
+    Route::post('/bulk-site-requests/{id}/assign', [AdminBulkSiteRequestController::class, 'assign'])
+        ->name('bulk-site-requests.assign');
+    Route::post('/bulk-site-requests/{id}/remind', [AdminBulkSiteRequestController::class, 'remind'])
+        ->name('bulk-site-requests.remind');
     Route::post('/bulk-site-requests/{id}/seed', [AdminBulkSiteRequestController::class, 'seed'])
         ->name('bulk-site-requests.seed');
     Route::post('/bulk-site-requests/{id}/done', [AdminBulkSiteRequestController::class, 'done'])

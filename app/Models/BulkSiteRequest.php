@@ -560,4 +560,310 @@ class BulkSiteRequest extends Model
             default => str_replace('_', ' ', (string) $status),
         };
     }
+
+    /**
+     * Distinct badge tone for the queue (not the next-step sentence).
+     */
+    public function statusBadgeTone(): string
+    {
+        if ($this->status === self::STATUS_COMPLETED) {
+            $pendingItems = $this->cachedPendingItemsCount();
+            if ($pendingItems > 0) {
+                return 'marketer';
+            }
+            if ($this->cachedReadyForReviewCount() > 0) {
+                return 'staff';
+            }
+
+            return 'finished';
+        }
+
+        return match ($this->status) {
+            self::STATUS_REQUESTED, self::STATUS_SHEET_SENT, self::STATUS_SEEDED => 'marketer',
+            self::STATUS_AWAITING_PUBLISHER => 'publisher',
+            self::STATUS_CANCELLED => 'cancelled',
+            default => 'neutral',
+        };
+    }
+
+    public function ageDays(): ?int
+    {
+        if (! $this->created_at instanceof \DateTimeInterface) {
+            return null;
+        }
+
+        return (int) $this->created_at->diffInDays(now());
+    }
+
+    /**
+     * @return 'ok'|'amber'|'red'
+     */
+    public function slaTone(): string
+    {
+        $days = $this->ageDays();
+        if ($days === null || $this->isCancelled() || $this->isSlaExemptFinished()) {
+            return 'ok';
+        }
+
+        $red = max(1, (int) config('bulk_site_requests.sla.red_days', 7));
+        $amber = max(1, (int) config('bulk_site_requests.sla.amber_days', 3));
+        if ($days >= $red) {
+            return 'red';
+        }
+        if ($days >= $amber) {
+            return 'amber';
+        }
+
+        return 'ok';
+    }
+
+    public function isSlaOverdue(): bool
+    {
+        return $this->slaTone() === 'red';
+    }
+
+    public function isSlaExemptFinished(): bool
+    {
+        return $this->status === self::STATUS_COMPLETED
+            && $this->cachedPendingItemsCount() === 0
+            && $this->cachedPendingPublisherCount() === 0
+            && $this->cachedReadyToPublishCount() === 0;
+    }
+
+    /**
+     * Plain next-step: who it is waiting on, and what they owe.
+     */
+    public function nextStepText(): string
+    {
+        if ($this->isCancelled()) {
+            return 'Cancelled — no further action';
+        }
+
+        $pendingItems = $this->cachedPendingItemsCount();
+        if ($pendingItems > 0) {
+            return 'Needs prices for '.$pendingItems.' '.self::plural($pendingItems, 'URL');
+        }
+
+        if ($this->canAddDraftSites() && (int) $this->estimated_count > 0 && $this->sitesCountCached() === 0) {
+            $est = (int) $this->estimated_count;
+
+            return 'Needs prices for '.$est.' '.self::plural($est, 'URL');
+        }
+
+        $readyToPublish = $this->cachedReadyToPublishCount();
+        if ($readyToPublish > 0) {
+            return 'Ready to publish '.$readyToPublish.' '.self::plural($readyToPublish, 'site');
+        }
+
+        $readyForReview = $this->cachedReadyForReviewCount();
+        if ($readyForReview > 0) {
+            return 'Needs activation for '.$readyForReview.' '.self::plural($readyForReview, 'site');
+        }
+
+        $awaitingDetails = $this->cachedAwaitingDetailsCount();
+        if ($awaitingDetails > 0) {
+            return 'Waiting on publisher to add details for '.$awaitingDetails.' '.self::plural($awaitingDetails, 'site');
+        }
+
+        $reviewing = $this->cachedReviewingCount();
+        if ($reviewing > 0) {
+            return 'Waiting on publisher to review '.$reviewing.' '.self::plural($reviewing, 'site');
+        }
+
+        $pendingAccept = $this->cachedPendingAcceptCount();
+        if ($pendingAccept > 0) {
+            return 'Waiting on publisher to accept '.$pendingAccept.' '.self::plural($pendingAccept, 'site');
+        }
+
+        if ($this->status === self::STATUS_AWAITING_PUBLISHER) {
+            $sites = $this->sitesCountCached();
+            if ($sites > 0) {
+                return 'Waiting on publisher for '.$sites.' '.self::plural($sites, 'site');
+            }
+
+            return 'Waiting on publisher';
+        }
+
+        if ($this->status === self::STATUS_COMPLETED) {
+            return 'Finished';
+        }
+
+        return $this->statusLabel();
+    }
+
+    /**
+     * @return array{reason: string, clears: string}|null
+     */
+    public function blocksNewBulkTooltip(): ?array
+    {
+        if (! $this->blocksPublisherNewBulk()) {
+            return null;
+        }
+
+        $pendingItems = $this->cachedPendingItemsCount();
+        $pendingPublisher = $this->cachedPendingPublisherCount();
+        $sites = $this->sitesCountCached();
+
+        if ($pendingItems > 0) {
+            $reason = 'This batch still has '.$pendingItems.' URL + price '
+                .self::plural($pendingItems, 'row').' to Done, so the publisher cannot start another bulk.';
+        } elseif ($pendingPublisher > 0) {
+            $reason = 'The publisher still has '.$pendingPublisher.' '
+                .self::plural($pendingPublisher, 'listing').' to finish on this batch.';
+        } elseif ($sites > 0) {
+            $reason = 'This batch still has '.$sites.' '
+                .self::plural($sites, 'listing').' attached, so a new bulk is blocked.';
+        } else {
+            $reason = 'This open sheet batch still blocks a new bulk until it is finished or cancelled.';
+        }
+
+        return [
+            'reason' => $reason,
+            'clears' => 'Clears when every leftover row is Done or removed, the publisher has no review left, or the request is cancelled.',
+        ];
+    }
+
+    public function canRemindPublisher(): bool
+    {
+        if ($this->isCancelled()) {
+            return false;
+        }
+
+        return $this->cachedPendingPublisherCount() > 0
+            || $this->status === self::STATUS_AWAITING_PUBLISHER;
+    }
+
+    public function canPublishReady(): bool
+    {
+        return ! $this->isCancelled() && $this->cachedReadyToPublishCount() > 0;
+    }
+
+    public function canSendForReview(): bool
+    {
+        if ($this->isCancelled()) {
+            return false;
+        }
+
+        if ($this->cachedPendingItemsCount() > 0) {
+            return true;
+        }
+
+        return $this->canAddDraftSites();
+    }
+
+    public function waitingOnPublisherSites(): bool
+    {
+        return $this->cachedPendingPublisherCount() > 0;
+    }
+
+    /**
+     * @return array{done: int, total: int}
+     */
+    public function progressCounts(): array
+    {
+        $pending = $this->cachedPendingItemsCount();
+        $sites = $this->sitesCountCached();
+        $estimated = max(0, (int) ($this->estimated_count ?? 0));
+        $done = max(0, $sites);
+        $total = max($estimated, $sites + $pending, $done, 1);
+        if ($this->isCancelled()) {
+            return ['done' => 0, 'total' => max($estimated, 1)];
+        }
+        if ($this->status === self::STATUS_COMPLETED && $pending === 0) {
+            $done = $total;
+        }
+
+        return ['done' => min($done, $total), 'total' => $total];
+    }
+
+    public function cachedPendingItemsCount(): int
+    {
+        if (array_key_exists('pending_items_count', $this->getAttributes())) {
+            return (int) $this->pending_items_count;
+        }
+
+        return $this->pendingItemsCount();
+    }
+
+    public function sitesCountCached(): int
+    {
+        if (array_key_exists('sites_count', $this->getAttributes())) {
+            return (int) $this->sites_count;
+        }
+
+        return $this->sites()->notArchived()->count();
+    }
+
+    public function cachedAwaitingDetailsCount(): int
+    {
+        if (array_key_exists('awaiting_details_count', $this->getAttributes())) {
+            return (int) $this->awaiting_details_count;
+        }
+
+        return $this->awaitingDetailsCount();
+    }
+
+    public function cachedReviewingCount(): int
+    {
+        if (array_key_exists('reviewing_count', $this->getAttributes())) {
+            return (int) $this->reviewing_count;
+        }
+
+        return $this->detailsCompleteCount();
+    }
+
+    public function cachedReadyForReviewCount(): int
+    {
+        if (array_key_exists('ready_count', $this->getAttributes())) {
+            return (int) $this->ready_count;
+        }
+
+        return $this->readyForReviewCount();
+    }
+
+    public function cachedPendingAcceptCount(): int
+    {
+        if (array_key_exists('pending_accept_count', $this->getAttributes())) {
+            return (int) $this->pending_accept_count;
+        }
+        if (! Site::hasSitesColumn('publisher_accepted_at') || ! Site::hasSitesColumn('assigned_by_user_id')) {
+            return 0;
+        }
+
+        return $this->sites()->notArchived()->pendingPublisherAcceptance()->count();
+    }
+
+    public function cachedPendingPublisherCount(): int
+    {
+        return $this->cachedAwaitingDetailsCount()
+            + $this->cachedReviewingCount()
+            + $this->cachedPendingAcceptCount();
+    }
+
+    public function cachedReadyToPublishCount(): int
+    {
+        if (array_key_exists('ready_to_publish_count', $this->getAttributes())) {
+            return (int) $this->ready_to_publish_count;
+        }
+
+        return $this->readyToPublishNowCount();
+    }
+
+    public function cachedStaffAssignedCount(): int
+    {
+        if (array_key_exists('staff_assigned_count', $this->getAttributes())) {
+            return (int) $this->staff_assigned_count;
+        }
+
+        if (! Site::hasSitesColumn('assigned_by_user_id')) {
+            return 0;
+        }
+
+        return $this->sites()->whereNotNull('assigned_by_user_id')->count();
+    }
+
+    private static function plural(int $count, string $word): string
+    {
+        return $count === 1 ? $word : $word.'s';
+    }
 }

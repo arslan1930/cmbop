@@ -20,6 +20,9 @@ class MarketingOpsQueues
     /** Seeded drafts with the publisher and no leftover Done rows. */
     public const FILTER_WAITING_PUBLISHER = 'waiting_publisher';
 
+    /** Open batches older than the red SLA target. */
+    public const FILTER_OVERDUE = 'overdue';
+
     /**
      * Sites ready for staff activate / review (not publisher drafts or invites).
      *
@@ -186,6 +189,7 @@ class MarketingOpsQueues
             '', 'all' => $query,
             self::FILTER_NEEDS_MARKETER => $query->where(fn ($q) => self::constrainWaitingOnMarketer($q)),
             self::FILTER_WAITING_PUBLISHER => $query->where(fn ($q) => self::constrainWaitingOnPublisherBulk($q)),
+            self::FILTER_OVERDUE => $query->where(fn ($q) => self::constrainOverdueBulk($q)),
             BulkSiteRequest::STATUS_COMPLETED => $query->where('status', BulkSiteRequest::STATUS_COMPLETED)
                 ->where(fn ($q) => self::constrainBulkFinished($q)),
             default => $query->where('status', $status),
@@ -250,6 +254,34 @@ class MarketingOpsQueues
     public static function bulkWaitingOnPublisher(): Builder
     {
         return BulkSiteRequest::query()->where(fn ($q) => self::constrainWaitingOnPublisherBulk($q));
+    }
+
+    public static function bulkOverdueCount(): int
+    {
+        return self::rememberCount(
+            'marketing.ops.overdue_bulk_count',
+            fn () => self::bulkOverdue()->count()
+        );
+    }
+
+    /**
+     * @return Builder<BulkSiteRequest>
+     */
+    public static function bulkOverdue(): Builder
+    {
+        return BulkSiteRequest::query()->where(fn ($q) => self::constrainOverdueBulk($q));
+    }
+
+    /**
+     * Open work older than the red SLA day count.
+     *
+     * @param  Builder<BulkSiteRequest>  $q
+     */
+    public static function constrainOverdueBulk(Builder $q): void
+    {
+        $redDays = max(1, (int) config('bulk_site_requests.sla.red_days', 7));
+        $q->where('created_at', '<=', now()->subDays($redDays))
+            ->where(fn ($open) => self::constrainOpenBulk($open));
     }
 
     /**

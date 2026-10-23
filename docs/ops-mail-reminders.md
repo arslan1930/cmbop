@@ -18,6 +18,7 @@ Defined in `bootstrap/app.php` (not `app/Console/Kernel.php`):
 
 - `orders:auto-approve` — every 15 minutes
 - `orders:nudge-publishers` / `orders:nudge-advertisers` — hourly
+- `bulk:remind-publishers` — daily 10:45 (no-op unless `BULK_PUBLISHER_REMINDER_AUTO=true`)
 - `emails:send-deposit-reminders` / `emails:send-publisher-add-site-reminders` — daily
 - `emails:send-digests` — weekly / monthly
 - `sites:send-new-sites-digest` — daily

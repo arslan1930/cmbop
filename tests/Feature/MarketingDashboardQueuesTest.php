@@ -371,7 +371,8 @@ class MarketingDashboardQueuesTest extends TestCase
                 'status' => MarketingOpsQueues::FILTER_NEEDS_MARKETER,
             ]))
             ->assertOk()
-            ->assertSee('1 waiting on you', false)
+            ->assertSee('Waiting on you', false)
+            ->assertDontSee('data-bulk-waiting-on-you', false)
             ->assertSee('Pending to add', false)
             ->getContent();
 

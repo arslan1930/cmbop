@@ -2395,6 +2395,33 @@ class InAppNotificationService
         );
     }
 
+    public function notifyPublisherBulkRequestReminder(BulkSiteRequest $bulk): void
+    {
+        $publisherId = (int) ($bulk->publisher_id ?? 0);
+        if ($publisherId <= 0) {
+            return;
+        }
+
+        $this->notify(
+            $publisherId,
+            self::TYPE_SITE_STATUS,
+            'Reminder: your bulk request still needs you',
+            $bulk->nextStepText().' Open the listings to Accept or Edit.',
+            [
+                'category' => self::CATEGORY_ACCOUNT,
+                'icon' => 'clock',
+                'priority' => InAppNotification::PRIORITY_HIGH,
+                'related' => $bulk,
+                'audience' => InAppNotification::AUDIENCE_PUBLISHER,
+                'action_label' => 'Review websites',
+                'action_url' => route('publisher.bulk-sites.review', absolute: false),
+                'meta' => [
+                    'bulk_site_request_id' => $bulk->id,
+                ],
+            ]
+        );
+    }
+
     public function notifyPublisherBulkSitesReadyForReview(BulkSiteRequest $bulk, int $createdCount): void
     {
         $publisherId = (int) ($bulk->publisher_id ?? 0);
