@@ -41,7 +41,8 @@
         .catalog-page .bulk-deal-card__tld{display:none!important}
         .catalog-page .catalog-bulk-section .bulk-deal-card:hover,
         .catalog-page .catalog-bulk-section .bulk-deal-card:focus-within{
-            box-shadow:0 0 0 3px rgba(26,88,94,.14)!important;
+            border-color:rgba(26,88,94,.28)!important;
+            box-shadow:0 2px 8px rgba(15,23,42,.07)!important;
             transform:none!important
         }
         /* Price chips: do not shrink into two clipped lines inside the pill. */

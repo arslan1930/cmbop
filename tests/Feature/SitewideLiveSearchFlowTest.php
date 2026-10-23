@@ -222,8 +222,8 @@ class SitewideLiveSearchFlowTest extends TestCase
         }
 
         $bulkDeals = (string) file_get_contents(resource_path('views/advertiser/partials/catalog-bulk-deals.blade.php'));
-        $this->assertStringContainsString('Use the catalog search above to filter deals too.', $bulkDeals);
         $this->assertStringNotContainsString('id="bulkDealSearch"', $bulkDeals);
+        $this->assertStringContainsString('Save up to', $bulkDeals);
     }
 
     public function test_icons_are_local_lucide_not_font_awesome_cdn(): void
