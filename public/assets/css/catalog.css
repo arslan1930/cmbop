@@ -1832,8 +1832,7 @@ body:has(.catalog-page) {
 }
 
 .catalog-bulk-search-hint {
-    max-width: 16rem;
-    line-height: 1.3;
+    display: none;
 }
 
 .catalog-bulk-search-input {
@@ -1868,20 +1867,42 @@ body:has(.catalog-page) {
 }
 
 .catalog-bulk-toggle {
-    padding: 0 4px;
-    font-size: 0.8125rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 12px;
+    color: var(--brand-primary, #1a585e);
+    background: var(--surface-1, #fff);
+    border: 1px solid var(--brand-primary-border, #d9ecec);
+    border-radius: var(--radius-sm, 6px);
     text-decoration: none;
+}
+
+.catalog-bulk-toggle:hover,
+.catalog-bulk-toggle:focus-visible {
+    color: var(--brand-primary-deep, #123f42);
+    border-color: var(--brand-primary, #1a585e);
 }
 
 .catalog-bulk-section.is-collapsed .card-body {
     display: none;
 }
 
-/* Page slide: extra padding keeps hover rings and whole cards inside the clip. */
+/* Clip the sliding track so the next page never peeks at the right edge. */
+.catalog-bulk-section,
+.catalog-bulk-section .card-body.catalog-bulk-body {
+    overflow: hidden;
+}
+
 .catalog-bulk-viewport {
     overflow: hidden;
+    overflow-x: hidden;
     width: 100%;
-    padding: 10px 10px 6px;
+    max-width: 100%;
+    padding: 4px 0 2px;
 }
 
 .catalog-bulk-viewport:focus-within {
@@ -1892,6 +1913,7 @@ body:has(.catalog-page) {
     display: flex;
     flex-wrap: nowrap;
     width: 100%;
+    max-width: 100%;
     will-change: transform;
     transition: transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -1930,12 +1952,14 @@ body:has(.catalog-page) {
 .catalog-bulk-page-panel {
     flex: 0 0 100%;
     width: 100%;
+    max-width: 100%;
     min-width: 100%;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     box-sizing: border-box;
     align-content: start;
+    overflow: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1975,14 +1999,15 @@ body:has(.catalog-page) {
     display: none !important;
 }
 
-/* Centered under the deals: ← 1 2 3 → and Page X of Y */
+/* Centered under the deals: ← 1 2 3 → (page text is visually hidden). */
 .catalog-bulk-pager {
+    position: relative;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
-    gap: 6px 8px;
-    margin-top: 6px;
+    gap: 4px 6px;
+    margin-top: 4px;
     margin-bottom: 0;
     padding-top: 0;
     padding-bottom: 0;
@@ -2021,20 +2046,23 @@ body:has(.catalog-page) {
 }
 
 .catalog-bulk-page-label {
-    flex: 1 0 100%;
-    text-align: center;
-    font-size: 0.75rem;
-    color: var(--brand-ink-muted, #697078);
-    font-variant-numeric: tabular-nums;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
-/* A — stronger teal border + ring (no translateY — that shifts the rail). */
+/* Subtle border + shadow on hover (no lift, no next-card peek). */
 .catalog-bulk-section .bulk-deal-card:hover,
 .catalog-bulk-section .bulk-deal-card:focus-within {
-    border-color: rgba(26, 88, 94, 0.45);
+    border-color: rgba(26, 88, 94, 0.28);
     background: linear-gradient(165deg, #f7fcfd 0%, #eef8f9 45%, #ffffff 100%);
-    /* Flat ring only — drop-shadow made the card look like it lifted off the row. */
-    box-shadow: 0 0 0 3px rgba(26, 88, 94, 0.14);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
     opacity: 1;
 }
 
@@ -2049,16 +2077,15 @@ body:has(.catalog-page) {
 .catalog-bulk-section .bulk-deal-card:focus-within .bulk-deal-card__pct {
     background: #d1fae5;
     border-color: #6ee7b7;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
 }
 
-/* Existing CTA fill on hover — kept solid teal. */
-.catalog-bulk-section .bulk-deal-card:hover .bulk-deal-card__cta,
-.catalog-bulk-section .bulk-deal-card:focus-within .bulk-deal-card__cta {
+/* Outline CTA fills on card/button hover. In-cart stays solid green. */
+.catalog-bulk-section .bulk-deal-card:hover .bulk-deal-card__cta:not(.is-in-cart),
+.catalog-bulk-section .bulk-deal-card:focus-within .bulk-deal-card__cta:not(.is-in-cart),
+.catalog-bulk-section .bulk-deal-card .bulk-deal-card__cta:hover:not(.is-in-cart) {
     background: var(--brand-primary, #1a585e);
     border-color: var(--brand-primary, #1a585e);
     color: #fff;
-    box-shadow: 0 4px 12px rgba(26, 88, 94, 0.22);
 }
 
 .catalog-bulk-section .bulk-deal-card:hover .bulk-deal-card__cta.is-in-cart,
@@ -2066,21 +2093,20 @@ body:has(.catalog-page) {
     background: #047857;
     border-color: #047857;
     color: #fff;
-    box-shadow: 0 4px 12px rgba(4, 120, 87, 0.22);
 }
 
 /* Search hit — after hover so match styles win by order + higher specificity. */
 .catalog-bulk-section .bulk-deal-card.is-bulk-match {
-    border-color: rgba(26, 88, 94, 0.55);
+    border-color: rgba(26, 88, 94, 0.4);
     background: linear-gradient(165deg, #eef8f9 0%, #e4f4f5 48%, #ffffff 100%);
-    box-shadow: 0 0 0 4px rgba(26, 88, 94, 0.18);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 .catalog-bulk-section .bulk-deal-card.is-bulk-match:hover,
 .catalog-bulk-section .bulk-deal-card.is-bulk-match:focus-within {
-    border-color: rgba(26, 88, 94, 0.55);
+    border-color: rgba(26, 88, 94, 0.4);
     background: linear-gradient(165deg, #eef8f9 0%, #e4f4f5 48%, #ffffff 100%);
-    box-shadow: 0 0 0 4px rgba(26, 88, 94, 0.18);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
     opacity: 1;
 }
 
@@ -2117,6 +2143,60 @@ body:has(.catalog-page) {
 a.bulk-deal-card__name:hover {
     text-decoration: underline;
     color: var(--brand-primary-deep, #123f42);
+}
+
+.catalog-bulk-section .bulk-deal-card .catalog-tile,
+.catalog-bulk-section .bulk-deal-card .catalog-tile.catalog-tile--md,
+.catalog-bulk-section .bulk-deal-card .catalog-tile.catalog-tile--lg {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 11px;
+    border-radius: 8px;
+    background: #f3f6f7;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    padding: 0;
+}
+
+.catalog-bulk-section .bulk-deal-card .catalog-tile--tone1,
+.catalog-bulk-section .bulk-deal-card .catalog-tile--tone2,
+.catalog-bulk-section .bulk-deal-card .catalog-tile--tone3,
+.catalog-bulk-section .bulk-deal-card .catalog-tile--tone4,
+.catalog-bulk-section .bulk-deal-card .catalog-tile--tone5,
+.catalog-bulk-section .bulk-deal-card .catalog-tile--tone6,
+.catalog-bulk-section .bulk-deal-card .catalog-tile--favicon,
+.catalog-bulk-section .bulk-deal-card .catalog-tile--fallback {
+    background: #f3f6f7;
+    color: #475569;
+    border-color: #e2e8f0;
+}
+
+.catalog-bulk-section .bulk-deal-card .catalog-tile__favicon,
+.catalog-bulk-section .bulk-deal-card .catalog-tile__img,
+.catalog-bulk-section .bulk-deal-card .catalog-tile__fallback-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #f3f6f7;
+    padding: 4px;
+}
+
+.bulk-deal-card__best {
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 2px;
+    padding: 1px 6px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 999px;
 }
 
 .bulk-deal-card__view {
@@ -2171,32 +2251,56 @@ a.bulk-deal-card__url:hover {
 .bulk-deal-card__pct {
     flex: 0 0 auto;
     display: inline-flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 1px;
-    padding: 4px 8px;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 7px;
     font-size: 12px;
     font-weight: 800;
-    line-height: 1.15;
+    line-height: 1.2;
     color: #047857;
     background: #d1fae5;
     border: 1px solid #6ee7b7;
-    border-radius: var(--radius-md, 10px);
+    border-radius: 999px;
     transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .bulk-deal-card__pct-save {
-    font-size: 10px;
-    font-weight: 700;
-    color: #065f46;
+    font-size: 12px;
+    font-weight: 800;
+    color: #047857;
     letter-spacing: 0.01em;
+}
+
+.bulk-deal-card__pct-rate {
+    font-size: 10px;
+    font-weight: 650;
+    color: #065f46;
 }
 
 .bulk-deal-card__metrics {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 10px;
-    font-size: 0.75rem;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6875rem;
+    color: var(--brand-ink-muted, #697078);
+}
+
+.bulk-deal-card__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    line-height: 1.2;
+    color: var(--brand-ink-muted, #697078);
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+}
+
+.bulk-deal-card__chip-label {
+    font-weight: 500;
     color: var(--brand-ink-muted, #697078);
 }
 
@@ -2207,20 +2311,36 @@ a.bulk-deal-card__url:hover {
 }
 
 .bulk-deal-card__flag {
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1;
 }
 
-.bulk-deal-card__metrics strong {
+.bulk-deal-card__metrics strong,
+.bulk-deal-card__chip strong {
     color: var(--brand-ink, #0f172a);
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
+}
+
+.bulk-deal-card__dofollow {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    color: #047857;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 999px;
 }
 
 .bulk-deal-card__price {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 4px 8px;
     font-size: 0.8125rem;
 }
 
@@ -2238,7 +2358,13 @@ a.bulk-deal-card__url:hover {
 
 .bulk-deal-card__qty {
     flex: 1 0 100%;
-    color: var(--brand-ink-muted, #697078);
+    color: #64748b;
+    font-size: 0.75rem;
+}
+
+.bulk-deal-card__each {
+    color: #334155;
+    font-weight: 650;
 }
 
 .bulk-deal-card__expiry {
@@ -2246,11 +2372,21 @@ a.bulk-deal-card__url:hover {
     color: var(--brand-ink-muted, #697078);
 }
 
-/* Pinned to the bottom so buttons line up across cards of unequal text. */
+/* Outline pack CTA — shorter than a default btn-sm, fills on hover. */
+.catalog-bulk-section .bulk-deal-card__cta.btn,
 .bulk-deal-card__cta {
     margin-top: auto;
     width: 100%;
-    font-weight: 700;
+    min-height: 30px;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12.5px;
+    font-weight: 650;
+    line-height: 28px;
+    background: transparent;
+    color: var(--brand-primary, #1a585e);
+    border: 1px solid var(--brand-primary, #1a585e);
+    box-shadow: none;
     transition:
         background-color 160ms ease,
         border-color 160ms ease,
@@ -2258,10 +2394,12 @@ a.bulk-deal-card__url:hover {
         box-shadow 160ms ease;
 }
 
+.catalog-bulk-section .bulk-deal-card__cta.is-in-cart,
 .bulk-deal-card__cta.is-in-cart {
     background: #047857;
     border-color: #047857;
     color: #fff;
+    font-weight: 700;
 }
 
 @media (max-width: 991.98px) {

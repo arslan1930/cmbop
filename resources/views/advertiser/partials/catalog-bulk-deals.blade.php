@@ -49,16 +49,10 @@
                     <span class="badge rounded-pill catalog-bulk-count">{{ $bulkDeals->count() }} {{ \Illuminate\Support\Str::plural('deal', $bulkDeals->count()) }}</span>
                 </strong>
                 <div class="small text-muted catalog-bulk-subhead">
-                    Add a 3-article pack to cart (adjust to 3–5 there)
-                    @if($liveDealMinPct !== null && $liveDealMaxPct !== null)
-                        @if(abs($liveDealMaxPct - $liveDealMinPct) < 0.05)
-                            and save {{ $formatDealPct($liveDealMinPct) }}%
-                        @else
-                            and save {{ $formatDealPct($liveDealMinPct) }}–{{ $formatDealPct($liveDealMaxPct) }}%
-                        @endif
-                        on these live deals.
+                    @if($liveDealMaxPct !== null)
+                        Save up to {{ $formatDealPct($liveDealMaxPct) }}% on 3-article packs
                     @else
-                        — totals at checkout include the discount.
+                        Save on 3-article packs
                     @endif
                 </div>
             </div>
@@ -75,13 +69,16 @@
                         <option value="dr" @selected($bulkSort === 'dr')>Highest DR</option>
                     </select>
                 </label>
-                <p class="small text-muted mb-0 catalog-bulk-search-hint">Use the catalog search above to filter deals too.</p>
                 <button type="button"
-                        class="btn btn-sm btn-link catalog-bulk-toggle"
+                        class="catalog-bulk-toggle"
                         data-bulk-toggle
                         aria-expanded="{{ $bulkStartOpen ? 'true' : 'false' }}"
-                        aria-controls="bulkDealsBody">
-                    <span data-bulk-toggle-label>{{ $bulkStartOpen ? 'Hide' : 'Show' }}</span>
+                        aria-controls="bulkDealsBody"
+                        title="{{ $bulkStartOpen ? 'Hide deals' : 'Show deals' }}"
+                        aria-label="{{ $bulkStartOpen ? 'Hide deals' : 'Show deals' }}">
+                    <i class="fa-solid {{ $bulkStartOpen ? 'fa-chevron-up' : 'fa-chevron-down' }}"
+                       data-bulk-toggle-icon
+                       aria-hidden="true"></i>
                 </button>
             </div>
         </div>
@@ -100,6 +97,22 @@
                          role="group"
                          aria-label="Bulk deals page {{ $pageIndex + 1 }}"
                          @if($pageIndex > 0) inert aria-hidden="true" @endif>
+                    @php
+                        $pageBestSiteId = null;
+                        $pageBestSave = -1.0;
+                        $pageBestPct = -1.0;
+                        foreach ($pageDeals as $pageDeal) {
+                            $pageList = (float) ($pageDeal->bulk_pack_list_total ?? 0);
+                            $pageAfter = (float) ($pageDeal->bulk_pack_now_total ?? $pageList);
+                            $pageSave = max(0, round($pageList - $pageAfter, 2));
+                            $pagePct = (float) ($pageDeal->bulk_pack_discount_percent ?? $pageDeal->bulk_discount_percent ?? 0);
+                            if ($pageSave > $pageBestSave || ($pageSave === $pageBestSave && $pagePct > $pageBestPct)) {
+                                $pageBestSave = $pageSave;
+                                $pageBestPct = $pagePct;
+                                $pageBestSiteId = (int) $pageDeal->id;
+                            }
+                        }
+                    @endphp
                     @foreach($pageDeals as $deal)
                         @php
                             $qtyExample = 3;
@@ -182,7 +195,7 @@
                             $dealUrlTitle = $dealUrl !== '' ? $dealUrl : $dealLabel;
                             $viewSearch = $dealHost !== '' ? $dealHost : $dealName;
                         @endphp
-                        <article class="bulk-deal-card"
+                        <article class="bulk-deal-card{{ $pageBestSiteId === (int) $deal->id ? ' is-best-deal' : '' }}"
                                  data-bulk-card
                                  data-bulk-deal-card
                                  data-bulk-site-id="{{ $deal->id }}"
@@ -190,6 +203,7 @@
                                  data-bulk-search-text="{{ $dealSearch }}"
                                  data-bulk-discount="{{ $pct }}"
                                  data-bulk-price="{{ $after }}"
+                                 data-bulk-save="{{ $saveAmount }}"
                                  data-bulk-dr="{{ (int) ($deal->dr ?? 0) }}">
                             <div class="bulk-deal-card__head">
                                 @include('advertiser.partials.catalog-site-tile', [
@@ -201,75 +215,64 @@
                                     'initialsFallback' => true,
                                 ])
                                 <div class="bulk-deal-card__identity min-w-0 flex-grow-1">
-                                    @if($dealHost !== '')
-                                        <a href="{{ route('advertiser.catalog.visit', $deal->id) }}"
-                                           target="_blank"
-                                           rel="noopener nofollow"
-                                           class="bulk-deal-card__name"
-                                           data-no-tip
-                                           title="{{ $dealUrlTitle }}">{{ $dealLabel }}</a>
-                                    @else
-                                        <span class="bulk-deal-card__name"
-                                              data-no-tip
-                                              title="{{ $dealUrlTitle }}">{{ $dealLabel }}</span>
-                                    @endif
                                     <a href="{{ route('advertiser.catalog', array_filter(['search' => $viewSearch])) }}"
-                                       class="bulk-deal-card__view"
+                                       class="bulk-deal-card__name"
                                        data-bulk-view-site="{{ $deal->id }}"
-                                       data-bulk-view-search="{{ $viewSearch }}">View site</a>
+                                       data-bulk-view-search="{{ $viewSearch }}"
+                                       data-no-tip
+                                       title="{{ $dealUrlTitle }}">{{ $dealLabel }}</a>
+                                    @if($pageBestSiteId === (int) $deal->id)
+                                        <span class="bulk-deal-card__best">Best deal</span>
+                                    @endif
                                 </div>
-                                @if($pctLabel)
-                                    <span class="bulk-deal-card__pct"
-                                          data-no-tip
-                                          title="{{ $badgeKind === 'sale'
-                                              ? 'Site sale applies on this pack (better than the bulk rate)'
-                                              : 'Bulk discount on '.$qtyExample.'–'.(int) config('site_promotions.bulk.max_qty', 5).' articles' }}">
-                                        <span class="bulk-deal-card__pct-rate">
-                                            @if($badgeKind === 'sale')
-                                                Sale {{ $pctLabel }}
-                                            @else
-                                                {{ $pctLabel }}
-                                            @endif
-                                        </span>
-                                        @if($saveAmount > 0)
-                                            <span class="bulk-deal-card__pct-save">Save {{ format_money($saveAmount) }}</span>
-                                        @endif
-                                    </span>
-                                @endif
                             </div>
 
                             <div class="bulk-deal-card__metrics">
-                                <span>DR <strong>{{ $deal->dr }}</strong></span>
-                                <span>DA <strong>{{ $deal->da }}</strong></span>
+                                <span class="bulk-deal-card__chip"><span class="bulk-deal-card__chip-label">DR</span> <strong>{{ $deal->dr }}</strong></span>
+                                <span class="bulk-deal-card__chip"><span class="bulk-deal-card__chip-label">DA</span> <strong>{{ $deal->da }}</strong></span>
                                 @if($dealTraffic !== null)
-                                    <span title="{{ number_format($dealTraffic) }} monthly organic visits">Traffic <strong>{{ $deal->formattedTraffic() }}</strong></span>
+                                    <span class="bulk-deal-card__chip" title="{{ number_format($dealTraffic) }} monthly organic visits"><span class="bulk-deal-card__chip-label">Traffic</span> <strong>{{ $deal->formattedTraffic() }}</strong></span>
                                 @endif
                                 @if($dealCountryCode)
-                                    <span class="bulk-deal-card__market" title="{{ $dealCountryName !== '' ? $dealCountryName : strtoupper($dealCountryCode) }}">
+                                    <span class="bulk-deal-card__chip bulk-deal-card__market" title="{{ $dealCountryName !== '' ? $dealCountryName : strtoupper($dealCountryCode) }}">
                                         <span class="bulk-deal-card__flag" aria-hidden="true">{!! getCountryFlag($dealCountryCode) !!}</span>
                                         @if($dealLanguageLabel !== '')
                                             <span>{{ $dealLanguageLabel }}</span>
                                         @endif
                                     </span>
                                 @elseif($dealLanguageLabel !== '')
-                                    <span>{{ $dealLanguageLabel }}</span>
+                                    <span class="bulk-deal-card__chip">{{ $dealLanguageLabel }}</span>
                                 @endif
                                 @if($dealDofollow)
-                                    <span>DoFollow</span>
+                                    <span class="bulk-deal-card__dofollow">DoFollow</span>
                                 @endif
                             </div>
 
                             <div class="bulk-deal-card__price">
                                 <span class="bulk-deal-card__was">{{ format_money($list) }}</span>
                                 <strong class="bulk-deal-card__now">{{ format_money($after) }}</strong>
-                                <span class="bulk-deal-card__qty">{{ $qtyExample }} articles · {{ format_money($unitAfter) }} each</span>
+                                @if($saveAmount > 0 || $pctLabel)
+                                    <span class="bulk-deal-card__pct"
+                                          data-no-tip
+                                          title="{{ $badgeKind === 'sale'
+                                              ? 'Site sale applies on this pack (better than the bulk rate)'
+                                              : 'Bulk discount on '.$qtyExample.'–'.(int) config('site_promotions.bulk.max_qty', 5).' articles' }}">
+                                        @if($saveAmount > 0)
+                                            <span class="bulk-deal-card__pct-save">Save {{ format_money($saveAmount) }}</span>
+                                        @endif
+                                        @if($pctLabel)
+                                            <span class="bulk-deal-card__pct-rate">{{ $badgeKind === 'sale' ? 'Sale ' : '' }}{{ $pctLabel }}</span>
+                                        @endif
+                                    </span>
+                                @endif
+                                <span class="bulk-deal-card__qty">{{ $qtyExample }} articles · <span class="bulk-deal-card__each">{{ format_money($unitAfter) }} each</span></span>
                             </div>
 
                             @if($dealExpiresAt)
                                 <p class="bulk-deal-card__expiry mb-0">Ends {{ $dealExpiresAt->timezone(config('app.timezone'))->format('M j, Y') }}</p>
                             @endif
 
-                            <button type="button" class="btn btn-sm btn-primary buy-now bulk-deal-card__cta{{ $dealInCart ? ' is-in-cart' : '' }}"
+                            <button type="button" class="btn btn-sm btn-outline-primary buy-now bulk-deal-card__cta{{ $dealInCart ? ' is-in-cart' : '' }}"
                                     data-id="{{ $deal->id }}"
                                     data-base-price="{{ $deal->price }}"
                                     data-publisher-price="{{ $deal->original_price ?? $deal->price }}"
@@ -323,7 +326,7 @@
                         aria-label="Next bulk deals page">
                     <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
                 </button>
-                <p class="catalog-bulk-page-label mb-0" data-bulk-page-label>Page 1 of {{ $bulkPageCount }}</p>
+                <p class="catalog-bulk-page-label visually-hidden mb-0" data-bulk-page-label>Page 1 of {{ $bulkPageCount }}</p>
             </nav>
         </div>
     </section>

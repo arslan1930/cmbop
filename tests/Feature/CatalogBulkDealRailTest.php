@@ -14,8 +14,8 @@ use Tests\TestCase;
 /**
  * Bulk discount deals sit under the Spendable banner (above the Catalog
  * heading) in fixed batches of six as a wrapping 2-row grid (3×2 desktop)
- * with a centered page pager (← 1 2 3 → + Page X of Y). No horizontal
- * scrollbar and no half-cards.
+ * with a centered page pager (← 1 2 3 →). Page X of Y stays for AT
+ * only. No horizontal scrollbar and no half-cards.
  */
 class CatalogBulkDealRailTest extends TestCase
 {
@@ -112,7 +112,9 @@ class CatalogBulkDealRailTest extends TestCase
         $html = $this->catalogHtml();
 
         $this->assertStringContainsString('catalog-bulk-count">7 deals<', $html);
-        $this->assertStringContainsString('Use the catalog search above to filter deals too.', $html);
+        $this->assertStringContainsString('Save up to ', $html);
+        $this->assertStringContainsString('% on 3-article packs', $html);
+        $this->assertStringNotContainsString('Use the catalog search above to filter deals too.', $html);
         $this->assertStringContainsString('data-bulk-sort', $html);
         $this->assertStringContainsString('Biggest discount', $html);
         $this->assertStringContainsString('Lowest price', $html);
@@ -120,9 +122,13 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertStringContainsString('id="catalogSearchInput"', $html);
         $this->assertStringNotContainsString('id="bulkDealSearch"', $html);
         $this->assertStringContainsString('data-bulk-toggle', $html);
+        $this->assertStringContainsString('data-bulk-toggle-icon', $html);
+        $this->assertStringContainsString('title="Show deals"', $html);
+        $this->assertStringContainsString('aria-label="Show deals"', $html);
         $this->assertStringContainsString('No bulk deal for this site.', $html);
         $this->assertStringContainsString('aria-label="Previous bulk deals page"', $html);
         $this->assertStringContainsString('aria-label="Next bulk deals page"', $html);
+        $this->assertStringContainsString('visually-hidden', $html);
     }
 
     public function test_a_deal_card_shows_clean_host_with_native_url_title(): void
@@ -141,12 +147,19 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertSame(1, substr_count($html, '>bulk-deal-1.example<'));
         $this->assertStringContainsString('https://bulk-deal-1.example', $html);
         $this->assertStringContainsString('Bulk Deal Site 1', $html);
-        $this->assertStringContainsString('rel="noopener nofollow"', $html);
-        $this->assertStringContainsString('View site', $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/bulk-deal-card__name[^>]*rel=/',
+            $html
+        );
+        $this->assertStringNotContainsString('View site', $html);
         $this->assertStringContainsString('data-bulk-view-site', $html);
+        $this->assertStringContainsString('bulk-deal-card__best', $html);
+        $this->assertStringContainsString('Best deal', $html);
+        $this->assertStringContainsString('bulk-deal-card__chip', $html);
+        $this->assertStringContainsString('bulk-deal-card__dofollow', $html);
         $this->assertStringContainsString('3 articles', $html);
         $this->assertStringContainsString(' each', $html);
-        $this->assertStringContainsString('btn-primary buy-now bulk-deal-card__cta', $html);
+        $this->assertStringContainsString('btn-outline-primary buy-now bulk-deal-card__cta', $html);
         $this->assertStringNotContainsString('class="bulk-deal-card__tld"', $html);
         $this->assertStringContainsString('data-bulk-deal-card', $html);
         $this->assertStringContainsString('data-bulk-remember="catalog.bulkDeals.collapsed"', $html);
@@ -269,11 +282,20 @@ class CatalogBulkDealRailTest extends TestCase
             'background: linear-gradient(180deg, var(--brand-primary-tint, #f4fbfb) 0%, var(--surface-1, #fff) 100%)',
             $css
         );
-        $this->assertStringContainsString('.catalog-bulk-section .bulk-deal-card:hover', $css);
-        // A — stronger teal border + ring on hover (was 0.28, no ring).
-        $this->assertStringContainsString('border-color: rgba(26, 88, 94, 0.45)', $css);
+        $this->assertStringContainsString('.bulk-deal-card__chip', $css);
+        $this->assertStringContainsString('.bulk-deal-card__dofollow', $css);
+        $this->assertStringContainsString('.bulk-deal-card__each', $css);
+        $this->assertStringContainsString('.bulk-deal-card__best', $css);
+        $this->assertStringContainsString('width: 32px', $css);
         $this->assertMatchesRegularExpression(
-            '/\.catalog-bulk-section \.bulk-deal-card:hover[\s\S]*?0 0 0 3px rgba\(26, 88, 94, 0\.14\)/s',
+            '/\.catalog-bulk-section \.bulk-deal-card__cta\.btn[\s\S]*?height: 30px/s',
+            $css
+        );
+        $this->assertStringContainsString('.catalog-bulk-section .bulk-deal-card:hover', $css);
+        // Subtle teal border + soft shadow — no 3px ring that peeked the next card.
+        $this->assertStringContainsString('border-color: rgba(26, 88, 94, 0.28)', $css);
+        $this->assertMatchesRegularExpression(
+            '/\.catalog-bulk-section \.bulk-deal-card:hover[\s\S]*?0 2px 8px rgba\(15, 23, 42, 0\.07\)/s',
             $css
         );
         // C — dim non-hovered siblings in the section (search matches stay full).
@@ -282,9 +304,9 @@ class CatalogBulkDealRailTest extends TestCase
             $css
         );
         $this->assertStringContainsString('opacity: 0.72', $css);
-        // Search match stays one step stronger than hover (4px ring + teal wash).
+        // Search match keeps the teal wash; no heavy ring that peek-clips the rail.
         $this->assertMatchesRegularExpression(
-            '/\.catalog-bulk-section \.bulk-deal-card\.is-bulk-match \{[^}]*0 0 0 4px rgba\(26, 88, 94, 0\.18\)/s',
+            '/\.catalog-bulk-section \.bulk-deal-card\.is-bulk-match \{[^}]*0 2px 8px rgba\(15, 23, 42, 0\.08\)/s',
             $css
         );
         $this->assertStringContainsString(
@@ -328,6 +350,10 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertStringContainsString('sortBulkCards', $js);
         $this->assertStringContainsString('lastBulkSort', $js);
         $this->assertStringContainsString('data-bulk-view-site', $js);
+        $this->assertStringContainsString('function markBestDeals(', $js);
+        $this->assertStringContainsString('data-bulk-toggle-icon', $js);
+        $this->assertStringContainsString('Hide deals', $js);
+        $this->assertStringContainsString('Show deals', $js);
         $this->assertStringContainsString('In cart ✓', $js);
         $this->assertStringContainsString('Page ', $js);
         $this->assertStringContainsString('of ', $js);
@@ -423,9 +449,10 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertNotFalse($midPos);
         // Default sort is biggest discount (mid 12% before high 10%).
         $this->assertLessThan($highPos, $midPos);
-        $this->assertStringContainsString('and save', $html);
-        $this->assertStringContainsString('on these live deals.', $html);
+        $this->assertStringContainsString('Save up to ', $html);
+        $this->assertStringContainsString('% on 3-article packs', $html);
         $this->assertStringNotContainsString('save 10–80%', $html);
+        $this->assertStringNotContainsString('on these live deals.', $html);
     }
 
     public function test_bulk_deals_dedupe_the_same_host(): void
@@ -674,7 +701,7 @@ class CatalogBulkDealRailTest extends TestCase
         $html = $this->catalogHtml();
 
         $this->assertMatchesRegularExpression(
-            '/data-bulk-host="stats-deal\.example"[\s\S]*?Traffic <strong>25K<\/strong>/',
+            '/data-bulk-host="stats-deal\.example"[\s\S]*?Traffic<\/span> <strong>25K<\/strong>/',
             $html
         );
         $this->assertMatchesRegularExpression(
@@ -765,5 +792,42 @@ class CatalogBulkDealRailTest extends TestCase
         $this->assertNotFalse($dearPos);
         $this->assertLessThan($dearPos, $cheapPos);
         $this->assertStringContainsString('option value="price" selected', $html);
+    }
+
+    public function test_each_page_marks_only_the_highest_save_as_best_deal(): void
+    {
+        $this->makeBulkSite(1, [
+            'site_name' => 'Small Save Deal',
+            'site_url' => 'https://small-save.example',
+            'domain' => 'small-save.example',
+            'price' => 80,
+            'dr' => 30,
+            'bulk_discount_percent' => 10,
+        ]);
+        $this->makeBulkSite(2, [
+            'site_name' => 'Big Save Deal',
+            'site_url' => 'https://big-save.example',
+            'domain' => 'big-save.example',
+            'price' => 220,
+            'dr' => 30,
+            'bulk_discount_percent' => 10,
+        ]);
+        $this->makeBulkSite(3, [
+            'site_name' => 'Mid Save Deal',
+            'site_url' => 'https://mid-save.example',
+            'domain' => 'mid-save.example',
+            'price' => 120,
+            'dr' => 30,
+            'bulk_discount_percent' => 10,
+        ]);
+
+        $html = $this->catalogHtml();
+
+        $this->assertSame(1, substr_count($html, 'is-best-deal'));
+        $this->assertSame(1, substr_count($html, 'bulk-deal-card__best'));
+        $this->assertMatchesRegularExpression(
+            '/<article class="bulk-deal-card is-best-deal"[\s\S]{0,500}?data-bulk-host="big-save\.example"/',
+            $html
+        );
     }
 }

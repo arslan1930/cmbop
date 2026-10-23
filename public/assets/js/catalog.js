@@ -662,6 +662,7 @@ function initBulkDealRail() {
     const next = section.querySelector('[data-bulk-scroll="next"]');
     const toggle = section.querySelector('[data-bulk-toggle]');
     const toggleLabel = section.querySelector('[data-bulk-toggle-label]');
+    const toggleIcon = section.querySelector('[data-bulk-toggle-icon]');
     const searchInput = document.getElementById('catalogSearchInput')
         || section.querySelector('[data-bulk-search]');
     const sortSelect = section.querySelector('[data-bulk-sort]');
@@ -864,6 +865,43 @@ function initBulkDealRail() {
             });
             track.appendChild(panel);
         }
+        markBestDeals();
+    }
+
+    /** One “Best deal” tag per painted page — highest save, then discount %. */
+    function markBestDeals() {
+        Array.prototype.forEach.call(
+            track.querySelectorAll('[data-bulk-page-panel]'),
+            function (panel) {
+                const cards = Array.prototype.slice.call(panel.querySelectorAll('[data-bulk-card]'));
+                let winner = null;
+                let bestSave = -1;
+                let bestPct = -1;
+                cards.forEach(function (card) {
+                    card.classList.remove('is-best-deal');
+                    const existing = card.querySelector('.bulk-deal-card__best');
+                    if (existing) existing.remove();
+                    const save = parseFloat(card.getAttribute('data-bulk-save') || '0') || 0;
+                    const pct = parseFloat(card.getAttribute('data-bulk-discount') || '0') || 0;
+                    if (save > bestSave || (save === bestSave && pct > bestPct)) {
+                        bestSave = save;
+                        bestPct = pct;
+                        winner = card;
+                    }
+                });
+                if (!winner || bestSave <= 0) {
+                    return;
+                }
+                winner.classList.add('is-best-deal');
+                const identity = winner.querySelector('.bulk-deal-card__identity');
+                if (identity && !identity.querySelector('.bulk-deal-card__best')) {
+                    const tag = document.createElement('span');
+                    tag.className = 'bulk-deal-card__best';
+                    tag.textContent = 'Best deal';
+                    identity.appendChild(tag);
+                }
+            }
+        );
     }
 
     function paint(opts) {
@@ -916,6 +954,7 @@ function initBulkDealRail() {
             rebuildPanels(visibleCards);
         } else {
             pageCount = Math.max(1, Math.ceil(visibleCards.length / pageSize) || 1);
+            markBestDeals();
         }
         if (options.page) {
             currentPage = Math.min(pageCount, Math.max(1, options.page));
@@ -1136,8 +1175,16 @@ function initBulkDealRail() {
 
     function applyCollapsed(collapsed) {
         section.classList.toggle('is-collapsed', collapsed);
-        if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            toggle.setAttribute('title', collapsed ? 'Show deals' : 'Hide deals');
+            toggle.setAttribute('aria-label', collapsed ? 'Show deals' : 'Hide deals');
+        }
         if (toggleLabel) toggleLabel.textContent = collapsed ? 'Show' : 'Hide';
+        if (toggleIcon) {
+            toggleIcon.classList.toggle('fa-chevron-down', collapsed);
+            toggleIcon.classList.toggle('fa-chevron-up', !collapsed);
+        }
         if (collapsed) {
             stopAutoplay();
         } else {
