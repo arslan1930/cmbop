@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Site;
 use App\Models\User;
+use App\Services\Advertiser\AdvertiserCartPersistence;
 use App\Services\Marketplace\WritingFeeService;
 use App\Support\BulkDiscount;
 use App\Support\ListingMoney;
@@ -442,11 +443,27 @@ class CartPricingService
         $pruned = $this->pruneAdvertiserCart($sessionCart ?: [], $buyer);
         if ($pruned['changed']) {
             session()->put('cart', array_values($pruned['cart']));
+            $this->persistAdvertiserCart($buyer, array_values($pruned['cart']));
         }
 
         $this->rememberAdvertiserCartSync($memoKey, $pruned);
 
         return $pruned;
+    }
+
+    /**
+     * @param  array<int, mixed>  $cart
+     */
+    private function persistAdvertiserCart(?User $buyer, array $cart): void
+    {
+        if (! $buyer instanceof User) {
+            return;
+        }
+
+        try {
+            app(AdvertiserCartPersistence::class)->persistFromSession($buyer, $cart);
+        } catch (\Throwable) {
+        }
     }
 
     /**

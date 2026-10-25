@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Advertiser;
 use App\Http\Controllers\Controller;
 use App\Models\ContentSubmission;
 use App\Models\Site;
+use App\Services\Advertiser\AdvertiserCartPersistence;
 use App\Services\CartPricingService;
 use App\Services\Marketplace\CheckoutAddOnService;
 use App\Services\Marketplace\CountryLanguagePairs;
@@ -400,6 +401,10 @@ class GuestPostWizardController extends Controller
         $this->enrichCartSites($cart);
         $cart = $this->dropUnreadyCartArticles($cart);
         session()->put('cart', $cart);
+        try {
+            app(AdvertiserCartPersistence::class)->persistFromSession(auth()->user(), $cart);
+        } catch (\Throwable) {
+        }
 
         return $cart;
     }
