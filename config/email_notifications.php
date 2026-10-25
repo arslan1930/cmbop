@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\AbandonedCartReminderMail;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminBulkDiscountNotification;
 use App\Mail\AdminManualPaymentNotification;
@@ -692,6 +693,13 @@ return [
             'audience' => 'advertiser',
             'preference' => 'marketing_emails',
             'mailable' => DepositReminderMail::class,
+            'default_enabled' => true,
+        ],
+        'abandoned_cart_reminder' => [
+            'name' => 'Abandoned Cart Reminder (24h / 72h)',
+            'audience' => 'advertiser',
+            'preference' => 'marketing_emails',
+            'mailable' => AbandonedCartReminderMail::class,
             'default_enabled' => true,
         ],
 

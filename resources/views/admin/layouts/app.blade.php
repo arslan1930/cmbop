@@ -201,6 +201,9 @@
         <a href="{{ route('admin.campaigns.index') }}" class="{{ request()->routeIs('admin.campaigns.*') ? 'active' : '' }}">
             <i class="fa fa-paper-plane"></i> <span>Campaigns</span>
         </a>
+        <a href="{{ route('admin.abandoned-carts.index') }}" class="{{ request()->routeIs('admin.abandoned-carts.*') ? 'active' : '' }}">
+            <i class="fa fa-shopping-cart"></i> <span>Abandoned carts</span>
+        </a>
         <a href="{{ route('admin.audiences.index') }}" class="{{ request()->routeIs('admin.audiences.*') ? 'active' : '' }}">
             <i class="fa fa-address-book"></i> <span>Audiences</span>
         </a>

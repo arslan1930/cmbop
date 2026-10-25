@@ -289,6 +289,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Advertisers who registered but never funded a wallet: day 7 + day 14 nudges
         $mutex($schedule->command('emails:send-deposit-reminders')->dailyAt('09:30'));
 
+        // Advertisers with a saved cart and no paid order since last activity.
+        // No-op until Admin → Abandoned carts (or ABANDONED_CART_REMINDERS_ENABLED) is on.
+        $mutex($schedule->command('emails:send-abandoned-cart-reminders')->hourly(), 90);
+
         // Order reminder cadences. Hourly rather than daily so a stage that comes
         // due at 12h or 36h fires near its mark instead of drifting to the next
         // morning; each command advances an item by at most one stage per run.

@@ -20,6 +20,7 @@ Defined in `bootstrap/app.php` (not `app/Console/Kernel.php`):
 - `orders:nudge-publishers` / `orders:nudge-advertisers` — hourly
 - `bulk:remind-publishers` — daily 10:45 (no-op unless `BULK_PUBLISHER_REMINDER_AUTO=true`)
 - `emails:send-deposit-reminders` / `emails:send-publisher-add-site-reminders` — daily
+- `emails:send-abandoned-cart-reminders` — hourly (no-op unless Admin → Abandoned carts is on, or `ABANDONED_CART_REMINDERS_ENABLED=true` with no DB override)
 - `emails:send-digests` — weekly / monthly
 - `sites:send-new-sites-digest` — daily
 - `mail:drain-queue` — every minute (when no resident worker)
