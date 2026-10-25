@@ -1004,7 +1004,7 @@
         });
     }
     
-    // Save cart to session (server clamps bulk packs to 3–5 and reprices).
+    // Save cart to session (server clamps bulk packs to 3–10 and reprices).
     function saveCart() {
         $.ajax({
             url: '{{ route("advertiser.cart.save") }}',
@@ -1707,7 +1707,7 @@
     // Add to cart via server so Content Library article rules apply.
     // Use fetch (not jQuery) so Buy still works if $ fails to load.
     // options: { quantity, bulk, openCart } — deal cards start a 3-article pack;
-    // cart qty can then move within 3–5 with one document slot per placement.
+    // cart qty can then move within 3–10 with one document slot per placement.
     window.catalogOwnListingMessage = @json(\App\Models\Site::cannotOrderOwnListingMessage());
     window.catalogViewerUserId = {{ (int) auth()->id() }};
     window.catalogOwnSiteIds = @json(\App\Models\Site::ownedIdsFor(auth()->user()));
@@ -2069,13 +2069,13 @@
         
         const item = cart[itemIndex];
         const minBulk = parseInt(item.bulk_min_qty, 10) || 3;
-        const maxBulk = parseInt(item.bulk_max_qty, 10) || 5;
+        const maxBulk = parseInt(item.bulk_max_qty, 10) || 10;
         const isBulkPack = !!item.bulk_pack || (!!item.bulk_eligible && (parseInt(item.quantity, 10) || 0) >= minBulk);
 
         if (btn.classList.contains('decrease-qty')) {
             const qty = parseInt(item.quantity, 10) || 1;
             if (isBulkPack && qty <= minBulk) {
-                // Bulk packs stay in the 3–5 discount band; remove via × instead.
+                // Bulk packs stay in the 3–10 discount band; remove via × instead.
                 showToast('Bulk packs stay at ' + minBulk + '–' + maxBulk + ' articles. Remove the site to clear the pack.', 'warning');
                 return;
             }

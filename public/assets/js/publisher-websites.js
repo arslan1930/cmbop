@@ -2495,30 +2495,60 @@ $(document).on('click', '.btn-bulk-site', async function () {
     const cfg = window.PublisherWebsitesConfig || {};
     const bulkMin = Number(cfg.bulkMinPercent ?? cfg.routes?.bulkMinPercent ?? 10);
     const bulkMax = Number(cfg.bulkMaxPercent ?? cfg.routes?.bulkMaxPercent ?? 80);
-    const currentPct = Number($btn.attr('data-percent') || bulkMin);
+    const currentPct = $btn.attr('data-percent') || '';
+    const currentPct5 = $btn.attr('data-percent-5') || '';
+    const currentPct10 = $btn.attr('data-percent-10') || '';
     const listPrice = $btn.attr('data-price') || '';
-    const afterList = promoListAfterDiscount(listPrice, joined ? currentPct : bulkMin);
+    const previewPct = Number(currentPct || bulkMin);
+    const afterList = promoListAfterDiscount(listPrice, joined && Number.isFinite(previewPct) ? previewPct : bulkMin);
     const listNote = afterList
-        ? `<p class="small text-muted">Off your list: €${promoEscapeHtml(Number(listPrice).toFixed(2))} → €${promoEscapeHtml(afterList)} per article. Advertisers pay list plus the platform fee, then this percent.</p>`
+        ? `<p class="small text-muted">Off your list: €${promoEscapeHtml(Number(listPrice).toFixed(2))} → €${promoEscapeHtml(afterList)} per article at the 3-article rate. Advertisers pay list plus the platform fee, then this percent.</p>`
         : '';
     const result = await Swal.fire({
-        title: joined ? `Bulk −${currentPct}% is on` : 'Join bulk discount program',
+        title: joined ? 'Pack discount is on' : 'Join bulk discount program',
         html: `${listNote}
                <p class="small text-muted">${promoEscapeHtml(promoBetterOfNote())}</p>
-               <label for="swal-bulk-pct" class="small fw-semibold d-block text-start ms-3 mb-0">Discount % for 3–5 articles (${bulkMin}–${bulkMax})</label>
-               <input id="swal-bulk-pct" type="number" min="${bulkMin}" max="${bulkMax}" step="1" class="swal2-input" value="${joined ? currentPct : bulkMin}">`,
+               <label for="swal-bulk-pct" class="small fw-semibold d-block text-start ms-3 mb-0">3-article % (qty 3–4, ${bulkMin}–${bulkMax})</label>
+               <input id="swal-bulk-pct" type="number" min="${bulkMin}" max="${bulkMax}" step="1" class="swal2-input" value="${joined ? currentPct : bulkMin}">
+               <label for="swal-bulk-pct-5" class="small fw-semibold d-block text-start ms-3 mb-0">5-article % (qty 5–9, optional)</label>
+               <input id="swal-bulk-pct-5" type="number" min="${bulkMin}" max="${bulkMax}" step="1" class="swal2-input" value="${currentPct5}">
+               <label for="swal-bulk-pct-10" class="small fw-semibold d-block text-start ms-3 mb-0">10-article % (qty 10+, optional)</label>
+               <input id="swal-bulk-pct-10" type="number" min="${bulkMin}" max="${bulkMax}" step="1" class="swal2-input" value="${currentPct10}">`,
         showDenyButton: joined,
         showCancelButton: true,
         confirmButtonText: joined ? 'Update percent' : 'Join',
         denyButtonText: joined ? 'Leave programme' : undefined,
         customClass: joined ? { denyButton: 'slb-swal-danger' } : undefined,
         preConfirm: () => {
-            const n = Number(document.getElementById('swal-bulk-pct')?.value);
-            if (!Number.isFinite(n) || n < bulkMin || n > bulkMax) {
+            const read = (id) => {
+                const raw = (document.getElementById(id)?.value || '').trim();
+                if (raw === '') return null;
+                const n = Number(raw);
+                return Number.isFinite(n) ? n : NaN;
+            };
+            const p3 = read('swal-bulk-pct');
+            const p5 = read('swal-bulk-pct-5');
+            const p10 = read('swal-bulk-pct-10');
+            const filled = [p3, p5, p10].filter((n) => n !== null);
+            if (filled.some((n) => Number.isNaN(n))) {
+                Swal.showValidationMessage('Enter a number for each filled tier.');
+                return false;
+            }
+            if (filled.length === 0) {
+                Swal.showValidationMessage(`Enter at least one percent from ${bulkMin} to ${bulkMax}.`);
+                return false;
+            }
+            if (filled.some((n) => n < bulkMin || n > bulkMax)) {
                 Swal.showValidationMessage(`Enter a percent from ${bulkMin} to ${bulkMax}.`);
                 return false;
             }
-            return n;
+            for (let i = 1; i < filled.length; i++) {
+                if (filled[i] + 0.0001 < filled[i - 1]) {
+                    Swal.showValidationMessage('Each higher tier must be at least the lower set tier.');
+                    return false;
+                }
+            }
+            return { percent: p3, percent_5: p5, percent_10: p10 };
         },
     });
     if (result.isDenied) {
@@ -2535,7 +2565,7 @@ $(document).on('click', '.btn-bulk-site', async function () {
     const res = await fetch(`/publisher/sites/${id}/bulk-discount`, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': promoCsrfToken(), 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ percent: result.value }),
+        body: JSON.stringify(result.value),
     });
     const data = await res.json().catch(() => ({}));
     Swal.fire({ icon: data.success ? 'success' : 'error', title: data.message || 'Done' });

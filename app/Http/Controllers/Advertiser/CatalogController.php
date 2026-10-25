@@ -70,6 +70,7 @@ use App\Services\StripePaymentService;
 use App\Services\Wallet\WalletLedgerService;
 use App\Support\AdvertiserOrderDetails;
 use App\Support\AdvertiserOrderStatus;
+use App\Support\BulkDiscount;
 use App\Support\CartDisplayFx;
 use App\Support\CatalogGoogleNews;
 use App\Support\CatalogProblemReport;
@@ -629,9 +630,8 @@ class CatalogController extends Controller
         }
 
         $query = Site::query()
-            ->catalogVisible()
-            ->where('bulk_discount_enabled', 1)
-            ->whereNotNull('bulk_discount_percent');
+            ->catalogVisible();
+        BulkDiscount::constrainJoined($query);
 
         // Dual-role publishers cannot order their own listings.
         if (auth()->id()) {
@@ -719,10 +719,11 @@ class CatalogController extends Controller
                 // Badge % must match better-of pricing (custom can beat bulk on the pack).
                 $dealSite->bulk_pack_discount_percent = (float) ($packPricing['discount_percent'] ?? 0);
                 $customPct = $dealSite->activeCustomDiscountPercent();
-                $bulkPct = (float) ($dealSite->bulk_discount_percent ?? 0);
+                $bulkPct = (float) (BulkDiscount::bestPercent($dealSite->bulkDiscountTiers()) ?? 0);
                 $dealSite->bulk_pack_badge_kind = ($customPct !== null && (float) $customPct >= $bulkPct)
                     ? 'sale'
                     : 'bulk';
+                $dealSite->bulk_pack_tiers_label = BulkDiscount::labelForSite($dealSite);
                 $dealSite->original_price = $dealSite->price;
                 $dealSite->price = $this->advertiserCatalogListPrice($dealSite->price, $dealSite->listingCurrency());
             } catch (\Throwable $e) {
@@ -996,9 +997,7 @@ class CatalogController extends Controller
         // More → Bulk deals — pack program only (not custom Sale −%).
         if ($request->input('bulk_deals') == '1' || $request->input('bulk_deals') === 1) {
             if (Site::hasSitesColumn('bulk_discount_enabled')) {
-                $query->where('bulk_discount_enabled', 1)
-                    ->whereNotNull('bulk_discount_percent')
-                    ->where('bulk_discount_percent', '>', 0);
+                BulkDiscount::constrainJoined($query);
             } else {
                 $query->whereRaw('1 = 0');
             }
@@ -1317,7 +1316,7 @@ class CatalogController extends Controller
     }
 
     /**
-     * Clamp bulk-pack quantities to the configured 3–5 band, resize article slots,
+     * Clamp bulk-pack quantities to the configured 3–10 band, resize article slots,
      * and reprice from the live listing so the discount cannot vanish silently.
      *
      * @param  array<string, mixed>  $line
@@ -1326,7 +1325,7 @@ class CatalogController extends Controller
     private function normalizeCartLineForSite(Site $site, array $line): array
     {
         $minBulk = (int) config('site_promotions.bulk.min_qty', 3);
-        $maxBulk = (int) config('site_promotions.bulk.max_qty', 5);
+        $maxBulk = (int) config('site_promotions.bulk.max_qty', 10);
         $qty = max(1, (int) ($line['quantity'] ?? 1));
         $joinsBulk = $site->joinsBulkDiscount();
         $bulkPack = ! empty($line['bulk_pack']);
@@ -1768,7 +1767,7 @@ class CatalogController extends Controller
 
                 continue;
             }
-            // Clamp bulk packs to 3–5, resize slots, and reprice from the live listing.
+            // Clamp bulk packs to 3–10, resize slots, and reprice from the live listing.
             $kept[] = $this->normalizeCartLineForSite($site, $line);
         }
         $removedInactive = array_values(array_unique($removedInactive));
@@ -2788,11 +2787,11 @@ class CatalogController extends Controller
             }
 
             $minBulk = (int) config('site_promotions.bulk.min_qty', 3);
-            $maxBulk = (int) config('site_promotions.bulk.max_qty', 5);
+            $maxBulk = (int) config('site_promotions.bulk.max_qty', 10);
             $wantsBulk = $request->boolean('bulk') || $request->boolean('bulk_hint');
             $requestedQty = (int) $request->input('quantity', 0);
 
-            // Bulk deals (Buy 3–5) start as a multi-article pack so the cart
+            // Bulk deals (Buy 3–10) start as a multi-article pack so the cart
             // opens with one document slot per placement to publish separately.
             $isBulkPackAdd = false;
             if ($wantsBulk && $site->joinsBulkDiscount()) {
@@ -3153,7 +3152,7 @@ class CatalogController extends Controller
 
             if ($toKey !== null) {
                 $target = $cart[$toKey];
-                $maxBulk = (int) config('site_promotions.bulk.max_qty', 5);
+                $maxBulk = (int) config('site_promotions.bulk.max_qty', 10);
                 $mergedQty = min(
                     $maxBulk,
                     max(1, (int) ($target['quantity'] ?? 1)) + max(1, (int) ($line['quantity'] ?? 1))

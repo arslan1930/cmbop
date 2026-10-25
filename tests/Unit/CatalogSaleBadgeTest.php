@@ -45,6 +45,23 @@ class CatalogSaleBadgeTest extends TestCase
         );
     }
 
+    public function test_bulk_tiers_note_lists_set_tiers_and_hides_when_sale_is_stronger(): void
+    {
+        $this->assertSame(
+            '3 for −10% · 5 for −15% · 10 for −25%',
+            CatalogSaleBadge::bulkTiersNote(null, [3 => 10.0, 5 => 15.0, 10 => 25.0])
+        );
+        $this->assertSame(
+            '5 for −15%',
+            CatalogSaleBadge::bulkTiersNote(null, [3 => null, 5 => 15.0, 10 => null])
+        );
+        $this->assertNull(CatalogSaleBadge::bulkTiersNote(25.0, [3 => 10.0, 5 => 15.0, 10 => 25.0]));
+        $this->assertSame(
+            '3 for −10% · 5 for −15% · 10 for −25%',
+            CatalogSaleBadge::bulkTiersNote(10.0, [3 => 10.0, 5 => 15.0, 10 => 25.0])
+        );
+    }
+
     public function test_paid_addons_drive_the_from_prefix(): void
     {
         $this->assertFalse(CatalogSaleBadge::hasPaidAddons([], []));

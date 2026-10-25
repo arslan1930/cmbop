@@ -175,6 +175,8 @@ class CatalogAdvertiserPriceFilter
             'custom_discount_ends_at',
             'bulk_discount_enabled',
             'bulk_discount_percent',
+            'bulk_discount_percent_5',
+            'bulk_discount_percent_10',
             'slb_price_publish_eur',
             'slb_price_sensitive_extra_eur',
             'partner_catalog_item_id',

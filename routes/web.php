@@ -1330,6 +1330,11 @@ $registerStaffOpsRoutes = function () {
         ->name('users.sites');
     Route::post('/sites/bulk-action', [AdminSiteController::class, 'bulkAction'])
         ->name('sites.bulk-action');
+    Route::post('/sites/bulk-discount', [AdminSiteController::class, 'bulkUpdateBulkDiscount'])
+        ->name('sites.bulk-discount.bulk');
+    Route::post('/sites/{id}/bulk-discount', [AdminSiteController::class, 'updateBulkDiscount'])
+        ->whereNumber('id')
+        ->name('sites.bulk-discount');
     // Static path: must stay before /sites/{id} wildcards.
     Route::get('/sites/export', [AdminSiteController::class, 'export'])
         ->name('sites.export');

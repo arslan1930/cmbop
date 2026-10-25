@@ -29,18 +29,24 @@ class CatalogRowDeals
         $salePercent = CatalogSaleBadge::percent($listPrice, $payPrice);
         $bulkPercent = null;
         $customPct = null;
-        $nominalBulk = null;
+        $tiers = BulkDiscount::emptyTiers();
+        $nominalBest = null;
 
         try {
             $customPct = $site->activeCustomDiscountPercent();
-            $nominalBulk = $site->joinsBulkDiscount()
-                ? (float) $site->bulk_discount_percent
-                : null;
+            if ($site->joinsBulkDiscount()) {
+                $tiers = $site->bulkDiscountTiers();
+                foreach ($tiers as $percent) {
+                    if ($percent !== null && ($nominalBest === null || $percent > $nominalBest)) {
+                        $nominalBest = (float) $percent;
+                    }
+                }
+            }
         } catch (\Throwable $e) {
             report($e);
         }
 
-        if ($nominalBulk !== null && ($customPct === null || $nominalBulk > (float) $customPct)) {
+        if ($nominalBest !== null && ($customPct === null || $nominalBest > (float) $customPct)) {
             try {
                 $packSite = clone $site;
                 $packSite->price = $publisherPrice;
@@ -50,7 +56,7 @@ class CatalogRowDeals
                         null,
                         (int) config('site_promotions.bulk.min_qty', 3)
                     );
-                $effective = (float) ($packPricing['discount_percent'] ?? $nominalBulk);
+                $effective = (float) ($packPricing['discount_percent'] ?? $nominalBest);
                 if ($effective > 0) {
                     $bulkPercent = $effective;
                 }
@@ -60,11 +66,12 @@ class CatalogRowDeals
         }
 
         $minQty = (int) config('site_promotions.bulk.min_qty', 3);
+        $tiersNote = CatalogSaleBadge::bulkTiersNote($salePercent, $tiers);
 
         return [
             'sale_percent' => $salePercent,
             'bulk_percent' => $bulkPercent,
-            'bulk_note' => CatalogSaleBadge::bulkNote($salePercent, $bulkPercent, $minQty),
+            'bulk_note' => $tiersNote ?? CatalogSaleBadge::bulkNote($salePercent, $bulkPercent, $minQty),
             'has_paid_addons' => CatalogSaleBadge::hasPaidAddons($sensitivePrices, $homepageOptions),
         ];
     }

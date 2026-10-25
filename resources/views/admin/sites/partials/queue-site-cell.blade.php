@@ -94,7 +94,7 @@
                 <span class="badge text-bg-primary">Featured</span>
             @endif
             @if($showBulk)
-                <span class="badge text-bg-info">Bulk</span>
+                <span class="badge text-bg-info">{{ $site->bulkDiscountLabel() ?: 'Bulk' }}</span>
             @endif
             @if($missingMarket)
                 <span class="badge text-bg-danger">Missing market</span>

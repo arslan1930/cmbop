@@ -24,5 +24,5 @@
     <span class="badge text-bg-primary">Featured</span>
 @endif
 @if($bulkDiscount)
-    <span class="badge text-bg-info">Bulk</span>
+    <span class="badge text-bg-info">{{ $site->bulkDiscountLabel() ?: 'Bulk' }}</span>
 @endif

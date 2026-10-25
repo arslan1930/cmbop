@@ -331,6 +331,7 @@
             @endif
             @if(auth()->user()?->isAdmin())
                 <button type="button" class="btn btn-sm btn-outline-dark" data-staff-bulk="archive">Archive</button>
+                <button type="button" class="btn btn-sm btn-outline-info" data-staff-bulk="pack_discount">Pack discount</button>
             @endif
             <span class="small text-muted" data-staff-bulk-count>0 selected</span>
             <label class="form-check small mb-0">
@@ -422,6 +423,20 @@
                                 </a>
                                 @include('partials.staff-site-activate-button', ['site' => $site, 'iconOnly' => true])
                                 @if(empty($waitingOnPublisherFilterActive))
+                                    @if(auth()->user()?->isAdmin())
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-info staff-action-icon-btn js-pack-discount"
+                                                data-id="{{ $site->id }}"
+                                                data-name="{{ $site->site_name }}"
+                                                data-percent="{{ $site->joinsBulkDiscount() ? ($site->bulkDiscountTiers()[3] ?? '') : '' }}"
+                                                data-percent-5="{{ $site->joinsBulkDiscount() ? ($site->bulkDiscountTiers()[5] ?? '') : '' }}"
+                                                data-percent-10="{{ $site->joinsBulkDiscount() ? ($site->bulkDiscountTiers()[10] ?? '') : '' }}"
+                                                data-joined="{{ $site->joinsBulkDiscount() ? '1' : '0' }}"
+                                                title="Pack discount"
+                                                aria-label="Pack discount">
+                                            <i class="fa fa-layer-group" aria-hidden="true"></i>
+                                        </button>
+                                    @endif
                                     @if(auth()->user()?->isAdmin() && ! $site->verified)
                                         <button type="button"
                                         class="btn btn-sm btn-outline-success toggle-verify staff-action-icon-btn"
@@ -709,6 +724,7 @@
                 @endif
                 @if(auth()->user()?->isAdmin())
                     <button type="button" class="btn btn-sm btn-outline-dark" data-staff-bulk="archive">Archive</button>
+                    <button type="button" class="btn btn-sm btn-outline-info" data-staff-bulk="pack_discount">Pack discount</button>
                 @endif
                 <span class="small text-muted" data-staff-bulk-count>0 selected</span>
                 <label class="form-check small mb-0">
@@ -757,6 +773,39 @@
 
 </div>
 
+<div class="modal fade" id="staffPackDiscountModal" tabindex="-1" aria-labelledby="staffPackDiscountTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="staffPackDiscountTitle">3 / 5 / 10-article discount</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3" id="staffPackDiscountLead">Set pack discounts for this listing. Leave a tier blank to turn it off. The 5-article percent must be at least the 3-article percent, and the 10-article percent must be at least the 5-article percent.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="staffPackPercent3">3-article discount % <span class="text-muted fw-normal">(qty 3–4)</span></label>
+                    <input type="number" class="form-control" id="staffPackPercent3" min="{{ (int) config('site_promotions.bulk.min_percent', 10) }}" max="{{ (int) config('site_promotions.bulk.max_percent', 80) }}" step="1" placeholder="{{ (int) config('site_promotions.bulk.default_percent', 10) }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="staffPackPercent5">5-article discount % <span class="text-muted fw-normal">(qty 5–9)</span></label>
+                    <input type="number" class="form-control" id="staffPackPercent5" min="{{ (int) config('site_promotions.bulk.min_percent', 10) }}" max="{{ (int) config('site_promotions.bulk.max_percent', 80) }}" step="1" placeholder="optional">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="staffPackPercent10">10-article discount % <span class="text-muted fw-normal">(qty 10+)</span></label>
+                    <input type="number" class="form-control" id="staffPackPercent10" min="{{ (int) config('site_promotions.bulk.min_percent', 10) }}" max="{{ (int) config('site_promotions.bulk.max_percent', 80) }}" step="1" placeholder="optional">
+                </div>
+                <p class="small text-danger d-none mb-0" id="staffPackDiscountError"></p>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-outline-danger" id="staffPackDiscountRemove">Remove discount</button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="staffPackDiscountSave">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="offcanvas offcanvas-end" tabindex="-1" id="staffSiteReviewDrawer" aria-labelledby="staffSiteReviewTitle">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="staffSiteReviewTitle">Review site</h5>
@@ -777,7 +826,11 @@ const CSRF_TOKEN = @json(csrf_token());
 const CAN_DELETE_ANY_SITE = @json(auth()->user()->isAdmin());
 const CAN_DELETE_PENDING_SITES = @json(auth()->user()->isAdmin() || auth()->user()->isMarketing());
 const CAN_VERIFY_SITES = @json(auth()->user()->isAdmin());
+const CAN_SET_PACK_DISCOUNT = @json(auth()->user()->isAdmin());
 const CAN_TOGGLE_ACTIVE = @json(auth()->user()->canActivateSites());
+const PACK_DISCOUNT_MIN = {{ (int) config('site_promotions.bulk.min_percent', 10) }};
+const PACK_DISCOUNT_MAX = {{ (int) config('site_promotions.bulk.max_percent', 80) }};
+const PACK_DISCOUNT_DEFAULT = {{ (int) config('site_promotions.bulk.default_percent', 10) }};
 const IS_MARKETING_EDITOR = @json(auth()->user()->isMarketing() && ! auth()->user()->isAdmin());
 const FLAT_QUEUE = @json(! empty($flatQueue));
 const ALL_SITES = @json(! empty($allSitesMode));
@@ -2529,8 +2582,11 @@ function renderSites(data){
             const saleHtml = site.sale_price != null
                 ? `<div class="small text-muted">Sale €${Number(site.sale_price).toFixed(2)}</div>`
                 : '';
+            const packBadge = site.bulk_discount_label
+                ? `<span class="badge text-bg-info" title="${escapeHtml(site.bulk_discount_label)}">${escapeHtml(site.bulk_discount_label)}</span>`
+                : (site.bulk_discount ? `<span class="badge text-bg-info">Bulk</span>` : '');
             const offerBadges = (site.featured ? `<span class="badge text-bg-primary">Featured</span>` : '')
-                + (site.bulk_discount ? `<span class="badge text-bg-info">Bulk</span>` : '');
+                + packBadge;
 
             // Publisher-style 16:10 preview + site identity
             let siteInfoHtml = `
@@ -2651,6 +2707,9 @@ function renderSites(data){
                     ? `<li><button type="button" class="dropdown-item toggle-verify" data-id="${site.id}" data-status="0"><i class="fa fa-times me-2"></i>Unverify</button></li>`
                     : `<li><button type="button" class="dropdown-item toggle-verify" data-id="${site.id}" data-status="1"${site.details_complete ? ' data-publisher-reviewing="1"' : ''}><i class="fa fa-check me-2"></i>Verify</button></li>`)
                 : '';
+            const packDiscountItem = CAN_SET_PACK_DISCOUNT
+                ? `<li><button type="button" class="dropdown-item js-pack-discount" data-id="${site.id}" data-name="${escapeHtml(site.site_name || '')}" data-percent="${site.bulk_discount_percent ?? ''}" data-percent-5="${site.bulk_discount_percent_5 ?? ''}" data-percent-10="${site.bulk_discount_percent_10 ?? ''}" data-joined="${site.bulk_discount ? '1' : '0'}"><i class="fa fa-layer-group me-2"></i>Pack discount</button></li>`
+                : '';
 
             const managePopperConfig = JSON.stringify({
                 strategy: 'fixed',
@@ -2681,6 +2740,7 @@ function renderSites(data){
                         ${publishNowItem}
                         ${activeItem}
                         ${verifyItem}
+                        ${packDiscountItem}
                         ${enrichItems ? '<li><hr class="dropdown-divider"></li>' + enrichItems : ''}
                         <li><hr class="dropdown-divider"></li>
                         <li><button type="button" class="dropdown-item toggle-site-details" data-id="${site.id}"><i class="fa fa-chevron-down me-2"></i>Details</button></li>
@@ -2978,6 +3038,164 @@ document.addEventListener('change', function (e) {
     }
 });
 
+let packDiscountContext = { mode: 'single', siteId: null, ids: [], matchAll: false, scope: 'publisher', joined: false };
+
+function packDiscountReadNumber(id) {
+    const raw = (document.getElementById(id)?.value || '').trim();
+    if (raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : NaN;
+}
+
+function packDiscountFill(percent, percent5, percent10) {
+    const p3 = document.getElementById('staffPackPercent3');
+    const p5 = document.getElementById('staffPackPercent5');
+    const p10 = document.getElementById('staffPackPercent10');
+    if (p3) p3.value = (percent !== '' && percent != null) ? percent : '';
+    if (p5) p5.value = (percent5 !== '' && percent5 != null) ? percent5 : '';
+    if (p10) p10.value = (percent10 !== '' && percent10 != null) ? percent10 : '';
+    const err = document.getElementById('staffPackDiscountError');
+    if (err) { err.textContent = ''; err.classList.add('d-none'); }
+}
+
+function openPackDiscountModal(ctx) {
+    packDiscountContext = ctx;
+    const title = document.getElementById('staffPackDiscountTitle');
+    const lead = document.getElementById('staffPackDiscountLead');
+    const removeBtn = document.getElementById('staffPackDiscountRemove');
+    if (ctx.mode === 'bulk') {
+        if (title) title.textContent = 'Set pack discount on selected sites';
+        if (lead) lead.textContent = (ctx.matchAll ? 'Apply these percents to all matching sites. ' : 'Apply these percents to the selected sites. ')
+            + 'Leave a tier blank to turn it off. The 5-article percent must be at least the 3-article percent, and the 10-article percent must be at least the 5-article percent.';
+        packDiscountFill(PACK_DISCOUNT_DEFAULT, '', '');
+        if (removeBtn) removeBtn.classList.remove('d-none');
+    } else {
+        if (title) title.textContent = (ctx.name ? ctx.name + ' — ' : '') + '3 / 5 / 10-article discount';
+        if (lead) lead.textContent = 'Set pack discounts for this listing. Leave a tier blank to turn it off. The 5-article percent must be at least the 3-article percent, and the 10-article percent must be at least the 5-article percent.';
+        packDiscountFill(ctx.percent, ctx.percent5, ctx.percent10);
+        if (removeBtn) removeBtn.classList.toggle('d-none', !ctx.joined);
+    }
+    const modalEl = document.getElementById('staffPackDiscountModal');
+    if (modalEl && window.bootstrap && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+}
+
+function packDiscountPayload(remove) {
+    if (remove) return { remove: true };
+    return {
+        percent: packDiscountReadNumber('staffPackPercent3'),
+        percent_5: packDiscountReadNumber('staffPackPercent5'),
+        percent_10: packDiscountReadNumber('staffPackPercent10'),
+    };
+}
+
+function submitPackDiscount(remove) {
+    const err = document.getElementById('staffPackDiscountError');
+    const showErr = function (msg) {
+        if (!err) { toast(msg, 'warning'); return; }
+        err.textContent = msg;
+        err.classList.remove('d-none');
+    };
+    const body = packDiscountPayload(remove);
+    if (!remove) {
+        const vals = [body.percent, body.percent_5, body.percent_10];
+        if (vals.some(function (n) { return Number.isNaN(n); })) {
+            showErr('Enter a number for each filled tier.');
+            return;
+        }
+        if (vals.every(function (n) { return n === null; })) {
+            showErr('Enter at least one pack discount percent, or remove the discount.');
+            return;
+        }
+        const filled = vals.filter(function (n) { return n !== null; });
+        for (let i = 1; i < filled.length; i++) {
+            if (filled[i] + 0.0001 < filled[i - 1]) {
+                showErr('Each higher tier must be at least the lower set tier.');
+                return;
+            }
+        }
+    }
+    let url;
+    let payload = body;
+    if (packDiscountContext.mode === 'bulk') {
+        url = `${STAFF_BASE}/sites/bulk-discount`;
+        payload = Object.assign({}, body, packDiscountContext.matchAll
+            ? { match_all: true, scope: packDiscountContext.scope }
+            : { ids: packDiscountContext.ids });
+        if (packDiscountContext.matchAll) {
+            const pageQuery = new URLSearchParams(window.location.search);
+            if (packDiscountContext.scope === 'publisher') {
+                payload.publisher_id = Number(sessionStorage.getItem('selected_user') || 0);
+            } else {
+                pageQuery.forEach(function (value, key) {
+                    if (['page', 'action', 'match_all', 'scope', 'ids', 'reason', 'percent', 'percent_5', 'percent_10', 'remove'].includes(key)) return;
+                    payload[key] = value;
+                });
+            }
+        }
+    } else {
+        url = `${STAFF_BASE}/sites/${encodeURIComponent(packDiscountContext.siteId)}/bulk-discount`;
+    }
+    fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': CSRF_TOKEN,
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify(payload),
+    }).then(async function (res) {
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+            const first = data.errors ? Object.values(data.errors).flat()[0] : null;
+            showErr(first || data.message || 'Could not update the pack discount.');
+            return;
+        }
+        const modalEl = document.getElementById('staffPackDiscountModal');
+        if (modalEl && window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+        }
+        toast(data.message || 'Updated pack discount.', 'success');
+        if (packDiscountContext.mode === 'bulk' && (packDiscountContext.scope === 'flat' || packDiscountContext.scope === 'all')) {
+            window.location.reload();
+            return;
+        }
+        const userId = sessionStorage.getItem('selected_user');
+        if (userId) fetchUserSites(userId);
+        else if (packDiscountContext.mode === 'single') window.location.reload();
+    }).catch(function () {
+        showErr('Could not update the pack discount.');
+    });
+}
+
+document.addEventListener('click', function (e) {
+    const packBtn = e.target.closest('.js-pack-discount');
+    if (packBtn) {
+        e.preventDefault();
+        if (!CAN_SET_PACK_DISCOUNT) return;
+        openPackDiscountModal({
+            mode: 'single',
+            siteId: packBtn.getAttribute('data-id'),
+            name: packBtn.getAttribute('data-name') || '',
+            percent: packBtn.getAttribute('data-percent') || '',
+            percent5: packBtn.getAttribute('data-percent-5') || '',
+            percent10: packBtn.getAttribute('data-percent-10') || '',
+            joined: packBtn.getAttribute('data-joined') === '1',
+        });
+        return;
+    }
+});
+
+document.getElementById('staffPackDiscountSave')?.addEventListener('click', function () {
+    submitPackDiscount(false);
+});
+document.getElementById('staffPackDiscountRemove')?.addEventListener('click', function () {
+    submitPackDiscount(true);
+});
+
 document.addEventListener('click', function (e) {
     const btn = e.target.closest('[data-staff-bulk]');
     if (!btn) return;
@@ -2989,6 +3207,22 @@ document.addEventListener('click', function (e) {
     const matchTotal = Number(bar?.querySelector('[data-staff-bulk-match-total]')?.textContent || 0);
     const ids = selectedBulkIds(scope);
     const action = btn.getAttribute('data-staff-bulk');
+    if (action === 'pack_discount') {
+        if (!CAN_SET_PACK_DISCOUNT) {
+            toast('Only admins can set pack discounts.', 'warning');
+            return;
+        }
+        if (!matchAll && !ids.length) {
+            toast('Select at least one site.', 'warning');
+            return;
+        }
+        if (matchAll && matchTotal < 1) {
+            toast('No matching sites to update.', 'warning');
+            return;
+        }
+        openPackDiscountModal({ mode: 'bulk', ids: ids, matchAll: matchAll, scope: scope });
+        return;
+    }
     if (!matchAll && !ids.length) {
         toast('Select at least one site.', 'warning');
         return;

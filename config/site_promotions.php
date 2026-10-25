@@ -13,7 +13,8 @@ return [
 
     'bulk' => [
         'min_qty' => 3,
-        'max_qty' => 5,
+        // Cart / pack UI cap. Pricing for the 10-article tier has no upper qty.
+        'max_qty' => 10,
         'min_percent' => 10,
         'max_percent' => 80,
         'default_percent' => 10,

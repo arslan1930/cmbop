@@ -207,7 +207,7 @@ class CheckoutDiscountPaymentMethodsTest extends TestCase
         $this->assertStringContainsString('−10%', $publisherHtml);
         $this->assertStringContainsString('Off your list (€100.00 → €90.00)', $publisherHtml);
         $this->assertStringContainsString((string) $bulk->site_name, $publisherHtml);
-        $this->assertStringContainsString('3–5', $publisherHtml);
+        $this->assertStringContainsString('3–4 / 5–9 / 10+', $publisherHtml);
     }
 
     public function test_card_checkout_charges_sale_price_not_list(): void

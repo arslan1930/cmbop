@@ -266,7 +266,9 @@
                                           data-no-tip
                                           title="{{ $badgeKind === 'sale'
                                               ? 'Site sale applies on this pack (better than the bulk rate)'
-                                              : 'Bulk discount on '.$qtyExample.'–'.(int) config('site_promotions.bulk.max_qty', 5).' articles' }}">
+                                              : (($deal->bulk_pack_tiers_label ?? null)
+                                                  ? $deal->bulk_pack_tiers_label
+                                                  : 'Bulk discount on '.$qtyExample.'–'.(int) config('site_promotions.bulk.max_qty', 10).' articles') }}">
                                         @if($saveAmount > 0)
                                             <span class="bulk-deal-card__pct-save">Save {{ format_money($saveAmount) }}</span>
                                         @endif

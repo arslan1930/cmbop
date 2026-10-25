@@ -1,6 +1,7 @@
 <?php
 
 use App\Mail\AdminAssignedSiteNotification;
+use App\Mail\AdminBulkDiscountNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\AdminNewUserRegistered;
 use App\Mail\AdminNewUsersDigest;
@@ -448,6 +449,13 @@ return [
             'audience' => 'publisher',
             'preference' => 'system_updates',
             'mailable' => SiteDiscountEnded::class,
+            'default_enabled' => true,
+        ],
+        'admin_bulk_discount' => [
+            'name' => 'Admin Set Pack Discount',
+            'audience' => 'publisher',
+            'preference' => 'system_updates',
+            'mailable' => AdminBulkDiscountNotification::class,
             'default_enabled' => true,
         ],
         'withdrawal_status' => [
