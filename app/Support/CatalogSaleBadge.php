@@ -68,6 +68,30 @@ class CatalogSaleBadge
     }
 
     /**
+     * Pack copy listing every set tier, e.g. "3 for −10% · 5 for −15% · 10 for −25%".
+     * Hidden when a qty-1 sale is at least as strong as every pack tier.
+     *
+     * @param  array{3?: ?float, 5?: ?float, 10?: ?float}  $tiers
+     */
+    public static function bulkTiersNote(?float $salePercent, array $tiers): ?string
+    {
+        $label = BulkDiscount::label($tiers);
+        if ($label === null) {
+            return null;
+        }
+
+        $best = BulkDiscount::bestPercent($tiers);
+        if ($best === null) {
+            return null;
+        }
+        if ($salePercent !== null && round($best, 1) <= round($salePercent, 1)) {
+            return null;
+        }
+
+        return $label;
+    }
+
+    /**
      * Extra paid options that make the closed-row price a starting "from".
      *
      * @param  array<string, mixed>  $sensitivePrices

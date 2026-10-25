@@ -1198,13 +1198,13 @@
                     $fmtPct = static fn ($n) => rtrim(rtrim(number_format((float) $n, 1), '0'), '.');
                     $fmtEur = static fn ($n) => format_money($n);
                     $pubCustomPct = $site->activeCustomDiscountPercent();
-                    $pubBulkPct = $site->joinsBulkDiscount()
-                        ? (float) $site->bulk_discount_percent
-                        : null;
+                    $pubBulkTiers = $site->joinsBulkDiscount() ? $site->bulkDiscountTiers() : [3 => null, 5 => null, 10 => null];
+                    $pubBulkPct = $pubBulkTiers[3] ?? $pubBulkTiers[5] ?? $pubBulkTiers[10] ?? null;
+                    $pubBulkLabel = $site->bulkDiscountLabel();
                     $pubShowSaleBadge = $pubCustomPct !== null;
-                    $pubJoinedBulk = $pubBulkPct !== null;
+                    $pubJoinedBulk = $pubBulkPct !== null || $pubBulkLabel !== null;
                     $bulkMinQty = (int) config('site_promotions.bulk.min_qty', 3);
-                    $bulkMaxQty = (int) config('site_promotions.bulk.max_qty', 5);
+                    $bulkMaxQty = (int) config('site_promotions.bulk.max_qty', 10);
                     $pubListPrice = round((float) $site->price, 2);
                     $pubAfterPct = static fn (float $list, float $pct): float => round($list * (1 - $pct / 100), 2);
                     $pubSalePrice = $pubShowSaleBadge
@@ -1220,13 +1220,15 @@
                         ? 'Timed sale −'.$fmtPct($pubCustomPct).'% off your list ('.$fmtEur($pubListPrice)
                             .' → '.$fmtEur($pubSalePrice).'). Advertisers pay your list plus the platform fee, then this same percent. Exclusive better-of with bulk, not stacked.'
                         : 'Your timed discount is live on this site.';
-                    $pubBulkTip = 'Joined the bulk discount programme ('.$bulkMinQty.'–'.$bulkMaxQty.' articles). Exclusive better-of with a timed sale — not stacked.';
+                    $pubBulkTip = 'Joined the bulk discount programme'
+                        .($pubBulkLabel ? ' ('.$pubBulkLabel.')' : '')
+                        .'. Exclusive better-of with a timed sale — not stacked.';
                     if ($saleWinsPack) {
                         $pubBulkTip = 'Timed sale is stronger on packs too — exclusive better-of, not stacked.';
                     } elseif ($pubJoinedBulk && $pubBulkUnit !== null) {
-                        $pubBulkTip = 'Bulk −'.$fmtPct($pubBulkPct).'% off your list ('.$fmtEur($pubListPrice)
-                            .' → '.$fmtEur($pubBulkUnit).') on '.$bulkMinQty.'–'.$bulkMaxQty
-                            .' articles. Exclusive better-of with a timed sale — not stacked.';
+                        $pubBulkTip = ($pubBulkLabel ?: ('Bulk −'.$fmtPct($pubBulkPct).'%'))
+                            .' off your list ('.$fmtEur($pubListPrice)
+                            .' → '.$fmtEur($pubBulkUnit).') on 3–4 / 5–9 / 10+ articles. Exclusive better-of with a timed sale — not stacked.';
                     }
                     $featureDaysLeft = ($site->isFeatured() && $site->safeFeaturedUntil())
                         ? max(1, (int) now()->diffInDays($site->safeFeaturedUntil()))
@@ -1266,10 +1268,10 @@
                     @if($pubJoinedBulk)
                         <span class="badge bg-success"
                               data-glass-tip
-                              data-glass-tip-title="Bulk −{{ $fmtPct($pubBulkPct) }}% on {{ $bulkMinQty }}–{{ $bulkMaxQty }} articles"
+                              data-glass-tip-title="{{ $pubBulkLabel ?: ('Bulk −'.$fmtPct($pubBulkPct).'%') }}"
                               data-glass-tip-body="{{ $pubBulkTip }}"
                               data-glass-tip-placement="top"
-                              data-glass-tip-hover-only="1">Bulk −{{ $fmtPct($pubBulkPct) }}%</span>
+                              data-glass-tip-hover-only="1">{{ $pubBulkLabel ?: ('Bulk −'.$fmtPct($pubBulkPct).'%') }}</span>
                     @endif
                 </span>
                 </div>
@@ -1422,17 +1424,19 @@
                         class="site-offer-chip is-on btn-bulk-site"
                         data-id="{{ $site->id }}"
                         data-name="{{ $site->site_name }}"
-                        data-percent="{{ $pubBulkPct }}"
+                        data-percent="{{ $pubBulkTiers[3] ?? '' }}"
+                        data-percent-5="{{ $pubBulkTiers[5] ?? '' }}"
+                        data-percent-10="{{ $pubBulkTiers[10] ?? '' }}"
                         data-price="{{ $pubListPrice }}"
                         data-joined="1"
                         aria-pressed="true"
                         aria-label="Edit or leave bulk"
                         data-glass-tip
-                        data-glass-tip-title="Bulk −{{ $fmtPct($pubBulkPct) }}% is on"
-                        data-glass-tip-body="{{ $bulkMinQty }}–{{ $bulkMaxQty }} articles. Click to change the percent or leave. Exclusive with a timed sale — not stacked."
+                        data-glass-tip-title="{{ $pubBulkLabel ?: 'Pack discount is on' }}"
+                        data-glass-tip-body="{{ $pubBulkLabel ?: 'Pack discount' }}. Click to change the percents or leave. Exclusive with a timed sale — not stacked."
                         data-glass-tip-placement="top">
                     <i class="fa fa-layer-group" aria-hidden="true"></i>
-                    <span class="site-offer-chip__label">Bulk −{{ $fmtPct($pubBulkPct) }}%</span>
+                    <span class="site-offer-chip__label">{{ $pubBulkLabel ?: ('Bulk −'.$fmtPct($pubBulkPct).'%') }}</span>
                 </button>
                 @else
                 <button type="button"
@@ -1445,7 +1449,7 @@
                         aria-label="Join bulk"
                         data-glass-tip
                         data-glass-tip-title="Join bulk"
-                        data-glass-tip-body="{{ (int) config('site_promotions.bulk.min_percent', 10) }}–{{ (int) config('site_promotions.bulk.max_percent', 80) }}% off when an advertiser buys {{ $bulkMinQty }}–{{ $bulkMaxQty }} articles. Exclusive with a timed sale — not stacked."
+                        data-glass-tip-body="{{ (int) config('site_promotions.bulk.min_percent', 10) }}–{{ (int) config('site_promotions.bulk.max_percent', 80) }}% off when an advertiser buys 3–4, 5–9, or 10+ articles. Exclusive with a timed sale — not stacked."
                         data-glass-tip-placement="top">
                     <i class="fa fa-layer-group" aria-hidden="true"></i>
                     <span class="site-offer-chip__label">Bulk</span>

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\Marketplace\WritingFeeService;
+use App\Support\BulkDiscount;
 use App\Support\ListingMoney;
 
 class CartPricingService
@@ -26,7 +27,7 @@ class CartPricingService
      * Never trust client-supplied price / additional_price / homepage_price values.
      *
      * Discounts are exclusive better-of (never additive): the stronger of an
-     * active custom sale and a bulk pack rate (qty 3–5) applies. The cut is
+     * active custom sale and a bulk pack rate (qty 3–4 / 5–9 / 10+) applies. The cut is
      * absorbed by the platform fee and floored at publisher payout.
      *
      * Homepage placement fees are NEVER discounted — they are added at full
@@ -148,7 +149,8 @@ class CartPricingService
         $effectivePercent = self::effectiveDiscountPercent($listTotal, $discountAmount);
         $labels = [];
         if ($effectivePercent > 0 && $winner === 'bulk') {
-            $labels[] = 'Bulk deal −'.$this->formatDiscountPercent($effectivePercent).'% on '.$quantity.' articles';
+            $labels[] = 'Bulk deal −'.$this->formatDiscountPercent($effectivePercent).'% on '.$quantity
+                .' article'.($quantity === 1 ? '' : 's');
         } elseif ($effectivePercent > 0) {
             $labels[] = 'Site offer −'.$this->formatDiscountPercent($effectivePercent).'%';
         }
@@ -245,17 +247,7 @@ class CartPricingService
 
     public function bulkDiscountPercentForQuantity(Site $site, int $quantity): ?float
     {
-        if (! $site->joinsBulkDiscount()) {
-            return null;
-        }
-
-        $min = (int) config('site_promotions.bulk.min_qty', 3);
-        $max = (int) config('site_promotions.bulk.max_qty', 5);
-        if ($quantity < $min || $quantity > $max) {
-            return null;
-        }
-
-        return (float) $site->bulk_discount_percent;
+        return BulkDiscount::percentForQuantity($site, $quantity);
     }
 
     /**
@@ -659,7 +651,7 @@ class CartPricingService
             $total += $lineTotal;
             $savings += $lineSave;
 
-            // Preserve per-placement article slots (bulk packs qty 3–5). Dropping
+            // Preserve per-placement article slots (bulk packs qty 3–10). Dropping
             // content_submission_ids left checkout with only a scalar id and lost
             // assignments for copies 2…N.
             $slotIds = $this->normalizeContentSubmissionIds($item, $quantity);

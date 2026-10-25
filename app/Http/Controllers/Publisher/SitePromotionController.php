@@ -8,12 +8,14 @@ use App\Models\Wallet;
 use App\Services\ActivityLogger;
 use App\Services\SitePromotionService;
 use App\Services\StripePaymentService;
+use App\Support\BulkDiscount;
 use App\Support\PlatformCharge;
 use App\Support\UserFacingError;
 use App\Support\UserMessages;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Stripe\Checkout\Session;
 use Stripe\Stripe;
 
@@ -320,29 +322,50 @@ class SitePromotionController extends Controller
             return $site;
         }
 
+        $min = config('site_promotions.bulk.min_percent', 10);
+        $max = config('site_promotions.bulk.max_percent', 80);
         $data = $request->validate([
-            'percent' => 'required|numeric|min:'.config('site_promotions.bulk.min_percent', 10)
-                .'|max:'.config('site_promotions.bulk.max_percent', 80),
+            'percent' => 'nullable|numeric|min:'.$min.'|max:'.$max,
+            'percent_5' => 'nullable|numeric|min:'.$min.'|max:'.$max,
+            'percent_10' => 'nullable|numeric|min:'.$min.'|max:'.$max,
         ]);
+
+        $replaceAll = $request->exists('percent_5') || $request->exists('percent_10');
+        $percent = isset($data['percent']) ? (float) $data['percent'] : null;
+        $percent5 = $replaceAll ? (isset($data['percent_5']) ? (float) $data['percent_5'] : null) : null;
+        $percent10 = $replaceAll ? (isset($data['percent_10']) ? (float) $data['percent_10'] : null) : null;
+        if ($percent === null && $percent5 === null && $percent10 === null) {
+            throw ValidationException::withMessages([
+                'percent' => 'Enter at least one pack discount percent (3, 5, or 10 articles).',
+            ]);
+        }
 
         try {
             $alreadyJoined = $site->joinsBulkDiscount();
-            $previousPercent = $alreadyJoined ? (float) $site->bulk_discount_percent : null;
-            $site = $this->promotions->joinBulkDiscount($site, (float) $data['percent']);
-            $newPercent = (float) $site->bulk_discount_percent;
-            $pct = rtrim(rtrim(number_format($newPercent, 2), '0'), '.');
+            $previousTiers = $site->bulkDiscountTiers();
+            $previousPercent = $previousTiers[BulkDiscount::TIER_3] ?? null;
+            $site = $this->promotions->joinBulkDiscount($site, $percent, $percent5, $percent10, $replaceAll);
+            $newTiers = $site->bulkDiscountTiers();
+            $newPercent = $newTiers[BulkDiscount::TIER_3] ?? null;
+            $label = BulkDiscount::label($newTiers) ?? 'off';
             $lead = $alreadyJoined
-                ? 'Updated bulk discount to '.$pct.'% on 3–5 articles.'
-                : 'Joined bulk discount programme ('.$pct.'% on 3–5 articles).';
+                ? 'Updated bulk discount to '.$label.'.'
+                : 'Joined bulk discount programme ('.$label.').';
 
-            if (! $alreadyJoined || abs(($previousPercent ?? 0) - $newPercent) >= 0.001) {
+            $changed = ! $alreadyJoined
+                || json_encode($previousTiers) !== json_encode($newTiers);
+            if ($changed) {
                 ActivityLogger::tryLog(
                     $alreadyJoined ? 'site.bulk_discount_updated' : 'site.bulk_discount_joined',
                     auth()->user()->name.' '.$lead,
                     $site,
                     [
                         'percent' => $newPercent,
+                        'percent_5' => $newTiers[BulkDiscount::TIER_5] ?? null,
+                        'percent_10' => $newTiers[BulkDiscount::TIER_10] ?? null,
                         'from' => $previousPercent,
+                        'from_percent_5' => $previousTiers[BulkDiscount::TIER_5] ?? null,
+                        'from_percent_10' => $previousTiers[BulkDiscount::TIER_10] ?? null,
                     ],
                     $site->site_name
                 );
@@ -353,6 +376,8 @@ class SitePromotionController extends Controller
                 'message' => $lead.' Exclusive better-of with any timed sale — not stacked. Off your list; advertisers pay list plus the platform fee, then this same percent.',
                 'site' => $site,
             ]);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             report($e);
 
@@ -368,7 +393,8 @@ class SitePromotionController extends Controller
         try {
             $site = Site::where('publisher_id', auth()->id())->findOrFail($id);
             $wasJoined = $site->joinsBulkDiscount();
-            $previousPercent = $wasJoined ? (float) $site->bulk_discount_percent : null;
+            $previousTiers = $site->bulkDiscountTiers();
+            $previousPercent = $previousTiers[BulkDiscount::TIER_3] ?? null;
             $site = $this->promotions->leaveBulkDiscount($site);
 
             if ($wasJoined) {
@@ -376,7 +402,11 @@ class SitePromotionController extends Controller
                     'site.bulk_discount_left',
                     auth()->user()->name.' left the bulk discount programme on "'.$site->site_name.'"',
                     $site,
-                    ['from' => $previousPercent],
+                    [
+                        'from' => $previousPercent,
+                        'from_percent_5' => $previousTiers[BulkDiscount::TIER_5] ?? null,
+                        'from_percent_10' => $previousTiers[BulkDiscount::TIER_10] ?? null,
+                    ],
                     $site->site_name
                 );
             }

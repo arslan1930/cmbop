@@ -7,6 +7,7 @@ use App\Jobs\CaptureSiteScreenshotJob;
 use App\Jobs\EnrichSiteJob;
 use App\Mail\AdminAssignedSiteNotification;
 use App\Mail\AdminAssignedSitesBatchNotification;
+use App\Mail\AdminBulkDiscountNotification;
 use App\Mail\AdminPublishedSiteNotification;
 use App\Mail\AdminPublishedSitesBatchNotification;
 use App\Mail\SiteStatusNotification;
@@ -28,8 +29,10 @@ use App\Services\SiteDescriptionSanitizer;
 use App\Services\SiteEnrichment\ImageOptimizationService;
 use App\Services\SiteEnrichment\SiteEnrichmentService;
 use App\Services\SiteEnrichment\SiteMetricsAggregator;
+use App\Services\SitePromotionService;
 use App\Services\Staff\StaffAssignedListingService;
 use App\Support\AdminSites;
+use App\Support\BulkDiscount;
 use App\Support\CatalogHealthQueue;
 use App\Support\CatalogProblemReport;
 use App\Support\CommunityInbox;
@@ -1518,10 +1521,19 @@ class SiteController extends Controller
 
         $featured = false;
         $bulk = false;
+        $bulkLabel = null;
+        $bulkPercent = null;
+        $bulkPercent5 = null;
+        $bulkPercent10 = null;
         $linkLabel = null;
         try {
             $featured = $site->isFeatured();
             $bulk = $site->joinsBulkDiscount();
+            $bulkLabel = $site->bulkDiscountLabel();
+            $tiers = $site->bulkDiscountTiers();
+            $bulkPercent = $tiers[BulkDiscount::TIER_3] ?? null;
+            $bulkPercent5 = $tiers[BulkDiscount::TIER_5] ?? null;
+            $bulkPercent10 = $tiers[BulkDiscount::TIER_10] ?? null;
             $linkLabel = $site->linkTypeLabel();
         } catch (\Throwable $e) {
             report($e);
@@ -1538,6 +1550,10 @@ class SiteController extends Controller
             'sale_price' => $sale,
             'featured' => $featured,
             'bulk_discount' => $bulk,
+            'bulk_discount_label' => $bulkLabel,
+            'bulk_discount_percent' => $bulkPercent,
+            'bulk_discount_percent_5' => $bulkPercent5,
+            'bulk_discount_percent_10' => $bulkPercent10,
             'link_type_label' => $linkLabel,
             'countries_list' => $countries,
             'languages_list' => $languages,
@@ -1924,6 +1940,8 @@ class SiteController extends Controller
             'custom_discount_ends_at',
             'bulk_discount_enabled',
             'bulk_discount_percent',
+            'bulk_discount_percent_5',
+            'bulk_discount_percent_10',
             'original_price',
             'added_from_bulk_request',
             'status_reason',
@@ -2502,8 +2520,8 @@ class SiteController extends Controller
         }
 
         if (! empty($filter['bulk_discount'])) {
-            if (Site::hasSitesColumn('bulk_discount_enabled') && Site::hasSitesColumn('bulk_discount_percent')) {
-                $query->where('bulk_discount_enabled', 1)->where('bulk_discount_percent', '>', 0);
+            if (Site::hasSitesColumn('bulk_discount_enabled')) {
+                BulkDiscount::constrainJoined($query);
             } else {
                 $query->whereRaw('1 = 0');
             }
@@ -6791,6 +6809,239 @@ class SiteController extends Controller
             'processed' => count($data['ids'] ?? []),
             'message' => $message,
         ], $updated !== [] ? 200 : 422);
+    }
+
+    public function updateBulkDiscount(Request $request, int $id): JsonResponse
+    {
+        if (! $request->user()?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can set pack discounts.',
+            ], 403);
+        }
+
+        $site = Site::query()->findOrFail($id);
+
+        try {
+            $result = $this->applyAdminBulkDiscount($request, $site, $request->user());
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Could not update that pack discount.'),
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $result['message'],
+            'bulk_discount' => $result['joined'],
+            'bulk_discount_label' => $result['label'],
+            'bulk_discount_percent' => $result['tiers'][BulkDiscount::TIER_3] ?? null,
+            'bulk_discount_percent_5' => $result['tiers'][BulkDiscount::TIER_5] ?? null,
+            'bulk_discount_percent_10' => $result['tiers'][BulkDiscount::TIER_10] ?? null,
+        ]);
+    }
+
+    public function bulkUpdateBulkDiscount(Request $request): JsonResponse
+    {
+        if (! $request->user()?->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can set pack discounts.',
+            ], 403);
+        }
+
+        $matchAll = $request->boolean('match_all');
+        $rules = [
+            'remove' => ['nullable', 'boolean'],
+            'percent' => ['nullable', 'numeric'],
+            'percent_5' => ['nullable', 'numeric'],
+            'percent_10' => ['nullable', 'numeric'],
+            'match_all' => ['nullable', 'boolean'],
+            'scope' => ['nullable', 'in:publisher,flat,all'],
+            'publisher_id' => ['nullable', 'integer'],
+        ];
+        if (! $matchAll) {
+            $rules['ids'] = ['required', 'array', 'min:1', 'max:200'];
+            $rules['ids.*'] = ['integer', 'distinct'];
+        }
+        $data = $request->validate($rules);
+        $matchedTotal = null;
+        if ($matchAll) {
+            $matched = $this->staffBulkMatchIds($request);
+            $data['ids'] = $matched['ids'];
+            $matchedTotal = $matched['total'];
+            if ($data['ids'] === []) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No matching sites to update.',
+                ], 422);
+            }
+        }
+
+        $updated = [];
+        $skipped = [];
+        $lastMessage = 'Updated pack discount.';
+        foreach (array_values(array_unique(array_map('intval', $data['ids']))) as $id) {
+            if ($id < 1) {
+                continue;
+            }
+            $site = Site::query()->find($id);
+            if (! $site) {
+                $skipped[] = ['id' => $id, 'message' => 'Site not found.'];
+
+                continue;
+            }
+            try {
+                $result = $this->applyAdminBulkDiscount($request, $site, $request->user());
+                $updated[] = $id;
+                $lastMessage = $result['message'];
+            } catch (ValidationException $e) {
+                $skipped[] = [
+                    'id' => $id,
+                    'message' => collect($e->errors())->flatten()->first() ?: 'Invalid request.',
+                ];
+            } catch (\Throwable $e) {
+                report($e);
+                $skipped[] = [
+                    'id' => $id,
+                    'message' => UserFacingError::message($e, 'Could not update that pack discount.'),
+                ];
+            }
+        }
+
+        $message = count($updated).' updated';
+        if ($skipped !== []) {
+            $reason = trim((string) ($skipped[0]['message'] ?? ''));
+            $message .= ', '.count($skipped).' skipped';
+            if ($reason !== '') {
+                $message .= ': '.$reason;
+            }
+        } elseif ($updated !== []) {
+            $message = count($updated) === 1
+                ? $lastMessage
+                : count($updated).' sites updated. '.$lastMessage;
+        }
+        if ($matchedTotal !== null && $matchedTotal > count($data['ids'])) {
+            $message .= ' First '.count($data['ids']).' of '.$matchedTotal.'.';
+        }
+
+        return response()->json([
+            'success' => $updated !== [],
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'matched_total' => $matchedTotal,
+            'processed' => count($data['ids'] ?? []),
+            'message' => $message,
+        ], $updated !== [] ? 200 : 422);
+    }
+
+    /**
+     * @return array{message: string, joined: bool, label: ?string, tiers: array{3: ?float, 5: ?float, 10: ?float}}
+     */
+    private function applyAdminBulkDiscount(Request $request, Site $site, User $actor): array
+    {
+        $remove = $request->boolean('remove');
+        if (! $remove) {
+            $request->validate([
+                'percent' => ['nullable', 'numeric'],
+                'percent_5' => ['nullable', 'numeric'],
+                'percent_10' => ['nullable', 'numeric'],
+            ]);
+        }
+
+        $promotions = app(SitePromotionService::class);
+        $from = BulkDiscount::tiersFromSite($site);
+        $wasJoined = BulkDiscount::anyTierSet($from);
+
+        if ($remove) {
+            if ($wasJoined) {
+                $promotions->leaveBulkDiscount($site);
+            }
+            $site = $site->fresh();
+            $to = BulkDiscount::emptyTiers();
+            $change = 'removed';
+        } else {
+            $percent = BulkDiscount::parseOptionalPercent($request->input('percent'));
+            $percent5 = BulkDiscount::parseOptionalPercent($request->input('percent_5'));
+            $percent10 = BulkDiscount::parseOptionalPercent($request->input('percent_10'));
+            if ($percent === null && $percent5 === null && $percent10 === null) {
+                throw ValidationException::withMessages([
+                    'percent' => 'Enter at least one pack discount percent, or remove the discount.',
+                ]);
+            }
+            $promotions->joinBulkDiscount($site, $percent, $percent5, $percent10, true);
+            $site = $site->fresh();
+            $to = BulkDiscount::tiersFromSite($site);
+            $change = $wasJoined ? 'updated' : 'set';
+        }
+
+        $summary = BulkDiscount::changeSummary($from, $to);
+        $unchanged = json_encode($from) === json_encode($to);
+        $label = BulkDiscount::label($to);
+        $message = match ($change) {
+            'removed' => $wasJoined
+                ? 'Removed pack discount ('.$summary.').'
+                : 'This site had no pack discount.',
+            'updated' => 'Updated pack discount ('.$summary.').',
+            default => 'Set pack discount ('.$summary.').',
+        };
+
+        if (! $unchanged) {
+            ActivityLogger::tryLog(
+                match ($change) {
+                    'removed' => 'site.bulk_discount_admin_removed',
+                    'updated' => 'site.bulk_discount_admin_updated',
+                    default => 'site.bulk_discount_admin_set',
+                },
+                ($actor->name ?: $actor->email).' '.$message.' on "'.$site->site_name.'"',
+                $site,
+                [
+                    'from' => $from[BulkDiscount::TIER_3] ?? null,
+                    'to' => $to[BulkDiscount::TIER_3] ?? null,
+                    'from_percent_5' => $from[BulkDiscount::TIER_5] ?? null,
+                    'to_percent_5' => $to[BulkDiscount::TIER_5] ?? null,
+                    'from_percent_10' => $from[BulkDiscount::TIER_10] ?? null,
+                    'to_percent_10' => $to[BulkDiscount::TIER_10] ?? null,
+                ],
+                $site->site_name,
+                $actor
+            );
+            $this->notifyPublisherOfAdminBulkDiscount($site, $from, $to, $change);
+        }
+
+        return [
+            'message' => $message,
+            'joined' => BulkDiscount::anyTierSet($to),
+            'label' => $label,
+            'tiers' => $to,
+        ];
+    }
+
+    /**
+     * @param  array{3?: ?float, 5?: ?float, 10?: ?float}  $from
+     * @param  array{3?: ?float, 5?: ?float, 10?: ?float}  $to
+     */
+    private function notifyPublisherOfAdminBulkDiscount(Site $site, array $from, array $to, string $change): void
+    {
+        try {
+            $publisher = $site->publisher;
+            if (! $publisher?->email) {
+                return;
+            }
+            Mail::to($publisher->email)->send(
+                new AdminBulkDiscountNotification($site, $publisher, $from, $to, $change)
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Failed to email publisher about admin pack discount', [
+                'site_id' => $site->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

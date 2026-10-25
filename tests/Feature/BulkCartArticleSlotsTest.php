@@ -12,7 +12,7 @@ use Tests\Support\CreatesContentSubmissions;
 use Tests\TestCase;
 
 /**
- * Bulk deals (Buy 3–5) must land in the cart as N placements so the advertiser
+ * Bulk deals (Buy 3–10) must land in the cart as N placements so the advertiser
  * can attach a separate Content Library article for each one to publish.
  */
 class BulkCartArticleSlotsTest extends TestCase
@@ -179,7 +179,7 @@ class BulkCartArticleSlotsTest extends TestCase
             ->postJson(route('advertiser.cart.save'), [
                 'cart' => [[
                     'id' => $site->id,
-                    'quantity' => 9,
+                    'quantity' => 12,
                     'bulk_pack' => true,
                     'content_submission_ids' => [0, 0, 0],
                 ]],
@@ -188,10 +188,24 @@ class BulkCartArticleSlotsTest extends TestCase
             ->assertJsonPath('success', true);
 
         $line = $response->json('cart.0');
-        $this->assertSame(5, (int) $line['quantity']);
+        $this->assertSame(10, (int) $line['quantity']);
         $this->assertTrue((bool) $line['bulk_pack']);
         $this->assertGreaterThan(0, (float) ($line['discount_percent'] ?? 0));
-        $this->assertCount(5, $line['content_submission_ids'] ?? []);
+        $this->assertCount(10, $line['content_submission_ids'] ?? []);
+
+        $inBand = $this->actingAs($this->advertiser)
+            ->postJson(route('advertiser.cart.save'), [
+                'cart' => [[
+                    'id' => $site->id,
+                    'quantity' => 9,
+                    'bulk_pack' => true,
+                ]],
+            ])
+            ->assertOk()
+            ->json('cart.0');
+
+        $this->assertSame(9, (int) $inBand['quantity']);
+        $this->assertCount(9, $inBand['content_submission_ids'] ?? []);
 
         $tooLow = $this->actingAs($this->advertiser)
             ->postJson(route('advertiser.cart.save'), [

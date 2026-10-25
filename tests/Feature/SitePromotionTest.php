@@ -194,7 +194,7 @@ class SitePromotionTest extends TestCase
             ->postJson(route('publisher.sites.bulk-join', $site->id), ['percent' => 12])
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonFragment(['message' => 'Joined bulk discount programme (12% on 3–5 articles). Exclusive better-of with any timed sale — not stacked. Off your list; advertisers pay list plus the platform fee, then this same percent.']);
+            ->assertJsonFragment(['message' => 'Joined bulk discount programme (3 for −12%). Exclusive better-of with any timed sale — not stacked. Off your list; advertisers pay list plus the platform fee, then this same percent.']);
 
         $this->assertSame(1, ActivityLog::query()->where('action', 'site.bulk_discount_joined')->count());
 
@@ -233,7 +233,7 @@ class SitePromotionTest extends TestCase
             ->postJson(route('publisher.sites.bulk-join', $site->id), ['percent' => 80])
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonFragment(['message' => 'Updated bulk discount to 80% on 3–5 articles. Exclusive better-of with any timed sale — not stacked. Off your list; advertisers pay list plus the platform fee, then this same percent.']);
+            ->assertJsonFragment(['message' => 'Updated bulk discount to 3 for −80%. Exclusive better-of with any timed sale — not stacked. Off your list; advertisers pay list plus the platform fee, then this same percent.']);
 
         $this->assertSame(80.0, (float) $site->fresh()->bulk_discount_percent);
         $this->assertSame(1, ActivityLog::query()->where('action', 'site.bulk_discount_joined')->count());
@@ -287,6 +287,131 @@ class SitePromotionTest extends TestCase
             ->assertStatus(422);
 
         $this->assertFalse($site->fresh()->joinsBulkDiscount());
+    }
+
+    public function test_publisher_can_set_all_three_pack_tiers(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $site = $this->site($publisher);
+
+        $this->actingAs($publisher)
+            ->postJson(route('publisher.sites.bulk-join', $site->id), [
+                'percent' => 10,
+                'percent_5' => 15,
+                'percent_10' => 25,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonFragment(['message' => 'Joined bulk discount programme (3 for −10% · 5 for −15% · 10 for −25%). Exclusive better-of with any timed sale — not stacked. Off your list; advertisers pay list plus the platform fee, then this same percent.']);
+
+        $site->refresh();
+        $this->assertTrue($site->joinsBulkDiscount());
+        $this->assertSame(10.0, (float) $site->bulk_discount_percent);
+        $this->assertSame(15.0, (float) $site->bulk_discount_percent_5);
+        $this->assertSame(25.0, (float) $site->bulk_discount_percent_10);
+        $this->assertSame('3 for −10% · 5 for −15% · 10 for −25%', $site->bulkDiscountLabel());
+    }
+
+    public function test_publisher_rejects_non_monotonic_pack_tiers(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $site = $this->site($publisher);
+
+        $this->actingAs($publisher)
+            ->postJson(route('publisher.sites.bulk-join', $site->id), [
+                'percent' => 20,
+                'percent_5' => 15,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('percent_5');
+
+        $this->assertFalse($site->fresh()->joinsBulkDiscount());
+    }
+
+    public function test_publisher_can_join_with_five_or_ten_tier_only(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $site = $this->site($publisher);
+
+        $this->actingAs($publisher)
+            ->postJson(route('publisher.sites.bulk-join', $site->id), [
+                'percent_5' => 15,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $site->refresh();
+        $this->assertTrue($site->joinsBulkDiscount());
+        $this->assertNull($site->bulk_discount_percent);
+        $this->assertSame(15.0, (float) $site->bulk_discount_percent_5);
+        $this->assertSame('5 for −15%', $site->bulkDiscountLabel());
+    }
+
+    public function test_bulk_discount_tiers_apply_for_qty_3_4_5_9_10_12(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $site = $this->site($publisher);
+        app(SitePromotionService::class)->joinBulkDiscount($site, 10, 15, 25, true);
+        $site->refresh();
+        $pricing = app(CartPricingService::class);
+
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($site, 3));
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($site, 4));
+        $this->assertSame(15.0, $pricing->bulkDiscountPercentForQuantity($site, 5));
+        $this->assertSame(15.0, $pricing->bulkDiscountPercentForQuantity($site, 9));
+        $this->assertSame(25.0, $pricing->bulkDiscountPercentForQuantity($site, 10));
+        $this->assertSame(25.0, $pricing->bulkDiscountPercentForQuantity($site, 12));
+        $this->assertNull($pricing->bulkDiscountPercentForQuantity($site, 2));
+    }
+
+    public function test_bulk_discount_falls_back_to_the_next_lower_set_tier(): void
+    {
+        $publisher = $this->publisherWithWallet();
+        $pricing = app(CartPricingService::class);
+        $promotions = app(SitePromotionService::class);
+
+        $only3 = $this->site($publisher);
+        $promotions->joinBulkDiscount($only3, 10, null, null, true);
+        $only3->refresh();
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($only3, 3));
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($only3, 5));
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($only3, 9));
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($only3, 10));
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($only3, 12));
+
+        $only5 = Site::create(array_merge($only3->only([
+            'publisher_id', 'da', 'dr', 'traffic', 'country', 'language', 'category',
+            'price', 'publication_time', 'description', 'link_type', 'verified', 'active',
+        ]), [
+            'site_name' => 'Five Only',
+            'site_url' => 'https://five-only.example',
+            'domain' => 'five-only.example',
+        ]));
+        $promotions->joinBulkDiscount($only5, null, 15, null, true);
+        $only5->refresh();
+        $this->assertNull($pricing->bulkDiscountPercentForQuantity($only5, 3));
+        $this->assertNull($pricing->bulkDiscountPercentForQuantity($only5, 4));
+        $this->assertSame(15.0, $pricing->bulkDiscountPercentForQuantity($only5, 5));
+        $this->assertSame(15.0, $pricing->bulkDiscountPercentForQuantity($only5, 9));
+        $this->assertSame(15.0, $pricing->bulkDiscountPercentForQuantity($only5, 10));
+        $this->assertSame(15.0, $pricing->bulkDiscountPercentForQuantity($only5, 12));
+
+        $threeAndTen = Site::create(array_merge($only3->only([
+            'publisher_id', 'da', 'dr', 'traffic', 'country', 'language', 'category',
+            'price', 'publication_time', 'description', 'link_type', 'verified', 'active',
+        ]), [
+            'site_name' => 'Three And Ten',
+            'site_url' => 'https://three-ten.example',
+            'domain' => 'three-ten.example',
+        ]));
+        $promotions->joinBulkDiscount($threeAndTen, 10, null, 25, true);
+        $threeAndTen->refresh();
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($threeAndTen, 3));
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($threeAndTen, 4));
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($threeAndTen, 5));
+        $this->assertSame(10.0, $pricing->bulkDiscountPercentForQuantity($threeAndTen, 9));
+        $this->assertSame(25.0, $pricing->bulkDiscountPercentForQuantity($threeAndTen, 10));
+        $this->assertSame(25.0, $pricing->bulkDiscountPercentForQuantity($threeAndTen, 12));
     }
 
     public function test_custom_discount_and_expiry_notification(): void

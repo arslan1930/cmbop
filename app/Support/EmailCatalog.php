@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Mail\AdminAssignedSiteNotification;
+use App\Mail\AdminBulkDiscountNotification;
 use App\Mail\AdminManualPaymentNotification;
 use App\Mail\AdminNewUserRegistered;
 use App\Mail\AdminNewUsersDigest;
@@ -486,6 +487,13 @@ class EmailCatalog
                 'mailable' => SiteDiscountEnded::class,
                 'status' => 'active',
             ],
+            'admin_bulk_discount' => [
+                'name' => 'Admin Set Pack Discount',
+                'description' => 'Publisher notified when staff set, change, or remove the 3 / 5 / 10-article pack discount on their site.',
+                'category' => 'Publishers',
+                'mailable' => AdminBulkDiscountNotification::class,
+                'status' => 'active',
+            ],
             'payout_profile_updated' => [
                 'name' => 'Payout Profile Updated by Support',
                 'description' => 'Publisher notified when support changes their payout details.',
@@ -835,6 +843,9 @@ class EmailCatalog
             'your article was approved' => 'content_evaluation_result',
             'article evaluation update' => 'content_evaluation_result',
             'your site discount has ended' => 'site_discount_ended',
+            'pack discount added' => 'admin_bulk_discount',
+            'pack discount updated' => 'admin_bulk_discount',
+            'pack discount removed' => 'admin_bulk_discount',
             'your payout details were updated' => 'payout_profile_updated',
             'bulk site request from' => 'bulk_site_request_submitted',
             'your bulk sites are active' => 'bulk_sites_seeded',
@@ -1073,6 +1084,13 @@ class EmailCatalog
                 'moderation_status' => 'approved',
             ]),
             'site_discount_ended' => new SiteDiscountEnded($site, $user, 20.0, now()->subDay()),
+            'admin_bulk_discount' => new AdminBulkDiscountNotification(
+                $site,
+                $user,
+                [3 => 10.0],
+                [3 => 10.0, 5 => 15.0, 10 => 25.0],
+                'updated'
+            ),
             'payout_profile_updated' => new PayoutProfileUpdatedBySupport($user, 'paypal'),
             'bulk_site_request_submitted' => new BulkSiteRequestSubmitted(
                 self::sampleBulkSiteRequest(),

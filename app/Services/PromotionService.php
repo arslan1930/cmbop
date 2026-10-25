@@ -7,6 +7,7 @@ use App\Models\Site;
 use App\Models\SiteAnnouncement;
 use App\Models\User;
 use App\Models\WelcomeBonusClaim;
+use App\Support\BulkDiscount;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -330,11 +331,10 @@ class PromotionService
         }
 
         try {
-            return Site::query()
-                ->catalogVisible()
-                ->where('bulk_discount_enabled', true)
-                ->whereNotNull('bulk_discount_percent')
-                ->where('bulk_discount_percent', '>', 0)
+            $query = Site::query()->catalogVisible();
+            BulkDiscount::constrainJoined($query);
+
+            return $query
                 ->orderByDesc('id')
                 ->limit($limit)
                 ->get();
@@ -424,12 +424,10 @@ class PromotionService
         }
 
         try {
-            return (int) Site::query()
-                ->catalogVisible()
-                ->where('bulk_discount_enabled', true)
-                ->whereNotNull('bulk_discount_percent')
-                ->where('bulk_discount_percent', '>', 0)
-                ->count();
+            $query = Site::query()->catalogVisible();
+            BulkDiscount::constrainJoined($query);
+
+            return (int) $query->count();
         } catch (\Throwable) {
             return 0;
         }

@@ -9,6 +9,7 @@ use App\Services\Catalog\CatalogLanguageFilter;
 use App\Services\Catalog\SiteUrlVisibility;
 use App\Services\Marketing\GuestPostPriceIndex;
 use App\Services\SiteDescriptionSanitizer;
+use App\Support\BulkDiscount;
 use App\Support\ListingMoney;
 use App\Support\PublicationDuration;
 use App\Support\SiteDescriptionRules;
@@ -93,6 +94,8 @@ class Site extends Model
         'featured_purchased_at',
         'bulk_discount_enabled',
         'bulk_discount_percent',
+        'bulk_discount_percent_5',
+        'bulk_discount_percent_10',
         'custom_discount_percent',
         'custom_discount_starts_at',
         'custom_discount_ends_at',
@@ -163,6 +166,8 @@ class Site extends Model
         'featured_purchased_at' => 'datetime',
         'bulk_discount_enabled' => 'boolean',
         'bulk_discount_percent' => 'float',
+        'bulk_discount_percent_5' => 'float',
+        'bulk_discount_percent_10' => 'float',
         'custom_discount_percent' => 'float',
         'custom_discount_starts_at' => 'datetime',
         'custom_discount_ends_at' => 'datetime',
@@ -740,13 +745,20 @@ class Site extends Model
 
     public function joinsBulkDiscount(): bool
     {
-        if (! static::hasSitesColumn('bulk_discount_enabled')) {
-            return false;
-        }
+        return BulkDiscount::siteJoins($this);
+    }
 
-        return (bool) $this->bulk_discount_enabled
-            && $this->bulk_discount_percent !== null
-            && (float) $this->bulk_discount_percent > 0;
+    /**
+     * @return array{3: ?float, 5: ?float, 10: ?float}
+     */
+    public function bulkDiscountTiers(): array
+    {
+        return BulkDiscount::tiersFromSite($this);
+    }
+
+    public function bulkDiscountLabel(): ?string
+    {
+        return BulkDiscount::labelForSite($this);
     }
 
     public function featurePurchases()

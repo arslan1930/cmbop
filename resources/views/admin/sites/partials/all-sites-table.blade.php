@@ -23,6 +23,7 @@
         <button type="button" class="btn btn-sm btn-outline-danger" data-staff-bulk="reject">Reject</button>
         @if(auth()->user()?->isAdmin() && empty($staffSiteFilters['archived']))
             <button type="button" class="btn btn-sm btn-outline-dark" data-staff-bulk="archive">Archive</button>
+            <button type="button" class="btn btn-sm btn-outline-info" data-staff-bulk="pack_discount">Pack discount</button>
         @endif
         @if(auth()->user()?->isAdmin() && !empty($staffSiteFilters['archived']))
             <button type="button" class="btn btn-sm btn-outline-secondary" data-staff-bulk="restore">Restore</button>
@@ -111,6 +112,20 @@
                             <a href="{{ staff_route('sites.edit', $site->id) }}" class="btn btn-sm btn-outline-primary staff-action-icon-btn" title="{{ $editOrView }}" aria-label="{{ $editOrView }}">
                                 <i class="fa {{ $editOrView === 'View' ? 'fa-eye' : 'fa-edit' }}" aria-hidden="true"></i>
                             </a>
+                            @if(auth()->user()?->isAdmin())
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-info staff-action-icon-btn js-pack-discount"
+                                        data-id="{{ $site->id }}"
+                                        data-name="{{ $site->site_name }}"
+                                        data-percent="{{ $site->joinsBulkDiscount() ? ($site->bulkDiscountTiers()[3] ?? '') : '' }}"
+                                        data-percent-5="{{ $site->joinsBulkDiscount() ? ($site->bulkDiscountTiers()[5] ?? '') : '' }}"
+                                        data-percent-10="{{ $site->joinsBulkDiscount() ? ($site->bulkDiscountTiers()[10] ?? '') : '' }}"
+                                        data-joined="{{ $site->joinsBulkDiscount() ? '1' : '0' }}"
+                                        title="Pack discount"
+                                        aria-label="Pack discount">
+                                    <i class="fa fa-layer-group" aria-hidden="true"></i>
+                                </button>
+                            @endif
                             @if(auth()->user()?->isAdmin() && ! $site->verified && ! $site->isArchived())
                                 <button type="button"
                                         class="btn btn-sm btn-outline-success toggle-verify staff-action-icon-btn"

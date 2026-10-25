@@ -10,6 +10,7 @@ use App\Models\SiteFeaturePurchase;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\Wallet\WalletLedgerService;
+use App\Support\BulkDiscount;
 use App\Support\UserFacingError;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -610,26 +611,64 @@ class SitePromotionService
         return $site->fresh();
     }
 
-    public function joinBulkDiscount(Site $site, float $percent): Site
-    {
-        $min = (float) config('site_promotions.bulk.min_percent', 10);
-        $max = (float) config('site_promotions.bulk.max_percent', 80);
-        $percent = max($min, min($max, round($percent, 2)));
+    /**
+     * Enable or update pack discount tiers. Each tier is optional; omitted
+     * higher tiers stay as they are unless $replaceAllTiers is true.
+     *
+     * @param  float|null  $percent  3-article tier (qty 3–4). Null with $replaceAllTiers clears it.
+     * @param  float|null  $percent5  5-article tier (qty 5–9)
+     * @param  float|null  $percent10  10-article tier (qty 10+)
+     */
+    public function joinBulkDiscount(
+        Site $site,
+        ?float $percent,
+        ?float $percent5 = null,
+        ?float $percent10 = null,
+        bool $replaceAllTiers = false
+    ): Site {
+        $current = BulkDiscount::tiersFromSite($site);
+        $incoming = [
+            BulkDiscount::TIER_3 => $percent,
+            BulkDiscount::TIER_5 => $replaceAllTiers || $percent5 !== null ? $percent5 : ($current[BulkDiscount::TIER_5] ?? null),
+            BulkDiscount::TIER_10 => $replaceAllTiers || $percent10 !== null ? $percent10 : ($current[BulkDiscount::TIER_10] ?? null),
+        ];
 
-        Site::query()->whereKey($site->id)->update([
+        $tiers = BulkDiscount::normalizeTiers($incoming);
+
+        if (! BulkDiscount::anyTierSet($tiers)) {
+            return $this->leaveBulkDiscount($site);
+        }
+
+        $payload = [
             'bulk_discount_enabled' => true,
-            'bulk_discount_percent' => $percent,
-        ]);
+            'bulk_discount_percent' => $tiers[BulkDiscount::TIER_3],
+        ];
+        if (BulkDiscount::hasColumn(BulkDiscount::TIER_5)) {
+            $payload['bulk_discount_percent_5'] = $tiers[BulkDiscount::TIER_5];
+        }
+        if (BulkDiscount::hasColumn(BulkDiscount::TIER_10)) {
+            $payload['bulk_discount_percent_10'] = $tiers[BulkDiscount::TIER_10];
+        }
+
+        Site::query()->whereKey($site->id)->update($payload);
 
         return $site->fresh();
     }
 
     public function leaveBulkDiscount(Site $site): Site
     {
-        Site::query()->whereKey($site->id)->update([
+        $payload = [
             'bulk_discount_enabled' => false,
             'bulk_discount_percent' => null,
-        ]);
+        ];
+        if (BulkDiscount::hasColumn(BulkDiscount::TIER_5)) {
+            $payload['bulk_discount_percent_5'] = null;
+        }
+        if (BulkDiscount::hasColumn(BulkDiscount::TIER_10)) {
+            $payload['bulk_discount_percent_10'] = null;
+        }
+
+        Site::query()->whereKey($site->id)->update($payload);
 
         return $site->fresh();
     }
