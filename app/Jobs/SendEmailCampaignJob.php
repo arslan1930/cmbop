@@ -152,7 +152,7 @@ class SendEmailCampaignJob implements ShouldQueue
             return;
         }
 
-        if ($campaign->respect_preferences && ! EmailNotificationPreference::allows($user, 'marketing_emails', failClosed: true)) {
+        if ($campaign->respect_preferences && ! EmailNotificationPreference::allows($user, $campaign->preferenceKey(), failClosed: true)) {
             $this->claimPending($row, EmailCampaignRecipient::STATUS_SKIPPED, EmailCampaignRecipient::SKIP_PREFERENCE);
 
             return;

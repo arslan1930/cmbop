@@ -82,7 +82,7 @@ class AudienceCampaignMail extends PlatformMailable
         }
 
         if ($this->campaign->respect_preferences
-            && ! EmailNotificationPreference::allows($this->recipient, 'marketing_emails', failClosed: true)) {
+            && ! EmailNotificationPreference::allows($this->recipient, $this->campaign->preferenceKey(), failClosed: true)) {
             $this->suppressReason = 'preference';
             $this->abandonOpenLog($this->suppressErrorMessage());
             $this->markRecipientSkipped(EmailCampaignRecipient::SKIP_PREFERENCE);
@@ -200,7 +200,7 @@ class AudienceCampaignMail extends PlatformMailable
 
         if ($this->suppressReason === 'preference'
             || ($this->campaign->respect_preferences
-                && ! EmailNotificationPreference::allows($this->recipient, 'marketing_emails', failClosed: true))) {
+                && ! EmailNotificationPreference::allows($this->recipient, $this->campaign->preferenceKey(), failClosed: true))) {
             return EmailCampaignRecipient::SKIP_PREFERENCE;
         }
 

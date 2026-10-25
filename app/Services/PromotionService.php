@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AdBanner;
+use App\Models\AnnouncementDismissal;
 use App\Models\Site;
 use App\Models\SiteAnnouncement;
 use App\Models\User;
@@ -51,6 +52,8 @@ class PromotionService
 
             // Do not SQL-limit before isCurrentlyLive(): leftover unparseable
             // dates still match active() and would crowd out real notices.
+            $dismissed = $this->dismissedVersions();
+
             return SiteAnnouncement::query()
                 ->active()
                 ->forAudience($audience)
@@ -58,6 +61,16 @@ class PromotionService
                 ->orderByDesc('id')
                 ->get()
                 ->filter(fn (SiteAnnouncement $item) => $item->isCurrentlyLive())
+                ->filter(function (SiteAnnouncement $item) use ($dismissed) {
+                    if (! $item->is_dismissible) {
+                        return true;
+                    }
+
+                    $version = max(1, (int) ($item->version ?: 1));
+                    $seen = (int) ($dismissed[(int) $item->id] ?? 0);
+
+                    return $seen < $version;
+                })
                 ->take($limit)
                 ->values();
         } catch (\Throwable $e) {
@@ -65,6 +78,19 @@ class PromotionService
 
             return collect();
         }
+    }
+
+    /**
+     * @return array<int, int> announcement_id => dismissed version
+     */
+    private function dismissedVersions(): array
+    {
+        $user = auth()->user();
+        if (! $user instanceof User) {
+            return [];
+        }
+
+        return AnnouncementDismissal::versionsForUser((int) $user->id);
     }
 
     public function activeBanners(?string $placement = null, ?string $audience = null): Collection

@@ -16,6 +16,7 @@ use App\Support\AdminCampaigns;
 use App\Support\AdminEmails;
 use App\Support\CampaignHtml;
 use App\Support\EmailCatalog;
+use App\Support\FeatureUpdateHtml;
 use App\Support\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Mailable;
@@ -213,8 +214,8 @@ class CampaignController extends Controller
             return back()->withInput()->with('error', 'Campaigns are unavailable on this database.');
         }
 
-        $bodyHtml = CampaignHtml::sanitize($data['body_html']);
-        if (CampaignHtml::isBlank($data['body_html'])) {
+        [$bodyHtml, $data] = $this->resolveCampaignBody($data);
+        if (CampaignHtml::isBlank($bodyHtml)) {
             return back()->withInput()->withErrors([
                 'body_html' => 'Write a message before saving a draft.',
             ]);
@@ -267,8 +268,8 @@ class CampaignController extends Controller
             'email' => ['required', 'email', Rule::in([$adminEmail])],
         ]));
 
-        $bodyHtml = CampaignHtml::sanitize($data['body_html']);
-        if (CampaignHtml::isBlank($data['body_html'])) {
+        [$bodyHtml, $data] = $this->resolveCampaignBody($data);
+        if (CampaignHtml::isBlank($bodyHtml)) {
             return back()->withInput()->withErrors([
                 'body_html' => 'Write a message before sending a test.',
             ]);
@@ -324,6 +325,9 @@ class CampaignController extends Controller
                 'respect_preferences' => $campaign->respect_preferences,
                 'include_unverified' => $campaign->include_unverified,
                 'inventory_filters' => $campaign->inventory_filters,
+                'template_key' => $campaign->template_key,
+                'template_payload' => $campaign->template_payload,
+                'preference_key' => $campaign->preference_key,
                 'recipients_count' => 0,
                 'sent_count' => 0,
                 'skipped_count' => 0,
@@ -362,19 +366,27 @@ class CampaignController extends Controller
             return response($html);
         }
 
-        $data = $request->validate([
+        $data = $request->validate(array_merge([
             'subject' => ['required', 'string', 'max:180'],
-            'body_html' => ['required', 'string', 'max:20000'],
+            'body_html' => ['nullable', 'string', 'max:20000'],
             'cta_label' => ['nullable', 'string', 'max:80'],
             'cta_url' => $this->ctaUrlRules(),
-        ]);
+        ], $this->featureUpdateInputRules()));
+
+        [$bodyHtml, $data] = $this->resolveCampaignBody($data);
+        if (CampaignHtml::isBlank($bodyHtml)) {
+            return response('Write a message before previewing.', 422);
+        }
 
         $campaign = new EmailCampaign([
             'subject' => $data['subject'],
-            'body_html' => CampaignHtml::sanitize($data['body_html']),
+            'body_html' => $bodyHtml,
             'cta_label' => $data['cta_label'] ?? null,
             'cta_url' => $this->safeCtaUrl($data['cta_url'] ?? null),
             'audience' => 'selected',
+            'template_key' => $data['template_key'] ?? null,
+            'template_payload' => $data['template_payload'] ?? null,
+            'preference_key' => $data['preference_key'] ?? null,
         ]);
 
         $mailable = new AudienceCampaignMail($campaign, EmailCatalog::previewUser());
@@ -467,8 +479,8 @@ class CampaignController extends Controller
 
         $draft = $this->editableDraft((int) ($request->input('draft_id') ?? 0));
 
-        $bodyHtml = CampaignHtml::sanitize($data['body_html']);
-        if (CampaignHtml::isBlank($data['body_html'])) {
+        [$bodyHtml, $data] = $this->resolveCampaignBody($data);
+        if (CampaignHtml::isBlank($bodyHtml)) {
             return back()->withInput()->withErrors([
                 'body_html' => 'Write a message before sending.',
             ]);
@@ -612,11 +624,11 @@ class CampaignController extends Controller
         return array_merge($this->audienceInputRules(), [
             'name' => [$requireName ? 'required' : 'nullable', 'string', 'max:120'],
             'subject' => ['required', 'string', 'max:180'],
-            'body_html' => ['required', 'string', 'max:20000'],
+            'body_html' => ['nullable', 'string', 'max:20000'],
             'cta_label' => ['nullable', 'string', 'max:80'],
             'cta_url' => $this->ctaUrlRules(),
             'respect_preferences' => ['boolean'],
-        ]);
+        ], $this->featureUpdateInputRules());
     }
 
     /**
@@ -648,7 +660,47 @@ class CampaignController extends Controller
             'respect_preferences' => $respectPreferences,
             'include_unverified' => $includeUnverified,
             'inventory_filters' => $snapshot,
+            'template_key' => $data['template_key'] ?? null,
+            'template_payload' => $data['template_payload'] ?? null,
+            'preference_key' => $data['preference_key'] ?? null,
         ];
+    }
+
+    /**
+     * @return array<string, list<mixed>>
+     */
+    protected function featureUpdateInputRules(): array
+    {
+        return [
+            'template_key' => ['nullable', 'string', 'in:'.FeatureUpdateHtml::TEMPLATE_KEY],
+            'feature_title' => ['nullable', 'string', 'max:180'],
+            'feature_intro' => ['nullable', 'string', 'max:2000'],
+            'features' => ['nullable', 'array', 'max:5'],
+            'features.*.text' => ['nullable', 'string', 'max:240'],
+            'features.*.url' => ['nullable', 'string', 'max:500'],
+            'features.*.image' => ['nullable', 'string', 'max:500'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    protected function resolveCampaignBody(array $data): array
+    {
+        if (($data['template_key'] ?? '') === FeatureUpdateHtml::TEMPLATE_KEY) {
+            $payload = FeatureUpdateHtml::fromRequest($data);
+            $data['template_payload'] = $payload;
+            $data['preference_key'] = FeatureUpdateHtml::PREFERENCE_KEY;
+            $built = FeatureUpdateHtml::build($payload);
+            if ($built !== '') {
+                $data['body_html'] = $built;
+            }
+        }
+
+        $bodyHtml = CampaignHtml::sanitize((string) ($data['body_html'] ?? ''));
+
+        return [$bodyHtml, $data];
     }
 
     /**
