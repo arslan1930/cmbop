@@ -725,7 +725,7 @@ function bootAdvertiserOrdersPage() {
         if (btn) {
             btn.disabled = true;
             btn.classList.add('is-checking');
-            btn.innerHTML = '<i class="fa fa-refresh ov-recheck-spin me-1" aria-hidden="true"></i>Checking…';
+            btn.innerHTML = '<i class="fa-solid fa-rotate ov-recheck-spin me-1" aria-hidden="true"></i>Checking…';
         }
         const payload = {};
         if (itemId) payload.order_item_id = itemId;
@@ -773,7 +773,7 @@ function bootAdvertiserOrdersPage() {
             if (btn) {
                 btn.disabled = false;
                 btn.classList.remove('is-checking');
-                btn.innerHTML = '<i class="fa fa-refresh me-1" aria-hidden="true"></i>Recheck';
+                btn.innerHTML = '<i class="fa-solid fa-rotate me-1" aria-hidden="true"></i>Recheck';
             }
         });
     };
@@ -1340,9 +1340,9 @@ function bootAdvertiserOrdersPage() {
     function activityTimelineBlock(collapsed) {
         const toggle = collapsed
             ? `<button type="button" class="ov-history-toggle" aria-expanded="false" aria-controls="orderActivityTimelineWrap" onclick="toggleOrderHistory(this)">
-                    <i class="fa fa-clock-o" aria-hidden="true"></i>
+                    <i class="fa-solid fa-clock" aria-hidden="true"></i>
                     <span class="ov-history-toggle__label">Show full history</span>
-                    <i class="fa fa-chevron-down ov-history-toggle__chevron" aria-hidden="true"></i>
+                    <i class="fa-solid fa-chevron-down ov-history-toggle__chevron" aria-hidden="true"></i>
                </button>`
             : '<h6 class="mb-2">Activity timeline</h6>';
         const hidden = collapsed ? ' hidden class="ov-history-panel is-collapsed"' : ' class="ov-history-panel is-expanded"';
@@ -1394,7 +1394,7 @@ function bootAdvertiserOrdersPage() {
 
         const meta = getAdvertiserStatusMeta(order);
         const hint = meta.autoHint
-            ? `<div class="small text-muted mb-2"><i class="fa fa-clock-o me-1"></i>${escapeHtml(meta.autoHint)}</div>`
+            ? `<div class="small text-muted mb-2"><i class="fa-solid fa-clock me-1"></i>${escapeHtml(meta.autoHint)}</div>`
             : '';
         const stepperClass = inProgress ? 'ov-stepper ov-stepper--animate ov-stepper--pulse' : 'ov-stepper ov-stepper--animate';
 
@@ -2298,7 +2298,7 @@ function bootAdvertiserOrdersPage() {
         const hideEmpty = completed;
         const modRequested = it.modification_requested === 'yes';
         const recheckBtn = `<button type="button" class="btn btn-sm btn-outline-secondary ov-live-btn ov-live-url__recheck" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
-            <i class="fa fa-refresh" aria-hidden="true"></i><span>Recheck</span>
+            <i class="fa-solid fa-rotate" aria-hidden="true"></i><span>Recheck</span>
         </button>`;
         const liveUrlHtml = liveUrl
             ? `<div class="ov-block ov-live-url">
@@ -2309,7 +2309,7 @@ function bootAdvertiserOrdersPage() {
                     <a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="ov-live-url__link live-url" title="${escapeHtml(liveUrl)}">${escapeHtml(liveUrl)}</a>
                     <div class="ov-live-url__actions">
                         <a class="btn btn-sm btn-primary ov-live-btn" href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer">
-                            <i class="fa fa-external-link" aria-hidden="true"></i><span>Open live URL</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Open live URL</span>
                         </a>
                         <button type="button" class="btn btn-sm btn-outline-secondary ov-live-btn" onclick="copyOrderLiveUrl(${jsAttr(liveUrl)}, this)">
                             <span>Copy</span>
@@ -2363,7 +2363,7 @@ function bootAdvertiserOrdersPage() {
         const hideSiteUrl = !!(it.site_url && liveUrl && urlsMatch(it.site_url, liveUrl));
         const siteDomain = siteDomainLabel(it.site_url);
         const siteUrlHtml = (!hideSiteUrl && it.site_url)
-            ? `<a href="${safeUrl(it.visit_url || it.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary" title="${escapeHtml(it.site_url)}">${escapeHtml(siteDomain || it.site_url)} <i class="fa fa-external-link fa-xs" aria-hidden="true"></i></a>`
+            ? `<a href="${safeUrl(it.visit_url || it.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary" title="${escapeHtml(it.site_url)}">${escapeHtml(siteDomain || it.site_url)} <i class="fa-solid fa-arrow-up-right-from-square fa-xs" aria-hidden="true"></i></a>`
             : '';
         const fileName = it.content_original_name || 'Download article';
         const wordCount = parseInt(it.word_count, 10);
@@ -2372,7 +2372,7 @@ function bootAdvertiserOrdersPage() {
             : '';
         const documentHtml = it.content_link
             ? `<div class="ov-file-chip" title="${escapeHtml(fileName)}">
-                    <i class="fa fa-file-text-o ov-file-chip__icon" aria-hidden="true"></i>
+                    <i class="fa-solid fa-file-lines ov-file-chip__icon" aria-hidden="true"></i>
                     <span class="ov-file-chip__name">${escapeHtml(fileName)}</span>
                     ${wordHtml}
                     <a href="${safeUrl(it.content_link)}" class="ov-file-chip__action" target="_blank" rel="noopener noreferrer">Download</a>
@@ -2398,7 +2398,7 @@ function bootAdvertiserOrdersPage() {
             ? `<span class="ov-url-copy">
                     <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate ov-truncate--smart" title="${escapeHtml(it.target_url)}">${escapeHtml(smartTruncateUrl(it.target_url))}</a>
                     <button type="button" class="ov-copy-btn" onclick="copyOrderTargetUrl(${jsAttr(it.target_url)}, this)" aria-label="Copy target URL">
-                        <i class="fa fa-clone" aria-hidden="true"></i>
+                        <i class="fa-solid fa-copy" aria-hidden="true"></i>
                     </button>
                </span>`
             : (hideEmpty ? '' : '—');

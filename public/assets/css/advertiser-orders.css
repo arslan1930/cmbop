@@ -1025,6 +1025,17 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     max-height: 9.5rem;
     margin-bottom: 0.35rem;
 }
+.order-view-panel--messages:has(.order-inline-thread__empty) {
+    flex: 0 1 auto;
+}
+.order-view-panel--messages:has(.order-inline-thread__empty) .order-inline-thread {
+    height: auto;
+}
+.order-view-panel--messages:has(.order-inline-thread__empty) .order-inline-thread__messages {
+    flex: 0 0 auto;
+    min-height: 0;
+    max-height: none;
+}
 .order-view-panel--messages .order-inline-thread__form {
     margin-top: auto;
 }
@@ -1034,16 +1045,19 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     align-items: center;
     justify-content: center;
     gap: 0.3rem;
-    min-height: 2.75rem;
-    padding: 0.55rem 0.35rem;
+    min-height: 0;
+    padding: 0.45rem 0.35rem 0.55rem;
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--brand-ink-muted, #75787B);
     text-align: center;
 }
 .order-inline-thread__empty i {
-    font-size: 1.1rem;
-    opacity: 0.7;
+    font-size: 1rem;
+    opacity: 0.65;
+}
+.ov-live-url__actions .ov-live-btn {
+    width: 100%;
 }
 .order-inline-thread__send {
     transition: transform 120ms ease, box-shadow 120ms ease;
