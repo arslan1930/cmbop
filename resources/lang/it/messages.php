@@ -359,8 +359,8 @@ return [
     'refund_title' => 'Politica di rimborso',
     'refund_subtitle' => 'Come funzionano crediti del wallet, contestazioni, ricariche e bonus promozionali su SEOLinkBuildings.',
     'refund_last_updated_label' => 'Ultimo aggiornamento',
-    'refund_last_updated_display' => '18 agosto 2026',
-    'refund_last_updated_iso' => '2026-08-18',
+    'refund_last_updated_display' => '28 ottobre 2026',
+    'refund_last_updated_iso' => '2026-10-28',
     'refund_section_1_title' => 'Ordini del marketplace',
     'refund_section_1_body' => 'Quando piazzi un ordine, i fondi vengono riservati dal wallet in EUR, oppure catturati con carta o PayPal al checkout. Se un publisher non può consegnare come concordato, rifiuta l\'ordine o un caso precedente al completamento viene accolto dopo la revisione, gli ordini wallet e carta tornano come credito spendibile su un\'altra pubblicazione. I rimborsi PayPal al checkout tornano sul conto PayPal che ha pagato. Prima dell\'approvazione, usa la chat dell\'ordine per chiedere una revisione mentre i fondi restano riservati.',
     'refund_section_2_title' => 'Bonus promozionale (credito di benvenuto)',
@@ -383,6 +383,9 @@ return [
     'refund_section_9_body' => 'Le ricariche del wallet inserzionista servono a pagare le pubblicazioni del marketplace. Il saldo pagato non usato è credito spendibile nel tuo account; non è un prelievo in contanti garantito né un rimborso automatico Stripe/banca. Il bonus promozionale non si può prelevare. Le domande caso per caso sulle ricariche si possono porre da Contatti o via email di supporto: non promettiamo rimborsi automatici sulla carta delle ricariche non usate.',
     'refund_section_10_title' => 'Garanzia link opzionale di 12 mesi',
     'refund_section_10_body' => 'La garanzia link opzionale di 12 mesi è una promessa di SEOLinkBuildings, non del publisher. È offerta solo su listing con periodo di pubblicazione di almeno 12 mesi o Permanente — mai su 6 mesi. Checkout, API e catalogo la nascondono o la rifiutano se il sito non è idoneo. Un rimborso garanzia addebita al publisher solo l’importo del placement, mai la fee di scrittura SEOLinkBuildings.',
+    'refund_section_11_title' => 'Sconti volume e pack',
+    'refund_section_11_body' => 'Gli sconti volume e pack (inclusi pack da 3, 5 e 10 articoli su un singolo sito) sono calcolati e bloccati al momento dell’acquisto, in base al numero di articoli pagati. Se il publisher rifiuta uno o più articoli di un pack, gli articoli rifiutati vengono rimborsati al prezzo unitario scontato pagato. Gli articoli rimanenti mantengono il prezzo originale del pack. Non ti viene addebitato di più a causa di un rifiuto del publisher. SEOLinkBuildings può esaminare manualmente i casi insoliti — ad esempio quando viene rifiutata la maggior parte di un pack.',
+
     'refund_faq_title' => 'FAQ sui rimborsi',
     'refund_faq_q_1' => 'I rimborsi tornano sulla mia carta?',
     'refund_faq_a_1' => 'I rimborsi wallet e carta, e le contestazioni wallet/carta accolte, tornano come credito del wallet spendibile su un\'altra pubblicazione. I rimborsi PayPal al checkout — inclusa una contestazione PayPal accolta — tornano sul conto PayPal che ha pagato. Non sono rimborsi automatici in contanti sulla carta o sul conto.',
@@ -393,6 +396,9 @@ return [
     'refund_faq_q_4' => 'Cosa succede al credito di benvenuto se un ordine viene rimborsato?',
     'refund_faq_q_4_off' => 'Cosa succede al credito di benvenuto se un ordine viene rimborsato?',
     'refund_faq_a_4' => 'La quota bonus torna nel saldo bonus promozionale e resta solo da spendere. Non è mai rimborsabile in contanti.',
+    'refund_faq_q_5' => 'Cosa succede allo sconto del pack se un publisher rifiuta alcuni articoli?',
+    'refund_faq_a_5' => 'Il prezzo del pack viene bloccato al pagamento, in base al numero di articoli acquistati. Gli articoli rifiutati vengono rimborsati al prezzo unitario scontato pagato; gli articoli rimanenti mantengono il prezzo originale del pack. Non ti viene addebitato di più a causa di un rifiuto del publisher. I casi insoliti, ad esempio quando viene rifiutata la maggior parte di un pack, possono essere esaminati manualmente.',
+
     'refund_related_label' => 'Pagine correlate',
     'refund_related_intro' => 'Letture correlate e contatti:',
 
@@ -758,8 +764,8 @@ return [
     'terms_hero_title' => 'Termini di servizio',
     'terms_hero_subtitle' => 'Accedendo o usando seolinkbuildings.com, accetti di rispettare e di essere vincolato da questi Termini di servizio. Se non sei d\'accordo, non usare il nostro Sito.',
     'effective_date' => 'Data di efficacia',
-    'effective_date_value' => '8 agosto 2026',
-    'last_updated_value' => '8 agosto 2026',
+    'effective_date_value' => '28 ottobre 2026',
+    'last_updated_value' => '28 ottobre 2026',
 
     // Section 1
     'section1_title' => 'Accettazione dei Termini',
@@ -803,6 +809,12 @@ return [
     'section6_list1_2' => 'Tutti i pagamenti sono elaborati in modo sicuro tramite fornitori terzi',
     'section6_list1_3' => 'Ci riserviamo il diritto di modificare i prezzi con preavviso',
     'section6_list1_4' => 'I rimborsi seguono la nostra Politica di rimborso, se applicabile',
+
+    'section_pack_pricing_title' => 'Prezzi volume e pack',
+    'section_pack_pricing_intro' => 'Le seguenti regole si applicano agli sconti volume e pack sulle collocazioni del marketplace:',
+    'section_pack_pricing_list1' => 'Gli sconti volume e pack (inclusi pack da 3, 5 e 10 articoli su un singolo sito) sono calcolati e bloccati al momento dell’acquisto, in base al numero di articoli pagati.',
+    'section_pack_pricing_list2' => 'Se il publisher rifiuta uno o più articoli di un pack, gli articoli rifiutati vengono rimborsati al prezzo unitario scontato pagato. Gli articoli rimanenti mantengono il prezzo originale del pack. Non ti viene addebitato di più a causa di un rifiuto del publisher.',
+    'section_pack_pricing_list3' => 'SEOLinkBuildings può esaminare manualmente i casi insoliti — ad esempio quando viene rifiutata la maggior parte di un pack.',
 
     // Section 7
     'section7_title' => 'Link di terzi',

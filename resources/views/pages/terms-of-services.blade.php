@@ -122,6 +122,23 @@
     </div>
 
 
+    <!-- ===== 6b. VOLUME AND PACK PRICING ===== -->
+    <div class="mb-4 p-4 p-md-5 rounded-4 shadow-sm" style="background:white; border:1px solid #eef0f3;">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div class="terms-num" style="background:linear-gradient(135deg,#0369a1,#0ea5e9);">6b</div>
+            <h2 class="fw-bold mb-0" style="color:#1a1a2e; font-size:1.4rem;">{{ __('messages.section_pack_pricing_title') }}</h2>
+        </div>
+        <p style="color:#555; line-height:1.7;">
+            {{ __('messages.section_pack_pricing_intro') }}
+        </p>
+        <ul class="mb-0" style="color:#555; line-height:2;">
+            <li>{{ __('messages.section_pack_pricing_list1') }}</li>
+            <li>{{ __('messages.section_pack_pricing_list2') }}</li>
+            <li>{{ __('messages.section_pack_pricing_list3') }}</li>
+        </ul>
+    </div>
+
+
     <!-- ===== 7. THIRD-PARTY LINKS ===== -->
     <div class="mb-4 p-4 p-md-5 rounded-4 shadow-sm" style="background:white; border:1px solid #eef0f3;">
         <div class="d-flex align-items-center gap-3 mb-3">

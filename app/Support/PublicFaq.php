@@ -51,6 +51,10 @@ class PublicFaq
                 'a' => 'Because your funds are held until you approve the live URL, you don\'t pay for an order that wasn\'t delivered as agreed. Don\'t approve an order until the live URL matches what you ordered. Raise the problem with the publisher from the order, and contact support@seolinkbuildings.com if it isn\'t resolved.',
             ],
             [
+                'q' => 'What happens to a pack discount if a publisher rejects some articles?',
+                'a' => 'Pack discounts for 3, 5, or 10 articles on one site are calculated and locked when you pay, based on how many articles you purchased. If the publisher rejects some articles, those are refunded at the discounted per-article price you paid. Remaining articles keep the original pack price, so you are not charged more after a rejection. Unusual cases, such as most of a pack being rejected, may be reviewed manually.',
+            ],
+            [
                 'q' => 'How long does it take for a guest post to go live?',
                 'a' => 'Delivery time depends on the publisher, and each listing shows its own turnaround time before you order. Check this number when you compare sites, especially if you have a campaign deadline. You can track every order in your dashboard until the live URL is delivered, and your funds stay held until you approve it.',
             ],

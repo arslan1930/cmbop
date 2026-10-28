@@ -359,8 +359,8 @@ return [
     'refund_title' => 'Refund Policy',
     'refund_subtitle' => 'How wallet credits, disputes, deposits, and promotional bonuses work on SEOLinkBuildings.',
     'refund_last_updated_label' => 'Last updated',
-    'refund_last_updated_display' => '18 August 2026',
-    'refund_last_updated_iso' => '2026-08-18',
+    'refund_last_updated_display' => '28 October 2026',
+    'refund_last_updated_iso' => '2026-10-28',
     'refund_section_1_title' => 'Marketplace orders',
     'refund_section_1_body' => 'When you place an order, funds are reserved from your EUR wallet, or captured on card or PayPal at checkout. If a publisher cannot deliver as agreed, rejects the order, or a pre-completion case is upheld after review, wallet and card orders return as wallet credit you can spend on another placement. PayPal checkout refunds return to the PayPal account that paid. Before approval, use order chat to request a revision while funds stay reserved.',
     'refund_section_2_title' => 'Promotional welcome credit',
@@ -383,6 +383,9 @@ return [
     'refund_section_9_body' => 'Advertiser wallet top-ups are intended to pay for marketplace placements. Unused paid balance is spendable credit in your account; it is not a guaranteed cash-out or automatic Stripe/bank refund. Promotional bonus cannot be withdrawn. Case-by-case deposit questions can be raised via Contact or support email — we do not promise automatic card refunds of unused top-ups.',
     'refund_section_10_title' => 'Optional 12-month link guarantee',
     'refund_section_10_body' => 'The optional 12-month link guarantee is SEOLinkBuildings’ promise, not the publisher’s. It is sold only on listings whose publication period is at least 12 months or Permanent — never on 6-month listings. Checkout, the advertiser API, and the catalog hide or reject the add-on when a site does not qualify. After a completed guaranteed placement, we check the live URL about once a month. If the target URL is missing as a hyperlink, we ask for restore within 7 days. If it is not restored, we refund the guaranteed placement amount to the advertiser wallet and debit the publisher the placement amount only — never a SEOLinkBuildings writing fee. This is not a ranking, traffic, or indexation promise.',
+    'refund_section_11_title' => 'Volume and pack discounts',
+    'refund_section_11_body' => 'Volume and pack discounts (including 3-, 5-, and 10-article packs on a single site) are calculated and locked at the time of purchase, based on the number of articles paid for. If the publisher rejects one or more articles in a pack, the rejected article(s) are refunded at the discounted per-article price that was paid. Remaining articles keep the original pack price. You are not charged more because of a publisher’s rejection. SEOLinkBuildings may review unusual cases manually — for example, when most of a pack is rejected.',
+
     'refund_faq_title' => 'Refund FAQ',
     'refund_faq_q_1' => 'Do refunds go back to my card?',
     'refund_faq_a_1' => 'Wallet and card order refunds, and upheld wallet/card disputes, return as wallet credit you can spend on another placement. PayPal checkout refunds — including upheld PayPal disputes — return to the PayPal account that paid. They are not automatic cash refunds to your card or bank.',
@@ -393,6 +396,9 @@ return [
     'refund_faq_q_4' => 'What happens to welcome credit if an order is refunded?',
     'refund_faq_q_4_off' => 'What happens to welcome credit if an order is refunded?',
     'refund_faq_a_4' => 'The bonus portion returns to your promotional bonus balance and remains spend-only. It is never refundable as cash.',
+    'refund_faq_q_5' => 'What happens to a pack discount if a publisher rejects some articles?',
+    'refund_faq_a_5' => 'The pack price is locked when you pay, based on the number of articles purchased. Rejected articles are refunded at the discounted per-article price you paid; remaining articles keep the original pack price. You are not charged more because of a publisher’s rejection. Unusual cases, such as most of a pack being rejected, may be reviewed manually.',
+
     'refund_related_label' => 'Related pages',
     'refund_related_intro' => 'Related reading and contact:',
 
@@ -758,8 +764,8 @@ return [
     'terms_hero_title' => 'Terms of Service',
     'terms_hero_subtitle' => 'By accessing or using seolinkbuildings.com, you agree to comply with and be bound by these Terms of Service. If you do not agree, please do not use our Website.',
     'effective_date' => 'Effective Date',
-    'effective_date_value' => 'August 8, 2026',
-    'last_updated_value' => 'August 8, 2026',
+    'effective_date_value' => 'October 28, 2026',
+    'last_updated_value' => 'October 28, 2026',
 
     // Section 1
     'section1_title' => 'Acceptance of Terms',
@@ -803,6 +809,12 @@ return [
     'section6_list1_2' => 'All payments are processed securely through third-party providers',
     'section6_list1_3' => 'We reserve the right to modify prices with notice',
     'section6_list1_4' => 'Refunds follow our Refund Policy if applicable',
+
+    'section_pack_pricing_title' => 'Volume and pack pricing',
+    'section_pack_pricing_intro' => 'The following rules apply to volume and pack discounts on marketplace placements:',
+    'section_pack_pricing_list1' => 'Volume and pack discounts (including 3-, 5-, and 10-article packs on a single site) are calculated and locked at the time of purchase, based on the number of articles paid for.',
+    'section_pack_pricing_list2' => 'If the publisher rejects one or more articles in a pack, the rejected article(s) are refunded at the discounted per-article price that was paid. Remaining articles keep the original pack price. You are not charged more because of a publisher’s rejection.',
+    'section_pack_pricing_list3' => 'SEOLinkBuildings may review unusual cases manually — for example, when most of a pack is rejected.',
 
     // Section 7
     'section7_title' => 'Third-Party Links',

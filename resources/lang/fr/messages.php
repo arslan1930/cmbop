@@ -421,8 +421,8 @@ return [
     'terms_hero_title' => "Conditions d'utilisation",
     'terms_hero_subtitle' => "En accédant ou en utilisant seolinkbuildings.com, vous acceptez de vous conformer à ces conditions d'utilisation et d'être lié par celles-ci. Si vous n'êtes pas d'accord, veuillez ne pas utiliser notre site Web.",
     'effective_date' => 'Date d\'entrée en vigueur',
-    'effective_date_value' => '8 août 2026',
-    'last_updated_value' => '8 août 2026',
+    'effective_date_value' => '28 octobre 2026',
+    'last_updated_value' => '28 octobre 2026',
 
     // Section 1
     'section1_title' => 'Acceptation des conditions',
@@ -466,6 +466,12 @@ return [
     'section6_list1_2' => 'Tous les paiements sont traités de manière sécurisée par des fournisseurs tiers',
     'section6_list1_3' => 'Nous nous réservons le droit de modifier les prix avec préavis',
     'section6_list1_4' => 'Les remboursements suivent notre politique de remboursement, le cas échéant',
+
+    'section_pack_pricing_title' => 'Tarifs volume et packs',
+    'section_pack_pricing_intro' => 'Les règles suivantes s’appliquent aux remises volume et packs sur les placements marketplace :',
+    'section_pack_pricing_list1' => 'Les remises volume et packs (y compris les packs de 3, 5 et 10 articles sur un même site) sont calculées et figées au moment de l’achat, en fonction du nombre d’articles payés.',
+    'section_pack_pricing_list2' => 'Si l’éditeur refuse un ou plusieurs articles d’un pack, le ou les articles refusés sont remboursés au prix unitaire réduit effectivement payé. Les articles restants conservent le prix du pack d’origine. Vous n’êtes pas facturé davantage en raison d’un refus de l’éditeur.',
+    'section_pack_pricing_list3' => 'SEOLinkBuildings peut examiner manuellement les cas inhabituels — par exemple lorsque la majeure partie d’un pack est refusée.',
 
     // Section 7
     'section7_title' => 'Liens vers des tiers',
@@ -836,8 +842,8 @@ return [
     'refund_title' => 'Politique de remboursement',
     'refund_subtitle' => 'Crédits portefeuille, litiges, dépôts et bonus promotionnels sur SEOLinkBuildings.',
     'refund_last_updated_label' => 'Dernière mise à jour',
-    'refund_last_updated_display' => '18 août 2026',
-    'refund_last_updated_iso' => '2026-08-18',
+    'refund_last_updated_display' => '28 octobre 2026',
+    'refund_last_updated_iso' => '2026-10-28',
     'refund_section_1_title' => 'Commandes marketplace',
     'refund_section_1_body' => 'À la commande, les fonds sont réservés dans votre portefeuille EUR, ou capturés par carte ou PayPal au moment du paiement. Si un éditeur ne peut pas livrer, refuse la commande, ou qu’un cas avant approbation est confirmé, les commandes portefeuille et carte reviennent en crédit portefeuille utilisable. Les remboursements PayPal à la commande reviennent sur le compte PayPal qui a payé. Avant approbation, utilisez le chat de commande pour une révision — les fonds restent réservés.',
     'refund_section_2_title' => 'Bonus promotionnel (crédit de bienvenue)',
@@ -860,6 +866,9 @@ return [
     'refund_section_9_body' => 'Les recharges annonceur servent aux placements marketplace. Le solde payé inutilisé reste un crédit dépensable ; ce n’est pas une sortie en espèces garantie ni un remboursement Stripe/banque automatique. Le bonus promotionnel n’est pas retirable. Les questions au cas par cas passent par Contact ou l’e-mail support — nous ne promettons pas de remboursements carte automatiques des recharges inutilisées.',
     'refund_section_10_title' => 'Garantie de lien optionnelle 12 mois',
     'refund_section_10_body' => 'La garantie de lien optionnelle de 12 mois est une promesse de SEOLinkBuildings, pas de l’éditeur. Elle n’est proposée que sur les fiches dont la durée de publication est d’au moins 12 mois ou Permanent — jamais sur 6 mois. Le checkout, l’API et le catalogue la masquent ou la refusent si le site n’est pas éligible. Un remboursement de garantie débite l’éditeur du montant de placement uniquement, jamais les frais de rédaction SEOLinkBuildings.',
+    'refund_section_11_title' => 'Remises volume et packs',
+    'refund_section_11_body' => 'Les remises volume et packs (y compris les packs de 3, 5 et 10 articles sur un même site) sont calculées et figées au moment de l’achat, en fonction du nombre d’articles payés. Si l’éditeur refuse un ou plusieurs articles d’un pack, le ou les articles refusés sont remboursés au prix unitaire réduit effectivement payé. Les articles restants conservent le prix du pack d’origine. Vous n’êtes pas facturé davantage en raison d’un refus de l’éditeur. SEOLinkBuildings peut examiner manuellement les cas inhabituels — par exemple lorsque la majeure partie d’un pack est refusée.',
+
     'refund_faq_title' => 'FAQ remboursement',
     'refund_faq_q_1' => 'Le remboursement revient-il sur ma carte ?',
     'refund_faq_a_1' => 'Les remboursements portefeuille et carte, et les litiges portefeuille/carte confirmés, reviennent en crédit portefeuille à dépenser sur un autre placement. Les remboursements PayPal à la commande — y compris un litige PayPal confirmé — reviennent sur le compte PayPal qui a payé — pas en remboursement automatique en espèces sur carte ou banque.',
@@ -870,6 +879,9 @@ return [
     'refund_faq_q_4' => 'Que devient le crédit de bienvenue si une commande est remboursée ?',
     'refund_faq_q_4_off' => 'Que devient le crédit de bienvenue si une commande est remboursée ?',
     'refund_faq_a_4' => 'La part bonus revient au solde bonus promotionnel et reste dépensable uniquement. Elle n’est jamais remboursée en espèces.',
+    'refund_faq_q_5' => 'Que devient la remise pack si un éditeur refuse certains articles ?',
+    'refund_faq_a_5' => 'Le prix du pack est figé au moment du paiement, selon le nombre d’articles achetés. Les articles refusés sont remboursés au prix unitaire réduit que vous avez payé ; les articles restants conservent le prix du pack d’origine. Vous n’êtes pas facturé davantage en raison d’un refus de l’éditeur. Les cas inhabituels, par exemple lorsque la majeure partie d’un pack est refusée, peuvent être examinés manuellement.',
+
     'refund_related_label' => 'Pages associées',
     'refund_related_intro' => 'Lectures associées et contact :',
     'blog_kicker' => 'Dernières analyses',

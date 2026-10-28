@@ -359,8 +359,8 @@ return [
     'refund_title' => 'Política de reembolsos',
     'refund_subtitle' => 'Cómo funcionan los créditos del monedero, las reclamaciones, las recargas y los bonos promocionales en SEOLinkBuildings.',
     'refund_last_updated_label' => 'Última actualización',
-    'refund_last_updated_display' => '18 de agosto de 2026',
-    'refund_last_updated_iso' => '2026-08-18',
+    'refund_last_updated_display' => '28 de octubre de 2026',
+    'refund_last_updated_iso' => '2026-10-28',
     'refund_section_1_title' => 'Pedidos del marketplace',
     'refund_section_1_body' => 'Al realizar un pedido, los fondos se reservan de su monedero en EUR, o se capturan con tarjeta o PayPal al pagar. Si un editor no puede entregar lo acordado, rechaza el pedido o se estima un caso anterior a la finalización tras revisión, los pedidos de monedero y tarjeta vuelven como crédito que puede gastar en otra publicación. Los reembolsos de checkout PayPal vuelven a la cuenta PayPal que pagó. Antes de la aprobación, use el chat del pedido para solicitar una revisión mientras los fondos siguen reservados.',
     'refund_section_2_title' => 'Bono promocional (crédito de bienvenida)',
@@ -383,6 +383,9 @@ return [
     'refund_section_9_body' => 'Las recargas del monedero de anunciante están pensadas para pagar publicaciones del marketplace. El saldo pagado no usado es crédito gastable en su cuenta; no es un cobro en efectivo garantizado ni un reembolso automático de Stripe o del banco. El bono promocional no se puede retirar. Las consultas puntuales sobre recargas pueden plantearse por Contacto o por el correo de soporte: no prometemos reembolsos automáticos a la tarjeta de recargas no usadas.',
     'refund_section_10_title' => 'Garantía de enlace opcional de 12 meses',
     'refund_section_10_body' => 'La garantía de enlace opcional de 12 meses es una promesa de SEOLinkBuildings, no del editor. Solo se ofrece en listados cuya duración de publicación es de al menos 12 meses o Permanente — nunca en listados de 6 meses. El checkout, la API y el catálogo la ocultan o la rechazan si el sitio no cumple. Un reembolso de garantía debita al editor solo el importe de la publicación, nunca la tarifa de redacción de SEOLinkBuildings.',
+    'refund_section_11_title' => 'Descuentos por volumen y packs',
+    'refund_section_11_body' => 'Los descuentos por volumen y packs (incluidos packs de 3, 5 y 10 artículos en un mismo sitio) se calculan y quedan fijados en el momento de la compra, según el número de artículos pagados. Si el publisher rechaza uno o más artículos de un pack, el o los artículos rechazados se reembolsan al precio unitario con descuento que se pagó. Los artículos restantes conservan el precio original del pack. No se le cobra más por un rechazo del publisher. SEOLinkBuildings puede revisar manualmente los casos inusuales — por ejemplo, cuando se rechaza la mayor parte de un pack.',
+
     'refund_faq_title' => 'FAQ de reembolsos',
     'refund_faq_q_1' => '¿Los reembolsos vuelven a mi tarjeta?',
     'refund_faq_a_1' => 'Los reembolsos de monedero y tarjeta, y las reclamaciones de monedero/tarjeta estimadas, vuelven como crédito del monedero que puede gastar en otra publicación. Los reembolsos de checkout PayPal —incluida una reclamación PayPal estimada— vuelven a la cuenta PayPal que pagó. No son reembolsos automáticos en efectivo a su tarjeta o banco.',
@@ -393,6 +396,9 @@ return [
     'refund_faq_q_4' => '¿Qué ocurre con el crédito de bienvenida si se reembolsa un pedido?',
     'refund_faq_q_4_off' => '¿Qué ocurre con el crédito de bienvenida si se reembolsa un pedido?',
     'refund_faq_a_4' => 'La parte de bono vuelve a su saldo de bono promocional y sigue siendo solo para gastar. Nunca es reembolsable en efectivo.',
+    'refund_faq_q_5' => '¿Qué ocurre con el descuento del pack si un publisher rechaza algunos artículos?',
+    'refund_faq_a_5' => 'El precio del pack se fija al pagar, según el número de artículos comprados. Los artículos rechazados se reembolsan al precio unitario con descuento que pagó; los restantes conservan el precio original del pack. No se le cobra más por un rechazo del publisher. Los casos inusuales, como cuando se rechaza la mayor parte de un pack, pueden revisarse manualmente.',
+
     'refund_related_label' => 'Páginas relacionadas',
     'refund_related_intro' => 'Lecturas relacionadas y contacto:',
 
@@ -758,8 +764,8 @@ return [
     'terms_hero_title' => 'Términos del servicio',
     'terms_hero_subtitle' => 'Al acceder o usar seolinkbuildings.com, usted acepta cumplir y quedar vinculado por estos Términos del servicio. Si no está de acuerdo, no use nuestro Sitio web.',
     'effective_date' => 'Fecha de entrada en vigor',
-    'effective_date_value' => '8 de agosto de 2026',
-    'last_updated_value' => '8 de agosto de 2026',
+    'effective_date_value' => '28 de octubre de 2026',
+    'last_updated_value' => '28 de octubre de 2026',
 
     // Section 1
     'section1_title' => 'Aceptación de los términos',
@@ -803,6 +809,12 @@ return [
     'section6_list1_2' => 'Todos los pagos se procesan de forma segura a través de proveedores terceros',
     'section6_list1_3' => 'Nos reservamos el derecho de modificar los precios con aviso previo',
     'section6_list1_4' => 'Los reembolsos siguen nuestra Política de reembolsos, si procede',
+
+    'section_pack_pricing_title' => 'Precios por volumen y packs',
+    'section_pack_pricing_intro' => 'Las siguientes reglas se aplican a los descuentos por volumen y packs en las colocaciones del marketplace:',
+    'section_pack_pricing_list1' => 'Los descuentos por volumen y packs (incluidos packs de 3, 5 y 10 artículos en un mismo sitio) se calculan y quedan fijados en el momento de la compra, según el número de artículos pagados.',
+    'section_pack_pricing_list2' => 'Si el publisher rechaza uno o más artículos de un pack, el o los artículos rechazados se reembolsan al precio unitario con descuento que se pagó. Los artículos restantes conservan el precio original del pack. No se le cobra más por un rechazo del publisher.',
+    'section_pack_pricing_list3' => 'SEOLinkBuildings puede revisar manualmente los casos inusuales — por ejemplo, cuando se rechaza la mayor parte de un pack.',
 
     // Section 7
     'section7_title' => 'Enlaces de terceros',
