@@ -651,34 +651,172 @@ function bootAdvertiserOrdersPage() {
         }
     }
 
-    window.openChat = function(orderId, orderNumber) {
+    window.openChat = function(orderId, orderNumber, draftMessage) {
         hideOrderDetailsModal();
         currentChatOrderId = orderId;
         window._chatOrderId = orderId;
         if (orderChat) {
             orderChat.open(orderId, orderNumber);
         }
+        if (draftMessage) {
+            window.setTimeout(() => {
+                const input = document.getElementById('chatMessageInput');
+                if (input && !input.disabled) {
+                    input.value = String(draftMessage);
+                    input.focus();
+                }
+            }, 350);
+        }
     };
 
     window.raiseIssue = function(orderId, orderNumber, statusLabel) {
-        openChat(orderId, orderNumber || ('#' + orderId));
-        const input = document.getElementById('chatMessageInput');
-        if (input && !input.disabled) {
-            const label = statusLabel || 'unknown';
-            input.value = `I'd like to raise an issue with order #${orderNumber} (status: ${label}). Please help resolve this.`;
-            setTimeout(() => input.focus(), 300);
-        }
+        const label = statusLabel || 'unknown';
+        openChat(
+            orderId,
+            orderNumber || ('#' + orderId),
+            `I'd like to raise an issue with order #${orderNumber} (status: ${label}). Please help resolve this.`
+        );
     };
 
-    window.recheckLiveUrl = function(orderId, itemId) {
+    window.askPublisherAboutLink = function(orderId, orderNumber) {
+        const num = orderNumber || ('#' + orderId);
+        openChat(
+            orderId,
+            orderNumber || num,
+            `Hi — the live URL check for order #${num} shows "Link not found". Could you restore or update the published link? Thanks.`
+        );
+    };
+
+    window.toggleOrderPolicyInfo = function(btn) {
+        if (!btn) return;
+        const wrap = btn.closest('.ov-policy');
+        const full = wrap && wrap.querySelector('.ov-policy__full');
+        if (!full) return;
+        const open = !full.classList.contains('is-expanded');
+        if (open) {
+            full.removeAttribute('hidden');
+            full.classList.remove('is-collapsed');
+            // Double-rAF so max-height can animate from 0 after becoming visible.
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => full.classList.add('is-expanded'));
+            });
+        } else {
+            full.classList.remove('is-expanded');
+            full.classList.add('is-collapsed');
+            const finish = () => {
+                if (full.classList.contains('is-collapsed')) full.setAttribute('hidden', '');
+            };
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                finish();
+            } else {
+                window.setTimeout(finish, 240);
+            }
+        }
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.classList.toggle('is-open', open);
+    };
+
+    window.copyOrderPayRef = function(ref, el) {
+        copyTextToClipboard(ref, 'Payment ref copied', el || null);
+    };
+
+    const liveUrlAutoRechecked = new Set();
+    let liveUrlRecheckInFlight = null;
+
+    function liveUrlChipSelector(itemId) {
+        if (itemId == null || itemId === '') {
+            return '[data-live-url-chip]';
+        }
+        const id = String(itemId).replace(/"/g, '');
+        return `[data-live-url-chip="${id}"]`;
+    }
+
+    function applyLiveUrlCheckToChip(itemId, check) {
+        const chip = document.querySelector(liveUrlChipSelector(itemId));
+        if (!chip || !check) return;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = liveUrlStatusChipFromCheck(check);
+        const fresh = wrap.firstElementChild;
+        if (!fresh) return;
+        fresh.setAttribute('data-live-url-chip', itemId != null && itemId !== '' ? String(itemId) : '');
+        fresh.classList.add('ov-live-chip--swap');
+        chip.replaceWith(fresh);
+        requestAnimationFrame(() => fresh.classList.add('is-in'));
+
+        const checkedAt = check.checked_at || new Date().toISOString();
+        const checkedEl = document.querySelector(
+            itemId != null && itemId !== ''
+                ? `[data-live-checked-for="${String(itemId).replace(/"/g, '')}"]`
+                : '[data-live-checked-for]'
+        );
+        if (checkedEl) {
+            checkedEl.textContent = formatCheckedAgo(checkedAt);
+            checkedEl.hidden = false;
+            checkedEl.setAttribute('datetime', checkedAt);
+        }
+        const actionsEl = document.querySelector(
+            itemId != null && itemId !== ''
+                ? `[data-live-chip-actions="${String(itemId).replace(/"/g, '')}"]`
+                : '[data-live-chip-actions]'
+        );
+        if (actionsEl) {
+            actionsEl.hidden = check.ok !== false;
+        }
+    }
+
+    function formatCheckedAgo(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '';
+        const sec = Math.max(0, Math.round((Date.now() - d.getTime()) / 1000));
+        if (sec < 45) return 'Checked just now';
+        if (sec < 3600) {
+            const mins = Math.max(1, Math.round(sec / 60));
+            return `Checked ${mins} min ago`;
+        }
+        if (sec < 86400) {
+            const hours = Math.max(1, Math.round(sec / 3600));
+            return `Checked ${hours}h ago`;
+        }
+        return `Checked ${formatDate(iso)}`;
+    }
+
+    function liveUrlStatusChipFromCheck(check) {
+        if (!check || typeof check !== 'object') {
+            return '<span class="ov-live-chip ov-live-chip--pending" data-live-url-chip>Not checked yet</span>';
+        }
+        if (check.ok === true) {
+            let label = 'Live · link found';
+            const rel = String(check.rel || check.link_rel || check.rel_type || '').toLowerCase();
+            if (rel === 'dofollow' || rel === 'nofollow') {
+                label += ` · ${rel}`;
+            }
+            return `<span class="ov-live-chip ov-live-chip--live" data-live-url-chip>${escapeHtml(label)}</span>`;
+        }
+        if (check.ok === false) {
+            return '<span class="ov-live-chip ov-live-chip--missing" data-live-url-chip>Link not found</span>';
+        }
+        return '<span class="ov-live-chip ov-live-chip--pending" data-live-url-chip>Not checked yet</span>';
+    }
+
+    window.recheckLiveUrl = function(orderId, itemId, options) {
+        const opts = options && typeof options === 'object' ? options : {};
+        const silent = !!opts.silent;
         const btn = document.getElementById(itemId ? ('recheckLiveUrlBtn-' + itemId) : 'recheckLiveUrlBtn');
+        const flightKey = `${orderId}:${itemId || 'auto'}`;
+        if (liveUrlRecheckInFlight === flightKey) {
+            return Promise.resolve(null);
+        }
+        liveUrlRecheckInFlight = flightKey;
+
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Checking…';
+            btn.classList.add('is-checking');
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right ov-recheck-spin me-1" aria-hidden="true"></i>Checking…';
         }
         const payload = {};
         if (itemId) payload.order_item_id = itemId;
-        fetch(ordersUrl(`/${orderId}/recheck-live-url`), {
+        return fetch(ordersUrl(`/${orderId}/recheck-live-url`), {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': ordersCsrf(),
@@ -690,27 +828,60 @@ function bootAdvertiserOrdersPage() {
         })
         .then(r => r.json())
         .then(data => {
-            hideOrderDetailsModal();
-            const reopen = () => viewOrder(orderId);
-            if (data.success) {
-                Swal.fire('Checked', data.message || 'URL check finished.', data.live_url_check?.ok ? 'success' : 'warning')
-                    .then(reopen);
-            } else {
-                Swal.fire('Error', data.message || 'Could not recheck URL.', 'error')
-                    .then(reopen);
+            if (data.success && data.live_url_check) {
+                applyLiveUrlCheckToChip(itemId, data.live_url_check);
+                if (!silent && window.Swal) {
+                    Swal.fire({
+                        toast: true,
+                        icon: data.live_url_check.ok ? 'success' : 'warning',
+                        title: data.message || 'URL check finished.',
+                        position: 'top',
+                        timer: 1800,
+                        showConfirmButton: false,
+                    });
+                }
+            } else if (!silent) {
+                if (window.Swal) {
+                    Swal.fire('Error', data.message || 'Could not recheck URL.', 'error');
+                }
             }
+            return data;
         })
         .catch(() => {
-            hideOrderDetailsModal();
-            Swal.fire('Error', 'Could not recheck URL.', 'error').then(() => viewOrder(orderId));
+            if (!silent && window.Swal) {
+                Swal.fire('Error', 'Could not recheck URL.', 'error');
+            }
+            return null;
         })
         .finally(() => {
+            if (liveUrlRecheckInFlight === flightKey) {
+                liveUrlRecheckInFlight = null;
+            }
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa fa-refresh me-1"></i>Recheck';
+                btn.classList.remove('is-checking');
+                btn.innerHTML = '<i class="fa-solid fa-rotate-right me-1" aria-hidden="true"></i>Recheck';
             }
         });
     };
+
+    function maybeAutoRecheckLiveUrls(order) {
+        if (!order || !order.id) return;
+        const status = String(order.status || '');
+        const delivered = status === 'completed' || status === 'review';
+        if (!delivered) return;
+        const items = Array.isArray(order.items) ? order.items : [];
+        const targets = items.filter((it) => it && it.id && it.live_url);
+        if (!targets.length) return;
+        const key = String(order.id);
+        if (liveUrlAutoRechecked.has(key)) return;
+        liveUrlAutoRechecked.add(key);
+        // One auto-pass per modal open: first live placement only (debounce / no loop).
+        const first = targets[0];
+        window.setTimeout(() => {
+            window.recheckLiveUrl(order.id, first.id, { silent: true });
+        }, 280);
+    }
 
     // Request modification
     window.requestModification = function(orderId) {
@@ -1167,9 +1338,21 @@ function bootAdvertiserOrdersPage() {
         return { label: capitalize(status), next: '', cls: getStatusClass(status), autoHint: null };
     }
 
+    function orderHasArticleApproved(order) {
+        if (order && (order.has_article_approved === true || order.has_article_approved === 1)) return true;
+        const items = Array.isArray(order?.items) ? order.items : [];
+        return items.some((it) => {
+            if (!it) return false;
+            if (it.article_approved === true || it.article_approved === 1) return true;
+            if (it.article_approved_at) return true;
+            const ws = String(it.writing_status || '').toLowerCase();
+            return ws === 'article_approved' || ws === 'released_to_publisher';
+        });
+    }
+
     function deriveAdvertiserTimelineSteps(order) {
         const items = Array.isArray(order.items) ? order.items : [];
-        const item = items[0] || {};
+        const item = items.find((it) => it && it.live_url) || items[0] || {};
         const status = order.status;
         const hasItems = items.length > 0;
         const hasLiveUrl = items.some((it) => it && it.live_url);
@@ -1179,14 +1362,24 @@ function bootAdvertiserOrdersPage() {
         const urlDelivered = hasLiveUrl && ['review', 'completed'].includes(status);
         const completed = status === 'completed';
         const modRequested = item.modification_requested === 'yes';
+        const articleApproved = orderHasArticleApproved(order);
+        const processingDone = hasItems && (articleApproved || urlDelivered || ['review', 'completed'].includes(status));
 
         const steps = [
             { label: 'Paid', done: paid, current: false },
             { label: 'Accepted', done: acceptedOrLater, current: false },
-            { label: modRequested && status === 'processing' ? 'Revision' : 'Processing', done: hasItems && ['review', 'completed'].includes(status), current: false },
-            { label: 'URL delivered', done: urlDelivered, current: false },
-            { label: 'Completed', done: completed && hasItems, current: false },
+            { label: modRequested && status === 'processing' ? 'Revision' : 'Processing', done: processingDone, current: false },
         ];
+        if (articleApproved) {
+            steps.push({ label: 'Article approved', done: urlDelivered || completed, current: false });
+        }
+        steps.push({ label: 'URL delivered', done: urlDelivered, current: false });
+        steps.push({ label: 'Completed', done: completed && hasItems, current: false });
+
+        const mark = (label) => {
+            steps.forEach((s) => { s.current = s.label === label; });
+        };
+        const idx = (label) => steps.findIndex((s) => s.label === label);
 
         if (status === 'pending' && !paid) {
             steps[0].current = true;
@@ -1197,26 +1390,46 @@ function bootAdvertiserOrdersPage() {
         } else if (status === 'pending' && paid) {
             steps[1].current = true;
         } else if (status === 'processing' && modRequested) {
-            steps[2].current = true;
-            steps[2].done = false;
-            steps[3].done = false;
+            const p = idx('Revision') >= 0 ? idx('Revision') : idx('Processing');
+            if (p >= 0) {
+                steps[p].label = 'Revision';
+                steps[p].current = true;
+                steps[p].done = false;
+            }
+            const u = idx('URL delivered');
+            if (u >= 0) steps[u].done = false;
         } else if (status === 'processing') {
-            steps[2].current = true;
+            if (articleApproved && !urlDelivered) {
+                mark('Article approved');
+                const a = idx('Article approved');
+                if (a >= 0) steps[a].done = false;
+            } else {
+                mark(modRequested ? 'Revision' : 'Processing');
+            }
         } else if (status === 'review' && hasLiveUrl) {
-            steps[3].current = true;
-            steps[3].done = false;
+            mark('URL delivered');
+            const u = idx('URL delivered');
+            if (u >= 0) steps[u].done = false;
         } else if (status === 'review') {
-            steps[2].current = true;
-            steps[2].done = false;
+            if (articleApproved) {
+                mark('Article approved');
+                const a = idx('Article approved');
+                if (a >= 0) steps[a].done = false;
+            } else {
+                mark('Processing');
+                const p = idx('Processing');
+                if (p >= 0) steps[p].done = false;
+            }
         } else if (status === 'completed') {
-            steps[4].current = true;
-            steps[4].done = hasItems;
+            mark('Completed');
+            const c = idx('Completed');
+            if (c >= 0) steps[c].done = hasItems;
         }
 
         return steps;
     }
 
-    function stepTimestamp(order, step) {
+    function stepTimestampRaw(order, step) {
         if (!step || !(step.done || step.current)) return null;
         const items = Array.isArray(order.items) ? order.items : [];
         const item = items.find((it) => it && it.live_url) || items[0] || {};
@@ -1225,12 +1438,60 @@ function bootAdvertiserOrdersPage() {
         if (label === 'Completed' || label.indexOf('Completed') === 0) raw = order.completed_at || item.completed_at;
         else if (label === 'URL delivered') {
             raw = items.map((it) => it && it.live_url_submitted_at).filter(Boolean).sort()[0] || null;
-        } else if (label === 'Paid' || label === 'Refunded') raw = order.paid_at;
+        } else if (label === 'Article approved') {
+            raw = order.article_approved_at
+                || items.map((it) => it && it.article_approved_at).filter(Boolean).sort()[0]
+                || null;
+        } else if (label === 'Paid' || label === 'Refunded' || label === 'Payment failed') raw = order.paid_at;
         else if (label === 'Accepted' || label === 'Scheduled') raw = item.accepted_at || (label === 'Scheduled' ? order.paid_at : null);
         else if (label === 'Processing' || label === 'Revision') raw = item.accepted_at || null;
         if (!raw) return null;
+        const d = new Date(raw);
+        return Number.isNaN(d.getTime()) ? null : raw;
+    }
+
+    function stepTimestamp(order, step) {
+        const raw = stepTimestampRaw(order, step);
+        if (!raw) return null;
         const text = formatDate(raw);
         return (!text || text === '—') ? null : text;
+    }
+
+    function formatDateTime(dateString) {
+        if (dateString == null || dateString === '') return '';
+        const date = new Date(dateString);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        });
+    }
+
+    function parseOrderDate(value) {
+        if (value == null || value === '') return null;
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function trackingDurationHtml(order) {
+        const paidAt = parseOrderDate(order && order.paid_at);
+        if (!paidAt) return '';
+        const status = order && order.status;
+        if (status === 'completed') {
+            const completedAt = parseOrderDate(order.completed_at);
+            if (!completedAt) return '';
+            const days = Math.max(1, Math.round(Math.abs(completedAt - paidAt) / 86400000));
+            const unit = days === 1 ? 'day' : 'days';
+            return `<p class="ov-tracking-duration">Completed in ${days} ${unit}</p>`;
+        }
+        if (['pending', 'processing', 'review', 'scheduled'].includes(status)) {
+            const days = Math.floor(Math.abs(Date.now() - paidAt.getTime()) / 86400000) + 1;
+            return `<p class="ov-tracking-duration">Day ${days} since payment</p>`;
+        }
+        return '';
     }
 
     function currentStepDateHtml(order, steps) {
@@ -1242,25 +1503,41 @@ function bootAdvertiserOrdersPage() {
     }
 
     function buildStepperHtml(order, steps) {
-        return `<ol class="ov-stepper" aria-label="Order tracking">${steps.map((step, i) => {
+        const total = (steps || []).length;
+        return `<div class="ov-stepper" role="list" aria-label="Order tracking">${steps.map((step, i) => {
             const state = step.done ? 'is-done' : (step.current ? 'is-current' : 'is-todo');
-            const stamp = step.done ? stepTimestamp(order, step) : null;
-            return `<li class="ov-stepper__step ${state}">
-                <span class="ov-stepper__node" aria-hidden="true">${i + 1}</span>
-                <span class="ov-stepper__label">${escapeHtml(step.label)}</span>
-                ${stamp ? `<span class="ov-stepper__time">${escapeHtml(stamp)}</span>` : ''}
-            </li>`;
-        }).join('')}</ol>`;
+            const stateClass = step.done && step.current ? 'is-done is-current' : state;
+            const raw = stepTimestampRaw(order, step);
+            const stamp = raw ? formatDate(raw) : null;
+            const tip = raw ? formatDateTime(raw) : '';
+            const nodeInner = step.done
+                ? '<span class="ov-stepper__check" aria-hidden="true">✓</span>'
+                : String(i + 1);
+            const rail = (i < total - 1)
+                ? `<span class="ov-stepper__rail" aria-hidden="true"></span>`
+                : '';
+            return `<div class="ov-stepper__step ${stateClass}" role="listitem">
+                <span class="ov-stepper__node" aria-hidden="true">${nodeInner}</span>
+                ${rail}
+                <span class="ov-stepper__copy">
+                    <span class="ov-stepper__label">${escapeHtml(step.label)}</span>
+                    ${stamp ? `<span class="ov-stepper__time"${tip ? ` title="${escapeHtml(tip)}"` : ''}>${escapeHtml(stamp)}</span>` : ''}
+                </span>
+            </div>`;
+        }).join('')}</div>`;
+    }
+
+    function historyToggleHtml() {
+        return `<button type="button" class="ov-history-toggle" aria-expanded="false" aria-controls="orderActivityTimelineWrap" onclick="toggleOrderHistory(this)">
+                    <i class="fa-solid fa-clock" aria-hidden="true"></i>
+                    <span class="ov-history-toggle__label">Show full history</span>
+                    <i class="fa-solid fa-chevron-down ov-history-toggle__chevron" aria-hidden="true"></i>
+               </button>`;
     }
 
     function activityTimelineBlock(collapsed) {
-        const toggle = collapsed
-            ? `<button type="button" class="ov-history-toggle" aria-expanded="false" aria-controls="orderActivityTimelineWrap" onclick="toggleOrderHistory(this)">
-                    <i class="fa fa-clock-o" aria-hidden="true"></i>
-                    <span class="ov-history-toggle__label">Show full history</span>
-               </button>`
-            : '<h6 class="mb-2">Activity Timeline</h6>';
-        const hidden = collapsed ? ' hidden' : '';
+        const toggle = collapsed ? '' : '<h6 class="mb-2">Activity timeline</h6>';
+        const hidden = collapsed ? ' hidden class="ov-history-panel is-collapsed"' : ' class="ov-history-panel is-expanded"';
         return `${toggle}
             <div id="orderActivityTimelineWrap"${hidden}>
                 <div id="orderActivityTimeline" class="order-view-timeline">
@@ -1269,8 +1546,30 @@ function bootAdvertiserOrdersPage() {
             </div>`;
     }
 
+    function linkTermsChipsHtml(order) {
+        const terms = Array.isArray(order.link_terms) ? order.link_terms : [];
+        if (!terms.length) {
+            // Fallback from first item / order flags when payload omits link_terms.
+            const item = (Array.isArray(order.items) ? order.items : []).find((it) => it) || {};
+            const chips = [];
+            if (item.link_type) chips.push({ key: 'link_type', label: String(item.link_type) });
+            if (item.publication_time) chips.push({ key: 'publication_time', label: String(item.publication_time) });
+            if (order.link_guarantee === true) chips.push({ key: 'link_guarantee', label: '12-month guarantee' });
+            else if (order.link_guarantee === false) chips.push({ key: 'link_guarantee', label: 'No 12-month guarantee' });
+            if (!chips.length) return '';
+            return `<div class="ov-link-terms" aria-label="Link terms">${chips.map((c) =>
+                `<span class="ov-link-term ov-link-term--${escapeHtml(c.key)}">${escapeHtml(c.label)}</span>`
+            ).join('')}</div>`;
+        }
+        return `<div class="ov-link-terms" aria-label="Link terms">${terms.map((c) =>
+            `<span class="ov-link-term ov-link-term--${escapeHtml(String(c.key || 'term'))}">${escapeHtml(String(c.label || ''))}</span>`
+        ).join('')}</div>`;
+    }
+
     function buildAdvertiserTimeline(order) {
         const status = order.status;
+        const inProgress = ['pending', 'processing', 'review', 'scheduled'].includes(status)
+            || (status === 'pending' && order.payment_status === 'paid');
 
         if (status === 'cancelled' && order.payment_status === 'refunded') {
             return `<div class="alert alert-secondary py-2 small mb-2">Cancelled · refunded to your wallet (usually instant).</div>
@@ -1287,14 +1586,23 @@ function bootAdvertiserOrdersPage() {
 
         const meta = getAdvertiserStatusMeta(order);
         const hint = meta.autoHint
-            ? `<div class="small text-muted mb-2"><i class="fa fa-clock-o me-1"></i>${escapeHtml(meta.autoHint)}</div>`
+            ? `<div class="small text-muted mb-2"><i class="fa-solid fa-clock me-1"></i>${escapeHtml(meta.autoHint)}</div>`
             : '';
+        const stepperClass = inProgress ? 'ov-stepper ov-stepper--pulse' : 'ov-stepper';
+        const durationHtml = trackingDurationHtml(order);
 
-        return `<h6>Tracking</h6>
-            ${buildStepperHtml(order, steps)}
+        return `<div class="ov-tracking">
+            <div class="ov-tracking-head">
+                <h6>Tracking</h6>
+                ${historyToggleHtml()}
+            </div>
+            ${buildStepperHtml(order, steps).replace('class="ov-stepper"', `class="${stepperClass}"`)}
+            ${durationHtml}
             ${hint}
-            ${activityTimelineBlock(true)}`;
+            ${activityTimelineBlock(true)}
+        </div>`;
     }
+
 
     function reconstructOrderActivities(order) {
         const events = [];
@@ -1911,8 +2219,37 @@ function bootAdvertiserOrdersPage() {
         });
     };
 
+    function orderDetailsSkeletonHtml() {
+        return `<div class="order-view-shell order-view-shell--stack ov-skeleton" aria-busy="true" aria-live="polite">
+            <div class="ov-summary ov-skel-block" style="min-height:3rem"></div>
+            <div class="ov-columns">
+                <div class="order-view-col">
+                    <div class="order-view-panel ov-skel-block" style="min-height:8rem"></div>
+                    <div class="order-view-panel ov-skel-block" style="min-height:10rem"></div>
+                </div>
+                <div class="order-view-col">
+                    <div class="order-view-panel ov-skel-block" style="min-height:6rem"></div>
+                    <div class="order-view-panel ov-skel-block" style="min-height:8rem"></div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function showOrderDetailsSkeleton() {
+        const contentEl = document.getElementById('orderDetailsContent');
+        if (contentEl) contentEl.innerHTML = orderDetailsSkeletonHtml();
+        const actionsEl = document.getElementById('orderDetailsActions');
+        if (actionsEl) actionsEl.innerHTML = '';
+    }
+
     window.viewOrder = function(orderId) {
         hideChatModal();
+        liveUrlAutoRechecked.delete(String(orderId));
+        showOrderDetailsSkeleton();
+        const modalEl = document.getElementById('orderDetailsModal');
+        if (modalEl && window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
         fetch(ordersUrl(`/${orderId}`), {
             method: 'GET',
             headers: {
@@ -1924,9 +2261,12 @@ function bootAdvertiserOrdersPage() {
         .then(data => {
             if (data.success) {
                 renderOrderDetails(data.order);
-                const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('orderDetailsModal'));
-                modal.show();
                 loadOrderActivityTimeline(data.order);
+                maybeAutoRecheckLiveUrls(data.order);
+                requestAnimationFrame(() => {
+                    const shell = document.querySelector('#orderDetailsContent .order-view-shell');
+                    if (shell) shell.classList.add('is-ready');
+                });
             } else {
                 Swal.fire('Error', data.message || 'Failed to load order details', 'error');
             }
@@ -1938,27 +2278,51 @@ function bootAdvertiserOrdersPage() {
     }
 
     function liveUrlStatusChip(item) {
+        const idAttr = item && item.id != null
+            ? ` data-live-url-chip="${escapeHtml(String(item.id))}"`
+            : ' data-live-url-chip';
         if (!item || !item.live_url) {
-            return '<span class="ov-live-chip ov-live-chip--missing">Link missing</span>';
+            return `<span class="ov-live-chip ov-live-chip--missing"${idAttr}>Link not found</span>`;
         }
         if (item.live_url_check_ok === true) {
-            return '<span class="ov-live-chip ov-live-chip--live">Live</span>';
+            return `<span class="ov-live-chip ov-live-chip--live"${idAttr}>Live · link found</span>`;
         }
         if (item.live_url_check_ok === false) {
-            return '<span class="ov-live-chip ov-live-chip--missing">Link missing</span>';
+            return `<span class="ov-live-chip ov-live-chip--missing"${idAttr}>Link not found</span>`;
         }
-        return '<span class="ov-live-chip ov-live-chip--pending">Not checked yet</span>';
+        return `<span class="ov-live-chip ov-live-chip--pending"${idAttr}>Not checked yet</span>`;
     }
 
     function liveUrlHealthBadge(item) {
         return liveUrlStatusChip(item);
     }
 
-    function copyTextToClipboard(url, title) {
+    function flashCopiedFeedback(btn, label) {
+        if (!btn) return;
+        const prev = btn.getAttribute('data-copy-label') || btn.innerHTML;
+        btn.setAttribute('data-copy-label', prev);
+        btn.classList.add('is-copied');
+        if (btn.classList.contains('ov-copy-btn')) {
+            btn.setAttribute('aria-label', 'Copied');
+            btn.innerHTML = '<span class="ov-copied-tick">Copied ✓</span>';
+        } else {
+            btn.innerHTML = 'Copied ✓';
+        }
+        window.setTimeout(() => {
+            btn.classList.remove('is-copied');
+            btn.innerHTML = btn.getAttribute('data-copy-label') || prev;
+            if (btn.classList.contains('ov-copy-btn')) {
+                btn.setAttribute('aria-label', label || 'Copy');
+            }
+        }, 1500);
+    }
+
+    function copyTextToClipboard(url, title, btn) {
         const text = String(url || '');
         if (!text) return;
         const done = () => {
-            if (window.Swal) {
+            flashCopiedFeedback(btn, title);
+            if (!btn && window.Swal) {
                 Swal.fire({
                     toast: true,
                     icon: 'success',
@@ -1971,27 +2335,38 @@ function bootAdvertiserOrdersPage() {
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(done).catch(() => {});
+            return;
         }
+        done();
     }
 
-    window.copyOrderLiveUrl = function (url) {
-        copyTextToClipboard(url, 'Live URL copied');
+    window.copyOrderLiveUrl = function (url, el) {
+        copyTextToClipboard(url, 'Live URL copied', el || null);
     };
 
-    window.copyOrderTargetUrl = function (url) {
-        copyTextToClipboard(url, 'Target URL copied');
+    window.copyOrderTargetUrl = function (url, el) {
+        copyTextToClipboard(url, 'Target URL copied', el || null);
     };
 
     window.toggleOrderHistory = function (btn) {
         const wrap = document.getElementById('orderActivityTimelineWrap');
         if (!wrap || !btn) return;
-        const open = wrap.hasAttribute('hidden');
+        const open = wrap.hasAttribute('hidden') || wrap.classList.contains('is-collapsed');
         if (open) {
             wrap.removeAttribute('hidden');
+            wrap.classList.remove('is-collapsed');
+            wrap.classList.add('is-expanded');
         } else {
-            wrap.setAttribute('hidden', '');
+            wrap.classList.remove('is-expanded');
+            wrap.classList.add('is-collapsed');
+            window.setTimeout(() => {
+                if (wrap.classList.contains('is-collapsed')) {
+                    wrap.setAttribute('hidden', '');
+                }
+            }, 220);
         }
         btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.classList.toggle('is-open', open);
         const label = btn.querySelector('.ov-history-toggle__label');
         if (label) {
             label.textContent = open ? 'Hide full history' : 'Show full history';
@@ -2004,6 +2379,91 @@ function bootAdvertiserOrdersPage() {
         if (s.length <= limit) return s;
         const keep = Math.max(12, limit - 1);
         return s.slice(0, keep) + '…';
+    }
+
+    function smartTruncateUrl(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+        try {
+            const u = new URL(raw);
+            const host = u.hostname.replace(/^www\./i, '');
+            const segments = u.pathname.split('/').filter(Boolean);
+            let last = segments.length ? segments[segments.length - 1] : '';
+            try { last = decodeURIComponent(last); } catch (e) { /* keep raw */ }
+            if (!last) {
+                return host + (u.pathname && u.pathname !== '/' ? u.pathname : '');
+            }
+            if (segments.length === 1 && !u.search && (host.length + last.length) < 40) {
+                return host + '/' + last;
+            }
+            return host + '/…/' + last;
+        } catch (e) {
+            return truncateMiddle(raw, 42);
+        }
+    }
+
+    function smartTruncateUrlHtml(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+        try {
+            const u = new URL(raw);
+            const host = u.hostname.replace(/^www\./i, '');
+            const segments = u.pathname.split('/').filter(Boolean);
+            let last = segments.length ? segments[segments.length - 1] : '';
+            try { last = decodeURIComponent(last); } catch (e) { /* keep raw */ }
+            if (!last) {
+                return `<span class="ov-url-smart"><span class="ov-url-smart__head">${escapeHtml(host)}</span></span>`;
+            }
+            if (segments.length === 1 && !u.search && (host.length + last.length) < 40) {
+                return `<span class="ov-url-smart"><span class="ov-url-smart__head">${escapeHtml(host)}/</span><span class="ov-url-smart__tail">${escapeHtml(last)}</span></span>`;
+            }
+            // Head may ellipsize; tail (last path segment) always stays visible.
+            return `<span class="ov-url-smart"><span class="ov-url-smart__head">${escapeHtml(host)}/…/</span><span class="ov-url-smart__tail">${escapeHtml(last)}</span></span>`;
+        } catch (e) {
+            return escapeHtml(truncateMiddle(raw, 42));
+        }
+    }
+
+    function siteDomainLabel(url) {
+        const raw = String(url || '').trim();
+        if (!raw) return '';
+        try {
+            return new URL(raw).hostname.replace(/^www\./i, '');
+        } catch (e) {
+            return truncateMiddle(raw.replace(/^https?:\/\//i, ''), 36);
+        }
+    }
+
+    function urlsMatch(a, b) {
+        const normalize = (v) => {
+            const s = String(v || '').trim().replace(/\/+$/, '').toLowerCase();
+            try {
+                const u = new URL(s);
+                return `${u.protocol}//${u.hostname}${u.pathname}`.replace(/\/+$/, '');
+            } catch (e) {
+                return s;
+            }
+        };
+        const left = normalize(a);
+        const right = normalize(b);
+        return !!left && left === right;
+    }
+
+    function complianceBadgeHtml(status) {
+        const raw = String(status || '').trim();
+        if (!raw) return '';
+        const key = raw.toLowerCase();
+        let cls = 'ov-compliance ov-compliance--neutral';
+        if (['approved', 'pass', 'passed', 'ok', 'clean'].includes(key)) {
+            cls = 'ov-compliance ov-compliance--ok payment-paid status-badge';
+        } else if (['rejected', 'fail', 'failed', 'blocked', 'denied'].includes(key)) {
+            cls = 'ov-compliance ov-compliance--bad status-badge';
+        } else if (['pending', 'review', 'flagged', 'needs_review', 'needs review'].includes(key)) {
+            cls = 'ov-compliance ov-compliance--warn status-badge';
+        } else {
+            cls = 'ov-compliance ov-compliance--neutral status-badge';
+        }
+        return `<span class="${cls}">${escapeHtml(raw)}</span>`;
     }
 
     function ovBlock(label, inner) {
@@ -2031,28 +2491,40 @@ function bootAdvertiserOrdersPage() {
 
     function policyNoteHtml(order) {
         const link = `<a href="${ordersRoute('refundPolicy')}" target="_blank" rel="noopener">Refund policy</a>`;
+        let note = '';
         if (order.status === 'completed') {
             if (order.placements_missing === true || order.placements_missing === 1) {
-                return `<div class="order-view-refund">${link}</div>`;
+                note = '';
+            } else {
+                note = typeof order.policy_note === 'string'
+                    ? order.policy_note
+                    : 'If a published link is later removed, use Report link removed.';
             }
-            const note = typeof order.policy_note === 'string'
+        } else if (order.status === 'cancelled' || order.payment_status === 'refunded') {
+            note = '';
+        } else {
+            note = typeof order.policy_note === 'string'
                 ? order.policy_note
-                : 'If a published link is later removed, use Report link removed.';
-            if (!note) {
-                return `<div class="order-view-refund">${link}</div>`;
-            }
-            return `<div class="order-view-refund">${escapeHtml(note)} ${link}</div>`;
+                : 'Declines refund automatically · request changes before auto-approve';
         }
-        if (order.status === 'cancelled' || order.payment_status === 'refunded') {
-            return `<div class="order-view-refund">${link}</div>`;
-        }
-        const note = typeof order.policy_note === 'string'
-            ? order.policy_note
-            : 'Declines refund automatically · request changes before auto-approve';
-        if (!note) {
-            return `<div class="order-view-refund">${link}</div>`;
-        }
-        return `<div class="order-view-refund">${escapeHtml(note)} · ${link}</div>`;
+
+        const hasGuarantee = order.link_guarantee === true
+            || order.link_guarantee === 1
+            || /12[\s-]?month|guarantee/i.test(note || '');
+        const summaryLabel = hasGuarantee
+            ? `<i class="fa-solid fa-shield-alt" aria-hidden="true"></i><span>12-month link guarantee · ${link}</span>`
+            : `<i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Policy · ${link}</span>`;
+        const fullBody = note
+            ? `<div class="ov-policy__full is-collapsed" hidden>${escapeHtml(note)} ${link}</div>`
+            : '';
+        const infoBtn = note
+            ? `<button type="button" class="ov-policy__info" aria-expanded="false" onclick="toggleOrderPolicyInfo(this)">Info</button>`
+            : '';
+
+        return `<div class="ov-policy order-view-refund">
+            <div class="ov-policy__summary">${summaryLabel}${infoBtn}</div>
+            ${fullBody}
+        </div>`;
     }
 
     function renderPlacementCard(order, it, idx, itemsCount) {
@@ -2060,26 +2532,35 @@ function bootAdvertiserOrdersPage() {
         const liveUrl = it.live_url || null;
         const hideEmpty = completed;
         const modRequested = it.modification_requested === 'yes';
-        const checked = it.live_url_checked_at
-            ? ` · checked ${formatDate(it.live_url_checked_at)}`
-            : '';
-        const http = it.live_url_http_status ? ` · HTTP ${it.live_url_http_status}` : '';
-        const recheckBtn = `<button type="button" class="btn btn-sm btn-outline-secondary ov-live-url__recheck" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
-            <i class="fa fa-refresh me-1" aria-hidden="true"></i>Recheck
+        const recheckBtn = `<button type="button" class="btn btn-sm btn-outline-secondary ov-live-btn ov-live-url__recheck" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Recheck</span>
         </button>`;
+        const checkedAgo = formatCheckedAgo(it.live_url_checked_at);
+        const showNotFoundActions = liveUrl && it.live_url_check_ok === false;
+        const notFoundActions = `<div class="ov-live-chip-actions" data-live-chip-actions="${escapeHtml(String(it.id || ''))}" ${showNotFoundActions ? '' : 'hidden'}>
+                ${it.can_report_link_removed
+                    ? `<button type="button" class="btn btn-link btn-sm ov-live-inline-action" onclick="reportLinkRemoved(${order.id}, ${it.id || 'null'})">Report link removed</button>`
+                    : ''}
+                <button type="button" class="btn btn-link btn-sm ov-live-inline-action" onclick="askPublisherAboutLink(${order.id}, ${jsAttr(order.order_number || '')})">Ask publisher</button>
+            </div>`;
         const liveUrlHtml = liveUrl
             ? `<div class="ov-block ov-live-url">
                     <div class="ov-live-url__top">
                         <strong>Live URL</strong>
-                        ${liveUrlStatusChip(it)}
+                        <div class="ov-live-url__status">
+                            ${liveUrlStatusChip(it)}
+                            ${notFoundActions}
+                        </div>
                     </div>
-                    <a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="ov-live-url__link live-url">${escapeHtml(liveUrl)}</a>
-                    <div class="ov-live-url__meta small text-muted">Public reachability check${http}${checked}</div>
+                    <div class="ov-live-checked" data-live-checked-for="${escapeHtml(String(it.id || ''))}" ${checkedAgo ? '' : 'hidden'}>${escapeHtml(checkedAgo)}</div>
+                    <a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="ov-live-url__link live-url" title="${escapeHtml(liveUrl)}">${escapeHtml(liveUrl)}</a>
                     <div class="ov-live-url__actions">
-                        <a class="btn btn-sm btn-primary" href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer">
-                            <i class="fa fa-external-link" aria-hidden="true"></i> Open live URL
+                        <a class="btn btn-sm btn-primary ov-live-btn" href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer">
+                            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Open live URL</span>
                         </a>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyOrderLiveUrl(${jsAttr(liveUrl)})">Copy</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ov-live-btn" onclick="copyOrderLiveUrl(${jsAttr(liveUrl)}, this)">
+                            <span>Copy</span>
+                        </button>
                         ${recheckBtn}
                     </div>
                </div>`
@@ -2126,22 +2607,11 @@ function bootAdvertiserOrdersPage() {
             : '<h6>Placement</h6>';
 
         const siteHtml = it.site_name ? escapeHtml(it.site_name) : (hideEmpty ? '' : '—');
-        const siteUrlHtml = it.site_url
-            ? `<a href="${safeUrl(it.visit_url || it.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary">${escapeHtml(it.site_url)} <i class="fa fa-external-link fa-xs" aria-hidden="true"></i></a>`
-            : (hideEmpty ? '' : '—');
-        const fileName = it.content_original_name || 'Download article';
-        const wordCount = parseInt(it.word_count, 10);
-        const wordHtml = Number.isFinite(wordCount) && wordCount > 0
-            ? `<span class="ov-file-chip__meta">${wordCount.toLocaleString('en-US')} words</span>`
+        const hideSiteUrl = !!(it.site_url && liveUrl && urlsMatch(it.site_url, liveUrl));
+        const siteDomain = siteDomainLabel(it.site_url);
+        const siteUrlHtml = (!hideSiteUrl && it.site_url)
+            ? `<a href="${safeUrl(it.visit_url || it.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary" title="${escapeHtml(it.site_url)}">${escapeHtml(siteDomain || it.site_url)} <i class="fa-solid fa-arrow-up-right-from-square fa-xs" aria-hidden="true"></i></a>`
             : '';
-        const documentHtml = it.content_link
-            ? `<div class="ov-file-chip">
-                    <i class="fa fa-file-text-o ov-file-chip__icon" aria-hidden="true"></i>
-                    <span class="ov-file-chip__name" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</span>
-                    ${wordHtml}
-                    <a href="${safeUrl(it.content_link)}" class="ov-file-chip__action" target="_blank" rel="noopener noreferrer">Download</a>
-               </div>`
-            : (hideEmpty ? '' : '—');
         const revisionAlert = it.content_revision_requested === 'yes' ? (() => {
             const isLibrary = !!(it.content_submission_id);
             const currentLabel = it.content_original_name
@@ -2160,16 +2630,18 @@ function bootAdvertiserOrdersPage() {
         const anchorHtml = it.anchor_text ? escapeHtml(it.anchor_text) : (hideEmpty ? '' : '—');
         const targetHtml = it.target_url
             ? `<span class="ov-url-copy">
-                    <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate" title="${escapeHtml(it.target_url)}">${escapeHtml(truncateMiddle(it.target_url, 42))}</a>
-                    <button type="button" class="ov-copy-btn" onclick="copyOrderTargetUrl(${jsAttr(it.target_url)})" aria-label="Copy target URL">
-                        <i class="fa fa-clone" aria-hidden="true"></i>
+                    <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate ov-truncate--target" title="${escapeHtml(it.target_url)}">${smartTruncateUrlHtml(it.target_url)}</a>
+                    <button type="button" class="ov-copy-btn" onclick="copyOrderTargetUrl(${jsAttr(it.target_url)}, this)" aria-label="Copy target URL">
+                        <i class="fa-solid fa-copy" aria-hidden="true"></i>
                     </button>
                </span>`
             : (hideEmpty ? '' : '—');
         const featureHtml = it.feature_image_url
             ? `<a href="${safeUrl(it.feature_image_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate" title="${escapeHtml(it.feature_image_url)}">${escapeHtml(truncateMiddle(it.feature_image_url, 42))}</a>`
             : (hideEmpty ? '' : 'Publisher may choose');
-        const complianceHtml = it.moderation_status ? escapeHtml(it.moderation_status) : (hideEmpty ? '' : '—');
+        const complianceHtml = it.moderation_status
+            ? complianceBadgeHtml(it.moderation_status)
+            : (hideEmpty ? '' : '—');
 
         const reportHtml = order.status === 'completed' && itemsCount > 1
             ? (it.can_report_link_removed
@@ -2194,11 +2666,71 @@ function bootAdvertiserOrdersPage() {
                 <div class="ov-pair">${featureHtml ? `<span class="ov-pair__label">Feature image</span><span class="ov-pair__value">${featureHtml}</span>` : ''}</div>
                 <div class="ov-pair">${complianceHtml ? `<span class="ov-pair__label">Compliance</span><span class="ov-pair__value">${complianceHtml}</span>` : ''}</div>
             </div>
-            ${ovBlock('Document', documentHtml + revisionAlert)}
+            ${revisionAlert}
             ${homepageHtml}
             ${socialHtml}
             ${reportHtml}
         `;
+    }
+
+    function collectDocumentsHtml(order, items) {
+        const blocks = [];
+        (items || []).forEach((it, idx) => {
+            if (!it || !it.content_link) return;
+            const fileName = it.content_original_name || 'Download article';
+            const wordCount = parseInt(it.word_count, 10);
+            const wordHtml = Number.isFinite(wordCount) && wordCount > 0
+                ? `<span class="ov-file-chip__meta">${wordCount.toLocaleString('en-US')} words</span>`
+                : '';
+            const label = items.length > 1
+                ? `<span class="ov-doc-site small text-muted">${escapeHtml(it.site_name || ('Placement ' + (idx + 1)))}</span>`
+                : '';
+            blocks.push(`<div class="ov-doc-row">
+                ${label}
+                <div class="ov-file-chip" title="${escapeHtml(fileName)}">
+                    <i class="fa-solid fa-file-lines ov-file-chip__icon" aria-hidden="true"></i>
+                    <span class="ov-file-chip__name">${escapeHtml(fileName)}</span>
+                    ${wordHtml}
+                    <a href="${safeUrl(it.content_link)}" class="ov-file-chip__action" target="_blank" rel="noopener noreferrer">Download</a>
+                </div>
+            </div>`);
+        });
+        return blocks.join('');
+    }
+
+    function docsAndTermsCardHtml(order, items) {
+        const docs = collectDocumentsHtml(order, items);
+        const terms = linkTermsChipsHtml(order);
+        if (!docs && !terms) return '';
+        return `<div class="order-view-panel ov-side-card ov-meta-card">
+            ${docs ? `<div class="ov-meta-card__block"><h6>Document</h6>${docs}</div>` : ''}
+            ${terms ? `<div class="ov-meta-card__block"><h6>Link terms</h6>${terms}</div>` : ''}
+        </div>`;
+    }
+
+    function receiptCardHtml(order) {
+        const invoiceUrl = order.invoice_download_url || order.invoice_url || '';
+        const method = escapeHtml(getPaymentMethodName(order.payment_method));
+        const ref = order.reference_code ? String(order.reference_code) : '';
+        if (!invoiceUrl && !ref && !order.payment_method) return '';
+        return `<div class="order-view-panel ov-side-card ov-receipt-card">
+            <h6>Receipt</h6>
+            <div class="ov-receipt__rows">
+                <div class="ov-receipt__row"><span class="ov-pair__label">Payment</span><span class="ov-pair__value">${method}</span></div>
+                ${ref ? `<div class="ov-receipt__row"><span class="ov-pair__label">Payment ref</span>
+                    <span class="ov-pair__value ov-url-copy">
+                        <span class="ov-pay-ref-text">${escapeHtml(ref)}</span>
+                        <button type="button" class="ov-copy-btn" onclick="copyOrderPayRef(${jsAttr(ref)}, this)" aria-label="Copy payment ref">
+                            <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                        </button>
+                    </span></div>` : ''}
+            </div>
+            ${invoiceUrl
+                ? `<a class="btn btn-sm btn-outline-primary ov-receipt__invoice" href="${safeUrl(invoiceUrl)}">
+                        <i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Download invoice
+                   </a>`
+                : '<div class="small text-muted">No invoice on file yet.</div>'}
+        </div>`;
     }
 
     function renderOrderDetails(order) {
@@ -2232,18 +2764,25 @@ function bootAdvertiserOrdersPage() {
             return rows;
         }).join('');
 
-        const invoiceUrl = order.invoice_download_url || order.invoice_url || '';
-        const invoiceHtml = invoiceUrl
-            ? `<div class="ov-invoice"><a href="${safeUrl(invoiceUrl)}">Download invoice</a></div>`
-            : '';
-
         const placementsHtml = items.length
             ? items.map((it, idx) => renderPlacementCard(order, it, idx, itemsCount)).join('')
             : emptyPlacementsHtml(order);
+        const docsAndTermsHtml = docsAndTermsCardHtml(order, items);
+        const receiptHtml = receiptCardHtml(order);
 
         const chatBtn = `<button type="button" class="btn btn-sm btn-primary" onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
-                <i class="fa fa-comments" aria-hidden="true"></i> Chat
+                <i class="fa-solid fa-comments" aria-hidden="true"></i> Chat
             </button>`;
+
+        const orderAnotherUrl = (() => {
+            if (!primarySite) return '';
+            if (primarySite.catalog_url) return String(primarySite.catalog_url);
+            if (primarySite.site_id) {
+                const base = String(ordersRoute('catalog') || '/advertiser/catalog').replace(/\/$/, '');
+                return `${base}?site=${encodeURIComponent(String(primarySite.site_id))}`;
+            }
+            return '';
+        })();
 
         let actionButtons = '';
         const revisionItems = items.filter((it) => it && it.content_revision_requested === 'yes');
@@ -2251,7 +2790,7 @@ function bootAdvertiserOrdersPage() {
         if (order.can_retry_payment) {
             actionButtons = `
                 <button class="btn btn-sm btn-primary" onclick="retryOrderPayment(${order.id})">
-                    <i class="fa fa-credit-card"></i> Pay again
+                    <i class="fa-solid fa-credit-card"></i> Pay again
                 </button>
                 ${chatBtn}
             `;
@@ -2265,7 +2804,7 @@ function bootAdvertiserOrdersPage() {
                     ? `Send revised article · ${escapeHtml(revisionItem.site_name || ('Placement ' + (idx + 1)))}`
                     : 'Send revised article';
                 return `<button class="btn btn-sm btn-warning" onclick="fulfillContentRevision(${order.id}, ${revisionItem.id || 'null'}, {isLibrary: ${isLibrary ? 'true' : 'false'}, currentLabel: ${jsAttr(currentLabel)}})">
-                    <i class="fa fa-upload"></i> ${label}
+                    <i class="fa-solid fa-upload"></i> ${label}
                 </button>`;
             }).join('');
             actionButtons = `
@@ -2276,20 +2815,26 @@ function bootAdvertiserOrdersPage() {
             actionButtons = `
                 ${chatBtn}
                 <button class="btn btn-sm btn-success" onclick="approveOrder(${order.id})">
-                    <i class="fa fa-check-circle"></i> Approve
+                    <i class="fa-solid fa-circle-check"></i> Approve
                 </button>
                 <button class="btn btn-sm btn-warning" onclick="requestModification(${order.id})">
-                    <i class="fa fa-edit"></i> Request changes
+                    <i class="fa-solid fa-pen-to-square"></i> Request changes
                 </button>
                 <button class="btn btn-sm btn-outline-secondary" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
-                    <i class="fa fa-flag"></i> Raise an issue
+                    <i class="fa-solid fa-flag"></i> Raise an issue
                 </button>
             `;
         } else if (order.status === 'completed') {
             const reportableItems = items.filter((it) => it && it.can_report_link_removed);
             const singleReport = itemsCount <= 1 && reportableItems[0];
+            const orderAgainBtn = orderAnotherUrl
+                ? `<a class="btn btn-sm btn-outline-primary" href="${safeUrl(orderAnotherUrl)}">
+                        <i class="fa-solid fa-cart-plus" aria-hidden="true"></i> Order again
+                   </a>`
+                : '';
             actionButtons = `
                 ${chatBtn}
+                ${orderAgainBtn}
                 ${singleReport ? `<button type="button" class="btn btn-sm ov-report-link" onclick="reportLinkRemoved(${order.id}, ${reportableItems[0].id || 'null'})">
                     Report link removed
                 </button>` : ''}
@@ -2299,47 +2844,63 @@ function bootAdvertiserOrdersPage() {
             actionButtons = `
                 ${chatBtn}
                 ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-secondary" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
-                    <i class="fa fa-flag"></i> Raise an issue
+                    <i class="fa-solid fa-flag"></i> Raise an issue
                 </button>` : ''}
             `;
         } else {
             actionButtons = chatBtn;
         }
 
-        const payRef = order.reference_code
-            ? `<span class="ov-pay-ref">Payment ref ${escapeHtml(order.reference_code)}</span>`
+        const orderAnotherHtml = (order.status === 'completed' && orderAnotherUrl)
+            ? `<a class="ov-summary__reorder" href="${safeUrl(orderAnotherUrl)}">Order another post on this site</a>`
             : '';
+        const summaryNextHtml = (statusMeta.next || orderAnotherHtml)
+            ? `<div class="ov-summary__next">
+                    ${statusMeta.next ? `<span class="ov-summary__next-text">${escapeHtml(statusMeta.next)}</span>` : ''}
+                    ${orderAnotherHtml}
+               </div>`
+            : '';
+
+        const payStatusBadge = orderPaymentRefunded(order)
+            ? `<span class="status-badge payment-refunded ov-summary__pay">Refunded</span>`
+            : (['paid', 'completed'].includes(String(order.payment_status || ''))
+                ? `<span class="status-badge ${getPaymentStatusClass(order.payment_status)} ov-summary__pay">${capitalize(order.payment_status)}</span>`
+                : (order.payment_status
+                    ? `<span class="status-badge ${getPaymentStatusClass(order.payment_status)} ov-summary__pay">${capitalize(order.payment_status)}</span>`
+                    : ''));
 
         const html = `
             <div class="order-view-shell order-view-shell--stack">
                 <div class="ov-summary" role="group" aria-label="Order summary">
-                    <div class="ov-summary__site">${escapeHtml(summarySite)}</div>
-                    <div class="ov-summary__id">Order #${escapeHtml(order.order_number || String(order.id || ''))}</div>
-                    <span class="status-badge ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span>
-                    <div class="ov-summary__total">${orderPaymentRefunded(order)
-                        ? `<s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span>`
-                        : formatEuro(order.total_amount)}</div>
-                    <div class="ov-summary__date">${formatDate(order.created_at)}</div>
+                    <div class="ov-summary__main">
+                        <div class="ov-summary__site">${escapeHtml(summarySite)}</div>
+                        <div class="ov-summary__id">Order #${escapeHtml(order.order_number || String(order.id || ''))}</div>
+                        <span class="status-badge ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span>
+                        <div class="ov-summary__amount">
+                            <div class="ov-summary__total">${orderPaymentRefunded(order)
+                                ? `<s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span>`
+                                : formatEuro(order.total_amount)}</div>
+                            ${payStatusBadge}
+                        </div>
+                        <div class="ov-summary__date">${formatDate(order.created_at)}</div>
+                    </div>
+                    ${summaryNextHtml}
                 </div>
-                ${statusMeta.next ? `<p class="ov-summary__next small text-muted mb-0">${escapeHtml(statusMeta.next)}</p>` : ''}
 
                 <div class="ov-columns">
                     <div class="order-view-col order-view-col--main">
                         <div class="order-view-panel">
                             <h6>Order details</h6>
-                            <div class="ov-row"><strong>Payment</strong><span class="ov-pay">${escapeHtml(getPaymentMethodName(order.payment_method))}${payRef}</span></div>
-                            <div class="ov-row"><strong>Pay status</strong><span class="status-badge ${getPaymentStatusClass(order.payment_status)}">${capitalize(order.payment_status)}</span></div>
                             ${itemsCount > 1 ? `<div class="ov-row"><strong>Items</strong><span>${itemsCount}</span></div>` : ''}
-                            <div class="ov-price-block">
+                            <div class="ov-price-block ov-price-block--flush">
                                 ${pricingRows}
                                 <div class="ov-row ov-price-row ov-price-row--total"><span>Total</span>${orderPaymentRefunded(order)
                                     ? `<span class="ov-price fw-bold orders-total--refunded"><s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span></span>`
                                     : `<span class="ov-price fw-bold">${formatEuro(order.total_amount)}</span>`}</div>
-                                ${invoiceHtml}
                             </div>
                             ${policyNoteHtml(order)}
                         </div>
-                        <div class="order-view-panel order-view-panel--scroll">
+                        <div class="order-view-panel">
                             ${placementsHtml}
                         </div>
                     </div>
@@ -2350,6 +2911,8 @@ function bootAdvertiserOrdersPage() {
                         <div class="order-view-panel order-view-panel--messages">
                             <div id="advertiserOrderThread" data-thread-host="advertiser-details"></div>
                         </div>
+                        ${docsAndTermsHtml}
+                        ${receiptHtml}
                     </div>
                 </div>
             </div>
@@ -2364,7 +2927,8 @@ function bootAdvertiserOrdersPage() {
         if (window.OrderInlineThread && order && order.id) {
             window.OrderInlineThread.mount('#advertiserOrderThread', {
                 orderId: order.id,
-                orderNumber: order.order_number || ''
+                orderNumber: order.order_number || '',
+                suppressStatusNotes: order.status === 'completed',
             });
         }
         const actionsEl = document.getElementById('orderDetailsActions');

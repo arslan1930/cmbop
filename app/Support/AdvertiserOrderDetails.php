@@ -127,6 +127,94 @@ final class AdvertiserOrderDetails
     }
 
     /**
+     * True when this order already carries an advertiser article-approval
+     * stamp from the writing workflow (or a released writing line).
+     * Does not invent approval from library moderation alone.
+     */
+    public static function hasArticleApproved(Order $order): bool
+    {
+        $order->loadMissing('items');
+
+        return $order->items->contains(
+            fn ($line) => $line instanceof OrderItem && self::itemHasArticleApproved($line)
+        );
+    }
+
+    public static function itemHasArticleApproved(OrderItem $line): bool
+    {
+        if (filled($line->article_approved_at ?? null)) {
+            return true;
+        }
+
+        $status = strtolower(trim((string) ($line->writing_status ?? '')));
+
+        return in_array($status, ['article_approved', 'released_to_publisher'], true);
+    }
+
+    public static function articleApprovedAt(Order $order): ?CarbonInterface
+    {
+        $order->loadMissing('items');
+        $when = null;
+        foreach ($order->items as $line) {
+            if (! $line instanceof OrderItem || ! self::itemHasArticleApproved($line)) {
+                continue;
+            }
+            $at = self::asDate($line->article_approved_at ?? null);
+            if ($at && ($when === null || $at->lt($when))) {
+                $when = $at;
+            }
+        }
+
+        return $when;
+    }
+
+    /**
+     * Compact link-term chips for the Order Details tracking card.
+     * Only includes values already present on the order / related sites.
+     *
+     * @return list<array{key: string, label: string}>
+     */
+    public static function linkTerms(Order $order): array
+    {
+        $order->loadMissing('items.site');
+        $chips = [];
+
+        $linkType = null;
+        $publication = null;
+        foreach ($order->items as $line) {
+            if (! $line instanceof OrderItem) {
+                continue;
+            }
+            $site = $line->relationLoaded('site') ? $line->site : null;
+            if (! $linkType && $site && filled($site->link_type)) {
+                $linkType = strtolower(trim((string) $site->link_type));
+            }
+            if (! $publication && $site && filled($site->publication_time)) {
+                $publication = trim((string) $site->publication_time);
+            }
+        }
+
+        if (in_array($linkType, ['dofollow', 'nofollow'], true)) {
+            $chips[] = ['key' => 'link_type', 'label' => $linkType];
+        } elseif (filled($linkType)) {
+            $chips[] = ['key' => 'link_type', 'label' => $linkType];
+        }
+
+        if (filled($publication)) {
+            $chips[] = ['key' => 'publication_time', 'label' => $publication];
+        }
+
+        if ($order->link_guarantee !== null) {
+            $chips[] = [
+                'key' => 'link_guarantee',
+                'label' => $order->link_guarantee ? '12-month guarantee' : 'No 12-month guarantee',
+            ];
+        }
+
+        return $chips;
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     public static function presentItems(Order $order): array
@@ -183,6 +271,13 @@ final class AdvertiserOrderDetails
     public static function presentItem(OrderItem $line): array
     {
         $site = $line->relationLoaded('site') ? $line->site : null;
+        if (! $site && $line->site_id) {
+            try {
+                $site = $line->site;
+            } catch (\Throwable) {
+                $site = null;
+            }
+        }
         $submission = $line->relationLoaded('contentSubmission') ? $line->contentSubmission : null;
         $line->unsetRelation('site');
         $line->unsetRelation('latestDispute');
@@ -194,6 +289,11 @@ final class AdvertiserOrderDetails
         $row['site_id'] = $line->site_id;
         $row['site_name'] = $line->site_name ?: $site?->site_name;
         $row['site_url'] = $line->site_url ?: $site?->site_url;
+        $row['link_type'] = $site?->link_type ? (string) $site->link_type : null;
+        $row['publication_time'] = $site?->publication_time ? (string) $site->publication_time : null;
+        $row['catalog_url'] = $line->site_id
+            ? route('advertiser.catalog', ['site' => $line->site_id], false)
+            : null;
         $row['visit_url'] = $line->getAttribute('visit_url');
         $row['live_url'] = $line->live_url;
         $row['live_url_submitted_at'] = self::iso($line->live_url_submitted_at);
@@ -214,6 +314,8 @@ final class AdvertiserOrderDetails
         $row['price'] = $line->price;
         $row['content_source'] = $line->content_source ?? 'buyer';
         $row['writing_fee'] = $line->writing_fee;
+        $row['writing_status'] = $line->writing_status ? (string) $line->writing_status : null;
+        $row['article_approved_at'] = self::iso($line->article_approved_at ?? null);
         $row['additional_price'] = $line->additional_price;
         $row['homepage_price'] = $line->homepage_price;
         $row['homepage_days'] = $line->homepage_days;
@@ -228,6 +330,7 @@ final class AdvertiserOrderDetails
         $row['completion_notes'] = $line->completion_notes;
         $row['accepted_at'] = self::iso($line->accepted_at);
         $row['completed_at'] = self::iso($line->completed_at);
+        $row['article_approved'] = self::itemHasArticleApproved($line);
         if (isset($line->auto_approve_hours_remaining)) {
             $row['auto_approve_hours_remaining'] = (int) $line->auto_approve_hours_remaining;
         }

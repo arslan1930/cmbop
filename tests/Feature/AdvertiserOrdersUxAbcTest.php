@@ -284,7 +284,7 @@ class AdvertiserOrdersUxAbcTest extends TestCase
         $this->assertStringNotContainsString('reportLinkRemoved', $renderOrdersFn[1]);
         $this->assertStringContainsString('window.reportLinkRemoved = function(orderId, itemId)', $js);
         $this->assertStringContainsString('payload.order_item_id', $js);
-        $this->assertStringContainsString('window.recheckLiveUrl = function(orderId, itemId)', $js);
+        $this->assertMatchesRegularExpression('/window\\.recheckLiveUrl\\s*=\\s*function\\s*\\(\\s*orderId\\s*,\\s*itemId/', $js);
         $this->assertStringContainsString('firstItem.visit_url', $js);
         $this->assertStringContainsString('it.visit_url || it.site_url', $js);
         $this->assertStringContainsString('details.visit_url || details.website_url', $js);
