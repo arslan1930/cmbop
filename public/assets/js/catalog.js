@@ -4015,8 +4015,15 @@ function initCatalogSearchLiveRows(searchInput) {
 }
 
 // Pagination, chip remove, clear-all, reset → live fetch (same query allowlist).
+// Capture phase so layout's "restore last catalog URL" bubble listener cannot
+// rewrite bare chip/Clear/Reset hrefs back onto the filtered query first.
 document.addEventListener('click', function (e) {
-    const pageLink = e.target.closest('#catalogResults .pagination a.page-link');
+    const clickEl = e.target && e.target.nodeType === Node.TEXT_NODE
+        ? e.target.parentElement
+        : e.target;
+    if (!clickEl || typeof clickEl.closest !== 'function') return;
+
+    const pageLink = clickEl.closest('#catalogResults .pagination a.page-link');
     if (pageLink && pageLink.getAttribute('href')) {
         e.preventDefault();
         const url = new URL(pageLink.href, window.location.origin);
@@ -4025,9 +4032,11 @@ document.addEventListener('click', function (e) {
         return;
     }
 
-    const chipRemove = e.target.closest('.filter-chip__remove');
+    const chipRemove = clickEl.closest('.filter-chip__remove');
     if (chipRemove && chipRemove.getAttribute('href')) {
         e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
         const url = new URL(chipRemove.href, window.location.origin);
         const params = CatalogUrl.canonicalize(url.searchParams);
         CatalogUrl.applyToForm(params);
@@ -4035,9 +4044,11 @@ document.addEventListener('click', function (e) {
         return;
     }
 
-    const clearAll = e.target.closest('a.catalog-clear-all, a.catalog-reset-filters');
+    const clearAll = clickEl.closest('a.catalog-clear-all, a.catalog-reset-filters');
     if (clearAll && clearAll.getAttribute('href')) {
         e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
         const empty = CatalogUrl.canonicalize(new URLSearchParams());
         // Preserve wizard chrome when clearing filters inside the guided flow.
         const wizard = CatalogUrl.fromLocation().get('wizard');
@@ -4045,7 +4056,7 @@ document.addEventListener('click', function (e) {
         CatalogUrl.applyToForm(empty);
         CatalogLive.apply({ params: empty, history: 'push', keepPage: true });
     }
-});
+}, true);
 
 /**
  * Alt+← / Alt+→ page the catalog when focus is inside the catalog surface.

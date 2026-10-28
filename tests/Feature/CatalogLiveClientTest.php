@@ -125,6 +125,35 @@ class CatalogLiveClientTest extends TestCase
         );
     }
 
+    public function test_active_filter_chips_clear_without_catalog_return_rewrite(): void
+    {
+        $js = $this->catalogJs();
+        $layout = (string) file_get_contents(resource_path('views/advertiser/layouts/app.blade.php'));
+
+        // Layout used to rewrite bare /advertiser/catalog hrefs (chip × / Reset /
+        // Clear all) back to sessionStorage's last filtered URL while already on
+        // the catalog — clicks looked dead. Skip that rewrite on-catalog, and
+        // still exclude the clear controls if the handler is reused elsewhere.
+        $this->assertMatchesRegularExpression(
+            '/if \(onCatalogPage\) return;/',
+            $layout
+        );
+        $this->assertStringContainsString("link.classList.contains('catalog-clear-all')", $layout);
+        $this->assertStringContainsString("link.classList.contains('catalog-reset-filters')", $layout);
+        $this->assertStringContainsString("link.classList.contains('filter-chip__remove')", $layout);
+
+        // Chip / Clear / Reset apply in capture so a later bubble restore cannot win.
+        $this->assertMatchesRegularExpression(
+            '/closest\(\'\.filter-chip__remove\'\)[\s\S]{0,500}?CatalogLive\.apply\([\s\S]{0,200}?\}, true\);/s',
+            $js
+        );
+        $this->assertMatchesRegularExpression(
+            '/closest\(\'a\.catalog-clear-all, a\.catalog-reset-filters\'\)[\s\S]{0,400}?CatalogUrl\.applyToForm\(empty\)/s',
+            $js
+        );
+        $this->assertStringContainsString('CatalogUrl.applyToForm(params)', $js);
+    }
+
     public function test_live_ux_polish_guards_busy_state_and_announcements(): void
     {
         $js = $this->catalogJs();
