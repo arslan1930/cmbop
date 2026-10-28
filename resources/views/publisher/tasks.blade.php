@@ -545,6 +545,39 @@ $(document).ready(function() {
         showTasksModal('acceptModal');
     });
 
+    $(document).on('click', '.accept-pack-all', function() {
+        var packId = $(this).data('pack-id');
+        if (!packId) return;
+        Swal.fire({
+            title: 'Accept all remaining articles?',
+            text: 'Accept every pending article in this pack that belongs to your sites.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Accept all',
+            cancelButtonText: 'Cancel'
+        }).then(function(result) {
+            if (!(result && (result.isConfirmed || result.value === true))) return;
+            $.ajax({
+                url: baseUrl + '/publisher/orders/packs/' + encodeURIComponent(packId) + '/accept-all',
+                method: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire('Success!', response.message || 'Pack articles accepted.', 'success');
+                        loadTasks();
+                        loadStatistics();
+                    } else {
+                        Swal.fire('Error!', response.message || 'Failed to accept pack', 'error');
+                    }
+                },
+                error: function(xhr) {
+                    slbHandleHttpError(xhr, { fallback: 'Failed to accept pack' });
+                }
+            });
+        });
+    });
+
     $(document).on('click', '.reject-task', function() {
         var $btn = $(this);
         $('#reject_order_item_id').val($btn.data('id'));
@@ -1317,8 +1350,15 @@ $(document).ready(function() {
                     viewBtn + chatBtn +
                     '</div>';
             } else if (orderStatus === 'pending') {
+                var packPending = item.pack && parseInt(item.pack.pending_accept_count || 0, 10) > 1
+                    ? parseInt(item.pack.pending_accept_count, 10)
+                    : 0;
+                var acceptAllBtn = (packPending > 1 && item.pack && item.pack.pack_id)
+                    ? '<button class="btn btn-outline-success btn-action-sm accept-pack-all" data-pack-id="' + item.pack.pack_id + '" title="Accept all (' + packPending + ')" aria-label="Accept all remaining pack articles"><i class="fa-solid fa-check-double" aria-hidden="true"></i></button>'
+                    : '';
                 actions = '<div class="action-buttons">' +
                     '<button class="btn btn-success btn-action-sm accept-task" data-id="' + item.id + '" title="Accept" aria-label="Accept order"><i class="fa fa-check" aria-hidden="true"></i></button>' +
+                    acceptAllBtn +
                     '<button class="btn btn-danger btn-action-sm reject-task" data-id="' + item.id + '" data-order-items="' + orderItemsCount + '" title="Reject" aria-label="Reject order"><i class="fa fa-times" aria-hidden="true"></i></button>' +
                     viewBtn + chatBtn +
                     '</div>';
@@ -1383,6 +1423,9 @@ $(document).ready(function() {
                 '<td data-label="Sensitive">' + (additionalPrice > 0 ? '<span class="sensitive-badge"><i class="fa fa-plus-circle"></i> ' + escapeHtml(sensitiveType || 'Extra') + ' (+' + taskMoney(additionalPrice) + ')</span>' : '<span class="text-muted tasks-sensitive-empty">None</span>') + '</td>' +
                 '<td data-label="You earn" class="fw-semibold total-price text-nowrap publisher-task-col-money" style="color: #10b981;">' + taskMoney(totalPrice) + homepageLine + '</td>' +
                 '<td data-label="Status"><span class="status-badge ' + statusMeta.statusClass + '">' + statusMeta.statusText + '</span>' +
+                    (item.pack && item.pack.position_label
+                        ? '<div class="mt-1"><span class="badge text-bg-light border text-muted">' + escapeHtml(item.pack.position_label) + '</span></div>'
+                        : '') +
                     (nextStep ? '<div class="next-step-hint" title="' + escapeHtml(nextStep) + '">' + escapeHtml(nextStep) + '</div>' : '') +
                 '</td>' +
                 '<td class="link-cell" data-label="Content">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="btn btn-sm btn-outline-primary tasks-content-link" rel="noopener noreferrer"><i class="fa fa-download me-1"></i> ' + (item.content_original_name ? 'Document' : 'View') + '</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +

@@ -35,6 +35,8 @@ class Invoice extends Model
 
     public const TYPE_WITHDRAWAL_PAYOUT = 'withdrawal_payout';
 
+    public const TYPE_PACK_RECEIPT = 'pack_receipt';
+
     public const STATUS_ISSUED = 'issued';
 
     public const STATUS_PAID = 'paid';
@@ -53,6 +55,7 @@ class Invoice extends Model
         'status',
         'user_id',
         'order_id',
+        'order_pack_id',
         'reference_code',
         'order_number',
         'currency',

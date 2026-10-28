@@ -831,6 +831,29 @@
                                 Bank, Wise, and crypto use Add Funds first.
                             </p>
 
+                            @if(!empty($packPriceChanges) && is_array($packPriceChanges))
+                                <div class="alert alert-info py-2 px-3 mb-3" role="alert" id="packPriceChangeNotice">
+                                    <div class="fw-semibold mb-1">
+                                        <i class="fa fa-info-circle me-1" aria-hidden="true"></i>
+                                        Pack pricing updated
+                                    </div>
+                                    <p class="small mb-2 mb-md-2">
+                                        Listing prices changed since these packs were added to your cart. You will be charged the new totals below.
+                                    </p>
+                                    <ul class="small mb-0 ps-3">
+                                        @foreach($packPriceChanges as $change)
+                                            <li class="mb-1">
+                                                <strong>{{ $change['site_name'] ?? 'Site' }}</strong>
+                                                · pack of {{ (int) ($change['quantity'] ?? 0) }}:
+                                                <span class="text-decoration-line-through text-muted">{{ format_money_pay($change['old_pack_total'] ?? 0) }}</span>
+                                                →
+                                                <strong>{{ format_money_pay($change['new_pack_total'] ?? 0) }}</strong>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+
                             <button type="button" id="placeOrderBtn" class="btn btn-primary w-100 mt-3">
                                 <i class="fa fa-check-circle"></i> Place Order
                             </button>

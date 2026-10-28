@@ -45,6 +45,7 @@ use App\Mail\OrderApprovedByAdvertiser;
 use App\Mail\OrderPaymentConfirmed;
 use App\Mail\OrderRejected;
 use App\Mail\OrderStatusChanged;
+use App\Mail\PackProgressMail;
 use App\Mail\PartnerCorrectionMail;
 use App\Mail\PartnerEmailChangeCancelMail;
 use App\Mail\PartnerEmailChangeConfirmMail;
@@ -286,6 +287,13 @@ return [
             'audience' => 'advertiser',
             'preference' => 'order_emails',
             'mailable' => LiveUrlSubmitted::class,
+            'default_enabled' => true,
+        ],
+        'pack_progress' => [
+            'name' => 'Pack Progress',
+            'audience' => 'advertiser',
+            'preference' => 'order_emails',
+            'mailable' => PackProgressMail::class,
             'default_enabled' => true,
         ],
         'link_guarantee_restore' => [

@@ -556,6 +556,8 @@ class CartPricingService
             }
 
             $quantity = max(1, (int) ($item['quantity'] ?? 1));
+            $bulkPack = ! empty($item['bulk_pack'])
+                || ($site->joinsBulkDiscount() && $quantity >= \App\Support\BulkDiscount::minQty());
             $hasHomepageKey = array_key_exists('homepage_days', $item);
             $pricing = $this->priceForAdvertiser(
                 $site,
@@ -579,6 +581,7 @@ class CartPricingService
                     'homepage_price' => $pricing['homepage_price'],
                     'social_channels' => $pricing['social_channels'],
                     'copy_number' => $i + 1,
+                    'bulk_pack' => $bulkPack,
                     'list_total' => $pricing['list_total'],
                     'article_total' => $pricing['article_total'],
                     'discount_percent' => $pricing['discount_percent'],

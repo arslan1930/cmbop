@@ -55,8 +55,10 @@ use App\Services\Marketplace\WritingFeeService;
 use App\Services\Mcp\SavedCartSync;
 use App\Services\OrderChatContactGuard;
 use App\Services\OrderPaymentService;
+use App\Services\Advertiser\AdvertiserApiSerializer;
 use App\Services\Orders\ContentRevisionService;
 use App\Services\Orders\OrderClawbackService;
+use App\Services\Orders\OrderPackService;
 use App\Services\Orders\OrderRefundService;
 use App\Services\Partners\PartnerAlertService;
 use App\Services\Partners\PartnerChannel;
@@ -1422,6 +1424,7 @@ class CatalogController extends Controller
         $line['writing_target_url'] = trim((string) ($line['writing_target_url'] ?? ''));
         $line['writing_anchor_text'] = trim((string) ($line['writing_anchor_text'] ?? ''));
         $line = $addons->decorateCartLine($line, $site);
+        $line = app(\App\Services\Orders\OrderPackService::class)->stampQuotedPrice($line);
 
         return $this->applyCartLineContentIds($line, $this->cartLineContentIds($line));
     }
@@ -3442,6 +3445,32 @@ class CatalogController extends Controller
             $checkoutWallet?->currency ?? null
         );
 
+        // Re-normalize so pack quoted vs live prices are stamped for the notice.
+        $packPriceChanges = [];
+        try {
+            $noticeSites = collect($cart)->pluck('id')->filter()->unique()->values();
+            $noticeSiteModels = $noticeSites->isEmpty()
+                ? collect()
+                : Site::query()->whereIn('id', $noticeSites)->get()->keyBy('id');
+            $normalizedForNotices = [];
+            foreach ($cart as $noticeLine) {
+                if (! is_array($noticeLine)) {
+                    continue;
+                }
+                $noticeSite = $noticeSiteModels->get((int) ($noticeLine['id'] ?? 0));
+                if (! $noticeSite) {
+                    continue;
+                }
+                $normalizedForNotices[] = $this->normalizeCartLineForSite($noticeSite, $noticeLine);
+            }
+            $packPriceChanges = app(OrderPackService::class)->priceChangeNotices(
+                $normalizedForNotices !== [] ? $normalizedForNotices : $cart
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Pack price-change notices failed: '.$e->getMessage());
+            $packPriceChanges = [];
+        }
+
         return view('advertiser.checkout', array_merge(compact(
             'cartItems',
             'deferredItems',
@@ -3467,6 +3496,7 @@ class CatalogController extends Controller
             'checkoutSuggestedProjectId',
             'checkoutDuplicateHosts',
             'bankTransferAllowed',
+            'packPriceChanges',
         ), $scheduleContext));
     }
 
@@ -3845,6 +3875,9 @@ class CatalogController extends Controller
                 'site_name' => $site->site_name,
                 'site_url' => $site->site_url,
                 'price' => $orderItem['price'],
+                'bulk_pack' => ! empty($orderItem['bulk_pack']),
+                'discount_percent' => $orderItem['discount_percent'] ?? null,
+                'copy_number' => $orderItem['copy_number'] ?? null,
                 'sensitive_type' => $orderItem['sensitive_type'] ?? null,
                 'additional_price' => $orderItem['additional_price'] ?? 0,
                 'homepage_days' => $orderItem['homepage_days'] ?? null,
@@ -4978,6 +5011,27 @@ class CatalogController extends Controller
                         ]),
                     ]);
                 }
+            }
+
+            try {
+                app(\App\Services\Orders\OrderPackService::class)->linkCreatedOrders(
+                    $createdOrders,
+                    ['lines' => array_map(function ($line) {
+                        $oi = is_array($line['orderItem'] ?? null) ? $line['orderItem'] : [];
+                        $site = $oi['site'] ?? null;
+
+                        return [
+                            'site_id' => $site instanceof Site ? $site->id : ($oi['id'] ?? null),
+                            'bulk_pack' => ! empty($oi['bulk_pack']),
+                            'discount_percent' => $oi['discount_percent'] ?? null,
+                            'price' => $oi['price'] ?? null,
+                        ];
+                    }, $fulfillableLines)]
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Pack link after wallet checkout failed: '.$e->getMessage(), [
+                    'reference_code' => $referenceCode,
+                ]);
             }
 
             DB::commit();
@@ -6550,9 +6604,12 @@ class CatalogController extends Controller
 
             $needsAction = $this->advertiserNeedsActionCount($request, (int) $userId);
 
+            $grouped = app(OrderPackService::class)->groupOrderPayloads($ordersPayload);
+
             return response()->json([
                 'success' => true,
-                'orders' => $ordersPayload,
+                'orders' => $ordersPayload->values()->all(),
+                'grouped' => $grouped,
                 'needs_action' => $needsAction,
                 'pagination' => [
                     'current_page' => $orders->currentPage(),
@@ -7006,6 +7063,21 @@ class CatalogController extends Controller
                 ]);
             }
 
+            try {
+                $packService = app(OrderPackService::class);
+                if ($packService->available() && $order->order_pack_id) {
+                    $pack = $packService->findForOrder($order->fresh());
+                    if ($pack) {
+                        $packService->refreshStatus($pack);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Pack status refresh after approve failed', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             $message = 'Order approved successfully! ';
             if ($order->payment_method === 'wallet') {
                 $message .= '€'.number_format($totalTransferred, 2).' (publisher payout, excluding platform fee) has been transferred to the publisher\'s wallet.';
@@ -7168,6 +7240,15 @@ class CatalogController extends Controller
             : null;
         $payload['project_name'] = $order->relationLoaded('project')
             ? ($order->project?->project_name)
+            : null;
+        $payload['order_pack_id'] = Schema::hasColumn('orders', 'order_pack_id') && $order->order_pack_id
+            ? (int) $order->order_pack_id
+            : null;
+        if (! array_key_exists('can_cancel', $payload)) {
+            $payload['can_cancel'] = app(AdvertiserApiSerializer::class)->cancellable($order);
+        }
+        $payload['pack'] = $payload['order_pack_id']
+            ? app(OrderPackService::class)->summaryForOrder($order)
             : null;
 
         return $payload;
@@ -7758,6 +7839,55 @@ class CatalogController extends Controller
                 $line['orderItem'] = $orderItem;
             }
             $lines[] = $line;
+        }
+
+        // Pack lines (3–10 on one site) are all-or-nothing: if any pack site
+        // left the catalog, drop every line for that site so we never mint a
+        // partial pack under one reference.
+        $bySite = [];
+        foreach ($lines as $idx => $line) {
+            $orderItem = is_array($line['orderItem'] ?? null) ? $line['orderItem'] : [];
+            $site = $orderItem['site'] ?? null;
+            $siteId = $site instanceof Site ? (int) $site->id : (int) ($orderItem['id'] ?? 0);
+            $bySite[$siteId][] = $idx;
+        }
+        $drop = [];
+        foreach ($bySite as $siteId => $indexes) {
+            if ($siteId <= 0 || count($indexes) < BulkDiscount::minQty()) {
+                continue;
+            }
+            $isPack = false;
+            foreach ($indexes as $idx) {
+                $oi = $lines[$idx]['orderItem'] ?? [];
+                if (! empty($oi['bulk_pack'])) {
+                    $isPack = true;
+                    break;
+                }
+            }
+            if (! $isPack && count($indexes) < BulkDiscount::minQty()) {
+                continue;
+            }
+            $originalCount = 0;
+            foreach ($checkoutContent['lines'] ?? [] as $raw) {
+                $oi = is_array($raw['orderItem'] ?? null) ? $raw['orderItem'] : [];
+                $s = $oi['site'] ?? null;
+                $sid = $s instanceof Site ? (int) $s->id : (int) ($oi['id'] ?? 0);
+                if ($sid === (int) $siteId) {
+                    $originalCount++;
+                }
+            }
+            if ($originalCount >= BulkDiscount::minQty() && count($indexes) < $originalCount) {
+                foreach ($indexes as $idx) {
+                    $drop[$idx] = true;
+                }
+            }
+        }
+        if ($drop !== []) {
+            $lines = array_values(array_filter(
+                $lines,
+                fn ($line, $idx) => ! isset($drop[$idx]),
+                ARRAY_FILTER_USE_BOTH
+            ));
         }
 
         return $lines;

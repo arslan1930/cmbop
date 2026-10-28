@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\OrderActivity;
 use App\Models\OrderItem;
 use App\Models\OrderItemDispute;
+use App\Models\OrderPack;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\Billing\AdminInvoiceLinks;
@@ -15,6 +16,7 @@ use App\Services\Billing\InvoiceRepairQueue;
 use App\Services\ContentUpload\ContentUploadService;
 use App\Services\Orders\AdminOrderStatusOverride;
 use App\Services\Orders\OrderClawbackService;
+use App\Services\Orders\OrderPackService;
 use App\Services\Partners\PartnerSandbox;
 use App\Services\Reminders\StalledOrderQueue;
 use App\Support\ArticleDownload;
@@ -393,6 +395,44 @@ class OrderController extends Controller
      * Move a running order between stages when it is stuck on the wrong one.
      * Settling an order stays with approval and refunds — see the service.
      */
+    /**
+     * Cancel remaining not-yet-accepted articles in a pack (admin).
+     */
+    public function cancelPackRest(Request $request, OrderPack $pack, OrderPackService $packs)
+    {
+        if (! $packs->available()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Article packs are not available.',
+            ], 404);
+        }
+
+        try {
+            $result = $packs->cancelRest(
+                $pack,
+                $request->user(),
+                'Admin cancelled the remaining articles in this pack.'
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => $result['cancelled'] > 0
+                    ? 'Cancelled '.$result['cancelled'].' remaining article(s) in the pack.'
+                    : 'No remaining articles could be cancelled.',
+                'result' => $result,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Admin pack cancel-rest failed: '.$e->getMessage(), [
+                'order_pack_id' => $pack->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => UserFacingError::message($e, 'Could not cancel the rest of this pack.'),
+            ], 500);
+        }
+    }
+
     public function updateStatus(Request $request, $id, AdminOrderStatusOverride $override)
     {
         $data = $request->validate([

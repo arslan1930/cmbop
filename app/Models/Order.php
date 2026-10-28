@@ -21,6 +21,7 @@ class Order extends Model
         'user_id',
         'order_number',
         'reference_code',
+        'order_pack_id',
         'checkout_line_key',
         'stripe_session_id',
         'stripe_payment_intent_id',
@@ -296,6 +297,11 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function pack()
+    {
+        return $this->belongsTo(OrderPack::class, 'order_pack_id');
     }
 
     public function items()

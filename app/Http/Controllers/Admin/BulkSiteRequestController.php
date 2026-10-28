@@ -45,6 +45,23 @@ use Illuminate\Validation\ValidationException;
 
 class BulkSiteRequestController extends Controller
 {
+    public function __construct()
+    {
+        // State-changing actions are admin-only. Marketing keeps GET index/show.
+        $this->middleware(function ($request, $next) {
+            if ($request->isMethod('GET') || $request->isMethod('HEAD')) {
+                return $next($request);
+            }
+
+            $user = $request->user();
+            if ($user && method_exists($user, 'isAdmin') && $user->isAdmin()) {
+                return $next($request);
+            }
+
+            abort(403, 'Only admins can change bulk site requests.');
+        })->except(['index', 'show']);
+    }
+
     public function index(Request $request)
     {
         $rawStatus = search_text($request->input('status'));

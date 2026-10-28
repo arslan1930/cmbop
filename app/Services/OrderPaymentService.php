@@ -2093,6 +2093,14 @@ class OrderPaymentService
             $this->rereserveReleasedCheckoutBonus($userId, $referenceCode, $bonusKeep);
         }
 
+        try {
+            app(\App\Services\Orders\OrderPackService::class)->linkCreatedOrders($created, $package);
+        } catch (\Throwable $e) {
+            Log::warning('Pack link after Stripe finalize failed: '.$e->getMessage(), [
+                'reference_code' => $referenceCode,
+            ]);
+        }
+
         $this->forgetPendingCheckoutKeepLeftoverHold($referenceCode, $userId);
 
         Log::info('Materialized Stripe-first card orders after payment', [
@@ -2399,6 +2407,14 @@ class OrderPaymentService
             : 0.0;
         if ($userId > 0) {
             $this->rereserveReleasedCheckoutBonus($userId, $referenceCode, $bonusKeep);
+        }
+
+        try {
+            app(\App\Services\Orders\OrderPackService::class)->linkCreatedOrders($created, $package);
+        } catch (\Throwable $e) {
+            Log::warning('Pack link after PayPal finalize failed: '.$e->getMessage(), [
+                'reference_code' => $referenceCode,
+            ]);
         }
 
         $this->forgetPendingCheckoutKeepLeftoverHold($referenceCode, $userId);
@@ -3182,6 +3198,17 @@ class OrderPaymentService
             $orders = collect($orders)->filter();
             if ($orders->isEmpty()) {
                 return;
+            }
+
+            try {
+                $package = null;
+                $ref = (string) (collect($orders)->first()?->reference_code ?? '');
+                if ($ref !== '') {
+                    $package = $this->getPendingCheckout($ref);
+                }
+                app(\App\Services\Orders\OrderPackService::class)->linkCreatedOrders($orders, is_array($package) ? $package : null);
+            } catch (\Throwable $e) {
+                Log::warning('Pack link after paid checkout failed: '.$e->getMessage());
             }
 
             $freshOrders = collect();

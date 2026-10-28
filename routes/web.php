@@ -67,6 +67,7 @@ use App\Http\Controllers\Advertiser\SiteUrlConcealController;
 use App\Http\Controllers\Advertiser\SiteUrlRevealController;
 use App\Http\Controllers\Advertiser\SiteVisitController;
 use App\Http\Controllers\Advertiser\WebsiteSuggestionController;
+use App\Http\Controllers\Advertiser\OrderPackController;
 use App\Http\Controllers\AnnouncementClickController;
 use App\Http\Controllers\ApiDocs\AdvertiserApiDocsController;
 use App\Http\Controllers\Auth\EmailVerificationController;
@@ -1357,40 +1358,11 @@ $registerStaffOpsRoutes = function () {
     Route::post('/sites/{id}/unarchive', [AdminSiteController::class, 'unarchive'])
         ->name('sites.unarchive');
 
+    // Read-only bulk site request queue (marketing may browse; mutations are admin-only).
     Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
         ->name('bulk-site-requests.index');
-    Route::post('/bulk-site-requests/bulk-claim', [AdminBulkSiteRequestController::class, 'bulkClaim'])
-        ->name('bulk-site-requests.bulk-claim');
-    Route::post('/bulk-site-requests/bulk-assign', [AdminBulkSiteRequestController::class, 'bulkAssign'])
-        ->name('bulk-site-requests.bulk-assign');
-    Route::post('/bulk-site-requests/bulk-remind', [AdminBulkSiteRequestController::class, 'bulkRemind'])
-        ->name('bulk-site-requests.bulk-remind');
-    Route::post('/bulk-site-requests/bulk-cancel', [AdminBulkSiteRequestController::class, 'bulkCancel'])
-        ->name('bulk-site-requests.bulk-cancel');
     Route::get('/bulk-site-requests/{id}', [AdminBulkSiteRequestController::class, 'show'])
         ->name('bulk-site-requests.show');
-    Route::post('/bulk-site-requests/{id}/sheet-sent', [AdminBulkSiteRequestController::class, 'markSheetSent'])
-        ->name('bulk-site-requests.sheet-sent');
-    Route::post('/bulk-site-requests/{id}/notes', [AdminBulkSiteRequestController::class, 'updateNotes'])
-        ->name('bulk-site-requests.notes');
-    Route::post('/bulk-site-requests/{id}/claim', [AdminBulkSiteRequestController::class, 'claim'])
-        ->name('bulk-site-requests.claim');
-    Route::post('/bulk-site-requests/{id}/assign', [AdminBulkSiteRequestController::class, 'assign'])
-        ->name('bulk-site-requests.assign');
-    Route::post('/bulk-site-requests/{id}/remind', [AdminBulkSiteRequestController::class, 'remind'])
-        ->name('bulk-site-requests.remind');
-    Route::post('/bulk-site-requests/{id}/seed', [AdminBulkSiteRequestController::class, 'seed'])
-        ->name('bulk-site-requests.seed');
-    Route::post('/bulk-site-requests/{id}/done', [AdminBulkSiteRequestController::class, 'done'])
-        ->name('bulk-site-requests.done');
-    Route::post('/bulk-site-requests/{id}/draft', [AdminBulkSiteRequestController::class, 'saveDraft'])
-        ->name('bulk-site-requests.draft');
-    Route::post('/bulk-site-requests/{id}/cancel', [AdminBulkSiteRequestController::class, 'cancel'])
-        ->name('bulk-site-requests.cancel');
-    Route::post('/bulk-site-requests/{id}/undo-review', [AdminBulkSiteRequestController::class, 'undoReview'])
-        ->name('bulk-site-requests.undo-review');
-    Route::post('/bulk-site-requests/{id}/publish-now', [AdminBulkSiteRequestController::class, 'publishNow'])
-        ->name('bulk-site-requests.publish-now');
 
     Route::get('/site-enrichment', [SiteEnrichmentController::class, 'index'])
         ->name('site-enrichment.index');
@@ -1435,6 +1407,40 @@ $registerStaffOpsRoutes = function () {
     });
 };
 
+// Bulk site request mutations — admin only (marketing keeps GET list/show).
+$registerBulkSiteRequestWriteRoutes = function () {
+    Route::post('/bulk-site-requests/bulk-claim', [AdminBulkSiteRequestController::class, 'bulkClaim'])
+        ->name('bulk-site-requests.bulk-claim');
+    Route::post('/bulk-site-requests/bulk-assign', [AdminBulkSiteRequestController::class, 'bulkAssign'])
+        ->name('bulk-site-requests.bulk-assign');
+    Route::post('/bulk-site-requests/bulk-remind', [AdminBulkSiteRequestController::class, 'bulkRemind'])
+        ->name('bulk-site-requests.bulk-remind');
+    Route::post('/bulk-site-requests/bulk-cancel', [AdminBulkSiteRequestController::class, 'bulkCancel'])
+        ->name('bulk-site-requests.bulk-cancel');
+    Route::post('/bulk-site-requests/{id}/sheet-sent', [AdminBulkSiteRequestController::class, 'markSheetSent'])
+        ->name('bulk-site-requests.sheet-sent');
+    Route::post('/bulk-site-requests/{id}/notes', [AdminBulkSiteRequestController::class, 'updateNotes'])
+        ->name('bulk-site-requests.notes');
+    Route::post('/bulk-site-requests/{id}/claim', [AdminBulkSiteRequestController::class, 'claim'])
+        ->name('bulk-site-requests.claim');
+    Route::post('/bulk-site-requests/{id}/assign', [AdminBulkSiteRequestController::class, 'assign'])
+        ->name('bulk-site-requests.assign');
+    Route::post('/bulk-site-requests/{id}/remind', [AdminBulkSiteRequestController::class, 'remind'])
+        ->name('bulk-site-requests.remind');
+    Route::post('/bulk-site-requests/{id}/seed', [AdminBulkSiteRequestController::class, 'seed'])
+        ->name('bulk-site-requests.seed');
+    Route::post('/bulk-site-requests/{id}/done', [AdminBulkSiteRequestController::class, 'done'])
+        ->name('bulk-site-requests.done');
+    Route::post('/bulk-site-requests/{id}/draft', [AdminBulkSiteRequestController::class, 'saveDraft'])
+        ->name('bulk-site-requests.draft');
+    Route::post('/bulk-site-requests/{id}/cancel', [AdminBulkSiteRequestController::class, 'cancel'])
+        ->name('bulk-site-requests.cancel');
+    Route::post('/bulk-site-requests/{id}/undo-review', [AdminBulkSiteRequestController::class, 'undoReview'])
+        ->name('bulk-site-requests.undo-review');
+    Route::post('/bulk-site-requests/{id}/publish-now', [AdminBulkSiteRequestController::class, 'publishNow'])
+        ->name('bulk-site-requests.publish-now');
+};
+
 // ✅ Marketing panel — dedicated /marketing workspace + personal task history
 Route::middleware(['auth', 'verified', RoleMiddleware::class.':marketing'])
     ->prefix('marketing')->name('marketing.')
@@ -1451,11 +1457,12 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':marketing'])
 // ✅ Admin panel — /admin (ops + money/users/growth). Marketers hitting /admin are redirected.
 Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMiddleware::class.':admin'])
     ->prefix('admin')->name('admin.')
-    ->group(function () use ($registerStaffOpsRoutes) {
+    ->group(function () use ($registerStaffOpsRoutes, $registerBulkSiteRequestWriteRoutes) {
         Route::redirect('/', '/admin/dashboard', 302);
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])
             ->name('dashboard');
         $registerStaffOpsRoutes();
+        $registerBulkSiteRequestWriteRoutes();
 
         // Records sheet routes must be registered before /sites/{id} wildcards.
         Route::get('/sites/records', [AdminSiteController::class, 'records'])
@@ -1816,6 +1823,9 @@ Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMi
         Route::get('/orders/export', [AdminOrderController::class, 'export'])->name('orders.export');
         Route::get('/orders/items/{orderItem}/content', [AdminOrderController::class, 'downloadContent'])
             ->name('orders.content.download');
+        Route::post('/packs/{pack}/cancel-rest', [AdminOrderController::class, 'cancelPackRest'])
+            ->middleware('throttle:20,1')
+            ->name('packs.cancel-rest');
         Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->name('orders.show');
         Route::post('/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
         Route::post('/orders/{id}/disputes', [AdminOrderDisputeController::class, 'open'])->name('orders.disputes.open');
@@ -2186,6 +2196,13 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
         Route::get('/orders/statistics', [CatalogController::class, 'getOrderStatistics'])->name('orders.statistics');
         Route::get('/orders/{id}', [CatalogController::class, 'getOrder'])->name('orders.get');
 
+        // Article packs (Buy 3–10 on one site)
+        Route::get('/packs/{pack}', [OrderPackController::class, 'show'])->name('packs.show');
+        Route::post('/packs/{pack}/cancel-rest', [OrderPackController::class, 'cancelRest'])
+            ->middleware('throttle:20,1')
+            ->name('packs.cancel-rest');
+        Route::get('/packs/{pack}/receipt', [OrderPackController::class, 'receipt'])->name('packs.receipt');
+
         // Order actions
         Route::post('/orders/{id}/approve', [CatalogController::class, 'approveOrder'])->name('orders.approve');
         Route::post('/order-items/{orderItem}/approve-article', [AdvertiserArticleApprovalController::class, 'approve'])
@@ -2384,6 +2401,9 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':publisher'])
         Route::get('/orders/statistics', [OrderController::class, 'getStatistics'])->name('orders.statistics');
         Route::get('/orders/{id}/details', [OrderController::class, 'getOrderDetails'])->name('orders.details');
         Route::post('/orders/{id}/accept', [OrderController::class, 'acceptOrder'])->name('orders.accept');
+        Route::post('/orders/packs/{pack}/accept-all', [OrderController::class, 'acceptPack'])
+            ->middleware('throttle:20,1')
+            ->name('orders.packs.accept-all');
         Route::post('/orders/{id}/reject', [OrderController::class, 'rejectOrder'])->name('orders.reject');
         Route::post('/orders/{id}/request-content-revision', [OrderController::class, 'requestContentRevision'])
             ->middleware('throttle:20,1')

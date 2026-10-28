@@ -339,6 +339,7 @@ window.AdvertiserOrdersConfig = {
         list: @json(route('advertiser.orders.list', absolute: false)),
         statistics: @json(route('advertiser.orders.statistics', absolute: false)),
         ordersBase: @json(parse_url(url('advertiser/orders'), PHP_URL_PATH) ?: '/advertiser/orders'),
+        packsBase: @json(parse_url(url('advertiser/packs'), PHP_URL_PATH) ?: '/advertiser/packs'),
         ratingsBatch: @json(route('advertiser.ratings.batch', absolute: false)),
         orderTimelineBase: @json(parse_url(url('/notifications/order'), PHP_URL_PATH) ?: '/notifications/order'),
         catalog: @json(route('advertiser.catalog', absolute: false)),
