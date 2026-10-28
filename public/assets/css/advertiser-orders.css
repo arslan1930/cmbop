@@ -565,6 +565,14 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     white-space: nowrap;
     vertical-align: bottom;
 }
+.ov-truncate--smart {
+    max-width: min(100%, 18rem);
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
 .ov-copy-btn {
     border: 0;
     background: transparent;
@@ -753,13 +761,14 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     list-style: none;
     display: flex;
     margin: 0 0 0.45rem;
-    padding: 0.05rem 0 0.2rem;
+    padding: 0.05rem 0 0.35rem;
     overflow-x: auto;
+    scrollbar-width: thin;
 }
 .ov-stepper__step {
     position: relative;
     flex: 1 1 0;
-    min-width: 4.2rem;
+    min-width: 3.6rem;
     display: flex;
     flex-direction: column;
     align-items: center;
