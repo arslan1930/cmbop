@@ -165,13 +165,18 @@
 
   OrderInlineThread.prototype.renderPresence = function (counterpart) {
     if (!this.presenceEl) return;
-    var label = counterpart && counterpart.label ? String(counterpart.label) : '';
-    if (!label) {
+    var role = counterpart && counterpart.role ? String(counterpart.role) : '';
+    var who = role === 'publisher' ? 'Publisher' : (role === 'advertiser' ? 'Advertiser' : '');
+    var text = '';
+    if (counterpart && counterpart.online && who) {
+      text = who + ' online';
+    }
+    if (!text) {
       this.presenceEl.hidden = true;
       this.presenceEl.textContent = '';
       return;
     }
-    this.presenceEl.textContent = label;
+    this.presenceEl.textContent = text;
     this.presenceEl.hidden = false;
   };
 
@@ -185,7 +190,7 @@
     if (!this.messagesEl) return;
     if (!messages || messages.length === 0) {
       this.messagesEl.innerHTML =
-        '<div class="text-center text-muted py-3 small">No messages yet. Start the conversation.</div>';
+        '<div class="order-inline-thread__empty">No messages yet.</div>';
       return;
     }
     this.messagesEl.innerHTML = messages.map(function (msg) {

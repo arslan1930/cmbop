@@ -281,12 +281,12 @@
 </div>
 
 <!-- Order Details Modal -->
-<div class="modal fade" id="orderDetailsModal" tabindex="-1">
+<div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel">
     <div class="modal-dialog modal-dialog-centered modal-xl order-details-dialog">
         <div class="modal-content order-details-content">
             <div class="modal-header py-2">
-                <h5 class="modal-title">Order Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="orderDetailsModalLabel">Order Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body order-details-body">
                 <div id="orderDetailsContent">

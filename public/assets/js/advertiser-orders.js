@@ -1216,22 +1216,57 @@ function bootAdvertiserOrdersPage() {
         return steps;
     }
 
+    function stepTimestamp(order, step) {
+        if (!step || !(step.done || step.current)) return null;
+        const items = Array.isArray(order.items) ? order.items : [];
+        const item = items.find((it) => it && it.live_url) || items[0] || {};
+        const label = String(step.label || '');
+        let raw = null;
+        if (label === 'Completed' || label.indexOf('Completed') === 0) raw = order.completed_at || item.completed_at;
+        else if (label === 'URL delivered') {
+            raw = items.map((it) => it && it.live_url_submitted_at).filter(Boolean).sort()[0] || null;
+        } else if (label === 'Paid' || label === 'Refunded') raw = order.paid_at;
+        else if (label === 'Accepted' || label === 'Scheduled') raw = item.accepted_at || (label === 'Scheduled' ? order.paid_at : null);
+        else if (label === 'Processing' || label === 'Revision') raw = item.accepted_at || null;
+        if (!raw) return null;
+        const text = formatDate(raw);
+        return (!text || text === '—') ? null : text;
+    }
+
     function currentStepDateHtml(order, steps) {
         const current = (steps || []).find((step) => step && step.current);
         if (!current) return '';
-        const items = Array.isArray(order.items) ? order.items : [];
-        const item = items[0] || {};
-        let raw = null;
-        if (current.label === 'Completed') raw = order.completed_at;
-        else if (current.label === 'URL delivered') {
-            raw = items.map((it) => it && it.live_url_submitted_at).filter(Boolean).sort()[0] || null;
-        } else if (current.label === 'Paid') raw = order.paid_at;
-        else if (current.label === 'Accepted' || current.label === 'Scheduled') raw = item.accepted_at || order.paid_at;
-        else if (current.label === 'Processing' || current.label === 'Revision') raw = item.accepted_at || order.updated_at;
-        if (!raw) return '';
-        const label = formatDate(raw);
-        if (!label || label === '—') return '';
-        return `<div class="small text-muted mb-2 ov-step-date">${escapeHtml(current.label)} · ${escapeHtml(label)}</div>`;
+        const stamp = stepTimestamp(order, current);
+        if (!stamp) return '';
+        return `<div class="small text-muted mb-2 ov-step-date">${escapeHtml(current.label)} · ${escapeHtml(stamp)}</div>`;
+    }
+
+    function buildStepperHtml(order, steps) {
+        return `<ol class="ov-stepper" aria-label="Order tracking">${steps.map((step, i) => {
+            const state = step.done ? 'is-done' : (step.current ? 'is-current' : 'is-todo');
+            const stamp = step.done ? stepTimestamp(order, step) : null;
+            return `<li class="ov-stepper__step ${state}">
+                <span class="ov-stepper__node" aria-hidden="true">${i + 1}</span>
+                <span class="ov-stepper__label">${escapeHtml(step.label)}</span>
+                ${stamp ? `<span class="ov-stepper__time">${escapeHtml(stamp)}</span>` : ''}
+            </li>`;
+        }).join('')}</ol>`;
+    }
+
+    function activityTimelineBlock(collapsed) {
+        const toggle = collapsed
+            ? `<button type="button" class="ov-history-toggle" aria-expanded="false" aria-controls="orderActivityTimelineWrap" onclick="toggleOrderHistory(this)">
+                    <i class="fa fa-clock-o" aria-hidden="true"></i>
+                    <span class="ov-history-toggle__label">Show full history</span>
+               </button>`
+            : '<h6 class="mb-2">Activity Timeline</h6>';
+        const hidden = collapsed ? ' hidden' : '';
+        return `${toggle}
+            <div id="orderActivityTimelineWrap"${hidden}>
+                <div id="orderActivityTimeline" class="order-view-timeline">
+                    <div class="text-muted small">Loading activity…</div>
+                </div>
+            </div>`;
     }
 
     function buildAdvertiserTimeline(order) {
@@ -1239,39 +1274,26 @@ function bootAdvertiserOrdersPage() {
 
         if (status === 'cancelled' && order.payment_status === 'refunded') {
             return `<div class="alert alert-secondary py-2 small mb-2">Cancelled · refunded to your wallet (usually instant).</div>
-                <h6>Activity Timeline</h6>
-                <div id="orderActivityTimeline" class="order-view-timeline">
-                    <div class="text-muted small">Loading activity…</div>
-                </div>`;
+                ${activityTimelineBlock(false)}`;
         }
         if (status === 'cancelled') {
             return `<div class="alert alert-secondary py-2 small mb-2">This order was cancelled.</div>
-                <h6>Activity Timeline</h6>
-                <div id="orderActivityTimeline" class="order-view-timeline">
-                    <div class="text-muted small">Loading activity…</div>
-                </div>`;
+                ${activityTimelineBlock(false)}`;
         }
 
         const steps = Array.isArray(order.timeline_steps) && order.timeline_steps.length
             ? order.timeline_steps
             : deriveAdvertiserTimelineSteps(order);
 
-        const statusSteps = `<div class="order-view-status-steps">${steps.map((step, i) => {
-            const cls = step.done ? 'bg-success text-white' : (step.current ? 'bg-info text-white' : 'bg-light text-muted');
-            const arrow = i < steps.length - 1 ? '<span class="ov-arrow">→</span>' : '';
-            return `<span class="badge ${cls}">${i + 1}. ${escapeHtml(step.label)}</span>${arrow}`;
-        }).join('')}</div>`;
-
         const meta = getAdvertiserStatusMeta(order);
         const hint = meta.autoHint
             ? `<div class="small text-muted mb-2"><i class="fa fa-clock-o me-1"></i>${escapeHtml(meta.autoHint)}</div>`
             : '';
 
-        return `${statusSteps}${currentStepDateHtml(order, steps)}${hint}
-            <h6>Activity Timeline</h6>
-            <div id="orderActivityTimeline" class="order-view-timeline">
-                <div class="text-muted small">Loading activity…</div>
-            </div>`;
+        return `<h6>Tracking</h6>
+            ${buildStepperHtml(order, steps)}
+            ${hint}
+            ${activityTimelineBlock(true)}`;
     }
 
     function reconstructOrderActivities(order) {
@@ -1915,17 +1937,24 @@ function bootAdvertiserOrdersPage() {
         });
     }
 
-    function liveUrlHealthBadge(item) {
+    function liveUrlStatusChip(item) {
+        if (!item || !item.live_url) {
+            return '<span class="ov-live-chip ov-live-chip--missing">Link missing</span>';
+        }
         if (item.live_url_check_ok === true) {
-            return '<span class="badge bg-success">Reachable</span>';
+            return '<span class="ov-live-chip ov-live-chip--live">Live</span>';
         }
         if (item.live_url_check_ok === false) {
-            return '<span class="badge bg-warning text-dark">Unreachable / unverified</span>';
+            return '<span class="ov-live-chip ov-live-chip--missing">Link missing</span>';
         }
-        return '<span class="badge bg-secondary">Not checked yet</span>';
+        return '<span class="ov-live-chip ov-live-chip--pending">Not checked yet</span>';
     }
 
-    window.copyOrderLiveUrl = function (url) {
+    function liveUrlHealthBadge(item) {
+        return liveUrlStatusChip(item);
+    }
+
+    function copyTextToClipboard(url, title) {
         const text = String(url || '');
         if (!text) return;
         const done = () => {
@@ -1933,7 +1962,7 @@ function bootAdvertiserOrdersPage() {
                 Swal.fire({
                     toast: true,
                     icon: 'success',
-                    title: 'Live URL copied',
+                    title: title || 'Copied',
                     position: 'top',
                     timer: 1600,
                     showConfirmButton: false,
@@ -1943,7 +1972,39 @@ function bootAdvertiserOrdersPage() {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(done).catch(() => {});
         }
+    }
+
+    window.copyOrderLiveUrl = function (url) {
+        copyTextToClipboard(url, 'Live URL copied');
     };
+
+    window.copyOrderTargetUrl = function (url) {
+        copyTextToClipboard(url, 'Target URL copied');
+    };
+
+    window.toggleOrderHistory = function (btn) {
+        const wrap = document.getElementById('orderActivityTimelineWrap');
+        if (!wrap || !btn) return;
+        const open = wrap.hasAttribute('hidden');
+        if (open) {
+            wrap.removeAttribute('hidden');
+        } else {
+            wrap.setAttribute('hidden', '');
+        }
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        const label = btn.querySelector('.ov-history-toggle__label');
+        if (label) {
+            label.textContent = open ? 'Hide full history' : 'Show full history';
+        }
+    };
+
+    function truncateMiddle(value, max) {
+        const s = String(value || '');
+        const limit = max || 48;
+        if (s.length <= limit) return s;
+        const keep = Math.max(12, limit - 1);
+        return s.slice(0, keep) + '…';
+    }
 
     function ovBlock(label, inner) {
         if (!inner) return '';
@@ -1999,36 +2060,38 @@ function bootAdvertiserOrdersPage() {
         const liveUrl = it.live_url || null;
         const hideEmpty = completed;
         const modRequested = it.modification_requested === 'yes';
-        let healthHtml = '';
-        if (liveUrl) {
-            const checked = it.live_url_checked_at
-                ? ` · checked ${formatDate(it.live_url_checked_at)}`
-                : '';
-            const http = it.live_url_http_status ? ` · HTTP ${it.live_url_http_status}` : '';
-            healthHtml = `
-                <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
-                    ${liveUrlHealthBadge(it)}
-                    <span class="small text-muted">Public reachability check${http}${checked}</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
-                        <i class="fa fa-refresh me-1"></i>Recheck
-                    </button>
-                </div>`;
-        }
+        const checked = it.live_url_checked_at
+            ? ` · checked ${formatDate(it.live_url_checked_at)}`
+            : '';
+        const http = it.live_url_http_status ? ` · HTTP ${it.live_url_http_status}` : '';
+        const recheckBtn = `<button type="button" class="btn btn-sm btn-outline-secondary ov-live-url__recheck" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
+            <i class="fa fa-refresh me-1" aria-hidden="true"></i>Recheck
+        </button>`;
         const liveUrlHtml = liveUrl
             ? `<div class="ov-block ov-live-url">
-                    <strong>Live URL</strong>
-                    <div class="ov-live-url__row">
-                        <a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="live-url">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a>
-                        <div class="ov-live-url__actions">
-                            <a class="btn btn-sm btn-primary" href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer">Open</a>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyOrderLiveUrl(${jsAttr(liveUrl)})">Copy</button>
-                        </div>
+                    <div class="ov-live-url__top">
+                        <strong>Live URL</strong>
+                        ${liveUrlStatusChip(it)}
                     </div>
-                    ${healthHtml}
+                    <a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="ov-live-url__link live-url">${escapeHtml(liveUrl)}</a>
+                    <div class="ov-live-url__meta small text-muted">Public reachability check${http}${checked}</div>
+                    <div class="ov-live-url__actions">
+                        <a class="btn btn-sm btn-primary" href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer">
+                            <i class="fa fa-external-link" aria-hidden="true"></i> Open live URL
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyOrderLiveUrl(${jsAttr(liveUrl)})">Copy</button>
+                        ${recheckBtn}
+                    </div>
                </div>`
             : (completed
-                ? ovBlock('Live URL', '<span class="text-muted">No live URL on file</span>')
-                : `<div class="ov-block"><strong>Live URL</strong><div class="text-muted">Not submitted yet</div></div>`);
+                ? `<div class="ov-block ov-live-url ov-live-url--missing">
+                        <div class="ov-live-url__top"><strong>Live URL</strong>${liveUrlStatusChip(it)}</div>
+                        <div class="text-muted">No live URL on file</div>
+                   </div>`
+                : `<div class="ov-block ov-live-url ov-live-url--pending">
+                        <div class="ov-live-url__top"><strong>Live URL</strong><span class="ov-live-chip ov-live-chip--pending">Not submitted yet</span></div>
+                        <div class="text-muted">The publisher has not sent a live URL yet.</div>
+                   </div>`);
         const homepageDays = it.homepage_days != null ? parseInt(it.homepage_days, 10) : 0;
         const homepageFee = euroNumber(it.homepage_price);
         const homepageHtml = homepageDays
@@ -2064,10 +2127,20 @@ function bootAdvertiserOrdersPage() {
 
         const siteHtml = it.site_name ? escapeHtml(it.site_name) : (hideEmpty ? '' : '—');
         const siteUrlHtml = it.site_url
-            ? `<a href="${safeUrl(it.visit_url || it.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary">${escapeHtml(it.site_url)} <i class="fa fa-external-link fa-xs"></i></a>`
+            ? `<a href="${safeUrl(it.visit_url || it.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary">${escapeHtml(it.site_url)} <i class="fa fa-external-link fa-xs" aria-hidden="true"></i></a>`
             : (hideEmpty ? '' : '—');
+        const fileName = it.content_original_name || 'Download article';
+        const wordCount = parseInt(it.word_count, 10);
+        const wordHtml = Number.isFinite(wordCount) && wordCount > 0
+            ? `<span class="ov-file-chip__meta">${wordCount.toLocaleString('en-US')} words</span>`
+            : '';
         const documentHtml = it.content_link
-            ? `<a href="${safeUrl(it.content_link)}" class="text-primary" target="_blank" rel="noopener noreferrer"><i class="fa fa-download me-1"></i>${escapeHtml(it.content_original_name || 'Download article')}</a>`
+            ? `<div class="ov-file-chip">
+                    <i class="fa fa-file-text-o ov-file-chip__icon" aria-hidden="true"></i>
+                    <span class="ov-file-chip__name" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</span>
+                    ${wordHtml}
+                    <a href="${safeUrl(it.content_link)}" class="ov-file-chip__action" target="_blank" rel="noopener noreferrer">Download</a>
+               </div>`
             : (hideEmpty ? '' : '—');
         const revisionAlert = it.content_revision_requested === 'yes' ? (() => {
             const isLibrary = !!(it.content_submission_id);
@@ -2086,23 +2159,22 @@ function bootAdvertiserOrdersPage() {
         })() : '';
         const anchorHtml = it.anchor_text ? escapeHtml(it.anchor_text) : (hideEmpty ? '' : '—');
         const targetHtml = it.target_url
-            ? `<a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.target_url)}</a>`
+            ? `<span class="ov-url-copy">
+                    <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate" title="${escapeHtml(it.target_url)}">${escapeHtml(truncateMiddle(it.target_url, 42))}</a>
+                    <button type="button" class="ov-copy-btn" onclick="copyOrderTargetUrl(${jsAttr(it.target_url)})" aria-label="Copy target URL">
+                        <i class="fa fa-clone" aria-hidden="true"></i>
+                    </button>
+               </span>`
             : (hideEmpty ? '' : '—');
         const featureHtml = it.feature_image_url
-            ? `<a href="${safeUrl(it.feature_image_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.feature_image_url)}</a>`
+            ? `<a href="${safeUrl(it.feature_image_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate" title="${escapeHtml(it.feature_image_url)}">${escapeHtml(truncateMiddle(it.feature_image_url, 42))}</a>`
             : (hideEmpty ? '' : 'Publisher may choose');
         const complianceHtml = it.moderation_status ? escapeHtml(it.moderation_status) : (hideEmpty ? '' : '—');
-        const submittedHtml = it.live_url_submitted_at && completed
-            ? escapeHtml(formatDate(it.live_url_submitted_at))
-            : '';
-        const completedHtml = it.completed_at && completed
-            ? escapeHtml(formatDate(it.completed_at))
-            : '';
 
         const reportHtml = order.status === 'completed' && itemsCount > 1
             ? (it.can_report_link_removed
-                ? `<div class="ov-block"><button type="button" class="btn btn-sm btn-outline-danger" onclick="reportLinkRemoved(${order.id}, ${it.id || 'null'})">
-                    <i class="fa fa-flag"></i> Report link removed${it.site_name ? ` · ${escapeHtml(it.site_name)}` : ''}
+                ? `<div class="ov-block"><button type="button" class="btn btn-sm ov-report-link" onclick="reportLinkRemoved(${order.id}, ${it.id || 'null'})">
+                    Report link removed${it.site_name ? ` · ${escapeHtml(it.site_name)}` : ''}
                 </button></div>`
                 : (it.dispute_status
                     ? `<div class="ov-block"><span class="badge text-bg-${it.dispute_status === 'upheld' ? 'danger' : (it.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(it.dispute_status)}</span></div>`
@@ -2113,18 +2185,18 @@ function bootAdvertiserOrdersPage() {
             ${idx > 0 ? '<hr class="my-2">' : ''}
             ${heading}
             ${revisionHtml}
-            ${ovBlock('Site', siteHtml)}
-            ${ovBlock('Site URL', siteUrlHtml)}
             ${liveUrlHtml}
+            <div class="ov-pairs">
+                <div class="ov-pair">${siteHtml ? `<span class="ov-pair__label">Site</span><span class="ov-pair__value">${siteHtml}</span>` : ''}</div>
+                <div class="ov-pair">${siteUrlHtml ? `<span class="ov-pair__label">Site URL</span><span class="ov-pair__value">${siteUrlHtml}</span>` : ''}</div>
+                <div class="ov-pair"><span class="ov-pair__label">Anchor text</span><span class="ov-pair__value">${anchorHtml || '—'}</span></div>
+                <div class="ov-pair"><span class="ov-pair__label">Target URL</span><span class="ov-pair__value">${targetHtml || '—'}</span></div>
+                <div class="ov-pair">${featureHtml ? `<span class="ov-pair__label">Feature image</span><span class="ov-pair__value">${featureHtml}</span>` : ''}</div>
+                <div class="ov-pair">${complianceHtml ? `<span class="ov-pair__label">Compliance</span><span class="ov-pair__value">${complianceHtml}</span>` : ''}</div>
+            </div>
             ${ovBlock('Document', documentHtml + revisionAlert)}
-            ${ovBlock('Anchor text', anchorHtml)}
-            ${ovBlock('Target URL', targetHtml)}
-            ${ovBlock('Feature image', featureHtml)}
-            ${ovBlock('Compliance', complianceHtml)}
             ${homepageHtml}
             ${socialHtml}
-            ${ovBlock('URL submitted', submittedHtml)}
-            ${ovBlock('Completed', completedHtml)}
             ${reportHtml}
         `;
     }
@@ -2136,6 +2208,10 @@ function bootAdvertiserOrdersPage() {
         const statusMeta = getAdvertiserStatusMeta(order);
         const timelineHtml = buildAdvertiserTimeline(order);
         const itemsCount = Number(order.items_count) || items.length || 0;
+        const primarySite = items.find((it) => it && it.site_name) || items[0] || {};
+        const summarySite = itemsCount > 1
+            ? `${itemsCount} placements`
+            : (primarySite.site_name || 'Order');
 
         const pricingRows = items.map((it, idx) => {
             const additionalPrice = euroNumber(it.additional_price);
@@ -2145,136 +2221,29 @@ function bootAdvertiserOrdersPage() {
                 + (Number.isFinite(homepagePrice) ? homepagePrice : 0);
             const basePrice = Number.isFinite(linePrice) ? Math.max(0, linePrice - extras) : NaN;
             const label = itemsCount > 1 ? `Item ${idx + 1} · ${escapeHtml(it.site_name || 'Site')}` : 'Base';
-            let rows = `<div class="ov-row"><strong>${label}</strong><span>${formatEuro(basePrice)}</span></div>`;
+            let rows = `<div class="ov-row ov-price-row"><span>${label}</span><span class="ov-price">${formatEuro(basePrice)}</span></div>`;
             if (Number.isFinite(additionalPrice) && additionalPrice > 0) {
-                rows += `<div class="ov-row"><strong>Sensitive</strong><span class="text-warning">+ ${formatEuro(additionalPrice)} (${escapeHtml(it.sensitive_type || 'Extra')})</span></div>`;
+                rows += `<div class="ov-row ov-price-row"><span>Sensitive</span><span class="ov-price text-warning">+ ${formatEuro(additionalPrice)} (${escapeHtml(it.sensitive_type || 'Extra')})</span></div>`;
             }
             if (it.homepage_days || (Number.isFinite(homepagePrice) && homepagePrice > 0)) {
                 const days = parseInt(it.homepage_days, 10) || 0;
-                rows += `<div class="ov-row"><strong>Homepage${days ? ` · ${days} day${days === 1 ? '' : 's'}` : ''}</strong><span>${Number.isFinite(homepagePrice) && homepagePrice > 0 ? `+ ${formatEuro(homepagePrice)}` : 'Free'}</span></div>`;
+                rows += `<div class="ov-row ov-price-row"><span>Homepage${days ? ` · ${days} day${days === 1 ? '' : 's'}` : ''}</span><span class="ov-price">${Number.isFinite(homepagePrice) && homepagePrice > 0 ? `+ ${formatEuro(homepagePrice)}` : 'Free'}</span></div>`;
             }
             return rows;
         }).join('');
 
-        const placementsHtml = items.map((it, idx) => {
-            const liveUrl = it.live_url || null;
-            const modRequested = it.modification_requested === 'yes';
-            let healthHtml = '';
-            if (liveUrl) {
-                const checked = it.live_url_checked_at
-                    ? ` · checked ${formatDate(it.live_url_checked_at)}`
-                    : '';
-                const http = it.live_url_http_status ? ` · HTTP ${it.live_url_http_status}` : '';
-                healthHtml = `
-                    <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
-                        ${liveUrlHealthBadge(it)}
-                        <span class="small text-muted">Public reachability check${http}${checked}</span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
-                            <i class="fa fa-refresh me-1"></i>Recheck
-                        </button>
-                    </div>`;
-            }
-            const liveUrlHtml = liveUrl
-                ? `<div class="ov-block">
-                        <strong>Live URL</strong>
-                        <div><a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="live-url">${escapeHtml(liveUrl)} <i class="fa fa-external-link fa-xs"></i></a></div>
-                        ${healthHtml}
-                   </div>`
-                : `<div class="ov-block"><strong>Live URL</strong><div class="text-muted">Not submitted yet</div></div>`;
-            const homepageDays = it.homepage_days != null ? parseInt(it.homepage_days, 10) : 0;
-            const homepageFee = euroNumber(it.homepage_price);
-            const homepageHtml = homepageDays
-                ? `<div class="ov-block">
-                        <strong>Homepage placement</strong>
-                        <div>${homepageDays} day${homepageDays === 1 ? '' : 's'}${Number.isFinite(homepageFee) && homepageFee > 0 ? ` (+${formatEuro(homepageFee)})` : ' · Free'}</div>
-                   </div>`
-                : '';
-            const socialChannels = Array.isArray(it.social_channels) ? it.social_channels : [];
-            const socialPosts = it.social_post_urls && typeof it.social_post_urls === 'object' ? it.social_post_urls : {};
-            const socialLabel = (ch) => (ch === 'x' ? 'X' : (String(ch).charAt(0).toUpperCase() + String(ch).slice(1)));
-            const socialHtml = socialChannels.length
-                ? `<div class="ov-block">
-                        <strong>Social promotion</strong>
-                        <div>${socialChannels.map(socialLabel).join(', ')} <span class="text-muted">(included)</span></div>
-                        <ul class="mb-0 ps-3 mt-1">
-                            ${socialChannels.map((ch) => {
-                                const url = socialPosts[ch];
-                                if (!url) {
-                                    return `<li class="small text-muted">${socialLabel(ch)}: not submitted yet</li>`;
-                                }
-                                return `<li class="small"><strong>${socialLabel(ch)}:</strong> <a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer" class="live-url">${escapeHtml(url)}</a></li>`;
-                            }).join('')}
-                        </ul>
-                   </div>`
-                : '';
-            const revisionHtml = modRequested && it.completion_notes
-                ? `<div class="ui-callout ui-callout--attention ui-callout--sm ui-callout--flush mb-2"><span class="ui-callout__icon" aria-hidden="true"><i class="fa-solid fa-circle-exclamation"></i></span><div class="ui-callout__body"><strong>Change request:</strong> ${escapeHtml(it.completion_notes)}</div></div>`
-                : '';
-            const heading = itemsCount > 1
-                ? `<h6 class="mt-2 mb-2">Placement ${idx + 1}${it.site_name ? ` · ${escapeHtml(it.site_name)}` : ''}</h6>`
-                : '<h6>Placement</h6>';
+        const invoiceUrl = order.invoice_download_url || order.invoice_url || '';
+        const invoiceHtml = invoiceUrl
+            ? `<div class="ov-invoice"><a href="${safeUrl(invoiceUrl)}">Download invoice</a></div>`
+            : '';
 
-            return `
-                ${idx > 0 ? '<hr class="my-2">' : ''}
-                ${heading}
-                ${revisionHtml}
-                <div class="ov-block">
-                    <strong>Site</strong>
-                    <div>${escapeHtml(it.site_name || '—')}</div>
-                </div>
-                <div class="ov-block">
-                    <strong>Site URL</strong>
-                    <div>${it.site_url ? `<a href="${safeUrl(it.visit_url || it.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary">${escapeHtml(it.site_url)} <i class="fa fa-external-link fa-xs"></i></a>` : '—'}</div>
-                </div>
-                <div class="ov-block">
-                    <strong>Document</strong>
-                    <div>${it.content_link ? `<a href="${safeUrl(it.content_link)}" class="text-primary" target="_blank" rel="noopener noreferrer"><i class="fa fa-download me-1"></i>${escapeHtml(it.content_original_name || 'Download article')}</a>` : '—'}</div>
-                    ${it.content_revision_requested === 'yes' ? (() => {
-                        const isLibrary = !!(it.content_submission_id);
-                        const currentLabel = it.content_original_name
-                            || it.article_title
-                            || (it.content_submission_id ? ('Library article #' + it.content_submission_id) : 'article');
-                        const siteHint = itemsCount > 1 && it.site_name
-                            ? ` for ${escapeHtml(it.site_name)}`
-                            : '';
-                        return `<div class="alert alert-warning py-2 small mt-2 mb-0">
-                            <div>Publisher asked for a revised article${it.content_revision_reason ? ': ' + escapeHtml(it.content_revision_reason) : '.'}</div>
-                            ${(order.status === 'processing' || order.status === 'review') ? `<button type="button" class="btn btn-sm btn-warning mt-2" onclick="fulfillContentRevision(${order.id}, ${it.id || 'null'}, {isLibrary: ${isLibrary ? 'true' : 'false'}, currentLabel: ${jsAttr(currentLabel)}})">
-                                <i class="fa fa-upload"></i> Send revised article${siteHint}
-                            </button>` : ''}
-                        </div>`;
-                    })() : ''}
-                </div>
-                <div class="ov-block">
-                    <strong>Anchor text</strong>
-                    <div>${escapeHtml(it.anchor_text || '—')}</div>
-                </div>
-                <div class="ov-block">
-                    <strong>Target URL</strong>
-                    <div>${it.target_url ? `<a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.target_url)}</a>` : '—'}</div>
-                </div>
-                <div class="ov-block">
-                    <strong>Feature image</strong>
-                    <div>${it.feature_image_url ? `<a href="${safeUrl(it.feature_image_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.feature_image_url)}</a>` : 'Publisher may choose'}</div>
-                </div>
-                <div class="ov-block">
-                    <strong>Compliance</strong>
-                    <div>${escapeHtml(it.moderation_status || '—')}</div>
-                </div>
-                ${homepageHtml}
-                ${socialHtml}
-                ${liveUrlHtml}
-                ${order.status === 'completed' && itemsCount > 1 ? (
-                    it.can_report_link_removed
-                        ? `<div class="ov-block"><button type="button" class="btn btn-sm btn-outline-danger" onclick="reportLinkRemoved(${order.id}, ${it.id || 'null'})">
-                            <i class="fa fa-flag"></i> Report link removed${it.site_name ? ` · ${escapeHtml(it.site_name)}` : ''}
-                        </button></div>`
-                        : (it.dispute_status
-                            ? `<div class="ov-block"><span class="badge text-bg-${it.dispute_status === 'upheld' ? 'danger' : (it.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(it.dispute_status)}</span></div>`
-                            : '')
-                ) : ''}
-            `;
-        }).join('') || '<div class="text-muted">Placement details are missing for this order.</div>';
+        const placementsHtml = items.length
+            ? items.map((it, idx) => renderPlacementCard(order, it, idx, itemsCount)).join('')
+            : emptyPlacementsHtml(order);
+
+        const chatBtn = `<button type="button" class="btn btn-sm btn-primary" onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
+                <i class="fa fa-comments" aria-hidden="true"></i> Chat
+            </button>`;
 
         let actionButtons = '';
         const revisionItems = items.filter((it) => it && it.content_revision_requested === 'yes');
@@ -2284,6 +2253,7 @@ function bootAdvertiserOrdersPage() {
                 <button class="btn btn-sm btn-primary" onclick="retryOrderPayment(${order.id})">
                     <i class="fa fa-credit-card"></i> Pay again
                 </button>
+                ${chatBtn}
             `;
         } else if (needsContentRevision && (order.status === 'processing' || order.status === 'review')) {
             const fulfillButtons = revisionItems.map((revisionItem, idx) => {
@@ -2299,85 +2269,88 @@ function bootAdvertiserOrdersPage() {
                 </button>`;
             }).join('');
             actionButtons = `
+                ${chatBtn}
                 ${fulfillButtons}
-                <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
-                    <i class="fa fa-comments"></i> Chat
-                </button>
             `;
         } else if (isUnderReview && hasAnyLiveUrl) {
             actionButtons = `
+                ${chatBtn}
                 <button class="btn btn-sm btn-success" onclick="approveOrder(${order.id})">
                     <i class="fa fa-check-circle"></i> Approve
                 </button>
                 <button class="btn btn-sm btn-warning" onclick="requestModification(${order.id})">
                     <i class="fa fa-edit"></i> Request changes
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
+                <button class="btn btn-sm btn-outline-secondary" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>
             `;
         } else if (order.status === 'completed') {
-            const liveItem = items.find((it) => it && it.live_url);
             const reportableItems = items.filter((it) => it && it.can_report_link_removed);
             const singleReport = itemsCount <= 1 && reportableItems[0];
             actionButtons = `
-                ${liveItem ? `<a class="btn btn-sm btn-primary" href="${safeUrl(liveItem.live_url)}" target="_blank" rel="noopener noreferrer">
-                    <i class="fa fa-external-link"></i> Open live URL
-                </a>` : ''}
-                <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
-                    <i class="fa fa-comments"></i> Chat
-                </button>
-                ${singleReport ? `<button class="btn btn-sm btn-outline-danger" onclick="reportLinkRemoved(${order.id}, ${reportableItems[0].id || 'null'})">
-                    <i class="fa fa-flag"></i> Report link removed
+                ${chatBtn}
+                ${singleReport ? `<button type="button" class="btn btn-sm ov-report-link" onclick="reportLinkRemoved(${order.id}, ${reportableItems[0].id || 'null'})">
+                    Report link removed
                 </button>` : ''}
                 ${itemsCount <= 1 && order.dispute_status ? `<span class="badge text-bg-${order.dispute_status === 'upheld' ? 'danger' : (order.dispute_status === 'dismissed' ? 'secondary' : 'warning')}">Dispute: ${escapeHtml(order.dispute_status)}</span>` : ''}
             `;
         } else if (!['completed', 'cancelled'].includes(order.status) || order.payment_status === 'refunded') {
             actionButtons = `
-                <button class="btn btn-sm btn-outline-secondary" onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
-                    <i class="fa fa-comments"></i> Chat
-                </button>
-                ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-danger" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
+                ${chatBtn}
+                ${order.status !== 'completed' ? `<button class="btn btn-sm btn-outline-secondary" onclick="raiseIssue(${order.id}, ${jsAttr(order.order_number || '')}, ${jsAttr(statusMeta.label || '')})">
                     <i class="fa fa-flag"></i> Raise an issue
                 </button>` : ''}
             `;
+        } else {
+            actionButtons = chatBtn;
         }
 
-        const shellClass = itemsCount <= 1 ? 'order-view-shell order-view-shell--stack' : 'order-view-shell';
+        const payRef = order.reference_code
+            ? `<span class="ov-pay-ref">Payment ref ${escapeHtml(order.reference_code)}</span>`
+            : '';
+
         const html = `
-            <div class="${shellClass}">
-                <div class="order-view-panel">
-                    <h6>Order details</h6>
-                    <div class="ov-row"><strong>Order #</strong><span>${escapeHtml(order.order_number)}</span></div>
-                    <div class="ov-row"><strong>Date</strong><span>${formatDate(order.created_at)}</span></div>
-                    <div class="ov-row"><strong>Payment</strong><span>${escapeHtml(getPaymentMethodName(order.payment_method))}</span></div>
-                    <div class="ov-row"><strong>Pay status</strong><span class="status-badge ${getPaymentStatusClass(order.payment_status)}">${capitalize(order.payment_status)}</span></div>
-                    <div class="ov-row"><strong>Reference</strong><span>${escapeHtml(order.reference_code || '-')}</span></div>
-                    ${itemsCount > 1 ? `<div class="ov-row"><strong>Items</strong><span>${itemsCount}</span></div>` : ''}
-                    <hr class="my-2">
-                    <h6>Status</h6>
-                    <div class="ov-row"><strong>Now</strong><span class="status-badge ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span></div>
-                    <p class="small text-muted mb-1">${escapeHtml(statusMeta.next)}</p>
-                    ${statusMeta.autoHint ? `<p class="small text-muted mb-1"><i class="fa fa-clock-o me-1"></i>${escapeHtml(statusMeta.autoHint)}</p>` : ''}
-                    <hr class="my-2">
-                    ${pricingRows}
-                    <div class="ov-row"><strong>Total</strong>${orderPaymentRefunded(order)
-                        ? `<span class="fw-bold orders-total--refunded"><s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span></span>`
-                        : `<span class="fw-bold text-primary">${formatEuro(order.total_amount)}</span>`}</div>
-                    ${policyNoteHtml(order)}
+            <div class="order-view-shell order-view-shell--stack">
+                <div class="ov-summary" role="group" aria-label="Order summary">
+                    <div class="ov-summary__site">${escapeHtml(summarySite)}</div>
+                    <div class="ov-summary__id">Order #${escapeHtml(order.order_number || String(order.id || ''))}</div>
+                    <span class="status-badge ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span>
+                    <div class="ov-summary__total">${orderPaymentRefunded(order)
+                        ? `<s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span>`
+                        : formatEuro(order.total_amount)}</div>
+                    <div class="ov-summary__date">${formatDate(order.created_at)}</div>
                 </div>
+                ${statusMeta.next ? `<p class="ov-summary__next small text-muted mb-0">${escapeHtml(statusMeta.next)}</p>` : ''}
 
-                <div class="order-view-panel order-view-panel--scroll">
-                    ${placementsHtml}
-                </div>
-
-                <div class="order-view-panel">
-                    <h6>Tracking</h6>
-                    ${timelineHtml}
-                </div>
-
-                <div class="order-view-panel">
-                    <div id="advertiserOrderThread" data-thread-host="advertiser-details"></div>
+                <div class="ov-columns">
+                    <div class="order-view-col order-view-col--main">
+                        <div class="order-view-panel">
+                            <h6>Order details</h6>
+                            <div class="ov-row"><strong>Payment</strong><span class="ov-pay">${escapeHtml(getPaymentMethodName(order.payment_method))}${payRef}</span></div>
+                            <div class="ov-row"><strong>Pay status</strong><span class="status-badge ${getPaymentStatusClass(order.payment_status)}">${capitalize(order.payment_status)}</span></div>
+                            ${itemsCount > 1 ? `<div class="ov-row"><strong>Items</strong><span>${itemsCount}</span></div>` : ''}
+                            <div class="ov-price-block">
+                                ${pricingRows}
+                                <div class="ov-row ov-price-row ov-price-row--total"><span>Total</span>${orderPaymentRefunded(order)
+                                    ? `<span class="ov-price fw-bold orders-total--refunded"><s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span></span>`
+                                    : `<span class="ov-price fw-bold">${formatEuro(order.total_amount)}</span>`}</div>
+                                ${invoiceHtml}
+                            </div>
+                            ${policyNoteHtml(order)}
+                        </div>
+                        <div class="order-view-panel order-view-panel--scroll">
+                            ${placementsHtml}
+                        </div>
+                    </div>
+                    <div class="order-view-col order-view-col--side">
+                        <div class="order-view-panel">
+                            ${timelineHtml}
+                        </div>
+                        <div class="order-view-panel order-view-panel--messages">
+                            <div id="advertiserOrderThread" data-thread-host="advertiser-details"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -2385,6 +2358,8 @@ function bootAdvertiserOrdersPage() {
         const contentEl = document.getElementById('orderDetailsContent');
         if (contentEl) {
             contentEl.innerHTML = html;
+            const bodyEl = contentEl.closest('.order-details-body');
+            if (bodyEl) bodyEl.scrollTop = 0;
         }
         if (window.OrderInlineThread && order && order.id) {
             window.OrderInlineThread.mount('#advertiserOrderThread', {

@@ -7155,6 +7155,7 @@ class CatalogController extends Controller
         $payload['policy_note'] = AdvertiserOrderDetails::policyNote($order);
         $payload['has_live_url'] = AdvertiserOrderDetails::hasLiveUrl($order);
         $payload['timeline_steps'] = AdvertiserOrderStatus::timelineSteps($order);
+        $payload['invoice_download_url'] = AdvertiserOrderDetails::invoiceDownloadUrl($order);
         $payload['project_id'] = Schema::hasColumn('orders', 'project_id')
             ? ($order->project_id ? (int) $order->project_id : null)
             : null;
