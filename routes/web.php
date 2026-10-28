@@ -2200,6 +2200,48 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':advertiser'])
             ->name('packs.cancel-rest');
         Route::get('/packs/{pack}/receipt', [OrderPackController::class, 'receipt'])->name('packs.receipt');
 
+        // Local/demo helper: seed a bulk pack cart line with a stale quoted price
+        // so checkout shows the pack price-change notice (screenshots / manual QA).
+        if (app()->environment(['local', 'testing'])) {
+            Route::get('/dev/seed-pack-price-change', function () {
+                $site = \App\Models\Site::query()
+                    ->where('domain', 'pack-demo.example')
+                    ->orWhere('bulk_discount_enabled', 1)
+                    ->orderByDesc('id')
+                    ->first();
+                if (! $site) {
+                    return redirect()->route('advertiser.catalog')
+                        ->with('error', 'No bulk-discount site available to seed.');
+                }
+                $svc = app(\App\Services\Orders\OrderPackService::class);
+                $line = [
+                    'id' => $site->id,
+                    'name' => $site->site_name,
+                    'url' => $site->site_url,
+                    'quantity' => 5,
+                    'bulk_pack' => true,
+                    'price' => 80.0,
+                    'list_total' => 100.0,
+                    'discount_percent' => 20,
+                    'quoted_unit_price' => 90.0,
+                    'quoted_list_total' => 100.0,
+                    'quoted_discount_percent' => 10,
+                    'quoted_pack_total' => 450.0,
+                    'quoted_at' => now()->subHour()->toIso8601String(),
+                    'sensitive_type' => null,
+                    'content_source' => 'buyer',
+                    'language' => $site->language,
+                    'languages' => $site->languageCodes(),
+                    'country' => $site->country,
+                    'countries' => $site->countryCodes(),
+                ];
+                $line = $svc->stampQuotedPrice($line);
+                session(['cart' => [$line]]);
+
+                return redirect()->route('advertiser.checkout');
+            })->name('dev.seed-pack-price-change');
+        }
+
         // Order actions
         Route::post('/orders/{id}/approve', [CatalogController::class, 'approveOrder'])->name('orders.approve');
         Route::post('/order-items/{orderItem}/approve-article', [AdvertiserArticleApprovalController::class, 'approve'])

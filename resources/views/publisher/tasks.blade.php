@@ -1354,7 +1354,7 @@ $(document).ready(function() {
                     ? parseInt(item.pack.pending_accept_count, 10)
                     : 0;
                 var acceptAllBtn = (packPending > 1 && item.pack && item.pack.pack_id)
-                    ? '<button class="btn btn-outline-success btn-action-sm accept-pack-all" data-pack-id="' + item.pack.pack_id + '" title="Accept all (' + packPending + ')" aria-label="Accept all remaining pack articles"><i class="fa-solid fa-check-double" aria-hidden="true"></i></button>'
+                    ? '<button class="btn btn-outline-success btn-sm accept-pack-all" data-pack-id="' + item.pack.pack_id + '" title="Accept all remaining articles in this pack (' + packPending + ')" aria-label="Accept all remaining pack articles"><i class="fa-solid fa-check-double me-1" aria-hidden="true"></i>Accept all</button>'
                     : '';
                 actions = '<div class="action-buttons">' +
                     '<button class="btn btn-success btn-action-sm accept-task" data-id="' + item.id + '" title="Accept" aria-label="Accept order"><i class="fa fa-check" aria-hidden="true"></i></button>' +
