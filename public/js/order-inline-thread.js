@@ -192,7 +192,7 @@
     if (!messages || messages.length === 0) {
       this.messagesEl.innerHTML =
         '<div class="order-inline-thread__empty" role="status">' +
-          '<i class="fa fa-comments-o" aria-hidden="true"></i>' +
+          '<i class="fa-solid fa-comments" aria-hidden="true"></i>' +
           '<span>No messages yet</span>' +
         '</div>';
       return;
