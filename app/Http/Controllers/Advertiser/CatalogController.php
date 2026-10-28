@@ -6551,14 +6551,49 @@ class CatalogController extends Controller
             } else {
                 $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
             }
-            $orders = $query->paginate(20);
+            $packService = app(OrderPackService::class);
+            $page = max(1, (int) $request->input('page', 1));
+            $perPage = 20;
+            $pageUnits = null;
+            $pageOrders = collect();
+            $pagination = null;
+
+            if ($packService->available()) {
+                $orderedRows = collect(
+                    (clone $query)->toBase()->select('orders.id', 'orders.order_pack_id')->get()
+                );
+                $units = $packService->collapseOrderedRowsToUnits($orderedRows);
+                $pageSlice = $packService->paginateUnits($units, $page, $perPage);
+                $pageUnits = $packService->expandPackUnitSiblingOrderIds($pageSlice['units']);
+                $pageIds = $packService->flattenUnitIds($pageUnits);
+                $pagination = $pageSlice['pagination'];
+
+                if ($pageIds !== []) {
+                    $loaded = (clone $query)->whereIn('orders.id', $pageIds)->get()->keyBy('id');
+                    $pageOrders = collect($pageIds)
+                        ->map(fn ($id) => $loaded->get((int) $id))
+                        ->filter();
+                }
+            } else {
+                $paginator = $query->paginate($perPage);
+                $pageOrders = collect($paginator->items());
+                $pagination = [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                    'from' => $paginator->firstItem(),
+                    'to' => $paginator->lastItem(),
+                ];
+            }
+
             if (! $loadItems) {
-                foreach ($orders->items() as $order) {
+                foreach ($pageOrders as $order) {
                     $order->setRelation('items', collect());
                 }
             }
 
-            $orderIds = collect($orders->items())->pluck('id');
+            $orderIds = $pageOrders->pluck('id');
             $unreadByOrder = collect();
             try {
                 if (Schema::hasTable('order_chat_messages') && $orderIds->isNotEmpty()) {
@@ -6575,7 +6610,7 @@ class CatalogController extends Controller
             }
 
             $clawbacks = app(OrderClawbackService::class);
-            $ordersPayload = collect($orders->items())->map(function ($order) use ($unreadByOrder, $clawbacks) {
+            $ordersPayload = $pageOrders->map(function ($order) use ($unreadByOrder, $clawbacks) {
                 $order->unread_chat = (int) ($unreadByOrder[$order->id] ?? 0);
                 try {
                     $order->items_count = $order->items->count();
@@ -6604,21 +6639,14 @@ class CatalogController extends Controller
 
             $needsAction = $this->advertiserNeedsActionCount($request, (int) $userId);
 
-            $grouped = app(OrderPackService::class)->groupOrderPayloads($ordersPayload);
+            $grouped = $packService->groupOrderPayloads($ordersPayload, $pageUnits);
 
             return response()->json([
                 'success' => true,
                 'orders' => $ordersPayload->values()->all(),
                 'grouped' => $grouped,
                 'needs_action' => $needsAction,
-                'pagination' => [
-                    'current_page' => $orders->currentPage(),
-                    'last_page' => $orders->lastPage(),
-                    'per_page' => $orders->perPage(),
-                    'total' => $orders->total(),
-                    'from' => $orders->firstItem(),
-                    'to' => $orders->lastItem(),
-                ],
+                'pagination' => $pagination,
             ]);
         } catch (\Throwable $e) {
             Log::error('Stack trace: '.$e->getTraceAsString());

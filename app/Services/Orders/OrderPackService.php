@@ -337,27 +337,290 @@ class OrderPackService
     }
 
     /**
-     * Group list payload: one card per pack + ungrouped singles.
+     * Collapse an already-sorted list of rows into pack/single units so a pack
+     * counts as one pagination item and never splits across pages.
      *
-     * @param  Collection<int, array<string, mixed>>  $orderPayloads
+     * @param  Collection<int, object|array<string, mixed>>  $orderedRows  each with id + order_pack_id
+     * @return list<array{type: string, pack_id: ?int, ids: list<int>}>
+     */
+    public function collapseOrderedRowsToUnits(Collection $orderedRows): array
+    {
+        $byPack = [];
+        foreach ($orderedRows as $row) {
+            $packId = (int) (data_get($row, 'order_pack_id') ?? 0);
+            $id = (int) (data_get($row, 'id') ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            if ($packId > 0) {
+                $byPack[$packId][] = $id;
+            }
+        }
+        foreach ($byPack as $packId => $ids) {
+            $unique = array_values(array_unique($ids));
+            sort($unique);
+            $byPack[$packId] = $unique;
+        }
+
+        $units = [];
+        $seenPacks = [];
+        foreach ($orderedRows as $row) {
+            $packId = (int) (data_get($row, 'order_pack_id') ?? 0);
+            $id = (int) (data_get($row, 'id') ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            if ($packId > 0) {
+                if (isset($seenPacks[$packId])) {
+                    continue;
+                }
+                $seenPacks[$packId] = true;
+                $units[] = [
+                    'type' => 'pack',
+                    'pack_id' => $packId,
+                    'ids' => $byPack[$packId] ?? [$id],
+                ];
+
+                continue;
+            }
+            $units[] = [
+                'type' => 'order',
+                'pack_id' => null,
+                'ids' => [$id],
+            ];
+        }
+
+        return $units;
+    }
+
+    /**
+     * @param  list<array{type: string, pack_id: ?int, ids: list<int>}>  $units
+     * @return array{
+     *     units: list<array{type: string, pack_id: ?int, ids: list<int>}>,
+     *     ids: list<int>,
+     *     pagination: array{current_page: int, last_page: int, per_page: int, total: int, from: ?int, to: ?int}
+     * }
+     */
+    public function paginateUnits(array $units, int $page, int $perPage): array
+    {
+        $perPage = max(1, $perPage);
+        $total = count($units);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = max(1, min($page, $lastPage));
+        $slice = array_slice($units, ($page - 1) * $perPage, $perPage);
+        $ids = [];
+        foreach ($slice as $unit) {
+            foreach ($unit['ids'] as $id) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        $from = $total === 0 ? null : (($page - 1) * $perPage) + 1;
+        $to = $total === 0 ? null : min($page * $perPage, $total);
+
+        return [
+            'units' => $slice,
+            'ids' => $ids,
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+                'from' => $from,
+                'to' => $to,
+            ],
+        ];
+    }
+
+    /**
+     * Ensure every pack unit on a page includes all sibling order ids (ascending),
+     * so a pack card never renders a partial set just because of filters/pagination.
+     *
+     * @param  list<array{type: string, pack_id: ?int, ids: list<int>}>  $units
+     * @return list<array{type: string, pack_id: ?int, ids: list<int>}>
+     */
+    public function expandPackUnitSiblingOrderIds(array $units): array
+    {
+        if (! $this->available()) {
+            return $units;
+        }
+
+        $packIds = [];
+        foreach ($units as $unit) {
+            if (($unit['type'] ?? '') !== 'pack') {
+                continue;
+            }
+            $packId = (int) ($unit['pack_id'] ?? 0);
+            if ($packId > 0) {
+                $packIds[] = $packId;
+            }
+        }
+        $packIds = array_values(array_unique($packIds));
+        if ($packIds === []) {
+            return $units;
+        }
+
+        $siblings = Order::query()
+            ->whereIn('order_pack_id', $packIds)
+            ->orderBy('id')
+            ->get(['id', 'order_pack_id'])
+            ->groupBy(fn (Order $order) => (int) $order->order_pack_id)
+            ->map(fn (Collection $rows) => $rows->pluck('id')->map(fn ($id) => (int) $id)->values()->all());
+
+        foreach ($units as &$unit) {
+            if (($unit['type'] ?? '') !== 'pack') {
+                continue;
+            }
+            $packId = (int) ($unit['pack_id'] ?? 0);
+            if ($packId > 0 && $siblings->has($packId)) {
+                $unit['ids'] = $siblings->get($packId);
+            }
+        }
+        unset($unit);
+
+        return $units;
+    }
+
+    /**
+     * Flatten unit ids after an expand/reorder step.
+     *
+     * @param  list<array{type: string, pack_id: ?int, ids: list<int>}>  $units
+     * @return list<int>
+     */
+    public function flattenUnitIds(array $units): array
+    {
+        $ids = [];
+        foreach ($units as $unit) {
+            foreach ($unit['ids'] ?? [] as $id) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Sort pack child payloads ascending by order id (Pack 1 of N first).
+     *
+     * @param  list<array<string, mixed>>  $children
      * @return list<array<string, mixed>>
      */
-    public function groupOrderPayloads(Collection $orderPayloads): array
+    public function sortPackChildrenAscending(array $children): array
+    {
+        usort($children, function ($a, $b) {
+            $aId = (int) (data_get($a, 'id') ?? data_get($a, 'order_id') ?? 0);
+            $bId = (int) (data_get($b, 'id') ?? data_get($b, 'order_id') ?? 0);
+
+            return $aId <=> $bId;
+        });
+
+        $size = count($children);
+        foreach ($children as $index => &$child) {
+            $position = $index + 1;
+            if (! is_array($child['pack'] ?? null)) {
+                $child['pack'] = [];
+            }
+            $child['pack']['position'] = $position;
+            $child['pack']['pack_size'] = (int) ($child['pack']['pack_size'] ?? $size);
+            $child['pack']['position_label'] = 'Pack '.$position.' of '.$child['pack']['pack_size'];
+        }
+        unset($child);
+
+        return array_values($children);
+    }
+
+    /**
+     * Group publisher task payloads: pack header + ascending children, then singles.
+     *
+     * @param  Collection<int, array<string, mixed>>  $itemPayloads
+     * @param  list<array{type: string, pack_id: ?int, ids: list<int>}>  $pageUnits
+     * @return list<array<string, mixed>>
+     */
+    public function groupPublisherItemPayloads(Collection $itemPayloads, array $pageUnits): array
+    {
+        $byId = $itemPayloads->keyBy(fn ($p) => (int) ($p['id'] ?? 0));
+        $grouped = [];
+
+        foreach ($pageUnits as $unit) {
+            if (($unit['type'] ?? '') === 'pack') {
+                $items = [];
+                foreach ($unit['ids'] ?? [] as $itemId) {
+                    $itemId = (int) $itemId;
+                    if ($itemId > 0 && $byId->has($itemId)) {
+                        $items[] = $byId->get($itemId);
+                    }
+                }
+                if ($items === []) {
+                    continue;
+                }
+                usort($items, function ($a, $b) {
+                    $aOrder = (int) (data_get($a, 'order_id') ?? data_get($a, 'order.id') ?? 0);
+                    $bOrder = (int) (data_get($b, 'order_id') ?? data_get($b, 'order.id') ?? 0);
+                    if ($aOrder === $bOrder) {
+                        return ((int) (data_get($a, 'id') ?? 0)) <=> ((int) (data_get($b, 'id') ?? 0));
+                    }
+
+                    return $aOrder <=> $bOrder;
+                });
+                $items = array_values($items);
+
+                $packId = (int) ($unit['pack_id'] ?? data_get($items[0], 'pack.pack_id') ?? 0);
+                $pack = $packId > 0 ? OrderPack::query()->with('site')->find($packId) : null;
+                $size = (int) (data_get($items[0], 'pack.pack_size') ?? ($pack?->pack_size ?? count($items)));
+                $pending = (int) (data_get($items[0], 'pack.pending_accept_count') ?? 0);
+                $siteName = $pack?->site?->site_name
+                    ?? (string) (data_get($items[0], 'site_name') ?? '');
+                $siteUrl = $pack?->site?->site_url
+                    ?? (string) (data_get($items[0], 'site_url') ?? '');
+
+                $grouped[] = [
+                    'type' => 'pack',
+                    'pack' => [
+                        'id' => $packId,
+                        'pack_id' => $packId,
+                        'label' => $pack?->label() ?? ('Pack of '.max(1, $size)),
+                        'pack_size' => max(1, $size),
+                        'site_name' => $siteName,
+                        'site_url' => $siteUrl,
+                        'pending_accept_count' => $pending,
+                        'items' => $items,
+                    ],
+                ];
+
+                continue;
+            }
+
+            $itemId = (int) (($unit['ids'][0] ?? 0));
+            if ($itemId > 0 && $byId->has($itemId)) {
+                $grouped[] = ['type' => 'item', 'item' => $byId->get($itemId)];
+            }
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * Group list payload: one card per pack + ungrouped singles.
+     * Preserves unit order when $unitOrderPackIds is provided (pack ids / nulls in page order).
+     *
+     * @param  Collection<int, array<string, mixed>>  $orderPayloads
+     * @param  list<array{type: string, pack_id: ?int, ids: list<int>}>|null  $pageUnits
+     * @return list<array<string, mixed>>
+     */
+    public function groupOrderPayloads(Collection $orderPayloads, ?array $pageUnits = null): array
     {
         if (! $this->available()) {
             return $orderPayloads->values()->all();
         }
 
-        $grouped = [];
+        $byId = $orderPayloads->keyBy(fn ($p) => (int) ($p['id'] ?? 0));
         $packBuckets = [];
+        $singles = [];
 
         foreach ($orderPayloads as $payload) {
             $packId = (int) ($payload['order_pack_id'] ?? data_get($payload, 'pack.id') ?? 0);
             if ($packId <= 0) {
-                $grouped[] = [
-                    'type' => 'order',
-                    'order' => $payload,
-                ];
+                $singles[(int) ($payload['id'] ?? 0)] = $payload;
 
                 continue;
             }
@@ -365,21 +628,34 @@ class OrderPackService
         }
 
         foreach ($packBuckets as $packId => $children) {
+            $packBuckets[$packId] = $this->sortPackChildrenAscending($children);
+        }
+
+        $buildPackEntry = function (int $packId, array $children) {
             $pack = OrderPack::query()->with('site')->find($packId);
             if (! $pack) {
-                foreach ($children as $child) {
-                    $grouped[] = ['type' => 'order', 'order' => $child];
-                }
-
-                continue;
+                return array_map(fn ($child) => ['type' => 'order', 'order' => $child], $children);
             }
             $this->refreshStatus($pack);
-            $grouped[] = [
+            $size = max((int) $pack->pack_size, count($children));
+            foreach ($children as $i => &$child) {
+                if (! is_array($child['pack'] ?? null)) {
+                    $child['pack'] = [];
+                }
+                $child['pack']['id'] = $pack->id;
+                $child['pack']['pack_id'] = $pack->id;
+                $child['pack']['position'] = $i + 1;
+                $child['pack']['pack_size'] = $size;
+                $child['pack']['position_label'] = 'Pack '.($i + 1).' of '.$size;
+            }
+            unset($child);
+
+            return [[
                 'type' => 'pack',
                 'pack' => [
                     'id' => $pack->id,
                     'label' => $pack->label(),
-                    'pack_size' => (int) $pack->pack_size,
+                    'pack_size' => $size,
                     'status' => $pack->status,
                     'status_label' => $pack->statusLabel(),
                     'progress_label' => $pack->progressLabel(),
@@ -398,7 +674,59 @@ class OrderPackService
                     'can_cancel_rest' => $this->cancellableRest($pack)->isNotEmpty(),
                     'orders' => $children,
                 ],
-            ];
+            ]];
+        };
+
+        $grouped = [];
+        if (is_array($pageUnits)) {
+            foreach ($pageUnits as $unit) {
+                if (($unit['type'] ?? '') === 'pack') {
+                    $packId = (int) ($unit['pack_id'] ?? 0);
+                    $children = $packBuckets[$packId] ?? [];
+                    if ($children === [] && ! empty($unit['ids'])) {
+                        foreach ($unit['ids'] as $oid) {
+                            if ($byId->has((int) $oid)) {
+                                $children[] = $byId->get((int) $oid);
+                            }
+                        }
+                        $children = $this->sortPackChildrenAscending($children);
+                    }
+                    if ($children === []) {
+                        continue;
+                    }
+                    foreach ($buildPackEntry($packId, $children) as $entry) {
+                        $grouped[] = $entry;
+                    }
+
+                    continue;
+                }
+                $oid = (int) (($unit['ids'][0] ?? 0));
+                if ($oid > 0 && isset($singles[$oid])) {
+                    $grouped[] = ['type' => 'order', 'order' => $singles[$oid]];
+                } elseif ($oid > 0 && $byId->has($oid)) {
+                    $grouped[] = ['type' => 'order', 'order' => $byId->get($oid)];
+                }
+            }
+
+            return $grouped;
+        }
+
+        // Fallback: packs first in encounter order, then leftover singles.
+        $emitted = [];
+        foreach ($orderPayloads as $payload) {
+            $packId = (int) ($payload['order_pack_id'] ?? data_get($payload, 'pack.id') ?? 0);
+            if ($packId > 0) {
+                if (isset($emitted[$packId])) {
+                    continue;
+                }
+                $emitted[$packId] = true;
+                foreach ($buildPackEntry($packId, $packBuckets[$packId] ?? [$payload]) as $entry) {
+                    $grouped[] = $entry;
+                }
+
+                continue;
+            }
+            $grouped[] = ['type' => 'order', 'order' => $payload];
         }
 
         return $grouped;

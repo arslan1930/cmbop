@@ -172,6 +172,33 @@ class ArticlePackOrdersTest extends TestCase
         return [$pack->fresh(), array_map(fn (Order $o) => $o->fresh(), $orders)];
     }
 
+    private function makeSoloOrder(float $unitPrice = 100, string $ref = 'SOLOREF1'): Order
+    {
+        $order = Order::create([
+            'user_id' => $this->advertiser->id,
+            'order_number' => 'S'.random_int(100000, 999999),
+            'reference_code' => $ref,
+            'subtotal' => $unitPrice,
+            'tax' => 0,
+            'total_amount' => $unitPrice,
+            'payment_method' => 'wallet',
+            'payment_status' => 'paid',
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id,
+            'site_id' => $this->site->id,
+            'site_name' => $this->site->site_name,
+            'site_url' => $this->site->site_url,
+            'content_link' => 'https://docs.example/solo-article',
+            'price' => $unitPrice,
+            'publisher_status' => 'pending',
+        ]);
+
+        return $order->fresh('items');
+    }
+
     public function test_pack_creation_links_orders_and_is_idempotent(): void
     {
         [$pack, $orders] = $this->createPack(3);
@@ -215,11 +242,37 @@ class ArticlePackOrdersTest extends TestCase
         $this->assertSame(3, (int) data_get($packGroup, 'pack.pack_size'));
         $this->assertCount(3, data_get($packGroup, 'pack.orders'));
 
+        $childIds = collect(data_get($packGroup, 'pack.orders'))->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $sorted = $childIds;
+        sort($sorted);
+        $this->assertSame($sorted, $childIds, 'Pack children must be ascending Pack 1..N');
+        $this->assertSame('Pack 1 of 3', (string) data_get($packGroup, 'pack.orders.0.pack.position_label'));
+
         $detail = $this->actingAs($this->advertiser)
             ->getJson(route('advertiser.orders.get', $orders[0]->id));
         $detail->assertOk();
         $this->assertSame($pack->id, (int) $detail->json('order.pack.id'));
         $this->assertNotEmpty($detail->json('order.pack.position_label'));
+    }
+
+    public function test_advertiser_pack_counts_as_one_pagination_unit(): void
+    {
+        [$pack] = $this->createPack(5);
+        // One singleton so the page has mixed units.
+        $solo = $this->makeSoloOrder();
+
+        $response = $this->actingAs($this->advertiser)
+            ->getJson(route('advertiser.orders.list', ['per_page' => 20, 'page' => 1]));
+
+        $response->assertOk();
+        $grouped = collect($response->json('grouped'));
+        $this->assertNotNull($grouped->firstWhere('type', 'pack'));
+        // Pack + solo = 2 list units (not 6 rows).
+        $this->assertSame(2, (int) $response->json('pagination.total'));
+        $packOrders = collect(data_get($grouped->firstWhere('type', 'pack'), 'pack.orders'));
+        $this->assertCount(5, $packOrders);
+        $this->assertSame($pack->id, (int) data_get($grouped->firstWhere('type', 'pack'), 'pack.id'));
+        $this->assertTrue($packOrders->pluck('id')->contains($solo->id) === false);
     }
 
     public function test_publisher_sees_pack_badge_and_can_accept_all(): void
@@ -229,21 +282,21 @@ class ArticlePackOrdersTest extends TestCase
         $list = $this->actingAs($this->publisher)
             ->getJson(route('publisher.orders.data'));
         $list->assertOk();
-        $items = collect($list->json('orders') ?? $list->json('data') ?? []);
-        if ($items->isEmpty() && is_array($list->json())) {
-            // Some payloads nest under a different key — pull any row with pack.
-            $items = collect($list->json())->flatten(1)->filter(fn ($row) => is_array($row) && isset($row['pack']));
-        }
-        $withPack = $items->first(fn ($row) => is_array($row) && ! empty($row['pack']));
-        if ($withPack === null) {
-            // Fallback: inspect raw JSON for pack badge keys.
-            $json = $list->getContent();
-            $this->assertStringContainsString('Pack', $json);
-            $this->assertStringContainsString('pending_accept_count', $json);
-        } else {
-            $this->assertGreaterThanOrEqual(1, (int) data_get($withPack, 'pack.pending_accept_count'));
-            $this->assertStringContainsString('Pack', (string) data_get($withPack, 'pack.position_label'));
-        }
+
+        $grouped = collect($list->json('grouped') ?? []);
+        $packGroup = $grouped->firstWhere('type', 'pack');
+        $this->assertNotNull($packGroup, 'Publisher list should return a grouped pack entry');
+        $this->assertSame($pack->id, (int) data_get($packGroup, 'pack.id'));
+        $this->assertGreaterThanOrEqual(1, (int) data_get($packGroup, 'pack.pending_accept_count'));
+        $this->assertStringContainsString('Pack of', (string) data_get($packGroup, 'pack.label'));
+
+        $items = collect(data_get($packGroup, 'pack.items') ?? []);
+        $this->assertCount(3, $items);
+        $orderIds = $items->pluck('order_id')->map(fn ($id) => (int) $id)->all();
+        $sorted = $orderIds;
+        sort($sorted);
+        $this->assertSame($sorted, $orderIds, 'Publisher pack children must be ascending Pack 1..N');
+        $this->assertSame('Pack 1 of 3', (string) data_get($items->first(), 'pack.position_label'));
 
         $accept = $this->actingAs($this->publisher)
             ->postJson(route('publisher.orders.packs.accept-all', $pack));
@@ -256,6 +309,23 @@ class ArticlePackOrdersTest extends TestCase
             $this->assertSame('accepted', $item->publisher_status);
             $this->assertNotNull($item->accepted_at);
         }
+    }
+
+    public function test_publisher_pack_counts_as_one_pagination_unit(): void
+    {
+        [$pack] = $this->createPack(4);
+        $this->makeSoloOrder();
+
+        $list = $this->actingAs($this->publisher)
+            ->getJson(route('publisher.orders.data', ['page' => 1, 'per_page' => 20]));
+        $list->assertOk();
+
+        $this->assertSame(2, (int) $list->json('pagination.total'));
+        $grouped = collect($list->json('grouped'));
+        $packGroup = $grouped->firstWhere('type', 'pack');
+        $this->assertNotNull($packGroup);
+        $this->assertCount(4, data_get($packGroup, 'pack.items'));
+        $this->assertSame($pack->id, (int) data_get($packGroup, 'pack.id'));
     }
 
     public function test_advertiser_and_admin_can_cancel_rest_of_pack(): void

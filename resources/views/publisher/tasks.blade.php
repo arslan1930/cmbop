@@ -1232,7 +1232,7 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(response) {
                 if (response.success) {
-                    renderTasksTable(response.data);
+                    renderTasksTable(response.data, response.grouped);
                     if (response.pagination) {
                         renderPagination(response.pagination);
                         var p = response.pagination;
@@ -1263,9 +1263,42 @@ $(document).ready(function() {
         });
     }
 
-    function renderTasksTable(orderItems) {
-        window._publisherTaskItems = Array.isArray(orderItems) ? orderItems : [];
-        if (!orderItems || orderItems.length === 0) {
+    function renderPackHeaderRow(pack) {
+        var pending = parseInt(pack.pending_accept_count || 0, 10) || 0;
+        var label = (pack.label || ('Pack of ' + (pack.pack_size || ''))) +
+            (pack.site_name ? (' · ' + pack.site_name) : '');
+        var acceptAll = pending > 0
+            ? '<button type="button" class="btn btn-outline-success btn-sm accept-pack-all" data-pack-id="' +
+                escapeHtml(String(pack.pack_id || pack.id || '')) +
+                '" title="Accept all remaining articles in this pack (' + pending + ')" aria-label="Accept all remaining pack articles">' +
+                '<i class="fa-solid fa-check-double me-1" aria-hidden="true"></i>Accept all (' + pending + ')</button>'
+            : '';
+        return '<tr class="tasks-pack-header" data-pack-id="' + escapeHtml(String(pack.pack_id || pack.id || '')) + '">' +
+            '<td colspan="8" class="tasks-pack-header__cell">' +
+            '<div class="tasks-pack-header__inner">' +
+            '<div class="tasks-pack-header__title"><i class="fa-solid fa-layer-group me-2" aria-hidden="true"></i>' +
+            escapeHtml(label) + '</div>' +
+            '<div class="tasks-pack-header__actions">' + acceptAll + '</div>' +
+            '</div></td></tr>';
+    }
+
+    function renderTasksTable(orderItems, grouped) {
+        var flatItems = [];
+        if (Array.isArray(grouped) && grouped.length) {
+            grouped.forEach(function(entry) {
+                if (entry && entry.type === 'pack' && entry.pack && Array.isArray(entry.pack.items)) {
+                    entry.pack.items.forEach(function(item) { flatItems.push(item); });
+                } else if (entry && entry.type === 'item' && entry.item) {
+                    flatItems.push(entry.item);
+                } else if (entry && entry.order_id) {
+                    flatItems.push(entry);
+                }
+            });
+        } else {
+            flatItems = Array.isArray(orderItems) ? orderItems : [];
+        }
+        window._publisherTaskItems = flatItems;
+        if (!flatItems.length) {
             $('#tasksTableBody').html(
                 '<tr><td colspan="8" class="text-center py-5">' +
                 '<div class="mx-auto" style="max-width:420px">' +
@@ -1281,10 +1314,12 @@ $(document).ready(function() {
         
         var html = '';
         window._publisherTasksByOrderId = {};
-        orderItems.forEach(function(item) {
+
+        function appendTaskRow(item, nestClass) {
             if (item.order_id) {
                 window._publisherTasksByOrderId[String(item.order_id)] = item.id;
             }
+            var rowClass = 'tasks-row' + (nestClass ? (' ' + nestClass) : '');
             var orderStatus = item.order ? item.order.status : 'pending';
             var orderNumber = item.order ? item.order.order_number : 'N/A';
             var additionalPrice = parseFloat(item.additional_price || 0);
@@ -1350,15 +1385,8 @@ $(document).ready(function() {
                     viewBtn + chatBtn +
                     '</div>';
             } else if (orderStatus === 'pending') {
-                var packPending = item.pack && parseInt(item.pack.pending_accept_count || 0, 10) > 1
-                    ? parseInt(item.pack.pending_accept_count, 10)
-                    : 0;
-                var acceptAllBtn = (packPending > 1 && item.pack && item.pack.pack_id)
-                    ? '<button class="btn btn-outline-success btn-sm accept-pack-all" data-pack-id="' + item.pack.pack_id + '" title="Accept all remaining articles in this pack (' + packPending + ')" aria-label="Accept all remaining pack articles"><i class="fa-solid fa-check-double me-1" aria-hidden="true"></i>Accept all</button>'
-                    : '';
                 actions = '<div class="action-buttons">' +
                     '<button class="btn btn-success btn-action-sm accept-task" data-id="' + item.id + '" title="Accept" aria-label="Accept order"><i class="fa fa-check" aria-hidden="true"></i></button>' +
-                    acceptAllBtn +
                     '<button class="btn btn-danger btn-action-sm reject-task" data-id="' + item.id + '" data-order-items="' + orderItemsCount + '" title="Reject" aria-label="Reject order"><i class="fa fa-times" aria-hidden="true"></i></button>' +
                     viewBtn + chatBtn +
                     '</div>';
@@ -1412,7 +1440,7 @@ $(document).ready(function() {
             var siteUrl = item.site_url || '';
             var siteHost = tasksSiteHost(siteUrl);
             var nextStep = statusMeta.nextStep || '';
-            html += '<tr class="tasks-row">' +
+            html += '<tr class="' + rowClass + '">' +
                 '<td data-label="Order ID"><strong>#' + escapeHtml(orderNumber) + '</strong></td>' +
                 '<td data-label="Site"><div class="fw-semibold tasks-site-name">' + escapeHtml(item.site_name) + '</div>' +
                     (siteUrl
@@ -1431,7 +1459,27 @@ $(document).ready(function() {
                 '<td class="link-cell" data-label="Content">' + ((item.content_download_url || item.content_link) ? '<a href="' + escapeHtml(item.content_download_url || item.content_link) + '" class="btn btn-sm btn-outline-primary tasks-content-link" rel="noopener noreferrer"><i class="fa fa-download me-1"></i> ' + (item.content_original_name ? 'Document' : 'View') + '</a>' : '<span class="text-muted">Not submitted</span>') + '</td>' +
                 '<td data-label="Action" class="publisher-task-actions-col">' + actions + '</td>' +
                 '</tr>';
-        });
+        }
+
+        if (Array.isArray(grouped) && grouped.length) {
+            grouped.forEach(function(entry) {
+                if (entry && entry.type === 'pack' && entry.pack) {
+                    html += renderPackHeaderRow(entry.pack);
+                    (entry.pack.items || []).forEach(function(item) {
+                        appendTaskRow(item, 'tasks-row--pack-child');
+                    });
+                    return;
+                }
+                var item = (entry && entry.type === 'item' && entry.item) ? entry.item : entry;
+                if (item && item.id) {
+                    appendTaskRow(item, '');
+                }
+            });
+        } else {
+            flatItems.forEach(function(item) {
+                appendTaskRow(item, '');
+            });
+        }
         
         $('#tasksTableBody').html(html);
         

@@ -174,10 +174,56 @@ class OrderController extends Controller
                 $query->whereDate('created_at', '<=', $dateTo);
             }
 
-            $perPage = $request->get('per_page', 20);
-            $orderItems = $query->paginate($perPage);
+            $perPage = max(1, (int) $request->get('per_page', 20));
+            $page = max(1, (int) $request->get('page', 1));
+            $packService = app(OrderPackService::class);
+            $pageUnits = null;
+            $pageItems = collect();
+            $pagination = null;
 
-            $orderIds = collect($orderItems->items())->pluck('order_id')->unique()->values();
+            if ($packService->available()) {
+                $liteRows = (clone $query)->toBase()
+                    ->select('order_items.id', 'order_items.order_id')
+                    ->get();
+                $orderIdsForPack = $liteRows->pluck('order_id')->unique()->filter()->values()->all();
+                $packByOrderId = $orderIdsForPack === []
+                    ? collect()
+                    : Order::query()->whereIn('id', $orderIdsForPack)->pluck('order_pack_id', 'id');
+                $orderedRows = $liteRows->map(function ($row) use ($packByOrderId) {
+                    return (object) [
+                        'id' => (int) $row->id,
+                        'order_pack_id' => (int) ($packByOrderId[$row->order_id] ?? 0),
+                    ];
+                });
+                $units = $packService->collapseOrderedRowsToUnits($orderedRows);
+                $pageSlice = $packService->paginateUnits($units, $page, $perPage);
+                $pageUnits = $pageSlice['units'];
+                $pageIds = $pageSlice['ids'];
+                $pagination = $pageSlice['pagination'];
+
+                if ($pageIds !== []) {
+                    $loaded = OrderItem::with(['order.user', 'site', 'disputes'])
+                        ->whereIn('id', $pageIds)
+                        ->get()
+                        ->keyBy('id');
+                    $pageItems = collect($pageIds)
+                        ->map(fn ($id) => $loaded->get((int) $id))
+                        ->filter();
+                }
+            } else {
+                $paginator = $query->paginate($perPage);
+                $pageItems = collect($paginator->items());
+                $pagination = [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                    'from' => $paginator->firstItem(),
+                    'to' => $paginator->lastItem(),
+                ];
+            }
+
+            $orderIds = $pageItems->pluck('order_id')->unique()->values();
             $unreadByOrder = OrderChatMessage::whereIn('order_id', $orderIds)
                 ->where('sender_type', 'advertiser')
                 ->where('is_read', false)
@@ -205,10 +251,9 @@ class OrderController extends Controller
                 ->groupBy('order_id')
                 ->pluck('items_count', 'order_id');
 
-            $packService = app(OrderPackService::class);
             $packBadgeByPackId = [];
             if ($packService->available()) {
-                $packIds = collect($orderItems->items())
+                $packIds = $pageItems
                     ->map(fn ($item) => (int) ($item->order?->order_pack_id ?? 0))
                     ->filter(fn ($id) => $id > 0)
                     ->unique()
@@ -235,7 +280,7 @@ class OrderController extends Controller
 
             // Transform data to include sensitive price info and auto-approve fields
             $transformedItems = [];
-            foreach ($orderItems->items() as $item) {
+            foreach ($pageItems as $item) {
                 $packMeta = null;
                 $packId = (int) ($item->order?->order_pack_id ?? 0);
                 if ($packId > 0 && isset($packBadgeByPackId[$packId])) {
@@ -313,17 +358,15 @@ class OrderController extends Controller
                 ];
             }
 
+            $grouped = is_array($pageUnits)
+                ? $packService->groupPublisherItemPayloads(collect($transformedItems), $pageUnits)
+                : null;
+
             return response()->json([
                 'success' => true,
                 'data' => $transformedItems,
-                'pagination' => [
-                    'current_page' => $orderItems->currentPage(),
-                    'last_page' => $orderItems->lastPage(),
-                    'per_page' => $orderItems->perPage(),
-                    'total' => $orderItems->total(),
-                    'from' => $orderItems->firstItem(),
-                    'to' => $orderItems->lastItem(),
-                ],
+                'grouped' => $grouped,
+                'pagination' => $pagination,
             ]);
 
         } catch (\Exception $e) {
