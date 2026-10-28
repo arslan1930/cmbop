@@ -3207,10 +3207,15 @@ const CatalogLive = (function () {
             html += '<span class="badge rounded-pill filter-chip">'
                 + catalogEscapeHtml(chip.label)
                 + '<a href="' + catalogEscapeHtml(href) + '" class="filter-chip__remove" aria-label="Remove filter: '
-                + catalogEscapeHtml(chip.label) + '" title="Remove this filter">&times;</a></span>';
+                + catalogEscapeHtml(chip.label)
+                // data-no-tip: a glass tip over × / Clear all stole clicks (pointer-events).
+                + '" data-no-tip="1" title="Remove this filter">&times;</a></span>';
         });
         html += '<a href="' + catalogEscapeHtml(CatalogUrl.path) + '" class="small ms-1 catalog-clear-all">Clear all</a></div>';
         host.innerHTML = html;
+        if (window.GlassTip && typeof window.GlassTip.enhance === 'function') {
+            window.GlassTip.enhance(host);
+        }
     }
 
     function syncMoreFiltersBadge(params) {
@@ -4037,6 +4042,12 @@ document.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        // Drop a pending live debounce so a late keystroke cannot re-apply
+        // filters after this chip remove / clear.
+        if (catalogFilterLiveTimer) {
+            clearTimeout(catalogFilterLiveTimer);
+            catalogFilterLiveTimer = null;
+        }
         const url = new URL(chipRemove.href, window.location.origin);
         const params = CatalogUrl.canonicalize(url.searchParams);
         CatalogUrl.applyToForm(params);
@@ -4049,6 +4060,10 @@ document.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        if (catalogFilterLiveTimer) {
+            clearTimeout(catalogFilterLiveTimer);
+            catalogFilterLiveTimer = null;
+        }
         const empty = CatalogUrl.canonicalize(new URLSearchParams());
         // Preserve wizard chrome when clearing filters inside the guided flow.
         const wizard = CatalogUrl.fromLocation().get('wizard');

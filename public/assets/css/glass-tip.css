@@ -97,6 +97,12 @@ abbr[title] {
 .glass-tip.is-visible {
   opacity: 1;
   transform: translateY(0);
+  /* Stay non-interactive on hover so the tip cannot cover × / Clear all /
+     Buy and swallow the click. Only a pinned tip needs hit-testing. */
+  pointer-events: none;
+}
+
+.glass-tip.is-visible.is-pinned {
   pointer-events: auto;
 }
 

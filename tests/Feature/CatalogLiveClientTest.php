@@ -156,6 +156,17 @@ class CatalogLiveClientTest extends TestCase
             $js
         );
         $this->assertStringContainsString('CatalogUrl.applyToForm(params)', $js);
+        // Chip × keeps a native title for no-JS, but opts out of GlassTip so a
+        // hover panel cannot cover × / Clear all and swallow the click.
+        $this->assertStringContainsString('data-no-tip="1"', $js);
+        $blade = (string) file_get_contents(resource_path('views/advertiser/catalog.blade.php'));
+        $this->assertStringContainsString('data-no-tip="1"', $blade);
+        $glassCss = (string) file_get_contents(public_path('assets/css/glass-tip.css'));
+        $this->assertMatchesRegularExpression(
+            '/\.glass-tip\.is-visible\s*\{[^}]*pointer-events:\s*none/s',
+            $glassCss
+        );
+        $this->assertStringContainsString('.glass-tip.is-visible.is-pinned', $glassCss);
     }
 
     public function test_live_ux_polish_guards_busy_state_and_announcements(): void

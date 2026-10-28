@@ -246,10 +246,11 @@
 
       tip.hidden = false;
       tip.style.visibility = 'hidden';
-      tip.classList.remove('is-visible');
+      tip.classList.remove('is-visible', 'is-pinned');
       tip.style.top = '0px';
       tip.style.left = '0px';
-      // Hover-only / adopted titles must never steal clicks from Add to cart.
+      // Hover-only / adopted titles must never steal clicks from Add to cart /
+      // filter-chip × / Clear all. Inline style backs up .glass-tip CSS.
       tip.style.pointerEvents = isHoverOnlyTip(trigger) ? 'none' : '';
       measureAndPlace(trigger);
       tip.style.visibility = '';
@@ -257,6 +258,9 @@
       requestAnimationFrame(function () {
         measureAndPlace(trigger);
         tip.classList.add('is-visible');
+        if (trigger.getAttribute('data-glass-tip-pinned') === '1') {
+          tip.classList.add('is-pinned');
+        }
       });
 
       if (active && active !== trigger) {
@@ -278,10 +282,11 @@
     hideTimer = setTimeout(function () {
       var tip = tipEl;
       if (!tip) return;
-      tip.classList.remove('is-visible');
+      tip.classList.remove('is-visible', 'is-pinned');
 
       var finish = function () {
         tip.hidden = true;
+        tip.style.pointerEvents = '';
         if (current) {
           current.classList.remove('is-open');
           setExpanded(current, false);
@@ -342,6 +347,7 @@
 
     if (active === trigger && trigger.getAttribute('data-glass-tip-pinned') === '1') {
       trigger.removeAttribute('data-glass-tip-pinned');
+      if (tipEl) tipEl.classList.remove('is-pinned');
       hide(true);
       return;
     }

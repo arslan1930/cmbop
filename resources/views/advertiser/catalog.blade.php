@@ -848,6 +848,7 @@
                                 <a href="{{ $chipRemoveUrl }}"
                                    class="filter-chip__remove"
                                    aria-label="Remove filter: {{ $chip['label'] }}"
+                                   data-no-tip="1"
                                    title="Remove this filter">&times;</a>
                             </span>
                         @endforeach
