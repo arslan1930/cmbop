@@ -2358,6 +2358,8 @@ function bootAdvertiserOrdersPage() {
         const contentEl = document.getElementById('orderDetailsContent');
         if (contentEl) {
             contentEl.innerHTML = html;
+            const bodyEl = contentEl.closest('.order-details-body');
+            if (bodyEl) bodyEl.scrollTop = 0;
         }
         if (window.OrderInlineThread && order && order.id) {
             window.OrderInlineThread.mount('#advertiserOrderThread', {
