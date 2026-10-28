@@ -144,11 +144,15 @@ class CatalogLiveClientTest extends TestCase
 
         // Chip / Clear / Reset apply in capture so a later bubble restore cannot win.
         $this->assertMatchesRegularExpression(
-            '/closest\(\'\.filter-chip__remove\'\)[\s\S]{0,500}?CatalogLive\.apply\([\s\S]{0,200}?\}, true\);/s',
+            '/closest\(\'\.filter-chip__remove\'\)[\s\S]*?CatalogLive\.apply\(\{ params: params, history: \'push\', keepPage: true \}\);/',
             $js
         );
         $this->assertMatchesRegularExpression(
-            '/closest\(\'a\.catalog-clear-all, a\.catalog-reset-filters\'\)[\s\S]{0,400}?CatalogUrl\.applyToForm\(empty\)/s',
+            '/closest\(\'a\.catalog-clear-all, a\.catalog-reset-filters\'\)[\s\S]*?CatalogUrl\.applyToForm\(empty\)/',
+            $js
+        );
+        $this->assertMatchesRegularExpression(
+            '/CatalogLive\.apply\(\{ params: empty, history: \'push\', keepPage: true \}\);\s*\}\s*\}, true\);/s',
             $js
         );
         $this->assertStringContainsString('CatalogUrl.applyToForm(params)', $js);
