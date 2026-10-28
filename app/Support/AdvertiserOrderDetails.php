@@ -2,10 +2,12 @@
 
 namespace App\Support;
 
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderItem;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Advertiser Order Details modal: payload flags, honest empty copy, and
@@ -129,6 +131,12 @@ final class AdvertiserOrderDetails
      */
     public static function presentItems(Order $order): array
     {
+        try {
+            $order->loadMissing('items.contentSubmission');
+        } catch (\Throwable) {
+            // Leftover hosts may not have content_submissions.
+        }
+
         return $order->items
             ->filter(fn ($line) => $line instanceof OrderItem)
             ->map(fn (OrderItem $line) => self::presentItem($line))
@@ -137,15 +145,50 @@ final class AdvertiserOrderDetails
     }
 
     /**
-     * @return array<string, mixed>
+     * Billing & Invoices download URL for this order, or null when none exists.
      */
+    public static function invoiceDownloadUrl(Order $order): ?string
+    {
+        try {
+            if (! Schema::hasTable('invoices')) {
+                return null;
+            }
+
+            $invoice = Invoice::query()
+                ->where('user_id', $order->user_id)
+                ->where('type', Invoice::TYPE_TAX_INVOICE)
+                ->where('status', '!=', Invoice::STATUS_CANCELLED)
+                ->where(function ($q) use ($order) {
+                    $q->where('order_id', $order->id);
+                    if (filled($order->reference_code)) {
+                        $q->orWhere('reference_code', $order->reference_code);
+                    }
+                    if (filled($order->order_number)) {
+                        $q->orWhere('order_number', $order->order_number);
+                    }
+                })
+                ->latest('id')
+                ->first();
+
+            if (! $invoice || ! $invoice->advertiserCanDownloadPdf()) {
+                return null;
+            }
+
+            return route('advertiser.billing.download', $invoice, false);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     public static function presentItem(OrderItem $line): array
     {
         $site = $line->relationLoaded('site') ? $line->site : null;
+        $submission = $line->relationLoaded('contentSubmission') ? $line->contentSubmission : null;
         $line->unsetRelation('site');
         $line->unsetRelation('latestDispute');
+        $line->unsetRelation('contentSubmission');
         $row = $line->toArray();
-        unset($row['site'], $row['latest_dispute'], $row['latestDispute']);
+        unset($row['site'], $row['latest_dispute'], $row['latestDispute'], $row['content_submission'], $row['contentSubmission']);
 
         $row['id'] = $line->id;
         $row['site_id'] = $line->site_id;
@@ -158,8 +201,11 @@ final class AdvertiserOrderDetails
         $row['live_url_http_status'] = $line->live_url_http_status;
         $row['live_url_check_ok'] = $line->live_url_check_ok;
         $row['content_link'] = $line->content_link;
-        $row['content_original_name'] = $line->content_original_name;
+        $row['content_original_name'] = $line->content_original_name ?: $submission?->original_filename;
         $row['content_submission_id'] = $line->content_submission_id;
+        $row['word_count'] = $submission && $submission->word_count
+            ? (int) $submission->word_count
+            : null;
         $row['content_revision_requested'] = $line->content_revision_requested;
         $row['content_revision_reason'] = $line->content_revision_reason;
         $row['anchor_text'] = $line->anchor_text;

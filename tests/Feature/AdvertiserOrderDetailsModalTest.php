@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentSubmission;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Role;
@@ -235,6 +237,15 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('This order has no line items on file', $js);
         $this->assertStringContainsString('Open live URL', $js);
         $this->assertStringContainsString('copyOrderLiveUrl', $js);
+        $this->assertStringContainsString('copyOrderTargetUrl', $js);
+        $this->assertStringContainsString('ov-summary', $js);
+        $this->assertStringContainsString('ov-stepper', $js);
+        $this->assertStringContainsString('Show full history', $js);
+        $this->assertStringContainsString('Payment ref', $js);
+        $this->assertStringContainsString('ov-file-chip', $js);
+        $this->assertStringContainsString('invoice_download_url', $js);
+        $this->assertStringContainsString('ov-report-link', $js);
+        $this->assertStringNotContainsString('btn-outline-danger" onclick="reportLinkRemoved', $js);
         $this->assertMatchesRegularExpression('/requestModification\\s*=\\s*function[\\s\\S]*hideOrderDetailsModal/', $js);
         $this->assertMatchesRegularExpression('/reportLinkRemoved\\s*=\\s*function[\\s\\S]*hideOrderDetailsModal/', $js);
         $this->assertMatchesRegularExpression('/fulfillContentRevision\\s*=\\s*function[\\s\\S]*hideOrderDetailsModal/', $js);
@@ -403,6 +414,103 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertSame('https://live.example/no-nested-site', $detail['items'][0]['live_url']);
         $this->assertArrayNotHasKey('site', $detail['items'][0]);
         $this->assertArrayNotHasKey('latest_dispute', $detail['items'][0]);
+        $this->assertArrayNotHasKey('content_submission', $detail['items'][0]);
+    }
+
+    public function test_get_order_includes_invoice_download_url_when_tax_invoice_exists(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher, 'Invoice Site');
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'completed',
+            'completed_at' => now(),
+        ]);
+        $invoice = Invoice::create([
+            'invoice_number' => 'INV-2026-000042',
+            'type' => Invoice::TYPE_TAX_INVOICE,
+            'status' => Invoice::STATUS_PAID,
+            'user_id' => $advertiser->id,
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'reference_code' => $order->reference_code,
+            'currency' => 'EUR',
+            'subtotal' => 50,
+            'tax_amount' => 0,
+            'discount_amount' => 0,
+            'total_amount' => 50,
+            'invoice_date' => now(),
+            'customer_name' => $advertiser->name,
+            'customer_email' => $advertiser->email,
+            'line_items' => [],
+            'pdf_disk' => 'local',
+        ]);
+
+        $detail = $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.get', $order->id))
+            ->assertOk()
+            ->json('order');
+
+        $this->assertSame(
+            route('advertiser.billing.download', $invoice, false),
+            $detail['invoice_download_url']
+        );
+    }
+
+    public function test_get_order_omits_invoice_download_when_none_exists(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher, 'No Invoice Site');
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'completed',
+            'completed_at' => now(),
+        ]);
+
+        $detail = $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.get', $order->id))
+            ->assertOk()
+            ->json('order');
+
+        $this->assertNull($detail['invoice_download_url']);
+    }
+
+    public function test_get_order_includes_word_count_from_linked_submission(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher, 'Word Count Site');
+        $submission = ContentSubmission::create([
+            'user_id' => $advertiser->id,
+            'title' => 'Guest article',
+            'original_filename' => 'guest-article.docx',
+            'disk' => 'local',
+            'path' => 'content-uploads/demo.docx',
+            'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'extension' => 'docx',
+            'size_bytes' => 12,
+            'word_count' => 842,
+            'moderation_status' => ContentSubmission::STATUS_APPROVED,
+            'anchor_text' => 'guest post',
+            'target_url' => 'https://advertiser.example/page',
+        ]);
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'completed',
+            'completed_at' => now(),
+        ], [
+            'content_submission_id' => $submission->id,
+            'content_original_name' => 'guest-article.docx',
+            'live_url' => 'https://live.example/word-count',
+        ]);
+
+        $detail = $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.get', $order->id))
+            ->assertOk()
+            ->json('order');
+
+        $this->assertSame(842, $detail['items'][0]['word_count']);
+        $this->assertSame('guest-article.docx', $detail['items'][0]['content_original_name']);
+        $this->assertArrayNotHasKey('content_submission', $detail['items'][0]);
     }
 
     public function test_stacked_modal_css_scrolls_instead_of_clipping(): void
@@ -537,6 +645,20 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('Your post is live', $meta['next']);
         $this->assertStringNotContainsString('link may be down', $meta['label']);
         $this->assertStringNotContainsString('link may be down', $meta['next']);
+    }
+
+    public function test_orders_page_renders_details_modal_shell(): void
+    {
+        $advertiser = $this->advertiser();
+
+        $this->actingAs($advertiser)
+            ->get(route('advertiser.orders'))
+            ->assertOk()
+            ->assertSee('id="orderDetailsModal"', false)
+            ->assertSee('orderDetailsModalLabel', false)
+            ->assertSee('modal-xl', false)
+            ->assertSee('orderDetailsContent', false)
+            ->assertSee('orderDetailsActions', false);
     }
 
     /**
