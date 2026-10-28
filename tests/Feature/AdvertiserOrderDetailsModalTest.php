@@ -763,18 +763,35 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('docsAndTermsCardHtml', $js);
         $this->assertStringContainsString('orderHasArticleApproved', $js);
         $this->assertStringContainsString("label: 'Article approved'", $js);
+        $this->assertStringContainsString('trackingDurationHtml', $js);
+        $this->assertStringContainsString('Completed in', $js);
+        $this->assertStringContainsString('Day ${days} since payment', $js);
+        $this->assertStringContainsString('ov-tracking-head', $js);
+        $this->assertStringContainsString('ov-stepper__check', $js);
+        $this->assertStringContainsString('formatDateTime', $js);
         $this->assertStringNotContainsString('Pay status', $js);
         $this->assertDoesNotMatchRegularExpression(
             '/buildAdvertiserTimeline[\\s\\S]{0,900}linkTermsChipsHtml\\(order\\)/',
             $js,
             'Link terms belong in the side stack, not inside Tracking'
         );
+        $this->assertMatchesRegularExpression(
+            '/ov-tracking-head[\\s\\S]{0,250}historyToggleHtml\\(\\)/',
+            $js,
+            'Show full history belongs on the Tracking title row'
+        );
+        $this->assertStringContainsString('function historyToggleHtml', $js);
+        $this->assertStringContainsString('Show full history', $js);
 
         $this->assertStringContainsString('.ov-policy__full', $css);
         $this->assertStringContainsString('.ov-receipt-card', $css);
         $this->assertStringContainsString('.ov-live-chip-actions', $css);
         $this->assertStringContainsString('.ov-summary__amount', $css);
         $this->assertStringContainsString('ov-step-fill-y', $css);
+        $this->assertStringContainsString('.ov-tracking-head', $css);
+        $this->assertStringContainsString('.ov-tracking-duration', $css);
+        $this->assertStringContainsString('.ov-stepper__check', $css);
+        $this->assertStringContainsString('.ov-stepper__step.is-todo', $css);
         $this->assertMatchesRegularExpression(
             '/@media \\(max-width: 575\\.98px\\)[\\s\\S]{0,1200}\\.ov-stepper \\{[\\s\\S]{0,200}flex-direction:\\s*column/',
             $css

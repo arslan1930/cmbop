@@ -1429,7 +1429,7 @@ function bootAdvertiserOrdersPage() {
         return steps;
     }
 
-    function stepTimestamp(order, step) {
+    function stepTimestampRaw(order, step) {
         if (!step || !(step.done || step.current)) return null;
         const items = Array.isArray(order.items) ? order.items : [];
         const item = items.find((it) => it && it.live_url) || items[0] || {};
@@ -1442,12 +1442,56 @@ function bootAdvertiserOrdersPage() {
             raw = order.article_approved_at
                 || items.map((it) => it && it.article_approved_at).filter(Boolean).sort()[0]
                 || null;
-        } else if (label === 'Paid' || label === 'Refunded') raw = order.paid_at;
+        } else if (label === 'Paid' || label === 'Refunded' || label === 'Payment failed') raw = order.paid_at;
         else if (label === 'Accepted' || label === 'Scheduled') raw = item.accepted_at || (label === 'Scheduled' ? order.paid_at : null);
         else if (label === 'Processing' || label === 'Revision') raw = item.accepted_at || null;
         if (!raw) return null;
+        const d = new Date(raw);
+        return Number.isNaN(d.getTime()) ? null : raw;
+    }
+
+    function stepTimestamp(order, step) {
+        const raw = stepTimestampRaw(order, step);
+        if (!raw) return null;
         const text = formatDate(raw);
         return (!text || text === '—') ? null : text;
+    }
+
+    function formatDateTime(dateString) {
+        if (dateString == null || dateString === '') return '';
+        const date = new Date(dateString);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        });
+    }
+
+    function parseOrderDate(value) {
+        if (value == null || value === '') return null;
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function trackingDurationHtml(order) {
+        const paidAt = parseOrderDate(order && order.paid_at);
+        if (!paidAt) return '';
+        const status = order && order.status;
+        if (status === 'completed') {
+            const completedAt = parseOrderDate(order.completed_at);
+            if (!completedAt) return '';
+            const days = Math.max(1, Math.round(Math.abs(completedAt - paidAt) / 86400000));
+            const unit = days === 1 ? 'day' : 'days';
+            return `<p class="ov-tracking-duration">Completed in ${days} ${unit}</p>`;
+        }
+        if (['pending', 'processing', 'review', 'scheduled'].includes(status)) {
+            const days = Math.floor(Math.abs(Date.now() - paidAt.getTime()) / 86400000) + 1;
+            return `<p class="ov-tracking-duration">Day ${days} since payment</p>`;
+        }
+        return '';
     }
 
     function currentStepDateHtml(order, steps) {
@@ -1461,23 +1505,31 @@ function bootAdvertiserOrdersPage() {
     function buildStepperHtml(order, steps) {
         return `<ol class="ov-stepper" aria-label="Order tracking">${steps.map((step, i) => {
             const state = step.done ? 'is-done' : (step.current ? 'is-current' : 'is-todo');
-            const stamp = step.done ? stepTimestamp(order, step) : null;
-            return `<li class="ov-stepper__step ${state}">
-                <span class="ov-stepper__node" aria-hidden="true">${i + 1}</span>
+            const stateClass = step.done && step.current ? 'is-done is-current' : state;
+            const raw = stepTimestampRaw(order, step);
+            const stamp = raw ? formatDate(raw) : null;
+            const tip = raw ? formatDateTime(raw) : '';
+            const nodeInner = step.done
+                ? '<span class="ov-stepper__check" aria-hidden="true">✓</span>'
+                : String(i + 1);
+            return `<li class="ov-stepper__step ${stateClass}">
+                <span class="ov-stepper__node" aria-hidden="true">${nodeInner}</span>
                 <span class="ov-stepper__label">${escapeHtml(step.label)}</span>
-                ${stamp ? `<span class="ov-stepper__time">${escapeHtml(stamp)}</span>` : ''}
+                ${stamp ? `<span class="ov-stepper__time"${tip ? ` title="${escapeHtml(tip)}"` : ''}>${escapeHtml(stamp)}</span>` : ''}
             </li>`;
         }).join('')}</ol>`;
     }
 
-    function activityTimelineBlock(collapsed) {
-        const toggle = collapsed
-            ? `<button type="button" class="ov-history-toggle" aria-expanded="false" aria-controls="orderActivityTimelineWrap" onclick="toggleOrderHistory(this)">
+    function historyToggleHtml() {
+        return `<button type="button" class="ov-history-toggle" aria-expanded="false" aria-controls="orderActivityTimelineWrap" onclick="toggleOrderHistory(this)">
                     <i class="fa-solid fa-clock" aria-hidden="true"></i>
                     <span class="ov-history-toggle__label">Show full history</span>
                     <i class="fa-solid fa-chevron-down ov-history-toggle__chevron" aria-hidden="true"></i>
-               </button>`
-            : '<h6 class="mb-2">Activity timeline</h6>';
+               </button>`;
+    }
+
+    function activityTimelineBlock(collapsed) {
+        const toggle = collapsed ? '' : '<h6 class="mb-2">Activity timeline</h6>';
         const hidden = collapsed ? ' hidden class="ov-history-panel is-collapsed"' : ' class="ov-history-panel is-expanded"';
         return `${toggle}
             <div id="orderActivityTimelineWrap"${hidden}>
@@ -1530,11 +1582,18 @@ function bootAdvertiserOrdersPage() {
             ? `<div class="small text-muted mb-2"><i class="fa-solid fa-clock me-1"></i>${escapeHtml(meta.autoHint)}</div>`
             : '';
         const stepperClass = inProgress ? 'ov-stepper ov-stepper--animate ov-stepper--pulse' : 'ov-stepper ov-stepper--animate';
+        const durationHtml = trackingDurationHtml(order);
 
-        return `<h6>Tracking</h6>
+        return `<div class="ov-tracking">
+            <div class="ov-tracking-head">
+                <h6>Tracking</h6>
+                ${historyToggleHtml()}
+            </div>
             ${buildStepperHtml(order, steps).replace('class="ov-stepper"', `class="${stepperClass}"`)}
+            ${durationHtml}
             ${hint}
-            ${activityTimelineBlock(true)}`;
+            ${activityTimelineBlock(true)}
+        </div>`;
     }
 
 
