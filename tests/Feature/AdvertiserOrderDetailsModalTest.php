@@ -257,6 +257,9 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('Link not found', $js);
         $this->assertStringContainsString('Order another post on this site', $js);
         $this->assertStringContainsString('smartTruncateUrl', $js);
+        $this->assertStringContainsString('smartTruncateUrlHtml', $js);
+        $this->assertStringContainsString('ov-url-smart__tail', $js);
+        $this->assertStringContainsString('ov-stepper__rail', $js);
         $this->assertStringContainsString('complianceBadgeHtml', $js);
         $this->assertStringContainsString('linkTermsChipsHtml', $js);
         $this->assertStringContainsString('ov-summary__next', $js);
@@ -546,7 +549,7 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('.order-details-body:has(.order-view-shell--stack)', $css);
         $this->assertStringContainsString('overflow-y: auto', $css);
         $this->assertStringContainsString('prefers-reduced-motion', $css);
-        $this->assertStringContainsString('ov-step-fill', $css);
+        $this->assertStringContainsString('ov-step-pulse', $css);
         $this->assertStringContainsString('ov-shimmer', $css);
         $this->assertStringContainsString('.ov-live-url__actions', $css);
         $this->assertStringContainsString('text-transform: none', $css);
@@ -787,11 +790,18 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('.ov-receipt-card', $css);
         $this->assertStringContainsString('.ov-live-chip-actions', $css);
         $this->assertStringContainsString('.ov-summary__amount', $css);
-        $this->assertStringContainsString('ov-step-fill-y', $css);
         $this->assertStringContainsString('.ov-tracking-head', $css);
         $this->assertStringContainsString('.ov-tracking-duration', $css);
         $this->assertStringContainsString('.ov-stepper__check', $css);
         $this->assertStringContainsString('.ov-stepper__step.is-todo', $css);
+        $this->assertStringContainsString('.ov-url-smart__tail', $css);
+        $this->assertStringContainsString('.ov-url-smart__head', $css);
+        $this->assertStringContainsString('.ov-stepper__rail', $css);
+        $this->assertDoesNotMatchRegularExpression(
+            '/\.ov-stepper[^{]*\{[^}]*scaleX\(0\)|\.ov-stepper__rail[^{]*\{[^}]*scaleX\(0\)|\.ov-stepper__step[^\n]*::after[^{]*\{[^}]*scaleX\(0\)/',
+            $css,
+            'Stepper connectors must not start at scaleX(0)'
+        );
         $this->assertMatchesRegularExpression(
             '/@media \\(max-width: 575\\.98px\\)[\\s\\S]{0,1200}\\.ov-stepper \\{[\\s\\S]{0,200}flex-direction:\\s*column/',
             $css

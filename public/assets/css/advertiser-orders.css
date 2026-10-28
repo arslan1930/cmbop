@@ -584,14 +584,31 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     word-break: break-word;
 }
 .ov-truncate--target {
-    display: inline-block;
-    max-width: min(100%, 14rem);
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: inline-flex;
+    align-items: baseline;
+    max-width: 100%;
+    min-width: 0;
     white-space: nowrap;
     vertical-align: bottom;
-    overflow-wrap: normal;
-    word-break: normal;
+    overflow: hidden;
+}
+.ov-url-smart {
+    display: inline-flex;
+    align-items: baseline;
+    min-width: 0;
+    max-width: 100%;
+    white-space: nowrap;
+}
+.ov-url-smart__head {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ov-url-smart__tail {
+    flex: 0 0 auto;
+    overflow: visible;
+    white-space: nowrap;
 }
 .ov-pair__value .ov-url-copy {
     max-width: 100%;
@@ -599,6 +616,7 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
 .ov-pair__value .ov-truncate--target {
     min-width: 0;
     flex: 1 1 auto;
+    max-width: 100%;
 }
 .ov-copy-btn {
     border: 0;
@@ -845,7 +863,6 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     margin: 0;
     padding: 0.05rem 0 0.15rem;
     overflow: visible;
-    scrollbar-width: thin;
 }
 .ov-stepper__step {
     position: relative;
@@ -857,36 +874,26 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     text-align: center;
     padding: 0 0.15rem;
 }
-/* Desktop horizontal connector: teal through done steps, grey after current */
-.ov-stepper__step:not(:last-child)::after {
-    content: "";
+.ov-stepper__copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+/* Explicit rail (not ::after/text) — teal after done, grey after current/upcoming.
+   Starts under the node edge so no gap/stub appears beside the circle. */
+.ov-stepper__rail {
     position: absolute;
     top: 0.7rem;
-    left: calc(50% + 0.85rem);
-    width: calc(100% - 1.7rem);
+    left: calc(50% + 0.55rem);
+    width: calc(100% - 1.1rem);
     height: 2px;
     background: #cbd5e1;
     z-index: 0;
-    transform: none;
-    transform-origin: left center;
+    pointer-events: none;
 }
-.ov-stepper__step.is-done:not(:last-child)::after {
+.ov-stepper__step.is-done > .ov-stepper__rail {
     background: var(--brand-primary, #1a585e);
-}
-/* Draw animation only while in-progress (pulse); completed steps keep a solid line */
-.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step:not(:last-child)::after {
-    transform: scaleX(0);
-}
-.ov-stepper--animate.ov-stepper--pulse.is-drawn .ov-stepper__step.is-done:not(:last-child)::after,
-.order-view-shell.is-ready .ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:not(:last-child)::after {
-    animation: ov-step-fill 420ms ease forwards;
-}
-.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:nth-child(1)::after { animation-delay: 40ms; }
-.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:nth-child(2)::after { animation-delay: 120ms; }
-.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:nth-child(3)::after { animation-delay: 200ms; }
-.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:nth-child(4)::after { animation-delay: 280ms; }
-.order-view-shell.is-ready .ov-stepper:not(.ov-stepper--pulse) .ov-stepper__step.is-done:not(:last-child)::after {
-    transform: none;
 }
 .ov-stepper--pulse .ov-stepper__step.is-current .ov-stepper__node {
     animation: ov-step-pulse 1.6s ease-in-out infinite;
@@ -1343,32 +1350,23 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
         gap: 0.65rem;
         padding: 0.35rem 0 0.55rem 0;
     }
-    .ov-stepper__step:not(:last-child)::after {
+    .ov-stepper__rail {
         top: 1.55rem;
         left: 0.65rem;
-        right: auto;
         width: 2px;
         height: calc(100% - 0.85rem);
-        transform-origin: top center;
-        transform: none;
         background: #cbd5e1;
     }
-    .ov-stepper__step.is-done:not(:last-child)::after {
+    .ov-stepper__step.is-done > .ov-stepper__rail {
         background: var(--brand-primary, #1a585e);
-    }
-    .ov-stepper--animate.ov-stepper--pulse .ov-stepper__step:not(:last-child)::after {
-        transform: scaleY(0);
-    }
-    .ov-stepper--animate.ov-stepper--pulse.is-drawn .ov-stepper__step.is-done:not(:last-child)::after,
-    .order-view-shell.is-ready .ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:not(:last-child)::after {
-        animation: ov-step-fill-y 420ms ease forwards;
-    }
-    .order-view-shell.is-ready .ov-stepper:not(.ov-stepper--pulse) .ov-stepper__step.is-done:not(:last-child)::after {
-        transform: none;
     }
     .ov-stepper__node {
         margin-bottom: 0;
         flex-shrink: 0;
+    }
+    .ov-stepper__copy {
+        align-items: flex-start;
+        text-align: left;
     }
     .ov-stepper__label {
         font-size: 0.8rem;
@@ -1821,14 +1819,6 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     0% { background-position: 100% 0; }
     100% { background-position: -100% 0; }
 }
-@keyframes ov-step-fill {
-    from { transform: scaleX(0); }
-    to { transform: scaleX(1); }
-}
-@keyframes ov-step-fill-y {
-    from { transform: scaleY(0); }
-    to { transform: scaleY(1); }
-}
 @keyframes ov-step-pulse {
     0%, 100% { box-shadow: 0 0 0 2px var(--brand-primary, #1a585e); }
     50% { box-shadow: 0 0 0 4px rgba(26, 88, 94, 0.28); }
@@ -1851,10 +1841,10 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     #orderDetailsModal.modal.fade .modal-dialog,
     .order-view-shell:not(.ov-skeleton),
     .ov-skel-block,
-    .ov-stepper--animate .ov-stepper__step.is-done:not(:last-child)::after,
     .ov-stepper--pulse .ov-stepper__step.is-current .ov-stepper__node,
     .ov-recheck-spin,
     .ov-live-url__recheck.is-checking .fa-refresh,
+    .ov-live-url__recheck.is-checking .fa-rotate-right,
     .ov-live-chip--swap,
     .ov-history-panel,
     .ov-history-toggle__chevron,
@@ -1867,9 +1857,6 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
         animation: none !important;
         transition: none !important;
         transform: none !important;
-    }
-    .ov-stepper--animate .ov-stepper__step:not(:last-child)::after {
-        transform: none;
     }
     .ov-policy__full.is-expanded {
         max-height: none;

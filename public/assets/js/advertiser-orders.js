@@ -1503,7 +1503,8 @@ function bootAdvertiserOrdersPage() {
     }
 
     function buildStepperHtml(order, steps) {
-        return `<ol class="ov-stepper" aria-label="Order tracking">${steps.map((step, i) => {
+        const total = (steps || []).length;
+        return `<div class="ov-stepper" role="list" aria-label="Order tracking">${steps.map((step, i) => {
             const state = step.done ? 'is-done' : (step.current ? 'is-current' : 'is-todo');
             const stateClass = step.done && step.current ? 'is-done is-current' : state;
             const raw = stepTimestampRaw(order, step);
@@ -1512,12 +1513,18 @@ function bootAdvertiserOrdersPage() {
             const nodeInner = step.done
                 ? '<span class="ov-stepper__check" aria-hidden="true">✓</span>'
                 : String(i + 1);
-            return `<li class="ov-stepper__step ${stateClass}">
+            const rail = (i < total - 1)
+                ? `<span class="ov-stepper__rail" aria-hidden="true"></span>`
+                : '';
+            return `<div class="ov-stepper__step ${stateClass}" role="listitem">
                 <span class="ov-stepper__node" aria-hidden="true">${nodeInner}</span>
-                <span class="ov-stepper__label">${escapeHtml(step.label)}</span>
-                ${stamp ? `<span class="ov-stepper__time"${tip ? ` title="${escapeHtml(tip)}"` : ''}>${escapeHtml(stamp)}</span>` : ''}
-            </li>`;
-        }).join('')}</ol>`;
+                ${rail}
+                <span class="ov-stepper__copy">
+                    <span class="ov-stepper__label">${escapeHtml(step.label)}</span>
+                    ${stamp ? `<span class="ov-stepper__time"${tip ? ` title="${escapeHtml(tip)}"` : ''}>${escapeHtml(stamp)}</span>` : ''}
+                </span>
+            </div>`;
+        }).join('')}</div>`;
     }
 
     function historyToggleHtml() {
@@ -1581,7 +1588,7 @@ function bootAdvertiserOrdersPage() {
         const hint = meta.autoHint
             ? `<div class="small text-muted mb-2"><i class="fa-solid fa-clock me-1"></i>${escapeHtml(meta.autoHint)}</div>`
             : '';
-        const stepperClass = inProgress ? 'ov-stepper ov-stepper--animate ov-stepper--pulse' : 'ov-stepper ov-stepper--animate';
+        const stepperClass = inProgress ? 'ov-stepper ov-stepper--pulse' : 'ov-stepper';
         const durationHtml = trackingDurationHtml(order);
 
         return `<div class="ov-tracking">
@@ -2379,17 +2386,41 @@ function bootAdvertiserOrdersPage() {
         if (!raw) return '';
         try {
             const u = new URL(raw);
+            const host = u.hostname.replace(/^www\./i, '');
             const segments = u.pathname.split('/').filter(Boolean);
-            const last = segments.length ? segments[segments.length - 1] : '';
+            let last = segments.length ? segments[segments.length - 1] : '';
+            try { last = decodeURIComponent(last); } catch (e) { /* keep raw */ }
             if (!last) {
-                return u.hostname + (u.pathname && u.pathname !== '/' ? u.pathname : '');
+                return host + (u.pathname && u.pathname !== '/' ? u.pathname : '');
             }
-            if (segments.length === 1 && !u.search && raw.length < 48) {
-                return u.hostname + '/' + last;
+            if (segments.length === 1 && !u.search && (host.length + last.length) < 40) {
+                return host + '/' + last;
             }
-            return `${u.hostname}/…/${last}`;
+            return host + '/…/' + last;
         } catch (e) {
             return truncateMiddle(raw, 42);
+        }
+    }
+
+    function smartTruncateUrlHtml(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+        try {
+            const u = new URL(raw);
+            const host = u.hostname.replace(/^www\./i, '');
+            const segments = u.pathname.split('/').filter(Boolean);
+            let last = segments.length ? segments[segments.length - 1] : '';
+            try { last = decodeURIComponent(last); } catch (e) { /* keep raw */ }
+            if (!last) {
+                return `<span class="ov-url-smart"><span class="ov-url-smart__head">${escapeHtml(host)}</span></span>`;
+            }
+            if (segments.length === 1 && !u.search && (host.length + last.length) < 40) {
+                return `<span class="ov-url-smart"><span class="ov-url-smart__head">${escapeHtml(host)}/</span><span class="ov-url-smart__tail">${escapeHtml(last)}</span></span>`;
+            }
+            // Head may ellipsize; tail (last path segment) always stays visible.
+            return `<span class="ov-url-smart"><span class="ov-url-smart__head">${escapeHtml(host)}/…/</span><span class="ov-url-smart__tail">${escapeHtml(last)}</span></span>`;
+        } catch (e) {
+            return escapeHtml(truncateMiddle(raw, 42));
         }
     }
 
@@ -2599,7 +2630,7 @@ function bootAdvertiserOrdersPage() {
         const anchorHtml = it.anchor_text ? escapeHtml(it.anchor_text) : (hideEmpty ? '' : '—');
         const targetHtml = it.target_url
             ? `<span class="ov-url-copy">
-                    <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate ov-truncate--target" title="${escapeHtml(it.target_url)}">${escapeHtml(smartTruncateUrl(it.target_url))}</a>
+                    <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate ov-truncate--target" title="${escapeHtml(it.target_url)}">${smartTruncateUrlHtml(it.target_url)}</a>
                     <button type="button" class="ov-copy-btn" onclick="copyOrderTargetUrl(${jsAttr(it.target_url)}, this)" aria-label="Copy target URL">
                         <i class="fa-solid fa-copy" aria-hidden="true"></i>
                     </button>
