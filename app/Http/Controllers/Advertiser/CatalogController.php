@@ -6654,8 +6654,12 @@ class CatalogController extends Controller
         }
 
         try {
+            $with = OrderItemDispute::tableAvailable()
+                ? ['items.latestDispute', 'items.site']
+                : ['items.site'];
+
             return Order::where('user_id', $userId)
-                ->with(OrderItemDispute::tableAvailable() ? ['items.latestDispute'] : ['items'])
+                ->with($with)
                 ->find($id);
         } catch (\Throwable $e) {
             try {
@@ -7156,6 +7160,7 @@ class CatalogController extends Controller
         $payload['has_live_url'] = AdvertiserOrderDetails::hasLiveUrl($order);
         $payload['timeline_steps'] = AdvertiserOrderStatus::timelineSteps($order);
         $payload['invoice_download_url'] = AdvertiserOrderDetails::invoiceDownloadUrl($order);
+        $payload['link_terms'] = AdvertiserOrderDetails::linkTerms($order);
         $payload['project_id'] = Schema::hasColumn('orders', 'project_id')
             ? ($order->project_id ? (int) $order->project_id : null)
             : null;

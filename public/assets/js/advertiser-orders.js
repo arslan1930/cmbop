@@ -670,15 +670,66 @@ function bootAdvertiserOrdersPage() {
         }
     };
 
-    window.recheckLiveUrl = function(orderId, itemId) {
+    const liveUrlAutoRechecked = new Set();
+    let liveUrlRecheckInFlight = null;
+
+    function liveUrlChipSelector(itemId) {
+        if (itemId == null || itemId === '') {
+            return '[data-live-url-chip]';
+        }
+        const id = String(itemId).replace(/"/g, '');
+        return `[data-live-url-chip="${id}"]`;
+    }
+
+    function applyLiveUrlCheckToChip(itemId, check) {
+        const chip = document.querySelector(liveUrlChipSelector(itemId));
+        if (!chip || !check) return;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = liveUrlStatusChipFromCheck(check);
+        const fresh = wrap.firstElementChild;
+        if (!fresh) return;
+        fresh.setAttribute('data-live-url-chip', itemId != null && itemId !== '' ? String(itemId) : '');
+        fresh.classList.add('ov-live-chip--swap');
+        chip.replaceWith(fresh);
+        requestAnimationFrame(() => fresh.classList.add('is-in'));
+    }
+
+    function liveUrlStatusChipFromCheck(check) {
+        if (!check || typeof check !== 'object') {
+            return '<span class="ov-live-chip ov-live-chip--pending" data-live-url-chip>Not checked yet</span>';
+        }
+        if (check.ok === true) {
+            let label = 'Live · link found';
+            const rel = String(check.rel || check.link_rel || check.rel_type || '').toLowerCase();
+            if (rel === 'dofollow' || rel === 'nofollow') {
+                label += ` · ${rel}`;
+            }
+            return `<span class="ov-live-chip ov-live-chip--live" data-live-url-chip>${escapeHtml(label)}</span>`;
+        }
+        if (check.ok === false) {
+            return '<span class="ov-live-chip ov-live-chip--missing" data-live-url-chip>Link not found</span>';
+        }
+        return '<span class="ov-live-chip ov-live-chip--pending" data-live-url-chip>Not checked yet</span>';
+    }
+
+    window.recheckLiveUrl = function(orderId, itemId, options) {
+        const opts = options && typeof options === 'object' ? options : {};
+        const silent = !!opts.silent;
         const btn = document.getElementById(itemId ? ('recheckLiveUrlBtn-' + itemId) : 'recheckLiveUrlBtn');
+        const flightKey = `${orderId}:${itemId || 'auto'}`;
+        if (liveUrlRecheckInFlight === flightKey) {
+            return Promise.resolve(null);
+        }
+        liveUrlRecheckInFlight = flightKey;
+
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Checking…';
+            btn.classList.add('is-checking');
+            btn.innerHTML = '<i class="fa fa-refresh ov-recheck-spin me-1" aria-hidden="true"></i>Checking…';
         }
         const payload = {};
         if (itemId) payload.order_item_id = itemId;
-        fetch(ordersUrl(`/${orderId}/recheck-live-url`), {
+        return fetch(ordersUrl(`/${orderId}/recheck-live-url`), {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': ordersCsrf(),
@@ -690,27 +741,60 @@ function bootAdvertiserOrdersPage() {
         })
         .then(r => r.json())
         .then(data => {
-            hideOrderDetailsModal();
-            const reopen = () => viewOrder(orderId);
-            if (data.success) {
-                Swal.fire('Checked', data.message || 'URL check finished.', data.live_url_check?.ok ? 'success' : 'warning')
-                    .then(reopen);
-            } else {
-                Swal.fire('Error', data.message || 'Could not recheck URL.', 'error')
-                    .then(reopen);
+            if (data.success && data.live_url_check) {
+                applyLiveUrlCheckToChip(itemId, data.live_url_check);
+                if (!silent && window.Swal) {
+                    Swal.fire({
+                        toast: true,
+                        icon: data.live_url_check.ok ? 'success' : 'warning',
+                        title: data.message || 'URL check finished.',
+                        position: 'top',
+                        timer: 1800,
+                        showConfirmButton: false,
+                    });
+                }
+            } else if (!silent) {
+                if (window.Swal) {
+                    Swal.fire('Error', data.message || 'Could not recheck URL.', 'error');
+                }
             }
+            return data;
         })
         .catch(() => {
-            hideOrderDetailsModal();
-            Swal.fire('Error', 'Could not recheck URL.', 'error').then(() => viewOrder(orderId));
+            if (!silent && window.Swal) {
+                Swal.fire('Error', 'Could not recheck URL.', 'error');
+            }
+            return null;
         })
         .finally(() => {
+            if (liveUrlRecheckInFlight === flightKey) {
+                liveUrlRecheckInFlight = null;
+            }
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa fa-refresh me-1"></i>Recheck';
+                btn.classList.remove('is-checking');
+                btn.innerHTML = '<i class="fa fa-refresh me-1" aria-hidden="true"></i>Recheck';
             }
         });
     };
+
+    function maybeAutoRecheckLiveUrls(order) {
+        if (!order || !order.id) return;
+        const status = String(order.status || '');
+        const delivered = status === 'completed' || status === 'review';
+        if (!delivered) return;
+        const items = Array.isArray(order.items) ? order.items : [];
+        const targets = items.filter((it) => it && it.id && it.live_url);
+        if (!targets.length) return;
+        const key = String(order.id);
+        if (liveUrlAutoRechecked.has(key)) return;
+        liveUrlAutoRechecked.add(key);
+        // One auto-pass per modal open: first live placement only (debounce / no loop).
+        const first = targets[0];
+        window.setTimeout(() => {
+            window.recheckLiveUrl(order.id, first.id, { silent: true });
+        }, 280);
+    }
 
     // Request modification
     window.requestModification = function(orderId) {
@@ -1258,9 +1342,10 @@ function bootAdvertiserOrdersPage() {
             ? `<button type="button" class="ov-history-toggle" aria-expanded="false" aria-controls="orderActivityTimelineWrap" onclick="toggleOrderHistory(this)">
                     <i class="fa fa-clock-o" aria-hidden="true"></i>
                     <span class="ov-history-toggle__label">Show full history</span>
+                    <i class="fa fa-chevron-down ov-history-toggle__chevron" aria-hidden="true"></i>
                </button>`
-            : '<h6 class="mb-2">Activity Timeline</h6>';
-        const hidden = collapsed ? ' hidden' : '';
+            : '<h6 class="mb-2">Activity timeline</h6>';
+        const hidden = collapsed ? ' hidden class="ov-history-panel is-collapsed"' : ' class="ov-history-panel is-expanded"';
         return `${toggle}
             <div id="orderActivityTimelineWrap"${hidden}>
                 <div id="orderActivityTimeline" class="order-view-timeline">
@@ -1269,8 +1354,30 @@ function bootAdvertiserOrdersPage() {
             </div>`;
     }
 
+    function linkTermsChipsHtml(order) {
+        const terms = Array.isArray(order.link_terms) ? order.link_terms : [];
+        if (!terms.length) {
+            // Fallback from first item / order flags when payload omits link_terms.
+            const item = (Array.isArray(order.items) ? order.items : []).find((it) => it) || {};
+            const chips = [];
+            if (item.link_type) chips.push({ key: 'link_type', label: String(item.link_type) });
+            if (item.publication_time) chips.push({ key: 'publication_time', label: String(item.publication_time) });
+            if (order.link_guarantee === true) chips.push({ key: 'link_guarantee', label: '12-month guarantee' });
+            else if (order.link_guarantee === false) chips.push({ key: 'link_guarantee', label: 'No 12-month guarantee' });
+            if (!chips.length) return '';
+            return `<div class="ov-link-terms" aria-label="Link terms">${chips.map((c) =>
+                `<span class="ov-link-term ov-link-term--${escapeHtml(c.key)}">${escapeHtml(c.label)}</span>`
+            ).join('')}</div>`;
+        }
+        return `<div class="ov-link-terms" aria-label="Link terms">${terms.map((c) =>
+            `<span class="ov-link-term ov-link-term--${escapeHtml(String(c.key || 'term'))}">${escapeHtml(String(c.label || ''))}</span>`
+        ).join('')}</div>`;
+    }
+
     function buildAdvertiserTimeline(order) {
         const status = order.status;
+        const inProgress = ['pending', 'processing', 'review', 'scheduled'].includes(status)
+            || (status === 'pending' && order.payment_status === 'paid');
 
         if (status === 'cancelled' && order.payment_status === 'refunded') {
             return `<div class="alert alert-secondary py-2 small mb-2">Cancelled · refunded to your wallet (usually instant).</div>
@@ -1289,9 +1396,11 @@ function bootAdvertiserOrdersPage() {
         const hint = meta.autoHint
             ? `<div class="small text-muted mb-2"><i class="fa fa-clock-o me-1"></i>${escapeHtml(meta.autoHint)}</div>`
             : '';
+        const stepperClass = inProgress ? 'ov-stepper ov-stepper--animate ov-stepper--pulse' : 'ov-stepper ov-stepper--animate';
 
         return `<h6>Tracking</h6>
-            ${buildStepperHtml(order, steps)}
+            ${buildStepperHtml(order, steps).replace('class="ov-stepper"', `class="${stepperClass}"`)}
+            ${linkTermsChipsHtml(order)}
             ${hint}
             ${activityTimelineBlock(true)}`;
     }
@@ -1911,8 +2020,37 @@ function bootAdvertiserOrdersPage() {
         });
     };
 
+    function orderDetailsSkeletonHtml() {
+        return `<div class="order-view-shell order-view-shell--stack ov-skeleton" aria-busy="true" aria-live="polite">
+            <div class="ov-summary ov-skel-block" style="min-height:3rem"></div>
+            <div class="ov-columns">
+                <div class="order-view-col">
+                    <div class="order-view-panel ov-skel-block" style="min-height:8rem"></div>
+                    <div class="order-view-panel ov-skel-block" style="min-height:10rem"></div>
+                </div>
+                <div class="order-view-col">
+                    <div class="order-view-panel ov-skel-block" style="min-height:6rem"></div>
+                    <div class="order-view-panel ov-skel-block" style="min-height:8rem"></div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function showOrderDetailsSkeleton() {
+        const contentEl = document.getElementById('orderDetailsContent');
+        if (contentEl) contentEl.innerHTML = orderDetailsSkeletonHtml();
+        const actionsEl = document.getElementById('orderDetailsActions');
+        if (actionsEl) actionsEl.innerHTML = '';
+    }
+
     window.viewOrder = function(orderId) {
         hideChatModal();
+        liveUrlAutoRechecked.delete(String(orderId));
+        showOrderDetailsSkeleton();
+        const modalEl = document.getElementById('orderDetailsModal');
+        if (modalEl && window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
         fetch(ordersUrl(`/${orderId}`), {
             method: 'GET',
             headers: {
@@ -1924,9 +2062,12 @@ function bootAdvertiserOrdersPage() {
         .then(data => {
             if (data.success) {
                 renderOrderDetails(data.order);
-                const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('orderDetailsModal'));
-                modal.show();
                 loadOrderActivityTimeline(data.order);
+                maybeAutoRecheckLiveUrls(data.order);
+                requestAnimationFrame(() => {
+                    const shell = document.querySelector('#orderDetailsContent .order-view-shell');
+                    if (shell) shell.classList.add('is-ready');
+                });
             } else {
                 Swal.fire('Error', data.message || 'Failed to load order details', 'error');
             }
@@ -1938,27 +2079,51 @@ function bootAdvertiserOrdersPage() {
     }
 
     function liveUrlStatusChip(item) {
+        const idAttr = item && item.id != null
+            ? ` data-live-url-chip="${escapeHtml(String(item.id))}"`
+            : ' data-live-url-chip';
         if (!item || !item.live_url) {
-            return '<span class="ov-live-chip ov-live-chip--missing">Link missing</span>';
+            return `<span class="ov-live-chip ov-live-chip--missing"${idAttr}>Link not found</span>`;
         }
         if (item.live_url_check_ok === true) {
-            return '<span class="ov-live-chip ov-live-chip--live">Live</span>';
+            return `<span class="ov-live-chip ov-live-chip--live"${idAttr}>Live · link found</span>`;
         }
         if (item.live_url_check_ok === false) {
-            return '<span class="ov-live-chip ov-live-chip--missing">Link missing</span>';
+            return `<span class="ov-live-chip ov-live-chip--missing"${idAttr}>Link not found</span>`;
         }
-        return '<span class="ov-live-chip ov-live-chip--pending">Not checked yet</span>';
+        return `<span class="ov-live-chip ov-live-chip--pending"${idAttr}>Not checked yet</span>`;
     }
 
     function liveUrlHealthBadge(item) {
         return liveUrlStatusChip(item);
     }
 
-    function copyTextToClipboard(url, title) {
+    function flashCopiedFeedback(btn, label) {
+        if (!btn) return;
+        const prev = btn.getAttribute('data-copy-label') || btn.innerHTML;
+        btn.setAttribute('data-copy-label', prev);
+        btn.classList.add('is-copied');
+        if (btn.classList.contains('ov-copy-btn')) {
+            btn.setAttribute('aria-label', 'Copied');
+            btn.innerHTML = '<span class="ov-copied-tick">Copied ✓</span>';
+        } else {
+            btn.innerHTML = 'Copied ✓';
+        }
+        window.setTimeout(() => {
+            btn.classList.remove('is-copied');
+            btn.innerHTML = btn.getAttribute('data-copy-label') || prev;
+            if (btn.classList.contains('ov-copy-btn')) {
+                btn.setAttribute('aria-label', label || 'Copy');
+            }
+        }, 1500);
+    }
+
+    function copyTextToClipboard(url, title, btn) {
         const text = String(url || '');
         if (!text) return;
         const done = () => {
-            if (window.Swal) {
+            flashCopiedFeedback(btn, title);
+            if (!btn && window.Swal) {
                 Swal.fire({
                     toast: true,
                     icon: 'success',
@@ -1971,27 +2136,38 @@ function bootAdvertiserOrdersPage() {
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(done).catch(() => {});
+            return;
         }
+        done();
     }
 
-    window.copyOrderLiveUrl = function (url) {
-        copyTextToClipboard(url, 'Live URL copied');
+    window.copyOrderLiveUrl = function (url, el) {
+        copyTextToClipboard(url, 'Live URL copied', el || null);
     };
 
-    window.copyOrderTargetUrl = function (url) {
-        copyTextToClipboard(url, 'Target URL copied');
+    window.copyOrderTargetUrl = function (url, el) {
+        copyTextToClipboard(url, 'Target URL copied', el || null);
     };
 
     window.toggleOrderHistory = function (btn) {
         const wrap = document.getElementById('orderActivityTimelineWrap');
         if (!wrap || !btn) return;
-        const open = wrap.hasAttribute('hidden');
+        const open = wrap.hasAttribute('hidden') || wrap.classList.contains('is-collapsed');
         if (open) {
             wrap.removeAttribute('hidden');
+            wrap.classList.remove('is-collapsed');
+            wrap.classList.add('is-expanded');
         } else {
-            wrap.setAttribute('hidden', '');
+            wrap.classList.remove('is-expanded');
+            wrap.classList.add('is-collapsed');
+            window.setTimeout(() => {
+                if (wrap.classList.contains('is-collapsed')) {
+                    wrap.setAttribute('hidden', '');
+                }
+            }, 220);
         }
         btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.classList.toggle('is-open', open);
         const label = btn.querySelector('.ov-history-toggle__label');
         if (label) {
             label.textContent = open ? 'Hide full history' : 'Show full history';
@@ -2004,6 +2180,67 @@ function bootAdvertiserOrdersPage() {
         if (s.length <= limit) return s;
         const keep = Math.max(12, limit - 1);
         return s.slice(0, keep) + '…';
+    }
+
+    function smartTruncateUrl(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+        try {
+            const u = new URL(raw);
+            const segments = u.pathname.split('/').filter(Boolean);
+            const last = segments.length ? segments[segments.length - 1] : '';
+            if (!last) {
+                return u.hostname + (u.pathname && u.pathname !== '/' ? u.pathname : '');
+            }
+            if (segments.length === 1 && !u.search && raw.length < 48) {
+                return u.hostname + '/' + last;
+            }
+            return `${u.hostname}/…/${last}`;
+        } catch (e) {
+            return truncateMiddle(raw, 42);
+        }
+    }
+
+    function siteDomainLabel(url) {
+        const raw = String(url || '').trim();
+        if (!raw) return '';
+        try {
+            return new URL(raw).hostname.replace(/^www\./i, '');
+        } catch (e) {
+            return truncateMiddle(raw.replace(/^https?:\/\//i, ''), 36);
+        }
+    }
+
+    function urlsMatch(a, b) {
+        const normalize = (v) => {
+            const s = String(v || '').trim().replace(/\/+$/, '').toLowerCase();
+            try {
+                const u = new URL(s);
+                return `${u.protocol}//${u.hostname}${u.pathname}`.replace(/\/+$/, '');
+            } catch (e) {
+                return s;
+            }
+        };
+        const left = normalize(a);
+        const right = normalize(b);
+        return !!left && left === right;
+    }
+
+    function complianceBadgeHtml(status) {
+        const raw = String(status || '').trim();
+        if (!raw) return '';
+        const key = raw.toLowerCase();
+        let cls = 'ov-compliance ov-compliance--neutral';
+        if (['approved', 'pass', 'passed', 'ok', 'clean'].includes(key)) {
+            cls = 'ov-compliance ov-compliance--ok payment-paid status-badge';
+        } else if (['rejected', 'fail', 'failed', 'blocked', 'denied'].includes(key)) {
+            cls = 'ov-compliance ov-compliance--bad status-badge';
+        } else if (['pending', 'review', 'flagged', 'needs_review', 'needs review'].includes(key)) {
+            cls = 'ov-compliance ov-compliance--warn status-badge';
+        } else {
+            cls = 'ov-compliance ov-compliance--neutral status-badge';
+        }
+        return `<span class="${cls}">${escapeHtml(raw)}</span>`;
     }
 
     function ovBlock(label, inner) {
@@ -2060,12 +2297,8 @@ function bootAdvertiserOrdersPage() {
         const liveUrl = it.live_url || null;
         const hideEmpty = completed;
         const modRequested = it.modification_requested === 'yes';
-        const checked = it.live_url_checked_at
-            ? ` · checked ${formatDate(it.live_url_checked_at)}`
-            : '';
-        const http = it.live_url_http_status ? ` · HTTP ${it.live_url_http_status}` : '';
-        const recheckBtn = `<button type="button" class="btn btn-sm btn-outline-secondary ov-live-url__recheck" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
-            <i class="fa fa-refresh me-1" aria-hidden="true"></i>Recheck
+        const recheckBtn = `<button type="button" class="btn btn-sm btn-outline-secondary ov-live-btn ov-live-url__recheck" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
+            <i class="fa fa-refresh" aria-hidden="true"></i><span>Recheck</span>
         </button>`;
         const liveUrlHtml = liveUrl
             ? `<div class="ov-block ov-live-url">
@@ -2073,13 +2306,14 @@ function bootAdvertiserOrdersPage() {
                         <strong>Live URL</strong>
                         ${liveUrlStatusChip(it)}
                     </div>
-                    <a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="ov-live-url__link live-url">${escapeHtml(liveUrl)}</a>
-                    <div class="ov-live-url__meta small text-muted">Public reachability check${http}${checked}</div>
+                    <a href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer" class="ov-live-url__link live-url" title="${escapeHtml(liveUrl)}">${escapeHtml(liveUrl)}</a>
                     <div class="ov-live-url__actions">
-                        <a class="btn btn-sm btn-primary" href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer">
-                            <i class="fa fa-external-link" aria-hidden="true"></i> Open live URL
+                        <a class="btn btn-sm btn-primary ov-live-btn" href="${safeUrl(liveUrl)}" target="_blank" rel="noopener noreferrer">
+                            <i class="fa fa-external-link" aria-hidden="true"></i><span>Open live URL</span>
                         </a>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyOrderLiveUrl(${jsAttr(liveUrl)})">Copy</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ov-live-btn" onclick="copyOrderLiveUrl(${jsAttr(liveUrl)}, this)">
+                            <span>Copy</span>
+                        </button>
                         ${recheckBtn}
                     </div>
                </div>`
@@ -2126,18 +2360,20 @@ function bootAdvertiserOrdersPage() {
             : '<h6>Placement</h6>';
 
         const siteHtml = it.site_name ? escapeHtml(it.site_name) : (hideEmpty ? '' : '—');
-        const siteUrlHtml = it.site_url
-            ? `<a href="${safeUrl(it.visit_url || it.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary">${escapeHtml(it.site_url)} <i class="fa fa-external-link fa-xs" aria-hidden="true"></i></a>`
-            : (hideEmpty ? '' : '—');
+        const hideSiteUrl = !!(it.site_url && liveUrl && urlsMatch(it.site_url, liveUrl));
+        const siteDomain = siteDomainLabel(it.site_url);
+        const siteUrlHtml = (!hideSiteUrl && it.site_url)
+            ? `<a href="${safeUrl(it.visit_url || it.site_url)}" target="_blank" rel="noopener noreferrer" class="text-primary" title="${escapeHtml(it.site_url)}">${escapeHtml(siteDomain || it.site_url)} <i class="fa fa-external-link fa-xs" aria-hidden="true"></i></a>`
+            : '';
         const fileName = it.content_original_name || 'Download article';
         const wordCount = parseInt(it.word_count, 10);
         const wordHtml = Number.isFinite(wordCount) && wordCount > 0
             ? `<span class="ov-file-chip__meta">${wordCount.toLocaleString('en-US')} words</span>`
             : '';
         const documentHtml = it.content_link
-            ? `<div class="ov-file-chip">
+            ? `<div class="ov-file-chip" title="${escapeHtml(fileName)}">
                     <i class="fa fa-file-text-o ov-file-chip__icon" aria-hidden="true"></i>
-                    <span class="ov-file-chip__name" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</span>
+                    <span class="ov-file-chip__name">${escapeHtml(fileName)}</span>
                     ${wordHtml}
                     <a href="${safeUrl(it.content_link)}" class="ov-file-chip__action" target="_blank" rel="noopener noreferrer">Download</a>
                </div>`
@@ -2160,8 +2396,8 @@ function bootAdvertiserOrdersPage() {
         const anchorHtml = it.anchor_text ? escapeHtml(it.anchor_text) : (hideEmpty ? '' : '—');
         const targetHtml = it.target_url
             ? `<span class="ov-url-copy">
-                    <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate" title="${escapeHtml(it.target_url)}">${escapeHtml(truncateMiddle(it.target_url, 42))}</a>
-                    <button type="button" class="ov-copy-btn" onclick="copyOrderTargetUrl(${jsAttr(it.target_url)})" aria-label="Copy target URL">
+                    <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate ov-truncate--smart" title="${escapeHtml(it.target_url)}">${escapeHtml(smartTruncateUrl(it.target_url))}</a>
+                    <button type="button" class="ov-copy-btn" onclick="copyOrderTargetUrl(${jsAttr(it.target_url)}, this)" aria-label="Copy target URL">
                         <i class="fa fa-clone" aria-hidden="true"></i>
                     </button>
                </span>`
@@ -2169,7 +2405,9 @@ function bootAdvertiserOrdersPage() {
         const featureHtml = it.feature_image_url
             ? `<a href="${safeUrl(it.feature_image_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate" title="${escapeHtml(it.feature_image_url)}">${escapeHtml(truncateMiddle(it.feature_image_url, 42))}</a>`
             : (hideEmpty ? '' : 'Publisher may choose');
-        const complianceHtml = it.moderation_status ? escapeHtml(it.moderation_status) : (hideEmpty ? '' : '—');
+        const complianceHtml = it.moderation_status
+            ? complianceBadgeHtml(it.moderation_status)
+            : (hideEmpty ? '' : '—');
 
         const reportHtml = order.status === 'completed' && itemsCount > 1
             ? (it.can_report_link_removed
@@ -2310,18 +2548,39 @@ function bootAdvertiserOrdersPage() {
             ? `<span class="ov-pay-ref">Payment ref ${escapeHtml(order.reference_code)}</span>`
             : '';
 
+        const orderAnotherUrl = (() => {
+            if (order.status !== 'completed' || !primarySite) return '';
+            if (primarySite.catalog_url) return String(primarySite.catalog_url);
+            if (primarySite.site_id) {
+                const base = String(ordersRoute('catalog') || '/advertiser/catalog').replace(/\/$/, '');
+                return `${base}?site=${encodeURIComponent(String(primarySite.site_id))}`;
+            }
+            return '';
+        })();
+        const orderAnotherHtml = orderAnotherUrl
+            ? `<a class="ov-summary__reorder" href="${safeUrl(orderAnotherUrl)}">Order another post on this site</a>`
+            : '';
+        const summaryNextHtml = (statusMeta.next || orderAnotherHtml)
+            ? `<div class="ov-summary__next">
+                    ${statusMeta.next ? `<span class="ov-summary__next-text">${escapeHtml(statusMeta.next)}</span>` : ''}
+                    ${orderAnotherHtml}
+               </div>`
+            : '';
+
         const html = `
             <div class="order-view-shell order-view-shell--stack">
                 <div class="ov-summary" role="group" aria-label="Order summary">
-                    <div class="ov-summary__site">${escapeHtml(summarySite)}</div>
-                    <div class="ov-summary__id">Order #${escapeHtml(order.order_number || String(order.id || ''))}</div>
-                    <span class="status-badge ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span>
-                    <div class="ov-summary__total">${orderPaymentRefunded(order)
-                        ? `<s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span>`
-                        : formatEuro(order.total_amount)}</div>
-                    <div class="ov-summary__date">${formatDate(order.created_at)}</div>
+                    <div class="ov-summary__main">
+                        <div class="ov-summary__site">${escapeHtml(summarySite)}</div>
+                        <div class="ov-summary__id">Order #${escapeHtml(order.order_number || String(order.id || ''))}</div>
+                        <span class="status-badge ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span>
+                        <div class="ov-summary__total">${orderPaymentRefunded(order)
+                            ? `<s>${formatEuro(order.total_amount)}</s> <span class="small fw-normal">Refunded</span>`
+                            : formatEuro(order.total_amount)}</div>
+                        <div class="ov-summary__date">${formatDate(order.created_at)}</div>
+                    </div>
+                    ${summaryNextHtml}
                 </div>
-                ${statusMeta.next ? `<p class="ov-summary__next small text-muted mb-0">${escapeHtml(statusMeta.next)}</p>` : ''}
 
                 <div class="ov-columns">
                     <div class="order-view-col order-view-col--main">
@@ -2364,7 +2623,8 @@ function bootAdvertiserOrdersPage() {
         if (window.OrderInlineThread && order && order.id) {
             window.OrderInlineThread.mount('#advertiserOrderThread', {
                 orderId: order.id,
-                orderNumber: order.order_number || ''
+                orderNumber: order.order_number || '',
+                suppressStatusNotes: order.status === 'completed',
             });
         }
         const actionsEl = document.getElementById('orderDetailsActions');

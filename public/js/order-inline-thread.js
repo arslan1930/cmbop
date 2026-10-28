@@ -85,7 +85,7 @@
           '<label class="visually-hidden" for="' + this.uid + '-input">Message</label>' +
           '<div class="d-flex gap-2">' +
             '<textarea id="' + this.uid + '-input" class="form-control form-control-sm" rows="2" maxlength="2000" placeholder="Write a message to the other party…"></textarea>' +
-            '<button type="submit" class="btn btn-sm btn-primary align-self-end">' +
+            '<button type="submit" class="btn btn-sm btn-primary align-self-end order-inline-thread__send">' +
               '<i class="fa fa-paper-plane" aria-hidden="true"></i><span class="visually-hidden"> Send</span>' +
             '</button>' +
           '</div>' +
@@ -153,7 +153,8 @@
     }
     if (this.sendBtn) this.sendBtn.disabled = !enabled;
     if (this.noteEl) {
-      if (note) {
+      var hideNote = !!this.options.suppressStatusNotes;
+      if (note && !hideNote) {
         this.noteEl.textContent = note;
         this.noteEl.classList.remove('d-none');
       } else {
@@ -190,7 +191,10 @@
     if (!this.messagesEl) return;
     if (!messages || messages.length === 0) {
       this.messagesEl.innerHTML =
-        '<div class="order-inline-thread__empty">No messages yet.</div>';
+        '<div class="order-inline-thread__empty" role="status">' +
+          '<i class="fa fa-comments-o" aria-hidden="true"></i>' +
+          '<span>No messages yet</span>' +
+        '</div>';
       return;
     }
     this.messagesEl.innerHTML = messages.map(function (msg) {
@@ -201,15 +205,19 @@
 
   OrderInlineThread.prototype.appendMessages = function (messages, currentUserId) {
     if (!this.messagesEl || !messages.length) return;
-    var empty = this.messagesEl.querySelector('.text-muted, .text-danger');
-    if (empty && this.messagesEl.children.length === 1) {
+    var empty = this.messagesEl.querySelector('.order-inline-thread__empty, .text-muted, .text-danger');
+    if (empty) {
       this.messagesEl.innerHTML = '';
     }
     var wasNearBottom = this.messagesEl.scrollHeight - this.messagesEl.scrollTop - this.messagesEl.clientHeight < 80;
     var self = this;
     messages.forEach(function (msg) {
       if (self.messagesEl.querySelector('[data-message-id="' + msg.id + '"]')) return;
-      self.messagesEl.insertAdjacentHTML('beforeend', messageHtml(msg, currentUserId));
+      var html = messageHtml(msg, currentUserId).replace(
+        'class="d-flex ',
+        'class="d-flex oit-msg-enter '
+      );
+      self.messagesEl.insertAdjacentHTML('beforeend', html);
     });
     if (wasNearBottom) {
       this.messagesEl.scrollTop = this.messagesEl.scrollHeight;

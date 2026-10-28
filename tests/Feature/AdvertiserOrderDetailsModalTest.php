@@ -250,7 +250,18 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertMatchesRegularExpression('/reportLinkRemoved\\s*=\\s*function[\\s\\S]*hideOrderDetailsModal/', $js);
         $this->assertMatchesRegularExpression('/fulfillContentRevision\\s*=\\s*function[\\s\\S]*hideOrderDetailsModal/', $js);
         $this->assertMatchesRegularExpression('/retryOrderPayment\\s*=\\s*function[\\s\\S]*hideOrderDetailsModal/', $js);
-        $this->assertMatchesRegularExpression('/recheckLiveUrl\\s*=\\s*function[\\s\\S]{0,1500}hideOrderDetailsModal/', $js);
+        $this->assertMatchesRegularExpression('/recheckLiveUrl\\s*=\\s*function/', $js);
+        $this->assertStringContainsString('maybeAutoRecheckLiveUrls', $js);
+        $this->assertStringContainsString('silent: true', $js);
+        $this->assertStringContainsString('Live · link found', $js);
+        $this->assertStringContainsString('Link not found', $js);
+        $this->assertStringContainsString('Order another post on this site', $js);
+        $this->assertStringContainsString('smartTruncateUrl', $js);
+        $this->assertStringContainsString('complianceBadgeHtml', $js);
+        $this->assertStringContainsString('linkTermsChipsHtml', $js);
+        $this->assertStringContainsString('ov-summary__next', $js);
+        $this->assertStringContainsString('ov-live-url__actions', $js);
+        $this->assertStringNotContainsString('Public reachability check', $js);
         $this->assertStringContainsString('ov-live-url', $js);
         $this->assertStringContainsString('ui-callout--info', $js);
         $this->assertStringNotContainsString('ov-empty-placements ui-callout ui-callout--attention', $js);
@@ -521,8 +532,60 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('.order-view-shell--stack', $css);
         $this->assertStringContainsString('.order-details-body:has(.order-view-shell--stack)', $css);
         $this->assertStringContainsString('overflow-y: auto', $css);
+        $this->assertStringContainsString('prefers-reduced-motion', $css);
+        $this->assertStringContainsString('ov-step-fill', $css);
+        $this->assertStringContainsString('ov-shimmer', $css);
+        $this->assertStringContainsString('.ov-live-url__actions', $css);
+        $this->assertStringContainsString('text-transform: none', $css);
         $this->assertStringNotContainsString('#orderDetailsModal {\n    z-index: 1080;', $css);
         $this->assertStringNotContainsString('z-index: 1075', $css);
+    }
+
+    public function test_get_order_includes_link_terms_and_catalog_url(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher, 'Terms Site');
+        $order = $this->makeOrder($advertiser, $site, [
+            'status' => 'completed',
+            'completed_at' => now()->subHour(),
+            'link_guarantee' => true,
+        ], [
+            'live_url' => 'https://terms.example/post',
+            'live_url_submitted_at' => now()->subHours(2),
+            'completed_at' => now()->subHour(),
+            'moderation_status' => 'approved',
+            'target_url' => 'https://advertiser.example/path/to/landing-page',
+        ]);
+
+        $detail = $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.get', $order->id))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->json('order');
+
+        $this->assertIsArray($detail['link_terms']);
+        $labels = collect($detail['link_terms'])->pluck('label')->all();
+        $this->assertContains('dofollow', $labels);
+        $this->assertContains('7 days', $labels);
+        $this->assertContains('12-month guarantee', $labels);
+        $this->assertSame('dofollow', $detail['items'][0]['link_type']);
+        $this->assertSame('7 days', $detail['items'][0]['publication_time']);
+        $this->assertNotEmpty($detail['items'][0]['catalog_url']);
+        $this->assertStringContainsString('site='.$site->id, $detail['items'][0]['catalog_url']);
+        $this->assertSame('approved', $detail['items'][0]['moderation_status']);
+    }
+
+    public function test_inline_thread_empty_state_contract(): void
+    {
+        $js = file_get_contents(public_path('js/order-inline-thread.js'));
+        $this->assertIsString($js);
+        $this->assertStringContainsString('order-inline-thread__empty', $js);
+        $this->assertStringContainsString('No messages yet', $js);
+        $this->assertStringContainsString('suppressStatusNotes', $js);
+        $this->assertStringContainsString('oit-msg-enter', $js);
+        $assets = file_get_contents(public_path('assets/js/order-inline-thread.js'));
+        $this->assertSame($js, $assets, 'public/js and assets/js order-inline-thread copies must stay in sync');
     }
 
     public function test_status_meta_and_steps_do_not_claim_a_placement_without_items(): void
