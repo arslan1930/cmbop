@@ -40,12 +40,15 @@
                 · Waiting {{ (int) \Illuminate\Support\Carbon::parse($bulkRequest->created_at)->diffInDays(now()) === 0 ? 'today' : ((int) \Illuminate\Support\Carbon::parse($bulkRequest->created_at)->diffInDays(now())).'d' }}
             @endif
         </p>
-        @if(! $bulkRequest->isCancelled() && (int) $bulkRequest->handled_by !== (int) auth()->id())
+        @if(auth()->user()?->isAdmin() && ! $bulkRequest->isCancelled() && (int) $bulkRequest->handled_by !== (int) auth()->id())
             <form method="POST" action="{{ staff_route('bulk-site-requests.claim', $bulkRequest, false) }}" class="mt-2">
                 @csrf
                 <button type="submit" class="btn btn-sm btn-outline-primary">I’m on this</button>
             </form>
         @endif
+        @unless(auth()->user()?->isAdmin())
+            <p class="small text-muted mb-0 mt-2">View only — ask an admin to change status.</p>
+        @endunless
     </div>
 
     @if(session('seed_failures'))
@@ -71,28 +74,34 @@
             <div class="card border-0 shadow-sm bulk-request-ops">
                 <div class="card-body">
                     <h6 class="fw-semibold">Ops actions</h6>
-                    <form method="POST" action="{{ staff_route('bulk-site-requests.notes', $bulkRequest, false) }}">
-                        @csrf
-                        <label class="form-label small mb-1">Internal notes</label>
-                        <textarea name="admin_notes" class="form-control form-control-sm" rows="3">{{ old_text('admin_notes', $bulkRequest->admin_notes) }}</textarea>
-                        <button type="submit" class="btn btn-sm btn-outline-secondary mt-2">Save notes</button>
-                    </form>
+                    @if(auth()->user()?->isAdmin())
+                        <form method="POST" action="{{ staff_route('bulk-site-requests.notes', $bulkRequest, false) }}">
+                            @csrf
+                            <label class="form-label small mb-1">Internal notes</label>
+                            <textarea name="admin_notes" class="form-control form-control-sm" rows="3">{{ old_text('admin_notes', $bulkRequest->admin_notes) }}</textarea>
+                            <button type="submit" class="btn btn-sm btn-outline-secondary mt-2">Save notes</button>
+                        </form>
 
-                    @if($bulkRequest->canMarkSheetSent())
-                        <form method="POST" action="{{ staff_route('bulk-site-requests.sheet-sent', $bulkRequest, false) }}">
-                            @csrf
-                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
-                                Mark sheet emailed (optional)
-                            </button>
-                        </form>
-                    @endif
-                    @if($bulkRequest->canCancel())
-                        <form method="POST" action="{{ staff_route('bulk-site-requests.cancel', $bulkRequest, false) }}"
-                              class="bulk-request-cancel">
-                            @csrf
-                            <input type="hidden" name="reason" value="">
-                            <button type="submit" class="btn btn-sm btn-outline-danger w-100">Cancel request</button>
-                        </form>
+                        @if($bulkRequest->canMarkSheetSent())
+                            <form method="POST" action="{{ staff_route('bulk-site-requests.sheet-sent', $bulkRequest, false) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                    Mark sheet emailed (optional)
+                                </button>
+                            </form>
+                        @endif
+                        @if($bulkRequest->canCancel())
+                            <form method="POST" action="{{ staff_route('bulk-site-requests.cancel', $bulkRequest, false) }}"
+                                  class="bulk-request-cancel">
+                                @csrf
+                                <input type="hidden" name="reason" value="">
+                                <button type="submit" class="btn btn-sm btn-outline-danger w-100">Cancel request</button>
+                            </form>
+                        @endif
+                    @else
+                        <label class="form-label small mb-1">Internal notes</label>
+                        <p class="small mb-2">{{ $bulkRequest->admin_notes ?: '—' }}</p>
+                        <p class="small text-muted mb-0">View only — ask an admin to change status.</p>
                     @endif
                 </div>
             </div>
@@ -129,8 +138,10 @@
         <div class="col-lg-8 bulk-request-main">
             <p class="small text-muted mb-0">
                 {{ $pendingItems->count() }} pending to add · {{ $bulkRequest->items->count() - $pendingItems->count() }} already added.
-                @if($pendingItems->isNotEmpty())
+                @if(auth()->user()?->isAdmin() && $pendingItems->isNotEmpty())
                     Review each website in Done below.
+                @elseif($pendingItems->isNotEmpty())
+                    Pending rows are listed below (view only).
                 @elseif($bulkRequest->isStaffAssignedBatch())
                     Staff-added listings. The publisher must Accept each one — nothing to Done here.
                 @endif
@@ -143,7 +154,7 @@
             return $item->site_url.','.$item->price.',0,0,0,country,lang,Site name,https://example.com/sample,3days,permanent,dofollow,as_you_prefer,Niche,Description of at least 50 characters about guest posts on this site.';
         })->implode("\n");
     @endphp
-    @if($bulkRequest->canAddDraftSites() && $pendingItems->isNotEmpty())
+    @if(auth()->user()?->isAdmin() && $bulkRequest->canAddDraftSites() && $pendingItems->isNotEmpty())
     <details class="card border-0 shadow-sm mb-3">
         <summary class="card-body py-3 fw-semibold" style="cursor:pointer;">Advanced: paste per-row metrics into Done</summary>
         <div class="card-body pt-0">
@@ -178,6 +189,7 @@
 
     <div class="card border-0 shadow-sm border-primary-subtle bulk-request-done">
                 <div class="card-body">
+                    @if(auth()->user()?->isAdmin())
                     <h6 class="fw-semibold mb-1">Done — publish now, or send to the publisher for review</h6>
                     <p class="small text-muted mb-3">
                         <strong>{{ $pendingItems->count() }}</strong> website(s) still pending
@@ -789,6 +801,33 @@
                     </div>
                 </form>
             @endif
+                    @else
+                    <h6 class="fw-semibold mb-1">Pending websites</h6>
+                    <p class="small text-muted mb-3">
+                        <strong>{{ $pendingItems->count() }}</strong> website(s) still pending.
+                        View only — ask an admin to change status.
+                    </p>
+                    @if($pendingItems->isEmpty())
+                        <div class="form-text">
+                            @if($bulkRequest->sites->isNotEmpty())
+                                All submitted rows are already added.
+                            @else
+                                No pending websites left on this request.
+                            @endif
+                        </div>
+                    @else
+                        <ul class="list-unstyled small mb-0">
+                            @foreach($pendingItems as $item)
+                                <li class="mb-1">
+                                    <span class="fw-semibold">{{ $item->domain ?: $item->site_url }}</span>
+                                    @if($item->price !== null)
+                                        <span class="text-muted">· €{{ number_format((float) $item->price, 2) }}</span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                    @endif
         </div>
     </div>
 
@@ -802,6 +841,7 @@
                             $undoableSites = $bulkRequest->sites->filter(fn ($site) => $site->isBulkReviewUndoable());
                             $publishNowSites = $bulkRequest->sites->filter(fn ($site) => $site->isBulkReadyToPublishNow());
                         @endphp
+                        @if(auth()->user()?->isAdmin())
                         <div class="d-flex flex-wrap gap-2">
                             @if($undoableSites->isNotEmpty() && ! $bulkRequest->isCancelled())
                                 <form method="POST" action="{{ staff_route('bulk-site-requests.undo-review', $bulkRequest, false) }}" class="d-inline" id="bulkDraftUndoForm"
@@ -826,13 +866,14 @@
                                 </form>
                             @endif
                         </div>
+                        @endif
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0" id="bulkDraftSitesTable">
                             <thead>
                                 <tr>
                                     <th class="text-center" style="width:2.25rem;">
-                                        @if($bulkRequest->sites->isNotEmpty())
+                                        @if(auth()->user()?->isAdmin() && $bulkRequest->sites->isNotEmpty())
                                             <input type="checkbox" id="bulkDraftSelectAll" data-bulk-draft-select-all aria-label="Select all draft sites">
                                         @endif
                                     </th>
@@ -858,6 +899,7 @@
                                     @endphp
                                     <tr id="bulk-site-row-{{ $site->id }}">
                                         <td class="text-center">
+                                            @if(auth()->user()?->isAdmin())
                                             <input type="checkbox"
                                                    class="bulk-draft-row-check"
                                                    data-bulk-draft-row
@@ -865,6 +907,7 @@
                                                    data-can-publish="{{ $canPublishRow ? '1' : '0' }}"
                                                    value="{{ $site->id }}"
                                                    aria-label="Select {{ $site->site_name }}">
+                                            @endif
                                         </td>
                                         <td>
                                             <div class="fw-semibold">{{ $site->site_name }}</div>
@@ -890,7 +933,7 @@
                                                     <i class="fa fa-external-link" aria-hidden="true"></i>
                                                 </a>
                                             @endif
-                                            @if($canUndoRow)
+                                            @if(auth()->user()?->isAdmin() && $canUndoRow)
                                                 <form method="POST" action="{{ staff_route('bulk-site-requests.undo-review', $bulkRequest, false) }}" class="d-inline"
                                                       data-slb-confirm="Withdraw this site from publisher review? It will not go live.">
                                                     @csrf
@@ -900,7 +943,7 @@
                                                     </button>
                                                 </form>
                                             @endif
-                                            @if($canPublishRow)
+                                            @if(auth()->user()?->isAdmin() && $canPublishRow)
                                                 <form method="POST" action="{{ staff_route('bulk-site-requests.publish-now', $bulkRequest, false) }}" class="d-inline"
                                                       data-slb-confirm="Publish this site now? It goes live (not verified).">
                                                     @csrf

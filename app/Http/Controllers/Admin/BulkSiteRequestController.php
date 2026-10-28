@@ -45,21 +45,21 @@ use Illuminate\Validation\ValidationException;
 
 class BulkSiteRequestController extends Controller
 {
-    public function __construct()
+    /**
+     * State-changing bulk site request actions are admin-only.
+     * Marketing keeps GET index/show (and Blade can still resolve POST
+     * route names); non-admin POSTs receive 403.
+     */
+    public function callAction($method, $parameters)
     {
-        // State-changing actions are admin-only. Marketing keeps GET index/show.
-        $this->middleware(function ($request, $next) {
-            if ($request->isMethod('GET') || $request->isMethod('HEAD')) {
-                return $next($request);
+        if (! in_array($method, ['index', 'show'], true)) {
+            $user = auth()->user();
+            if (! $user || ! method_exists($user, 'isAdmin') || ! $user->isAdmin()) {
+                abort(403, 'Only admins can change bulk site requests.');
             }
+        }
 
-            $user = $request->user();
-            if ($user && method_exists($user, 'isAdmin') && $user->isAdmin()) {
-                return $next($request);
-            }
-
-            abort(403, 'Only admins can change bulk site requests.');
-        })->except(['index', 'show']);
+        return $this->{$method}(...array_values($parameters));
     }
 
     public function index(Request $request)

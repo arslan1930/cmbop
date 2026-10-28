@@ -230,6 +230,7 @@
         @endif
     </form>
 
+    @if(auth()->user()?->isAdmin())
     <div class="d-flex flex-wrap gap-2 mb-2 align-items-center" data-bulk-toolbar>
         <button type="submit" form="adminBulkRequestsClaimForm" class="btn btn-sm btn-outline-primary"
                 data-slb-confirm="Claim selected bulk requests?"
@@ -284,13 +285,23 @@
     <form method="POST" action="{{ staff_route('bulk-site-requests.bulk-remind') }}" id="adminBulkRequestsRemindForm">
         @csrf
     </form>
+    @else
+    <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+        <a href="{{ staff_route('bulk-site-requests.index', $listQuery + ['export' => 'csv']) }}" class="btn btn-sm btn-outline-secondary">Export CSV</a>
+        <span class="small text-muted">View only — ask an admin to change status. CSV has no prices.</span>
+    </div>
+    @endif
 
     <div class="card border-0 shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle admin-table-fit staff-queue-table bulk-request-index-table">
                 <thead>
                     <tr>
-                        <th class="admin-num-col"><input type="checkbox" class="form-check-input" id="adminBulkRequestsSelectAll" aria-label="Select all"></th>
+                        <th class="admin-num-col">
+                            @if(auth()->user()?->isAdmin())
+                                <input type="checkbox" class="form-check-input" id="adminBulkRequestsSelectAll" aria-label="Select all">
+                            @endif
+                        </th>
                         <th>Req #</th>
                         <th>Publisher</th>
                         <th>
@@ -327,7 +338,7 @@
                         @endphp
                         <tr>
                             <td>
-                                @if(! $req->isCancelled())
+                                @if(auth()->user()?->isAdmin() && ! $req->isCancelled())
                                     <input type="checkbox" class="form-check-input js-bulk-request-row" name="ids[]" value="{{ $req->id }}" form="adminBulkRequestsClaimForm">
                                 @endif
                             </td>
@@ -386,45 +397,51 @@
                                 @endif
                             </td>
                             <td class="small">
-                                <form method="POST" action="{{ staff_route('bulk-site-requests.assign', $req->id) }}" class="bulk-assign-row">
-                                    @csrf
-                                    <label class="visually-hidden" for="bulkAssignRow{{ $req->id }}">Assign request #{{ $req->id }}</label>
-                                    <select name="handled_by"
-                                            id="bulkAssignRow{{ $req->id }}"
-                                            class="form-select form-select-sm"
-                                            @disabled($req->isCancelled())
-                                            onchange="this.form.requestSubmit()">
-                                        <option value="" @selected(! $req->handled_by)>Unclaimed</option>
-                                        @foreach($staffAssignees as $staff)
-                                            <option value="{{ $staff->id }}" @selected((int) $req->handled_by === (int) $staff->id)>{{ $staff->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </form>
+                                @if(auth()->user()?->isAdmin())
+                                    <form method="POST" action="{{ staff_route('bulk-site-requests.assign', $req->id) }}" class="bulk-assign-row">
+                                        @csrf
+                                        <label class="visually-hidden" for="bulkAssignRow{{ $req->id }}">Assign request #{{ $req->id }}</label>
+                                        <select name="handled_by"
+                                                id="bulkAssignRow{{ $req->id }}"
+                                                class="form-select form-select-sm"
+                                                @disabled($req->isCancelled())
+                                                onchange="this.form.requestSubmit()">
+                                            <option value="" @selected(! $req->handled_by)>Unclaimed</option>
+                                            @foreach($staffAssignees as $staff)
+                                                <option value="{{ $staff->id }}" @selected((int) $req->handled_by === (int) $staff->id)>{{ $staff->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </form>
+                                @else
+                                    {{ $req->handler?->name ?? 'Unclaimed' }}
+                                @endif
                             </td>
                             <td class="text-end">
                                 <div class="bulk-row-actions">
-                                    @if($req->canPublishReady())
-                                        <form method="POST" action="{{ staff_route('bulk-site-requests.publish-now', $req->id) }}">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-success"
-                                                    data-slb-confirm="Publish the ready sites on this request now? They go live unverified."
-                                                    data-slb-confirm-title="Publish ready sites?"
-                                                    data-slb-confirm-text="Publish ready">Publish ready</button>
-                                        </form>
-                                    @endif
-                                    @if($req->canSendForReview())
-                                        <a href="{{ staff_route('bulk-site-requests.show', $req) }}#done" class="btn btn-sm btn-outline-primary">Send for review</a>
-                                    @endif
-                                    @if($req->canRemindPublisher())
-                                        <form method="POST" action="{{ staff_route('bulk-site-requests.remind', $req->id) }}">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-outline-secondary"
-                                                    data-slb-confirm="Send a reminder to the publisher?"
-                                                    data-slb-confirm-title="Remind publisher?"
-                                                    data-slb-confirm-text="Remind">Remind</button>
-                                        </form>
-                                        @if($remindedAt)
-                                            <div class="bulk-last-reminded">Last reminded {{ $remindedAt->timezone(config('app.timezone'))->format('M j') }}</div>
+                                    @if(auth()->user()?->isAdmin())
+                                        @if($req->canPublishReady())
+                                            <form method="POST" action="{{ staff_route('bulk-site-requests.publish-now', $req->id) }}">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success"
+                                                        data-slb-confirm="Publish the ready sites on this request now? They go live unverified."
+                                                        data-slb-confirm-title="Publish ready sites?"
+                                                        data-slb-confirm-text="Publish ready">Publish ready</button>
+                                            </form>
+                                        @endif
+                                        @if($req->canSendForReview())
+                                            <a href="{{ staff_route('bulk-site-requests.show', $req) }}#done" class="btn btn-sm btn-outline-primary">Send for review</a>
+                                        @endif
+                                        @if($req->canRemindPublisher())
+                                            <form method="POST" action="{{ staff_route('bulk-site-requests.remind', $req->id) }}">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                                        data-slb-confirm="Send a reminder to the publisher?"
+                                                        data-slb-confirm-title="Remind publisher?"
+                                                        data-slb-confirm-text="Remind">Remind</button>
+                                            </form>
+                                            @if($remindedAt)
+                                                <div class="bulk-last-reminded">Last reminded {{ $remindedAt->timezone(config('app.timezone'))->format('M j') }}</div>
+                                            @endif
                                         @endif
                                     @endif
                                     <a href="{{ staff_route('bulk-site-requests.show', $req) }}" class="btn btn-sm btn-outline-primary">Open</a>

@@ -1358,11 +1358,43 @@ $registerStaffOpsRoutes = function () {
     Route::post('/sites/{id}/unarchive', [AdminSiteController::class, 'unarchive'])
         ->name('sites.unarchive');
 
-    // Read-only bulk site request queue (marketing may browse; mutations are admin-only).
+    // Bulk site request queue: GET for all staff; POSTs registered for both
+    // panels so Blade staff_route() resolves, but the controller rejects
+    // non-admin mutations with 403 (marketing stays read-only).
     Route::get('/bulk-site-requests', [AdminBulkSiteRequestController::class, 'index'])
         ->name('bulk-site-requests.index');
     Route::get('/bulk-site-requests/{id}', [AdminBulkSiteRequestController::class, 'show'])
         ->name('bulk-site-requests.show');
+    Route::post('/bulk-site-requests/bulk-claim', [AdminBulkSiteRequestController::class, 'bulkClaim'])
+        ->name('bulk-site-requests.bulk-claim');
+    Route::post('/bulk-site-requests/bulk-assign', [AdminBulkSiteRequestController::class, 'bulkAssign'])
+        ->name('bulk-site-requests.bulk-assign');
+    Route::post('/bulk-site-requests/bulk-remind', [AdminBulkSiteRequestController::class, 'bulkRemind'])
+        ->name('bulk-site-requests.bulk-remind');
+    Route::post('/bulk-site-requests/bulk-cancel', [AdminBulkSiteRequestController::class, 'bulkCancel'])
+        ->name('bulk-site-requests.bulk-cancel');
+    Route::post('/bulk-site-requests/{id}/sheet-sent', [AdminBulkSiteRequestController::class, 'markSheetSent'])
+        ->name('bulk-site-requests.sheet-sent');
+    Route::post('/bulk-site-requests/{id}/notes', [AdminBulkSiteRequestController::class, 'updateNotes'])
+        ->name('bulk-site-requests.notes');
+    Route::post('/bulk-site-requests/{id}/claim', [AdminBulkSiteRequestController::class, 'claim'])
+        ->name('bulk-site-requests.claim');
+    Route::post('/bulk-site-requests/{id}/assign', [AdminBulkSiteRequestController::class, 'assign'])
+        ->name('bulk-site-requests.assign');
+    Route::post('/bulk-site-requests/{id}/remind', [AdminBulkSiteRequestController::class, 'remind'])
+        ->name('bulk-site-requests.remind');
+    Route::post('/bulk-site-requests/{id}/seed', [AdminBulkSiteRequestController::class, 'seed'])
+        ->name('bulk-site-requests.seed');
+    Route::post('/bulk-site-requests/{id}/done', [AdminBulkSiteRequestController::class, 'done'])
+        ->name('bulk-site-requests.done');
+    Route::post('/bulk-site-requests/{id}/draft', [AdminBulkSiteRequestController::class, 'saveDraft'])
+        ->name('bulk-site-requests.draft');
+    Route::post('/bulk-site-requests/{id}/cancel', [AdminBulkSiteRequestController::class, 'cancel'])
+        ->name('bulk-site-requests.cancel');
+    Route::post('/bulk-site-requests/{id}/undo-review', [AdminBulkSiteRequestController::class, 'undoReview'])
+        ->name('bulk-site-requests.undo-review');
+    Route::post('/bulk-site-requests/{id}/publish-now', [AdminBulkSiteRequestController::class, 'publishNow'])
+        ->name('bulk-site-requests.publish-now');
 
     Route::get('/site-enrichment', [SiteEnrichmentController::class, 'index'])
         ->name('site-enrichment.index');
@@ -1407,40 +1439,6 @@ $registerStaffOpsRoutes = function () {
     });
 };
 
-// Bulk site request mutations — admin only (marketing keeps GET list/show).
-$registerBulkSiteRequestWriteRoutes = function () {
-    Route::post('/bulk-site-requests/bulk-claim', [AdminBulkSiteRequestController::class, 'bulkClaim'])
-        ->name('bulk-site-requests.bulk-claim');
-    Route::post('/bulk-site-requests/bulk-assign', [AdminBulkSiteRequestController::class, 'bulkAssign'])
-        ->name('bulk-site-requests.bulk-assign');
-    Route::post('/bulk-site-requests/bulk-remind', [AdminBulkSiteRequestController::class, 'bulkRemind'])
-        ->name('bulk-site-requests.bulk-remind');
-    Route::post('/bulk-site-requests/bulk-cancel', [AdminBulkSiteRequestController::class, 'bulkCancel'])
-        ->name('bulk-site-requests.bulk-cancel');
-    Route::post('/bulk-site-requests/{id}/sheet-sent', [AdminBulkSiteRequestController::class, 'markSheetSent'])
-        ->name('bulk-site-requests.sheet-sent');
-    Route::post('/bulk-site-requests/{id}/notes', [AdminBulkSiteRequestController::class, 'updateNotes'])
-        ->name('bulk-site-requests.notes');
-    Route::post('/bulk-site-requests/{id}/claim', [AdminBulkSiteRequestController::class, 'claim'])
-        ->name('bulk-site-requests.claim');
-    Route::post('/bulk-site-requests/{id}/assign', [AdminBulkSiteRequestController::class, 'assign'])
-        ->name('bulk-site-requests.assign');
-    Route::post('/bulk-site-requests/{id}/remind', [AdminBulkSiteRequestController::class, 'remind'])
-        ->name('bulk-site-requests.remind');
-    Route::post('/bulk-site-requests/{id}/seed', [AdminBulkSiteRequestController::class, 'seed'])
-        ->name('bulk-site-requests.seed');
-    Route::post('/bulk-site-requests/{id}/done', [AdminBulkSiteRequestController::class, 'done'])
-        ->name('bulk-site-requests.done');
-    Route::post('/bulk-site-requests/{id}/draft', [AdminBulkSiteRequestController::class, 'saveDraft'])
-        ->name('bulk-site-requests.draft');
-    Route::post('/bulk-site-requests/{id}/cancel', [AdminBulkSiteRequestController::class, 'cancel'])
-        ->name('bulk-site-requests.cancel');
-    Route::post('/bulk-site-requests/{id}/undo-review', [AdminBulkSiteRequestController::class, 'undoReview'])
-        ->name('bulk-site-requests.undo-review');
-    Route::post('/bulk-site-requests/{id}/publish-now', [AdminBulkSiteRequestController::class, 'publishNow'])
-        ->name('bulk-site-requests.publish-now');
-};
-
 // ✅ Marketing panel — dedicated /marketing workspace + personal task history
 Route::middleware(['auth', 'verified', RoleMiddleware::class.':marketing'])
     ->prefix('marketing')->name('marketing.')
@@ -1457,12 +1455,11 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class.':marketing'])
 // ✅ Admin panel — /admin (ops + money/users/growth). Marketers hitting /admin are redirected.
 Route::middleware(['auth', 'verified', RedirectMarketingFromAdmin::class, RoleMiddleware::class.':admin'])
     ->prefix('admin')->name('admin.')
-    ->group(function () use ($registerStaffOpsRoutes, $registerBulkSiteRequestWriteRoutes) {
+    ->group(function () use ($registerStaffOpsRoutes) {
         Route::redirect('/', '/admin/dashboard', 302);
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])
             ->name('dashboard');
         $registerStaffOpsRoutes();
-        $registerBulkSiteRequestWriteRoutes();
 
         // Records sheet routes must be registered before /sites/{id} wildcards.
         Route::get('/sites/records', [AdminSiteController::class, 'records'])
