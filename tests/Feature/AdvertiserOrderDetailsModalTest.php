@@ -261,6 +261,9 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('linkTermsChipsHtml', $js);
         $this->assertStringContainsString('ov-summary__next', $js);
         $this->assertStringContainsString('ov-live-url__actions', $js);
+        $this->assertStringContainsString('fa-solid fa-file-lines', $js);
+        $this->assertStringContainsString('fa-solid fa-rotate', $js);
+        $this->assertStringNotContainsString('fa-file-text-o', $js);
         $this->assertStringNotContainsString('Public reachability check', $js);
         $this->assertStringContainsString('ov-live-url', $js);
         $this->assertStringContainsString('ui-callout--info', $js);
