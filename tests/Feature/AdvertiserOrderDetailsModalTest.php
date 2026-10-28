@@ -262,7 +262,10 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('ov-summary__next', $js);
         $this->assertStringContainsString('ov-live-url__actions', $js);
         $this->assertStringContainsString('fa-solid fa-file-lines', $js);
-        $this->assertStringContainsString('fa-solid fa-rotate', $js);
+        $this->assertStringContainsString('fa-solid fa-rotate-right', $js);
+        $this->assertStringContainsString('fa-solid fa-shield-alt', $js);
+        $this->assertStringContainsString('fa-solid fa-cart-plus', $js);
+        $this->assertStringNotContainsString('fa-shield-halved', $js);
         $this->assertStringNotContainsString('fa-file-text-o', $js);
         $this->assertStringNotContainsString('Public reachability check', $js);
         $this->assertStringContainsString('ov-live-url', $js);
@@ -280,12 +283,16 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         );
         $liveCardPos = strpos($js, '${liveUrlHtml}');
         $documentPos = strpos($js, 'collectDocumentsHtml');
-        $docsInSide = strpos($js, '${documentsHtml}');
+        $docsInSide = strpos($js, '${docsAndTermsHtml}');
+        $messagesPos = strpos($js, 'order-view-panel--messages');
         $this->assertNotFalse($liveCardPos);
         $this->assertNotFalse($documentPos);
         $this->assertNotFalse($docsInSide);
+        $this->assertNotFalse($messagesPos);
         $this->assertLessThan($docsInSide, $liveCardPos, 'Live URL stays in the placement column; Document moves to the side stack');
-        $this->assertStringContainsString('ov-docs-card', $js);
+        $this->assertLessThan($docsInSide, $messagesPos, 'Messages sits under Tracking before Document/Receipt');
+        $this->assertStringContainsString('ov-meta-card', $js);
+        $this->assertStringContainsString('ov-truncate--target', $js);
         $this->assertStringNotContainsString("|| '<div class=\"text-muted\">No placements on this order.</div>'", $js);
 
         $advertiser = $this->advertiser();
@@ -544,7 +551,7 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('.ov-live-url__actions', $css);
         $this->assertStringContainsString('text-transform: none', $css);
         $this->assertStringContainsString('.ov-policy__info', $css);
-        $this->assertStringContainsString('.ov-docs-card', $css);
+        $this->assertStringContainsString('.ov-meta-card', $css);
         $this->assertStringNotContainsString('#orderDetailsModal {\n    z-index: 1080;', $css);
         $this->assertStringNotContainsString('z-index: 1075', $css);
     }
@@ -753,7 +760,7 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('Checked just now', $js);
         $this->assertStringContainsString('ov-summary__pay', $js);
         $this->assertStringContainsString('ov-summary__amount', $js);
-        $this->assertStringContainsString('linkTermsCardHtml', $js);
+        $this->assertStringContainsString('docsAndTermsCardHtml', $js);
         $this->assertStringContainsString('orderHasArticleApproved', $js);
         $this->assertStringContainsString("label: 'Article approved'", $js);
         $this->assertStringNotContainsString('Pay status', $js);

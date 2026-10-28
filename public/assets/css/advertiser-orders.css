@@ -583,6 +583,23 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     overflow-wrap: anywhere;
     word-break: break-word;
 }
+.ov-truncate--target {
+    display: inline-block;
+    max-width: min(100%, 14rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+.ov-pair__value .ov-url-copy {
+    max-width: 100%;
+}
+.ov-pair__value .ov-truncate--target {
+    min-width: 0;
+    flex: 1 1 auto;
+}
 .ov-copy-btn {
     border: 0;
     background: transparent;
@@ -805,7 +822,7 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     display: flex;
     margin: 0 0 0.45rem;
     padding: 0.05rem 0 0.35rem;
-    overflow-x: auto;
+    overflow: visible;
     scrollbar-width: thin;
 }
 .ov-stepper__step {
@@ -818,31 +835,37 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     text-align: center;
     padding: 0 0.15rem;
 }
+/* Desktop horizontal connector between step nodes */
 .ov-stepper__step:not(:last-child)::after {
     content: "";
     position: absolute;
     top: 0.7rem;
     left: calc(50% + 0.85rem);
-    right: calc(-50% + 0.85rem);
+    width: calc(100% - 1.7rem);
     height: 2px;
     background: #cbd5e1;
     z-index: 0;
+    transform: none;
     transform-origin: left center;
 }
 .ov-stepper__step.is-done:not(:last-child)::after {
     background: var(--brand-primary, #1a585e);
 }
-.ov-stepper--animate .ov-stepper__step:not(:last-child)::after {
+/* Draw animation only while in-progress (pulse); completed steps keep a solid line */
+.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step:not(:last-child)::after {
     transform: scaleX(0);
 }
-.ov-stepper--animate.is-drawn .ov-stepper__step.is-done:not(:last-child)::after,
-.order-view-shell.is-ready .ov-stepper--animate .ov-stepper__step.is-done:not(:last-child)::after {
+.ov-stepper--animate.ov-stepper--pulse.is-drawn .ov-stepper__step.is-done:not(:last-child)::after,
+.order-view-shell.is-ready .ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:not(:last-child)::after {
     animation: ov-step-fill 420ms ease forwards;
 }
-.ov-stepper--animate .ov-stepper__step.is-done:nth-child(1)::after { animation-delay: 40ms; }
-.ov-stepper--animate .ov-stepper__step.is-done:nth-child(2)::after { animation-delay: 120ms; }
-.ov-stepper--animate .ov-stepper__step.is-done:nth-child(3)::after { animation-delay: 200ms; }
-.ov-stepper--animate .ov-stepper__step.is-done:nth-child(4)::after { animation-delay: 280ms; }
+.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:nth-child(1)::after { animation-delay: 40ms; }
+.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:nth-child(2)::after { animation-delay: 120ms; }
+.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:nth-child(3)::after { animation-delay: 200ms; }
+.ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:nth-child(4)::after { animation-delay: 280ms; }
+.order-view-shell.is-ready .ov-stepper:not(.ov-stepper--pulse) .ov-stepper__step.is-done:not(:last-child)::after {
+    transform: none;
+}
 .ov-stepper--pulse .ov-stepper__step.is-current .ov-stepper__node {
     animation: ov-step-pulse 1.6s ease-in-out infinite;
 }
@@ -1060,15 +1083,37 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
 .ov-side-card h6 {
     margin-bottom: 0.4rem;
 }
-.ov-docs-card .ov-doc-row + .ov-doc-row {
+.ov-docs-card .ov-doc-row + .ov-doc-row,
+.ov-meta-card .ov-doc-row + .ov-doc-row {
     margin-top: 0.45rem;
 }
-.ov-docs-card .ov-doc-site {
+.ov-docs-card .ov-doc-site,
+.ov-meta-card .ov-doc-site {
     display: block;
     margin-bottom: 0.2rem;
 }
+.ov-meta-card {
+    gap: 0.55rem;
+}
+.ov-meta-card__block + .ov-meta-card__block {
+    padding-top: 0.45rem;
+    border-top: 1px solid #e2e8f0;
+}
+.ov-meta-card .ov-link-terms,
 .ov-terms-card .ov-link-terms {
     margin: 0;
+}
+.order-view-col--side .order-view-panel--messages {
+    flex: 0 1 auto;
+    min-height: 0;
+}
+@media (min-width: 992px) {
+    .order-view-col--side .order-view-panel--messages {
+        max-height: 11.5rem;
+    }
+    .order-view-col--side .order-view-panel--messages .order-inline-thread__messages {
+        max-height: 5.5rem;
+    }
 }
 .ov-receipt-card .ov-receipt__rows {
     display: flex;
@@ -1210,13 +1255,10 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
 @media (min-width: 992px) {
     .ov-columns {
         grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-        align-items: stretch;
+        align-items: start;
     }
     .order-view-col--side {
-        min-height: 100%;
-    }
-    .order-view-col--side .order-view-panel--messages {
-        flex: 1 1 auto;
+        min-height: 0;
     }
 }
 @media (max-width: 991.98px) {
@@ -1269,13 +1311,17 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
         width: 2px;
         height: calc(100% - 0.85rem);
         transform-origin: top center;
+        transform: none;
     }
-    .ov-stepper--animate .ov-stepper__step:not(:last-child)::after {
+    .ov-stepper--animate.ov-stepper--pulse .ov-stepper__step:not(:last-child)::after {
         transform: scaleY(0);
     }
-    .ov-stepper--animate.is-drawn .ov-stepper__step.is-done:not(:last-child)::after,
-    .order-view-shell.is-ready .ov-stepper--animate .ov-stepper__step.is-done:not(:last-child)::after {
+    .ov-stepper--animate.ov-stepper--pulse.is-drawn .ov-stepper__step.is-done:not(:last-child)::after,
+    .order-view-shell.is-ready .ov-stepper--animate.ov-stepper--pulse .ov-stepper__step.is-done:not(:last-child)::after {
         animation: ov-step-fill-y 420ms ease forwards;
+    }
+    .order-view-shell.is-ready .ov-stepper:not(.ov-stepper--pulse) .ov-stepper__step.is-done:not(:last-child)::after {
+        transform: none;
     }
     .ov-stepper__node {
         margin-bottom: 0;
@@ -1698,7 +1744,8 @@ button.wallet-kpi { cursor: pointer; appearance: none; }
     border: 1px solid #e2e8f0;
 }
 .ov-recheck-spin,
-.ov-live-url__recheck.is-checking .fa-refresh {
+.ov-live-url__recheck.is-checking .fa-refresh,
+.ov-live-url__recheck.is-checking .fa-rotate-right {
     animation: ov-spin 0.7s linear infinite;
 }
 .ov-copied-tick {

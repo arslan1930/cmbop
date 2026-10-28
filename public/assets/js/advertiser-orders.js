@@ -812,7 +812,7 @@ function bootAdvertiserOrdersPage() {
         if (btn) {
             btn.disabled = true;
             btn.classList.add('is-checking');
-            btn.innerHTML = '<i class="fa-solid fa-rotate ov-recheck-spin me-1" aria-hidden="true"></i>Checking…';
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right ov-recheck-spin me-1" aria-hidden="true"></i>Checking…';
         }
         const payload = {};
         if (itemId) payload.order_item_id = itemId;
@@ -860,7 +860,7 @@ function bootAdvertiserOrdersPage() {
             if (btn) {
                 btn.disabled = false;
                 btn.classList.remove('is-checking');
-                btn.innerHTML = '<i class="fa-solid fa-rotate me-1" aria-hidden="true"></i>Recheck';
+                btn.innerHTML = '<i class="fa-solid fa-rotate-right me-1" aria-hidden="true"></i>Recheck';
             }
         });
     };
@@ -1537,14 +1537,6 @@ function bootAdvertiserOrdersPage() {
             ${activityTimelineBlock(true)}`;
     }
 
-    function linkTermsCardHtml(order) {
-        const chips = linkTermsChipsHtml(order);
-        if (!chips) return '';
-        return `<div class="order-view-panel ov-side-card ov-terms-card">
-            <h6>Link terms</h6>
-            ${chips}
-        </div>`;
-    }
 
     function reconstructOrderActivities(order) {
         const events = [];
@@ -2430,7 +2422,7 @@ function bootAdvertiserOrdersPage() {
             || order.link_guarantee === 1
             || /12[\s-]?month|guarantee/i.test(note || '');
         const summaryLabel = hasGuarantee
-            ? `<i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>12-month link guarantee · ${link}</span>`
+            ? `<i class="fa-solid fa-shield-alt" aria-hidden="true"></i><span>12-month link guarantee · ${link}</span>`
             : `<i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Policy · ${link}</span>`;
         const fullBody = note
             ? `<div class="ov-policy__full is-collapsed" hidden>${escapeHtml(note)} ${link}</div>`
@@ -2451,7 +2443,7 @@ function bootAdvertiserOrdersPage() {
         const hideEmpty = completed;
         const modRequested = it.modification_requested === 'yes';
         const recheckBtn = `<button type="button" class="btn btn-sm btn-outline-secondary ov-live-btn ov-live-url__recheck" id="recheckLiveUrlBtn-${it.id || idx}" onclick="recheckLiveUrl(${order.id}, ${it.id || 'null'})">
-            <i class="fa-solid fa-rotate" aria-hidden="true"></i><span>Recheck</span>
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Recheck</span>
         </button>`;
         const checkedAgo = formatCheckedAgo(it.live_url_checked_at);
         const showNotFoundActions = liveUrl && it.live_url_check_ok === false;
@@ -2548,7 +2540,7 @@ function bootAdvertiserOrdersPage() {
         const anchorHtml = it.anchor_text ? escapeHtml(it.anchor_text) : (hideEmpty ? '' : '—');
         const targetHtml = it.target_url
             ? `<span class="ov-url-copy">
-                    <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate ov-truncate--smart" title="${escapeHtml(it.target_url)}">${escapeHtml(smartTruncateUrl(it.target_url))}</a>
+                    <a href="${safeUrl(it.target_url)}" target="_blank" rel="noopener noreferrer" class="ov-truncate ov-truncate--target" title="${escapeHtml(it.target_url)}">${escapeHtml(smartTruncateUrl(it.target_url))}</a>
                     <button type="button" class="ov-copy-btn" onclick="copyOrderTargetUrl(${jsAttr(it.target_url)}, this)" aria-label="Copy target URL">
                         <i class="fa-solid fa-copy" aria-hidden="true"></i>
                     </button>
@@ -2613,10 +2605,16 @@ function bootAdvertiserOrdersPage() {
                 </div>
             </div>`);
         });
-        if (!blocks.length) return '';
-        return `<div class="order-view-panel ov-side-card ov-docs-card">
-            <h6>Document</h6>
-            ${blocks.join('')}
+        return blocks.join('');
+    }
+
+    function docsAndTermsCardHtml(order, items) {
+        const docs = collectDocumentsHtml(order, items);
+        const terms = linkTermsChipsHtml(order);
+        if (!docs && !terms) return '';
+        return `<div class="order-view-panel ov-side-card ov-meta-card">
+            ${docs ? `<div class="ov-meta-card__block"><h6>Document</h6>${docs}</div>` : ''}
+            ${terms ? `<div class="ov-meta-card__block"><h6>Link terms</h6>${terms}</div>` : ''}
         </div>`;
     }
 
@@ -2679,8 +2677,7 @@ function bootAdvertiserOrdersPage() {
         const placementsHtml = items.length
             ? items.map((it, idx) => renderPlacementCard(order, it, idx, itemsCount)).join('')
             : emptyPlacementsHtml(order);
-        const documentsHtml = collectDocumentsHtml(order, items);
-        const linkTermsHtml = linkTermsCardHtml(order);
+        const docsAndTermsHtml = docsAndTermsCardHtml(order, items);
         const receiptHtml = receiptCardHtml(order);
 
         const chatBtn = `<button type="button" class="btn btn-sm btn-primary" onclick="openChat(${order.id}, ${jsAttr(order.order_number || '')})">
@@ -2742,7 +2739,7 @@ function bootAdvertiserOrdersPage() {
             const singleReport = itemsCount <= 1 && reportableItems[0];
             const orderAgainBtn = orderAnotherUrl
                 ? `<a class="btn btn-sm btn-outline-primary" href="${safeUrl(orderAnotherUrl)}">
-                        <i class="fa-solid fa-rotate" aria-hidden="true"></i> Order again
+                        <i class="fa-solid fa-cart-plus" aria-hidden="true"></i> Order again
                    </a>`
                 : '';
             actionButtons = `
@@ -2821,12 +2818,11 @@ function bootAdvertiserOrdersPage() {
                         <div class="order-view-panel">
                             ${timelineHtml}
                         </div>
-                        ${documentsHtml}
-                        ${linkTermsHtml}
-                        ${receiptHtml}
                         <div class="order-view-panel order-view-panel--messages">
                             <div id="advertiserOrderThread" data-thread-host="advertiser-details"></div>
                         </div>
+                        ${docsAndTermsHtml}
+                        ${receiptHtml}
                     </div>
                 </div>
             </div>
