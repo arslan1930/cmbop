@@ -493,14 +493,42 @@ class AdvertiserOrderStatus
         $urlDelivered = $hasLiveUrl && in_array($status, ['review', 'completed'], true);
         $completed = $status === 'completed';
         $modRequested = $item && (($item->modification_requested ?? 'no') === 'yes');
+        $articleApproved = AdvertiserOrderDetails::hasArticleApproved($order);
+        $processingDone = $hasItems && (
+            $articleApproved
+            || $urlDelivered
+            || in_array($status, ['review', 'completed'], true)
+        );
 
         $steps = [
             ['label' => 'Paid', 'done' => $paid, 'current' => false],
             ['label' => 'Accepted', 'done' => $acceptedOrLater, 'current' => false],
-            ['label' => 'Processing', 'done' => $hasItems && in_array($status, ['review', 'completed'], true), 'current' => false],
-            ['label' => 'URL delivered', 'done' => $urlDelivered, 'current' => false],
-            ['label' => 'Completed', 'done' => $completed && $hasItems, 'current' => false],
+            ['label' => 'Processing', 'done' => $processingDone, 'current' => false],
         ];
+        if ($articleApproved) {
+            $steps[] = [
+                'label' => 'Article approved',
+                'done' => $urlDelivered || $completed,
+                'current' => false,
+            ];
+        }
+        $steps[] = ['label' => 'URL delivered', 'done' => $urlDelivered, 'current' => false];
+        $steps[] = ['label' => 'Completed', 'done' => $completed && $hasItems, 'current' => false];
+
+        $markCurrent = function (string $label) use (&$steps): void {
+            foreach ($steps as $i => $step) {
+                $steps[$i]['current'] = ($step['label'] === $label);
+            }
+        };
+        $findIndex = function (string $label) use ($steps): int {
+            foreach ($steps as $i => $step) {
+                if ($step['label'] === $label) {
+                    return $i;
+                }
+            }
+
+            return -1;
+        };
 
         if ($status === 'cancelled') {
             return $steps;
@@ -539,23 +567,67 @@ class AdvertiserOrderStatus
         } elseif ($status === 'pending' && $paid) {
             $steps[1]['current'] = true;
         } elseif ($status === 'processing' && $modRequested) {
-            $steps[2]['current'] = true;
-            $steps[2]['label'] = 'Revision';
-            $steps[2]['done'] = false;
-            $steps[3]['done'] = false;
+            $proc = $findIndex('Processing');
+            if ($proc >= 0) {
+                $steps[$proc]['label'] = 'Revision';
+                $steps[$proc]['done'] = false;
+                $steps[$proc]['current'] = true;
+            }
+            $urlIdx = $findIndex('URL delivered');
+            if ($urlIdx >= 0) {
+                $steps[$urlIdx]['done'] = false;
+            }
         } elseif ($status === 'processing') {
-            $steps[2]['current'] = true;
+            // Writing line awaiting advertiser article approval.
+            $awaitingArticle = $articleApproved === false
+                && $item
+                && in_array(strtolower((string) ($item->writing_status ?? '')), ['article_submitted'], true);
+            if ($awaitingArticle && $findIndex('Article approved') < 0) {
+                // No dedicated step until approval exists; stay on Processing.
+                $markCurrent('Processing');
+            } elseif ($articleApproved && ! $urlDelivered) {
+                $markCurrent('Article approved');
+                $art = $findIndex('Article approved');
+                if ($art >= 0) {
+                    $steps[$art]['done'] = false;
+                    $steps[$art]['current'] = true;
+                }
+                $proc = $findIndex('Processing');
+                if ($proc >= 0) {
+                    $steps[$proc]['done'] = true;
+                    $steps[$proc]['current'] = false;
+                }
+            } else {
+                $markCurrent('Processing');
+            }
         } elseif ($status === 'review' && $hasLiveUrl) {
-            $steps[3]['current'] = true;
-            $steps[3]['done'] = false;
+            $markCurrent('URL delivered');
+            $urlIdx = $findIndex('URL delivered');
+            if ($urlIdx >= 0) {
+                $steps[$urlIdx]['done'] = false;
+            }
         } elseif ($status === 'review') {
-            $steps[2]['current'] = true;
-            $steps[2]['done'] = false;
+            if ($articleApproved) {
+                $markCurrent('Article approved');
+                $art = $findIndex('Article approved');
+                if ($art >= 0) {
+                    $steps[$art]['done'] = false;
+                }
+            } else {
+                $markCurrent('Processing');
+                $proc = $findIndex('Processing');
+                if ($proc >= 0) {
+                    $steps[$proc]['done'] = false;
+                }
+            }
         } elseif ($status === 'completed') {
-            $steps[4]['current'] = true;
-            $steps[4]['done'] = $hasItems;
-            if ($payment === 'refunded') {
-                $steps[4]['label'] = 'Completed · refunded';
+            $markCurrent('Completed');
+            $doneIdx = $findIndex('Completed');
+            if ($doneIdx >= 0) {
+                $steps[$doneIdx]['done'] = $hasItems;
+                if ($payment === 'refunded') {
+                    $steps[$doneIdx]['label'] = 'Completed · refunded';
+                }
             }
         }
 

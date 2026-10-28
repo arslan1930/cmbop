@@ -127,6 +127,48 @@ final class AdvertiserOrderDetails
     }
 
     /**
+     * True when this order already carries an advertiser article-approval
+     * stamp from the writing workflow (or a released writing line).
+     * Does not invent approval from library moderation alone.
+     */
+    public static function hasArticleApproved(Order $order): bool
+    {
+        $order->loadMissing('items');
+
+        return $order->items->contains(
+            fn ($line) => $line instanceof OrderItem && self::itemHasArticleApproved($line)
+        );
+    }
+
+    public static function itemHasArticleApproved(OrderItem $line): bool
+    {
+        if (filled($line->article_approved_at ?? null)) {
+            return true;
+        }
+
+        $status = strtolower(trim((string) ($line->writing_status ?? '')));
+
+        return in_array($status, ['article_approved', 'released_to_publisher'], true);
+    }
+
+    public static function articleApprovedAt(Order $order): ?CarbonInterface
+    {
+        $order->loadMissing('items');
+        $when = null;
+        foreach ($order->items as $line) {
+            if (! $line instanceof OrderItem || ! self::itemHasArticleApproved($line)) {
+                continue;
+            }
+            $at = self::asDate($line->article_approved_at ?? null);
+            if ($at && ($when === null || $at->lt($when))) {
+                $when = $at;
+            }
+        }
+
+        return $when;
+    }
+
+    /**
      * Compact link-term chips for the Order Details tracking card.
      * Only includes values already present on the order / related sites.
      *
@@ -272,6 +314,8 @@ final class AdvertiserOrderDetails
         $row['price'] = $line->price;
         $row['content_source'] = $line->content_source ?? 'buyer';
         $row['writing_fee'] = $line->writing_fee;
+        $row['writing_status'] = $line->writing_status ? (string) $line->writing_status : null;
+        $row['article_approved_at'] = self::iso($line->article_approved_at ?? null);
         $row['additional_price'] = $line->additional_price;
         $row['homepage_price'] = $line->homepage_price;
         $row['homepage_days'] = $line->homepage_days;
@@ -286,6 +330,7 @@ final class AdvertiserOrderDetails
         $row['completion_notes'] = $line->completion_notes;
         $row['accepted_at'] = self::iso($line->accepted_at);
         $row['completed_at'] = self::iso($line->completed_at);
+        $row['article_approved'] = self::itemHasArticleApproved($line);
         if (isset($line->auto_approve_hours_remaining)) {
             $row['auto_approve_hours_remaining'] = (int) $line->auto_approve_hours_remaining;
         }

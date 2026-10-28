@@ -7158,6 +7158,8 @@ class CatalogController extends Controller
         $payload['empty_items_message'] = AdvertiserOrderDetails::emptyItemsMessage($order);
         $payload['policy_note'] = AdvertiserOrderDetails::policyNote($order);
         $payload['has_live_url'] = AdvertiserOrderDetails::hasLiveUrl($order);
+        $payload['has_article_approved'] = AdvertiserOrderDetails::hasArticleApproved($order);
+        $payload['article_approved_at'] = AdvertiserOrderDetails::articleApprovedAt($order)?->toIso8601String();
         $payload['timeline_steps'] = AdvertiserOrderStatus::timelineSteps($order);
         $payload['invoice_download_url'] = AdvertiserOrderDetails::invoiceDownloadUrl($order);
         $payload['link_terms'] = AdvertiserOrderDetails::linkTerms($order);

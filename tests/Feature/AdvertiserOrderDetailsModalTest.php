@@ -279,10 +279,13 @@ class AdvertiserOrderDetailsModalTest extends TestCase
             'A failed timeline fetch must still reconstruct activity from order dates'
         );
         $liveCardPos = strpos($js, '${liveUrlHtml}');
-        $documentPos = strpos($js, "ovBlock('Document'");
+        $documentPos = strpos($js, 'collectDocumentsHtml');
+        $docsInSide = strpos($js, '${documentsHtml}');
         $this->assertNotFalse($liveCardPos);
         $this->assertNotFalse($documentPos);
-        $this->assertLessThan($documentPos, $liveCardPos, 'Completed card must lead with the live URL before article fields');
+        $this->assertNotFalse($docsInSide);
+        $this->assertLessThan($docsInSide, $liveCardPos, 'Live URL stays in the placement column; Document moves to the side stack');
+        $this->assertStringContainsString('ov-docs-card', $js);
         $this->assertStringNotContainsString("|| '<div class=\"text-muted\">No placements on this order.</div>'", $js);
 
         $advertiser = $this->advertiser();
@@ -540,6 +543,8 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $this->assertStringContainsString('ov-shimmer', $css);
         $this->assertStringContainsString('.ov-live-url__actions', $css);
         $this->assertStringContainsString('text-transform: none', $css);
+        $this->assertStringContainsString('.ov-policy__info', $css);
+        $this->assertStringContainsString('.ov-docs-card', $css);
         $this->assertStringNotContainsString('#orderDetailsModal {\n    z-index: 1080;', $css);
         $this->assertStringNotContainsString('z-index: 1075', $css);
     }
@@ -726,6 +731,93 @@ class AdvertiserOrderDetailsModalTest extends TestCase
             ->assertSee('modal-xl', false)
             ->assertSee('orderDetailsContent', false)
             ->assertSee('orderDetailsActions', false);
+    }
+
+    public function test_round2_modal_presentation_contract(): void
+    {
+        $js = file_get_contents(public_path('assets/js/advertiser-orders.js'));
+        $css = file_get_contents(public_path('assets/css/advertiser-orders.css'));
+        $this->assertIsString($js);
+        $this->assertIsString($css);
+
+        $this->assertStringContainsString('ov-policy__summary', $js);
+        $this->assertStringContainsString('toggleOrderPolicyInfo', $js);
+        $this->assertStringContainsString('12-month link guarantee', $js);
+        $this->assertStringContainsString('ov-receipt-card', $js);
+        $this->assertStringContainsString('Download invoice', $js);
+        $this->assertStringContainsString('copyOrderPayRef', $js);
+        $this->assertStringContainsString('Order again', $js);
+        $this->assertStringContainsString('askPublisherAboutLink', $js);
+        $this->assertStringContainsString('ov-live-chip-actions', $js);
+        $this->assertStringContainsString('formatCheckedAgo', $js);
+        $this->assertStringContainsString('Checked just now', $js);
+        $this->assertStringContainsString('ov-summary__pay', $js);
+        $this->assertStringContainsString('ov-summary__amount', $js);
+        $this->assertStringContainsString('linkTermsCardHtml', $js);
+        $this->assertStringContainsString('orderHasArticleApproved', $js);
+        $this->assertStringContainsString("label: 'Article approved'", $js);
+        $this->assertStringNotContainsString('Pay status', $js);
+        $this->assertDoesNotMatchRegularExpression(
+            '/buildAdvertiserTimeline[\\s\\S]{0,900}linkTermsChipsHtml\\(order\\)/',
+            $js,
+            'Link terms belong in the side stack, not inside Tracking'
+        );
+
+        $this->assertStringContainsString('.ov-policy__full', $css);
+        $this->assertStringContainsString('.ov-receipt-card', $css);
+        $this->assertStringContainsString('.ov-live-chip-actions', $css);
+        $this->assertStringContainsString('.ov-summary__amount', $css);
+        $this->assertStringContainsString('ov-step-fill-y', $css);
+        $this->assertMatchesRegularExpression(
+            '/@media \\(max-width: 575\\.98px\\)[\\s\\S]{0,1200}\\.ov-stepper \\{[\\s\\S]{0,200}flex-direction:\\s*column/',
+            $css
+        );
+    }
+
+    public function test_article_approved_timeline_step_only_when_writing_stamp_exists(): void
+    {
+        $advertiser = $this->advertiser();
+        $publisher = $this->publisher();
+        $site = $this->siteFor($publisher, 'Writing Stamp Site');
+
+        $without = $this->makeOrder($advertiser, $site, [
+            'status' => 'completed',
+            'completed_at' => now()->subHour(),
+        ], [
+            'live_url' => 'https://live.example/no-writing-stamp',
+            'live_url_submitted_at' => now()->subHours(3),
+            'completed_at' => now()->subHour(),
+            'moderation_status' => 'approved',
+        ]);
+        $withoutSteps = AdvertiserOrderStatus::timelineSteps($without);
+        $this->assertNull(collect($withoutSteps)->firstWhere('label', 'Article approved'));
+
+        $with = $this->makeOrder($advertiser, $site, [
+            'status' => 'review',
+        ], [
+            'live_url' => 'https://live.example/with-writing-stamp',
+            'live_url_submitted_at' => now()->subHour(),
+            'writing_status' => 'article_approved',
+            'article_approved_at' => now()->subHours(2),
+            'content_source' => 'platform_writing',
+        ]);
+        $detail = $this->actingAs($advertiser)
+            ->getJson(route('advertiser.orders.get', $with->id))
+            ->assertOk()
+            ->json('order');
+
+        $this->assertTrue($detail['has_article_approved']);
+        $this->assertTrue($detail['items'][0]['article_approved']);
+        $labels = collect($detail['timeline_steps'])->pluck('label')->all();
+        $this->assertContains('Article approved', $labels);
+        $procIdx = array_search('Processing', $labels, true);
+        $artIdx = array_search('Article approved', $labels, true);
+        $urlIdx = array_search('URL delivered', $labels, true);
+        $this->assertNotFalse($procIdx);
+        $this->assertNotFalse($artIdx);
+        $this->assertNotFalse($urlIdx);
+        $this->assertLessThan($artIdx, $procIdx);
+        $this->assertLessThan($urlIdx, $artIdx);
     }
 
     /**
