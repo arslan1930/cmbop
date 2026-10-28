@@ -463,8 +463,9 @@ class AdvertiserOrderDetailsModalTest extends TestCase
         $publisher = $this->publisher();
         $site = $this->siteFor($publisher, 'No Invoice Site');
         $order = $this->makeOrder($advertiser, $site, [
-            'status' => 'completed',
-            'completed_at' => now(),
+            'status' => 'pending',
+            'payment_status' => 'pending',
+            'paid_at' => null,
         ]);
 
         $detail = $this->actingAs($advertiser)
