@@ -11,7 +11,7 @@
     }
 
     $faqEntities = [];
-    foreach (range(1, 4) as $i) {
+    foreach (range(1, 5) as $i) {
         $faqEntities[] = [
             '@type' => 'Question',
             'name' => $i === 4
@@ -65,7 +65,7 @@
 
     <p class="text-muted small mb-4">{{ __('messages.refund_last_updated_label') }}: {{ __('messages.refund_last_updated_display') }}</p>
 
-    @foreach(range(1, 10) as $i)
+    @foreach(range(1, 11) as $i)
         <section class="mb-4" aria-labelledby="refund-section-{{ $i }}">
             <h2 id="refund-section-{{ $i }}" class="h5 mt-4" style="color:#1a585e;">{{ $i === 2
                 ? welcome_bonus_message('refund_section_2_title', 'refund_section_2_title_off')
@@ -79,7 +79,7 @@
     <section class="mb-5 mt-5" aria-labelledby="refund-faq-heading">
         <h2 id="refund-faq-heading" class="h5 mb-3" style="color:#1a585e;">{{ __('messages.refund_faq_title') }}</h2>
         <div class="accordion" id="refundFaqAccordion">
-            @foreach(range(1, 4) as $i)
+            @foreach(range(1, 5) as $i)
                 <div class="accordion-item border-0 mb-3 shadow-sm rounded-3 overflow-hidden">
                     <h3 class="accordion-header" id="refundFaqHeading{{ $i }}">
                         <button class="accordion-button {{ $i > 1 ? 'collapsed' : '' }}" type="button"

@@ -421,8 +421,8 @@ return [
     'terms_hero_title' => 'Algemene Voorwaarden',
     'terms_hero_subtitle' => 'Door toegang te krijgen tot of gebruik te maken van seolinkbuildings.com, gaat u akkoord met deze Algemene Voorwaarden en bent u eraan gebonden. Als u niet akkoord gaat, gebruik dan onze website niet.',
     'effective_date' => 'Ingangsdatum',
-    'effective_date_value' => '8 augustus 2026',
-    'last_updated_value' => '8 augustus 2026',
+    'effective_date_value' => '28 oktober 2026',
+    'last_updated_value' => '28 oktober 2026',
 
     // Section 1
     'section1_title' => 'Acceptatie van voorwaarden',
@@ -466,6 +466,12 @@ return [
     'section6_list1_2' => 'Alle betalingen worden veilig verwerkt via externe providers',
     'section6_list1_3' => 'We behouden ons het recht voor om prijzen met kennisgeving te wijzigen',
     'section6_list1_4' => 'Restituties volgen ons restitutiebeleid indien van toepassing',
+
+    'section_pack_pricing_title' => 'Volume- en pakketprijzen',
+    'section_pack_pricing_intro' => 'De volgende regels gelden voor volume- en pakketkortingen op marketplace-plaatsingen:',
+    'section_pack_pricing_list1' => 'Volume- en pakketkortingen (inclusief packs van 3, 5 en 10 artikelen op één site) worden berekend en vastgezet op het moment van aankoop, op basis van het aantal betaalde artikelen.',
+    'section_pack_pricing_list2' => 'Als de publisher één of meer artikelen in een pack afwijst, worden de afgewezen artikelen terugbetaald tegen de betaalde kortingsprijs per artikel. De overige artikelen behouden de oorspronkelijke packprijs. U wordt niet meer in rekening gebracht vanwege een afwijzing door de publisher.',
+    'section_pack_pricing_list3' => 'SEOLinkBuildings kan bijzondere gevallen handmatig beoordelen — bijvoorbeeld wanneer het grootste deel van een pack wordt afgewezen.',
 
     // Section 7
     'section7_title' => 'Links naar derden',
@@ -836,8 +842,8 @@ return [
     'refund_title' => 'Terugbetalingsbeleid',
     'refund_subtitle' => 'Wallet-tegoeden, geschillen, stortingen en promotionele bonussen op SEOLinkBuildings.',
     'refund_last_updated_label' => 'Laatst bijgewerkt',
-    'refund_last_updated_display' => '18 augustus 2026',
-    'refund_last_updated_iso' => '2026-08-18',
+    'refund_last_updated_display' => '28 oktober 2026',
+    'refund_last_updated_iso' => '2026-10-28',
     'refund_section_1_title' => 'Marktplaatsorders',
     'refund_section_1_body' => 'Bij bestelling wordt saldo gereserveerd in uw EUR-wallet, of vastgelegd met kaart of PayPal bij checkout. Als een publisher niet kan leveren, de order weigert, of een zaak vóór goedkeuring wordt toegekend, keren wallet- en kaartorders terug als besteedbaar wallettegoed. PayPal-checkoutterugbetalingen gaan naar het PayPal-account dat betaalde. Vóór goedkeuring gebruikt u orderchat voor revisies — het saldo blijft gereserveerd.',
     'refund_section_2_title' => 'Promotionele bonus (welkomsttegoed)',
@@ -860,6 +866,9 @@ return [
     'refund_section_9_body' => 'Advertiser-opwaarderingen zijn bedoeld voor marktplaatsplacements. Ongebruikt betaald saldo blijft besteedbaar tegoed; het is geen gegarandeerde cash-opname of automatische Stripe-/bankterugbetaling. Promotionele bonus is niet opneembaar. Casusvragen via Contact of support-e-mail — wij beloven geen automatische kaartterugbetalingen van ongebruikte opwaarderingen.',
     'refund_section_10_title' => 'Optionele 12-maanden linkgarantie',
     'refund_section_10_body' => 'De optionele 12-maanden linkgarantie is een belofte van SEOLinkBuildings, niet van de publisher. Ze wordt alleen aangeboden op listings met een publicatieduur van minstens 12 maanden of Permanent — nooit op 6 maanden. Checkout, API en catalogus verbergen of weigeren de add-on als de site niet in aanmerking komt. Een garantie-terugbetaling debiteert de publisher alleen het placementbedrag, nooit de SEOLinkBuildings-schrijfvergoeding.',
+    'refund_section_11_title' => 'Volume- en pakketkortingen',
+    'refund_section_11_body' => 'Volume- en pakketkortingen (inclusief packs van 3, 5 en 10 artikelen op één site) worden berekend en vastgezet op het moment van aankoop, op basis van het aantal betaalde artikelen. Als de publisher één of meer artikelen in een pack afwijst, worden de afgewezen artikelen terugbetaald tegen de betaalde kortingsprijs per artikel. De overige artikelen behouden de oorspronkelijke packprijs. U wordt niet meer in rekening gebracht vanwege een afwijzing door de publisher. SEOLinkBuildings kan bijzondere gevallen handmatig beoordelen — bijvoorbeeld wanneer het grootste deel van een pack wordt afgewezen.',
+
     'refund_faq_title' => 'Terugbetalings-FAQ',
     'refund_faq_q_1' => 'Gaat de terugbetaling terug naar mijn kaart?',
     'refund_faq_a_1' => 'Wallet- en kaartterugbetalingen en toegekende wallet-/kaartgeschillen keren terug als wallettegoed voor een andere placement. PayPal-checkoutterugbetalingen — inclusief een toegekend PayPal-geschil — gaan naar het PayPal-account dat betaalde — niet als automatische cash-terugbetaling naar kaart of bank.',
@@ -870,6 +879,9 @@ return [
     'refund_faq_q_4' => 'Wat gebeurt er met het welkomsttegoed bij een terugbetaling?',
     'refund_faq_q_4_off' => 'Wat gebeurt er met het welkomsttegoed bij een terugbetaling?',
     'refund_faq_a_4' => 'Het bonusdeel keert terug naar uw promotionele bonussaldo en blijft alleen besteedbaar. Het wordt nooit als cash terugbetaald.',
+    'refund_faq_q_5' => 'Wat gebeurt er met de packkorting als een publisher sommige artikelen afwijst?',
+    'refund_faq_a_5' => 'De packprijs wordt vastgezet bij betaling, op basis van het aantal gekochte artikelen. Afgewezen artikelen worden terugbetaald tegen de betaalde kortingsprijs per artikel; de overige artikelen behouden de oorspronkelijke packprijs. U wordt niet meer in rekening gebracht vanwege een afwijzing door de publisher. Bijzondere gevallen, zoals wanneer het grootste deel van een pack wordt afgewezen, kunnen handmatig worden beoordeeld.',
+
     'refund_related_label' => 'Gerelateerde pagina’s',
     'refund_related_intro' => 'Gerelateerde pagina’s en contact:',
     'blog_kicker' => 'Laatste inzichten',

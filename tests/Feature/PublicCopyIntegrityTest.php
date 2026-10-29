@@ -153,7 +153,7 @@ class PublicCopyIntegrityTest extends TestCase
     public function test_refund_policy_explains_payments_and_publisher_pricing(): void
     {
         $blade = file_get_contents(resource_path('views/pages/refund-policy.blade.php'));
-        $this->assertStringContainsString('range(1, 9)', $blade);
+        $this->assertStringContainsString('range(1, 11)', $blade);
 
         foreach ($this->locales() as $locale) {
             $messages = require $this->langPath($locale);

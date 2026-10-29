@@ -421,8 +421,8 @@ return [
     'terms_hero_title' => 'Nutzungsbedingungen',
     'terms_hero_subtitle' => 'Durch den Zugriff auf oder die Nutzung von seolinkbuildings.com erklären Sie sich mit diesen Nutzungsbedingungen einverstanden und sind an sie gebunden. Wenn Sie nicht zustimmen, nutzen Sie bitte nicht unsere Website.',
     'effective_date' => 'Gültig ab',
-    'effective_date_value' => '8. August 2026',
-    'last_updated_value' => '8. August 2026',
+    'effective_date_value' => '28. Oktober 2026',
+    'last_updated_value' => '28. Oktober 2026',
 
     // Section 1
     'section1_title' => 'Akzeptanz der Bedingungen',
@@ -466,6 +466,12 @@ return [
     'section6_list1_2' => 'Alle Zahlungen werden sicher über Drittanbieter abgewickelt',
     'section6_list1_3' => 'Wir behalten uns das Recht vor, Preise mit Ankündigung zu ändern',
     'section6_list1_4' => 'Rückerstattungen folgen unserer Rückerstattungsrichtlinie, falls zutreffend',
+
+    'section_pack_pricing_title' => 'Mengen- und Paketpreise',
+    'section_pack_pricing_intro' => 'Für Mengen- und Paketrabatte auf Marketplace-Platzierungen gelten die folgenden Regeln:',
+    'section_pack_pricing_list1' => 'Mengen- und Paketrabatte (einschließlich 3-, 5- und 10-Artikel-Pakete auf einer Website) werden zum Zeitpunkt des Kaufs berechnet und festgeschrieben, basierend auf der Anzahl der bezahlten Artikel.',
+    'section_pack_pricing_list2' => 'Lehnt der Publisher einen oder mehrere Artikel eines Pakets ab, werden die abgelehnten Artikel zum bezahlten rabattierten Stückpreis erstattet. Die übrigen Artikel behalten den ursprünglichen Paketpreis. Sie werden wegen einer Ablehnung durch den Publisher nicht höher belastet.',
+    'section_pack_pricing_list3' => 'SEOLinkBuildings kann ungewöhnliche Fälle manuell prüfen — zum Beispiel, wenn der Großteil eines Pakets abgelehnt wird.',
 
     // Section 7
     'section7_title' => 'Links zu Drittanbietern',
@@ -836,8 +842,8 @@ return [
     'refund_title' => 'Rückerstattungsrichtlinie',
     'refund_subtitle' => 'Wie Wallet-Gutschriften, Streitfälle, Einzahlungen und Aktionsboni auf SEOLinkBuildings funktionieren.',
     'refund_last_updated_label' => 'Zuletzt aktualisiert',
-    'refund_last_updated_display' => '18. August 2026',
-    'refund_last_updated_iso' => '2026-08-18',
+    'refund_last_updated_display' => '28. Oktober 2026',
+    'refund_last_updated_iso' => '2026-10-28',
     'refund_section_1_title' => 'Marktplatzaufträge',
     'refund_section_1_body' => 'Bei Auftragserteilung wird Guthaben in Ihrem EUR-Wallet reserviert oder per Karte oder PayPal beim Checkout erfasst. Kann ein Publisher nicht wie vereinbart liefern, lehnt er ab oder wird ein Fall vor Freigabe bestätigt, kehren Wallet- und Kartenaufträge als ausgebbares Wallet-Guthaben zurück. PayPal-Checkout-Erstattungen gehen an das PayPal-Konto, das bezahlt hat. Vor der Freigabe nutzen Sie den Order-Chat für Revisionen — das Guthaben bleibt reserviert.',
     'refund_section_2_title' => 'Aktionsbonus (Willkommensguthaben)',
@@ -860,6 +866,9 @@ return [
     'refund_section_9_body' => 'Advertiser-Aufladungen dienen Marktplatz-Placements. Ungenutztes bezahltes Guthaben bleibt ausgebbar im Konto; es ist keine garantierte Barauszahlung und keine automatische Stripe-/Bankerstattung. Aktionsbonus ist nicht auszahlbar. Einzelfälle können über Kontakt oder Support-E-Mail geklärt werden — wir versprechen keine automatischen Kartenerstattungen ungenutzter Aufladungen.',
     'refund_section_10_title' => 'Optionale 12-Monats-Linkgarantie',
     'refund_section_10_body' => 'Die optionale 12-Monats-Linkgarantie ist das Versprechen von SEOLinkBuildings, nicht des Publishers. Sie wird nur für Listings mit einer Veröffentlichungsdauer von mindestens 12 Monaten oder Permanent angeboten — nicht für 6-Monats-Listings. Checkout, API und Katalog blenden sie dort aus oder lehnen sie ab. Bei einer Garantie-Erstattung wird dem Publisher nur der Platzierungsbetrag belastet, niemals die SEOLinkBuildings-Schreibgebühr.',
+    'refund_section_11_title' => 'Mengen- und Paketrabatte',
+    'refund_section_11_body' => 'Mengen- und Paketrabatte (einschließlich 3-, 5- und 10-Artikel-Pakete auf einer Website) werden zum Zeitpunkt des Kaufs berechnet und festgeschrieben, basierend auf der Anzahl der bezahlten Artikel. Lehnt der Publisher einen oder mehrere Artikel eines Pakets ab, werden die abgelehnten Artikel zum bezahlten rabattierten Stückpreis erstattet. Die übrigen Artikel behalten den ursprünglichen Paketpreis. Sie werden wegen einer Ablehnung durch den Publisher nicht höher belastet. SEOLinkBuildings kann ungewöhnliche Fälle manuell prüfen — zum Beispiel, wenn der Großteil eines Pakets abgelehnt wird.',
+
     'refund_faq_title' => 'Rückerstattungs-FAQ',
     'refund_faq_q_1' => 'Geht die Erstattung auf meine Karte zurück?',
     'refund_faq_a_1' => 'Wallet- und Kartenerstattungen sowie bestätigte Wallet-/Karten-Streitfälle kehren als Wallet-Guthaben zurück, das Sie für ein weiteres Placement nutzen können. PayPal-Checkout-Erstattungen — einschließlich eines bestätigten PayPal-Streitfalls — gehen an das PayPal-Konto, das bezahlt hat — nicht als automatische Barerstattung auf Karte oder Bank.',
@@ -870,6 +879,9 @@ return [
     'refund_faq_q_4' => 'Was passiert mit dem Willkommensbonus bei einer Erstattung?',
     'refund_faq_q_4_off' => 'Was passiert mit dem Willkommensbonus bei einer Erstattung?',
     'refund_faq_a_4' => 'Der Bonusanteil kehrt in Ihr Aktionsbonus-Guthaben zurück und bleibt nur ausgebbar. Er wird nie als Bargeld erstattet.',
+    'refund_faq_q_5' => 'Was geschieht mit dem Paketrabatt, wenn ein Publisher einzelne Artikel ablehnt?',
+    'refund_faq_a_5' => 'Der Paketpreis wird bei der Zahlung festgeschrieben, basierend auf der Anzahl der gekauften Artikel. Abgelehnte Artikel werden zum bezahlten rabattierten Stückpreis erstattet; die übrigen Artikel behalten den ursprünglichen Paketpreis. Sie werden wegen einer Ablehnung durch den Publisher nicht höher belastet. Ungewöhnliche Fälle, etwa wenn der Großteil eines Pakets abgelehnt wird, können manuell geprüft werden.',
+
     'refund_related_label' => 'Verwandte Seiten',
     'refund_related_intro' => 'Weiterführende Seiten und Kontakt:',
     'blog_kicker' => 'Aktuelle Insights',
